@@ -660,7 +660,7 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .file-path-name { flex: none; }
 
 /* Optional topology controls open from the shared navigation capsule. */
-.topology-tuner { z-index: 120; display: flex; flex-direction: column; overflow: hidden; width: min(320px, calc(100vw - 32px)); max-height: min(650px, calc(100dvh - 100px), var(--radix-popover-content-available-height, 650px)); box-sizing: border-box; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface-raised); color: var(--text); box-shadow: var(--shadow-md); font-size: var(--text-meta); }
+.topology-tuner { display: flex; flex-direction: column; overflow: hidden; width: min(320px, calc(100vw - 32px)); max-height: min(650px, calc(100dvh - 100px), var(--radix-popover-content-available-height, 650px)); box-sizing: border-box; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface-raised); color: var(--text); box-shadow: var(--shadow-md); font-size: var(--text-meta); }
 .topology-tuner > header { display: flex; flex: none; align-items: center; gap: 8px; padding: 10px 12px; }
 .topology-tuner > header strong { flex: 1; font-size: var(--text-meta); }
 .topology-tuner-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 12px 12px; }

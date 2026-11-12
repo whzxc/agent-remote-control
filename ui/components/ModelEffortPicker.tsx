@@ -1,3 +1,4 @@
+import { TransientLayer } from "./ui/TransientLayer";
 import { useEffect, useId, useState } from "react";
 import { Popover } from "radix-ui";
 import { RotateCcw } from "lucide-react";
@@ -49,7 +50,7 @@ export default function ModelEffortPicker({ label, models, efforts, model, effor
       </ChoiceTrigger>
     </Popover.Trigger>
     <Popover.Portal>
-      <Popover.Content className="popover spec-picker" aria-label={label} side="bottom" align="start" sideOffset={8} collisionPadding={12}>
+      <TransientLayer><Popover.Content className="popover spec-picker" aria-label={label} side="bottom" align="start" sideOffset={8} collisionPadding={12}>
         <div className="spec-picker-model-row">
           <SingleChoice dropdown label={`${t("dispatchDefaults.model")}: ${modelName}`} value={model || INHERIT} disabled={disabled}
             options={[{ value: INHERIT, label: inheritLabel }, ...models]} menuLabel={t("dispatchDefaults.chooseModel")} side="right"
@@ -62,7 +63,7 @@ export default function ModelEffortPicker({ label, models, efforts, model, effor
         </strong>
           <EffortSlider steps={steps} value={preview} disabled={disabled} label={t("dispatchDefaults.effort")} valueText={stepLabel(preview)} onChange={setPreview} onCommit={commit} />
         </div>}
-      </Popover.Content>
+      </Popover.Content></TransientLayer>
     </Popover.Portal>
   </Popover.Root>;
 }

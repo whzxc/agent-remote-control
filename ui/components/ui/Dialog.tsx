@@ -8,6 +8,7 @@ import { useReducedMotion } from '../../state/appEnvironment';
 import { consumeOutsidePointer, layers, layerTrigger } from '../../state/layers';
 import { notify } from '../../state/connector';
 import { layerFrame, type LayerSize, type LayerTokens } from './layerFrame';
+import { LayerOwnerContext } from './TransientLayer';
 import { Button, IconButton } from './index';
 import './Dialog.css';
 
@@ -141,6 +142,7 @@ export default function Dialog({ layerId, size, open = true, onClose, dirty, bus
   const portalReady = !!self && (!parent || parent.ready);
   const recessed = !!self && snapshot.at(-1)?.id !== id;
   const depth = Math.max(0, snapshot.filter(layer => layer.kind === 'dialog').findIndex(layer => layer.id === id));
+  const stack = layers.stack(id);
   const latest = useRef({ onClose, dirty, busy, onCancel });
   latest.current = { onClose, dirty, busy, onCancel };
   useLayoutEffect(() => {
@@ -177,8 +179,9 @@ export default function Dialog({ layerId, size, open = true, onClose, dirty, bus
   const status = self?.dismissal ?? 'none';
   const close = () => { void layers.close(id); };
   return <D.Root open={open && allowed && portalReady} onOpenChange={next => { if (!next) void layers.close(id); }}>
+    <LayerOwnerContext.Provider value={id}>
     <D.Portal>
-      <D.Overlay className="layer-scrim" style={{ zIndex: 201 + depth * 2 }} onPointerDown={event => {
+      <D.Overlay className="layer-scrim" style={{ zIndex: stack.scrim }} onPointerDown={event => {
         if (event.button !== 0 || event.target !== event.currentTarget) return;
         consumeOutsidePointer(event.nativeEvent);
         layers.dismiss(id);
@@ -187,7 +190,7 @@ export default function Dialog({ layerId, size, open = true, onClose, dirty, bus
         data-panel-depth={depth + 1} inert={recessed || undefined}
         aria-describedby={description ? `${id}-description` : undefined}
         style={{ left: frame?.x, top: frame?.y, width: frame?.width ?? `var(--layer-${size})`, height: view ? viewHeight.current : undefined, maxHeight: frame?.maxHeight,
-          visibility: frame ? undefined : 'hidden', zIndex: 202 + depth * 2,
+          visibility: frame ? undefined : 'hidden', zIndex: stack.dialog,
           '--layer-entry-x': `${-(frame?.entry.x ?? 0)}px`, '--layer-entry-y': `${-(frame?.entry.y ?? -6)}px`,
           animation: reduced ? 'none' : undefined } as CSSProperties}
         onOpenAutoFocus={event => {
@@ -200,7 +203,8 @@ export default function Dialog({ layerId, size, open = true, onClose, dirty, bus
         onEscapeKeyDown={event => { event.preventDefault(); if (view && status === 'none') back(); else layers.dismiss(id); }}
         onPointerDownOutside={event => {
           event.preventDefault();
-          if (event.detail.originalEvent.button !== 0 || event.detail.originalEvent.defaultPrevented) return;
+          if (event.detail.originalEvent.button !== 0 || event.detail.originalEvent.defaultPrevented
+            || layers.contains(id, event.detail.originalEvent.target)) return;
           consumeOutsidePointer(event.detail.originalEvent);
           layers.dismiss(id);
         }}
@@ -209,7 +213,7 @@ export default function Dialog({ layerId, size, open = true, onClose, dirty, bus
           {view ? <IconButton icon={ChevronLeft} label={t('back')} onClick={back} /> : leading}<D.Title>{view ? <><span className="dialog-breadcrumb">{title}</span><span aria-hidden="true"> / </span>{view.title}</> : title}</D.Title><div className="actions">{actions}<IconButton icon={X} label={t('close')} onClick={close} /></div>
         </header>}
         {!view && headerDetail}
-        {description && <D.Description className="dialog-description" id={`${id}-description`}>{description}</D.Description>}
+        {description && <D.Description asChild><div className="dialog-description" id={`${id}-description`}>{description}</div></D.Description>}
         {!view && stepBar}
         <CloseContext.Provider value={{ id, busy, close }}>
         <ViewContext.Provider value={viewContext}>
@@ -234,5 +238,6 @@ export default function Dialog({ layerId, size, open = true, onClose, dirty, bus
           </footer>}
       </D.Content>
     </D.Portal>
+    </LayerOwnerContext.Provider>
   </D.Root>;
 }

@@ -24,7 +24,7 @@
 @keyframes studio-glints { from { opacity: .07; } to { opacity: .2; } }
 .app-scene[data-display="studio"] .home-workspace { position: relative; }
 .app-scene[data-display="studio"] .connection-core { background: transparent; }
-.studio-settings { z-index: 120; display: grid; gap: 16px; width: min(316px, calc(100vw - 32px)); padding: 18px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); color: var(--text); box-shadow: var(--shadow-md); }
+.studio-settings { display: grid; gap: 16px; width: min(316px, calc(100vw - 32px)); padding: 18px; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); color: var(--text); box-shadow: var(--shadow-md); }
 @media (orientation: portrait) {
   .studio-day { background-image: url('/studio/portrait-day.webp'); }
   .studio-night { background-image: url('/studio/portrait-night.webp'); }

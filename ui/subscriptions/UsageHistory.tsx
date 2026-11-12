@@ -1,3 +1,4 @@
+import { TransientLayer } from "../components/ui/TransientLayer";
 import {
   useCallback,
   useEffect,
@@ -132,7 +133,7 @@ export default function UsageHistory({
       >
         <Popover.Anchor virtualRef={anchor} />
         <Popover.Portal>
-          <Popover.Content
+          <TransientLayer><Popover.Content
             ref={card}
             className="history-popover"
             side="top"
@@ -164,7 +165,7 @@ export default function UsageHistory({
                 {detail(displayed)}
               </div>
             </div>
-          </Popover.Content>
+          </Popover.Content></TransientLayer>
         </Popover.Portal>
       </Popover.Root>
     </>

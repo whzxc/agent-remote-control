@@ -1,3 +1,4 @@
+import { TransientLayer } from "./TransientLayer";
 import { Sensitive, useSensitiveText } from "../Sensitive";
 import { maskSensitive } from "../../privacyMask";
 import {
@@ -418,6 +419,7 @@ export function SingleChoice({
   optionCards = false,
   dropdown = false,
   menuLabel,
+  position = "popper",
   side = "bottom",
   navigation = false,
   tabs = false,
@@ -438,6 +440,7 @@ export function SingleChoice({
   optionCards?: boolean;
   dropdown?: boolean;
   menuLabel?: string;
+  position?: "popper" | "item-aligned";
   side?: "bottom" | "right";
   navigation?: boolean;
   tabs?: boolean;
@@ -530,7 +533,7 @@ export function SingleChoice({
             <ChoiceTrigger aria-label={label} disabled={disabled} side={side}>{options.find(option => option.value === value)?.label}</ChoiceTrigger>
           </M.Trigger>
           <M.Portal>
-            <M.Content className="select-content choice-labelled-menu" aria-label={menuLabel}
+            <TransientLayer><M.Content className="select-content choice-labelled-menu" aria-label={menuLabel}
               side={side} align="start" sideOffset={6} collisionPadding={12}
               style={{ maxHeight: "var(--radix-dropdown-menu-content-available-height)", overflowY: "auto" }}>
               <M.Label className="choice-menu-label">{menuLabel}</M.Label>
@@ -542,7 +545,7 @@ export function SingleChoice({
                   </M.RadioItem>)}
                 </HoverScope>
               </M.RadioGroup>
-            </M.Content>
+            </M.Content></TransientLayer>
           </M.Portal>
         </M.Root>
       ) : (
@@ -554,9 +557,9 @@ export function SingleChoice({
             </S.Icon>
           </S.Trigger>
           <S.Portal>
-            <S.Content
+            <TransientLayer><S.Content
               className="select-content"
-              position="popper"
+              position={position}
               side={side}
               align="start"
               sideOffset={6}
@@ -586,7 +589,7 @@ export function SingleChoice({
               <S.ScrollDownButton className="select-scroll">
                 <Icon icon={ChevronDown} />
               </S.ScrollDownButton>
-            </S.Content>
+            </S.Content></TransientLayer>
           </S.Portal>
         </S.Root>
       )}
@@ -635,9 +638,9 @@ export function Tooltip({
         onBlur={hoverOnly ? dismiss : undefined}
       >{children}</T.Trigger>
       <T.Portal>
-        <T.Content className="tooltip" side={side} sideOffset={6} collisionPadding={10}>
+        <TransientLayer><T.Content className="tooltip" side={side} sideOffset={6} collisionPadding={10}>
           {typeof text === "string" ? protect(text) : text}
-        </T.Content>
+        </T.Content></TransientLayer>
       </T.Portal>
     </T.Root>
   );
@@ -661,7 +664,7 @@ export function Menu({
     <M.Root>
       <M.Trigger asChild>{trigger}</M.Trigger>
       <M.Portal>
-        <M.Content
+        <TransientLayer><M.Content
           className="menu"
           aria-label={label}
           sideOffset={6}
@@ -680,7 +683,7 @@ export function Menu({
             </M.Item>
           ))}
           </HoverScope>
-        </M.Content>
+        </M.Content></TransientLayer>
       </M.Portal>
     </M.Root>
   );

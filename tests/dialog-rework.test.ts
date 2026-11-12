@@ -105,3 +105,39 @@ test('stacked setup edits tools inside its owning dialog and Back and Escape pre
     assert.ok(page.getByRole('button', { name: t('layers.keepEditing') }));
   });
 });
+
+test('choosing a SingleChoice option inside a dialog applies it and keeps its owner open in either Select position', async () => {
+  // Regression: dialog scrims intercepted profile options and item-aligned Select input dismissed its owning dialog.
+  await withDialog(async ({ server, root, settle }) => {
+    const { default: Dialog } = await server.ssrLoadModule('/ui/components/ui/Dialog.tsx');
+    const { SingleChoice, TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
+    const page = within(document.body);
+    function Profile({ position }: { position: 'popper' | 'item-aligned' }) {
+      const [open, setOpen] = useState(true), [profile, setProfile] = useState('default');
+      return open && h(Dialog, { size: 'm', title: 'Agent account', onClose: () => setOpen(false) },
+        h(SingleChoice, { dropdown: true, position, label: 'Browser profile', value: profile, onChange: setProfile,
+          options: [{ value: 'default', label: 'Default browser' }, { value: 'chrome-profile-a', label: 'Google Chrome · Profile A' }] }),
+        h('output', { 'aria-label': 'Selected profile' }, profile));
+    }
+    for (const position of ['popper', 'item-aligned'] as const) for (const stacked of [false, true]) {
+      await act(async () => root.render(h(TooltipProvider, null,
+        stacked && h(Dialog, { size: 'm', title: 'Setup', onClose() {} }, 'Parent retained'),
+        h(Profile, { position }))));
+      await settle();
+      await act(async () => fireEvent.keyDown(page.getByRole('combobox', { name: 'Browser profile' }), { key: 'Enter' }));
+      await settle();
+      const option = page.getByRole('option', { name: 'Google Chrome · Profile A', exact: true });
+      await act(async () => {
+        fireEvent.pointerMove(option, { pointerType: 'mouse' });
+        fireEvent.pointerDown(option, { button: 0, pointerType: 'mouse' });
+        fireEvent.pointerUp(option, { button: 0, pointerType: 'mouse' });
+        fireEvent.click(option);
+      });
+      await settle();
+      assert.ok(page.getByRole('dialog', { name: 'Agent account' }));
+      assert.equal(page.getByRole('status', { name: 'Selected profile' }).textContent, 'chrome-profile-a');
+      assert.equal(page.getByRole('combobox', { name: 'Browser profile' }).getAttribute('aria-expanded'), 'false');
+      await act(async () => root.render(null)); await settle();
+    }
+  });
+});

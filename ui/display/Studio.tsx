@@ -1,3 +1,4 @@
+import { TransientLayer } from "../components/ui/TransientLayer";
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Popover } from 'radix-ui';
 import { Expand, Minimize, Monitor, Moon, Sun, Sunrise } from 'lucide-react';
@@ -139,12 +140,12 @@ export function StudioControls({ available }: { available: boolean }) {
   if (!enabled) return null;
   return <Popover.Root open={open} onOpenChange={setOpen}>
     <Popover.Trigger asChild><IconButton ref={trigger} icon={Monitor} size={20} label={t('studio.settings')} data-hover-target="studio" /></Popover.Trigger>
-    <Popover.Portal><Popover.Content className="studio-settings" side="top" align="start" sideOffset={12} collisionPadding={16}
+    <Popover.Portal><TransientLayer><Popover.Content className="studio-settings" side="top" align="start" sideOffset={12} collisionPadding={16}
       aria-label={t('studio.settings')} onEscapeKeyDown={event => event.stopPropagation()}>
       <StudioLighting />
       <Button busy={busy} onClick={() => { void changeFullscreen(!fullscreen); setOpen(false); }}>
         <Icon icon={fullscreen ? Minimize : Expand} />{t(fullscreen ? 'studio.exitFullscreen' : 'studio.fullscreen')}
       </Button>
-    </Popover.Content></Popover.Portal>
+    </Popover.Content></TransientLayer></Popover.Portal>
   </Popover.Root>;
 }

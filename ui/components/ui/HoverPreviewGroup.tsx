@@ -1,3 +1,4 @@
+import { TransientLayer } from "./TransientLayer";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { Popover } from "radix-ui";
 import { AnimatedSize } from "./AnimatedSize";
@@ -54,7 +55,7 @@ export function HoverPreviewGroup({ children, preview, className = "" }: {
       {children}
     </HoverScope>
     <Popover.Anchor virtualRef={anchor} />
-    <Popover.Portal><Popover.Content ref={content} id={id} role="tooltip" data-moving={moving || undefined} className="tooltip hover-preview" side="bottom" align="center" sideOffset={6} collisionPadding={10}
+    <Popover.Portal><TransientLayer><Popover.Content ref={content} id={id} role="tooltip" data-moving={moving || undefined} className="tooltip hover-preview" side="bottom" align="center" sideOffset={6} collisionPadding={10}
       onFocusOutside={event => {
         const node = event.detail.originalEvent.target;
         if (node instanceof Element && node.closest(".hover-scope") === target?.closest(".hover-scope")) event.preventDefault();
@@ -62,6 +63,6 @@ export function HoverPreviewGroup({ children, preview, className = "" }: {
       onOpenAutoFocus={event => event.preventDefault()} onCloseAutoFocus={event => event.preventDefault()}
       onPointerEnter={cancel} onPointerLeave={leave}>
       <AnimatedSize>{target && preview(target.dataset.hoverTarget ?? "")}</AnimatedSize>
-    </Popover.Content></Popover.Portal>
+    </Popover.Content></TransientLayer></Popover.Portal>
   </Popover.Root>;
 }

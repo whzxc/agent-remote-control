@@ -618,7 +618,6 @@ textarea.input {
   border: 1px solid var(--border);
   border-radius: 14px;
   box-shadow: var(--shadow-md);
-  z-index: 120;
   padding: 4px;
   max-width: calc(100vw - 24px);
   animation: appear var(--duration) var(--ease);
@@ -666,7 +665,6 @@ textarea.input {
   font-size: var(--text-small);
 }
 .tooltip {
-  z-index: 120;
   min-height: 30px;
   max-width: min(300px, calc(100vw - 24px));
   display: flex;

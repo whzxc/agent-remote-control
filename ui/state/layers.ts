@@ -26,6 +26,9 @@ export function createLayerStore() {
   const get = () => current;
   const subscribe = (listener: () => void) => { subscribers.add(listener); return () => { subscribers.delete(listener); }; };
   const top = () => current.at(-1);
+  const contains = (id: string, target: EventTarget | null) => target instanceof Element
+    && (current.find(layer => layer.id === id)?.node?.contains(target)
+      || target.closest<HTMLElement>('[data-layer-owner]')?.dataset.layerOwner === id);
   const remove = (id: string) => { if (current.some(layer => layer.id === id)) publish(current.filter(layer => layer.id !== id)); };
   const closing = new Set<string>();
   const finishClose = async (id: string, complete?: () => void | Promise<void>) => {
@@ -57,12 +60,17 @@ export function createLayerStore() {
     else void close(id);
   };
   return {
-    get, subscribe, top, remove, close, dismiss,
+    get, subscribe, top, remove, close, dismiss, contains,
+    stack(id?: string) {
+      const depth = current.filter(layer => layer.kind === 'dialog').findIndex(layer => layer.id === id);
+      const scrim = 201 + Math.max(0, depth) * 10;
+      return { scrim, dialog: scrim + 1, transient: depth < 0 ? 120 : scrim + 2 };
+    },
     observeOutsidePointer(id: string) {
       const handle = (event: PointerEvent) => {
         const layer = top(), target = event.target;
         if (layer?.id !== id || !layer.node || event.button !== 0 || !(target instanceof Element)) return;
-        if (layer.node.contains(target) || target.closest('[data-radix-popper-content-wrapper]')) return;
+        if (contains(id, target)) return;
         consumeOutsidePointer(event);
         dismiss(id);
       };

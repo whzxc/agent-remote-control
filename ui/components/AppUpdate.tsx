@@ -1,3 +1,4 @@
+import { TransientLayer } from "./ui/TransientLayer";
 import { useEffect, useState, type ReactNode } from "react";
 import { Popover } from "radix-ui";
 import { ArrowUp, ArrowUpRight, ChevronRight, Ellipsis, ExternalLink, LoaderCircle, RefreshCw, RotateCw } from "lucide-react";
@@ -123,10 +124,10 @@ export function UpdateDock() {
     <Popover.Trigger asChild><button type="button" className="update-dock-entry" data-hover-target="updates" aria-label={t("viewUpdate")}>
       <Icon icon={active ? LoaderCircle : ArrowUp} size={20} className={active ? "update-ring" : undefined} />{available() && <span className="update-available-dot" />}
     </button></Popover.Trigger>
-    <Popover.Portal><Popover.Content className="update-panel" side="top" align="end" sideOffset={12} collisionPadding={16}
+    <Popover.Portal><TransientLayer><Popover.Content className="update-panel" side="top" align="end" sideOffset={12} collisionPadding={16}
       aria-label={t("appUpdates")} onEscapeKeyDown={event => { event.stopPropagation(); if (installing) event.preventDefault(); }}>
       <PanelContents />
-    </Popover.Content></Popover.Portal>
+    </Popover.Content></TransientLayer></Popover.Portal>
   </Popover.Root></>;
 }
 
