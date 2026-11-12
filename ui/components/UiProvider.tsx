@@ -1,3 +1,4 @@
+import { PanelProvider } from './ui/Panel';
 import { observeAppEnvironment, useReducedMotion } from "../state/appEnvironment";
 import { MotionConfig } from "motion/react";
 import { useEffect, type ReactNode } from "react";
@@ -25,7 +26,7 @@ export default function UiProvider({ children }: { children: ReactNode }) {
             control.focus({ preventScroll: true });
         }}
       >
-        {children}
+        <PanelProvider>{children}</PanelProvider>
       </div>
     </TooltipProvider></MotionConfig>
   );

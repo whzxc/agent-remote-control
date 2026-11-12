@@ -1,4 +1,4 @@
-import { PanelProvider } from "./components/ui/Panel";
+import { PanelRoute } from "./components/ui/Panel";
 import { oauthApproval, requestExternalNavigation } from "./state/externalNavigation";
 import DevicesWorkspace from './devices/DevicesWorkspace';
 import { deviceLinkEnabled, observeDevices } from './devices/state';
@@ -222,7 +222,7 @@ export default function App() {
     ...(mcp ? [{ id: "mcp-hub" as const, label: t("mcp.title"), icon: Plug }] : []),
   ];
   return (
-    <PanelProvider><div role="region" aria-label="ARC homepage"
+    <div role="region" aria-label="ARC homepage"
       className={`app-scene ${isDesktop ? "desktop" : ""} ${isDesktop && navigator.platform.toLowerCase().includes("mac") ? "mac" : ""}`}
       data-display={studio ? "studio" : undefined}
       onClickCapture={(e) => captureLayerTrigger(e.target)}
@@ -238,7 +238,7 @@ export default function App() {
       >
         <ConnectionOverview visible={page === "overview"} />
       </main>
-      {page !== "overview" && (page === "devices" ?
+      <PanelRoute value={page === "overview" ? undefined : page} identity={page => page}>{page => page === "devices" ?
         <DevicesWorkspace expanded={sheetWide} onToggleWidth={() => setSheetWide(!sheetWide)} onClose={() => setPage("overview")} /> : page === "mcp-hub" ?
         <McpHub expanded={sheetWide} onToggleWidth={() => setSheetWide(!sheetWide)} onClose={() => setPage("overview")} /> : page === "relay-hosting" ?
         <RelayHosting expanded={sheetWide} onToggleWidth={() => setSheetWide(!sheetWide)} onClose={() => setPage("overview")} /> :
@@ -256,7 +256,7 @@ export default function App() {
               : <SettingsPage />}
           </div>
         </Panel>
-      )}
+      }</PanelRoute>
       <LayerOwnerContext.Provider value={workspace?.id}>
       <nav
         className="navigation-capsule"
@@ -316,6 +316,6 @@ export default function App() {
       }} />}
       {bulletinOpen && <CoordinationCenter />}
       <OAuthApproval inlineEnabled={page === "overview"} requested={oauthRequest} onClose={() => setOauthRequest(undefined)} />
-    </div></PanelProvider>
+    </div>
   );
 }

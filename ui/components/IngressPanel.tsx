@@ -15,11 +15,11 @@ import { controlSourcePlatform } from "../controlSources";
 import {  IconButton, Notice } from "./ui";
 import { useDockOpening } from "./useDockOpening";
 
-export default function IngressPanel({ onPanelFrame, expanded, onToggleWidth }: {
-  onPanelFrame: (rect: LayerRect | null) => void; expanded: boolean; onToggleWidth: () => void;
+export default function IngressPanel({ selection: selected, onPanelFrame, expanded, onToggleWidth }: {
+  selection: NonNullable<ReturnType<typeof ingressPanel.get>>; onPanelFrame: (rect: LayerRect | null) => void; expanded: boolean; onToggleWidth: () => void;
 }) {
   const focusTrigger = useRef(layerTrigger());
-  const selected = ingressPanel.use()!, { status, sources, sourcesLoaded, error: connectorError } = connector.use();
+  const { status, sources, sourcesLoaded, error: connectorError } = connector.use();
   const tasksLoading = useSyncExternalStore(tasks.subscribe, () => tasks.get().loading);
   const connection = 'ingress' in selected ? selected : undefined;
   const platform = 'platform' in selected ? selected.platform : undefined;

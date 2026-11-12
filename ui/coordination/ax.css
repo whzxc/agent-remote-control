@@ -52,3 +52,6 @@
   .ax-evidence-row { flex-wrap: wrap; }
   .ax-history-item > div { flex-wrap: wrap; gap: 6px; }
 }
+
+.ax-list-natural { display: flex; flex-direction: column; gap: 8px; flex: none; }
+.ax-detail-natural { display: flex; flex-direction: column; gap: 24px; flex: none; }

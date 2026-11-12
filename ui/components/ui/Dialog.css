@@ -2,50 +2,40 @@
 .dialog:is(.layer-dialog, .layer-panel) {
   position: fixed; margin: 0; display: flex; flex-direction: column; gap: 25px;
   min-width: 0; max-width: calc(100vw - 2 * var(--layer-side-margin));
-  padding: 13px 24px 24px; border: 0; border-radius: var(--radius-panel);
+  padding: 0; border: 0; border-radius: var(--radius-panel);
   background: var(--surface-raised); color: var(--text); box-shadow: var(--shadow-lg);
   transform: none; overflow: hidden; outline: none;
-  animation: layer-dialog-enter var(--motion-base) var(--ease-enter) both;
 }
-:is(.layer-dialog, .layer-panel) > .dialog-header {
+:is(.layer-dialog, .layer-panel) > .layer-content > .dialog-header {
   display: flex; flex: none; align-items: center; justify-content: space-between; gap: 16px;
   min-height: var(--control-height); padding: 0; border: 0; background: none; cursor: default; touch-action: auto;
 }
-:is(.layer-dialog, .layer-panel) > .dialog-header h2 { margin: 0; font: 650 var(--text-title)/24px var(--font-ui); }
-:is(.layer-dialog, .layer-panel) > .dialog-header .actions { margin: 0; gap: var(--control-gap); }
-:is(.layer-dialog, .layer-panel) > .dialog-header .icon-button { --icon-button-size: var(--control-height); }
-:is(.layer-dialog, .layer-panel) > .dialog-body { flex: 0 1 auto; min-height: 0; padding: 0; overflow: auto; overscroll-behavior: contain; }
-:is(.layer-dialog, .layer-panel) > .dialog-footer { display: flex; flex: none; justify-content: flex-end; gap: 12px; padding: 0; border: 0; background: none; }
-:is(.layer-dialog, .layer-panel) > .layer-dismissal { flex-direction: column; gap: 16px; border-top: 1px solid var(--border); padding-top: 16px; }
+:is(.layer-dialog, .layer-panel) > .layer-content > .dialog-header h2 { margin: 0; font: 650 var(--text-title)/24px var(--font-ui); }
+:is(.layer-dialog, .layer-panel) > .layer-content > .dialog-header .actions { margin: 0; gap: var(--control-gap); }
+:is(.layer-dialog, .layer-panel) > .layer-content > .dialog-header .icon-button { --icon-button-size: var(--control-height); }
+:is(.layer-dialog, .layer-panel) > .layer-content > .dialog-body { flex: 0 1 auto; min-height: 0; padding: 0; overflow: auto; overscroll-behavior: contain; }
+:is(.layer-dialog, .layer-panel) > .layer-content > .dialog-footer { display: flex; flex: none; justify-content: flex-end; gap: 12px; padding: 0; border: 0; background: none; }
+:is(.layer-dialog, .layer-panel) > .layer-content > .layer-dismissal { flex-direction: column; gap: 16px; border-top: 1px solid var(--border); padding-top: 16px; }
 .layer-dismissal p { margin: 0; font-size: var(--text-small); line-height: 20px; color: var(--text-secondary); }
 .layer-dismissal .actions { flex-wrap: wrap; justify-content: flex-end; gap: 12px; }
 .layer-dismissal .button.primary:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
-:is(.layer-dialog, .layer-panel) > .setup-steps { flex: none; margin: 0; }
-:is(.layer-dialog, .layer-panel) > .setup-return, :is(.layer-dialog, .layer-panel) > .setup-context { flex: none; margin: 0; }
-@keyframes layer-dialog-enter { from { opacity: 0; } to { opacity: 1; } }
+:is(.layer-dialog, .layer-panel) > .layer-content > .setup-steps { flex: none; margin: 0; }
+:is(.layer-dialog, .layer-panel) > .layer-content > .setup-return, :is(.layer-dialog, .layer-panel) > .layer-content > .setup-context { flex: none; margin: 0; }
 
-.dialog.layer-panel { animation-name: layer-panel-enter; animation-duration: var(--motion-panel); }
-.layer-panel > .dialog-header .panel-title { flex: 0 1 auto; }
-.layer-panel > .dialog-header .actions { margin-left: auto; }
-@keyframes layer-panel-enter { from { opacity: 0; } to { opacity: 1; } }
+.layer-panel > .layer-content > .dialog-header .panel-title { flex: 0 1 auto; }
+.layer-panel > .layer-content > .dialog-header .actions { margin-left: auto; }
 
-.layer-panel > .dialog-body { flex: 1 1 auto; }
-@media (prefers-reduced-motion: reduce) { .dialog:is(.layer-dialog, .layer-panel) { animation: none; } }
-:root[data-reduced-motion="true"] .dialog:is(.layer-dialog, .layer-panel) { animation: none; }
+.layer-panel > .layer-content > .dialog-body { flex: 1 1 auto; }
 
-:is(.layer-dialog, .layer-panel) > .dialog-footer[hidden] { display: none; }
-:is(.layer-dialog, .layer-panel) > .dialog-footer > .actions, :is(.layer-dialog, .layer-panel) > .dialog-footer > .device-actions { justify-content: flex-end; }
+:is(.layer-dialog, .layer-panel) > .layer-content > .dialog-footer[hidden] { display: none; }
+:is(.layer-dialog, .layer-panel) > .layer-content > .dialog-footer > .actions, :is(.layer-dialog, .layer-panel) > .layer-content > .dialog-footer > .device-actions { justify-content: flex-end; }
 
-:is(.layer-dialog, .layer-panel) > .dialog-description { flex: none; margin: 0; color: var(--text-secondary); font-size: var(--text-small); }
+:is(.layer-dialog, .layer-panel) > .layer-content > .dialog-description { flex: none; margin: 0; color: var(--text-secondary); font-size: var(--text-small); }
 .dialog-breadcrumb { color: var(--text-secondary); font-weight: 400; }
 .dialog-view-stack { position: relative; }
-.dialog-swap { opacity: 1; transition: opacity var(--motion-base) var(--ease-enter), display var(--motion-base) allow-discrete; }
 .dialog-swap[hidden] { display: none; position: absolute; inset: 0; opacity: 0; pointer-events: none; }
-@starting-style { .dialog-swap { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .dialog-swap { transition: none; } }
-:root[data-reduced-motion="true"] .dialog-swap { transition: none; }
 
-.layer-panel > .dialog-footer > .panel-footer-content { width: 100%; }
+.layer-panel > .layer-content > .dialog-footer > .panel-footer-content { width: 100%; }
 
 .layer-custom-header { flex: none; min-width: 0; }
 .layer-custom-header[hidden] { display: none; }
@@ -56,12 +46,12 @@
 .node-panel .layer-custom-header .agent-panel-header { align-items: center; }
 .node-panel:has(.agent-platform-view) .agent-quota-icon { --agent-quota-size: 36px; --agent-icon-art-size: calc(48px * 32 / 38); margin: 0; }
 .node-panel .source-account-brand .source-icon { display: flex; }
-.node-panel > .dialog-body > .dialog-swap { min-height: 0; }
-.node-panel:has(.task-detail-layer) > .dialog-body { display: flex; overflow: hidden; }
-.node-panel:has(.task-detail-layer) > .dialog-body > .dialog-swap, .node-panel:has(.task-detail-layer) .agent-panel-view { display: flex; flex: 1 1 auto; min-height: 0; }
+.node-panel > .layer-content > .dialog-body > .dialog-swap { min-height: 0; }
+.node-panel:has(.task-detail-layer) > .layer-content > .dialog-body { display: flex; overflow: hidden; }
+.node-panel:has(.task-detail-layer) > .layer-content > .dialog-body > .dialog-swap, .node-panel:has(.task-detail-layer) .agent-panel-view { display: flex; flex: 1 1 auto; min-height: 0; }
 .node-panel:has(.task-detail-layer) .agent-panel-view[hidden] { display: none; }
 .node-panel .task-detail-layer { flex: 1 1 auto; min-height: 0; }
-.node-panel > .dialog-footer:has(.task-detail-footer) { flex: 0 1 auto; max-height: 60%; min-height: 0; overflow: hidden; }
+.node-panel > .layer-content > .dialog-footer:has(.task-detail-footer) { flex: 0 1 auto; max-height: 60%; min-height: 0; overflow: hidden; }
 .node-panel .panel-footer-content:has(.task-detail-footer) { display: flex; min-height: 0; }
 .node-panel .task-detail-footer { width: 100%; padding: 0; border: 0; background: none; }
 .node-panel .task-detail-header.dialog-header { flex-direction: column; align-items: stretch; gap: 0; }
@@ -72,10 +62,11 @@
 .node-panel[data-layer-side="left"] .layer-custom-header > .dialog-header { gap: 16px; }
 .node-panel .source-account-brand, .node-panel .source-account-brand .source-icon, .node-panel .source-account-brand .source-icon > span, .node-panel .source-account-brand svg { width: 36px; height: 36px; }
 
-.dialog:is(.layer-dialog, .layer-panel) { transition: top var(--motion-base) var(--ease-enter), height var(--motion-base) var(--ease-enter); }
-.layer-panel[data-exiting] { pointer-events: none; }
-@media (prefers-reduced-motion: reduce) { .dialog:is(.layer-dialog, .layer-panel) { transition: none; } }
-:root[data-reduced-motion="true"] .dialog:is(.layer-dialog, .layer-panel) { transition: none; }
+.dialog[data-exiting] { pointer-events: none; }
 
-/* Initial measurements and incoming content settle instantly beneath the entry fade. */
-.dialog:is(.layer-dialog, .layer-panel)[data-layer-entering] { transition: none; }
+
+
+.layer-content { flex: none; display: flex; flex-direction: column; gap: 25px; width: 100%; height: max-content; max-height: var(--layer-content-cap); padding: 13px 24px 24px; min-height: var(--layer-retained-height, 0px); }
+.dialog-swap { opacity: 1; }
+
+.layer-content[data-natural-body] { height: 100%; min-height: 0; }

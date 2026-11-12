@@ -1,3 +1,4 @@
+import { useLayerNaturalContent } from '../components/ui/LayerPortals';
 import { useCopyState } from "../components/ui/useCopyState";
 import { Tooltip as HoverHelp } from "../components/ui/index";
 import { PanelFooter } from "../components/ui/Panel";
@@ -35,6 +36,8 @@ export default function AXPanel() {
   const data = axObservation.use(), selectedId = axSelection.use(), view = axView.use();
   const connection = connector.use(), language = locale.use(), now = useAppNow(30_000);
   const [limit, setLimit] = useState(view.closed ? 4 : 5);
+  const natural = useRef<HTMLDivElement>(null);
+  useLayerNaturalContent(natural, !!data.observedAt, { version: `${view.closed}:${limit}:${selectedId}` });
   const list = useRef<HTMLDivElement>(null), scroll = useRef(0), trigger = useRef('');
   const heading = useRef<HTMLHeadingElement>(null), previousSelection = useRef(selectedId);
   const core = connection.status?.core.backendSession;
@@ -89,7 +92,7 @@ export default function AXPanel() {
   }
   function detail(entry: AXEntry) {
     const decision = axDecision(entry), result = decision?.detail;
-    return <section className="ax-detail" aria-label={t('center.recordDetail')}>
+    return <section className="ax-detail" aria-label={t('center.recordDetail')}><div className="ax-detail-natural" ref={natural}>
       <div className="ax-back"><Button variant="ghost" onClick={() => axSelection.set(undefined)}><Icon icon={ArrowLeft} />{t('center.ax.list')}</Button>
         <CopyValue value={entry.id} label={t('center.ax.copyId')} /></div>
       <header className="ax-detail-heading">
@@ -115,7 +118,7 @@ export default function AXPanel() {
           {item !== decision && item.detail?.reason && <p>{item.detail.reason}</p>}
         </div>)}
       </section>
-    </section>;
+    </div></section>;
   }
   return <div className="ax-panel" aria-busy={data.loading}>
     {data.error && <Notice tone="danger" title={t('center.unavailable')} action={<Button busy={data.loading} onClick={() => void refreshAX()}>{t('retry')}</Button>}>{data.error}</Notice>}
@@ -126,7 +129,7 @@ export default function AXPanel() {
           options={[{ value: 'open', label: t('center.ax.open', { count: data.observedAt ? data.entries.length - closedCount : '—' }) }, { value: 'closed', label: t('center.ax.closed', { count: data.observedAt ? closedCount : '—' }) }]} />
         <SearchInput placeholder={t('center.ax.search')} value={view.search} onChange={event => axView.set(old => ({ ...old, search: event.target.value }))} />
       </div>
-      <div ref={list} className="ax-list" tabIndex={-1}>
+      <div ref={list} className="ax-list" tabIndex={-1}><div className="ax-list-natural" ref={natural}>
         {rows.slice(0, limit).map(entry => {
           const id = `ax-row-${entry.id}`;
           return <Card asChild padded key={entry.id} className="ax-row"><button type="button" id={id} onClick={() => open(entry, id)} aria-labelledby={`${id}-title`} aria-describedby={`${id}-meta ${id}-status`}>
@@ -137,7 +140,7 @@ export default function AXPanel() {
           </button></Card>;
         })}
         {!rows.length && data.observedAt && <div className="center-empty" role="status"><Icon icon={Inbox} size={20} /><p>{t('center.emptyBoard')}</p></div>}
-      </div>
+      </div></div>
       {data.observedAt && <PanelFooter className="ax-footer"><span>{limit < rows.length ? t('center.ax.showing', { count: Math.min(limit, rows.length), total: rows.length }) : t('center.ax.updatedAt', { time: new Date(data.observedAt).toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' }) })}</span>
         {limit < rows.length && <Button variant="ghost" onClick={() => setLimit(old => old + 50)}><Icon icon={ChevronDown} />{t('center.ax.more')}</Button>}</PanelFooter>}
     </>}

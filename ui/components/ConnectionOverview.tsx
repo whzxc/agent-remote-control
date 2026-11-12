@@ -1,3 +1,4 @@
+import { PanelRoute } from './ui/Panel';
 import { Icon } from "./ui";
 import { ChevronDown } from "lucide-react";
 import { readOnlyBrowser } from "../browserMode";
@@ -355,9 +356,14 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
             sourceEmpty={!sourceViews.length} agentEmpty={!agents.length}
             onAddSource={() => openOnboarding("product")}
             onManageAgents={() => setAgentsOpen(true)} />} />
-        {selectedAgent && visible && <AgentPanel key={selection && agentPanelId(selection)} agent={selectedAgent} expanded={panelExpanded} onToggleWidth={() => setPanelExpanded(value => !value)}
-          onSettings={() => setDisplaySettingsOpen(selectedAgent.agent)} onPanelFrame={panelFrame} />}
-        {sourceSelection && visible && <IngressPanel key={sourcePanelId(sourceSelection)} expanded={panelExpanded} onToggleWidth={() => setPanelExpanded(value => !value)} onPanelFrame={panelFrame} />}
+        <PanelRoute value={selectedAgent ? selection : undefined} identity={agentPanelId}>{(snapshot, active) => {
+          const agent = inventory.items.find(item => item.agent === snapshot.agent);
+          return agent && <AgentPanel selection={snapshot} active={active} agent={agent} expanded={panelExpanded} onToggleWidth={() => setPanelExpanded(value => !value)}
+            onSettings={() => setDisplaySettingsOpen(agent.agent)} onPanelFrame={panelFrame} />;
+        }}</PanelRoute>
+        <PanelRoute value={sourceSelection} identity={sourcePanelId}>{snapshot =>
+          <IngressPanel selection={snapshot} expanded={panelExpanded} onToggleWidth={() => setPanelExpanded(value => !value)} onPanelFrame={panelFrame} />
+        }</PanelRoute>
         <div className="activity-edge-fade" aria-hidden="true" />
 
         {error && coreState === "ready" && (

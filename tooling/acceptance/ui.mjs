@@ -101,7 +101,7 @@ try {
               start ??= now;
               const rect = node.getBoundingClientRect();
               rows.push({ entering: node.hasAttribute('data-layer-entering'), y: rect.y, height: rect.height,
-                targetY: parseFloat(node.style.top), targetHeight: parseFloat(node.style.height) });
+                targetY: Number(node.dataset.layerFrameTop), targetHeight: Number(node.dataset.layerFrameHeight) });
               if (now - start >= 600) { resolve(rows); return; }
             }
             requestAnimationFrame(sample);

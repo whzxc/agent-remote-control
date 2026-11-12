@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react';
 import type { LayerKind } from '../components/ui/layerFrame';
 
 export type Dismissal = 'none' | 'discard' | 'running';
-export type Layer = {
+type Layer = {
   id: string;
   kind: LayerKind;
   node: HTMLElement | null;
@@ -17,6 +17,7 @@ export type Layer = {
   dismissal: Dismissal;
   keepAfterWork: boolean;
 };
+const switcherSelector = '[data-workspace-switcher], [data-layer-switcher]';
 type LayerInput = Omit<Layer, 'dismissal' | 'keepAfterWork' | 'ready'>;
 
 /** The registry owns dismissal and focus across portaled dialogs and retained panels. */
@@ -32,19 +33,17 @@ export function createLayerStore() {
       || target.closest<HTMLElement>('[data-layer-owner]')?.dataset.layerOwner === id);
   const remove = (id: string) => { if (current.some(layer => layer.id === id)) publish(current.filter(layer => layer.id !== id)); };
   const closing = new Set<string>();
-  let switching = false;
-  let pendingSwitch: { id: string; open: () => void } | undefined;
+  let pendingSwitch: { id: string; open: () => void; toggle: boolean } | undefined;
   const finishClose = async (id: string, complete?: () => void | Promise<void>) => {
     const layer = current.find(item => item.id === id);
     if (!layer || closing.has(id)) return;
     closing.add(id);
     try {
-      if (layer.onExit) await layer.onExit();
-      const next = pendingSwitch?.id === id ? pendingSwitch.open : undefined;
-      if (next) { pendingSwitch = undefined; switching = true; }
-      const result = (complete ?? layer.onClose)();
-      next?.();
-      await result;
+      const pending = pendingSwitch?.id === id ? pendingSwitch : undefined;
+      if (pending) pendingSwitch = undefined;
+      if (pending && !pending.toggle) { pending.open(); return; }
+      await layer.onExit?.();
+      await (complete ?? layer.onClose)();
     }
     finally { closing.delete(id); }
   };
@@ -80,7 +79,7 @@ export function createLayerStore() {
       const handle = (event: PointerEvent) => {
         const layer = top(), target = event.target;
         if (layer?.id !== id || !layer.node || event.button !== 0 || !(target instanceof Element)) return;
-        if (contains(id, target) || layer.kind === 'panel' && target.closest('[data-workspace-switcher], [data-layer-switcher]')) return;
+        if (contains(id, target) || layer.kind === 'panel' && target.closest(switcherSelector)) return;
         consumeOutsidePointer(event);
         dismiss(id);
       };
@@ -95,14 +94,12 @@ export function createLayerStore() {
     },
     use: () => useSyncExternalStore(subscribe, get, get),
     canOpen,
-    isSwitching: () => switching,
-    endSwitch: () => { switching = false; },
     switchPanel(open: () => void, toggle = false) {
       if (top()?.kind === 'dialog') return;
       const panel = current.find(layer => layer.kind === 'panel');
       if (!panel) { open(); return; }
-      if (panel.busy || panel.dirty) { pendingSwitch = { id: panel.id, open }; dismiss(panel.id); }
-      else { switching = !toggle; open(); }
+      if (panel.busy || panel.dirty) { pendingSwitch = { id: panel.id, open, toggle }; dismiss(panel.id); }
+      else if (toggle) void close(panel.id); else open();
     },
     open(layer: LayerInput) {
       if (current.some(item => item.id === layer.id)) return;
@@ -111,7 +108,7 @@ export function createLayerStore() {
         const previous = current.filter(item => item.kind === 'panel');
         pendingSwitch = undefined;
         publish([{ ...layer, dismissal: 'none', keepAfterWork: false, ready: !!layer.node }, ...current.filter(item => item.kind !== 'panel')]);
-        previous.forEach(item => { void item.onClose(); });
+        previous.forEach(item => { void (async () => { await item.onExit?.(); await item.onClose(); })(); });
       } else publish([...current, { ...layer, dismissal: 'none', keepAfterWork: false, ready: !!layer.node }]);
     },
     retarget(id: string, trigger: HTMLElement | null, returnFocus?: string) {
@@ -138,7 +135,6 @@ export function createLayerStore() {
     keepOpen(id: string) {
       if (top()?.id !== id) return;
       if (pendingSwitch?.id === id) pendingSwitch = undefined;
-      switching = false;
       publish(current.map(layer => layer.id === id ? { ...layer, dismissal: 'none', keepAfterWork: layer.dismissal === 'running' } : layer));
     },
     async stopAndClose(id: string) {

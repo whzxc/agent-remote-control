@@ -383,3 +383,29 @@ test('cross-slot Back retains the originating panel detail and restores its cont
     assertNodeIdentity(focused(), page.getByRole('button', { name: 'Inspect task' }));
   });
 });
+
+test('slot content retains its feature context across workspace replacement', async () => {
+  // Regression: the external panel registry moved content outside its feature provider.
+  await withDialog(async ({ server, root, settle }) => {
+    const { createContext, useContext } = await import('react');
+    const Context = createContext('Missing context');
+    const { default: Panel, PanelProvider, PanelRoute } = await server.ssrLoadModule('/ui/components/ui/Panel.tsx');
+    const { layers } = await server.ssrLoadModule('/ui/state/layers.ts');
+    function Content() { return h('button', null, useContext(Context)); }
+    function Owner() {
+      const [view, setView] = useState('Settings'), [ready, setReady] = useState(false);
+      return h(PanelProvider, null, h('main', null,
+        h('nav', { 'data-workspace-switcher': true }, h('button', { onClick: () => layers.switchPanel(() => setView('Relay')) }, 'Switch workspace')),
+        h('button', { onClick: () => setReady(true) }, 'Finish loading'),
+        h(PanelRoute, { value: view, identity: (value: string) => value }, (snapshot: string) =>
+          h(Context.Provider, { value: 'Feature context' }, (snapshot === 'Settings' || ready) && h(Panel, { title: snapshot, onClose: () => setView('') }, h(Content))))));
+    }
+    const page = within(document.body);
+    await act(async () => root.render(h(Owner))); await settle();
+    assert.ok(within(page.getByRole('dialog', { name: 'Settings' })).getByRole('button', { name: 'Feature context' }));
+    await act(async () => fireEvent.click(page.getByRole('button', { name: 'Switch workspace' }))); await settle();
+    assert.ok(page.getByRole('dialog', { name: 'Settings' }));
+    await act(async () => fireEvent.click(page.getByRole('button', { name: 'Finish loading' }))); await settle();
+    assert.ok(within(page.getByRole('dialog', { name: 'Relay' })).getByRole('button', { name: 'Feature context' }));
+  });
+});

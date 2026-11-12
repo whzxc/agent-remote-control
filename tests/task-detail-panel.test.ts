@@ -118,8 +118,9 @@ test("task detail projects native titles, compact ownership and pending input wi
       for (const action of ["detail.send", "detail.stop", "detail.pass", "detail.rework"]) assert.equal(page.queryByRole("button", { name: t(action), exact: true }), null);
       assert.equal(payload.entries.some((row: {phase?:string}) => row.phase === "final_answer"), false);
     }
-    const { default: AgentPanel } = await server.ssrLoadModule("/ui/components/AgentPanel.tsx");
-    const { selectAgentPanel } = await server.ssrLoadModule("/ui/state/overviewPanels.ts");
+    const { default: AgentPanelView } = await server.ssrLoadModule("/ui/components/AgentPanel.tsx");
+    const AgentPanel = (props: Record<string, unknown>) => h(AgentPanelView, { ...props, selection: agentPanel.use(), active: true });
+    const { agentPanel, selectAgentPanel } = await server.ssrLoadModule("/ui/state/overviewPanels.ts");
     for (const scenario of ["task-owner-desktop", "task-turn-interrupted"]) {
       await act(async () => { await installScenario(scenario); setPrivacy(false); });
       const record = scenarioResponse("tasks", "GET").records[0];

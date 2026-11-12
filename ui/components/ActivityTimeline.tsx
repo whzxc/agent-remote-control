@@ -1,3 +1,4 @@
+import { useLayerNaturalContent } from './ui/LayerPortals';
 import { PanelHeader, PanelFooter, usePanelState } from "./ui/Panel";
 import { readOnlyBrowser } from "../browserMode";
 import { useAppNow } from "../state/appEnvironment";
@@ -182,19 +183,12 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
     if (timeline.preview && (running || node.scrollHeight <= node.clientHeight)) requestEarlier.current?.();
     if (manualDisclosure.current) return;
     const target = timelineScrollTarget(following.current, running || previousRunning.current, initial.current, node.scrollHeight);
-    if (target !== undefined) { node.scrollTop = target; previousTop.current = node.scrollTop; }
+    // Initial reading position is explicit; shell measurement must not reset scrolling.
+    if (initial.current) node.scrollTop = 0;
+    else if (target !== undefined) { node.scrollTop = target; previousTop.current = node.scrollTop; }
     if (target !== undefined) setAtLatest(true);
     initial.current = false; previousRunning.current = running;
   }, [timeline, running]);
-  useEffect(() => {
-    const observer = new ResizeObserver(() => {
-      const node = viewport.current;
-      // Disclosure resizing is local navigation, including its animation frames.
-      if (node && !manualDisclosure.current && following.current) { node.scrollTop = node.scrollHeight; previousTop.current = node.scrollTop; }
-    });
-    if (content.current) observer.observe(content.current);
-    return () => observer.disconnect();
-  }, []);
   const groups = timelineGroups(timeline?.entries ?? []);
   const historyTurn = session.selectedTurnId || groups.at(-1)?.turnId || session.turnId;
   const nativeSession = live ?? { ...session, turnId: historyTurn, interaction: undefined,
@@ -276,6 +270,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   const title = (validId && agent === "codex" && taskTitle?.id === session.id && taskTitle.title) || (agent !== "codex" && (nativeSession.title
     || timeline?.entries.find(entry => entry.type === "user")?.text?.trim().split("\n")[0])) || t("timeline.title");
   usePanelState({ busy: continuing });
+  useLayerNaturalContent(content, true, { version: `${loading ? 'loading' : 'ready'}:${title}`, flexibleFooter: true, resetHeight: true });
   return <section ref={detail} className="agent-panel-layer task-detail-layer" data-related={!!relationKind || undefined} data-narrow={narrow || undefined}>
     <PanelHeader><header className="dialog-header task-detail-header">
       <div className="task-detail-navigation"><TaskBackButton aria-label={t("back")} title={backLabel ?? `${agentName}${project ? ` · ${project}` : ""}`} onClick={onBack}><Icon icon={ArrowLeft} /><span>{backLabel ?? <>{agentName}{project && ` · ${project}`}</>}</span></TaskBackButton>

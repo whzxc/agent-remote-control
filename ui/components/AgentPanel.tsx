@@ -83,21 +83,21 @@ function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWi
   </section>;
 }
 
-export default function AgentPanel({ agent, onSettings, onPanelFrame, expanded, onToggleWidth }: {
-  agent: Agent; onSettings: () => void; onPanelFrame: (rect: LayerRect | null) => void;
+export default function AgentPanel({ selection: selected, active, agent, onSettings, onPanelFrame, expanded, onToggleWidth }: {
+  selection: NonNullable<ReturnType<typeof agentPanel.get>>; active: boolean; agent: Agent; onSettings: () => void; onPanelFrame: (rect: LayerRect | null) => void;
   expanded: boolean; onToggleWidth: () => void;
 }) {
   const back = panelBack.use();
   const focusTrigger = useRef(layerTrigger());
-  const selected = agentPanel.use()!, { error } = agentActivity.use();
+  const { error } = agentActivity.use();
   const accountState = useAccounts();
   const linkedAccounts = accountState.items.filter(account => account.agentProfiles.some(profile => profile.agent === agent.agent));
   const account = accountState.items.find(account => accountOwns(account, selected.accountId)) ?? (linkedAccounts.length === 1 ? linkedAccounts[0] : undefined);
   // A single-account platform opens its Agent history, including native rows without ownership metadata.
   const scopedAccountId = !accountState.loading && linkedAccounts.length === 1 ? undefined : selected.accountId;
   useLayoutEffect(() => {
-    if ((!managesAgentAccounts(agent.agent) || readOnlyBrowser && linkedAccounts.length === 0) && selected.platform && !selected.closing && !accountState.loading && linkedAccounts.length <= 1) selectAgentPanel({ type: 'agent', agent: agent.agent, accountId: linkedAccounts[0]?.id });
-  }, [selected.platform, selected.closing, accountState.loading, linkedAccounts.length, linkedAccounts[0]?.id, agent.agent]);
+    if (active && (!managesAgentAccounts(agent.agent) || readOnlyBrowser && linkedAccounts.length === 0) && selected.platform && !selected.closing && !accountState.loading && linkedAccounts.length <= 1) selectAgentPanel({ type: 'agent', agent: agent.agent, accountId: linkedAccounts[0]?.id });
+  }, [active, selected.platform, selected.closing, accountState.loading, linkedAccounts.length, linkedAccounts[0]?.id, agent.agent]);
   const previous = useRef(selected), content = useRef<HTMLDivElement>(null);
   const session = selected.session, taskTitleId = useId();
   const returning = !selected.platform && previous.current.agent === selected.agent && previous.current.accountId === selected.accountId && !!previous.current.session && !session;

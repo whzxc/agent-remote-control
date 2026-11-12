@@ -34,7 +34,8 @@ test("Agent panel keeps a nonmodal shell across task/back navigation and replace
   const mount = document.createElement("div"); document.body.append(mount);
   const root = createRoot(mount);
   try {
-    const { default: AgentPanel } = await server.ssrLoadModule("/ui/components/AgentPanel.tsx");
+    const { default: AgentPanelView } = await server.ssrLoadModule("/ui/components/AgentPanel.tsx");
+    const AgentPanel = (props: Record<string, unknown>) => h(AgentPanelView, { ...props, selection: agentPanel.use(), active: true });
     const { TooltipProvider } = await server.ssrLoadModule("/ui/components/ui/index.tsx");
     const { agentPanel, selectAgentPanel } = await server.ssrLoadModule("/ui/state/overviewPanels.ts");
     const { agentActivity } = await server.ssrLoadModule("/ui/state/activity.ts");

@@ -299,11 +299,12 @@ test('single-account Agent panels retain native history and shared quota without
   const fixture = await harness();
   try {
     const { server, root } = fixture;
-    const { default: AgentPanel } = await server.ssrLoadModule('/ui/components/AgentPanel.tsx');
+    const { default: AgentPanelView } = await server.ssrLoadModule('/ui/components/AgentPanel.tsx');
+    const AgentPanel = (props: Record<string, unknown>) => h(AgentPanelView, { ...props, selection: agentPanel.use(), active: true });
     const { default: UiProvider } = await server.ssrLoadModule('/ui/components/UiProvider.tsx');
     const { accounts } = await server.ssrLoadModule('/ui/state/accounts.ts');
     const { subscriptions } = await server.ssrLoadModule('/ui/state/subscriptions.ts');
-    const { selectAgentPanel } = await server.ssrLoadModule('/ui/state/overviewPanels.ts');
+    const { agentPanel, selectAgentPanel } = await server.ssrLoadModule('/ui/state/overviewPanels.ts');
     const { quotaValue } = await server.ssrLoadModule('/ui/subscriptions/displayPreferences.ts');
     const { t } = await server.ssrLoadModule('/ui/i18n.ts');
     const page = within(document.body), now = new Date().toISOString();
@@ -493,10 +494,11 @@ test('read-only Agent roots without provider accounts still expose their native 
   const fixture = await harness(true);
   try {
     const { server, root } = fixture;
-    const { default: AgentPanel } = await server.ssrLoadModule('/ui/components/AgentPanel.tsx');
+    const { default: AgentPanelView } = await server.ssrLoadModule('/ui/components/AgentPanel.tsx');
+    const AgentPanel = (props: Record<string, unknown>) => h(AgentPanelView, { ...props, selection: agentPanel.use(), active: true });
     const { default: UiProvider } = await server.ssrLoadModule('/ui/components/UiProvider.tsx');
     const { accounts } = await server.ssrLoadModule('/ui/state/accounts.ts');
-    const { selectAgentPanel } = await server.ssrLoadModule('/ui/state/overviewPanels.ts');
+    const { agentPanel, selectAgentPanel } = await server.ssrLoadModule('/ui/state/overviewPanels.ts');
     const { t } = await server.ssrLoadModule('/ui/i18n.ts');
     globalThis.fetch = async input => new Response(JSON.stringify(String(input).endsWith('/agents/conversations')
       ? { data: [{ id: 'native-history', title: 'Verify remote status', source: 'native', createdAt: new Date().toISOString() }], nextCursor: null }

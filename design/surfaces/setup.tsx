@@ -12,7 +12,7 @@ export default () =>
       fixture={step.fixture}
       capture={{
         selector: step.body === "welcome" ? ".welcome-page" : step.name.startsWith("stacked-")
-          ? ".layer-dialog:has(> .setup-return)" : ".layer-dialog:has(> .setup-steps)",
+          ? ".layer-dialog:has(> .layer-content > .setup-return)" : ".layer-dialog:has(> .layer-content > .setup-steps)",
         viewport: step.body === "own" ? "1280x1000" : "1280x800",
       }}
       note={step.name.startsWith("stacked-") ? "M child-dialog region. Its parent stays mounted and stationary under the scrim; p3-stacked acceptance covers the pair." : undefined}
