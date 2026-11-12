@@ -226,13 +226,13 @@ Board records may reference tasks, connections, updates or AX candidates; their 
 
 **Proposed. Awaiting user gallery approval.** The homepage retains its left control-source
 and right executor dimensions. A paired member is a tier-1 sibling of local Agents.
-Its Agents, accounts/profiles and tasks form successive child levels. Exactly one Agent
-merges into its device node; expansion continues with accounts/profiles and tasks.
+Its Agents and accounts/profiles form successive child levels. Exactly one Agent
+merges into its device node; expansion continues with accounts/profiles.
 Local Agents retain their current position without a local-device wrapper.
 
 | Source / part | Declared forms | Consumer / intended implementation | Status |
 | --- | --- | --- | --- |
-| `modules/device-topology.tsx` / DeviceNode, DeviceBranch | `device-branch-{lan,tunnel,offline,merged-collapsed,merged-expanded}` | `surfaces/device-link-topology.tsx`; intended `ui/topology/Topology.tsx` | Proposed. Reuses TopologyNode at its existing 48px graphic size, TopologyGroup and TaskBubble. Device glyph, merged Agent badge and reachability dot extend the node language. Offline fades the complete branch. |
+| `modules/device-topology.tsx` / DeviceNode, DeviceBranch | `device-branch-{lan,tunnel,offline,merged-collapsed,merged-expanded}` | `surfaces/device-link-topology.tsx`; intended `ui/topology/Topology.tsx` | Proposed. Reuses TopologyNode at its existing 48px graphic size, TopologyGroup; task content is represented only by NodeTaskBadge. Device glyph, merged Agent badge and reachability dot extend the node language. Offline fades the complete branch. |
 | `modules/device-topology.tsx` / DeviceNodePanel | `device-node-panel-{lan,tunnel,offline}` | `surfaces/device-link-topology.tsx` / `device-panel`; intended topology panel owner | Proposed. Reuses PanelShell, PanelHeader, Field/Input and Button for pairing state, LAN/Tunnel path, latency, last seen/error, address/override, transfer and unpair. |
 | `modules/device-topology.tsx` / ControllerSourcePanel | `controller-source-panel-{off,on}` | `surfaces/device-link-topology.tsx` / `member-upstreams-{off,on}`; intended source panel owner | Proposed. Show upstream control sources defaults off; the shared Switch lives in the controller node panel. Manage device opens its management content using the existing nested-panel pattern. |
 | `modules/device-topology.tsx` / DeviceAddEndpoint | `device-add-endpoint-open` | Controller and narrow compositions; intended right-wing add endpoint | Proposed. Existing endpoint dot offers Add Agent and Add device. Pairing dialogs remain owned by `modules/device-link.tsx`. |
@@ -241,7 +241,7 @@ Local Agents retain their current position without a local-device wrapper.
 | `fixtures/device-topology.ts` | Support data | Device topology parts and surface | Proposed. Fictional devices, accounts, tasks and inert example endpoints; visual types remain in their owning modules. |
 
 Device status appears only on device nodes and their expanded management content. The
-controller projects only tasks it dispatched to that member. A member attributes such
+controller task-state aggregation includes only tasks it dispatched to that member. A member attributes such
 tasks directly to its controller source, including when upstream sources are shown.
 No device nav entry or summary chip is present in the proposed compositions. A member
 may control further devices; each homepage renders one hop, without protocol forwarding.
@@ -250,10 +250,21 @@ and `arch/system-map.*`.
 
 Known gaps: these proposal frames have no reachable runtime fixtures and intentionally
 omit fixture/capture bindings. Runtime tree projection, fold thresholds, spatial panel
-transitions, source-switch persistence, native pairing cycle rejection and operation
+transitions, task-state badge activation, source-switch persistence, native pairing cycle rejection and operation
 device targeting await implementation after gallery approval. Transfer is an entry;
 its downstream UI remains outside this proposal. Existing workspace-only assets below
 remain retained until their runtime consumers are replaced, then are retired with no shims.
+
+`modules/topology-task-state.tsx` owns NodeTaskBadge and the `running`, `attention`,
+`unread`, `aggregate` and `unconfirmed` forms. `fixtures/topology-task-state.ts` owns
+representative counts. TopologyNode places the badge outside its existing graphic's
+layout footprint. The task-state control opens execution mode scoped to the node.
+Needs-input/approval uses warning; completed unread uses accent; offline replaces every
+count with unconfirmed. Device aggregates and local/remote Agent badges share this part.
+
+All proposed device frames are static. Activity cannot move nodes or change grouping.
+Task bubbles, queues, task-only arcs and task focus overlays are absent. Node positions
+follow configuration and explicit structural disclosure within a fixed viewport.
 
 ### Retained Device link workspace sources
 

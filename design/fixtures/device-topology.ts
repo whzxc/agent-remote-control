@@ -36,10 +36,6 @@ export const memberForms = [
   { name: 'member-upstreams-off', upstreams: false },
   { name: 'member-upstreams-on', upstreams: true },
 ];
-export const tasks = [
-  { title: 'Inspect the queue', phase: 'Reading', headline: 'Queue state', sourceBrand: 'openai' },
-  { title: 'Review the change', phase: 'Thinking', headline: 'Reviewing diff', sourceBrand: 'claude' },
-] as const;
 export const accountMembers = [
   { brand: 'codex', quota: 'ok' }, { brand: 'codex', quota: 'low' }, { brand: 'codex', quota: 'ok' },
 ] as const;
@@ -56,7 +52,6 @@ export const landscapePaths: ScenePath[] = [
 ];
 export const memberPaths: ScenePath[] = [
   { d: 'M414 264H464Q488 264 488 288V376Q488 400 512 400H556', class: 'stroke-role-source/55', 'stroke-width': '2' },
-  { d: 'M414 264H430V428H384', class: 'stroke-role-source/55', 'stroke-width': '2' },
   { d: 'M724 400H792Q816 400 816 376V264H860 M816 376V474H860', class: 'stroke-role-agent/55', 'stroke-width': '2' },
 ];
 export const upstreamPaths: ScenePath[] = [

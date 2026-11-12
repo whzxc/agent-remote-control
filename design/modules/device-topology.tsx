@@ -9,8 +9,8 @@ import { Switch } from '../components/switch';
 import { TopologyNode } from './topology-node';
 import { TopologyGroup } from './topology-group';
 import { TopologyScene, type SceneItem, type ScenePath } from './topology-scene';
-import { TaskBubble } from './task-presentation';
-import { copy, states, tasks, branchForms, accountMembers, profileMembers } from '../fixtures/device-topology';
+import { deviceAggregate, remoteRunning, remoteUnread, unconfirmed } from '../fixtures/topology-task-state';
+import { copy, states, branchForms, accountMembers, profileMembers } from '../fixtures/device-topology';
 
 export type DeviceTopologyState = 'lan' | 'tunnel' | 'offline';
 export type DeviceBranchForm = 'multiple' | 'merged-collapsed' | 'merged-expanded';
@@ -20,19 +20,21 @@ export function DeviceNode({ state = 'lan', merged = false, expanded = false, co
 }) {
   const label = controller ? copy.controller : merged ? copy.merged : copy.member;
   const status = states.find(s => s.name === state)!.status;
-  return <button aria-label={`${label} · ${status}`} aria-expanded={expanded}
+  return <div aria-label={`${label} · ${status}`}
     class="flex flex-col items-center text-text" style={{ width: hideLabel ? 48 : 156 }}>
-    <TopologyNode label={label} width={156} hideLabel={hideLabel} graphic={
-      <span class="relative flex size-12 items-center justify-center text-text">
+    <TopologyNode label={label} width={156} hideLabel={hideLabel}
+      taskState={state === 'offline' ? unconfirmed : deviceAggregate} graphic={
+      <button aria-label={`Manage ${label}`} aria-expanded={expanded}
+        class="relative flex size-12 items-center justify-center text-text">
         <Icon name={controller ? 'monitor' : 'laptop'} size={32} />
         <span class={`absolute bottom-1 left-1 size-[6px] rounded-full ${state === 'offline' ? 'bg-text-tertiary' : 'bg-success'}`} />
         {merged && <span class="absolute bottom-0 right-0 flex size-5 items-center justify-center rounded-full bg-canvas">
           <BrandMark brand="codex" size={16} />
         </span>}
-      </span>
+      </button>
     } />
     {!hideLabel && <span class="text-caption leading-5 text-text-secondary">{status}</span>}
-  </button>;
+  </div>;
 }
 
 export function DeviceNodePanel({ state = 'lan' }: { state?: DeviceTopologyState }) {
@@ -89,32 +91,32 @@ export function DeviceBranch({ state = 'lan', form = 'multiple' }: { state?: Dev
   const merged = form !== 'multiple';
   const expanded = form !== 'merged-collapsed';
   const items: SceneItem[] = [
-    { x: 0, y: expanded ? 90 : 0, content: <DeviceNode state={state} merged={merged} expanded={expanded} /> },
+    { x: 0, y: expanded ? 90 : 8, content: <DeviceNode state={state} merged={merged} expanded={expanded} /> },
   ];
   const paths: ScenePath[] = [];
   const link = (d: string) => paths.push({ d, class: 'stroke-role-agent/55', 'stroke-width': '2' });
   if (!merged) {
     items.push(
-      { x: 180, y: 40, content: <TopologyNode label="Codex" brand="codex" /> },
-      { x: 180, y: 220, content: <TopologyNode label="Claude Code" brand="claude-code" /> },
+      { x: 180, y: 40, content: <TopologyNode label="Codex" brand="codex"
+        taskState={state === 'offline' ? unconfirmed : remoteRunning} /> },
+      { x: 180, y: 220, content: <TopologyNode label="Claude Code" brand="claude-code"
+        taskState={state === 'offline' ? unconfirmed : remoteUnread} /> },
       { x: 288, y: 0, content: <TopologyNode label={copy.profile} brand="codex" /> },
       { x: 312, y: 120, content: <TopologyGroup label={copy.accounts} members={accountMembers} /> },
       { x: 288, y: 220, content: <TopologyNode label={copy.profile} brand="claude-code" /> },
-      ...tasks.map((task, i) => ({ x: 396, y: i * 220, content: <TaskBubble {...task} width={228} form="compact" /> })),
     );
     link('M102 114H140Q152 114 152 102V76Q152 64 164 64H211 M152 114V232Q152 244 164 244H211');
     link('M259 64H274Q286 64 286 52V36Q286 24 298 24H319 M286 64V128Q286 140 298 140H312');
-    link('M367 24H396 M259 244H319 M367 244H396');
+    link('M259 244H319');
   } else if (expanded) {
     items.push(
       { x: 180, y: 40, content: <TopologyNode label={copy.profile} brand="codex" /> },
       { x: 204, y: 180, content: <TopologyGroup label={copy.accounts} members={accountMembers} /> },
-      { x: 288, y: 40, content: <TaskBubble {...tasks[0]} width={264} form="compact" /> },
     );
-    link('M102 114H140Q152 114 152 102V76Q152 64 164 64H211 M152 114V188Q152 200 164 200H204 M259 64H288');
+    link('M102 114H140Q152 114 152 102V76Q152 64 164 64H211 M152 114V188Q152 200 164 200H204');
   }
   return <div class={`inline-flex ${state === 'offline' ? 'opacity-40' : ''}`}>
-    <TopologyScene width={!expanded ? 156 : merged ? 552 : 624} height={!expanded ? 96 : merged ? 244 : 296}
+    <TopologyScene width={!expanded ? 156 : merged ? 300 : 422} height={!expanded ? 104 : merged ? 244 : 296}
       transparent items={items} paths={paths} />
   </div>;
 }
@@ -124,18 +126,17 @@ export function PortraitDeviceBranch({ narrow = false }: { narrow?: boolean }) {
   const agentX = narrow ? 254 : 480;
   const agentY = narrow ? [0, 240] : [10, 230];
   const groupX = narrow ? 154 : 386;
-  const task = narrow ? { x: 16, y: 60, width: 292 } : { x: 32, y: 0, width: 300 };
   const links = narrow
-    ? ['M326 124H314V24H302 M314 124V264H302', 'M254 24H243 M198 44V60 M254 264H218']
-    : ['M568 94H552V34H528 M552 94V254H528', 'M480 34H448 M386 34H332 M480 254H448'];
+    ? ['M326 124H314V24H302 M314 124V264H302', 'M254 24H243 M254 264H218']
+    : ['M568 94H552V34H528 M552 94V254H528', 'M480 34H448 M480 254H448'];
   return <TopologyScene width={narrow ? 390 : 640} height={310} transparent
     items={[
       { ...device, content: <DeviceNode hideLabel expanded /> },
       ...agentY.map((y, i) => ({ x: agentX, y, content: <TopologyNode hideLabel
-        label={i ? 'Claude Code' : 'Codex'} brand={i ? 'claude-code' : 'codex'} /> })),
+        label={i ? 'Claude Code' : 'Codex'} brand={i ? 'claude-code' : 'codex'}
+        taskState={i ? remoteUnread : remoteRunning} /> })),
       ...agentY.map((y, i) => ({ x: groupX, y: y + 4, content: <TopologyGroup hideLabel
         label={i ? copy.profiles : copy.accounts} members={i ? profileMembers : accountMembers} /> })),
-      { ...task, content: <TaskBubble {...tasks[0]} width={task.width} form="compact" /> },
     ]} paths={links.map(d => ({ d, class: 'stroke-role-agent/55', 'stroke-width': '2' }))} />;
 }
 

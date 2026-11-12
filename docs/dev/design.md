@@ -25,12 +25,14 @@ Remote recovery retries the remote check or restarts only the affected remote co
 ### Proposed device level
 
 `surfaces/device-link-topology.tsx` composes the proposed paired-device level using
-`modules/device-topology.tsx`. Landscape frames cover LAN, Tunnel, offline, merged
+`modules/device-topology.tsx`. Static landscape frames cover LAN, Tunnel, offline, merged
 single-Agent collapse/expansion, the device panel and the member controller source
 with optional upstream sources off/on. Portrait 640×800 and mobile 390×844 fold remote
 accounts/profiles with TopologyGroup and retain accessible node names without visible
 labels. Device nodes retain the existing 48px graphic size. The ARC mark, earcups,
 local tier-1 Agents and shared navigation capsule remain part of the homepage.
+Task activity changes badges only. Task bubbles, queues and task arcs are absent;
+a badge opens execution mode scoped to the node. Offline badges show unconfirmed.
 
 These frames are Proposed. Existing approved summary and workspace sources remain
 retained until topology implementation replaces their consumers. See the mapping for

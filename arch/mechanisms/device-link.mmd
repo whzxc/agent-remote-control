@@ -29,17 +29,23 @@ flowchart TB
     right["Controller RIGHT wing<br/>tier 1: local Agent OR paired member device"]
     agent["Remote tier 2: available Agents<br/>single Agent: merge device + Agent into tier 1"]
     account["Account / profile tier<br/>fold under pressure with TopologyGroup"]
-    task["Task bubbles<br/>only tasks this controller dispatched to this member"]
+    badges["Task-state badges only<br/>running count · needs me · completed unread<br/>offline = unconfirmed, no live counts"]
     left["Member LEFT wing<br/>tier 1: controller device<br/>dispatch attribution stays here"]
     upstream["Optional tier 2: controller upstream sources<br/>show upstream control sources = off by default"]
     management["Device node expands into panel<br/>pairing · address / override · path / latency<br/>last seen / error · unpair · transfer"]
     add["Existing right-wing add endpoint<br/>Add Agent / Add device"]
-    right --> agent --> account --> task
+    right --> agent --> account
+    right -.-> badges
+    agent -.-> badges
     left -.->|"switch on"| upstream
     right --- management
     left --- management
     add --> right
   end
+  geometry["Static topology geometry<br/>configuration and explicit disclosure only<br/>no task nodes, queues, task arcs or focus overlay"]
+  visibility["Execution task visibility<br/>controller sees only tasks it dispatched to this member<br/>member attributes those tasks to controller device"]
+  VIEW -.-> geometry
+  badges -.->|"activation opens scoped execution"| visibility
   lan -.-> VIEW
   tunnel -.-> VIEW
   offline -.->|"fade entire device branch"| right
@@ -48,4 +54,4 @@ flowchart TB
   class offer,pending waiting
   class lan,tunnel done
   class offline,expired,revoked,reject stopped
-  class right,agent,account,task,left,upstream,management,add,nesting experimental
+  class right,agent,account,badges,geometry,visibility,left,upstream,management,add,nesting experimental

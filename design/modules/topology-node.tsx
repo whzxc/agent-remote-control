@@ -1,5 +1,6 @@
 import { example } from "../fixtures/topology-node";
 import { Frame } from "adg";
+import { NodeTaskBadge, type NodeTaskState } from "./topology-task-state";
 import { AgentIcon, type AgentIconReading, type Brand } from "../components/agent-icon";
 
 export type TopologyNodeProps = {
@@ -11,6 +12,7 @@ export type TopologyNodeProps = {
   layout?: "vertical" | "source" | "agent";
   hideLabel?: boolean;
   graphic?: unknown;
+  taskState?: NodeTaskState;
 };
 export function TopologyNode({
   label,
@@ -21,9 +23,10 @@ export function TopologyNode({
   layout = "vertical",
   hideLabel = false,
   graphic: customGraphic,
+  taskState,
 }: TopologyNodeProps) {
   const horizontal = layout !== "vertical";
-  const graphic = customGraphic ?? (
+  const baseGraphic = customGraphic ?? (
     <span class={horizontal ? "grid size-12 shrink-0 place-items-center" : "flex"}>
       {horizontal && (
         <span
@@ -38,6 +41,10 @@ export function TopologyNode({
       </span>
     </span>
   );
+  const graphic = taskState ? <span class="relative inline-flex shrink-0">
+    {baseGraphic}
+    <span class="absolute -top-2 right-1"><NodeTaskBadge state={taskState} label={label} /></span>
+  </span> : baseGraphic;
   return (
     <div
       aria-label={hideLabel ? label : undefined}
