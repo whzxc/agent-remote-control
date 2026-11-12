@@ -48,7 +48,7 @@ export function notify(text: string, error = false, copy?: string) {
   if (text && !error)
     feedbackTimer = setTimeout(
       () => patch({ feedback: { text: "", error: false } }),
-      copy ? 12000 : 4500,
+      4000,
     );
 }
 let reading: Promise<void> | undefined;
@@ -98,13 +98,13 @@ function accept(status: Status) {
     ).catch(() => {});
   patch({ status, error: "", loading: false });
 }
-export async function run(label: string, action: () => Promise<unknown>) {
+export async function run(label: string, action: () => Promise<unknown>, onError = (message: string) => notify(message, true)) {
   if (connector.get().busy) return;
   patch({ busy: label });
   try {
     await action();
   } catch (e) {
-    notify(e instanceof Error ? e.message : String(e), true);
+    onError(e instanceof Error ? e.message : String(e));
   } finally {
     patch({ busy: "" });
   }

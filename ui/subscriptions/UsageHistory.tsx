@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { Popover } from "radix-ui";
-import { useGeometrySpring } from "../motion/geometry";
+import { useGeometryTransition } from "../motion/geometry";
 export type BubbleControls = {
   register: (key: string, node: HTMLElement | null) => void;
   hover: (key: string) => void;
@@ -40,7 +40,7 @@ export default function UsageHistory({
   live.current = { expanded, displayed };
   const hoverTarget = useRef(""),
     timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const motion = useGeometrySpring([0, 0, 80, 0], 0.34, 0.82);
+  const motion = useGeometryTransition([0, 0, 80, 0]);
   const refs = useRef({ motion });
   refs.current = { motion };
   const register = (key: string, node: HTMLElement | null) => {

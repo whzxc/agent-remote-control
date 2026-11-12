@@ -1,34 +1,44 @@
+import { Tooltip as HoverHelp } from "./ui/index";
 import { TransientLayer } from "./ui/TransientLayer";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Popover } from "radix-ui";
 import { ArrowUp, ArrowUpRight, ChevronRight, Ellipsis, ExternalLink, LoaderCircle, RefreshCw, RotateCw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { locale, t } from "../i18n";
 import { isDesktop, openUrl } from "../platform";
-import { connector, notify } from "../state/connector";
+import { connector } from "../state/connector";
 import { navigation } from "../state/navigation";
 import { groupedReleaseNotes, releaseList, updateRange, type PublishedRelease } from "../state/releaseNotes";
 import {
   updates, available, updateVisible, checkUpdate, showUpdate, dismissUpdate,
   installUpdate, downloadUpdate, skipUpdate, updateActive, loadReleaseHistory,
 } from "../state/updates";
-import Dialog from "./ui/Dialog";
+import Dialog, { useDialogFeedback } from "./ui/Dialog";
 import { Button, Notice, Progress, Icon, IconButton, Menu, Tooltip } from "./ui";
 import { SettingsSection, Setting } from "./ui/Settings";
 import { Card } from "./ui/card";
 import "./AppUpdate.css";
 
 const repository = "https://github.com/whzxc/agent-remote-control";
-const action = (promise: Promise<unknown>) => void promise.catch(error => notify(String(error), true));
+function useUpdateAction() {
+  const feedback = useDialogFeedback(), mounted = useRef(true);
+  const [actionError, setActionError] = useState('');
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const action = (promise: Promise<unknown>) => { setActionError(''); void promise.catch(error => {
+    if (mounted.current) setActionError(String(error)); else feedback(String(error), true);
+  }); };
+  return { action, actionError };
+}
 const mb = (bytes: number) => (bytes / 1048576).toFixed(1);
 
 function ReleaseMarkdown({ text, inline = false }: { text: string; inline?: boolean }) {
-  return <ReactMarkdown skipHtml disallowedElements={["img"]} components={{
+  const { action, actionError } = useUpdateAction();
+  return <>{actionError && <Notice tone="danger">{actionError}</Notice>}<ReactMarkdown skipHtml disallowedElements={["img"]} components={{
     ...(inline ? { p: ({ children }) => <>{children}</> } : {}),
     a: ({ href, children }) => href?.startsWith("https://")
       ? <a href={href} onClick={event => { event.preventDefault(); action(openUrl(href)); }}>{children}</a>
       : <span>{children}</span>,
-  }}>{text}</ReactMarkdown>;
+  }}>{text}</ReactMarkdown></>;
 }
 
 function ReleaseGroups({ releases, history = false }: { releases: PublishedRelease[]; history?: boolean }) {
@@ -56,6 +66,7 @@ function ReleaseGroups({ releases, history = false }: { releases: PublishedRelea
 }
 
 function PanelContents() {
+  const { action, actionError } = useUpdateAction();
   const state = updates.use();
   const { status } = connector.use();
   const [history, setHistory] = useState<PublishedRelease[]>([]);
@@ -83,6 +94,7 @@ function PanelContents() {
       <h2>{state.version ? t("updates.targetVersion", { version: state.version }) : t("appUpdates")}</h2>
     </header>
     <div className="update-panel-body">
+      {actionError && !state.error && <Notice tone="danger">{actionError}</Notice>}
       {(metadata || downloading) && <div className="update-download">
         <div className="update-status" role="status">
           <span>{metadata}</span>
@@ -91,7 +103,7 @@ function PanelContents() {
         {downloading && !!state.total && <Progress label={t("updateDownloadProgress")}
           value={state.downloaded / state.total * 100} />}
       </div>}
-      {state.error && <Notice><span title={state.error}>{t(errorLabel)}</span></Notice>}
+      {state.error && <Notice><HoverHelp text={state.error}><span>{t(errorLabel)}</span></HoverHelp></Notice>}
       {state.version && <Card asChild padded>
         <section className="update-notes" tabIndex={0} aria-label={t("updates.notes")}>
           <ReleaseGroups releases={releases} />
@@ -132,6 +144,7 @@ export function UpdateDock() {
 }
 
 function UpdateHistory({ currentVersion, onClose }: { currentVersion?: string; onClose: () => void }) {
+  const { action, actionError } = useUpdateAction();
   const [request, setRequest] = useState(0);
   const [releases, setReleases] = useState<PublishedRelease[]>();
   const [failed, setFailed] = useState(false);
@@ -143,6 +156,7 @@ function UpdateHistory({ currentVersion, onClose }: { currentVersion?: string; o
   }, [currentVersion, request]);
   const retry = () => { setFailed(false); setRequest(previous => previous + 1); };
   return <Dialog size="m" title={t("updates.history")} className="update-history" onClose={onClose}>
+    {actionError && <Notice tone="danger">{actionError}</Notice>}
     {failed ? <Notice action={<Button onClick={retry}>{t("retry")}</Button>}>{t("updates.historyFailed")}</Notice>
       : !releases ? <p role="status">{t("updates.historyLoading")}</p>
       : !releases.length ? <p>{t("updates.noNotes")}</p>
@@ -161,6 +175,7 @@ function UpdateHistory({ currentVersion, onClose }: { currentVersion?: string; o
 }
 
 export function AppUpdate({ children }: { children?: ReactNode }) {
+  const { action, actionError } = useUpdateAction();
   const { status } = connector.use(), state = updates.use();
   const [historyOpen, setHistoryOpen] = useState(false);
   const currentVersion = state.currentVersion ?? status?.version;
@@ -170,6 +185,7 @@ export function AppUpdate({ children }: { children?: ReactNode }) {
     ? t("downloadingValueMb", { size: mb(state.downloaded) })
     : feedback ? state.error ? t("updateCheckRetry") : state.message : t("checkForUpdates");
   return <section className="settings-about">
+    {actionError && !state.error && <Notice tone="danger">{actionError}</Notice>}
     <SettingsSection title={t("aboutApp")}>
       <Setting title={`ARC ${currentVersion ?? "—"}`} width={available() ? 300 : 152}>
         <div className="actions">

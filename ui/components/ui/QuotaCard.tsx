@@ -1,3 +1,4 @@
+import { Tooltip as HoverHelp } from "./index";
 import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react';
 import { t } from '../../i18n';
 import { quotaLabel, quotaPercent, quotaValue, resetDisplay } from '../../subscriptions/displayPreferences';
@@ -23,19 +24,19 @@ export function QuotaCard({ window, provider, now, detail, extra }: {
   const color = status.rank === 4 ? usageColors.exhausted
     : pace?.color ?? (status.rank === 2 ? usageColors.good : status.color);
   return <Card padded className="quota-window-card">
-    <h3 title={window.scope}>{scope ? `${scope} · ${label}` : label}</h3>
+    <HoverHelp text={window.scope}><h3>{scope ? `${scope} · ${label}` : label}</h3></HoverHelp>
     <div className="quota-window-value"><strong>{quotaPercent(window)}</strong><span>{quotaLabel()}</span></div>
     <div className="quota-window-track" role={value === undefined ? undefined : 'meter'}
       aria-label={`${label} · ${quotaLabel()}`} aria-valuenow={value} aria-valuemin={0} aria-valuemax={100}>
       <div style={{ width: `${value ?? 0}%`, background: color }} />
-      {pace?.tick != null && <span title={t('quotaTimeTick')} style={{ left: `clamp(1px, ${pace.tick}%, calc(100% - 1px))` }} />}
+      {pace?.tick != null && <HoverHelp text={t('quotaTimeTick')}><span style={{ left: `clamp(1px, ${pace.tick}%, calc(100% - 1px))` }} /></HoverHelp>}
     </div>
     <div className="quota-window-meta">
-      <time dateTime={resetAt} title={resetAt ? preciseTime(resetAt) : undefined}>{reset}</time>
+      <HoverHelp text={resetAt ? preciseTime(resetAt) : undefined}><time dateTime={resetAt}>{reset}</time></HoverHelp>
       {status.rank === 4 ? <span className="quota-window-exhausted">{t('quota.exhausted')}</span>
-        : pace?.label && <span className={pace.flame ? undefined : 'quota-window-warning'} title={pace.tooltip}>
+        : pace?.label && <HoverHelp text={pace.tooltip}><span className={pace.flame ? undefined : 'quota-window-warning'}>
           {detail ? detail(pace) : pace.label}
-        </span>}
+        </span></HoverHelp>}
     </div>
     {extra}
   </Card>;

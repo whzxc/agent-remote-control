@@ -1,3 +1,4 @@
+import { Tooltip as HoverHelp } from "../ui/index";
 import { useId, type CSSProperties, type ReactNode } from "react";
 import { Brain, Terminal, Pencil, Wrench, MessageSquare, ShieldAlert, CirclePause, Circle, AlertCircle, Check } from "lucide-react";
 import type { AgentPhase, DispatchSummary } from "../../types";
@@ -29,9 +30,9 @@ export function dispatchSourceLabel(source?: DispatchSummary["controlSource"]) {
   return source?.label || (source?.kind === "local-cli" ? t("localCli") : controlSource(source?.kind ?? "")?.displayName || source?.kind || source?.id || "");
 }
 export function SourceBadge({ source }: { source: NonNullable<DispatchSummary["controlSource"]> }) {
-  return <span className="activity-source-badge" title={dispatchSourceLabel(source)}>
+  return <HoverHelp text={dispatchSourceLabel(source)}><span className="activity-source-badge" role="img" aria-label={dispatchSourceLabel(source)}>
     {source.kind === "local-cli" ? <Icon icon={Terminal} /> : <SourceIcon platform={source.kind ?? ""} />}
-  </span>;
+  </span></HoverHelp>;
 }
 export function PhaseLabel({ phase, running = false, completed = false, children }: {
   phase: AgentPhase; running?: boolean; completed?: boolean; children: ReactNode;

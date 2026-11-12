@@ -145,7 +145,7 @@ export async function verifyCoordination(page, fixture, messages, out, key, scre
   await snapshot('detail');
   await board().getByRole('region', { name: m('recordDetail'), exact: true }).getByRole('button', { name: fixture.tasks[0].title, exact: true }).click();
   await page.getByRole('dialog', { name: fixture.tasks[0].title, exact: true }).waitFor();
-  await page.keyboard.press('Escape'); await board().waitFor();
+  await page.getByRole('dialog', { name: fixture.tasks[0].title, exact: true }).getByRole('button', { name: messages.back, exact: true }).click(); await board().waitFor();
   await page.waitForFunction(() => document.activeElement?.id === 'link-notice-a-fixture-task-0');
   await page.keyboard.press('Escape');
   assert.equal(await board().isVisible(), true);
@@ -157,7 +157,7 @@ export async function verifyCoordination(page, fixture, messages, out, key, scre
   await choose(m('filter'), m('input'));
   await board().getByRole('region', { name: m('attention'), exact: true }).getByRole('button', { name: new RegExp(`^${fixture.tasks[0].title}`) }).click();
   await page.getByRole('dialog', { name: fixture.tasks[0].title, exact: true }).waitFor();
-  await page.keyboard.press('Escape'); await board().waitFor(); await count(5);
+  await page.getByRole('dialog', { name: fixture.tasks[0].title, exact: true }).getByRole('button', { name: messages.back, exact: true }).click(); await board().waitFor(); await count(5);
   assert.equal(await chosen(m('filter'), m('input')), true);
   checks.push('pending input stays with the task owner; return preserves scope');
   await choose(m('filter'), m('all'));
@@ -176,7 +176,7 @@ export async function verifyCoordination(page, fixture, messages, out, key, scre
   assert.equal(original.taskDetail.id, 'fixture-task-1');
   assert.equal(original.taskDetail.turnId, 'fixture-turn-1-1');
   assert.equal(original.taskDetail.state, 'failed');
-  await page.keyboard.press('Escape'); await board().waitFor(); await count(5);
+  await page.getByRole('dialog', { name: fixture.tasks[1].title, exact: true }).getByRole('button', { name: messages.back, exact: true }).click(); await board().waitFor(); await count(5);
   await page.waitForFunction(() => document.activeElement?.id === 'event-event-2-fixture-task-1');
   checks.push('resource filters and original historical task detail preserve view and focus');
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, 'document fits viewport');

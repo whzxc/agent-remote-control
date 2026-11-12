@@ -39,10 +39,11 @@ export function activityReadMatches(read: ActivityRead, session: AgentActivitySe
   return true;
 }
 export type AgentPanelSelection = { agent: string; accountId?: string; platform?: true; session?: TrackedActivity; closing?: boolean } | undefined;
-export type AgentPanelAction = { type: "agent" | "toggle"; agent: string; accountId?: string } | { type: "platform"; agent: string; toggle?: boolean } | { type: "task"; agent: string; session: TrackedActivity } | { type: "back" } | { type: "dismiss" } | { type: "closed" };
+export type AgentPanelAction = { type: "agent" | "toggle"; agent: string; accountId?: string } | { type: "platform"; agent: string; toggle?: boolean } | { type: "task"; agent: string; session: TrackedActivity; toggle?: boolean } | { type: "back" } | { type: "dismiss" } | { type: "closed" };
 export function agentPanelSelection(current: AgentPanelSelection, action: AgentPanelAction): AgentPanelSelection {
   if (action.type === "closed") return undefined;
   if (action.type === "dismiss") return current && { ...current, closing: true };
+  if (action.type === "task" && action.toggle && current?.agent === action.agent && current.session?.id === action.session.id) return { ...current, closing: true };
   if (action.type === "platform") return action.toggle && current?.agent === action.agent && current.platform
     ? { ...current, closing: true } : { agent: action.agent, platform: true };
   if (action.type === "back") return current && { agent: current.agent, ...(current.accountId ? { accountId: current.accountId } : {}) };

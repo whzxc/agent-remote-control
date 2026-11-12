@@ -1,10 +1,11 @@
+import { useCopyState } from "../components/ui/useCopyState";
+import { Tooltip as HoverHelp } from "../components/ui/index";
 import { PanelFooter } from "../components/ui/Panel";
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Check, ChevronDown, ChevronRight, CircleDot, Copy, GitCommitHorizontal, Inbox, Lightbulb, ListChecks, Minus, ReceiptText, MessageSquare, FileText, X } from 'lucide-react';
 import { Button, Icon, IconButton, LoadingIndicator, Notice, SearchInput, SingleChoice } from '../components/ui';
 import { Card } from '../components/ui/card';
 import { t, locale } from '../i18n';
-import { copyText } from '../platform';
 import { connector } from '../state/connector';
 import { createStore } from '../state/store';
 import { useAppNow } from '../state/appEnvironment';
@@ -25,9 +26,8 @@ function Status({ entry }: { entry: AXEntry }) {
   return <span className="ax-status" data-status={status}><Icon icon={icons[status as keyof typeof icons] ?? CircleDot} size={14} />{t(`center.ax.status.${status}`)}</span>;
 }
 function CopyValue({ value, label, compact = false }: { value: string; label: string; compact?: boolean }) {
-  const [copied, setCopied] = useState(false), [error, setError] = useState('');
-  useEffect(() => { if (copied) { const timer = setTimeout(() => setCopied(false), 2000); return () => clearTimeout(timer); } }, [copied]);
-  return <><IconButton icon={copied ? Check : Copy} label={copied ? t('copied') : label} compact={compact} onClick={() => { setError(''); void copyText(value).then(() => setCopied(true), () => setError(t('copyFailedSelectAndCopyTheTextManually'))); }} />
+  const { copied, error, copy } = useCopyState();
+  return <><IconButton icon={copied ? Check : Copy} label={copied ? t('copied') : label} compact={compact} onClick={() => { void copy(value); }} />
     {copied && <span className="sr-only" role="status">{t('copied')}</span>}{error && <span role="alert" className="ax-copy-error">{error}</span>}</>;
 }
 
@@ -84,7 +84,7 @@ export default function AXPanel() {
       const kind = ['receipt', 'thread', 'observation', 'import', 'candidate-observation'].includes(item.kind) ? t(`center.ax.evidence.${item.kind}`) : item.kind;
       const status = item.state ? t(`center.state.${item.state}`) : item.availability ? t(`center.ax.availability.${item.availability}`) : '';
       return <div key={index} className="ax-evidence-row"><Icon icon={item.kind === 'receipt' ? ReceiptText : item.kind === 'thread' ? MessageSquare : FileText} size={14} />
-        <span>{kind}</span><code title={value}>{value}</code>{status && <span className="ax-evidence-state">{status}</span>}</div>;
+        <span>{kind}</span><HoverHelp text={value}><code>{value}</code></HoverHelp>{status && <span className="ax-evidence-state">{status}</span>}</div>;
     });
   }
   function detail(entry: AXEntry) {
@@ -131,7 +131,7 @@ export default function AXPanel() {
           const id = `ax-row-${entry.id}`;
           return <Card asChild padded key={entry.id} className="ax-row"><button type="button" id={id} onClick={() => open(entry, id)} aria-labelledby={`${id}-title`} aria-describedby={`${id}-meta ${id}-status`}>
             <span className="center-glyph"><Icon icon={Lightbulb} /></span>
-            <span className="ax-row-body"><span className="ax-row-title"><code title={entry.id}>{shortId(entry.id)}</code><strong id={`${id}-title`}>{entry.symptom}</strong></span>
+            <span className="ax-row-body"><span className="ax-row-title"><HoverHelp text={entry.id}><code>{shortId(entry.id)}</code></HoverHelp><strong id={`${id}-title`}>{entry.symptom}</strong></span>
               <span id={`${id}-meta`} className="ax-row-meta">{[!axClosed(entry) && severity(entry), t('center.ax.occurrences', { count: entry.occurrenceCount }), source(entry.source), badgeTime(entry)].filter(Boolean).join(' · ')}</span></span>
             <span id={`${id}-status`}><Status entry={entry} /></span><Icon icon={ChevronRight} className="center-row-go" />
           </button></Card>;

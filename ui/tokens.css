@@ -12,9 +12,6 @@
   --space-4: 16px;
   --space-6: 24px;
   --radius-pill: 999px;
-  --duration: 150ms;
-  --duration-panel: 200ms;
-  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --hover: color-mix(in srgb, var(--text) 6%, transparent);
   --success-soft: color-mix(in srgb, var(--success) 14%, var(--surface));
   --warning-soft: color-mix(in srgb, var(--warning) 14%, var(--surface));
@@ -75,7 +72,6 @@
 }
 
 :root {
-  --task-spring: cubic-bezier(.34, 1.56, .64, 1);
 }
 
 /* Studio lighting owns backdrop colors; panels use the design theme. */

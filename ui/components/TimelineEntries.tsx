@@ -1,3 +1,5 @@
+import { motionTransition } from "../motion/tokens";
+import { Tooltip as HoverHelp } from "./ui/index";
 import { TaskReceiptHistory } from "./TaskNeedsYou";
 import { AgentPhaseTile, TaskCard, TaskMessage } from "./ui/TaskPresentation";
 import { ChangedFiles } from "./TaskChanges";
@@ -41,7 +43,7 @@ function Fold({ open, onChange, summary, children, className = "", expandable = 
     {reduced ? open && <Collapsible.Content className="timeline-fold-content">{children}</Collapsible.Content> : <AnimatePresence initial={false}>
       {open && <Collapsible.Content forceMount asChild>
         <motion.div className="timeline-fold-content" initial={{ height: 0, opacity: 0 }}
-          animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.18, ease: [.34, 1.56, .64, 1] }}>
+          animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ ...motionTransition("panel"), duration: reduced ? 0 : motionTransition("panel").duration }}>
           {children}
         </motion.div>
       </Collapsible.Content>}
@@ -74,9 +76,9 @@ function UserMessage({ text, truncated, open, onChange }: { text: string; trunca
   </TaskMessage>;
 }
 function ToolTitle({ entry, project }: { entry: AgentTimelineEntry; project?: string | null }) {
-  return <span className="timeline-entry-title mono" title={entry.command || entry.path || entry.title}>
+  return <HoverHelp text={entry.command || entry.path || entry.title}><span className="timeline-entry-title mono">
     {entry.path && !entry.command ? <FilePath path={entry.path} project={project || entry.cwd} /> : entry.command || entry.title || t(entry.type === "command" ? "activity.phase.command" : entry.type === "file" ? "activity.phase.file" : "activity.phase.tool")}
-  </span>;
+  </span></HoverHelp>;
 }
 function ToolDetails({ entry, project }: { entry: AgentTimelineEntry; project?: string | null }) {
   return <div className="timeline-output">

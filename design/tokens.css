@@ -50,6 +50,7 @@
   --motion-fast: 120ms;
   --motion-base: 160ms;
   --motion-panel: 180ms;
+  --motion-running: 1600ms;
   --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
 

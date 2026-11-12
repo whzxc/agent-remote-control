@@ -1,3 +1,5 @@
+import { motionTransition } from "../motion/tokens";
+import { Tooltip as HoverHelp } from "./ui/index";
 import { useReducedMotion } from "../state/appEnvironment";
 import { useRef, useState } from "react";
 import { TaskRelation } from "./ui/TaskRelation";
@@ -32,7 +34,7 @@ function Headline({ session }: { session: TrackedActivity }) {
   return <span className={`activity-headline ${!headline.fallback && (display.phase === "command" || !!headline.path) ? "mono" : ""} ${headline.fallback ? "activity-headline-fallback" : ""}`}>
     <AnimatePresence initial={false}>
       <motion.span key={`${display.phase}:${headline.text}`} initial={{ opacity: reduced ? 1 : 0, y: reduced ? 0 : 5 }} animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: reduced ? 0 : -5 }} transition={{ duration: reduced ? 0 : 0.16 }}>
+        exit={{ opacity: 0, y: reduced ? 0 : -5 }} transition={{ ...motionTransition(), duration: reduced ? 0 : motionTransition().duration }}>
         {headline.path ? <FilePath path={headline.path} project={display.project} /> : headline.text}
       </motion.span>
     </AnimatePresence>
@@ -59,10 +61,9 @@ export function ActivityBubbleContent({ agent, session, now, density = "standard
   const detail = session.interaction ? t("activity.pendingHint") : completed ? duration === "—" ? undefined : t("activity.totalDuration", { duration }) : previous;
   const created = Date.parse(session.startedAt ?? "");
   const conversation = conversationRow;
-  const createdTime = Number.isFinite(created) && <time className="activity-created" dateTime={session.startedAt!}
-    title={t("agentPanel.created", { time: new Date(created).toLocaleString(language) })}>
+  const createdTime = Number.isFinite(created) && <HoverHelp text={t("agentPanel.created", { time: new Date(created).toLocaleString(language) })}><time className="activity-created" dateTime={session.startedAt!}>
     {new Date(created).toLocaleDateString(language, { ...(new Date(created).getFullYear() !== new Date(now).getFullYear() ? { year: "numeric" } as const : {}), month: "short", day: "numeric" })}
-  </time>;
+  </time></HoverHelp>;
   return <>
     <PhaseTile phase={phase} running={running} completed={completed} paused={paused} outcome={outcome} source={showSourceBadge ? source : undefined} />
     {historical && <span className="sr-only">{t(`detail.state.${state}`)}</span>}
@@ -78,12 +79,12 @@ export function ActivityBubbleContent({ agent, session, now, density = "standard
           <Headline session={session.interaction ? { ...session, headline: session.interaction.summary } : session} />
         </>}
       </span>}
-      {density === "detailed" && <span className="activity-detail-line" title={detail}>{detail || "\u00a0"}</span>}
+      {density === "detailed" && <HoverHelp text={detail}><span className="activity-detail-line">{detail || "\u00a0"}</span></HoverHelp>}
       {density !== "compact" && <span className={`activity-spec-row ${conversation ? "activity-conversation-meta" : ""}`}>
-        {conversation && project && <span className="activity-project" title={session.project!}>{project}</span>}
+        {conversation && project && <HoverHelp text={session.project!}><span className="activity-project">{project}</span></HoverHelp>}
         <RecordedDispatchSpec agent={agent} taskId={session.source === "arc-task" ? session.id : undefined} summary={session.dispatchSummary} />
         {conversation && !!session.turnCount && <span className="activity-meta-chip">{t("timeline.turnCount", { count: session.turnCount })}</span>}
-        {!conversation && project && <span className="activity-project" title={session.project!}>{project}</span>}
+        {!conversation && project && <HoverHelp text={session.project!}><span className="activity-project">{project}</span></HoverHelp>}
         {conversation ? createdTime : <StepTrail steps={session.recentSteps} running={running} />}
       </span>}
     </span>
@@ -100,7 +101,7 @@ export function ActivityBubble({ agent, session, now, onMove, onRead, density = 
   const hint = t("timeline.open");
   return <div className="activity-bubble-shell" role="group" aria-label={session.title || t("timeline.title")}><button type="button" className={`activity-bubble ${session.interaction ? "needs-attention" : ""} ${completed ? "completed" : ""}`}
       data-density={density}
-      data-timeline-anchor
+      data-timeline-anchor data-layer-switcher
       data-unread={unread || undefined}
       aria-keyshortcuts={onMove ? "ArrowUp ArrowDown" : undefined} aria-description={onMove ? t("reorderNodeHint") : undefined}
       onKeyDown={event => { if (onMove && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
@@ -108,7 +109,7 @@ export function ActivityBubble({ agent, session, now, onMove, onRead, density = 
       } }}
       data-activity-session={JSON.stringify([agent, session.id])}
       aria-label={`${session.title || t("timeline.title")}${session.relationKind ? ` · ${t(`activity.relation.${session.relationKind}`)}` : ""}${unread ? ` · ${t("activity.unread")}` : ""} · ${hint}`} onClick={() => {
-        selectAgentPanel({ type: "task", agent, session });
+        selectAgentPanel({ type: "task", agent, session, toggle: true });
       }}>
       <ActivityBubbleContent agent={agent} session={session} now={now} density={density} showSourceBadge={!unread} />
     </button>

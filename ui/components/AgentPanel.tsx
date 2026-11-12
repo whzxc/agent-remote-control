@@ -1,3 +1,4 @@
+import { Tooltip as HoverHelp } from "./ui/index";
 import { layerTrigger } from "../state/layers";
 import Panel, { PanelHeader, usePanelState } from "./ui/Panel";
 import { readOnlyBrowser } from "../browserMode";
@@ -57,12 +58,12 @@ function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWi
         : <AgentQuotaIcon agent={agent.agent} provider={provider} />}
       <div className="agent-panel-heading">
         <div className="agent-panel-title-row">
-          <h2 className="activity-panel-title" tabIndex={-1} title={title}>{title}</h2>
+          <HoverHelp text={title}><h2 className="activity-panel-title" tabIndex={-1}>{title}</h2></HoverHelp>
           {!readOnlyBrowser && agent.installed && status?.platform && status.platform !== "linux" && <IconButton icon={ArrowUpRight} label={t("activity.open")} onClick={() => {
             setError(""); void api("agents/open", "POST", { agent: agent.agent }).catch(error => setError(String(error)));
           }} />}
         </div>
-        <span className="activity-panel-meta" title={agent.version || undefined}>{[compactAgentVersion(agent.version), t("agentPanel.inProgress", { count: sessions.length })].filter(Boolean).join(" · ")}</span>
+        <HoverHelp text={agent.version || undefined}><span className="activity-panel-meta">{[compactAgentVersion(agent.version), t("agentPanel.inProgress", { count: sessions.length })].filter(Boolean).join(" · ")}</span></HoverHelp>
       </div>
       <div className="actions">
         {provider && !readOnlyBrowser && <IconButton icon={RefreshCw} label={t("usageRefresh")} busy={quotaBusy}
@@ -86,6 +87,7 @@ export default function AgentPanel({ agent, onSettings, onPanelFrame, expanded, 
   agent: Agent; onSettings: () => void; onPanelFrame: (rect: LayerRect | null) => void;
   expanded: boolean; onToggleWidth: () => void;
 }) {
+  const back = panelBack.use();
   const entryTrigger = useRef(layerTrigger());
   const selected = agentPanel.use()!, { error } = agentActivity.use();
   const accountState = useAccounts();
@@ -145,7 +147,7 @@ export default function AgentPanel({ agent, onSettings, onPanelFrame, expanded, 
           label={t(expanded ? 'restorePanelWidth' : 'expandPanelWidth')} aria-pressed={expanded} onClick={onToggleWidth} />} /> : <AgentView platformAvailable={managesAgentAccounts(agent.agent) && (!readOnlyBrowser || linkedAccounts.length > 0) || linkedAccounts.length > 1} resizable agent={agent} account={account} accountId={scopedAccountId} active={!session} onSettings={onSettings} expanded={expanded} onToggleWidth={onToggleWidth} initial={initial && { ...initial, timedOut: !initial.result }} />}
       </div>
       {session && <div className="agent-panel-view dialog-swap" key={`${agent.agent}:${session.id}`}>
-        <ActivityTimeline resizable titleId={taskTitleId} agent={agent.agent} session={session} expanded={expanded} onToggleWidth={onToggleWidth} onBack={() => selectAgentPanel({ type: "back" })} />
+        <ActivityTimeline backLabel={back?.label} resizable titleId={taskTitleId} agent={agent.agent} session={session} expanded={expanded} onToggleWidth={onToggleWidth} onBack={() => selectAgentPanel({ type: "back" })} />
       </div>}
     </div>
   </Panel>;

@@ -578,3 +578,5 @@ Pet preview atlas labels are decorative image content inside `aria-hidden` previ
 - Retained generic card/settings parts without composed consumers or standalone part frames keep their per-part lifecycle/coverage exceptions above.
 
 `surfaces/permissions.tsx` / `readiness` maps the L center workspace to `ui/App.tsx` and `ui/components/PermissionsPage.tsx`. `modules/permissions.tsx` owns readiness rows and `fixtures/permissions.ts` owns their representative text. Status: Proposed for gallery review; the source records existing business content under the approved Panel geometry.
+
+The shared layer shells implement fixed M node slots and the reviewed L/XL workspace slots. Setup frames inherit the M Dialog shell, fixed footer and retained stacked parents. Hover help uses the shared Tooltip; shell and interaction motion read design tokens.

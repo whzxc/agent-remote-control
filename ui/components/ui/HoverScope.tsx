@@ -1,7 +1,7 @@
 import { environmentMedia } from "../../state/appEnvironment";
 import { useLayoutEffect, useRef, useState, type HTMLAttributes } from "react";
-import { motion, useSpring } from "motion/react";
-import { springTransition } from "../../motion/geometry";
+import { motion, useMotionValue, animate } from "motion/react";
+import { motionTransition } from "../../motion/tokens";
 
 // Controlled owners retain bubble sources; Radix owns highlighted menu items.
 // Ordinary groups derive a temporary target from pointer and keyboard focus.
@@ -35,10 +35,10 @@ function Highlight({ root, activeKey, tracking }: {
   activeKey: string;
   tracking: "pointer" | "highlighted";
 }) {
-  const transition = springTransition(0.22, 0.9);
-  const x = useSpring(0, transition), y = useSpring(0, transition);
-  const width = useSpring(0, transition), height = useSpring(0, transition);
-  const radius = useSpring(0, transition);
+  const transition = motionTransition("fast");
+  const x = useMotionValue(0), y = useMotionValue(0);
+  const width = useMotionValue(0), height = useMotionValue(0);
+  const radius = useMotionValue(0);
   const [visible, setVisible] = useState(false);
   const present = useRef(false);
   useLayoutEffect(() => {
@@ -71,7 +71,7 @@ function Highlight({ root, activeKey, tracking }: {
       clearTimeout(hideTimer);
       hideTimer = undefined;
       [x, y, width, height, radius].forEach((value, i) => {
-        if (present.current && !reduced.matches) value.set(next[i]);
+        if (present.current && !reduced.matches) animate(value, next[i], transition);
         else value.jump(next[i]);
       });
       present.current = true;

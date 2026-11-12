@@ -51,7 +51,7 @@ button.center-row:focus-visible { outline: 2px solid var(--accent); outline-offs
 .center-technical { margin-top: var(--space-1); font-size: var(--text-meta); }
 .center-technical > summary { display: inline-flex; align-items: center; gap: var(--space-1); cursor: pointer; list-style: none; color: var(--text-tertiary); border-radius: 6px; }
 .center-technical > summary::-webkit-details-marker { display: none; }
-.center-technical > summary > .icon { width: 14px; height: 14px; transform: rotate(-90deg); transition: transform var(--duration) var(--ease); }
+.center-technical > summary > .icon { width: 14px; height: 14px; transform: rotate(-90deg); transition: transform var(--motion-fast) var(--ease-enter); }
 .center-technical[open] > summary > .icon { transform: none; }
 .center-technical > summary:hover { color: var(--text-secondary); }
 .center-content pre, .center-footer pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--text-meta); max-height: 240px; overflow: auto; margin: var(--space-2) 0 0; padding: var(--space-2); background: var(--surface-subtle); border-radius: var(--radius-tile); }

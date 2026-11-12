@@ -59,7 +59,7 @@ for (const width of [264]) for (const mode of ["default", "tree", "flat"] as con
       target.dispatchEvent(new window.PointerEvent(type, { bubbles: true, pointerId: 1, isPrimary: true, button: 0, clientX: x, clientY: y, pointerType }));
     });
     const click = async (target: Element, detail = 1) => act(() => { fireEvent.click(target, { detail }); });
-    await click(page.getByTitle(origin.label));
+    await click(page.getByRole("img", { name: origin.label, exact: true }));
     assert.equal(read, true); assert.equal(agentPanel.get(), undefined);
     for (const kind of ["mouse", "touch", "pen"]) {
       read = false;

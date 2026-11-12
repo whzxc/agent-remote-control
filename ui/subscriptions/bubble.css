@@ -84,7 +84,7 @@
   font-size: 11px;
   gap: 24px;
 }
-.history-popover { animation: quota-fade 150ms ease-out; }
+.history-popover { animation: quota-fade var(--motion-base) var(--ease-enter); }
 @keyframes quota-fade { from { opacity: 0; } to { opacity: 1; } }
 :root[data-reduced-motion="true"] { .history-popover { animation: none; } }
 

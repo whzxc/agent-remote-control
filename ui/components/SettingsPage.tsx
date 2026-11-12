@@ -1,3 +1,4 @@
+import { useDialogFeedback } from "./ui/Dialog";
 import { useSubmittedDirty } from "./ui/useSubmittedDirty";
 import { usePanelState } from "./ui/Panel";
 import { navigation } from "../state/navigation";
@@ -10,7 +11,7 @@ import { t, language, languageOptions, setLanguage } from "../i18n";
 import { theme, themeColor, themeColors, type Theme } from "../theme";
 import { api } from "../api";
 import { isDesktop } from "../platform";
-import { connector, run, notify, refreshConnector } from "../state/connector";
+import { connector, run as runGlobal, refreshConnector } from "../state/connector";
 import { useInterval } from "../state/hooks";
 import type { Service } from "../state/types";
 import { Button, Icon, Switch, SingleChoice, Input, Field } from "./ui";
@@ -18,6 +19,9 @@ import { SettingsSection as Group, Setting as Row } from "./ui/Settings";
 import ExperimentalSettings from "./ExperimentalSettings";
 import { AppUpdate } from "./AppUpdate";
 export default function SettingsPage() {
+  const notify = useDialogFeedback();
+  const run = (label: string, action: () => Promise<unknown>) => runGlobal(label, action, message => notify(message, true));
+
   const { status, busy } = connector.use();
   const { settingsExperimental } = navigation.use();
   const previousSettings = useRef<string | undefined>(undefined);

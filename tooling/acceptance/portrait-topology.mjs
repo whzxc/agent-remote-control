@@ -99,7 +99,7 @@ export async function verifyPortraitTopology(page, fixture, messages, out, key, 
     throw new Error('Portrait did not compact the upper wing first under height pressure');
   }
   center(open, taskCount === 4 ? 'tasks' : 'composition');
-  await page.getByTitle(messages['studio.clock'], { exact: true }).waitFor({ state: 'visible' });
+  await page.getByLabel(messages['studio.clock'], { exact: true }).waitFor({ state: 'visible' });
   const board = page.getByRole('button', { name: messages['center.open'], exact: true });
   if (Boolean(await board.getAttribute('aria-description')) !== (taskCount > 0)) {
     throw new Error('Board trigger did not reflect the current activity');

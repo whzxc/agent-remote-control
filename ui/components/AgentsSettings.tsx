@@ -1,3 +1,5 @@
+import { motionTransition } from "../motion/tokens";
+import { Tooltip as HoverHelp } from "./ui/index";
 import Panel from "./ui/Panel";
 import { readOnlyBrowser } from "../browserMode";
 import { useReducedMotion } from "../state/appEnvironment";
@@ -24,7 +26,6 @@ import UsageOverview from "../subscriptions/UsageOverview";
 import QuotaBubble from "../subscriptions/QuotaBubble";
 import AgentDisplaySettings from "./AgentDisplaySettings";
 import AgentDispatchDefaults from "./AgentDispatchDefaults";
-import { springTransition } from "../motion/geometry";
 import { BrandMark, IconButton, Switch, Notice, Loading } from "./ui";
 
 import { SettingsDialog as Dialog } from "./ui/Settings";
@@ -52,7 +53,7 @@ function AgentCard({ agent, onMove, children }: {
 }) {
   const controls = useDragControls();
   const reduced = useReducedMotion();
-  const transition = reduced ? { duration: 0 } : springTransition(0.3, 0.9);
+  const transition = reduced ? { duration: 0 } : motionTransition();
   if (!canReorder(agent)) {
     return <Card asChild><motion.article className="agent-card" layout="position" transition={transition}>
       {children}
@@ -117,7 +118,7 @@ export function AgentDetails({
         <BrandMark markup={icons[agent.agent]} />
         <div>
           <strong>{name(agent)}</strong>
-          <div className="agent-summary-meta">{agent.installed !== undefined && <p title={agent.version || undefined}>{agent.installed ? compactAgentVersion(agent.version) : t("agentNotInstalled")}</p>}
+          <div className="agent-summary-meta">{agent.installed !== undefined && <HoverHelp text={agent.version || undefined}><p>{agent.installed ? compactAgentVersion(agent.version) : t("agentNotInstalled")}</p></HoverHelp>}
           {showOfficialLink && agentLinks[agent.agent] && <a href={agentLinks[agent.agent]} onClick={e => { e.preventDefault(); void openUrl(agentLinks[agent.agent]!); }}>{t("officialSetup")}</a>}</div>
         </div>
       </div>
@@ -211,9 +212,9 @@ export default function AgentsSettings({ onClose, initialAgent }: { onClose: () 
                 ) : (
                   <strong>{name(agent)}</strong>
                 )}
-                <span title={agent.version || undefined}>
+                <HoverHelp text={agent.version || undefined}><span>
                   {[compactAgentVersion(agent.version), readiness(agent)].filter(Boolean).join(" · ")}
-                </span>
+                </span></HoverHelp>
               </div>
               {agent.installed && (
                 <Switch

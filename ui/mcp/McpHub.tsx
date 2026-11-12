@@ -1,10 +1,11 @@
+import { useCopyState } from "../components/ui/useCopyState";
+import { Tooltip as HoverHelp } from "../components/ui/index";
 import Panel from "../components/ui/Panel";
 import { useDialogCompletion } from "../components/ui/Dialog";
 import { useCallback, useEffect, useId, useState } from 'react';
 import { Check, Copy, Globe, Plug, Plus, RotateCw, Terminal, Trash } from 'lucide-react';
 import { api } from '../api';
 import { locale, t } from '../i18n';
-import { copyText } from '../platform';
 import { useAppNow } from '../state/appEnvironment';
 import { relativeTime } from '../lib/relativeTime';
 import { DialogClose, Button, Dialog, Disclosure, Icon, IconButton, Loading, Notice, Prompt, SearchInput, SingleChoice, Status, Switch, Tag, Tile } from '../components/ui';
@@ -35,9 +36,8 @@ function ToolRow({ tool }: { tool: HubTool }) {
 }
 
 function Failure({ server }: { server: HubServer }) {
-  const [copied, setCopied] = useState(false), [error, setError] = useState(''), kind = failureKind(server.error);
-  useEffect(() => { if (!copied) return; const timer = setTimeout(() => setCopied(false), 2000); return () => clearTimeout(timer); }, [copied]);
-  const copy = () => { setError(''); void copyText(t('mcp.promptFix', { name: server.name, error: server.error ?? '' })).then(() => setCopied(true), () => setError(t('copyFailedSelectAndCopyTheTextManually'))); };
+  const { copied, error, copy: copyValue } = useCopyState(), kind = failureKind(server.error);
+  const copy = () => { void copyValue(t('mcp.promptFix', { name: server.name, error: server.error ?? '' })); };
   return <Notice layout="stacked" actionBelow title={t(`mcp.failure.${kind}`)} action={<Button onClick={copy}><Icon icon={copied ? Check : Copy} />{t(copied ? 'copied' : 'mcp.copyFix')}</Button>}>
     <p>{t(`mcp.failureHint.${kind}`)}</p>
     <code>{server.error}</code>
@@ -68,7 +68,7 @@ function Server({ server, query, busy, act, remove, now }: { server: HubServer; 
       <Tile icon={http ? Globe : Terminal} />
       <div className="mcp-server-identity">
         <h3 id={headingId}>{server.name}</h3>
-        <p>{target ? `${transport} · ` : transport}{target && <span className="mcp-target" title={target}>{target}</span>}</p>
+        <p>{target ? `${transport} · ` : transport}{target && <HoverHelp text={target}><span className="mcp-target">{target}</span></HoverHelp>}</p>
       </div>
       {!failure && <Status tone={tone(server.state)}>{t(`mcp.state.${server.state}`)}</Status>}
       <div className="mcp-server-actions">

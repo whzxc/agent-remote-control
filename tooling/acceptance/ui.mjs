@@ -273,7 +273,7 @@ try {
           // Regression: changing studio lighting must not replace the saved application theme.
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
           const settings = page.getByRole('button', { name: messages['studio.settings'], exact: true });
-          await page.getByTitle(messages['studio.clock'], { exact: true }).waitFor({ state: 'visible' });
+          await page.getByLabel(messages['studio.clock'], { exact: true }).waitFor({ state: 'visible' });
           await settings.click();
           const phase = fixture.studio === 'night' ? 'day' : 'night';
           await page.getByRole('radio', { name: messages[`studio.${phase}`], exact: true }).click();

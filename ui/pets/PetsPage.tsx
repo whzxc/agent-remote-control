@@ -1,3 +1,4 @@
+import { Tooltip as HoverHelp } from "../components/ui/index";
 import { useSubmittedDirty } from "../components/ui/useSubmittedDirty";
 import { usePanelState } from "../components/ui/Panel";
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
@@ -50,11 +51,11 @@ export default function PetsPage() {
       <div className="pet-catalog">{library.packages.map(p => <Card asChild key={p.key}><article className="pet-package">
         <PetPreview pet={p} />
         <div className="pet-package-content">
-          <h3 title={p.name}>{p.name}</h3>
-          <p className="pet-description" title={p.description ?? undefined}>
+          <HoverHelp text={p.name}><h3>{p.name}</h3></HoverHelp>
+          <HoverHelp text={p.description ?? undefined}><p className="pet-description">
             {p.origin === 'builtin' ? t('pets.builtIn') : p.origin === 'codex' ? t('pets.readOnly') : p.source.pageUrl ? <a onClick={visit} href={p.source.pageUrl} target="_blank" rel="noreferrer">{p.source.site}</a>
               : p.source.site === 'zip' ? t('pets.localZip') : p.description || p.source.site}
-          </p>
+          </p></HoverHelp>
           <div className="pet-actions">
             <Button disabled={!!busy || assignments.default === p.key} onClick={() => assignPet('default', p.key)}>{t(assignments.default === p.key ? 'pets.defaultPet' : 'pets.setDefault')}</Button>
             {p.origin === 'arc' && <Button variant="danger" busy={busy === p.key} disabled={!!busy} aria-label={t('pets.remove', { name: p.name })} onClick={() => void remove(p.key)}>{t('remove')}</Button>}

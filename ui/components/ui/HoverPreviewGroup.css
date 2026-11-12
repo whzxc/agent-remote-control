@@ -1,5 +1,5 @@
 [data-radix-popper-content-wrapper]:has(> .hover-preview[data-moving="true"]) {
-  transition: transform 200ms cubic-bezier(.2, .8, .2, 1);
+  transition: transform var(--motion-base) var(--ease-enter);
 }
 .hover-preview { width: 300px; max-width: calc(100vw - 24px); }
 :root[data-reduced-motion="true"] {

@@ -1,3 +1,4 @@
+import { useDialogFeedback } from "./ui/Dialog";
 import { usePanelState } from "./ui/Panel";
 import { useEffect, useState } from "react";
 import { Accessibility, Bell, Check, Circle, HardDrive, LogIn, Monitor, Terminal, type LucideIcon } from "lucide-react";
@@ -5,7 +6,7 @@ import { api } from "../api";
 import { locale, t } from "../i18n";
 import { isDesktop, openUrl } from "../platform";
 import { Button, Group, Icon, Tooltip } from "./ui";
-import { connector, notify } from "../state/connector";
+import { connector } from "../state/connector";
 import { permissions, refreshPermissions, type PermissionItem } from "../state/permissions";
 
 const systemIds = ["accessibility", "screen-recording", "full-disk-access", "notifications", "login-start"];
@@ -15,6 +16,7 @@ function combined(a?: PermissionItem, b?: PermissionItem): string {
   return states.includes("missing") ? "missing" : states.includes("unknown") ? "unknown" : states.every(s => s === "not-applicable") ? "not-applicable" : "granted";
 }
 export default function PermissionsPage() {
+  const notify = useDialogFeedback();
   const { data, loading } = permissions.use();
   const [acting, setActing] = useState(false);
   const busy = loading || acting;

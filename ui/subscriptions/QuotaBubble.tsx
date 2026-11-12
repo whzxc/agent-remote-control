@@ -1,3 +1,4 @@
+import { Tooltip as HoverHelp } from "../components/ui/index";
 import { useSensitiveText } from "../components/Sensitive";
 import { useState } from "react";
 import { icons } from "../state/agents";
@@ -160,7 +161,7 @@ export default function QuotaBubble({
                     <Icon icon={hasError ? CircleAlert : TriangleAlert} />
                   </span>
                 )}
-                <time className="refresh-age" title={preciseTime(provider.observedAt)}>{ageText}</time>
+                <HoverHelp text={preciseTime(provider.observedAt)}><time className="refresh-age">{ageText}</time></HoverHelp>
               </span>
               {refreshable && <IconButton
                 compact

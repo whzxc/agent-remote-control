@@ -69,6 +69,7 @@ export function attentionProjection() {
     if (request.status === 'pending') items.push({ id: `oauth:${request.id}`, kind: 'oauth', requestId: request.id, title: request.clientName });
   }
   for (const target of navigationAttention.get()) items.push({ id: `navigation:${target.title}`, kind: 'navigation', title: target.title });
+  if (connection.feedback.error && connection.feedback.text) items.push({ id: "feedback", kind: "feedback", title: connection.feedback.text });
   if (update.error) items.push({ id: 'update', kind: 'update', title: update.version ?? 'ARC' });
   for (const item of board.page?.attention?.items ?? []) if (item.kind === 'ax-candidate' || item.kind === 'ax-triage') items.push({ id: `ax:${item.id}`, kind: 'ax', item });
   const complete = !!board.page && !board.error && board.page.attention?.coverage.ax === 'observed' && board.page.activityCoverage === 'observed' && board.page.notificationCoverage === 'observed' && !!observed.snapshot && !observed.error && !!connection.status && !connection.error && update.checked;

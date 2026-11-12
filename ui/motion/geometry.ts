@@ -1,18 +1,12 @@
+import { motionTransition } from "./tokens";
 import { environmentMedia } from "../state/appEnvironment";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { animate, motionValue, frame, cancelFrame } from "motion";
 import { createStore } from "../state/store";
 
-// Convert the product's response/damping ratio to Motion's physical spring.
-export function springTransition(response: number, damping: number) {
-  const frequency = 2 * Math.PI / response;
-  return { type: "spring" as const, stiffness: frequency ** 2,
-    damping: 2 * damping * frequency, mass: 1, restDelta: 0.001, restSpeed: 0.005 };
-}
-
 // SVG contours and native hit regions need numeric snapshots of the same frame.
 // Motion owns integration, velocity and interruption; publish once per frame.
-export function useGeometrySpring(initial: number[], response: number, damping: number) {
+export function useGeometryTransition(initial: number[]) {
   const spring = useMemo(() => {
     const values = initial.map((value) => motionValue(value));
     const state = createStore([...initial]);
@@ -31,7 +25,7 @@ export function useGeometrySpring(initial: number[], response: number, damping: 
       goal = [...next];
       values.forEach((value, i) => {
         if (value.get() !== next[i] || value.isAnimating())
-          animate(value, next[i]!, springTransition(response, damping));
+          animate(value, next[i]!, motionTransition());
       });
     };
     const reduce = () => { if (reduced.matches) jump(goal); };
@@ -45,7 +39,7 @@ export function useGeometrySpring(initial: number[], response: number, damping: 
         reduced.removeEventListener("change", reduce);
       };
     } };
-  }, [response, damping]);
+  }, []);
   useEffect(spring.start, [spring]);
   return { value: useSyncExternalStore(spring.state.subscribe, spring.state.get), to: spring.to, jump: spring.jump };
 }

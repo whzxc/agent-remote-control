@@ -1,13 +1,14 @@
+import { useCopyState } from "./ui/useCopyState";
+import { Tooltip as HoverHelp } from "./ui/index";
 import Panel from "./ui/Panel";
 import { useDockOpening } from "./useDockOpening";
 import { useSubmittedDirty } from "./ui/useSubmittedDirty";
-import { DialogActions, useDialogCompletion } from "./ui/Dialog";
+import { DialogActions, useDialogCompletion, useDialogFeedback } from "./ui/Dialog";
 import { Sensitive } from "./Sensitive";
 import { useCallback, useEffect, useState } from "react";
 import { Cloud, RefreshCw } from "lucide-react";
 import { api } from "../api";
 import { locale, t } from "../i18n";
-import { copyText } from "../platform";
 import { connector, notify, refreshConnector } from "../state/connector";
 import { appNow, useAppNow } from "../state/appEnvironment";
 import { useRelays, useRelayProgress, type Relay, type RelayProgress as Progress } from "../state/relay";
@@ -34,6 +35,8 @@ function HostedRelay({ relay, version, startJob, disabled }: {
   relay: Relay; version: string; startJob: (job: Job) => Promise<boolean>; disabled: boolean;
 }) {
   const { status } = connector.use();
+  const invitation = useCopyState();
+  const notify = useDialogFeedback();
   const [members, setMembers] = useState<Member[]>([]), [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(""), [error, setError] = useState(""), [membersError, setMembersError] = useState("");
   const [confirm, setConfirm] = useState<Confirmation>();
@@ -54,11 +57,11 @@ function HostedRelay({ relay, version, startJob, disabled }: {
         if (!await startJob({ action: "delete", id: relay.id })) { setError(t("connect.actionFailed")); return; }
       } else {
         const result = await api<{ link?: string }>(`relay/${name}`, "POST", { id: relay.id, ...(member ? { instanceId: member.id } : {}) });
-        if (name === "share" && result.link) { await copyText(result.link); notify(t("hosting.inviteCopied")); }
+        if (name === "share" && result.link) { if (!await invitation.copy(result.link)) setError(t("copyFailedSelectAndCopyTheTextManually")); }
         if (name === "reset-token") notify(t("hosting.inviteReset"));
         if (name === "remove") await readMembers();
       }
-      await confirmation.finish();
+      if (confirm) await confirmation.finish();
     } catch { setError(t("connect.actionFailed")); }
     finally { setBusy(""); }
   }
@@ -80,7 +83,7 @@ function HostedRelay({ relay, version, startJob, disabled }: {
       <div className="hosted-relay-invite">
         <p>{t("hosting.invite")}<span className="muted"> · {t("hosting.inviteDescription")}</span></p>
         <div className="actions">
-          <Button variant="primary" busy={busy === "share"} disabled={blocked || !relay.url} onClick={() => void action("share")}>{t("hosting.copyInvite")}</Button>
+          <Button variant="primary" busy={busy === "share"} disabled={blocked || !relay.url} onClick={() => void action("share")}>{t(invitation.copied ? "copied" : "hosting.copyInvite")}</Button>
           <Button disabled={blocked || !relay.url} onClick={() => { setError(""); setConfirm("reset-token"); }}>{t("hosting.reset")}</Button>
         </div>
       </div>
@@ -93,7 +96,7 @@ function HostedRelay({ relay, version, startJob, disabled }: {
       {membersError && <Notice tone="danger">{membersError}</Notice>}
       <div className="hosted-relay-table" aria-busy={loading}>
         <DataTable rows={members} empty={loading ? <Loading /> : membersError ? t("connect.membersFailed") : t("hosting.noDevices")} columns={[
-          { key: "device", title: t("hosting.device"), width: 180, render: member => <div className="hosted-relay-device"><Status tone={member.online ? "success" : "neutral"}><span className="sr-only">{t(member.online ? "connect.online" : "connect.offline")}</span></Status><span className="hosted-relay-device-name" title={name(member)}>{name(member)}</span>{member.isSelf && <span className="hosted-relay-self">{t("hosting.self")}</span>}</div> },
+          { key: "device", title: t("hosting.device"), width: 180, render: member => <div className="hosted-relay-device"><Status tone={member.online ? "success" : "neutral"}><span className="sr-only">{t(member.online ? "connect.online" : "connect.offline")}</span></Status><HoverHelp text={name(member)}><span className="hosted-relay-device-name">{name(member)}</span></HoverHelp>{member.isSelf && <span className="hosted-relay-self">{t("hosting.self")}</span>}</div> },
           { key: "joined", title: t("hosting.joined"), width: 100, render: member => <time dateTime={member.joinedAt}>{compactDate(member.joinedAt)}</time> },
           { key: "seen", title: t("hosting.lastSeen"), width: 100, render: member => member.lastOnline ? <time dateTime={member.lastOnline}>{compactDate(member.lastOnline, true)}</time> : t("connect.neverOnline") },
           { key: "actions", title: <span className="sr-only">{t("hosting.actions")}</span>, width: 80, align: "right", render: member => !member.isSelf && <Button variant="ghost" disabled={blocked} onClick={() => { setError(""); setConfirm(member); }}>{t("hosting.remove")}</Button> },

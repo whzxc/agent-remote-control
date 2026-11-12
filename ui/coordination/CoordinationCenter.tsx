@@ -1,3 +1,4 @@
+import { Tooltip as HoverHelp } from "../components/ui/index";
 import { oauthApproval, openNavigationAttention } from "../state/externalNavigation";
 import Panel from "../components/ui/Panel";
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
@@ -27,7 +28,7 @@ import './center.css';
 import AXPanel, { axSelection } from './AXPanel';
 import { axObservation, refreshAX } from './axState';
 
-export const centerReturn = createStore<{ kind: 'task' | 'connection' | 'update'; focusId: string } | undefined>(undefined);
+export const centerReturn = createStore<{ kind: 'connection' | 'update'; focusId: string } | undefined>(undefined);
 const selectedRecord = createStore<BoardRecord | undefined>(undefined);
 let recordFocus = '';
 const journal = createStore<{ page?: EventPage; rows: JournalEvent[]; resource: string; historyCursor?: string; error: string; reset?: string; gap?: { resource: string; observedAt: string; coverage: unknown } }>({ rows: [], resource: '', error: '' });
@@ -132,6 +133,7 @@ export default function CoordinationCenter() {
     boardOpen.set(false); selectAgentPanel({ type: 'task', ...target });
   }
   function openAttention(item: Attention, focusId: string) {
+    if (item.kind === 'feedback') return;
     if (item.kind === 'oauth') { oauthApproval.set({ id: item.requestId }); return; }
     if (item.kind === 'navigation') { openNavigationAttention(item.title); return; }
     if (item.kind === 'blocker') { void readRecord(item.record); return; }
@@ -161,11 +163,12 @@ export default function CoordinationCenter() {
   const title = (item: Attention) => item.kind === 'task' ? item.session.title ?? taskTarget(item.session.id)?.session.title ?? item.session.id : item.kind === 'blocker' ? item.record.summary : item.kind === 'ax' ? item.item.summary ?? t('center.axTriage', { count: item.item.open ?? 0 }) : item.title;
   const sourceName = (id?: string) => connection.sources.find(source => source.id === id)?.label ?? id ?? t('center.unknown');
   const owner = (row: BoardRecord) => row.localOrigin ? t('center.local') : connection.sources.find(source => source.id === row.ownerSourceId)?.label ?? row.ownerSourceId ?? t('center.unknown');
-  const kindLabel = (item: Attention) => item.kind === 'oauth' ? t('connect.approveTitle') : item.kind === 'navigation' ? t('open') : item.kind === 'task' ? t(item.state === 'needsYou' ? 'center.waitUser' : `detail.state.${item.state}`) : t(item.kind === 'connection' && item.notification ? 'center.notification' : `center.${item.kind}`);
+  const kindLabel = (item: Attention) => item.kind === 'feedback' ? t('connect.actionFailed') : item.kind === 'oauth' ? t('connect.approveTitle') : item.kind === 'navigation' ? t('open') : item.kind === 'task' ? t(item.state === 'needsYou' ? 'center.waitUser' : `detail.state.${item.state}`) : t(item.kind === 'connection' && item.notification ? 'center.notification' : `center.${item.kind}`);
   const chips = (keys: readonly string[]) => keys.length > 0 && <span className="center-chips">{keys.map(key => <span key={key} className="center-chip">{resourceLabel(key)}</span>)}</span>;
   const coverageNote = (row: BoardRecord) => row.activityCoverage !== 'observed' && <span className="center-note">{t(`center.coverage.${row.activityCoverage}`)}</span>;
   function attentionRow(item: Attention) {
     const look = attentionLook(item), meta = <span className="center-row-meta">{item.kind === 'task' && <span>{agentLabel(item.agent)}</span>}<span>{kindLabel(item)}</span></span>;
+    if (item.kind === 'feedback') return <Card key={item.id} className="center-row"><RowGlyph {...look} /><span className="center-row-body"><strong>{item.title}</strong></span></Card>;
     if (item.kind === 'ax') return <Card key={item.id} className="center-row"><RowGlyph {...look} /><span className="center-row-body"><strong>{title(item)}</strong><span className="center-row-meta"><span>{item.item.kind === 'ax-candidate' ? t('center.axCandidate', { source: sourceName(item.item.ownerSourceId) }) : t('center.axTriageWait')}</span></span></span></Card>;
     if (item.kind === 'task' && !taskTarget(item.session.id)) return <Card key={item.id} className="center-row"><RowGlyph {...look} /><span className="center-row-body"><strong>{title(item)}</strong><span className="center-row-meta"><span>{t('center.targetUnavailable')}</span></span></span></Card>;
     const id = `attention-${encodeURIComponent(item.id)}`;
@@ -176,7 +179,7 @@ export default function CoordinationCenter() {
     return <RecordRow key={row.id} id={`record-${row.id}`} className={live ? '' : 'muted'} aria-expanded={selected?.id === row.id} aria-controls={selected?.id === row.id ? 'center-record-detail' : undefined} onClick={() => void readRecord(row)}>
       <RowGlyph {...recordLook(row)} />
       <span className="center-row-body"><strong>{row.intent ?? row.summary}</strong>
-        <span className="center-row-meta">{(row.intent == null || !live || row.state !== 'active') && <span>{stateName(row.state)}</span>}<span>{owner(row)}</span>{row.lastActiveAt && <time dateTime={row.lastActiveAt} title={date(row.lastActiveAt)}>{ago(row.lastActiveAt)}</time>}{coverageNote(row)}{row.resources.map(key => <span key={key}>{resourceLabel(key)}</span>)}</span>
+        <span className="center-row-meta">{(row.intent == null || !live || row.state !== 'active') && <span>{stateName(row.state)}</span>}<span>{owner(row)}</span>{row.lastActiveAt && <HoverHelp text={date(row.lastActiveAt)}><time dateTime={row.lastActiveAt}>{ago(row.lastActiveAt)}</time></HoverHelp>}{coverageNote(row)}{row.resources.map(key => <span key={key}>{resourceLabel(key)}</span>)}</span>
       </span>
       <Icon icon={ChevronRight} className="center-row-go" />
     </RecordRow>;
@@ -193,14 +196,14 @@ export default function CoordinationCenter() {
       {detailError && <Notice tone="danger" action={<Button busy={pendingAction === 'retry-detail'} disabled={busy} onClick={() => void runAction('retry-detail', () => readRecord(row))}>{t('retry')}</Button>}>{detailError}</Notice>}
       {conflicts.map(conflict => <Notice key={`${conflict.noticeId}:${conflict.resource}`} tone="warning">{t('center.conflict', { resource: resourceLabel(conflict.resource), id: conflict.noticeId })}</Notice>)}
       <dl>
-        {fact(t('center.activity'), <><time dateTime={row.lastActiveAt} title={date(row.lastActiveAt)}>{row.lastActiveAt ? ago(row.lastActiveAt) : '—'}</time>{row.activityCoverage !== 'observed' && <span className="center-note"> · {t(`center.coverage.${row.activityCoverage}`)}</span>}</>)}
-        {fact(t('center.observed'), <time dateTime={row.observedAt} title={date(row.observedAt)}>{row.observedAt ? ago(row.observedAt) : '—'}</time>)}
+        {fact(t('center.activity'), <><HoverHelp text={date(row.lastActiveAt)}><time dateTime={row.lastActiveAt}>{row.lastActiveAt ? ago(row.lastActiveAt) : '—'}</time></HoverHelp>{row.activityCoverage !== 'observed' && <span className="center-note"> · {t(`center.coverage.${row.activityCoverage}`)}</span>}</>)}
+        {fact(t('center.observed'), <HoverHelp text={date(row.observedAt)}><time dateTime={row.observedAt}>{row.observedAt ? ago(row.observedAt) : '—'}</time></HoverHelp>)}
         {row.expectedDurationSeconds != null && fact(t('center.durationLabel'), duration(row.expectedDurationSeconds, language))}
         {row.causeCode && fact(t('center.causeLabel'), <code>{row.causeCode}</code>)}
         {(row.reason || row.closedReason) && fact(t('center.reason'), row.reason ?? stateName(row.closedReason!))}
         {!!row.evidenceIds?.length && fact(t('center.evidenceLabel'), <code>{row.evidenceIds.join(' · ')}</code>)}
         {row.fixingCommit && fact(t('center.commit'), <code>{row.fixingCommit.projectId} · {row.fixingCommit.oid}</code>)}
-        {row.clearedAt && fact(t('center.clearedAt'), <time dateTime={row.clearedAt} title={date(row.clearedAt)}>{ago(row.clearedAt)}</time>)}
+        {row.clearedAt && fact(t('center.clearedAt'), <HoverHelp text={date(row.clearedAt)}><time dateTime={row.clearedAt}>{ago(row.clearedAt)}</time></HoverHelp>)}
         {row.suggestedNextStep && fact(t('center.next'), stateName(row.suggestedNextStep))}
       </dl>
       {linked.length > 0 && <div className="center-linked"><h3>{t('center.linkedTasks')}</h3>
@@ -224,7 +227,7 @@ export default function CoordinationCenter() {
       ...(event.kind.startsWith('app.') ? [<Button id={`update-${event.eventId}`} key="update" variant="ghost" className="center-link" onClick={() => openAttention({ id: 'update', kind: 'update', title: 'ARC' }, `update-${event.eventId}`)}>{t('viewUpdate')}</Button>] : []),
     ];
     return <li key={event.eventId} className="center-event" data-tone={eventTone(event)}>
-      <div className="center-event-line"><strong>{event.summary}</strong><time dateTime={event.observedAt} title={date(event.observedAt)}>{clock(event.observedAt, language)}</time>
+      <div className="center-event-line"><strong>{event.summary}</strong><HoverHelp text={date(event.observedAt)}><time dateTime={event.observedAt}>{clock(event.observedAt, language)}</time></HoverHelp>
         <IconButton icon={Braces} label={t('center.metadata')} className="center-raw-toggle" aria-expanded={rawEvent === event.eventId} aria-controls={`raw-${event.eventId}`} onClick={() => setRawEvent(rawEvent === event.eventId ? '' : event.eventId)} /></div>
       <div className="center-row-meta">{event.status && event.status !== 'active' && <Pill tone={stateTone(event.status)}>{stateName(event.status)}</Pill>}<span>{origin}</span>{chips(event.resources)}</div>
       {links.length > 0 && <div className="center-event-links">{links}</div>}
@@ -245,7 +248,7 @@ export default function CoordinationCenter() {
     }
     return days.map(day => <section key={day.label} className="center-day" aria-label={day.label}><h2>{day.label}</h2>
       <ol className="center-timeline">{day.groups.map(group => group.length === 1 ? eventRow(group[0]) : <li key={group[0].eventId} className="center-event" data-tone={eventTone(group[0])}>
-        <details className="center-group"><summary><span className="center-event-line"><strong>{group[0].summary}</strong><span className="center-count">{group.length}</span><time dateTime={group[0].observedAt} title={date(group[0].observedAt)}>{clock(group[0].observedAt, language)}</time></span></summary>
+        <details className="center-group"><summary><span className="center-event-line"><strong>{group[0].summary}</strong><span className="center-count">{group.length}</span><HoverHelp text={date(group[0].observedAt)}><time dateTime={group[0].observedAt}>{clock(group[0].observedAt, language)}</time></HoverHelp></span></summary>
           <ol className="center-timeline nested">{group.map(eventRow)}</ol></details></li>)}</ol>
     </section>);
   }

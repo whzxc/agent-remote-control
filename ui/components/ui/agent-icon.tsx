@@ -1,3 +1,4 @@
+import { Tooltip as HoverHelp } from "./index";
 import { Bot } from "lucide-react";
 
 export type AgentIconReading = {
@@ -35,8 +36,8 @@ export function AgentIcon({ markup, readings = [], used = false }: {
   const count = readings.length;
   const ranges = arcs[count as keyof typeof arcs];
   const label = readings.map(reading => reading.label).join(" · ") || undefined;
-  return <span className={label ? "agent-quota-icon has-quota" : "agent-quota-icon"}
-    role={label ? "img" : undefined} aria-label={label} title={label}>
+  return <HoverHelp text={label}><span className={label ? "agent-quota-icon has-quota" : "agent-quota-icon"}
+    role={label ? "img" : undefined} aria-label={label}>
     {ranges && <svg className="quota-outline" viewBox="0 0 48 48" aria-hidden="true">
       {ranges.map(([start, end], index) => {
         const { id, value, color, elapsed } = readings[index];
@@ -60,5 +61,5 @@ export function AgentIcon({ markup, readings = [], used = false }: {
     </svg>}
     {markup ? <span className="agent-logo" dangerouslySetInnerHTML={{ __html: markup }} aria-hidden="true" />
       : <Bot className="agent-logo" aria-hidden="true" />}
-  </span>;
+  </span></HoverHelp>;
 }

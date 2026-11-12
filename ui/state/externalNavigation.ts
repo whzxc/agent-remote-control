@@ -6,10 +6,10 @@ export const navigationAttention = createStore<{ title: string; open: () => void
 /** External requests remain actionable attention while a modal task owns focus. */
 export function requestExternalNavigation(title: string, open: () => void) {
   if (layers.get().some(layer => layer.kind === "dialog")) navigationAttention.set(old => [...old.filter(item => item.title !== title), { title, open }]);
-  else open();
+  else layers.switchPanel(open);
 }
 export function openNavigationAttention(title: string) {
   const target = navigationAttention.get().find(item => item.title === title);
   if (!target || layers.get().some(layer => layer.kind === "dialog")) return;
-  navigationAttention.set(old => old.filter(item => item !== target)); target.open();
+  layers.switchPanel(() => { navigationAttention.set(old => old.filter(item => item !== target)); target.open(); });
 }

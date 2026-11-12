@@ -1,3 +1,4 @@
+import { Tooltip as HoverHelp } from "../components/ui/index";
 import { TransientLayer } from "../components/ui/TransientLayer";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Accordion, Popover } from "radix-ui";
@@ -31,7 +32,7 @@ function ParameterControl({ spec, value }: { spec: typeof PARAMETERS[number]; va
     setNotice(adjusted ? t("topology.adjusted", { label, min: spec.min, max: spec.max, value: topologyValues.get()[spec.key] }) : "");
   }
   return <Field id={`topology-${spec.key}`} label={<span>{label}{changed && <span className="topology-custom" aria-label={t("topology.custom")}> •</span>}</span>}>
-    <div className="topology-parameter" title={t("topology.defaultValue", { value: spec.default })}>
+    <HoverHelp text={t("topology.defaultValue", { value: spec.default })}><div className="topology-parameter">
       <Slider label={label} min={spec.min} max={spec.max} step={spec.step} value={value}
         onChange={number => { previewParameter(spec.key, number); setNotice(""); }}
         onCommit={number => { previewParameter(spec.key, number); saveTopologyParameters(); }} />
@@ -43,7 +44,7 @@ function ParameterControl({ spec, value }: { spec: typeof PARAMETERS[number]; va
         }} />
       <IconButton icon={RotateCcw} label={t("topology.resetOne", { label })} size={16} disabled={!changed}
         onClick={() => { resetTopologyParameter(spec.key); setNotice(""); }} />
-    </div>
+    </div></HoverHelp>
     {notice && <p role="status" className="topology-tuner-hint">{notice}</p>}
   </Field>;
 }

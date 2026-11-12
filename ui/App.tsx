@@ -5,7 +5,7 @@ import McpHub from './mcp/McpHub';
 import { mcpHubEnabled } from './mcp/state';
 import CoordinationCenter, { centerReturn } from './coordination/CoordinationCenter';
 import { boardFocus, boardOpen, useBoardObservation } from './coordination/state';
-import { agentPanel, ingressPanel } from './state/overviewPanels';
+import { ingressPanel } from './state/overviewPanels';
 import { HomepageDisplay, StudioControls } from './display/Studio';
 import { studioEnabled } from './display/state';
 import { ArrowLeft } from "lucide-react";
@@ -75,17 +75,17 @@ export default function App() {
   useLayoutEffect(() => { document.documentElement.dataset.privacy = String(privateMode); }, [privateMode]);
   const nav = navigation.use();
   const bulletinOpen = boardOpen.use();
-  const returning = centerReturn.use(), taskSelection = agentPanel.use(), connectionSelection = ingressPanel.use();
+  const returning = centerReturn.use(), connectionSelection = ingressPanel.use();
   const updatePanelOpen = updates.use().panelOpen;
   const returnOpened = useRef(false);
   useLayoutEffect(() => {
     if (!returning) { returnOpened.current = false; return; }
-    const opened = returning.kind === 'task' ? !!taskSelection : returning.kind === 'connection' ? !!connectionSelection : updatePanelOpen;
+    const opened = returning.kind === 'connection' ? !!connectionSelection : updatePanelOpen;
     if (opened) { returnOpened.current = true; return; }
     if (!returnOpened.current) return;
     const focusId = returning.focusId;
     centerReturn.set(undefined); boardFocus.set(focusId); boardOpen.set(true);
-  }, [returning, taskSelection, connectionSelection, updatePanelOpen]);
+  }, [returning, connectionSelection, updatePanelOpen]);
   const oauthRequest = oauthApproval.use(), setOauthRequest = oauthApproval.set;
   const { feedback, status } = connector.use();
   updates.use();
@@ -167,7 +167,7 @@ export default function App() {
           requestExternalNavigation(t("updates"), showUpdate);
           void checkUpdate();
         }),
-        listen<string>("navigate", external(t("open"), (e: { payload: string }) => {
+        listen<string>("navigate", (e) => requestExternalNavigation(t(e.payload === "remote" ? "connections.title" : e.payload === "accounts" ? "platforms.title" : e.payload), () => {
           if (e.payload === "remote") { openConnections(); return; }
           if (["tasks", "logs"].includes(e.payload)) { navigate("overview"); return; }
           if (["overview", "settings", "accounts", "permissions", "pets", "relay-hosting"].includes(e.payload))
@@ -192,8 +192,9 @@ export default function App() {
     };
   }, []);
   useEffect(() => {
-    const handle = (event: Event) => requestExternalNavigation(t("open"), () => {
+    const handle = (event: Event) => {
       const url = new URL((event as CustomEvent<string>).detail);
+      requestExternalNavigation(t(url.hostname === "oauth" ? "connect.approveTitle" : url.hostname === "remote" || url.hostname === "ingress" ? "connections.title" : url.hostname === "accounts" ? "platforms.title" : url.hostname), () => {
       if (url.hostname === "ingress") {
         navigation.set(old => ({ ...old, ingressEdit: { id: url.searchParams.get("id") ?? "", field: url.searchParams.get("field") ?? "" } }));
         navigate("overview");
@@ -209,6 +210,7 @@ export default function App() {
         void api("codex/login", "POST").catch((e: Error) => notify(e.message, true));
       }
     });
+    };
     window.addEventListener("arc:open-url", handle);
     return () => window.removeEventListener("arc:open-url", handle);
   }, []);

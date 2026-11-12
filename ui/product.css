@@ -147,7 +147,7 @@
   border-radius: 50%;
   position: relative;
   color: var(--text-secondary);
-  transition: color var(--duration);
+  transition: color var(--motion-fast);
 }
 .navigation-capsule button:is(:hover, :focus-visible) {
   color: var(--text);
@@ -198,7 +198,7 @@
   position: relative;
   inset: auto;
   flex: 0 0 36px;
-  transition: opacity 160ms ease;
+  transition: opacity var(--motion-base) var(--ease-enter);
 }
 :root[data-reduced-motion="true"] {
   .navigation-capsule,
@@ -304,13 +304,13 @@
 
 
 .hub-entry:focus-visible { box-shadow: 0 0 0 2px var(--hub-color); }
-.hub-dot { position: relative; display: block; width: var(--hub-dot-size); height: var(--hub-dot-size); border-radius: 50%; transform: scale(var(--hub-dot-scale, 1)); transition: box-shadow 180ms ease; pointer-events: none; }
+.hub-dot { position: relative; display: block; width: var(--hub-dot-size); height: var(--hub-dot-size); border-radius: 50%; transform: scale(var(--hub-dot-scale, 1)); transition: box-shadow var(--motion-base) var(--ease-enter); pointer-events: none; }
 .hub-dot > svg { display: block; width: 100%; height: 100%; }
 .hub-plus { stroke-width: 5.865; }
-.hub-symbol { transform-box: view-box; transform-origin: 10px 10px; opacity: 0; transform: scale(.3) rotate(-90deg); transition: transform 300ms cubic-bezier(.34, 1.56, .64, 1), opacity 150ms ease; }
+.hub-symbol { transform-box: view-box; transform-origin: 10px 10px; opacity: 0; transform: scale(.3) rotate(-90deg); transition: transform var(--motion-base) var(--ease-enter), opacity var(--motion-base) var(--ease-enter); }
 .topology-hub:hover .hub-symbol, .topology-hub:has(.hub-entry:focus-visible) .hub-symbol, .hub-entry[data-empty] .hub-symbol { opacity: 1; transform: none; }
 .topology-hub .hub-entry:is(:hover, :focus-visible) .hub-dot { box-shadow: 0 0 6px 2px color-mix(in srgb, var(--hub-color) 45%, transparent); }
-.hub-entry[data-empty] .hub-dot::after { content: ""; position: absolute; inset: 0; border: 1px solid var(--hub-color); border-radius: 50%; animation: hub-ripple 2s ease-out infinite; }
+.hub-entry[data-empty] .hub-dot::after { content: ""; position: absolute; inset: 0; border: 1px solid var(--hub-color); border-radius: 50%; animation: hub-ripple var(--motion-running) var(--ease-enter) infinite; }
 @keyframes hub-ripple { from { transform: scale(1); opacity: .45; } 80%, to { transform: scale(1.7); opacity: 0; } }
 :root[data-reduced-motion="true"] {
   .hub-dot, .hub-symbol { transition: none; }
@@ -335,14 +335,14 @@
 .topology-ear, .topology-outer-arc { fill: none; stroke: var(--wire-color); stroke-linecap: round; }
 .topology-wires .needs-attention { stroke: var(--warning); }
 .topology-wires .wire-break { fill: none; stroke: var(--graph-bg); stroke-linecap: butt; }
-.topology-wires .connecting-wire { fill: none; stroke: var(--wire-color); stroke-opacity: 0.5; stroke-linecap: round; stroke-dasharray: 2 9; animation: graph-connecting calc(1.1s * var(--topology-time-scale, 1)) linear infinite; }
+.topology-wires .connecting-wire { fill: none; stroke: var(--wire-color); stroke-opacity: 0.5; stroke-linecap: round; stroke-dasharray: 2 9; animation: graph-connecting calc(var(--motion-running) * var(--topology-time-scale, 1)) var(--ease-enter) infinite; }
 .topology-wires .right .connecting-wire { animation-direction: reverse; }
 .topology-wires .secondary { --task-color: var(--wire-color); }
 .topology-wires .secondary[data-state="failed"] { --task-color: var(--danger); }
 .topology-wires .secondary:is([data-state="interrupted"], [data-state="unknown"]) { --task-color: var(--text-tertiary); }
 .topology-wires .secondary[data-state="summary"] { --task-color: var(--border-strong); }
 .topology-wires .task-body { fill: var(--task-color); }
-.topology-wires .activity-flow { fill: none; stroke: color-mix(in srgb, var(--task-color) 65%, var(--text)); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 1 17; animation: activity-flow calc(1s * var(--topology-time-scale, 1)) linear infinite; }
+.topology-wires .activity-flow { fill: none; stroke: color-mix(in srgb, var(--task-color) 65%, var(--text)); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 1 17; animation: activity-flow calc(var(--motion-running) * var(--topology-time-scale, 1)) var(--ease-enter) infinite; }
 @keyframes graph-connecting { to { stroke-dashoffset: -11; } }
 .activity-slot { position: absolute; left: 0; top: 0; z-index: 3; }
 .topology-scene [data-reorderable] { touch-action: none; user-select: none; }
@@ -367,10 +367,10 @@
 .activity-slot > .activity-bubble { width: 100%; height: 100%; }
 .activity-bubble-shell { position: relative; width: 100%; height: 100%; pointer-events: auto; }
 .activity-bubble-shell > .activity-bubble { width: 100%; height: 100%; }
-.activity-bubble-shell > .activity-mark-read { background: var(--success); color: var(--on-success); position: absolute; left: 11px; top: calc(50% - 16px); width: 32px; height: 32px; min-height: 0; padding: 0; border: 0; border-radius: var(--radius-tile); cursor: pointer; touch-action: none; transition: transform 180ms var(--task-spring), filter 160ms; }
+.activity-bubble-shell > .activity-mark-read { background: var(--success); color: var(--on-success); position: absolute; left: 11px; top: calc(50% - 16px); width: 32px; height: 32px; min-height: 0; padding: 0; border: 0; border-radius: var(--radius-tile); cursor: pointer; touch-action: none; transition: transform var(--motion-base) var(--ease-enter), filter var(--motion-base); }
 .activity-mark-read > .activity-source-badge { z-index: 1; pointer-events: none; }
-.activity-mark-read::before, .activity-mark-read::after { content: ""; position: absolute; inset: 0; border: 1.5px solid color-mix(in srgb, var(--success) 30%, transparent); border-radius: inherit; pointer-events: none; opacity: 0; animation: activity-read-ring 2.4s ease-out infinite; }
-.activity-mark-read::before { animation-delay: -1.2s; }
+.activity-mark-read::before, .activity-mark-read::after { content: ""; position: absolute; inset: 0; border: 1.5px solid color-mix(in srgb, var(--success) 30%, transparent); border-radius: inherit; pointer-events: none; opacity: 0; animation: none; }
+.activity-mark-read::before { display: none; }
 .activity-bubble-shell > .activity-mark-read:hover:not(:disabled) { background: var(--success); filter: brightness(1.08); transform: scale(1.1); }
 .activity-bubble-shell > .activity-mark-read:active:not(:disabled) { transform: scale(.92); filter: brightness(.94); }
 @keyframes activity-read-ring { 0% { transform: scale(1); opacity: 0; } 25% { opacity: .8; } 100% { transform: scale(1.6); opacity: 0; } }
@@ -380,7 +380,7 @@
   .activity-bubble-shell > .activity-mark-read { transition: none; }
   .activity-bubble-shell > .activity-mark-read:hover:not(:disabled), .activity-bubble-shell > .activity-mark-read:active:not(:disabled) { transform: none; }
 }
-button.activity-bubble, .activity-bubble-shell { transition: transform 180ms cubic-bezier(.34,1.56,.64,1), background 160ms; }
+button.activity-bubble, .activity-bubble-shell { transition: transform var(--motion-base) var(--ease-enter), background var(--motion-base); }
 button.activity-bubble:hover, .activity-bubble-shell:hover { transform: translateY(-2px) scale(1.015); }
 button.activity-bubble:active, .activity-bubble-shell:active { transform: scale(.97); }
 .activity-bubble-shell > button.activity-bubble { transform: none; }
@@ -414,7 +414,7 @@ button.activity-bubble:active, .activity-bubble-shell:active { transform: scale(
 .activity-source-badge > .icon, .activity-source-badge .source-icon, .activity-source-badge .source-icon svg { width: 9px; height: 9px; }
 .activity-source-badge .source-icon > span { display: flex; }
 .activity-preview { display: grid; align-items: center; justify-items: start; min-width: 0; }
-.activity-preview .activity-bubble { max-width: 100%; transition: width 180ms cubic-bezier(.34,1.56,.64,1), height 180ms cubic-bezier(.34,1.56,.64,1); }
+.activity-preview .activity-bubble { max-width: 100%; transition: width var(--motion-base) var(--ease-enter), height var(--motion-base) var(--ease-enter); }
 .agent-auto-compact { position: absolute; left: 50%; top: calc(100% + 22px); transform: translateX(-50%); padding: 1px 5px; border-radius: var(--radius-pill); background: var(--surface-subtle); color: var(--text-tertiary); font-size: 9px; line-height: 13px; white-space: nowrap; }
 :root[data-reduced-motion="true"] {
   button.activity-bubble, .activity-bubble-shell, .activity-preview .activity-bubble { transition: none; }
@@ -448,7 +448,7 @@ button.timeline-summary:hover { background: var(--surface-subtle); }
 button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
 .timeline-summary > .icon { flex: none; }
 
-.timeline-chevron { flex: none; color: var(--text-tertiary); transition: transform 180ms; }
+.timeline-chevron { flex: none; color: var(--text-tertiary); transition: transform var(--motion-base); }
 .timeline-summary[data-state=open] > .timeline-chevron { transform: rotate(90deg); }
 .timeline-fold-content { overflow: hidden; }
 .timeline-entry-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -499,11 +499,11 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .topology-section-heading { margin: 0; font-size: inherit; }
 .topology-section-trigger { display: flex; justify-content: space-between; gap: 8px; width: 100%; min-height: 0; padding: 4px 0; border: 0; font-size: inherit; font-weight: 500; text-align: left; }
 .topology-tuner .topology-section-trigger:hover:not(:disabled) { background: transparent; }
-.topology-section-trigger > .icon { transition: transform 160ms ease; }
+.topology-section-trigger > .icon { transition: transform var(--motion-base) var(--ease-enter); }
 .topology-section-trigger[data-state="open"] > .icon { transform: rotate(180deg); }
 .topology-section-content { overflow: hidden; }
-.topology-section-content[data-state="open"] { animation: topology-expand 160ms ease-out; }
-.topology-section-content[data-state="closed"] { animation: topology-collapse 160ms ease-in; }
+.topology-section-content[data-state="open"] { animation: topology-expand var(--motion-base) var(--ease-enter); }
+.topology-section-content[data-state="closed"] { animation: topology-collapse var(--motion-base) var(--ease-enter); }
 .topology-section-inner { display: flow-root; padding-bottom: 4px; }
 @keyframes topology-expand { from { height: 0; opacity: 0; } to { height: var(--radix-accordion-content-height); opacity: 1; } }
 @keyframes topology-collapse { from { height: var(--radix-accordion-content-height); opacity: 1; } to { height: 0; opacity: 0; } }
@@ -531,7 +531,7 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 /* A fixed outer halo animates on the compositor without resizing the bubble. */
 .activity-bubble.needs-attention::after {
   content: ""; position: absolute; inset: -6px; border: 6px solid color-mix(in srgb, var(--warning) 16%, transparent);
-  border-radius: 19px; pointer-events: none; animation: activity-attention 2.4s ease-in-out infinite;
+  border-radius: 19px; pointer-events: none; animation: activity-attention var(--motion-running) var(--ease-enter) infinite;
 }
 @keyframes activity-attention {
   0%, 100% { transform: scale(0.95, 0.82); opacity: 0; }
@@ -563,7 +563,7 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .agent-task-section-heading[data-attention] { color: var(--warning); }
 .agent-section-count { color: var(--text-tertiary); font-weight: 400; }
 .agent-task-section-rows { display: flex; flex-direction: column; gap: 8px; }
-.activity-bubble.agent-conversation-row { width: 100%; height: auto; min-height: 0; padding: 12px; align-items: flex-start; gap: 12px; border-radius: var(--radius-card); background: var(--surface-subtle); box-shadow: none; animation: agent-task-rise 180ms cubic-bezier(.34,1.56,.64,1) var(--row-delay, 0ms) backwards; }
+.activity-bubble.agent-conversation-row { width: 100%; height: auto; min-height: 0; padding: 12px; align-items: flex-start; gap: 12px; border-radius: var(--radius-card); background: var(--surface-subtle); box-shadow: none; animation: agent-task-rise var(--motion-base) var(--ease-enter) var(--row-delay, 0s) backwards; }
 .activity-bubble.agent-conversation-row:hover { background: var(--hover); }
 .activity-bubble.agent-conversation-row.needs-attention { background: color-mix(in srgb, var(--warning) 10%, transparent); box-shadow: none; }
 .activity-bubble.agent-conversation-row.needs-attention::after { content: none; }
@@ -699,7 +699,7 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .remote-steps small { font:400 var(--text-meta)/16px var(--font-ui); color:var(--text-secondary); }
 .step-complete { color:var(--success); }
 .step-running { color:var(--accent); }
-.step-running .icon { animation:spin 1s linear infinite; }
+.step-running .icon { animation:spin var(--motion-running) var(--ease-enter) infinite; }
 .step-waiting { color:var(--text-tertiary); }
 .remote-progress { display:grid; gap:24px; }
 .remote-progress-actions { display:flex; justify-content:space-between; gap:16px; }
@@ -725,7 +725,7 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 
 @keyframes source-grow-in { 0% { scale: .85; opacity: .3; } 15%, 80% { scale: 1; opacity: 1; filter: drop-shadow(0 0 8px var(--topology-source)); } 100% { scale: 1; opacity: 1; filter: none; } }
 
-.graph-node[data-new-source] { animation: source-grow-in 2s var(--ease); }
+.graph-node[data-new-source] { animation: source-grow-in var(--motion-base) var(--ease-enter); }
 :root[data-reduced-motion="true"] {
   .graph-node[data-new-source] { animation: none; box-shadow: 0 0 0 4px var(--canvas), 0 0 0 6px var(--topology-source); }
 }
@@ -747,7 +747,7 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .arc-action-hit path { fill: none; stroke: transparent; stroke-width: 28px; pointer-events: stroke; }
 .arc-action-slot { position: absolute; width: 30px; height: 30px; pointer-events: none; }
 .arc-action-bridge { position: absolute; pointer-events: none; }
-.topology-arc-actions .arc-action-button { position: relative; z-index: 1; background: transparent; opacity: 0; transform: scale(.65); pointer-events: none; transition: transform 180ms var(--task-spring), opacity 140ms ease; }
+.topology-arc-actions .arc-action-button { position: relative; z-index: 1; background: transparent; opacity: 0; transform: scale(.65); pointer-events: none; transition: transform var(--motion-base) var(--ease-enter), opacity var(--motion-fast) var(--ease-enter); }
 .topology-arc-actions .arc-action-button:is(:hover, [aria-expanded="true"]):not(:disabled) { background: transparent; }
 .arc-action-button::before { content: ''; position: absolute; width: 20px; height: 20px; border-radius: 50%; background: var(--account-color); }
 .arc-action-button > .icon { position: relative; color: var(--canvas); }
@@ -763,7 +763,7 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .sensitive-value > span { display: inline-block; transform-origin: left center; }
 .sensitive-value-wrap, .sensitive-value-wrap > span { display: inline; white-space: normal; overflow-wrap: anywhere; }
 .sensitive-value-wrap { padding-inline: 0; margin-inline: 0; }
-.pii { filter: blur(2.2px); opacity: .5; user-select: text; animation: privacy-in 160ms ease-out; }
+.pii { filter: blur(2.2px); opacity: .5; user-select: text; animation: privacy-in var(--motion-base) var(--ease-enter); }
 @keyframes privacy-in { from { filter: blur(0); opacity: 1; } }
 :root[data-reduced-motion="true"] { .pii { animation: none; } }
 .sensitive-identity { min-width: 0; }
@@ -826,7 +826,7 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
   z-index: 1;
   opacity: 0;
   transform: translateX(-50%) rotate(calc(0deg - var(--hub-rotation, 0deg)));
-  transition: opacity 140ms ease, translate 160ms ease;
+  transition: opacity var(--motion-fast) var(--ease-enter), translate var(--motion-base) var(--ease-enter);
 }
 .hub-arc-top .hub-arc-action { bottom: calc(90% + 4px); translate: 0 5px; }
 .hub-arc-bottom .hub-arc-action { top: calc(90% + 4px); translate: 0 -5px; }
@@ -922,3 +922,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .display-settings .activity-bubble[data-density="standard"] .activity-phase { height: 14px; line-height: 14px; margin-top: 5px; gap: 8px; }
 .display-settings .activity-bubble[data-density="standard"] .activity-headline { flex: none; overflow: visible; height: 14px; line-height: 14px; }
 .display-settings .activity-bubble[data-density="standard"] .activity-spec-row { margin-top: 0; }
+
+.app-feedback { top: var(--layer-top-browser); }
+.desktop .app-feedback { top: var(--layer-top-desktop); }

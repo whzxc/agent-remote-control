@@ -35,8 +35,8 @@ import type { TaskRuntime } from "../state/tasks";
 
 import { name, orderedAgents } from "../state/agents";
 
-export default function ActivityTimeline({ agent, session, expanded, onToggleWidth, onBack, titleId, resizable = true }: {
-  agent: string; session: TrackedActivity; expanded: boolean; onToggleWidth: () => void; onBack: () => void; titleId?: string; resizable?: boolean;
+export default function ActivityTimeline({ agent, session, expanded, onToggleWidth, onBack, backLabel, titleId, resizable = true }: {
+  agent: string; session: TrackedActivity; expanded: boolean; onToggleWidth: () => void; onBack: () => void; titleId?: string; backLabel?: string; resizable?: boolean;
 }) {
   const { snapshot } = agentActivity.use();
   const tracked = trackedActivity.use();
@@ -278,7 +278,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   usePanelState({ busy: continuing });
   return <section ref={detail} className="agent-panel-layer task-detail-layer" data-related={!!relationKind || undefined} data-narrow={narrow || undefined}>
     <PanelHeader><header className="dialog-header task-detail-header">
-      <div className="task-detail-navigation"><TaskBackButton aria-label={t("back")} title={`${agentName}${project ? ` · ${project}` : ""}`} onClick={onBack}><Icon icon={ArrowLeft} /><span>{agentName}{project && ` · ${project}`}</span></TaskBackButton>
+      <div className="task-detail-navigation"><TaskBackButton aria-label={t("back")} title={backLabel ?? `${agentName}${project ? ` · ${project}` : ""}`} onClick={onBack}><Icon icon={ArrowLeft} /><span>{backLabel ?? <>{agentName}{project && ` · ${project}`}</>}</span></TaskBackButton>
         {!narrow && <div className="actions">{!readOnlyBrowser && validId && nativeSession.open && <IconButton icon={ArrowUpRight} label={t("activity.open")} onClick={() => { setOpenError(""); void openActivitySession(agent, nativeSession).catch(error => setOpenError(String(error))); }} />}
           {resizable && <IconButton icon={expanded ? Minimize2 : Maximize2} label={t(expanded ? "restorePanelWidth" : "expandPanelWidth")} aria-pressed={expanded} onClick={onToggleWidth} />}</div>}
         {narrow && (!readOnlyBrowser && validId && nativeSession.open || resizable) && <div className="task-narrow-menu"><Menu label={t("detail.taskActions")} trigger={<IconButton icon={MoreHorizontal} label={t("detail.taskActions")} />} items={[

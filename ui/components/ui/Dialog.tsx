@@ -10,15 +10,16 @@ import { consumeOutsidePointer, layers, layerTrigger } from '../../state/layers'
 import { notify } from '../../state/connector';
 import { layerFrame, type LayerSize, type LayerKind, type LayerSide, type LayerRect } from './layerFrame';
 import { LayerOwnerContext } from './TransientLayer';
-import { Button, IconButton } from './index';
+import { Button, IconButton, Notice } from './index';
 import './Dialog.css';
 
-const CloseContext = createContext<{ id: string; busy?: boolean; close: () => void } | null>(null);
+const CloseContext = createContext<{ id: string; busy?: boolean; close: () => void; feedback: (message: string, error: boolean) => void } | null>(null);
 export function useDialogClose() { return useContext(CloseContext)?.close; }
 export function useDialogFeedback() {
   const context = useContext(CloseContext);
   return (message: string, error = false) => {
-    if (context && !layers.get().some(layer => layer.id === context.id)) notify(message, error);
+    if (context && layers.get().some(layer => layer.id === context.id)) context.feedback(message, error);
+    else notify(message, error);
   };
 }
 export function DialogClose(props: ComponentProps<typeof D.Close>) {
@@ -215,6 +216,7 @@ export function LayerShell({ kind, side = 'center', entryTrigger, onPanelFrame, 
   useLayoutEffect(() => () => reportFrame.current?.(null), []);
   useLayoutEffect(() => { layers.update(id, { dirty, busy, onClose, onCancel }); }, [id, dirty, busy, onClose, onCancel]);
   useLayoutEffect(() => { if (self?.dismissal !== 'none') safeAction.current?.focus({ preventScroll: true }); }, [self]);
+  const [feedback, setFeedback] = useState<{ message: string; error: boolean }>();
   const status = self?.dismissal ?? 'none';
   const close = () => { void layers.close(id); };
   return <D.Root modal={kind === 'dialog'} open={open && allowed && portalReady} onOpenChange={next => { if (!next) void layers.close(id); }}>
@@ -256,11 +258,11 @@ export function LayerShell({ kind, side = 'center', entryTrigger, onPanelFrame, 
         {!view && headerDetail}
         {description && <D.Description asChild><div className="dialog-description" id={`${id}-description`}>{description}</div></D.Description>}
         {!view && stepBar}
-        <HeaderContext.Provider value={headerContext}><PanelStateContext.Provider value={updatePanelState}><CloseContext.Provider value={{ id, busy, close }}>
+        <HeaderContext.Provider value={headerContext}><PanelStateContext.Provider value={updatePanelState}><CloseContext.Provider value={{ id, busy, close, feedback: (message, error) => setFeedback({ message, error }) }}>
         <ViewContext.Provider value={viewContext}>
         <ActionsContext.Provider value={actionsContext}>
           <div className="dialog-body dialog-view-stack" inert={status !== 'none' || undefined}>
-            <div className="dialog-swap" hidden={!!view} inert={!!view || undefined}>{children}</div>
+            <div className="dialog-swap" hidden={!!view} inert={!!view || undefined}>{feedback && <Notice tone={feedback.error ? "danger" : "success"}>{feedback.message}</Notice>}{children}</div>
             <div className="dialog-swap" ref={setViewBody} hidden={!view} inert={!view || undefined} tabIndex={-1} />
           </div>
         </ActionsContext.Provider>

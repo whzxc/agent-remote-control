@@ -1,3 +1,4 @@
+import { Tooltip as HoverHelp } from "./ui/index";
 import { readOnlyBrowser } from "../browserMode";
 import { Children, createContext, isValidElement, memo, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Image } from "lucide-react";
@@ -40,7 +41,7 @@ function TimelineImage({ src = "", alt }: { src?: string; alt?: string }) {
   }, [agent, id, src]);
   const url = link?.kind === "image" || link?.kind === "external" && /^https?:\/\//i.test(link.target)
     ? link.target : local?.source === src ? local.url : undefined;
-  if (!url || failed === src) return <span className="timeline-image-placeholder" role="img" aria-label={alt || t("timeline.imageUnavailable")} title={alt || t("timeline.imageUnavailable")}><Icon icon={Image} /></span>;
+  if (!url || failed === src) return <HoverHelp text={alt || t("timeline.imageUnavailable")}><span className="timeline-image-placeholder" role="img" aria-label={alt || t("timeline.imageUnavailable")}><Icon icon={Image} /></span></HoverHelp>;
   return <img src={url} alt={alt ?? ""} loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(src)} />;
 }
 export default memo(function TimelineMarkdown({ text }: { text: string }) {
@@ -52,7 +53,7 @@ export default memo(function TimelineMarkdown({ text }: { text: string }) {
     a: ({ href = "", children }) => {
       const link = timelineLink(href);
       if (!link || link.kind === "image" || readOnlyBrowser && link.kind === "file") return <span>{children}</span>;
-      return <a href={href} title={link.kind === "file" ? t("timeline.revealFile", { path: link.target }) : undefined} onClick={event => {
+      return <HoverHelp text={link.kind === "file" ? t("timeline.revealFile", { path: link.target }) : undefined}><a href={href} onClick={event => {
         event.preventDefault();
         setError("");
         if (link.kind === "fragment") {
@@ -64,7 +65,7 @@ export default memo(function TimelineMarkdown({ text }: { text: string }) {
         void (link.kind === "file"
           ? api("agents/resources", "POST", { agent, id, path: link.target, action: "reveal" })
           : openUrl(link.target)).catch(reason => setError(String(reason)));
-      }}>{children}</a>;
+      }}>{children}</a></HoverHelp>;
     },
     img: ({ src, alt }) => <TimelineImage src={src} alt={alt} />,
     table: ({ children }) => <div className="timeline-table"><table>{children}</table></div>,

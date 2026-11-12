@@ -22,8 +22,7 @@ export function managesAgentAccounts(agent: string): agent is "claude" | "codex"
   return agent === "claude" || agent === "codex";
 }
 export function selectAgentPanel(action: AgentPanelAction) {
-  if (action.type === 'back' && panelBack.get()) { const back = panelBack.get()!; panelBack.set(undefined); agentPanel.set(undefined); back.open(); return; }
-  if (!['task', 'back'].includes(action.type)) panelBack.set(undefined);
+  if (action.type === 'back' && panelBack.get()) { const back = panelBack.get()!; layers.switchPanel(() => { panelBack.set(undefined); agentPanel.set(undefined); back.open(); }); return; }
   if (action.type === 'platform' && !managesAgentAccounts(action.agent)) {
     const agent = action.agent;
     const linked = accounts.get().items.filter(account => account.agentProfiles.some(profile => profile.agent === agent));
@@ -32,8 +31,10 @@ export function selectAgentPanel(action: AgentPanelAction) {
   connectionSetup.set(undefined);
   onboarding.set(undefined);
   const next = agentPanelSelection(agentPanel.get(), action);
-  if (action.type === "toggle" || action.type === "platform" && action.toggle) layers.switchPanel(() => agentPanel.set(next?.closing ? undefined : next));
-  else agentPanel.set(next);
+  const open = () => { if (!['task', 'back'].includes(action.type)) panelBack.set(undefined); agentPanel.set(next?.closing ? undefined : next); };
+  const panel = layers.get().find(layer => layer.kind === 'panel');
+  if (action.type === "toggle" || (action.type === "platform" || action.type === "task") && action.toggle || panel?.dirty || panel?.busy) layers.switchPanel(open);
+  else open();
 }
 export function selectIngressPanel(ingress: Ingress, options: { client?: IngressConnectionSelection["client"]; editing?: boolean; field?: string; autoConnect?: boolean; toggle?: boolean } = {}) {
   connectionSetup.set(undefined);

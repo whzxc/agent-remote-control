@@ -89,9 +89,9 @@ pre {
   background: var(--surface-sunken);
   cursor: pointer;
   transition:
-    background var(--duration),
-    color var(--duration),
-    box-shadow var(--duration);
+    background var(--motion-fast),
+    color var(--motion-fast),
+    box-shadow var(--motion-fast);
   white-space: normal;
 }
 .button:hover:not(:disabled) {
@@ -256,7 +256,7 @@ textarea.input {
   color: var(--text);
   font-weight: 600;
   cursor: pointer;
-  transition: background var(--duration);
+  transition: background var(--motion-fast);
 }
 .tag.disclosure:hover {
   background: color-mix(in srgb, var(--surface), var(--text) 5%);
@@ -437,7 +437,7 @@ textarea.input {
   border-radius: 13px;
   background: var(--surface-sunken);
   cursor: pointer;
-  transition: background var(--duration);
+  transition: background var(--motion-fast);
 }
 .switch[data-state="checked"] {
   background: var(--accent);
@@ -448,7 +448,7 @@ textarea.input {
   border-radius: 50%;
   background: var(--knob);
   box-shadow: var(--shadow-sm);
-  transition: transform var(--duration) var(--ease);
+  transition: transform var(--motion-fast) var(--ease-enter);
 }
 .switch-thumb[data-state="checked"] {
   transform: translateX(18px);
@@ -560,9 +560,9 @@ textarea.input {
   padding: 0 14px;
   border-radius: 14px;
   transition:
-    background var(--duration),
-    color var(--duration),
-    box-shadow var(--duration);
+    background var(--motion-fast),
+    color var(--motion-fast),
+    box-shadow var(--motion-fast);
 }
 .choice-measure > div > span,
 .choice-pills .choice-option {
@@ -620,7 +620,7 @@ textarea.input {
   box-shadow: var(--shadow-md);
   padding: 4px;
   max-width: calc(100vw - 24px);
-  animation: appear var(--duration) var(--ease);
+  animation: appear var(--motion-fast) var(--ease-enter);
 }
 .select-content {
   min-width: var(--radix-select-trigger-width);
@@ -677,7 +677,7 @@ textarea.input {
   font-size: var(--text-meta);
   font-weight: 500;
   line-height: 18px;
-  animation: appear var(--duration) var(--ease);
+  animation: appear var(--motion-fast) var(--ease-enter);
 }
 .tooltip[data-state="closed"] {
   animation: none;
@@ -813,7 +813,7 @@ textarea.input {
   border: 0;
 }
 .spin {
-  animation: spin 1s linear infinite;
+  animation: spin var(--motion-running) var(--ease-enter) infinite;
 }
 @keyframes spin {
   to {
@@ -1065,7 +1065,7 @@ textarea.input {
   z-index: -1;
   pointer-events: none;
   background: var(--hover);
-  transition: opacity 100ms ease-out;
+  transition: opacity var(--motion-fast) var(--ease-enter);
 }
 .hover-scope [data-hover-target].button,
 .hover-scope [data-hover-target].button:hover:not(:disabled),

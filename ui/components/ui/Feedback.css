@@ -22,7 +22,7 @@
   border: 2px solid var(--border);
   border-top-color: currentColor;
   border-radius: 50%;
-  animation: ui-spin 800ms linear infinite;
+  animation: ui-spin var(--motion-running) var(--ease-enter) infinite;
 }
 @keyframes ui-spin { to { transform: rotate(360deg); } }
 :root[data-reduced-motion="true"] {

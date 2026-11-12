@@ -1,9 +1,9 @@
 .update-dock-divider { width: 1px; height: 22px; margin: 0 3px; background: var(--border-strong); flex: none; }
 .navigation-capsule .update-dock-entry { color: var(--update-accent); flex: none; }
 .update-available-dot { position: absolute; top: 5px; right: 5px; width: 5px; height: 5px; border-radius: 50%; background: var(--update-accent); }
-.update-ring { animation: update-spin 1.4s linear infinite; }
+.update-ring { animation: update-spin var(--motion-running) var(--ease-enter) infinite; }
 @keyframes update-spin { to { transform: rotate(360deg); } }
-.update-panel { display: flex; flex-direction: column; gap: 8px; width: min(520px, calc(100vw - 32px)); max-height: min(650px, calc(100dvh - 100px), var(--radix-popover-content-available-height, 650px)); padding: 24px; overflow: hidden; border: 0; border-radius: var(--radius-panel); background: var(--surface-raised); color: var(--text); box-shadow: var(--shadow-lg); animation: update-panel-in 160ms ease-out; }
+.update-panel { display: flex; flex-direction: column; gap: 8px; width: min(520px, calc(100vw - 32px)); max-height: min(650px, calc(100dvh - 100px), var(--radix-popover-content-available-height, 650px)); padding: 24px; overflow: hidden; border: 0; border-radius: var(--radius-panel); background: var(--surface-raised); color: var(--text); box-shadow: var(--shadow-lg); animation: update-panel-in var(--motion-base) var(--ease-enter); }
 @keyframes update-panel-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 .update-panel-header { display: flex; align-items: center; flex: none; min-height: var(--control-height); }
 .update-panel-header > h2 { font-size: var(--text-title); font-weight: 650; line-height: 24px; }

@@ -53,9 +53,14 @@ MUST means a requirement. SHOULD means the default unless a concrete task-specif
 - `ui/tokens.css` is the runtime token sheet. Migrations align it with `design/tokens.css`. Manage light/dark state in `ui/theme.ts`, following the system by default.
 - Use the shared `Icon` wrapper with Lucide. Retain brand-specific assets.
 - Reuse `Dialog` for editing. Use native `form` with shared `Field`/`Input`. Associate validation errors with their fields. Focus the first error after failed submission. Restore trigger focus after closing an overlay.
-- The homepage keeps the ARC mark, earcup connections and topology. Expanded node panels use spatial transitions. Hub toggles stay simple and tactile.
-- Workspace panels open and close with fades and slight movement of at most 180ms. Nested views switch content without morphing the whole panel. Related tooltips remain visible while smoothly moving and resizing. Hover highlights use the shared spring-following layer.
+- The homepage keeps the ARC mark, earcup connections and topology. Node panels use fixed M slots and directional fades. Hub toggles stay simple and tactile.
+- Workspace panels open and close with fades and slight movement of at most 180ms. Nested views switch content without morphing the whole panel. Related tooltips remain visible while smoothly moving and resizing. Hover highlights use the shared token-driven layer.
 - Preserve reduced motion, keyboard navigation, layered Escape, and focus restoration. See [UI](docs/dev/ui.md).
+- Use the shared Panel and Dialog shells and the layer registry for stacking, replacement, dismissal and focus restoration. `layerFrame` owns geometry: workspaces use center L or XL slots, source nodes use left M, Agent and task nodes use right M, and narrow or portrait viewports collapse the slots. The trigger sets entry direction only.
+- Panels fit content, cap at the bottom margin and retain their largest height while open. Headers and footers stay fixed; the body scrolls. Do not add node-following positioning, dragging, shell morphing or trigger copies.
+- Capsule entries and topology nodes are panel switchers. Switching replaces clean panels; unsaved input or running work shows the in-footer safe choice. Only the topmost layer handles Escape or outside input, and dismissal consumes the click. A submitted, finished attempt is clean until edited again.
+- Only user actions open panels or dialogs, except the empty initial welcome and advancement of a user-started flow. Pending OAuth and deferred external navigation belong in Board attention. Child dialogs keep their parents mounted, visible and stationary; at most two dialogs stack.
+- Action results stay inside their initiating layer. Toasts are for background or closed-layer results, success lasts 4 seconds, errors stay until dismissed, and actionable errors also appear in Board attention. Hover help uses shared Tooltip. Design tokens own motion durations and easing; reduced motion removes movement.
 - Experimental feature switches MUST only enable or disable features. Enabled features with configuration or interactive controls MUST expose their entry in the shared bottom-left navigation capsule. Keep their configuration and actions behind that entry; do not embed them in Experimental or add separate floating launchers.
 
 ## Documentation layers

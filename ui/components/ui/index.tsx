@@ -1,8 +1,11 @@
+import { useCopyState } from "./useCopyState";
 import { TransientLayer } from "./TransientLayer";
 import { Sensitive, useSensitiveText } from "../Sensitive";
 import { maskSensitive } from "../../privacyMask";
 import {
-  useEffect,
+  createContext,
+  useContext,
+  type ComponentProps,
   useId,
   useLayoutEffect,
   useRef,
@@ -39,7 +42,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { t } from "../../i18n";
-import { copyText } from "../../platform";
 import { HoverScope } from "./HoverScope";
 import ChoiceTrigger from "./ChoiceTrigger";
 export { HoverScope };
@@ -50,7 +52,7 @@ export { DataTable, Pagination } from "./DataTable";
 export type IconSize = 12 | 14 | 16 | 18 | 20;
 /** A compact label. `spec` names a choice, `fact` states a property and `danger` flags a risk. */
 export function Tag({ children, title, id, form = "spec" }: { children: ReactNode; title?: string; id?: string; form?: "spec" | "fact" | "danger" }) {
-  return <span id={id} className="tag" data-form={form} title={title}>{children}</span>;
+  return <Tooltip text={title}><span id={id} className="tag" data-form={form}>{children}</span></Tooltip>;
 }
 /** A fact-sized button that shows or hides related content. */
 export function Disclosure({ expanded, controls, onToggle, children }: { expanded: boolean; controls?: string; onToggle: () => void; children: ReactNode }) {
@@ -93,6 +95,7 @@ export function Button({
   children,
   className = "",
   disabled,
+  title,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "ghost" | "link" | "danger" | "danger-outline";
@@ -100,7 +103,7 @@ export function Button({
   ref?: Ref<HTMLButtonElement>;
 }) {
   return (
-    <button
+    <Tooltip text={title}><button
       type="button"
       {...props}
       disabled={disabled || busy}
@@ -109,7 +112,7 @@ export function Button({
     >
       {busy && <Icon icon={LoaderCircle} className="spin" />}
       {children}
-    </button>
+    </button></Tooltip>
   );
 }
 export function IconButton({
@@ -231,15 +234,10 @@ export function Notice({
 }
 /** Copyable text for the user to paste into an Agent. */
 export function Prompt({ text, label, context, actionBelow = false }: { text: string; label: string; context?: string; actionBelow?: boolean }) {
-  const [copied, setCopied] = useState(false), [error, setError] = useState(""), id = useId();
-  useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 2000);
-    return () => clearTimeout(timer);
-  }, [copied]);
+  const { copied, error, copy } = useCopyState(), id = useId();
   return <div className={`prompt ${actionBelow ? "prompt-action-below" : ""}`}>
     <p id={id}>{text}</p>
-    <Button aria-describedby={id} onClick={() => { setError(""); void copyText(text).then(() => setCopied(true), () => setError(t("copyFailedSelectAndCopyTheTextManually"))); }}>
+    <Button aria-describedby={id} onClick={() => { void copy(text); }}>
       <Icon icon={copied ? Check : Copy} />{copied ? t("copied") : label}{context && <span className="sr-only">{context}</span>}
     </Button>
     {error && <p className="field-error" role="alert"><Icon icon={CircleAlert} size={14} />{error}</p>}
@@ -598,6 +596,7 @@ export function SingleChoice({
 }
 export { DialogClose } from "./Dialog";
 export { default as Dialog, DialogActions } from "./Dialog";
+const TooltipContext = createContext(false);
 export function Tooltip({
   text,
   children,
@@ -609,6 +608,7 @@ export function Tooltip({
   side?: "top" | "bottom" | "left" | "right";
   hoverOnly?: boolean;
 }) {
+  const provided = useContext(TooltipContext);
   const protect = useSensitiveText();
   const [open, setOpen] = useState(false);
   const pointerHover = useRef(false);
@@ -616,7 +616,8 @@ export function Tooltip({
     pointerHover.current = false;
     setOpen(false);
   };
-  return (
+  if (!text) return <>{children}</>;
+  const content = (
     <T.Root
       open={hoverOnly ? open : undefined}
       onOpenChange={hoverOnly ? (next) => setOpen(next && pointerHover.current) : undefined}
@@ -644,8 +645,11 @@ export function Tooltip({
       </T.Portal>
     </T.Root>
   );
+  return provided ? content : <TooltipProvider>{content}</TooltipProvider>;
 }
-export const TooltipProvider = T.Provider;
+export function TooltipProvider(props: ComponentProps<typeof T.Provider>) {
+  return <TooltipContext.Provider value={true}><T.Provider {...props} /></TooltipContext.Provider>;
+}
 export function Menu({
   trigger,
   items,
@@ -726,13 +730,7 @@ export function CopyField({
   placeholder?: string;
 }) {
   const [visible, setVisible] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 2000);
-    return () => clearTimeout(timer);
-  }, [copied]);
+  const { copied, error, copy } = useCopyState();
   return (
     <div>
       <div className="copy-field">
@@ -755,14 +753,7 @@ export function CopyField({
               icon={copied ? Check : Copy}
               label={t(copied ? "copied" : "copy")}
               disabled={!value}
-              onClick={() => {
-                setError("");
-                void copyText(value)
-                  .then(() => setCopied(true))
-                  .catch(() =>
-                    setError(t("copyFailedSelectAndCopyTheTextManually")),
-                  );
-              }}
+              onClick={() => { void copy(value); }}
             />
           </>
         )}
