@@ -4,22 +4,22 @@ import { Maximize2, Minimize2 } from 'lucide-react';
 import { layers, type layerTrigger } from '../../state/layers';
 import { t } from '../../i18n';
 import { IconButton } from './index';
-import { panelSlot, type LayerSide, type LayerRect } from './layerFrame';
+import { type LayerSize, type LayerRect } from './layerFrame';
 import { LayerShell, DialogActions, type DialogProps, type LayerContentHost } from './Dialog';
 export { usePanelState, PanelHeader } from './Dialog';
 
 type PanelProps = DialogProps & {
-  side?: LayerSide; focusTrigger?: ReturnType<typeof layerTrigger>; labelledBy?: string; onPanelFrame?: (rect: LayerRect | null) => void;
+  size?: LayerSize; focusTrigger?: ReturnType<typeof layerTrigger>; labelledBy?: string; onPanelFrame?: (rect: LayerRect | null) => void;
   role?: 'dialog' | 'region'; expanded?: boolean; onToggleWidth?: () => void;
   viewKey?: string; headerNavigation?: ReactNode; onEscapeKeyDown?: (event: KeyboardEvent) => void;
 };
-type Slot = ReturnType<typeof panelSlot>;
+type Slot = 'center';
 type Request = { id: string; slot: Slot; alive: { current: boolean }; config: PanelProps; route?: RouteControl | null };
 type Host = LayerContentHost & { id: string };
 type Slots = Partial<Record<Slot, Request>>;
 const PanelSlots = createContext<{
   request: (id: string, key?: string) => void; update: (request: Request) => void; release: (id: string) => void;
-  hosts: Partial<Record<Slot, Host>>; viewport: { width: number; height: number };
+  hosts: Partial<Record<Slot, Host>>;
   wide: boolean; toggleWide: () => void;
 } | null>(null);
 
@@ -70,8 +70,6 @@ export function PanelProvider({ children }: { children: ReactNode }) {
     }
   }, [desired, stack, hosts]);
   const [wide, setWide] = useState(false);
-  const [viewport, setViewport] = useState(() => ({ width: window.innerWidth, height: window.innerHeight }));
-  useLayoutEffect(() => { const resize = () => setViewport({ width: window.innerWidth, height: window.innerHeight }); window.addEventListener('resize', resize); return () => window.removeEventListener('resize', resize); }, []);
   const update = useCallback((request: Request) => {
     const old = current.current[request.slot];
     if (old && old.id !== request.id && old.alive.current) void old.config.onClose();
@@ -87,7 +85,7 @@ export function PanelProvider({ children }: { children: ReactNode }) {
     return { ...old, [slot]: host ? { ...host, id } : undefined };
   }), []);
   const toggleWide = useCallback(() => setWide(value => !value), []);
-  const value = useMemo(() => ({ request, update, release, hosts, viewport, wide, toggleWide }), [request, update, release, hosts, viewport, wide, toggleWide]);
+  const value = useMemo(() => ({ request, update, release, hosts, wide, toggleWide }), [request, update, release, hosts, wide, toggleWide]);
   return <PanelSlots.Provider value={value}>{children}{Object.entries(slots).map(([slot, request]) =>
     <PanelSlotHost key={slot} slot={slot as Slot} request={request} register={registerHost} />)}</PanelSlots.Provider>;
 }
@@ -99,12 +97,12 @@ export default function Panel(props: PanelProps) {
   const route = useContext(PanelRouteContext), routeRef = useRef(route); routeRef.current = route;
   const slots = useContext(PanelSlots), id = useId(), alive = useRef(true);
   const latest = useRef(props); latest.current = props;
-  const side = props.side ?? 'center', slot = panelSlot(side, slots?.viewport ?? { width: innerWidth, height: innerHeight });
+  const size = props.size ?? 'xl', slot = 'center' as const;
   const config = {
-    side, title: '', children: null, role: props.role, description: props.description ? true : undefined, closeLabel: props.role === 'region' ? t('backToHome') : undefined,
+    size, title: '', children: null, role: props.role, description: props.description ? true : undefined, closeLabel: props.role === 'region' ? t('backToHome') : undefined,
     focusTrigger: props.focusTrigger, labelledBy: props.labelledBy, headerless: props.headerless, className: props.className,
     initialFocus: props.initialFocus, returnFocus: props.returnFocus, viewKey: props.viewKey, dirty: props.dirty, busy: props.busy,
-    expanded: side === 'center' && slots ? slots.wide : props.expanded,
+    expanded: size === 'xl' && slots ? slots.wide : props.expanded,
   };
   const close = useCallback(() => {
     const owner = routeRef.current;
@@ -120,7 +118,7 @@ export default function Panel(props: PanelProps) {
     if (route?.active) route.commit();
   }, [slots?.update, id, slot, ...Object.values(config), !!props.onCancel, route?.id, route?.key, route?.active, close, cancel, escape, frame]);
   useLayoutEffect(() => { alive.current = true; return () => { alive.current = false; slots?.release(id); }; }, [slots?.release, id]);
-  const expanded = config.expanded, toggle = side === 'center' && slots ? slots.toggleWide : props.onToggleWidth;
+  const expanded = config.expanded, toggle = size === 'xl' && slots ? slots.toggleWide : props.onToggleWidth;
   const content = { ...props, actions: <>{props.actions}{props.onToggleWidth && <IconButton icon={expanded ? Minimize2 : Maximize2}
     label={t(expanded ? 'restorePanelWidth' : 'expandPanelWidth')} aria-pressed={!!expanded} onClick={toggle} />}</> };
   const host = slots?.hosts[slot];

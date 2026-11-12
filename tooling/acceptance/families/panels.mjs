@@ -41,7 +41,7 @@ export const checks = [
                     const content = fixture.slowDock === 'accounts' ? dialog.getByRole('region', { name: 'Studio' })
                         : dialog.getByRole('button', { name: /Review the example change/ });
                     await content.waitFor();
-                    await checkOverviewGrowth(dialog, initial, width, height, await page.evaluate(async () => (await import('/platform.ts')).isDesktop ? 48 : 20), fixture.slowDock === 'dispatches' ? 'left' : 'right');
+                    await checkOverviewGrowth(dialog, initial, width, height, await page.evaluate(async () => (await import('/platform.ts')).isDesktop ? 48 : 20));
                     await loading.waitFor({ state: 'hidden' });
                 }
             }

@@ -20,6 +20,7 @@ export type TopologyNodeProps = {
   capsuleCompact?: boolean;
   capsuleWing?: "left" | "right";
   panelExpanded?: boolean;
+  hasChildren?: boolean;
 };
 export function TopologyNode({
   label,
@@ -36,7 +37,7 @@ export function TopologyNode({
   capsuleNeutralRing = false,
   capsuleCompact = false,
   capsuleWing = "right",
-  panelExpanded,
+  panelExpanded, hasChildren = false,
 }: TopologyNodeProps) {
   const horizontal = layout !== "vertical";
   const baseGraphic = customGraphic ?? (
@@ -55,7 +56,7 @@ export function TopologyNode({
     </span>
   );
   const mark = capsuleMark ?? (customGraphic ? undefined : <BrandMark brand={brand} size={readings?.length ? 28 : 32} />);
-  const graphic = taskState ? <NodeCapsule state={taskState} label={label} graphic={baseGraphic} mark={mark}
+  const graphic = taskState && !hasChildren ? <NodeCapsule state={taskState} label={label} graphic={baseGraphic} mark={mark}
     readings={capsuleReadings ?? readings} used={used} neutralRing={capsuleNeutralRing}
     compact={capsuleCompact} wing={capsuleWing} expanded={panelExpanded} /> : baseGraphic;
   return (

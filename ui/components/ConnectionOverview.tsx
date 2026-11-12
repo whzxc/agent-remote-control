@@ -1,3 +1,4 @@
+import { layers } from '../state/layers';
 import { markActivitiesRead } from '../state/activityBubbles';
 import { orderedSubset } from '../topology/order';
 import type { LayerRect } from './ui/layerFrame';
@@ -248,8 +249,8 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
             if (side === -1) ingressPanel.set(undefined); else agentPanel.set(undefined);
             if (selectedDevice.detail && (side === -1) === (selectedDevice.side === 'member')) deviceView.set({ side: selectedDevice.side });
           }}
-          onMarkRead={markActivitiesRead} onReorderNodes={reorderNodes} tasks={homepageTasks} onAddAgent={() => setAgentsOpen(true)} left={topologyLeft} right={topologyRight}
-          brand={<Hub
+          onMarkRead={markActivitiesRead} onReorderNodes={reorderNodes} tasks={homepageTasks} left={topologyLeft} right={topologyRight}
+          brand={<Hub onDeviceLink={devicesEnabled ? () => layers.switchPanel(() => deviceView.set({ side: "controller", detail: "pairing" })) : undefined}
             remote={{ unhealthy: remoteFailed, label: t(remoteFailed ? "hub.remoteUnavailable" : "hub.remoteHealthy"),
               open: openConnections, recover: remoteFailed && !readOnlyBrowser ? () => setRecovery("remote") : undefined }}
             core={{ unhealthy: coreState !== "ready", recovery: coreState !== "ready", label: t(coreState === "ready" ? "hub.coreHealthy" : coreState === "stopped" ? "hub.coreStopped" : "hub.coreUnavailable"),

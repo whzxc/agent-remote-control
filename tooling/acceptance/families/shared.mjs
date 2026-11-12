@@ -1,13 +1,13 @@
 export const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-export function checkNodePanelBounds(box, viewportWidth, viewportHeight, top, side = "right") {
+export function checkNodePanelBounds(box, viewportWidth, viewportHeight, top) {
   if (!box) throw new Error('The node panel has no visible bounds.');
   const width = viewportWidth < 760 || viewportHeight > viewportWidth ? viewportWidth - 32 : 560;
-  const x = side === "left" ? 16 : viewportWidth - width - 16;
+  const x = (viewportWidth - width) / 2;
   if (Math.abs(box.x - x) > 1 || Math.abs(box.y + box.height / 2 - (top + viewportHeight - 16) / 2) > 1 || Math.abs(box.width - width) > 1
-    || box.y + box.height > viewportHeight - 15) throw new Error(`Node panel must use the M ${side} slot: ${JSON.stringify(box)}`);
+    || box.y + box.height > viewportHeight - 15) throw new Error(`Node panel must use the centered M slot: ${JSON.stringify(box)}`);
 }
-export async function checkOverviewGrowth(dialog, initial, viewportWidth, viewportHeight, top, side = "right") {
-  checkNodePanelBounds(initial, viewportWidth, viewportHeight, top, side);
+export async function checkOverviewGrowth(dialog, initial, viewportWidth, viewportHeight, top) {
+  checkNodePanelBounds(initial, viewportWidth, viewportHeight, top);
   const frames = await dialog.evaluate(async (element, initialHeight) => {
     const bounds = [];
     let previousHeight = initialHeight, stableFrames = 0;
@@ -21,7 +21,7 @@ export async function checkOverviewGrowth(dialog, initial, viewportWidth, viewpo
     }
     throw new Error('The overview did not grow when its data arrived.');
   }, initial.height);
-  for (const box of frames) { checkNodePanelBounds(box, viewportWidth, viewportHeight, top, side); if (box.height + 1 < initial.height) throw new Error("Loading shortened the open panel."); }
+  for (const box of frames) { checkNodePanelBounds(box, viewportWidth, viewportHeight, top); if (box.height + 1 < initial.height) throw new Error("Loading shortened the open panel."); }
   return frames.at(-1);
 }
 // Picks a model from the picker's nested menu and, when given, moves the effort slider to that step.

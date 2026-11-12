@@ -1,8 +1,6 @@
 import type { Point, Side } from './solve';
 import { TopologyAnimator, nodeKey } from './animate';
 import type { PaintNode } from './render';
-import type { LayerRect as SurfaceRect } from '../components/ui/layerFrame';
-import { portraitSourcePanelRoute } from './portrait';
 import type { TopologyGroupPlan } from './compact';
 
 // Rounded orthogonal polyline. Corners clamp to their adjacent segments, so
@@ -52,7 +50,7 @@ export class PortraitPainter {
     path.onpointerenter = hover ? () => this.onHover?.(hover) : null;
     path.onpointerleave = path.onpointercancel = hover ? () => this.onHover?.(null) : null;
   }
-  paint(a: TopologyAnimator, nodes: PaintNode[], panel: SurfaceRect | null, openGroup?: TopologyGroupPlan & { label?: string }) {
+  paint(a: TopologyAnimator, nodes: PaintNode[], openGroup?: TopologyGroupPlan & { label?: string }) {
     const h = a.values('hub'), p = a.values('portrait');
     if (!h || !p) return;
     this.keep.clear();
@@ -99,13 +97,6 @@ export class PortraitPainter {
         for (const { node: child, value: v, d } of branches) {
           this.path(`${key}:${child.id}:hit`, v!.presence >= 0.02 && a.live.get(nodeKey(node.side, child.id))?.alive ? d : '', 'topology-path-hit', v!.presence, {}, { side: node.side, id: child.id });
         }
-      }
-      if (panel && node.selected) {
-        const end = point(panel.x + panel.width, Math.max(panel.y + 27, Math.min(panel.y + panel.height - 27, n.y)));
-        const start = point(n.x - node.side * (n.size * n.scale / 2 + 4), n.y);
-        const route = node.side === 1 ? [start, point(n.childBusX, n.y), point(n.childBusX, end.y), end]
-          : portraitSourcePanelRoute({ x: n.x, y: n.y, size: n.size, scale: n.scale }, panel);
-        this.path(`${key}:panel`, railPath(route), `portrait-rail ${sideClass}`, 0.9);
       }
     }
     for (const [key, path] of this.paths) if (!this.keep.has(key)) { path.remove(); this.paths.delete(key); }

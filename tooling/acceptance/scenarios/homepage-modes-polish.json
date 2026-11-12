@@ -1,0 +1,129 @@
+{
+  "theme": "dark",
+  "language": "en",
+  "clock": "2026-01-01T00:00:00Z",
+  "agents": [
+    "codex",
+    "claude",
+    "dsh",
+    "opencode"
+  ],
+  "maxVisibleAgents": 4,
+  "topologyAccounts": "device-portrait",
+  "homepage": {
+    "mode": "topology",
+    "check": "polish",
+    "remoteTaskCount": 1
+  },
+  "viewports": [
+    {
+      "width": 1920,
+      "height": 1050
+    },
+    {
+      "width": 800,
+      "height": 1250
+    }
+  ],
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Inspect fixture configuration",
+      "headline": "Read configuration"
+    },
+    {
+      "agent": "claude",
+      "phase": "interaction",
+      "title": "Choose a fixture option",
+      "headline": "Waiting for a choice",
+      "question": true
+    },
+    {
+      "agent": "dsh",
+      "phase": "text",
+      "title": "Summarize fixture changes",
+      "headline": "Summary ready",
+      "completed": true
+    },
+    {
+      "agent": "opencode",
+      "phase": "thinking",
+      "title": "Inspect fixture history",
+      "headline": "Observation unavailable",
+      "unconfirmed": true
+    }
+  ],
+  "deviceLink": {
+    "state": "controller",
+    "enabled": true,
+    "snapshot": {
+      "deviceId": "b10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10c",
+      "name": "Example controller",
+      "controller": null,
+      "members": [
+        {
+          "deviceId": "c34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34d",
+          "name": "MacBook",
+          "addresses": [
+            "cedar.example.test:7143"
+          ],
+          "tunnelUrl": null,
+          "addressOverride": null
+        }
+      ],
+      "pending": null,
+      "offerExpiresInSeconds": null,
+      "devices": [
+        {
+          "id": "c34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34d",
+          "platform": "darwin",
+          "arch": "arm64",
+          "arcVersion": "fixture",
+          "state": "online",
+          "path": "lan",
+          "latency": 39,
+          "lastSeen": "2026-01-01T00:00:00Z",
+          "capabilities": null
+        }
+      ]
+    },
+    "taskSnapshots": {
+      "c34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34d": {
+        "observedAt": "2026-01-01T00:00:00Z",
+        "activeAgents": [],
+        "agents": {},
+        "availableAgents": [
+          {
+            "agent": "codex",
+            "displayName": "Codex",
+            "installed": true,
+            "enabled": true,
+            "available": true
+          }
+        ],
+        "records": [
+          {
+            "agent": "codex",
+            "taskId": "remote-unknown",
+            "requestId": "fixture-remote-request",
+            "state": "completed",
+            "createdAt": "2026-01-01T00:00:00Z",
+            "updatedAt": "2026-01-01T00:00:00Z",
+            "approval": {
+              "decision": "automatic",
+              "source": "peer",
+              "at": "2026-01-01T00:00:00Z"
+            },
+            "task": {
+              "kind": "create",
+              "title": "Recorded remote dispatch",
+              "prompt": "Inspect the workspace"
+            }
+          }
+        ],
+        "omittedRecords": 0
+      }
+    }
+  }
+}

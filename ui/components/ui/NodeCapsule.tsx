@@ -87,8 +87,7 @@ export function NodeCapsule({ label, state, graphic, mark, neutralRing, readings
           </span>)}
         </span>
       </button></Tooltip>}
-      {!!state.unread && !state.unconfirmed && <span role="img" aria-label={t('homepage.unreadCount', { count: state.unread })} className="node-capsule-unread"
-        style={{ left: width - 24 + 21 * Math.SQRT1_2 - 4.5, top: 24 - 21 * Math.SQRT1_2 - 4.5 }} />}
+
     </span>
   </span>;
 }

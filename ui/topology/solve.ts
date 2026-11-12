@@ -41,8 +41,8 @@ export type ParameterKey = typeof PARAMETERS[number]["key"];
 export type Params = Record<ParameterKey, number>;
 export const DEFAULTS = Object.fromEntries(PARAMETERS.map(p => [p.key, p.default])) as Params;
 export type Side = -1 | 1;
-export interface Entity { id: string; extent?: number; endpoint?: boolean; children?: readonly Entity[]; collapsed?: boolean }
-export interface Scene { vw: number; vh: number; left: readonly Entity[]; right: readonly Entity[]; hubInteraction?: "hub" | "source" | "agent"; panel?: { side: Side; edge: number; selected: string; overlay?: boolean } }
+export interface Entity { id: string; extent?: number; children?: readonly Entity[]; collapsed?: boolean }
+export interface Scene { vw: number; vh: number; left: readonly Entity[]; right: readonly Entity[]; hubInteraction?: "hub" | "source" | "agent" }
 export interface Drag extends Point { kind: "node"; side: Side; id: string }
 export interface Point { x: number; y: number }
 export interface NodeGeometry extends Point {
@@ -62,7 +62,6 @@ export function hubDots(interaction: Scene["hubInteraction"]) {
   return { dotSource: interaction === 'source' ? 1.25 : interaction ? 1.1 : 1,
     dotAgent: interaction === 'agent' ? 1.25 : interaction ? 1.1 : 1 };
 }
-export const PANEL_ARC_GAP = 40;
 
 // Distribute port angles: follow each target's direction, keep a minimum
 // separation in order, and fit the run inside ±max. Returns degrees.
@@ -105,7 +104,7 @@ function solveWing(list: readonly Entity[], side: Side, hub: Point, Re: number, 
     const ny = y + r.h / 2; y += r.h + p.rowGap;
     const nodeDrag = drag && drag.kind === 'node' && drag.id === r.e.id;
     return { id: r.e.id, port: 0, arc: null, extent: r.e.extent ?? 48, active, x: nodeDrag ? drag.x : colX - side * (idle ? idleIndent : 0),
-      y: nodeDrag ? drag.y : ny, size: r.e.endpoint ? 12 : p.nodeSize, scale: 1, opacity: idle ? 0.62 : 1, dim: idle, side };
+      y: nodeDrag ? drag.y : ny, size: p.nodeSize, scale: 1, opacity: idle ? 0.62 : 1, dim: idle, side };
   });
   // Earmuff ports follow the direction from the hub to each node.
   const raw = nodes.map((n) => Math.atan2(n.y - hub.y, Math.abs(n.x - hub.x)) * 180 / Math.PI);
@@ -166,25 +165,15 @@ export function solve(sc: Scene, p: Params = DEFAULTS, drag: Drag | null = null)
   const at = (x: number) => ({ x, y: sceneH / 2 });
   const dragOf = (side: Side) => drag && drag.side === side ? drag : null;
   // Fit the central ring first, then compress both columns by the same ratio.
-  const panelWing = (wing: Wing) => {
-    if (sc.panel?.side !== wing.side) return wing;
-    const hidden = new Set<string>();
-    for (const n of wing.nodes) {
-      if (n.id === sc.panel.selected && !n.arc) n.arc = { R: n.size * n.scale / 2 + p.arcGap, lo: -14, hi: 14 };
-      if (n.parent && (n.parent === sc.panel.selected || hidden.has(n.parent))) { n.opacity = 0; hidden.add(n.id); }
-    }
-    return wing;
-  };
-  const reservePanel = !!sc.panel && !sc.panel.overlay;
   const measure = () => {
     const L = solveWing(sc.left, -1, at(0), Re, p, optL, null);
     const R = solveWing(sc.right, 1, at(0), Re, p, optR, null);
-    const extent = (wing: Wing) => extentOf(reservePanel && sc.panel?.side === wing.side ? { ...panelWing(wing), nodes: wing.nodes.filter(n => n.opacity > 0) } : wing, 0, Re);
+    const extent = (wing: Wing) => extentOf(wing, 0, Re);
     return { eL: extent(L), eR: extent(R) };
   };
   let e = measure();
-  const leftEdge = reservePanel && sc.panel?.side === -1 ? sc.panel.edge + 40 : m;
-  const rightEdge = reservePanel && sc.panel?.side === 1 ? sc.panel.edge - 40 : vw - m;
+  const leftEdge = m;
+  const rightEdge = vw - m;
   const avail = rightEdge - leftEdge;
   if (e.eL.full + e.eR.full > avail) {
     let lo = preferredRe * MIN_HUB_RATIO, hi = preferredRe;
@@ -216,10 +205,10 @@ export function solve(sc: Scene, p: Params = DEFAULTS, drag: Drag | null = null)
   let hx = vw / 2;
   const minX = leftEdge + e.eL.full, maxX = rightEdge - e.eR.full;
   if (minX <= maxX) hx = Math.max(minX, Math.min(maxX, hx));
-  else hx = reservePanel && sc.panel?.side === 1 ? maxX : minX; // A dock prioritizes its selected node; the far wing may clip.
+  else hx = minX;
   const hub = { x: hx, y: sceneH / 2, Re, ...hubDots(sc.hubInteraction) };
-  const L = panelWing(solveWing(sc.left, -1, hub, Re, p, optL, dragOf(-1)));
-  const R = panelWing(solveWing(sc.right, 1, hub, Re, p, optR, dragOf(1)));
+  const L = solveWing(sc.left, -1, hub, Re, p, optL, dragOf(-1));
+  const R = solveWing(sc.right, 1, hub, Re, p, optR, dragOf(1));
   return { vw, vh, sceneH, hub, wings: [L, R], balance: [
     { ...e.eL, squeeze: optL.squeeze },
     { ...e.eR, squeeze: optR.squeeze },

@@ -74,7 +74,7 @@ function PairDialog({ close }: { close: () => void }) {
   useEffect(() => { if (error) input.current?.focus(); }, [pair.state, error]);
   const titles: Record<string, string> = { invalid: 'invalid', expired: 'expired', protocol: 'protocol', declined: 'declined', unreachable: 'unreachable' };
   const member = pair.memberId && pairedDevices(snapshot).find(device => device.id === pair.memberId);
-  return <Dialog title={c('add')} className="device-dialog" onClose={dismiss} dirty={pair.state === "input" && !!pair.input} busy={waiting} onCancel={waiting ? cancelDevicePair : undefined} returnFocus="[data-device-add]">
+  return <Dialog title={c('add')} className="device-dialog" onClose={dismiss} dirty={pair.state === "input" && !!pair.input} busy={waiting} onCancel={waiting ? cancelDevicePair : undefined} returnFocus="[data-device-pair-add]">
     <form className="device-form" onSubmit={event => { event.preventDefault(); if (!waiting && !success) void connectDevice(); }}>
       {success ? <Notice layout="inline" tone="success" title={c('paired', { name: pair.name })}>{member ? <span className="device-success-status">{`${c(member.state)} · ${c(member.path === 'lan' ? 'lan' : 'tunnelPath')}${member.latency !== null ? ` · ${member.latency} ms` : ''}`}</span> : null}</Notice> : <>
         <Field id={inputId} label={c('pairing')} error={pair.state === 'invalid' ? c('invalidHint') : undefined}>
@@ -144,9 +144,9 @@ export default function DeviceNodePanel({ onPanelFrame }: { onPanelFrame?: (rect
     try { await setControllerSources(show); } catch (error) { setActionError(String(error)); } finally { setBusy(false); }
   }
   return <>
-    {(detail || controller || view.detail === 'pairing') && <Panel side={view.side === 'member' ? 'left' : 'right'} title={selectedAgent ? `${detail!.name} · ${agentName(selectedAgent)}` : upstream?.sourceLabel ?? detail?.name ?? (controller ? snapshot?.controller?.name : c('thisDevice'))}
-      className="device-node-panel" onPanelFrame={onPanelFrame} busy={busy} onClose={() => deviceView.set({ side: view.side })}>
-      <div className="devices-content">{detail && remote[detail.id]?.error && <Notice layout="inline">{remote[detail.id].error}</Notice>}{(error || actionError) && <Notice layout="inline">{error || actionError}</Notice>}
+    {(detail || controller || view.detail === 'pairing') && <Panel size="m" title={selectedAgent ? `${detail!.name} · ${agentName(selectedAgent)}` : upstream?.sourceLabel ?? detail?.name ?? (controller ? snapshot?.controller?.name : c('deviceLink'))}
+      returnFocus={view.detail === 'pairing' ? '.hub-device-link' : undefined} className="device-node-panel" onPanelFrame={onPanelFrame} busy={busy} onClose={() => deviceView.set({ side: view.side })}>
+      <div className="devices-content">{view.detail === 'pairing' && <Button data-device-pair-add variant="primary" onClick={() => deviceView.set(old => ({ ...old, dialog: 'pair' }))}><Icon icon={Plus} />{c('add')}</Button>}{detail && remote[detail.id]?.error && <Notice layout="inline">{remote[detail.id].error}</Notice>}{(error || actionError) && <Notice layout="inline">{error || actionError}</Notice>}
         {selectedAgent && detail ? <div className="device-detail"><div className="device-identity"><BrandMark markup={icons[selectedAgent.agent]} size={28} /><strong>{agentName(selectedAgent)}</strong></div>
           <p>{selectedAgent.version}</p><Button onClick={() => { deviceView.set({ side: 'controller' }); focusNodeTasks({ id: `device:${detail.id}:agent:${selectedAgent.agent}`, deviceId: detail.id, agent: selectedAgent.agent, label: `${detail.name} · ${agentName(selectedAgent)}` }); }}>{t('homepage.tasks')}</Button>
         </div> : detail ? <Detail device={detail} /> : <><Member busy={busy} act={action => void act(action)} />

@@ -4,8 +4,6 @@ import { connector } from '../state/connector';
 import { accounts as accountStore } from '../state/accounts';
 import { accountOwns } from '../accountPresentation';
 import { layers } from '../state/layers';
-import { DropdownMenu } from 'radix-ui';
-import { Bot } from 'lucide-react';
 import { cloneElement, isValidElement, useCallback, useMemo } from 'react';
 import { Laptop, Monitor } from 'lucide-react';
 import { BrandMark, Icon } from '../components/ui';
@@ -37,6 +35,7 @@ export function tasksForNode(node: NodeView & { side: Side }, tasks: HomepageTas
   });
 }
 export function capsuleState(node: NodeView & { side: Side }, tasks: HomepageTask[]) {
+  if (node.hasChildren || node.children?.length) return nodeTaskState([]);
   return nodeTaskState(tasksForNode(node, tasks), node.deviceId ? node.state === 'inactive' ? 'offline' : 'online' : undefined);
 }
 type PositionedNode = NodeView & { side: Side; parent?: string };
@@ -57,7 +56,7 @@ export function CapsuleNode({ node, tasks, compact, onWidth }: { node: Positione
       upstreamSourceId: node.upstreamSourceId, sourceIds: node.side === -1 && !node.upstreamSourceId ? node.sourceIds : undefined, deviceId: node.side === 1 ? node.deviceId : undefined }),
   });
 }
-export function useDeviceNodes(left: NodeView[], right: NodeView[], onAddAgent: () => void) {
+export function useDeviceNodes(left: NodeView[], right: NodeView[]) {
   const sourceSnapshot = connector.use().sources;
   const enabled = deviceLinkEnabled.use(), snapshot = deviceSnapshot.use(), deviceSelection = deviceView.use();
   const remote = deviceTasks.use();
@@ -82,7 +81,7 @@ export function useDeviceNodes(left: NodeView[], right: NodeView[], onAddAgent: 
       const single = inventory.length === 1 ? inventory[0] : undefined;
       const state = device.state === 'online' ? 'normal' as const : 'inactive' as const;
       const graphic = <span className="device-node-graphic">{single ? <BrandMark markup={icons[single.agent]} size={28} /> : <Icon icon={Laptop} size={28} />}
-        <span className="device-node-status" role="img" aria-label={t(device.state === 'online' ? 'device.online' : 'device.offline')} data-online={device.state === 'online'} />{single && <span className="device-node-badge"><Icon icon={Laptop} size={10} /></span>}</span>;
+        {single && <span className="device-node-badge"><Icon icon={Laptop} size={10} /></span>}</span>;
       const label = single ? `${device.name} · ${agentName(single)}` : device.name;
       const managingDevice = deviceSelection.detail === device.id && !deviceSelection.agent;
       const children: NodeView[] = single ? [] : inventory.map(agent => ({
@@ -98,16 +97,6 @@ export function useDeviceNodes(left: NodeView[], right: NodeView[], onAddAgent: 
           panelExpanded={managingDevice} onOpen={() => openDevice({ side: 'controller', detail: device.id })}>{graphic}</GraphNode>,
       };
     }) : [];
-    const add: NodeView = {
-      id: 'device:add', endpoint: true, pinned: true, label: t('homepage.add'), state: 'normal', attention: false, selected: false,
-      content: <DropdownMenu.Root><DropdownMenu.Trigger asChild><button className="topology-add-endpoint" data-device-add data-panel-anchor aria-label={t('homepage.add')}><span /></button></DropdownMenu.Trigger>
-        <DropdownMenu.Portal><DropdownMenu.Content className="task-card-menu" sideOffset={8}>
-          <DropdownMenu.Item onSelect={onAddAgent}><Icon icon={Bot} />{t('addAgent')}</DropdownMenu.Item>
-          <DropdownMenu.Item onSelect={() => deviceView.set({ side: 'controller', dialog: 'pair' })}><Icon icon={Laptop} />{t('device.add')}</DropdownMenu.Item>
-          <DropdownMenu.Item onSelect={() => openDevice({ side: 'member', detail: 'pairing' })}><Icon icon={Monitor} />{t('device.thisDevice')}</DropdownMenu.Item>
-        </DropdownMenu.Content></DropdownMenu.Portal>
-      </DropdownMenu.Root>,
-    };
-    return { left: sourceRoots, right: [...right, ...members, ...(enabled ? [add] : [])] };
-  }, [sourceSnapshot, enabled, snapshot, deviceSelection, remote, left, right, onAddAgent]);
+    return { left: sourceRoots, right: [...right, ...members] };
+  }, [sourceSnapshot, enabled, snapshot, deviceSelection, remote, left, right]);
 }

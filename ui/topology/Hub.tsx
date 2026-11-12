@@ -1,7 +1,7 @@
 import { useId } from "react";
 import { t } from "../i18n";
 import { hubMarkGeometry } from "./geometry";
-import { Network, Plus, Power, RotateCw, type LucideIcon } from "lucide-react";
+import { Laptop, Network, Plus, Power, RotateCw, type LucideIcon } from "lucide-react";
 import { Icon, IconButton, Tooltip } from "../components/ui";
 
 type Arc = {
@@ -18,13 +18,14 @@ type ArcAction = {
   busy?: boolean;
 };
 
-export default function Hub({ sourceEmpty, agentEmpty, remote, core, onAddSource, onManageAgents }: {
+export default function Hub({ sourceEmpty, agentEmpty, remote, core, onAddSource, onManageAgents, onDeviceLink }: {
   remote: Arc & { open: () => void; recover?: () => void };
   core: Arc & { action?: () => void; recovery?: boolean; busy?: boolean };
   sourceEmpty: boolean;
   agentEmpty: boolean;
   onAddSource: () => void;
   onManageAgents: () => void;
+  onDeviceLink?: () => void;
 }) {
   const id = useId(), mark = hubMarkGeometry();
   return <>
@@ -37,9 +38,12 @@ export default function Hub({ sourceEmpty, agentEmpty, remote, core, onAddSource
         if (remote.recover) {
           actions.push({ className: "hub-remote-recovery", label: t("hub.remoteRecovery"), icon: RotateCw, run: remote.recover, opensDialog: true });
         }
-      } else if (core.action) {
-        actions.push({ className: "hub-core-action", label: t(core.recovery ? "hub.coreRecovery" : "hub.stopCore"),
-          icon: core.recovery ? RotateCw : Power, run: core.action, opensDialog: core.recovery, busy: core.busy });
+      } else {
+        if (onDeviceLink) actions.push({ className: "hub-device-link", label: t("device.deviceLink"), icon: Laptop, run: onDeviceLink, opensDialog: true });
+        if (core.action) {
+          actions.push({ className: "hub-core-action", label: t(core.recovery ? "hub.coreRecovery" : "hub.stopCore"),
+            icon: core.recovery ? RotateCw : Power, run: core.action, opensDialog: core.recovery, busy: core.busy });
+        }
       }
       return <div key={side} className="hub-arc-orbit">
         <div className={`hub-arc hub-arc-${side}`} data-unhealthy={arc.unhealthy || undefined} data-paired={actions.length > 1 || undefined}>

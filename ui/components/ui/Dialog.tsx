@@ -9,7 +9,7 @@ import { isDesktop } from '../../platform';
 import { useReducedMotion } from '../../state/appEnvironment';
 import { layers, layerTrigger } from '../../state/layers';
 import { notify } from '../../state/connector';
-import { type LayerKind, type LayerSide, type LayerRect } from './layerFrame';
+import { type LayerKind, type LayerSize, type LayerRect } from './layerFrame';
 import { LayerOwnerContext } from './TransientLayer';
 import { IconButton, Notice } from './index';
 import { NaturalContentContext, CloseContext, HeaderContext, ActionsContext, PanelStateContext, ViewContext, type View, type PanelState, type NaturalContent } from './LayerPortals';
@@ -48,8 +48,8 @@ export type DialogProps = {
 
 export type LayerContentHost = { layerId: string; target: HTMLDivElement; render: (props: DialogProps) => ReactNode; ready: () => void };
 
-export function LayerShell({ onContentHost, kind, side = 'center', focusTrigger, onPanelFrame, labelledBy, role = 'dialog', closeLabel, expanded = false, viewKey, contentKey, headerNavigation, onEscapeKeyDown, layerId, open = true, onClose, dirty, busy, onCancel, title, description, children,
-  footer, actions, leading, headerDetail, stepBar, headerless, className = '', initialFocus, returnFocus }: DialogProps & { onContentHost?: (host?: LayerContentHost) => void; kind: LayerKind; side?: LayerSide; focusTrigger?: ReturnType<typeof layerTrigger>; onPanelFrame?: (rect: LayerRect | null) => void; labelledBy?: string; role?: 'dialog' | 'region'; closeLabel?: string; expanded?: boolean; viewKey?: string; contentKey?: string; headerNavigation?: ReactNode; onEscapeKeyDown?: (event: KeyboardEvent) => void }) {
+export function LayerShell({ onContentHost, kind, size = kind === 'panel' ? 'xl' : 'm', focusTrigger, onPanelFrame, labelledBy, role = 'dialog', closeLabel, expanded = false, viewKey, contentKey, headerNavigation, onEscapeKeyDown, layerId, open = true, onClose, dirty, busy, onCancel, title, description, children,
+  footer, actions, leading, headerDetail, stepBar, headerless, className = '', initialFocus, returnFocus }: DialogProps & { onContentHost?: (host?: LayerContentHost) => void; kind: LayerKind; size?: LayerSize; focusTrigger?: ReturnType<typeof layerTrigger>; onPanelFrame?: (rect: LayerRect | null) => void; labelledBy?: string; role?: 'dialog' | 'region'; closeLabel?: string; expanded?: boolean; viewKey?: string; contentKey?: string; headerNavigation?: ReactNode; onEscapeKeyDown?: (event: KeyboardEvent) => void }) {
   const generatedId = useId(), id = layerId ?? generatedId, snapshot = layers.use(), reduced = useReducedMotion();
   const [headerTarget, setHeaderTarget] = useState<HTMLElement | null>(null);
   const [headerCount, setHeaderCount] = useState(0);
@@ -86,7 +86,7 @@ export function LayerShell({ onContentHost, kind, side = 'center', focusTrigger,
   const [contentNode, setContentNode] = useState<HTMLDivElement | null>(null);
   const [readyContent, setReadyContent] = useState<{ key: string; revision: number }>();
   const ready = useCallback(() => setReadyContent(old => ({ key: `${contentKey}:${viewKey}`, revision: (old?.revision ?? 0) + 1 })), [contentKey, viewKey]);
-  const { frame, retainedHeight } = useLayerFrame((!onContentHost || readyContent?.key === `${contentKey}:${viewKey}`) && (!headerless || !headerCount || headerMounted) ? contentNode : null, { kind, side, expanded, viewKey: `${contentKey}:${viewKey}`, retainedViewHeight: view ? viewHeight.current : undefined, naturalBody, chromeVersion: `${readyContent?.revision}:${headerCount}:${actionCount}` });
+  const { frame, retainedHeight } = useLayerFrame((!onContentHost || readyContent?.key === `${contentKey}:${viewKey}`) && (!headerless || !headerCount || headerMounted) ? contentNode : null, { kind, size, expanded, viewKey: `${contentKey}:${viewKey}`, retainedViewHeight: view ? viewHeight.current : undefined, naturalBody, chromeVersion: `${readyContent?.revision}:${headerCount}:${actionCount}` });
   const contentRef = useCallback((element: HTMLDivElement | null) => setContentNode(element), []);
   const previousContent = useRef(`${contentKey}:${viewKey}:${view?.title}`);
   useLayoutEffect(() => {
@@ -204,12 +204,12 @@ export function LayerShell({ onContentHost, kind, side = 'center', focusTrigger,
     <LayerOwnerContext.Provider value={id}>
     <D.Portal>
       {kind === 'dialog' && snapshot.some(layer => layer.id !== id && snapshot.indexOf(layer) < snapshot.findIndex(item => item.id === id)) && <D.Overlay className="layer-scrim" style={{ zIndex: stack.scrim }} />}
-      <D.Content asChild role={role} ref={setNode} className={`dialog ${kind === 'panel' ? `layer-panel ${side !== 'center' ? 'node-panel' : ''}` : 'layer-dialog'} ${headerless ? 'headerless' : ''} ${className}`}
+      <D.Content asChild role={role} ref={setNode} className={`dialog ${kind === 'panel' ? `layer-panel ${size === 'm' ? 'node-panel' : ''}` : 'layer-dialog'} ${headerless ? 'headerless' : ''} ${className}`}
         data-layer-entering={entering || undefined} data-layer-frame-top={frame?.y} data-layer-frame-height={frame?.height}
-        data-layer-kind={kind} data-layer-side={kind === 'panel' ? side : undefined} data-panel-depth={depth + 1} inert={recessed || undefined} data-exiting={exiting || undefined}
+        data-layer-kind={kind} data-layer-size={size} data-panel-depth={depth + 1} inert={recessed || undefined} data-exiting={exiting || undefined}
         {...{ "aria-labelledby": labelledBy ?? `${id}-title` }}
         aria-describedby={description ? `${id}-description` : undefined}
-        style={{ opacity: reduced ? 1 : 0, top: entryFrame.current?.y, height: entryFrame.current?.height, left: frame?.x, width: frame?.width ?? `var(--layer-${kind === 'panel' && side === 'center' ? 'xl' : 'm'})`, maxHeight: frame?.maxHeight,
+        style={{ opacity: reduced ? 1 : 0, top: entryFrame.current?.y, height: entryFrame.current?.height, left: frame?.x, width: frame?.width ?? `var(--layer-${size})`, maxHeight: frame?.maxHeight,
           visibility: frame ? undefined : 'hidden', zIndex: kind === 'panel' ? stack.panel : stack.dialog,
           '--layer-retained-height': `${retainedHeight}px`, '--layer-content-cap': `calc(100vh - var(--layer-${isDesktop ? 'top-desktop' : 'top-browser'}) - var(--layer-side-margin))` } as CSSProperties}
         onOpenAutoFocus={event => {

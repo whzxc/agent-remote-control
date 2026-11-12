@@ -2,16 +2,18 @@ export async function verifyDevices(page, fixture, messages) {
   const state = fixture.deviceLink.state;
   const c = key => messages[`device.${key}`];
   const workspace = page.locator('.device-node-panel');
+  const openLink = async () => {
+    const action = page.getByRole('button', { name: c('deviceLink'), exact: true });
+    await action.focus(); await action.press('Enter');
+    await page.getByRole('dialog', { name: c('deviceLink'), exact: true }).waitFor();
+  };
   const addDevice = async () => {
-    await page.getByRole('button', { name: messages['homepage.add'], exact: true }).click();
-    await page.getByRole('menuitem', { name: c('add'), exact: true }).click();
+    if (!await workspace.count()) await openLink();
+    await workspace.getByRole('button', { name: c('add'), exact: true }).click();
   };
   const choose = async side => {
     if (await workspace.count()) await page.keyboard.press('Escape');
-    if (side === 'member') {
-      await page.getByRole('button', { name: messages['homepage.add'], exact: true }).click();
-      await page.getByRole('menuitem', { name: c('thisDevice'), exact: true }).click();
-    }
+    if (side === 'member') await openLink();
   };
   const openDevice = name => page.getByRole('button', { name, exact: true }).click();
   if (state.startsWith('experiment')) {
@@ -23,7 +25,7 @@ export async function verifyDevices(page, fixture, messages) {
     await toggle.click();
     await page.getByRole('switch', { name: c('deviceLink'), exact: true, checked: !fixture.deviceLink.enabled }).waitFor();
     await page.getByRole('button', { name: messages.backToHome, exact: true }).click();
-    const endpoint = page.getByRole('button', { name: messages['homepage.add'], exact: true });
+    const endpoint = page.getByRole('button', { name: c('deviceLink'), exact: true });
     await endpoint.waitFor({ state: fixture.deviceLink.enabled ? 'hidden' : 'visible' });
     return;
   }

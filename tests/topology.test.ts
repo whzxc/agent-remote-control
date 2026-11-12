@@ -2,7 +2,7 @@ import { arcPath, grownWire, hubMarkGeometry } from "../ui/topology/geometry.ts"
 import { TopologyAnimator, nodeKey } from "../ui/topology/animate.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULTS, PARAMETERS, PARAMETER_GROUPS, MIN_HUB_RATIO, distribute, extentOf, solve, LABEL_W, NODE_R, PANEL_ARC_GAP, type Scene } from "../ui/topology/solve.ts";
+import { DEFAULTS, PARAMETERS, PARAMETER_GROUPS, MIN_HUB_RATIO, distribute, extentOf, solve, LABEL_W, NODE_R, type Scene } from "../ui/topology/solve.ts";
 import { clampParameter, emptyParameters, importParameters, loadParameters, parameterDiff } from "../ui/topology/parameters.ts";
 
 const entities = (prefix: string, counts: number[]) => counts.map((count, i) => ({ id: `${prefix}${i}`, extent: 48 + count * 28 }));
@@ -263,46 +263,14 @@ test("path generation skips non-finite coordinates and recovers on the next fram
 });
 
 
-test("Agent dock reserves its width and label clearance without reordering or moving rows", () => {
-  // Property: docking preserves rows and node arcs while giving only the selected idle node a panel attachment.
-  for (const vw of [760, 900, 1280, 1800]) {
-    const scene = { ...fixtures.busy, vw }, base = solve(scene), edge = vw - 416;
-    for (const selected of scene.right.map(n => n.id)) {
-      const docked = solve({ ...scene, panel: { side: 1, edge, selected } });
-      assert.equal(docked.sceneH, base.sceneH);
-      assert.deepEqual(docked.wings.map(w => w.nodes.map(n => [n.id, n.y])), base.wings.map(w => w.nodes.map(n => [n.id, n.y])));
-      const node = docked.wings[1].nodes.find(n => n.id === selected)!;
-      assert.ok(node.x + LABEL_W * node.scale * node.size / (NODE_R * 2) / 2 <= edge - PANEL_ARC_GAP + 1e-6);
-      assert.ok(node.x - node.size * node.scale / 2 >= 0);
-      assert.ok(node.scale <= 1);
-      for (const n of docked.wings[1].nodes) assert.equal(n.arc !== null, n.active || n.id === selected, n.id);
-      assert.ok(docked.balance.every(w => w.squeeze >= DEFAULTS.squeezeMin));
-    }
-    assert.deepEqual(solve(scene), base, "closing restores the original geometry");
-  }
-});
-test("collapsed panel slots leave topology positions independent of their covering edge", () => {
-  // Property: A collapsed panel overlays the topology without moving nodes or the hub toward its trigger.
-  for (const vw of [360, 600, 759]) for (const side of [-1, 1] as const) {
-    const scene = { ...fixtures.bilateral, vw }, base = solve(scene);
-    const selected = side === 1 ? "agent0" : "source0";
-    for (const edge of [16, vw - 16]) {
-      const layout = solve({ ...scene, panel: { side, selected, edge, overlay: true } });
-      assert.deepEqual(layout.hub, base.hub);
-      assert.deepEqual(layout.wings.map(w => w.nodes.map(n => [n.id, n.x, n.y])), base.wings.map(w => w.nodes.map(n => [n.id, n.x, n.y])));
-    }
-  }
-});
-
-test("source dock reserves clearance and keeps Agent nodes in their original rows", () => {
-  // Property: source dock reserves clearance and keeps Agent nodes in their original rows.
-  for (const vw of [760, 900, 1280, 1800]) {
+test('panel state never changes configuration geometry or creates leaf arcs', () => {
+  // Regression: opening source or Agent panels pushed and squeezed topology and added outward leaf stubs.
+  for (const vw of [390, 800, 1280, 1920]) {
     const scene = { ...fixtures.busy, vw }, base = solve(scene);
-    for (const selected of scene.left.map(n => n.id)) {
-      const docked = solve({ ...scene, panel: { side: -1, edge: 416, selected } });
-      assert.deepEqual(docked.wings.map(w => w.nodes.map(n => [n.id, n.y])), base.wings.map(w => w.nodes.map(n => [n.id, n.y])));
-      const node = docked.wings[0].nodes.find(n => n.id === selected)!;
-      assert.ok(node.x - LABEL_W * node.scale * node.size / (NODE_R * 2) / 2 >= 416 + PANEL_ARC_GAP - 1e-6);
+    for (const side of [-1, 1] as const) {
+      const selected = side === 1 ? 'agent0' : 'source0';
+      assert.deepEqual(solve({ ...scene, panel: { side, edge: 416, selected } }), base);
+      assert.ok(base.wings.flatMap(wing => wing.nodes).every(node => node.arc === null));
     }
   }
 });

@@ -1,10 +1,9 @@
 import { deg, type Side, type Layout, type Point } from "./solve";
 import { arcPath, grownWire, tentacle, finitePoints } from "./geometry";
 import { TopologyAnimator, nodeKey } from "./animate";
-import type { LayerRect as SurfaceRect } from "../components/ui/layerFrame";
 
 export type WireState = "normal" | "connecting" | "error" | "inactive";
-export interface PaintNode { id: string; side: Side; parent?: string; state: WireState; attention: boolean; selected: boolean; label?: string; endpoint?: boolean }
+export interface PaintNode { id: string; side: Side; parent?: string; state: WireState; attention: boolean; selected: boolean; label?: string; hasChildren?: boolean }
 const ns = "http://www.w3.org/2000/svg";
 function element<K extends keyof SVGElementTagNameMap>(tag: K, parent: SVGElement, attrs: Record<string, string> = {}) {
   const el = document.createElementNS(ns, tag);
@@ -50,7 +49,7 @@ export class TopologyPainter {
     branch = { group, outline, flow, gap, arc, hit, arcHit, gradient, solid, fade, end };
     this.groups.set(key, branch); return branch;
   }
-  paint(animator: TopologyAnimator, nodes: PaintNode[], panel: SurfaceRect | null, debug: Layout | null = null) {
+  paint(animator: TopologyAnimator, nodes: PaintNode[], debug: Layout | null = null) {
     const h = animator.values("hub");
     if (!h) return;
     const p = animator.values("shape")!, scale = h.Re / 130, keep = new Set<string>();
@@ -69,14 +68,14 @@ export class TopologyPainter {
       const ancestor = n.parent ? animator.values(nodeKey(n.side, n.parent)) : undefined;
       const port = ancestor ? { x: ancestor.x + ancestor.radius * radial.x, y: ancestor.y + ancestor.radius * radial.y }
         : { x: h.x + h.Re * radial.x, y: h.y + h.Re * radial.y };
-      const start = { x: v.x - n.side * (v.size / 2 * v.scale + (n.endpoint ? 0 : 6)), y: v.y }, D = Math.hypot(start.x - port.x, start.y - port.y);
+      const start = { x: v.x - n.side * (v.size / 2 * v.scale + 6), y: v.y }, D = Math.hypot(start.x - port.x, start.y - port.y);
       const c1 = { x: start.x - n.side * D * p.t1Node, y: start.y };
       const c2 = { x: port.x + radial.x * D * p.t1Root, y: port.y + radial.y * D * p.t1Root };
       const shape = ancestor ? tentacle(start, port, radial, n.side, scale, { t2End: p.t2End, t2Root: p.t2Root, flare: p.flare }, n.state === "connecting")
         : { ...grownWire(start, c1, c2, port, scale, p.flare, false, n.state === "connecting"), c1, c2 };
       if (n.state !== "inactive") controls(start, shape.c1, shape.c2, port);
       attr(b.group, { class: `topology-branch primary ${n.side === 1 ? "right" : "left"}`, "data-state": n.state,
-        "data-selected": String(n.selected),
+        "data-selected": String(n.selected), "data-topology-node": key,
         opacity: v.presence });
       attr(b.gradient, { x1: port.x, y1: port.y, x2: start.x, y2: start.y });
       attr(b.solid, { offset: Math.min(0.29, 10 * scale / Math.max(1, D)) });
@@ -87,23 +86,10 @@ export class TopologyPainter {
       attr(b.flow, { class: "connecting-wire", d: n.state === "connecting" ? shape.centerline : "", "stroke-width": 3 * scale });
       attr(b.gap, { class: "wire-break", d: n.state === "error" ? shape.gap : "", "stroke-width": 18 * scale });
       attr(b.arc, { class: `topology-outer-arc ${n.attention ? "needs-attention" : ""}`,
-        d: arcPath(v.x, v.y, v.radius, v.alo, v.ahi, n.side), opacity: v.aop, "stroke-width": (4 + 0.5 * clamp(v.emphasis, 0, 1)) * Math.max(0.8, scale) });
+        d: n.hasChildren ? arcPath(v.x, v.y, v.radius, v.alo, v.ahi, n.side) : "", opacity: v.aop, "stroke-width": (4 + 0.5 * clamp(v.emphasis, 0, 1)) * Math.max(0.8, scale) });
       const interactive = animator.live.get(key)?.alive && v.presence >= 0.02;
       attr(b.hit, { d: !interactive || n.state === "inactive" ? "" : shape.centerline, "aria-label": `${n.label ?? n.id} connection` });
-      attr(b.arcHit, { d: !interactive || v.aop < 0.02 ? "" : arcPath(v.x, v.y, v.radius, v.alo, v.ahi, n.side), "aria-label": `${n.label ?? n.id} arc` });
-    }
-    if (panel) for (const node of nodes.filter(node => node.selected)) {
-      const n = animator.values(nodeKey(node.side, node.id));
-      if (!n) continue;
-      const key = JSON.stringify(['panel', node.side, node.id]);
-      keep.add(key);
-      const branch = this.branch(key), radial = { x: node.side, y: 0 };
-      const port = { x: n.x + node.side * n.radius, y: n.y };
-      const end = { x: node.side === 1 ? panel.x : panel.x + panel.width, y: clamp(n.y, panel.y + 27, panel.y + panel.height - 27) };
-      const shape = tentacle(end, port, radial, node.side, scale, { t2End: p.t2End, t2Root: p.t2Root, flare: p.flare });
-      attr(branch.group, { class: `topology-branch secondary panel-link ${node.side === 1 ? 'right' : 'left'}`, opacity: n.op });
-      attr(branch.outline, { d: shape.outline });
-      attr(branch.hit, { d: '' });
+      attr(b.arcHit, { d: !n.hasChildren || !interactive || v.aop < 0.02 ? "" : arcPath(v.x, v.y, v.radius, v.alo, v.ahi, n.side), "aria-label": `${n.label ?? n.id} arc` });
     }
     for (const [key, b] of this.groups) if (!keep.has(key)) { b.group.remove(); this.groups.delete(key); }
     for (const side of [-1, 1] as const) {

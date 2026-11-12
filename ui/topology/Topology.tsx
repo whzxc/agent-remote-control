@@ -1,7 +1,6 @@
 import { CapsuleNode, capsuleState, tasksForNode, useDeviceNodes } from './nodeViews';
 import { capsuleItems, type HomepageTask } from '../state/activityModel';
 import './topology.css';
-import { readLayerTokens } from "../components/ui/layerTokens";
 import { participantPost, petSize, wanderPost, petPath, type Rect } from '../pets/geometry';
 import PetLayer, { type PetLayerHandle, type PetGeometry } from "../pets/PetLayer";
 import { arcActionRegion, hubMarkGeometry, hubControlGeometry } from "./geometry";
@@ -32,7 +31,7 @@ import { orderedSubset, moveToY } from "./order";
 import { topologyValues, topologyDebug } from "../state/topology";
 import type { LayerRect as SurfaceRect } from "../components/ui/layerFrame";
 
-export interface NodeView extends Omit<PaintNode, "side"> { content: ReactNode; extent?: number; endpoint?: boolean; deviceId?: string; remoteAgent?: string; upstreamSourceId?: string; capsuleMark?: ReactNode; reorderable?: boolean; children?: NodeView[]; collapsed?: boolean;
+export interface NodeView extends Omit<PaintNode, "side"> { content: ReactNode; extent?: number; hasChildren?: boolean; deviceId?: string; remoteAgent?: string; upstreamSourceId?: string; capsuleMark?: ReactNode; reorderable?: boolean; children?: NodeView[]; collapsed?: boolean;
   unread?: ActivityReadTarget[];
   platformRoot?: boolean; account?: boolean; accountId?: string; sameIdentity?: boolean; platform?: string; platformLabel?: string; label?: string;
   sourceIds?: string[]; icon?: ReactNode; selectedAccountId?: string | null;
@@ -43,8 +42,8 @@ export interface NodeView extends Omit<PaintNode, "side"> { content: ReactNode; 
 export interface TopologyHandle { memberLayerPointer: (event: Event) => void; panelFrame: (rect: SurfaceRect | null) => void }
 
 const noTasks: HomepageTask[] = [];
-export default function Topology({ left: localLeft, right: localRight, tasks = noTasks, onAddAgent, accountsEnabled = false, brand, boundary, panelKey, panelExpanded = false, onCollapseSide, onMarkRead, onReorderNodes, ref }: {
-  left: NodeView[]; right: NodeView[]; tasks?: HomepageTask[]; onAddAgent: () => void; accountsEnabled?: boolean; brand: ReactNode;
+export default function Topology({ left: localLeft, right: localRight, tasks = noTasks, accountsEnabled = false, brand, boundary, panelKey, panelExpanded = false, onCollapseSide, onMarkRead, onReorderNodes, ref }: {
+  left: NodeView[]; right: NodeView[]; tasks?: HomepageTask[]; accountsEnabled?: boolean; brand: ReactNode;
   panelExpanded?: boolean;
   panelKey?: string;
   onCollapseSide?: (side: Side) => void;
@@ -52,12 +51,12 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
   onReorderNodes: (side: Side, ids: string[]) => void;
   boundary: RefObject<HTMLElement | null>; ref: Ref<TopologyHandle>;
 }) {
-  const deviceNodes = useDeviceNodes(localLeft, localRight, onAddAgent);
+  const deviceNodes = useDeviceNodes(localLeft, localRight);
   const [widths, setWidths] = useState<Record<string, number>>({});
   const onWidth = useCallback((key: string, width: number) => setWidths(old => Math.abs((old[key] ?? 48) - width) < .01 ? old : { ...old, [key]: width }), []);
   const decorate = (list: NodeView[], side: Side): NodeView[] => list.map(node => {
     const state = capsuleState({ ...node, side }, tasks);
-    return { ...node, extent: widths[nodeKey(side, node.id)] ?? 48 + 28 * capsuleItems(state, viewport.orientation === 'portrait').length,
+    return { ...node, hasChildren: !!node.children?.length, extent: widths[nodeKey(side, node.id)] ?? 48 + 28 * capsuleItems(state, viewport.orientation === 'portrait').length,
       attention: !!node.attention || !!state.attention, unread: [...node.unread ?? [], ...tasksForNode({ ...node, side }, tasks).filter(task => task.group === 'unread').map(task => ({ agent: task.agent, id: task.session.id }))],
       children: decorate(node.children ?? [], side) };
   });
@@ -194,7 +193,7 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
     const portrait = viewport.orientation === 'portrait';
     const label = t(portrait ? 'topology.idle' : group.parent ? 'topology.idleAccounts' : group.side === 1 ? 'topology.idleAgents' : 'topology.idleSources', { count: members.length });
     return { id: group.id, group, label, state: 'normal', attention: false, selected: false, content: <TopologyGroup label={label}
-      members={members.map(n => ({ brand: n.platform ?? n.id, quota: n.quota,
+      members={members.map(n => ({ brand: n.platform ?? n.id,
         mark: group.side === 1 ? <BrandMark markup={icons[n.platform ?? n.id]} size={28} /> : <SourceIcon platform={n.platform ?? n.id} panelVisual /> }))}
       layout={portrait ? group.side === -1 ? 'source' : 'agent' : 'vertical'}
       aria-expanded={expandedGroups.has(group.id)}
@@ -339,14 +338,14 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
     for (const n of latest.current.allNodes) {
       const key = nodeKey(n.side, n.id), v = a.values(key), el = elements.current.get(key);
       if (v && el) {
-        el.style.transform = `translate(${v.x - NODE_R}px, ${v.y - NODE_R}px) scale(${n.endpoint ? 1 : v.scale * v.size / (n.group ? 42 : NODE_R * 2)})`;
+        el.style.transform = `translate(${v.x - NODE_R}px, ${v.y - NODE_R}px) scale(${v.scale * v.size / (n.group ? 42 : NODE_R * 2)})`;
         el.style.opacity = String(v.op);
         el.style.setProperty('--path-emphasis', String(Math.max(0, Math.min(1, v.emphasis))));
         el.inert = !a.live.get(key)?.alive || v.op < 0.02;
       } else if (el) {
         el.style.opacity = '0'; el.inert = true;
       }
-      const control = arcControls.current.get(key), interactive = !!a.live.get(key)?.alive && !n.group && (v?.presence ?? 0) > .02;
+      const control = arcControls.current.get(key), interactive = !!a.live.get(key)?.alive && !n.group && !!n.hasChildren && (v?.presence ?? 0) > .02;
       if (v && control) {
         control.place(portrait ? { kind: 'line',
           start: { x: v.x - n.side * v.radius, y: v.y - 14 }, end: { x: v.x - n.side * v.radius, y: v.y + 14 }, outward: { x: -n.side, y: 0 } }
@@ -371,14 +370,13 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
         element.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({ preventScroll: true });
       }
     }
-    const rect = panel.current ? { ...panel.current, x: panel.current.x - origin.current.x, y: panel.current.y - origin.current.y } : null;
     svg.current?.style.setProperty("--topology-time-scale", latest.current.slow ? "4" : "1");
     portraitSvg.current?.style.setProperty("--topology-time-scale", latest.current.slow ? "4" : "1");
     if (blend > 0.001) {
       const open = latest.current.allNodes.find(n => n.group && latest.current.expandedGroups.has(n.id));
-      portraitPainter.current?.paint(a, latest.current.nodes, rect, open ? { ...open.group!, label: open.label } : undefined);
+      portraitPainter.current?.paint(a, latest.current.nodes, open ? { ...open.group!, label: open.label } : undefined);
     }
-    if (blend < 0.999) painter.current?.paint(a, latest.current.nodes, rect,
+    if (blend < 0.999) painter.current?.paint(a, latest.current.nodes,
       latest.current.guides ? layout.current : null);
     updateActionPointer();
     pets.current?.layout();
@@ -400,13 +398,6 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
   const wake = useCallback(() => { if (!frame.current) frame.current = requestAnimationFrame(tick); }, [tick]);
   const scene = useCallback((): Scene => {
     const sc: Scene = { ...size.current!, left: latest.current.left, right: latest.current.right, hubInteraction: latest.current.hubInteraction }, d = drag.current;
-    const selected = latest.current.nodes.find(n => n.selected);
-    // The fixed slot contributes one available horizontal boundary to the existing solver.
-    const { sizes, margin } = readLayerTokens();
-    const reservedWidth = Math.min(sizes.m, innerWidth - 2 * margin);
-    if (selected) sc.panel = { side: selected.side, selected: selected.id,
-      edge: selected.side === 1 ? innerWidth - reservedWidth - margin - origin.current.x : margin + reservedWidth - origin.current.x,
-      overlay: latest.current.panelExpanded || innerWidth < 760 || innerHeight > innerWidth };
     if (!d?.active) return sc;
     const wing = d.side === -1 ? "left" : "right";
     if (d.kind === "node") {
@@ -426,12 +417,12 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
       if (!same(measured.left, portraitPlanRef.current.left) || !same(measured.right, portraitPlanRef.current.right)) setPortraitPlan(measured);
     }
     const result = compactLayout(sc, plan, expandedGroups, params, orientation.current);
-    // Folded branches and unread source leaves retain an actionable outer arc.
+    // Only configuration parents retain an actionable child bracket while folded.
     for (const wing of result.wings) for (const node of wing.nodes) {
       if (node.arc) continue;
       const full = latest.current.fullNodes.find(n => n.side === wing.side && n.id === node.id);
       const view = latest.current.nodes.find(n => n.side === wing.side && n.id === node.id);
-      if (full && (unreadUnder(full).length || view?.collapsed && full.children?.length)) {
+      if (full?.children?.length && view?.collapsed) {
         node.arc = { R: (node.size / 2 + Math.max(0, node.extent - 48) * node.size / 44) * node.scale + latest.current.params.arcGap, lo: -14, hi: 14 };
       }
     }
@@ -646,7 +637,7 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
       const full = fullNodes.find(full => full.side === node.side && full.id === node.id);
       if (!full) return null;
       const unread = unreadUnder(full), canCollapse = !!full.children?.length;
-      if (!canCollapse && !unread.length) return null;
+      if (!canCollapse) return null;
       const key = nodeKey(node.side, node.id), closed = collapsed[key] === true;
       return <ArcActions key={key} onPointerDownCapture={event => markGroupPointer(event.nativeEvent, node)} side={node.side} label={node.label ?? node.id} open={revealed === key} collapsed={closed} canCollapse
         ref={control => { if (control) arcControls.current.set(key, control); else arcControls.current.delete(key); }}
@@ -655,7 +646,7 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
         onCollapse={canCollapse ? () => topologyCollapsed.set(old => ({ ...old, [key]: !closed })) : undefined} />;
     })}
     {allNodes.map(n => <div key={nodeKey(n.side, n.id)} ref={el => { const key = nodeKey(n.side, n.id); if (el) elements.current.set(key, el); else elements.current.delete(key); }}
-      data-agent-node={!n.group && n.side === 1 ? n.platform ?? n.id : undefined} data-source-node={!n.group && n.side === -1 ? n.platformRoot ? n.id : n.sourceIds?.[0] ?? n.id : undefined}
+      data-node-id={n.id} data-agent-node={!n.group && n.side === 1 ? n.platform ?? n.id : undefined} data-source-node={!n.group && n.side === -1 ? n.platformRoot ? n.id : n.sourceIds?.[0] ?? n.id : undefined}
       data-agent-platform={n.side === 1 && !n.account ? n.platform : undefined}
       data-source-platform={n.side === -1 ? n.platform : undefined}
       data-account-id={n.accountId} data-topology-group={n.group?.id}
@@ -671,6 +662,6 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
       }}
       onPointerDownCapture={event => markGroupPointer(event.nativeEvent, n)}
       onPointerDown={n.reorderable ? event => startDrag(event, "node", n.side, n.id) : undefined}
-      onClickCapture={event => suppressClick(event, nodeKey(n.side, n.id))}>{n.group || n.endpoint ? n.content : <CapsuleNode node={n} tasks={tasks} compact={viewport.orientation === 'portrait'} onWidth={onWidth} />}</div>)}
+      onClickCapture={event => suppressClick(event, nodeKey(n.side, n.id))}>{n.group ? n.content : <CapsuleNode node={n} tasks={tasks} compact={viewport.orientation === 'portrait'} onWidth={onWidth} />}</div>)}
   </div>;
 }

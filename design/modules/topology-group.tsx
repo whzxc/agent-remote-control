@@ -11,13 +11,6 @@ export type TopologyGroupProps = {
   hideLabel?: boolean;
 };
 
-const dot: Record<TopologyGroupQuota, string> = {
-  ok: "bg-success",
-  low: "bg-warning",
-  out: "bg-danger",
-  unknown: "bg-border-strong",
-};
-
 /**
  * A folded group of sibling nodes. Portrait capsules place the brand marks
  * on the edge nearest their rail.
@@ -25,7 +18,6 @@ const dot: Record<TopologyGroupQuota, string> = {
 export function TopologyGroup({ label, members, layout = "vertical", hideLabel = false }: TopologyGroupProps) {
   const brands = [...new Set(members.map((m) => m.brand))];
   const pool = brands.length === 1;
-  const quotas = pool ? members.flatMap((m) => (m.quota ? [m.quota] : [])).slice(0, 12) : [];
   const capsuleLayout = layout === "agent"
     ? `flex-row-reverse pl-3 ${pool ? "pr-[9px]" : "pr-2"}`
     : `pr-3 ${pool ? "pl-[9px]" : "pl-2"}`;
@@ -49,13 +41,6 @@ export function TopologyGroup({ label, members, layout = "vertical", hideLabel =
             >
               <BrandMark brand={brand} size={18} />
             </span>
-          ))}
-        </span>
-      )}
-      {quotas.length > 0 && (
-        <span class="grid grid-flow-col grid-rows-2 gap-[4px]">
-          {quotas.map((q) => (
-            <span class={"size-[6px] rounded-full " + dot[q]} />
           ))}
         </span>
       )}

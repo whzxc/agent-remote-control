@@ -24,13 +24,18 @@ export const checks = [{ stage: 'verify', order: 18, visual: true, async run(con
     }));
     if (clipped) throw new Error('A configured device topology capsule is clipped horizontally.');
   }
+  const openDeviceLink = async () => {
+    const action = page.getByRole('button', { name: messages['device.deviceLink'], exact: true });
+    await action.focus(); await action.press('Enter');
+    await page.getByRole('dialog', { name: messages['device.deviceLink'], exact: true }).waitFor();
+  };
   const mode = () => page.evaluate(() => window.__ARC_VIEW_MODEL__().homepage.mode);
   if (await mode() !== fixture.homepage.mode) throw new Error('Homepage mode did not restore the viewer preference.');
   const check = fixture.homepage.check;
   const reveal = async name => {
     for (let attempt = 0; attempt < 8; attempt++) {
       const target = page.getByRole('button', { name, exact: true });
-      if (await target.count()) return target;
+      if (await target.count() && await target.evaluate(button => !button.closest('[inert]'))) return target;
       const label = await page.evaluate(() => {
         const topology = window.__ARC_VIEW_MODEL__().topology;
         const group = topology.groups.find(group => group.side === 1 && !group.parent && group.folded);
@@ -69,21 +74,13 @@ export const checks = [{ stage: 'verify', order: 18, visual: true, async run(con
           if (x > protectedMark.left && x < protectedMark.right && y > protectedMark.top && y < protectedMark.bottom) issues.push('A connector crosses ARC.');
         }
       }
-      const endpoint = document.querySelector('[data-device-add]').getBoundingClientRect();
-      const node = window.__ARC_VIEW_MODEL__().topology.nodes.find(node => node.endpoint);
-      const path = [...activeSvg.querySelectorAll('path')].find(path => path.getAttribute('aria-label') === `${node?.label} connection`)
-        ?? activeSvg.querySelector('.portrait-rail.right');
-      if (!path?.getAttribute('d') || !endpoint.width) issues.push('The add endpoint lost its solver branch.');
-      else {
-        const start = path.getPointAtLength(0), end = path.getPointAtLength(path.getTotalLength());
-        const distance = point => Math.hypot(point.x + svg.x - endpoint.x - endpoint.width / 2, point.y + svg.y - endpoint.y - endpoint.height / 2);
-        if (Math.min(distance(start), distance(end)) > endpoint.width / 2) issues.push('The add endpoint is detached from its solver branch.');
-      }
       return issues;
     });
     if (issues.length) throw new Error([...new Set(issues)].join(' '));
     const device = await reveal('MacBook · Codex');
-    await device.getByRole('img', { name: messages['device.online'], exact: true }).waitFor();
+    await device.click();
+    await page.getByRole('dialog').getByText(messages['device.online'], { exact: true }).waitFor();
+    await page.keyboard.press('Escape');
     if (await page.getByRole('button', { name: new RegExp(`^MacBook.*${text('unconfirmed')}`) }).count()) throw new Error('Online device inherited unknown task status.');
     const representedRoots = await page.evaluate(() => {
       const topology = window.__ARC_VIEW_MODEL__().topology;
@@ -91,8 +88,8 @@ export const checks = [{ stage: 'verify', order: 18, visual: true, async run(con
         ...topology.groups.filter(group => group.side === 1 && !group.parent && group.folded).flatMap(group => group.members)]).size;
     });
     if (representedRoots !== 5) throw new Error('The composition lost a configured Agent or device.');
-    await page.getByRole('button', { name: text('add'), exact: true }).click();
-    await page.getByRole('menuitem', { name: messages['device.add'], exact: true }).waitFor();
+    await openDeviceLink();
+    await page.getByRole('dialog').getByRole('button', { name: messages['device.add'], exact: true }).waitFor();
     await page.keyboard.press('Escape');
   }
   if (check === 'remote-error') {
@@ -177,15 +174,15 @@ export const checks = [{ stage: 'verify', order: 18, visual: true, async run(con
     if (check === 'controller') {
       await (await reveal('Quartz PC · Codex')).waitFor();
       await (await reveal('Cedar Mac · Codex')).waitFor();
-      await page.getByRole('button', { name: new RegExp(`^Cedar Mac\\..*${text('openTasks')}$`) }).click();
+      await page.getByRole('button', { name: new RegExp(`^Cedar Mac.*Codex\\..*${text('openTasks')}$`) }).click();
       await page.getByRole('article', { name: 'Review remote workspace changes', exact: true }).waitFor();
       if (await page.getByRole('article', { name: 'Inspect the dispatch queue', exact: true }).count()) throw new Error('Device scope included a local task.');
       await choose('topology');
     } else {
       if (await page.evaluate(() => window.__ARC_VIEW_MODEL__().homepage.tasks.some(task => !!task.deviceId))) throw new Error('A controller-origin local task became a remote card on the member.');
     }
-    await page.getByRole('button', { name: text('add'), exact: true }).click();
-    await page.getByRole('menuitem', { name: messages['device.add'], exact: true }).click();
+    await openDeviceLink();
+    await page.getByRole('dialog').getByRole('button', { name: messages['device.add'], exact: true }).click();
     await page.getByRole('dialog', { name: messages['device.add'], exact: true }).getByRole('textbox', { name: messages['device.pairing'], exact: true }).waitFor();
     await page.keyboard.press('Escape');
   }

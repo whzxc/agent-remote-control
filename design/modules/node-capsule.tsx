@@ -119,10 +119,7 @@ export function NodeCapsule({ state, label, graphic, mark, readings, used, neutr
   ].filter(Boolean).join(', ');
   const width = model.width;
   const mirror = wing === 'left';
-  const unread = !!state?.unread && !state?.unconfirmed;
   const buttonLeft = 40;
-  // The unread mark sits on the outline at 45° of the outer cap.
-  const dotX = width - 24 + radius * Math.SQRT1_2, dotY = 24 - radius * Math.SQRT1_2;
   return <span data-free class="relative inline-flex size-12 shrink-0" data-capsule-logo-anchor
     data-spring-stiffness="210" data-spring-damping="26">
     <span class={`absolute top-0 h-12 motion-reduce:transition-none ${mirror ? 'right-0' : 'left-0'}`}
@@ -143,10 +140,7 @@ export function NodeCapsule({ state, label, graphic, mark, readings, used, neutr
       </> : <span class="absolute left-0 top-0 flex size-12" style={{ transform: mirror ? 'scaleX(-1)' : undefined }}>
         {neutralRing && <CapsuleRing width={48} />}
         {graphic}</span>}
-      {unread && <span aria-label={`${state!.unread} completed unread`}
-        class="absolute z-20 size-[9px] rounded-full border-2 border-canvas bg-accent-text"
-        style={{ left: (model.active ? dotX : 24 + radius * Math.SQRT1_2) - 4.5,
-          top: dotY - 4.5 }} />}
+
     </span>
   </span>;
 }

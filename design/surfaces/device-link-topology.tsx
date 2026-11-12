@@ -1,7 +1,7 @@
 import { Frame } from 'adg';
 import { TopologyNode } from '../modules/topology-node';
 import { DeviceNode, DeviceBranch, DeviceNodePanel, ControllerSourcePanel,
-  DeviceAddEndpoint, PortraitDeviceBranch } from '../modules/device-topology';
+  PortraitDeviceBranch } from '../modules/device-topology';
 import { controllerForms, memberForms, portraitForms, landscapePaths, memberPaths,
   sourceNodes, copy } from '../fixtures/device-topology';
 import { localRunning, localAttention, deviceAggregate, quotaReadings, overflow } from '../fixtures/node-capsule';
@@ -30,12 +30,11 @@ export default () => [
         { x: 489, y: 170, content: <TopologyNode label="Codex" brand="codex" readings={quotaReadings} taskState={'idle' in option && option.idle ? {} : 'overflow' in option && option.overflow ? overflow : localRunning} /> },
         { x: 489, y: 280, content: <TopologyNode label="Claude Code" brand="claude-code" readings={quotaReadings} taskState={'idle' in option && option.idle ? {} : 'overflow' in option && option.overflow ? overflow : localAttention} /> },
         { x: 466, y: 310,
-          content: <DeviceBranch state={option.state} overflow={'overflow' in option && option.overflow} panelOpen={'panel' in option && option.panel} idle={'idle' in option && option.idle} form={'form' in option ? option.form : undefined} /> },
-        { x: 514, y: 704, content: <DeviceAddEndpoint /> },
+          content: <DeviceBranch state={option.state} overflow={'overflow' in option && option.overflow} idle={'idle' in option && option.idle} form={'form' in option ? option.form : undefined} /> },
       ],
     }}>
       {'panel' in option && option.panel && <div data-free class="absolute inset-0">
-        <div class="absolute inset-0 flex items-center justify-end pt-(--layer-top) pb-(--layer-side-margin) px-(--layer-side-margin)"><DeviceNodePanel /></div>
+        <div class="absolute inset-0 flex items-center justify-center pt-(--layer-top) pb-(--layer-side-margin) px-(--layer-side-margin)"><DeviceNodePanel /></div>
       </div>}
     </TopologyScreen>
   </Frame>),
@@ -52,11 +51,12 @@ export default () => [
       items: [
         { x: 836, y: 240, content: <TopologyNode label="Codex" brand="codex" readings={quotaReadings} taskState={localRunning} /> },
         { x: 836, y: 450, content: <TopologyNode label="Claude Code" brand="claude-code" readings={quotaReadings} taskState={localAttention} /> },
-        { x: 312, y: 240, content: <DeviceNode controller expanded /> },
+        { x: 312, y: 240, content: <DeviceNode controller expanded hasChildren={upstreams} /> },
         ...(upstreams ? sourceNodes.map(({ x, y, ...props }) => ({ x, y, content: <TopologyNode {...props} /> })) : []),
-        { x: 244, y: 526, content: <ControllerSourcePanel upstreams={upstreams} /> },
       ],
-    }} />
+    }}><div data-free class="absolute inset-0 flex items-center justify-center pt-(--layer-top) pb-(--layer-side-margin) px-(--layer-side-margin)">
+      <ControllerSourcePanel upstreams={upstreams} />
+    </div></TopologyScreen>
   </Frame>),
   ...portraitForms.map(({ name, width, height, rootX, pan, ...option }) => <Frame name={name} width={width} height={height} locale="en"
     note="Proposed. Compact capsules grow outward in fixed 152px columns. Horizontal pan is explicit, never task-driven; labels stay under logos.">
@@ -77,7 +77,6 @@ export default () => [
             { x: rootX - 31, y: 400, content: <TopologyNode label="Codex" brand="codex" readings={quotaReadings}
               taskState={'idle' in option && option.idle ? {} : 'overflow' in option && option.overflow ? overflow : localRunning} capsuleCompact /> },
             { x: 0, y: 0, content: <PortraitDeviceBranch rootX={rootX} state={'state' in option ? option.state : 'lan'} overflow={'overflow' in option && option.overflow} idle={'idle' in option && option.idle} /> },
-            { x: rootX - 54, y: 752, content: <DeviceAddEndpoint /> },
           ],
         }} />
       </div>

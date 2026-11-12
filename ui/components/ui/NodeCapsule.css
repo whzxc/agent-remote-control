@@ -13,7 +13,6 @@
 .node-capsule-disc[data-phase=thinking] { color: var(--phase-thinking); }
 .node-capsule-disc[data-phase=command] { color: var(--phase-command); }
 .node-capsule-disc[data-phase=running] { color: var(--role-agent); animation: capsule-pulse 1.4s ease-in-out infinite; }
-.node-capsule-unread { position: absolute; width: 9px; height: 9px; border: 2px solid var(--canvas); border-radius: 50%; background: var(--accent-text); pointer-events: none; }
 @keyframes capsule-pulse { 50% { opacity: .45; } }
 @media (prefers-reduced-motion: reduce) { .node-capsule-disc { animation: none; } }
 .node-capsule-logo, .node-capsule-tasks { border: 0; padding: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }

@@ -15,7 +15,7 @@ export function Panel({
   headerDetail,
   headerNavigation,
   description,
-  slot,
+  size,
   retainedHeight,
   viewportHeight = 800,
   viewportWidth = 1280,
@@ -31,7 +31,7 @@ export function Panel({
   headerDetail?: unknown;
   headerNavigation?: unknown;
   description?: unknown;
-  slot?: "center" | "left" | "right";
+  size?: "m" | "xl";
   retainedHeight?: number;
   viewportHeight?: number;
   viewportWidth?: number;
@@ -40,9 +40,9 @@ export function Panel({
 }) {
   return (
     <section
-      style={{ width: viewportHeight && (viewportWidth < 760 || viewportHeight > viewportWidth) ? `calc(${viewportWidth}px - 2 * var(--layer-side-margin))` : `var(--layer-${kind === "panel" && (!slot || slot === "center") ? "xl" : "m"})`, "--layer-retained-height": retainedHeight ? `${retainedHeight}px` : "0px", "--layer-viewport-height": viewportHeight ? `${viewportHeight}px` : undefined, "--layer-frame-top": "var(--layer-top-browser)" }}
+      style={{ width: viewportHeight && (viewportWidth < 760 || viewportHeight > viewportWidth) ? `calc(${viewportWidth}px - 2 * var(--layer-side-margin))` : `var(--layer-${size ?? (kind === "panel" ? "xl" : "m")})`, "--layer-retained-height": retainedHeight ? `${retainedHeight}px` : "0px", "--layer-viewport-height": viewportHeight ? `${viewportHeight}px` : undefined, "--layer-frame-top": "var(--layer-top-browser)" }}
       class={`flex min-h-(--layer-retained-height) flex-col rounded-panel bg-surface-raised pb-6 px-6 text-text shadow-lg
-        ${slot === "center" ? "mx-auto max-w-[calc(100%_-_2_*_var(--layer-side-margin))]! max-h-[calc(100%_-_var(--layer-top)_-_var(--layer-side-margin))]! max-[759px]:w-[calc(100%_-_2_*_var(--layer-side-margin))]! portrait:w-[calc(100%_-_2_*_var(--layer-side-margin))]!" : ""}
+        mx-auto max-w-[calc(100%_-_2_*_var(--layer-side-margin))]! max-h-[calc(100%_-_var(--layer-top)_-_var(--layer-side-margin))]! max-[759px]:w-[calc(100%_-_2_*_var(--layer-side-margin))]! portrait:w-[calc(100%_-_2_*_var(--layer-side-margin))]!
         ${viewportHeight ? "max-h-[calc(var(--layer-viewport-height)_-_var(--layer-frame-top)_-_var(--layer-side-margin))]!" : ""}
         max-w-full [&>header]:shrink-0
         ${roomyHeader ? "gap-[29px] pt-[21px]" : "gap-[25px] pt-[13px]"}`}

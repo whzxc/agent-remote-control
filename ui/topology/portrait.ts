@@ -50,7 +50,7 @@ export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null
       const height = rowHeight(e, side, !!parent), nested = children(e);
       const active = nested.length > 0, idle = false;
       const node: NodeGeometry = { id: e.id, parent, extent: e.extent ?? 48, active, side, x, y: y + height / 2,
-        size: e.endpoint ? 12 : p.nodeSize, scale: 1, rowHeight: height,
+        size: p.nodeSize, scale: 1, rowHeight: height,
         opacity: idle ? 0.62 : 1, dim: idle, port: 0, arc: null,
         childBusX: x - side * column / 2 };
       if (drag?.kind === 'node' && drag.side === side && drag.id === e.id) {
@@ -71,22 +71,7 @@ export function solvePortrait(sc: Scene, p: Params = DEFAULTS, drag: Drag | null
   const hub = { x: vw / 2, y: sourceBottom + sourceClearance, Re, ...hubDots(sc.hubInteraction) };
   const agentTop = hub.y + agentClearance, agents = wing(right, 1, agentTop);
   const agentBottom = agentTop + agents.H;
-  for (const wing of [left, agents]) {
-    if (sc.panel?.side !== wing.side) continue;
-    const hidden = new Set<string>();
-    for (const node of wing.nodes) {
-      if (node.parent && (node.parent === sc.panel.selected || hidden.has(node.parent))) { node.opacity = 0; hidden.add(node.id); }
-    }
-  }
   return { vw, vh, sceneH: Math.max(vh, agentBottom + portraitInset), hub, wings: [left, agents],
     portrait: { sourceX, agentX, sourceTop, sourceBottom, agentTop, agentBottom, rowGap, earOffset, earHalf },
     balance: [{ core: sourceX, full: vw / 2, squeeze: 1 }, { core: vw - agentX, full: vw / 2, squeeze: 1 }] };
-}
-
-export interface PortraitPanelRect { x: number; y: number; width: number; height: number }
-export function portraitSourcePanelRoute(node: Pick<NodeGeometry, 'x' | 'y' | 'size' | 'scale'>, panel: PortraitPanelRect) {
-  const radius = node.size * node.scale / 2;
-  const start = { x: node.x + radius + 4, y: node.y };
-  const end = { x: panel.x, y: Math.max(panel.y + 27, Math.min(panel.y + panel.height - 27, node.y)) };
-  return [start, { x: panel.x - 12, y: node.y }, { x: panel.x - 12, y: end.y }, end];
 }

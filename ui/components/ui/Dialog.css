@@ -59,7 +59,6 @@
 .node-panel .agent-panel-title-row { height: 24px; gap: 8px; }
 .node-panel .agent-panel-title-row > .icon-button { --icon-button-size: 24px; }
 .node-panel .agent-panel-heading { gap: 4px; }
-.node-panel[data-layer-side="left"] .layer-custom-header > .dialog-header { gap: 16px; }
 .node-panel .source-account-brand, .node-panel .source-account-brand .source-icon, .node-panel .source-account-brand .source-icon > span, .node-panel .source-account-brand svg { width: 36px; height: 36px; }
 
 .dialog[data-exiting] { pointer-events: none; }

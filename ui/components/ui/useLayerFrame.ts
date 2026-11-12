@@ -1,13 +1,13 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { isDesktop } from '../../platform';
-import { layerFrame, type LayerKind, type LayerSide } from './layerFrame';
+import { layerFrame, type LayerKind, type LayerSize } from './layerFrame';
 import type { NaturalContent } from './LayerPortals';
 import { readLayerTokens } from './layerTokens';
 
 /** Observe the capped natural content box, never individual streaming mutations. */
 export function useLayerFrame(content: HTMLElement | null, {
-  kind, side, expanded, viewKey, retainedViewHeight, naturalBody, chromeVersion,
-}: { kind: LayerKind; side: LayerSide; expanded: boolean; viewKey: string; retainedViewHeight?: number; naturalBody?: NaturalContent; chromeVersion: string }) {
+  kind, size, expanded, viewKey, retainedViewHeight, naturalBody, chromeVersion,
+}: { kind: LayerKind; size: LayerSize; expanded: boolean; viewKey: string; retainedViewHeight?: number; naturalBody?: NaturalContent; chromeVersion: string }) {
   const [frame, setFrame] = useState<ReturnType<typeof layerFrame>>();
   const previousNatural = useRef<HTMLElement>(undefined);
   const retained = useRef(0), previousView = useRef(viewKey);
@@ -17,7 +17,7 @@ export function useLayerFrame(content: HTMLElement | null, {
     if (!content) return;
     const update = (height: number) => {
       const desired = retainedViewHeight ?? height;
-      const next = layerFrame(kind, side, { width: innerWidth, height: innerHeight, desktop: isDesktop }, readLayerTokens(),
+      const next = layerFrame(size, { width: innerWidth, height: innerHeight, desktop: isDesktop }, readLayerTokens(),
         kind === 'panel' ? Math.max(retained.current, desired) : desired, expanded);
       if (kind === 'panel') retained.current = next.height;
       setFrame(old => old && Object.keys(next).every(key => old[key as keyof typeof next] === next[key as keyof typeof next]) ? old : next);
@@ -49,6 +49,6 @@ export function useLayerFrame(content: HTMLElement | null, {
     const resize = () => update(height);
     window.addEventListener('resize', resize);
     return () => { observer.disconnect(); window.removeEventListener('resize', resize); };
-  }, [content, kind, side, expanded, viewKey, retainedViewHeight, naturalBody, chromeVersion]);
+  }, [content, kind, size, expanded, viewKey, retainedViewHeight, naturalBody, chromeVersion]);
   return { frame, retainedHeight: kind === 'panel' ? retained.current : 0 };
 }

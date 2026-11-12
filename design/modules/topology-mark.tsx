@@ -58,7 +58,7 @@ export function TopologyMark({
   const upper = revealed === "remote";
   const actions = upper
     ? remote === "unhealthy" ? [ringCopy.remote.healthy, ringCopy.remote.unhealthy] : [ringCopy.remote.healthy]
-    : [ringCopy.core[core]];
+    : [{ icon: "laptop", label: "Device link" }, ringCopy.core[core]];
   return (
     <div class={`relative flex justify-center ${upper ? "pt-4" : "pb-4"}`} style={{ width: size }}>
       {mark}

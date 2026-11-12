@@ -3,9 +3,5 @@
 .topology-node .capsule-graph-node .graph-node-name { position: absolute; top: 60px; left: 24px; width: 110px; text-align: center; }
 .topology-node .capsule-graph-node small { display: block; color: var(--text-secondary); }
 .device-node-graphic { position: relative; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; }
-.device-node-status { position: absolute; left: 9px; bottom: 9px; width: 6px; height: 6px; border-radius: 50%; background: var(--text-tertiary); }
-.device-node-status[data-online=true] { background: var(--success); }
 .device-node-badge { position: absolute; right: 6px; bottom: 6px; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--surface); }
-.topology-add-endpoint { position: absolute; left: 8px; top: 8px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 0; padding: 0; border-radius: 50%; background: transparent; cursor: pointer; }
-.topology-add-endpoint > span { width: 12px; height: 12px; border-radius: 50%; background: var(--role-agent); }
 .topology-scene[data-orientation=portrait] .node-capsule-logo { background: var(--canvas); border-radius: 50%; }

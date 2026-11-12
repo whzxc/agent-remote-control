@@ -59,7 +59,7 @@ export default function IngressPanel({ selection: selected, onPanelFrame, expand
   }, [panelId]);
   const ready = useDockOpening(panelId, pending, selected.closing, cancelOpening);
   if (!ready) return null;
-  return <Panel focusTrigger={focusTrigger.current} side="left" className="activity-panel" expanded={expanded} headerless title={title} busy={busy}
+  return <Panel focusTrigger={focusTrigger.current} size="m" className="activity-panel" expanded={expanded} headerless title={title} busy={busy}
     viewKey={`${panelId}:${connection?.editing ? "edit" : "view"}`}
     onClose={() => ingressPanel.set(undefined)}
     returnFocus={platform ? `[data-source-platform="${CSS.escape(platform)}"] button` : `[data-source-node="${CSS.escape(client?.id ?? entry?.id ?? panelId)}"] button`} onPanelFrame={onPanelFrame}>

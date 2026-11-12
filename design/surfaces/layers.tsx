@@ -55,9 +55,9 @@ function NodeScene() {
       <div data-free class="absolute" style={{ left: selectedAgentNode.x, top: selectedAgentNode.y }}>
         <TopologyNode {...selectedAgentNode} hideLabel />
       </div>
-      <div class="absolute inset-0 flex items-center justify-end px-(--layer-side-margin)
+      <div class="absolute inset-0 flex items-center justify-center px-(--layer-side-margin)
         pt-(--layer-top) pb-(--layer-side-margin)">
-        <Panel slot="right" viewportHeight={800} title={
+        <Panel size="m" viewportHeight={800} title={
           <span class="flex items-center gap-3"><AgentIcon brand="codex" size={44} />{layerCopy.agent}</span>
         }
           actions={<IconButton icon="maximize-2" label={layerCopy.expand} />}>
@@ -85,7 +85,7 @@ export default () => [
     <WorkspaceScene settings dialog />
   </Frame>,
   <Frame name="node-panel" width={1280} height={800}
-    note="Accepted right M slot, vertically centered between the top line and bottom margin. Source-side panels mirror it. No first-level scrim; fade-only entry.">
+    note="Centered M node panel. Every layer uses the centered slot independently of node origin. Topology geometry remains unchanged. No first-level scrim; fade-only entry.">
     <NodeScene />
   </Frame>,
   <Frame name="portrait-workspace" width={640} height={800}
