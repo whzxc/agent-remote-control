@@ -9,7 +9,7 @@ export function TransientLayer({ children }: { children: ReactElement }) {
   const owner = useContext(LayerOwnerContext);
   layers.use();
   return <Slot.Root data-layer-owner={owner}
-    style={{ zIndex: layers.stack(owner).transient, pointerEvents: owner ? 'auto' : undefined }}>
+    style={{ zIndex: layers.stack(owner).transient, ...(owner ? { pointerEvents: 'auto' as const } : {}) }}>
     {children}
   </Slot.Root>;
 }

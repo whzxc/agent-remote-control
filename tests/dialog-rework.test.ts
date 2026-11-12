@@ -106,23 +106,24 @@ test('stacked setup edits tools inside its owning dialog and Back and Escape pre
   });
 });
 
-test('choosing a SingleChoice option inside a dialog applies it and keeps its owner open in either Select position', async () => {
-  // Regression: dialog scrims intercepted profile options and item-aligned Select input dismissed its owning dialog.
+test('choosing a modal SingleChoice option applies it outside dialogs and retains its dialog owner in either position', async () => {
+  // Regression: dialog scrims intercepted options, item-aligned Select dismissed its owner, and an undefined pointerEvents override blocked modal choices outside dialogs.
   await withDialog(async ({ server, root, settle }) => {
     const { default: Dialog } = await server.ssrLoadModule('/ui/components/ui/Dialog.tsx');
     const { SingleChoice, TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
     const page = within(document.body);
-    function Profile({ position }: { position: 'popper' | 'item-aligned' }) {
+    function Profile({ position, dialog }: { position: 'popper' | 'item-aligned'; dialog: boolean }) {
       const [open, setOpen] = useState(true), [profile, setProfile] = useState('default');
-      return open && h(Dialog, { size: 'm', title: 'Agent account', onClose: () => setOpen(false) },
+      const choices = h('section', null,
         h(SingleChoice, { dropdown: true, position, label: 'Browser profile', value: profile, onChange: setProfile,
           options: [{ value: 'default', label: 'Default browser' }, { value: 'chrome-profile-a', label: 'Google Chrome · Profile A' }] }),
         h('output', { 'aria-label': 'Selected profile' }, profile));
+      return dialog ? open && h(Dialog, { size: 'm', title: 'Agent account', onClose: () => setOpen(false) }, choices) : choices;
     }
-    for (const position of ['popper', 'item-aligned'] as const) for (const stacked of [false, true]) {
+    for (const position of ['popper', 'item-aligned'] as const) for (const host of ['none', 'single', 'stacked']) {
       await act(async () => root.render(h(TooltipProvider, null,
-        stacked && h(Dialog, { size: 'm', title: 'Setup', onClose() {} }, 'Parent retained'),
-        h(Profile, { position }))));
+        host === 'stacked' && h(Dialog, { size: 'm', title: 'Setup', onClose() {} }, 'Parent retained'),
+        h(Profile, { position, dialog: host !== 'none' }))));
       await settle();
       await act(async () => fireEvent.keyDown(page.getByRole('combobox', { name: 'Browser profile' }), { key: 'Enter' }));
       await settle();
@@ -134,7 +135,7 @@ test('choosing a SingleChoice option inside a dialog applies it and keeps its ow
         fireEvent.click(option);
       });
       await settle();
-      assert.ok(page.getByRole('dialog', { name: 'Agent account' }));
+      if (host !== 'none') assert.ok(page.getByRole('dialog', { name: 'Agent account' }));
       assert.equal(page.getByRole('status', { name: 'Selected profile' }).textContent, 'chrome-profile-a');
       assert.equal(page.getByRole('combobox', { name: 'Browser profile' }).getAttribute('aria-expanded'), 'false');
       await act(async () => root.render(null)); await settle();
