@@ -37,14 +37,14 @@ export function PetCard({ pet }: { pet: typeof pets[number] }) {
                     width={72}
                     height={72}
                   />
-                  <div class="flex flex-col gap-[6px]">
+                  <div class="flex min-w-0 flex-1 flex-col gap-[6px]">
                     <h4 class="text-body leading-4 font-[650] pt-1">
                       {pet.name}
                     </h4>
                     <p class="text-meta leading-4 text-text-secondary">
                       {pet.detail}
                     </p>
-                    <div class="flex gap-2 pt-1">
+                    <div class="flex flex-wrap gap-2 pt-1">
                       <Button>{copy.text5}</Button>
                       {pet.removable && (
                         <Button

@@ -70,7 +70,7 @@ export function McpService({
           {!error && (
             <Disclosure expanded={expanded}>{service.count}{copy.text2}</Disclosure>
           )}
-          <span>{service.meta}</span>
+          <span><span>{service.meta}</span>{service.checked && <><span> · </span><time>{service.checked}</time></>}</span>
         </div>
       )}
       {expanded && (
@@ -102,7 +102,7 @@ export function McpHub({ form, workspace = false }: { form: string; workspace?: 
   const empty = form === "empty",
     failed = form === "failed";
   return (
-    <Panel size="xl" slot={workspace ? "center" : undefined}
+    <Panel size="xl" viewportHeight={workspace ? 1200 : undefined}
         title={copy.text3}
         actions={
           empty ? (
@@ -178,7 +178,7 @@ export function McpFailure({ error }: { error: { title: string; detail: string; 
 }
 
 export function McpImportPrompt({ class: extra = "" }: { class?: string }) {
-  return <Prompt layout="stacked" class={extra} label={copy.text17} text={<>{copy.text18}<br />{copy.text19}</>} />;
+  return <Prompt layout="stacked" class={extra} label={copy.text17} text={`${copy.text18}${copy.text19}`} />;
 }
 export default () => [
   <Frame name="mcp-service-expanded" width={912}>

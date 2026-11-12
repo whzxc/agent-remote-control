@@ -3,10 +3,10 @@ import { AXBoard } from "../modules/ax";
 import { axForms, axClosedEntries, axCopy } from "../fixtures/ax";
 
 export default () => axForms.map(form => <Frame
-  name={form} width={1280} height={1000}
+  name={form}
   fixture={form === "open" ? "coordination-ax-light" : `board-ax-${form}`}
   capture={{
-    region: axCopy.region,
+    selector: ".layer-panel",
     viewport: "1280x1000",
     clicks: form === "open" ? [axCopy.openBoard, "AX"] : form === "detail" ? [axClosedEntries[0].title] : [],
   }}

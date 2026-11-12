@@ -238,7 +238,8 @@ export default function App() {
       </main>
       {page !== "overview" && (page === "devices" ?
         <DevicesWorkspace expanded={sheetWide} onToggleWidth={() => setSheetWide(!sheetWide)} onClose={() => setPage("overview")} /> : page === "mcp-hub" ?
-        <McpHub expanded={sheetWide} onToggleWidth={() => setSheetWide(!sheetWide)} onClose={() => setPage("overview")} /> :
+        <McpHub expanded={sheetWide} onToggleWidth={() => setSheetWide(!sheetWide)} onClose={() => setPage("overview")} /> : page === "relay-hosting" ?
+        <RelayHosting expanded={sheetWide} onToggleWidth={() => setSheetWide(!sheetWide)} onClose={() => setPage("overview")} /> :
         <Panel key={page} role="region" size="l" title={<>{pages.find(item => item.id === page)?.label}
           {page === "settings" && nav.settingsExperimental && <><span aria-hidden="true"> / </span>{t("topology.experimental")}</>}</>}
           expanded={sheetWide} onToggleWidth={() => setSheetWide(!sheetWide)}
@@ -250,7 +251,7 @@ export default function App() {
             onClick={() => void refreshPermissions().catch(error => notify(String(error), true))} /> : undefined}>
           <div className={`workspace ${page === "accounts" ? "accounts-workspace-container" : ""}`}>
             {page === "permissions" ? <PermissionsPage /> : page === "accounts" ? <PlatformsPage /> : page === "pets" ? <PetsPage />
-              : page === "relay-hosting" ? <RelayHosting /> : <SettingsPage />}
+              : <SettingsPage />}
           </div>
         </Panel>
       )}

@@ -6,11 +6,11 @@ import { connectionExamples, connectionCopy } from "../fixtures/connection-manag
 
 export default () => (
   <Frame
-    name="overview" width={1280} height={800}
+    name="overview"
     fixture="p3-workspace-add-light"
-    capture={{ region: "连接", viewport: "1280x800" }}
+    capture={{ selector: ".layer-panel", viewport: "1280x800" }}
   >
-    <Panel size="l" slot="center" title={connectionCopy.title}
+    <Panel size="l" viewportHeight={800} title={connectionCopy.title}
       actions={<Button variant="primary" icon="plus">{connectionCopy.add}</Button>}>
       <ConnectionList connections={connectionExamples} />
     </Panel>

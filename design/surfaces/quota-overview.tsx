@@ -8,7 +8,7 @@ import { Button } from "../components/button";
 import { agentQuotas, overviewProvider } from "../fixtures/quota";
 function QuotaOverview({ empty = false }: { empty?: boolean }) {
   return (
-    <PanelShell width={440} class="px-6 pt-[13px] pb-6">
+    <PanelShell size="m" class="px-6 pt-[13px] pb-6">
       <PanelHeader
         title="订阅额度"
         actions={!empty && <IconButton icon="refresh-cw" label="Refresh" />}

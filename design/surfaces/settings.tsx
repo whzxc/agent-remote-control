@@ -30,15 +30,15 @@ const frames = [
   {
     name: "about",
     fixture: "settings-about-light",
-    capture: { region: "Settings", viewport: "1280x800" },
-    note: "Full-content drawing can exceed the scroll viewport; inspect remaining scroll content during browser acceptance.",
+    capture: { selector: ".layer-panel", viewport: "1280x800" },
+    note: "The body scrolls at the viewport cap while the header remains fixed.",
     view: GeneralSettings,
   },
   {
     name: "agents",
     fixture: "agent-settings-dispatch-defaults",
     capture: {
-      region: "Agents",
+      selector: ".layer-panel",
       viewport: "1280x800",
       clicks: ["Manage Agents"],
     },
@@ -48,7 +48,7 @@ const frames = [
     name: "agent-detail",
     fixture: "agent-settings-dispatch-defaults",
     capture: {
-      region: "Codex",
+      selector: ".layer-dialog:has(.agent-summary)",
       viewport: "1280x800",
       clicks: ["Manage Agents", "Codex"],
     },
@@ -58,24 +58,24 @@ const frames = [
     name: "display",
     fixture: "agent-settings-display-light",
     capture: {
-      region: "Agent settings",
+      selector: ".layer-dialog:has(.display-settings)",
       viewport: "1280x1080",
       clicks: ["Manage Agents", "Agent settings"],
     },
-    note: "Full-content drawing can exceed the scroll viewport; inspect remaining scroll content during browser acceptance.",
+    note: "The body scrolls at the viewport cap while the header remains fixed.",
     view: Display,
   },
   {
     name: "experimental",
     fixture: "experimental-settings",
-    capture: { region: "Settings", viewport: "1280x800" },
+    capture: { selector: ".layer-panel", viewport: "1280x800" },
     view: Experimental,
   },
 ];
 export default () =>
   frames.map(({ view: View, ...frame }) => {
     const workspace = ["about", "agents", "experimental"].includes(frame.name);
-    return <Frame {...frame} {...(workspace ? { width: 1280, height: 800 } : {})}>
+    return <Frame {...frame}>
       <View {...(workspace ? { workspace: true } : {})} />
     </Frame>;
   });

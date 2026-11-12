@@ -5,9 +5,9 @@ import { boardFrames, boardCopy } from "../fixtures/board";
 export default () =>
   boardFrames.map(({ name, fixture, viewport, clicks }) => (
     <Frame
-      name={name} width={1280} height={Number(viewport.split("x")[1])}
+      name={name}
       fixture={fixture}
-      capture={{ region: boardCopy.title, viewport, ...(clicks ? { clicks } : {}) }}
+      capture={{ selector: ".layer-panel", viewport, ...(clicks ? { clicks } : {}) }}
       note={name === "current" ? boardCopy.notes.current : name === "unavailable" ? boardCopy.notes.unavailable : undefined}
     >
       <CoordinationBoard form={name} />

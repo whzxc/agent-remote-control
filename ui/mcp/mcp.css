@@ -1,6 +1,6 @@
 .mcp-page { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .mcp-page h3 { margin: 0; }
-.mcp-stats { margin: 0; color: var(--text-secondary); font-size: var(--text-meta); line-height: 18px; }
+
 .mcp-failed-count { color: var(--danger); }
 .mcp-content { display: flex; flex-direction: column; gap: 24px; min-height: 0; container-type: inline-size; }
 .mcp-content > * { flex: none; }
@@ -16,8 +16,8 @@
 .mcp-server-identity h3 { overflow: hidden; color: var(--text); font-size: var(--text-body); font-weight: 650; line-height: 20px; white-space: nowrap; text-overflow: ellipsis; }
 .mcp-server-identity p { display: flex; min-width: 0; margin: 1px 0 0; color: var(--text-secondary); font-size: var(--text-meta); line-height: 16px; white-space: pre; }
 .mcp-target { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mono); }
-.mcp-server-actions { display: flex; flex: none; align-items: center; gap: 4px; }
-.mcp-server-actions .switch { margin-left: 8px; }
+
+
 
 .mcp-server-body { display: grid; gap: 10px; min-width: 0; padding-left: 52px; }
 .mcp-server-body:has(> .notice) { gap: 16px; }
@@ -26,23 +26,23 @@
 .mcp-server-meta > .tag { max-width: 100%; }
 
 .mcp-tools { display: grid; margin: 0; padding: 0; list-style: none; border-radius: 14px; background: var(--surface); }
-.mcp-tool { display: grid; gap: 3px; min-width: 0; margin: 0 14px; padding: 10px 0 9px; }
+
 .mcp-tool + .mcp-tool { padding-top: 9px; border-top: 1px solid var(--border); }
 .mcp-tool-name { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
-.mcp-tool-name > .tag { margin-block: -1px; }
-.mcp-tool-name code { color: var(--text); font: 500 var(--text-small)/18px var(--font-mono); overflow-wrap: anywhere; }
-.mcp-tool p { margin: 0; color: var(--text-secondary); font-size: var(--text-meta); line-height: 16px; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+
+
 
 .mcp-server .notice code { overflow-wrap: anywhere; user-select: text; }
 .mcp-server .notice .field-error { margin-top: 6px; }
 
 .mcp-no-match { margin: 0; padding: 48px 0; text-align: center; color: var(--text-secondary); font-size: var(--text-small); }
 
-.mcp-empty { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; min-width: 0; padding-top: 16px; text-align: center; }
+
 .mcp-empty > .tile { color: var(--text-secondary); }
 .mcp-empty > h3 { margin-top: 16px; color: var(--text); font-size: var(--text-title); font-weight: 650; line-height: 24px; }
-.mcp-empty > p { margin: 10px 0 0; color: var(--text-secondary); font-size: var(--text-small); line-height: 20px; }
-.mcp-import { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 20px; min-width: 0; width: 100%; max-width: 520px; margin-top: 26px; }
+
+
 .mcp-empty .mcp-import { --choice-option-min-width: 113px; }
 .mcp-import > .prompt { width: 100%; text-align: left; }
 .mcp-add .mcp-import { justify-items: start; max-width: none; margin: 0; gap: 12px; }
@@ -66,4 +66,19 @@
 .mcp-stats { order: 1; flex-basis: 100%; }
 }
 
-.mcp-stats { flex: 1; }
+
+
+.mcp-server-actions { display: flex; flex: none; align-items: center; gap: 0; }
+.mcp-server-actions .switch { margin-left: 12px; }
+.mcp-empty { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; min-width: 0; text-align: center; padding-top: 40px; }
+.mcp-empty > p { margin: 10px 0 0; color: var(--text-secondary); font-size: var(--text-small); margin-top: 12px; line-height: 16px; }
+.mcp-import { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 20px; min-width: 0; width: 100%; max-width: 520px; margin-top: 28px; }
+.mcp-import > .prompt-action-below { gap: 16px; }
+.mcp-tool { display: grid; min-width: 0; margin: 0 14px; padding: 10px 0 9px; gap: 4px; padding-block: 9px; }
+.mcp-tool:last-child { padding-bottom: 7px; }
+.mcp-tool-name code { color: var(--text); font: 500 var(--text-small)/18px var(--font-mono); overflow-wrap: anywhere; line-height: 16px; }
+.mcp-tool p { margin: 0; color: var(--text-secondary); font-size: var(--text-meta); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 14px; }
+
+.mcp-stats { margin: 0; color: var(--text-secondary); font-size: var(--text-meta); line-height: 18px; flex: 1; margin-left: 22px; }
+.mcp-tool-name > .tag { margin-block: 0; }
+.mcp-server-body:has(> .notice) .mcp-server-meta { min-height: 22px; }

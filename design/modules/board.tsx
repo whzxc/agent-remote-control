@@ -7,7 +7,7 @@ import { Tile, type TileTone } from "../components/tile";
 import { boardTabs, boardFilters, boardGroups, boardCopy } from "../fixtures/board";
 
 export type BoardForm = "current" | "empty" | "gap" | "unavailable";
-export type BoardRowData = { title: string; meta: string; icon: string; tone: TileTone };
+export type BoardRowData = { title: string; meta: readonly string[]; icon: string; tone: TileTone };
 export type BoardGroupData = { title: string; rows: BoardRowData[] };
 
 export function BoardRow({ row }: { row: BoardRowData }) {
@@ -16,7 +16,7 @@ export function BoardRow({ row }: { row: BoardRowData }) {
       <Tile form="phase" icon={row.icon} tone={row.tone} />
       <div class="flex min-w-0 flex-1 flex-col">
         <strong class="whitespace-pre-line text-small leading-[19px] font-semibold">{row.title}</strong>
-        <span class="text-meta leading-[13px] text-text-secondary">{row.meta}</span>
+        <span class="flex flex-wrap gap-x-1 text-meta leading-[13px] text-text-secondary">{row.meta.map((part, index) => <span class="inline-flex gap-1">{index > 0 && <span aria-hidden="true">·</span>}{part}</span>)}</span>
       </div>
       {row.tone !== "neutral" && <Icon name="chevron-right" class="self-center text-text-secondary" />}
     </article>
@@ -31,10 +31,10 @@ export function BoardSection({ group, attention = false, partial = false }: {
   const tone = attention ? "text-warning" : "text-text-secondary";
   return (
     <section class="flex flex-col gap-2">
-      <h3 class={`flex items-center gap-2 text-meta leading-4 font-semibold ${tone}`}>
+      <h3 class={`flex items-center gap-[6px] text-meta leading-4 font-semibold ${tone}`}>
         {group.title}
         <span class="font-normal text-text-tertiary">{group.rows.length}</span>
-        {partial && <span class="ml-1 font-normal text-text-secondary">{boardCopy.partial}</span>}
+        {partial && <span class="ml-1 flex gap-1 font-normal text-text-secondary"><span>·</span><span>{boardCopy.partial}</span></span>}
       </h3>
       {group.rows.map(row => <BoardRow row={row} />)}
     </section>
@@ -69,7 +69,7 @@ export function CoordinationBoard({ form }: { form: BoardForm }) {
     ? boardGroups.slice(0, 2).map((g, i) => ({ ...g, rows: g.rows.slice(0, i === 0 ? 2 : 1) }))
     : boardGroups;
   return (
-    <Panel size="xl" slot="center" title={boardCopy.title}
+    <Panel size="xl" viewportHeight={form === "current" ? 1400 : 800} title={boardCopy.title}
       actions={<IconButton icon="refresh-cw" label={boardCopy.refresh} />}
       headerNavigation={<SingleChoice value={gap ? "activity" : "current"} options={boardTabs} label={boardCopy.title} tabs />}
       footer={(form === "current" || form === "empty") && <p class="text-meta leading-4 text-text-tertiary">{boardCopy.observed}</p>}>

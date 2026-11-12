@@ -1,4 +1,4 @@
-.pets-page { display: grid; gap: 30px; min-width: 0; }
+
 .pet-group, .pet-import { display: grid; gap: 14px; min-width: 0; }
 .pet-import { padding: 16px; gap: 24px; }
 .pet-import nav { font-size: var(--text-small); font-weight: 600; line-height: 20px; gap: 32px; }
@@ -9,12 +9,12 @@
 .pet-package .pet-actions > :first-child { --button-width: 122px; }
 .pet-actions { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
 .pet-catalog { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 12px 16px; }
-.pet-package { display: flex; flex-direction: row; gap: 16px; min-width: 0; align-items: center; padding: 15px 16px; }
-.pet-package-content { display: grid; gap: 4px; min-width: 0; flex: 1; }
+
+
 .pet-package h3, .pet-description { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pet-description { color: var(--text-secondary); font-size: 12px; min-height: 1.5em; }
+
 .pet-package-content > .pet-actions { margin-top: 4px; }
-.pet-package h3 { font-size: var(--text-body); font-weight: 650; line-height: 18px; }
+
 .pet-group > h2 { font-size: var(--text-small); font-weight: 650; line-height: 16px; color: var(--text-secondary); }
 .pet-preview { flex: 0 0 72px; width: 72px; height: 78px; display: grid; place-items: center; }
 .pets-page footer { color: var(--text-secondary); font-size: 12px; }
@@ -85,3 +85,10 @@
 .topology-pet[data-mascot] .pet-pose[data-contact="pull"] { animation: none; }
 .topology-pet[data-mascot] .pet-carried-card { left: var(--pet-hand-x); top: var(--pet-hand-y); bottom: auto; transform: translateY(-50%) rotate(-5deg); }
 .topology-pet[data-mascot][data-card-side="left"] .pet-carried-card { right: auto; transform: translate(-100%, -50%) rotate(5deg); }
+
+.pets-page { display: grid; gap: 30px; min-width: 0; padding-top: 8px; }
+.pet-package { display: flex; flex-direction: row; gap: 16px; min-width: 0; align-items: flex-start; padding: 12px 16px 14px; }
+.pet-package-content { display: grid; min-width: 0; flex: 1; gap: 6px; }
+.pet-package h3 { font-size: var(--text-body); font-weight: 650; padding-top: 4px; line-height: 16px; }
+.pet-description { color: var(--text-secondary); font-size: 12px; line-height: 16px; min-height: 0; }
+.pet-package .pet-actions { gap: 8px; }

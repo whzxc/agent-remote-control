@@ -10,27 +10,26 @@ import { platformChoices as platforms } from "../fixtures/choices";
 import { details, frames } from "../fixtures/connectors";
 export function ConnectorCard() {
   return (
-    <Card padded class="gap-4! py-[15px]!">
+    <Card padded class="gap-3!">
       <div class="flex items-center gap-3">
         <BrandMark brand="openai" size={28} />
-        <strong class="text-body font-[650]">{copy.text1}</strong>
-        <span class="text-meta text-success">{copy.text2}</span>
+        <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2"><strong class="text-body leading-5 font-[650]">{copy.text1}</strong><span class="text-meta leading-4 text-success">{copy.text2.split(" ").map((word, index) => <>{index > 0 && " "}<span>{word}</span></>)}</span></div>
         <div class="ml-auto flex gap-1">
           <IconButton compact icon="pencil" label={copy.text3} />
           <IconButton compact icon="trash-2" label={copy.text4} />
         </div>
       </div>
-      {details.map((row) => (
-        <div class="flex flex-wrap items-center gap-[10px] text-meta leading-4">
+      <div class="flex flex-col gap-5">{details.map((row) => (
+        <div class="flex flex-wrap items-baseline gap-x-[10px] gap-y-2 text-meta leading-4">
           {row.map(([label, value], i) => (
-            <span class="inline-flex items-center gap-[10px]">
-              {i > 0 && <span class="text-text-tertiary">{copy.text5}</span>}
+            <span class="inline-flex min-w-0 max-w-full items-baseline gap-[6px]">
+              {i > 0 && <span aria-hidden="true" class="mr-1 text-text-tertiary">{copy.text5}</span>}
               <span class="text-text-secondary">{label}</span>
-              <span class="blur-[2px] opacity-50">{value}</span>
+              <span aria-hidden="true" class="blur-[2px] opacity-50">{value}</span>
             </span>
           ))}
         </div>
-      ))}
+      ))}</div>
     </Card>
   );
 }

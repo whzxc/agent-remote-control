@@ -1,3 +1,5 @@
+import Panel from "./ui/Panel";
+import { useDockOpening } from "./useDockOpening";
 import { useSubmittedDirty } from "./ui/useSubmittedDirty";
 import { DialogActions, useDialogCompletion } from "./ui/Dialog";
 import { Sensitive } from "./Sensitive";
@@ -113,9 +115,15 @@ function HostedRelay({ relay, version, startJob, disabled }: {
   </article>;
 }
 
-export default function RelayHosting() {
+export default function RelayHosting({ expanded, onToggleWidth, onClose }: { expanded: boolean; onToggleWidth: () => void; onClose: () => void }) {
   locale.use();
-  const relays = useRelays(), { status } = connector.use();
+  const relays = useRelays();
+  const ready = useDockOpening("relay-hosting", !relays.loaded, undefined, onClose);
+  return ready ? <Panel role="region" size="l" title={t("hosting.feature")} expanded={expanded} onToggleWidth={onToggleWidth}
+    onClose={onClose} returnFocus='[data-page="relay-hosting"]'><RelayHostingContent relays={relays} /></Panel> : null;
+}
+function RelayHostingContent({ relays }: { relays: ReturnType<typeof useRelays> }) {
+  const { status } = connector.use();
   const [job, setJob] = useState<Job>(), [dialogOpen, setDialogOpen] = useState(false), [busy, setBusy] = useState(false);
   const [account, setAccount] = useState(""), [error, setError] = useState("");
   const draft = useSubmittedDirty(account, !!account);
@@ -157,8 +165,8 @@ export default function RelayHosting() {
   }, [dialogOpen, job, progress.phase, progress.reason]);
   const owners = relays.relays.filter(relay => relay.owner);
   return <div className="relay-hosting">
-    <div className="hosting-empty-group"><h2>{t("hosting.title")}</h2>
-      {!relays.loaded ? <Loading /> : !owners.length && !relays.error && <p className="muted">{t("hosting.empty")}</p>}
+    <div className="hosting-empty-group"><div className="hosting-empty-copy"><h2>{t("hosting.title")}</h2>
+      {!relays.loaded ? <Loading /> : !owners.length && !relays.error && <p className="muted">{t("hosting.empty")}</p>}</div>
       <Button disabled={busy || !!job} onClick={() => { setError(""); setAccount(""); draft.submit(""); setDialogOpen(true); }}>{t("hosting.deploy")}</Button>
     </div>
     {relays.error && <Notice tone="danger" action={<Button onClick={() => void relays.refresh().catch(() => {})}>{t("retry")}</Button>}>{t("connect.readFailed")}</Notice>}

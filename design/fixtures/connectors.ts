@@ -1,17 +1,17 @@
 
 export const details = [
   [
-    ["Product", "RrrhATA"],
-    ["Email", "nheser@nsohssa.orh"],
-    ["Organization", "Sheshho Ehh"],
+    ["Product", "ChatGPT"],
+    ["Email", "jordan@example.com"],
+    ["Organization", "Example Lab"],
   ],
   [
-    ["Connection", "RrrhATA tartrsenea"],
-    ["Added", "hronteert etnrntet"],
+    ["Connection", "ChatGPT connection"],
+    ["Added", "12/31/2025, 16:00:00"],
   ],
   [
-    ["Authorized at", "hronsnooa aahshaae"],
-    ["Last seen", "hronsnooa aahshaae"],
+    ["Authorized at", "12/31/1969, 16:00:01"],
+    ["Last seen", "12/31/1969, 16:00:01"],
   ],
 ];
 export const frames = [

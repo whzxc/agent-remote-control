@@ -68,7 +68,7 @@ export function SettingLine({
   class: extra = "",
 }: {
   title: unknown;
-  description?: readonly string[];
+  description?: readonly string[] | string;
   children?: unknown;
   class?: string;
 }) {
@@ -80,7 +80,7 @@ export function SettingLine({
         <div class="text-body leading-4 font-medium">{title}</div>
         {description && (
           <div class="text-meta leading-[18px] text-text-secondary">
-            {description.map((line) => (
+            {typeof description === "string" ? description : description.map((line) => (
               <div>{line}</div>
             ))}
           </div>
@@ -126,7 +126,7 @@ export function SettingsGroup({ title, children }: { title: string; children?: u
     </section>
   );
 }
-export function SettingsToggleRows({ rows }: { rows: { title: string; description: string[]; checked: boolean }[] }) {
+export function SettingsToggleRows({ rows }: { rows: { title: string; description: string[] | string; checked: boolean }[] }) {
   return (
     <>
       {rows.map((row) => (

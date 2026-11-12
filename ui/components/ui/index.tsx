@@ -212,7 +212,7 @@ export function Notice({
 }: {
   children: ReactNode;
   title?: ReactNode;
-  layout?: "inline";
+  layout?: "inline" | "stacked";
   tone?: "danger" | "warning" | "success";
   action?: ReactNode;
   actionBelow?: boolean;
@@ -221,7 +221,7 @@ export function Notice({
   const body = typeof children === "string" ? protect(children) : children;
   return (
     <div
-      className={`notice ${layout === "inline" ? "notice-inline" : ""} ${tone} ${actionBelow ? "notice-action-below" : ""}`}
+      className={`notice ${layout ? `notice-${layout}` : ""} ${tone} ${actionBelow ? "notice-action-below" : ""}`}
       role={tone === "danger" ? "alert" : "status"}
     >
       {title ? <div className="notice-copy"><strong>{title}</strong>{body}</div> : <span>{body}</span>}
@@ -445,7 +445,7 @@ export function SingleChoice({
   navigation?: boolean;
   tabs?: boolean;
   tiles?: boolean;
-  form?: "setup-row" | "setup-product" | "equal-pills";
+  form?: "setup-row" | "setup-product" | "equal-pills" | "content-pills";
   secondaryFrom?: number;
 }) {
   cards ||= form === "setup-row";

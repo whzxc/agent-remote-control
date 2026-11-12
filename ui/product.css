@@ -363,10 +363,10 @@
 :root[data-theme-color="arc"] .topology-scene { --topology-source: var(--role-source); --topology-agent: var(--role-agent); }
 .topology-wires { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 1; }
 .topology-hub { position: absolute; left: 0; top: 0; z-index: 2; }
-.topology-hub .graph-brand { width: 100%; height: 100%; user-select: none; pointer-events: none; }
+
 .hub-entry { position: absolute; top: 50%; width: calc(var(--hub-dot-size) + 8px); height: calc(var(--hub-dot-size) + 8px); min-width: 28px; min-height: 28px; padding: 4px; border: 0; border-radius: 50%; background: transparent; transform: translate(-50%, -50%); cursor: pointer; display: grid; place-items: center; }
-.hub-source { left: calc(14 / 92 * 100%); --hub-color: var(--topology-source); --hub-dot-scale: var(--source-dot-scale, 1); }
-.hub-agent { left: calc(78 / 92 * 100%); --hub-color: var(--topology-agent); --hub-dot-scale: var(--agent-dot-scale, 1); }
+
+
 .hub-entry:focus-visible { box-shadow: 0 0 0 2px var(--hub-color); }
 .hub-dot { position: relative; display: block; width: var(--hub-dot-size); height: var(--hub-dot-size); border-radius: 50%; transform: scale(var(--hub-dot-scale, 1)); transition: box-shadow 180ms ease; pointer-events: none; }
 .hub-dot > svg { display: block; width: 100%; height: 100%; }
@@ -629,13 +629,13 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .activity-panel .agent-panel-header .actions { gap: 4px; margin-top: 8px; }
 .activity-panel .agent-panel-header .actions .icon-button { --icon-button-size: var(--control-height); }
 .agent-panel-heading { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
-.agent-panel-title-row { display: flex; align-items: center; min-width: 0; gap: 4px; }
+
 .agent-panel-title-row > .activity-panel-title { flex: 0 1 auto; min-width: 0; width: auto; overflow: hidden; }
-.agent-panel-title-row > .icon-button { flex: none; }
+
 .activity-panel .agent-panel-heading h2.activity-panel-title { display: block; margin: 0; white-space: nowrap; text-overflow: ellipsis; font-size: var(--text-title); line-height: 24px; font-weight: 650; }
 .agent-panel-heading .activity-panel-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--text-meta); line-height: 16px; }
-.agent-panel-title-row { height: 30px; }
-.agent-panel-title-row > .icon-button { --icon-button-size: 30px; }
+.agent-panel-title-row { display: flex; align-items: center; min-width: 0; gap: 4px; height: 30px; }
+.agent-panel-title-row > .icon-button { flex: none; --icon-button-size: 30px; }
 .agent-panel-header .actions { flex: none; }
 .agent-panel-header .agent-quota-icon { --agent-quota-size: 44px; }
 .agent-no-quota { margin: 0; }
@@ -801,7 +801,7 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .welcome-readiness > .status { gap:0; font-size:var(--text-small); }
 .welcome-readiness .status-dot { margin-right:8px; }
 .hosting-empty-group h2 { font-weight:650; }
-.hosting-empty-group { display:grid; justify-items:start; gap:16px; }
+
 .hosting-empty-group p { margin:0; }
 
 @media (max-width:520px) {
@@ -874,9 +874,9 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .source-panel-content { padding: 0 20px 20px; gap: 16px; }
 
 /* Portrait geometry is solver-owned. */
-.topology-hub .graph-brand { transform: rotate(var(--hub-rotation, 0deg)); }
-.hub-source { left: var(--source-dot-x, calc(14 / 92 * 100%)); top: var(--source-dot-y, 50%); }
-.hub-agent { left: var(--agent-dot-x, calc(78 / 92 * 100%)); top: var(--agent-dot-y, 50%); }
+.topology-hub .graph-brand { width: 100%; height: 100%; user-select: none; pointer-events: none; transform: rotate(var(--hub-rotation, 0deg)); }
+.hub-source { --hub-color: var(--topology-source); --hub-dot-scale: var(--source-dot-scale, 1); left: var(--source-dot-x, calc(14 / 92 * 100%)); top: var(--source-dot-y, 50%); }
+.hub-agent { --hub-color: var(--topology-agent); --hub-dot-scale: var(--agent-dot-scale, 1); left: var(--agent-dot-x, calc(78 / 92 * 100%)); top: var(--agent-dot-y, 50%); }
 .topology-scene[data-orientation="portrait"] .topology-node .graph-node,
 .topology-scene[data-orientation="portrait"] .topology-node .graph-node:hover { background: var(--canvas); border-radius: 50%; }
 .topology-scene[data-orientation="portrait"] :is(.graph-node-name, .agent-auto-compact) { display: none; }
@@ -979,11 +979,11 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 }
 
 /* Settings surface composition; shared controls retain their own forms. */
-.experimental-settings { gap: 24px; }
-.display-settings .activity-preview { justify-items: center; padding: 20px 0 28px; }
-.agents-toolbar { display: flex; align-items: center; gap: 8px; min-height: 34px; margin-top: -9px; margin-bottom: 11px; }
-.agents-toolbar > h3 { margin: 0 4px 0 0; font-size: var(--text-small); font-weight: 650; line-height: 16px; color: var(--text-secondary); }
-.agent-summary { display: flex; align-items: center; gap: 12px; margin-bottom: 36px; }
+
+
+
+
+
 .agent-summary strong { font-size: var(--text-title); font-weight: 650; line-height: 24px; }
 .agent-summary-meta { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 3px; font-size: var(--text-meta); line-height: 18px; color: var(--text-secondary); }
 .agent-summary-meta > p { margin: 0; }
@@ -992,3 +992,35 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .task-family-wire { fill: none; stroke: var(--border-strong); stroke-width: 1.75; stroke-linecap: round; }
 .activity-bubble.activity-family-summary { width: fit-content; max-width: 100%; min-height: 36px; padding: 8px 12px; border-radius: var(--radius-control); background: var(--surface-subtle); box-shadow: none; font-size: var(--text-meta); color: var(--text-secondary); }
 .topology-scene[data-orientation="portrait"] .activity-family-summary { margin-left: auto; }
+
+/* Preserve the approved workspace content inside the shared layer shell. */
+.agent-grid .agent-card { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 8px 16px; padding: 24px 16px; }
+.agents-toolbar { display: flex; align-items: center; margin-bottom: 11px; min-height: 33px; margin-top: 0; gap: 6px; }
+.agents-toolbar > h3 { margin: 0 4px 0 0; font-size: var(--text-small); font-weight: 650; line-height: 16px; color: var(--text-secondary); margin-right: 13px; }
+.display-settings.settings-stack { padding-top: 8px; gap: 30px; }
+.display-settings .activity-preview { justify-items: center; height: 124px; align-items: start; padding: 20px 36px 0 0; }
+.agent-summary { display: flex; align-items: center; gap: 12px; margin-top: 5px; margin-bottom: 36px; }
+.setting-field:has(.setting-copy > p) { padding-block: 23px; }
+.setting-field:has(.setting-copy > p) .setting-copy > label { line-height: 16px; }
+.setting-field .setting-copy > p { margin-top: 6px; }
+.relay-hosting { padding-top: 6px; }
+.hosting-empty-group { display: grid; justify-items: start; gap: 20px; }
+.hosting-empty-copy { display: grid; gap: 12px; }
+.hosting-empty-copy > h2, .hosting-empty-copy > p { line-height: 16px; }
+.hosting-empty-group > .button { --button-width: 186px; }
+
+.setting-toggle:has(.setting-copy > p) { min-height: 0; padding-block: 15px; }
+.setting-toggle:has(.setting-copy > p) .setting-copy > label { line-height: 16px; }
+.setting-toggle .setting-copy > p { margin-top: 6px; }
+.display-settings .setting-toggle:has(.setting-copy > p) { padding-top: 17px; padding-bottom: 9px; }
+.display-settings .activity-bubble .activity-phase > .phase-label { max-width: none; }
+
+.experimental-settings { gap: 24px; padding-top: 8px; }
+.display-settings .activity-bubble[data-density="standard"] { align-items: flex-start; padding: 12px 11px 7px; }
+.display-settings .activity-bubble[data-density="standard"] .activity-copy { gap: 0; }
+.display-settings .activity-bubble[data-density="standard"] .activity-title-row,
+.display-settings .activity-bubble[data-density="standard"] .activity-title-row strong,
+.display-settings .activity-bubble[data-density="standard"] .activity-title-row time { height: 14px; line-height: 14px; }
+.display-settings .activity-bubble[data-density="standard"] .activity-phase { height: 14px; line-height: 14px; margin-top: 5px; gap: 8px; }
+.display-settings .activity-bubble[data-density="standard"] .activity-headline { flex: none; overflow: visible; height: 14px; line-height: 14px; }
+.display-settings .activity-bubble[data-density="standard"] .activity-spec-row { margin-top: 0; }

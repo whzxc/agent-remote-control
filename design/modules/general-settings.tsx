@@ -16,7 +16,7 @@ import { behavior, palettes } from "../fixtures/general-settings";
 export function GeneralSettings({ workspace = false }: { workspace?: boolean } = {}) {
   return (
     <Panel
-      size="l" slot={workspace ? "center" : undefined}
+      size="l" viewportHeight={workspace ? 800 : undefined}
       title={copy.text1}
       actions={<IconButton icon="maximize-2" label={copy.text2} />}
     >

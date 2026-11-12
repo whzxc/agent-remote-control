@@ -2,8 +2,8 @@ import { Frame, Icon } from "adg";
 import { Button } from "../components/button";
 import { permissionCopy as copy, permissionRows } from "../fixtures/permissions";
 
-export function PermissionRow({ row }: { row: typeof permissionRows[number] }) {
-  return <div class="grid grid-cols-[20px_minmax(0,1fr)_auto] items-center gap-3 py-3 border-border [&+&]:border-t">
+export function PermissionRow({ row, divider = false }: { row: typeof permissionRows[number]; divider?: boolean }) {
+  return <div class={`grid grid-cols-[20px_minmax(0,1fr)_auto] items-center gap-3 py-3 border-border ${divider ? "border-t" : ""}`}>
     <Icon name={row.icon} size={20} class="text-text-secondary" />
     <div><h3 class="text-small font-semibold">{row.title}</h3>
       <p class="mt-1 text-meta leading-[18px] text-text-secondary">{row.description}</p></div>
@@ -19,7 +19,7 @@ export function PermissionsContent() {
   return <div class="flex flex-col gap-6">{[true, false].map(system => <section>
     <h2 class="mb-1 text-meta font-semibold text-text-secondary">{copy[system ? "permissionsSystem" : "permissionsEnvironment"]}</h2>
     {system && <p class="text-meta leading-[18px] text-text-tertiary">{copy.permissionsAppHint}</p>}
-    {permissionRows.filter(row => row.system === system).map(row => <PermissionRow row={row} />)}
+    {permissionRows.filter(row => row.system === system).map((row, index) => <PermissionRow row={row} divider={index > 0} />)}
   </section>)}</div>;
 }
 export default () => <Frame name="permission-row" width={672}><PermissionRow row={permissionRows[0]} /></Frame>;

@@ -6,13 +6,13 @@ import { IconButton } from "../components/icon-button";
 
 export default () => (
   <Frame
-    width={1280} height={800}
+
     name="empty"
     fixture="relay-hosting-light"
-    capture={{ region: "Relay hosting", viewport: "1280x800" }}
+    capture={{ selector: ".layer-panel", viewport: "1280x800" }}
   >
     <Panel
-      size="l" slot="center"
+      size="l" viewportHeight={800}
       title="Relay hosting"
       actions={<IconButton icon="maximize-2" label="Expand" />}
     >

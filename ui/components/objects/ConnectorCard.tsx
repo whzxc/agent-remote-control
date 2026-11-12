@@ -64,7 +64,7 @@ export default function ConnectorCard({ source }: { source: ControlSource }) {
   ].filter((row): row is [string, string] => !!row[1]);
   const facts = identity.length <= 1 ? [[...identity, ...connection], activity] : [identity, connection, activity];
   return <Card asChild className="gap-3"><section className="connector-card" aria-label={source.label}>
-    <CardHeader><div className="connector-card-heading"><SourceIcon platform={source.product} />
+    <CardHeader className="flex flex-col"><div className="connector-card-heading"><SourceIcon platform={source.product} />
       {editing ? <form className="min-w-0 flex-1" onSubmit={event => { event.preventDefault(); void save(); }}>
         <div className="flex items-center gap-2"><Input ref={nameInput} id={labelId} aria-label={t('platforms.name')} aria-invalid={!!error} aria-describedby={error ? `${labelId}-error` : undefined} autoFocus required value={label} maxLength={120} readOnly={busy} onChange={event => setLabel(event.target.value)} />
           <IconButton icon={Check} label={t('save')} type="submit" busy={busy} />

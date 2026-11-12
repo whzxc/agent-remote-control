@@ -1,4 +1,5 @@
 import { copy } from '../fixtures/experimental';
+import { DeviceExperiment } from './device-link';
 
 
 
@@ -10,9 +11,10 @@ import { IconButton } from "../components/icon-button";
 import { experiments } from '../fixtures/experimental';
 export function ExperimentalContent() {
   return (<div class="flex flex-col gap-6 pt-2">
+        <DeviceExperiment locale="en" enabled={false} />
         {[experiments.slice(0, 3), experiments.slice(3)].map((rows) => (
           <Card class="gap-0! py-0!">
-            <ToggleRows rows={rows} />
+            <ToggleRows rows={rows.map(row => ({ ...row, description: row.description.join(" ") }))} />
           </Card>
         ))}
       </div>);
@@ -21,11 +23,9 @@ export function ExperimentalContent() {
 export function Experimental({ workspace = false }: { workspace?: boolean } = {}) {
   return (
     <Panel
-      size="l" slot={workspace ? "center" : undefined}
-      title={
-        <div class="flex items-center gap-[6px]">
-          <IconButton icon="arrow-left" label={copy.text1} />{copy.text2}</div>
-      }
+      size="l" viewportHeight={workspace ? 800 : undefined}
+      leading={<IconButton icon="arrow-left" label={copy.text1} />}
+      title={<>{copy.text2.split(" / ").map((part, index) => <>{index > 0 && <span aria-hidden="true"> / </span>}<span>{part}</span></>)}</>}
       actions={<IconButton icon="maximize-2" label={copy.text3} />}
     >
       <ExperimentalContent  />

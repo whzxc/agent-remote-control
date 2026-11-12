@@ -5,7 +5,8 @@ export const services = {
     address: "https://tools.example/mcp",
     status: "已连接",
     count: 3,
-    meta: "请求头：Authorization · 由 Claude 添加 · 刚刚检查",
+    meta: "请求头：Authorization · 由 Claude 添加",
+    checked: "刚刚检查",
     icon: "globe",
     error: {
       title: "需要凭据",
@@ -19,7 +20,8 @@ export const services = {
     address: "notes-mcp",
     status: "可用",
     count: 2,
-    meta: "环境变量：NOTES_TOKEN · 从 Codex 导入 · 18分钟前检查",
+    meta: "环境变量：NOTES_TOKEN · 从 Codex 导入",
+    checked: "18分钟前检查",
     icon: "terminal",
   },
   index: {
@@ -27,7 +29,8 @@ export const services = {
     transport: "本地命令",
     address: "index-mcp",
     status: "",
-    meta: "本机添加 · 刚刚检查",
+    meta: "本机添加",
+    checked: "刚刚检查",
     count: 0,
     icon: "terminal",
     error: {
@@ -43,6 +46,7 @@ export const services = {
     status: "已关闭",
     count: 0,
     meta: "",
+    checked: "",
     icon: "terminal",
   },
 };

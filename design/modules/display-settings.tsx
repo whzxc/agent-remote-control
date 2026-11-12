@@ -94,7 +94,7 @@ export function DisplayContent() {
 
 export function Display() {
   return (
-    <Panel width={720} title={copy.text39}>
+    <Panel size="l" viewportHeight={1080} title={copy.text39}>
       <DisplayContent  />
     </Panel>
   );

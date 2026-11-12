@@ -38,7 +38,7 @@ function Failure({ server }: { server: HubServer }) {
   const [copied, setCopied] = useState(false), [error, setError] = useState(''), kind = failureKind(server.error);
   useEffect(() => { if (!copied) return; const timer = setTimeout(() => setCopied(false), 2000); return () => clearTimeout(timer); }, [copied]);
   const copy = () => { setError(''); void copyText(t('mcp.promptFix', { name: server.name, error: server.error ?? '' })).then(() => setCopied(true), () => setError(t('copyFailedSelectAndCopyTheTextManually'))); };
-  return <Notice actionBelow title={t(`mcp.failure.${kind}`)} action={<Button onClick={copy}><Icon icon={copied ? Check : Copy} />{t(copied ? 'copied' : 'mcp.copyFix')}</Button>}>
+  return <Notice layout="stacked" actionBelow title={t(`mcp.failure.${kind}`)} action={<Button onClick={copy}><Icon icon={copied ? Check : Copy} />{t(copied ? 'copied' : 'mcp.copyFix')}</Button>}>
     <p>{t(`mcp.failureHint.${kind}`)}</p>
     <code>{server.error}</code>
     {error && <p className="field-error" role="alert">{error}</p>}
@@ -72,8 +72,8 @@ function Server({ server, query, busy, act, remove, now }: { server: HubServer; 
       </div>
       {!failure && <Status tone={tone(server.state)}>{t(`mcp.state.${server.state}`)}</Status>}
       <div className="mcp-server-actions">
-        <IconButton compact icon={RotateCw} label={t('mcp.check', { name: server.name })} busy={busy === `refresh:${server.name}`} disabled={!!busy || !server.enabled} onClick={() => act('refresh', server)} />
-        <IconButton compact icon={Trash} label={t('mcp.remove', { name: server.name })} disabled={!!busy} onClick={() => remove(server)} />
+        <IconButton icon={RotateCw} label={t('mcp.check', { name: server.name })} busy={busy === `refresh:${server.name}`} disabled={!!busy || !server.enabled} onClick={() => act('refresh', server)} />
+        <IconButton icon={Trash} label={t('mcp.remove', { name: server.name })} disabled={!!busy} onClick={() => remove(server)} />
         <Switch label={t('mcp.enable', { name: server.name })} checked={server.enabled} disabled={!!busy} onChange={enabled => act(enabled ? 'enable' : 'disable', server)} />
       </div>
     </div>
@@ -124,9 +124,9 @@ export default function McpHub({ expanded, onToggleWidth, onClose }: { expanded:
   return <Panel role="region" size="xl" className="mcp-page" title={t('mcp.title')} busy={reading || !!busy}
     expanded={expanded} onToggleWidth={onToggleWidth} onClose={onClose} returnFocus='[data-page="mcp-hub"]'
     headerNavigation={summary && summary.total > 0 && <p className="mcp-stats">
-      {t('mcp.serverCount', { count: summary.total })}{' · '}{t('mcp.availableCount', { count: summary.available })}
-      {summary.failed > 0 && <>{' · '}<span className="mcp-failed-count">{t('mcp.failedCount', { count: summary.failed })}</span></>}
-      {' · '}{t('mcp.toolTotal', { count: summary.tools })}
+      {`${t('mcp.serverCount', { count: summary.total })} · ${t('mcp.availableCount', { count: summary.available })}${summary.failed > 0 ? ' · ' : ` · ${t('mcp.toolTotal', { count: summary.tools })}`}`}
+      {summary.failed > 0 && <><span className="mcp-failed-count">{t('mcp.failedCount', { count: summary.failed })}</span></>}
+      {summary.failed > 0 && ` · ${t('mcp.toolTotal', { count: summary.tools })}`}
     </p>}
     actions={!!snapshot?.servers.length && <>
       <Button variant="primary" disabled={reading || !!busy} onClick={() => setAdding(true)}><Icon icon={Plus} />{t('mcp.add')}</Button>
