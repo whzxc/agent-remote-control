@@ -8,7 +8,6 @@
     "state": "detail-windows",
     "enabled": true
   },
-  "page": "devices",
   "viewports": [
     {
       "width": 1280,

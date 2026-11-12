@@ -8,52 +8,10 @@ import { Dialog } from "../components/panel";
 import { SettingLine } from "../components/settings-row";
 import { Switch } from "../components/switch";
 
-import { TaskBubble } from "../modules/task-presentation";
 
 export function DisplayContent() {
   return (<div class="flex flex-col gap-[30px] pt-2">
-        <Group title={copy.text1}>
-          <div class="flex h-[124px] items-start justify-center pt-5 pr-9">
-            <TaskBubble
-              truncateHeadline={false}
-              activityGap={8}
-              title={copy.text2}
-              duration={copy.text3}
-              phase={copy.text4}
-              headline={copy.text5}
-              project={copy.text6}
-              dispatch={samples.sample7}
-            />
-          </div>
-          <SettingLine title={copy.text8}>
-            <Choices
-              label={copy.text9}
-              options={samples.sample10}
-              value={copy.text11}
-            />
-          </SettingLine>
-          <SettingLine title={copy.text12}>
-            <Choices
-              label={copy.text13}
-              options={samples.sample14}
-              value={copy.text15}
-            />
-          </SettingLine>
-          <SettingLine
-            title={copy.text16}
-            description={samples.sample17}
-            class="pt-[17px]! pb-[9px]!"
-          >
-            <Switch checked label={copy.text18} />
-          </SettingLine>
-        </Group>
         <Group title={copy.text19}>
-          <SettingLine title={copy.text20}>
-            <Choices
-              label={copy.text21}
-              options={samples.sample22}
-            />
-          </SettingLine>
           <SettingLine title={copy.text23}>
             <Choices
               label={copy.text24}

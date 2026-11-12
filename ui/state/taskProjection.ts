@@ -73,3 +73,30 @@ export function changedFiles(entries: readonly AgentTimelineEntry[]) {
   }
   return [...files.values()];
 }
+
+export type TaskStepKind = 'reading' | 'editing' | 'command' | 'thinking' | 'waiting';
+export type TaskCardStep = { kind: TaskStepKind; text: string; status: AgentTimelineEntry['status']; durationMs?: number };
+export function taskStepKind(entry: AgentTimelineEntry): TaskStepKind | undefined {
+  if (entry.type === 'file') return entry.operation === 'read' ? 'reading' : 'editing';
+  if (entry.type === 'command') return entry.commandActions?.length && entry.commandActions.every(action => ['read', 'search', 'listFiles'].includes(action.type)) ? 'reading' : 'command';
+  if (entry.type === 'thinking') return 'thinking';
+  if (entry.status === 'pending' && (entry.type === 'interaction' || entry.type === 'tool')) return 'waiting';
+}
+export function taskCardActivity(entries: readonly AgentTimelineEntry[]) {
+  const tail = entries.slice(-80);
+  const steps = tail.flatMap<TaskCardStep>(entry => {
+    const kind = taskStepKind(entry), text = entry.title || entry.command || entry.path || entry.text || entry.input?.text;
+    return kind && text ? [{ kind, text, status: entry.status, durationMs: entry.durationMs }] : [];
+  }).slice(-5);
+  const planItems = [...tail].reverse().find(entry => entry.type === 'plan')?.plan;
+  const plan = planItems?.length ? { total: planItems.length, completed: planItems.filter(item => item.status === 'completed').length,
+    current: (planItems.find(item => item.status === 'in_progress' || item.status === 'running') ?? planItems.find(item => item.status !== 'completed'))?.content.text } : undefined;
+  const latest = [...tail].reverse().find(entry => entry.changes?.length || entry.path || entry.command);
+  const changes = latest?.changes;
+  const change = latest ? { kind: latest.command ? 'command' as const : changes?.length ? 'diff' as const : 'file' as const,
+    summary: latest.command || latest.path || changes?.map(change => change.path).join(', ') || '',
+    added: changes?.some(change => change.added !== undefined) ? changes.reduce((sum, change) => sum + (change.added ?? 0), 0) : undefined,
+    removed: changes?.some(change => change.removed !== undefined) ? changes.reduce((sum, change) => sum + (change.removed ?? 0), 0) : undefined,
+    output: latest.output?.text, exitCode: latest.exitCode } : undefined;
+  return { steps, plan, change };
+}

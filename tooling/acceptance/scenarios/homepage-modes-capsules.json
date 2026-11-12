@@ -1,0 +1,151 @@
+{
+  "theme": "light",
+  "language": "en",
+  "agents": [
+    "codex",
+    "claude"
+  ],
+  "quota": "single-ring-pace",
+  "clock": "2026-01-01T00:00:00Z",
+  "timezone": "Asia/Shanghai",
+  "viewports": [
+    {
+      "width": 390,
+      "height": 844
+    },
+    {
+      "width": 1280,
+      "height": 800
+    },
+    {
+      "width": 1600,
+      "height": 1000
+    }
+  ],
+  "homepage": {
+    "mode": "topology",
+    "check": "capsules"
+  },
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Choose the deployment window",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "claude",
+      "phase": "interaction",
+      "title": "Approve the migration",
+      "headline": "Waiting for permission to apply the migration",
+      "approval": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "file",
+      "title": "Inspect the dispatch queue",
+      "headline": "Reviewing queue ordering after the edit",
+      "entries": [
+        {
+          "type": "file",
+          "status": "completed",
+          "path": "src/dispatch.rs",
+          "operation": "read",
+          "durationMs": 820
+        },
+        {
+          "type": "file",
+          "status": "completed",
+          "path": "src/dispatch.rs",
+          "operation": "edit",
+          "changes": [
+            {
+              "path": "src/dispatch.rs",
+              "added": 24,
+              "removed": 8
+            }
+          ],
+          "durationMs": 1600
+        },
+        {
+          "type": "command",
+          "status": "completed",
+          "command": "cargo check --lib",
+          "durationMs": 1700
+        },
+        {
+          "type": "thinking",
+          "status": "completed",
+          "text": "Reviewing the queue ordering"
+        },
+        {
+          "type": "plan",
+          "status": "running",
+          "plan": [
+            {
+              "content": {
+                "state": "available",
+                "text": "Read the dispatch queue",
+                "truncated": false,
+                "sha256": "fixture",
+                "hashScope": "excerpt"
+              },
+              "status": "completed"
+            },
+            {
+              "content": {
+                "state": "available",
+                "text": "Verify task ordering",
+                "truncated": false,
+                "sha256": "fixture",
+                "hashScope": "excerpt"
+              },
+              "status": "in_progress"
+            }
+          ]
+        },
+        {
+          "type": "file",
+          "status": "running",
+          "operation": "read",
+          "path": "src/dispatch.rs",
+          "title": "Read src/dispatch.rs"
+        }
+      ],
+      "originSource": true
+    },
+    {
+      "agent": "claude",
+      "phase": "thinking",
+      "title": "Review the workspace changes",
+      "headline": "Checking the file changes against the plan",
+      "entries": [
+        {
+          "type": "thinking",
+          "status": "running",
+          "text": "Review the current change"
+        }
+      ],
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "text",
+      "title": "Summarize the queue",
+      "headline": "Queue summary is ready",
+      "completed": true,
+      "originSource": true
+    },
+    {
+      "agent": "claude",
+      "phase": "idle",
+      "title": "Inspect the storage index",
+      "headline": "Last recorded request",
+      "unconfirmed": true,
+      "originSource": true
+    }
+  ]
+}

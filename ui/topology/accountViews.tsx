@@ -23,7 +23,7 @@ export function accountViews(views: NodeView[], side: -1 | 1, accounts: Topology
       const selected = actions.selectedPlatform === platform;
       const state = (['normal', 'connecting', 'error', 'inactive'] as const).find(state => members.some(view => view.state === state)) ?? first.state;
       const icon = <SourceIcon platform={platform} panelVisual />;
-      return [{ ...first, id: sourcePlatformNodeId(platform), platformRoot: true, label, selected, state, icon, sourceIds: members.map(view => view.id), unread: members.flatMap(view => view.unread ?? []), children,
+      return [{ ...first, id: sourcePlatformNodeId(platform), platformRoot: true, label, selected, state, icon, sourceIds: members.map(view => view.id), children,
         content: <GraphNode caption={<span className="graph-node-name">{label}</span>} hideLabel={selected} panelExpanded={selected} label={label} state={state} highlighted={selected} onOpen={() => actions.openPlatform?.(platform)}>{icon}</GraphNode> }];
     });
   }
@@ -34,9 +34,8 @@ export function accountViews(views: NodeView[], side: -1 | 1, accounts: Topology
     const linked = orderedSubset(accounts.filter(a => a.agentProfiles.some(p => p.agent === platform)), orders[`1:${platform}`] ?? []);
     if (!linked.length) return members;
     const first = members[0], label = first.platformLabel ?? platform;
-    const tasks = members.flatMap(v => v.tasks);
     if (linked.length === 1) {
-      return [{ ...first, label, accountId: linked[0].id, tasks, selected: members.some(v => v.selected) }];
+      return [{ ...first, label, accountId: linked[0].id, selected: members.some(v => v.selected) }];
     }
     const unidentified = linked.filter(a => a.alias === 'Unidentified').map(a => a.id).sort();
     const platformIcon = <AgentQuotaIcon agent={platform} />;
@@ -47,11 +46,7 @@ export function accountViews(views: NodeView[], side: -1 | 1, accounts: Topology
       const nodeLabel = mode === 'flat' ? `${label} · ${alias}` : alias;
       const provider = account.quota ? accountQuotaProvider(platform, account.quota) : undefined;
       const icon = <AgentQuotaIcon agent={platform} provider={provider} summary={platform !== 'claude'} />;
-      const accountTasks = tasks.filter(t => t.agentAccountId === account.id);
-      return { ...first, activityLevel: 0, activityAt: Math.max(0, ...accountTasks.map(t => t.activityAt ?? 0)), id: accountNodeId(platform, account.id), accountId: account.id, quota: provider, selected, account: true, label: nodeLabel, icon,
-        attention: tasks.some(t => t.agentAccountId === account.id && (t.state === 'needsYou' || t.pending)),
-        tasks: accountTasks,
-        unread: members.flatMap(view => view.unread ?? []).filter(task => task.agentAccountId === account.id),
+      return { ...first, id: accountNodeId(platform, account.id), accountId: account.id, quota: provider, selected, account: true, label: nodeLabel, icon,
         content: <GraphNode caption={<span className={`graph-node-name${suffix ? ' topology-unidentified-label' : ''}`}>
             {suffix ? <><span>{mode === 'flat' ? `${label} · ${account.alias}` : account.alias}</span><span> · {suffix}</span></> : nodeLabel}
           </span>} hideLabel={selected} panelExpanded={selected} label={nodeLabel} state={first.state} highlighted={selected} onOpen={() => actions.open(1, platform, undefined, account.id)}>
@@ -61,11 +56,10 @@ export function accountViews(views: NodeView[], side: -1 | 1, accounts: Topology
     });
     const selected = members.some(v => v.selected) && !children.some(v => v.selected);
     const root: NodeView = { ...first, id: platform, label, icon: platformIcon, selected,
-      tasks: tasks.filter(t => !linked.some(a => a.id === t.agentAccountId)),
       content: <GraphNode caption={<span className="graph-node-name">{label}</span>} hideLabel={selected} panelExpanded={selected} label={label} state={first.state} highlighted={selected} onOpen={() => actions.openPlatform?.(platform)}>
         {platformIcon}
       </GraphNode>,
     };
-    return mode === 'tree' ? [{ ...root, children }] : [...children, ...(root.tasks.length ? [{ ...root, selected: false }] : [])];
+    return mode === 'tree' ? [{ ...root, children }] : children;
   });
 }

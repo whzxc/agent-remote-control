@@ -140,3 +140,51 @@ test("resolved and previous-turn interactions do not recreate waiting input", as
   const pending = entry("new", "interaction", { turnId: "current", status: "pending", interaction });
   assert.equal(pendingSessions("codex", session, [old, answered, pending])[0].turnId, "current");
 });
+
+test('homepage activity preserves chronological observations and recorded plan counts', async () => {
+  // Property: bounded card projection preserves observed step order and counts only recorded plan items.
+  const { taskCardActivity } = await import('../ui/state/taskProjection.ts');
+  const content = (text: string) => ({ state: 'available' as const, text, truncated: false, sha256: 'fixture', hashScope: 'excerpt' as const });
+  const result = taskCardActivity([
+    entry('read', 'file', { operation: 'read', path: 'a.ts' }),
+    entry('edit', 'file', { operation: 'edit', path: 'a.ts', changes: [{ path: 'a.ts', added: 4 }] }),
+    entry('wait', 'tool', { status: 'pending', title: 'Queued operation' }),
+    entry('plan', 'plan', { plan: [{ content: content('Read'), status: 'completed' }, { content: content('Check'), status: 'in_progress' }] }),
+  ]);
+  assert.deepEqual(result.steps.map(step => step.kind), ['reading', 'editing', 'waiting']);
+  assert.equal(result.plan?.completed, 1);
+  assert.equal(result.plan?.total, 2);
+  assert.equal(result.change?.added, 4);
+  assert.equal(result.change?.removed, undefined);
+});
+
+test('homepage task groups keep missing observations unconfirmed', async () => {
+  // Property: only observed live work contributes active counts and acknowledged completions enter recent history.
+  const { homepageTaskGroup, nodeTaskState, capsuleItems } = await import('../ui/state/activityModel.ts');
+  const session = { id: 'sample', source: 'arc-task' as const, phase: 'thinking' as const, headline: '', phaseSince: null, timeline: false, orderAt: 0 };
+  assert.equal(homepageTaskGroup({ ...session, observed: false }, false), 'unconfirmed');
+  assert.equal(homepageTaskGroup(session, true), 'needs-me');
+  assert.equal(homepageTaskGroup({ ...session, endedAt: 1, readAt: 2 }, false), 'recent');
+  const task = { key: 'sample', agent: 'codex', session, group: 'running' as const, sourceIds: [], activity: { steps: [] }, partial: true };
+  const offline = nodeTaskState([task], true);
+  assert.equal(offline.running, 0);
+  assert.equal(offline.attention, 0);
+  assert.equal(offline.unconfirmed, true);
+  const items = capsuleItems({ attention: 3, running: 12, unread: 2, steps: [] }, true);
+  assert.deepEqual(items.map(item => item.kind), ['attention', 'overflow']);
+  assert.deepEqual(capsuleItems({ attention: 0, running: 0, unread: 2, steps: [] }, false), []);
+});
+
+test('remote cards keep controller scope, receipt uncertainty and offline freshness', async () => {
+  // Regression: remote records were unavailable to the homepage and receipt completion could be mistaken for task completion.
+  const { projectDeviceTasks } = await import('../ui/state/activityModel.ts');
+  const device = { id: 'member', state: 'online', lastSeen: '2026-01-01T00:00:00Z' };
+  const snapshot = { observedAt: device.lastSeen, agents: { codex: { sessions: [{ id: 'running', source: 'arc-task', phase: 'thinking', headline: 'Inspect queue', phaseSince: null, timeline: false }] } }, records: [
+    { agent: 'codex', taskId: 'unknown', state: 'completed', createdAt: device.lastSeen, task: { title: 'Acknowledged dispatch' } },
+  ] };
+  const projected = projectDeviceTasks(device, { snapshot }, []);
+  assert.deepEqual(projected.map(task => task.group), ['running', 'unconfirmed']);
+  assert.ok(projected.every(task => task.deviceId === device.id));
+  const offline = projectDeviceTasks({ ...device, state: 'offline' }, { snapshot }, []);
+  assert.ok(offline.every(task => task.group === 'unconfirmed' && !task.session.interaction && !task.startedAt));
+});

@@ -130,14 +130,12 @@ Local Agents are separate from platforms. An Agent with multiple profiles opens 
 ### Topology
 
 - Modes: Tree (default) and Flat, a persisted preference at the end of Settings > General. Switching never reorders nodes.
-- Tree: source-side L1 is a platform and L2 is one node per connector instance. Agent-side L1 is a local tool; multiple local accounts form L2 nodes and their tasks form L3. A single-account Agent keeps tasks directly on the tool node.
+- Tree: source-side L1 is a platform and L2 is one node per connector instance. Agent-side L1 is a local tool; multiple local accounts form L2 nodes with working capsules for their recorded tasks. A single-account Agent keeps its existing node.
 - Flat: connector instances retain their labels and stable source IDs. Agent accounts retain `Agent · Alias` labels. Nodes from the same group stay adjacent.
 - Connector marks identify the external product; platform roots use platform marks. Local Agent account nodes retain their own quota rings. No Agent account identity merges source-side nodes.
-- Collapse: a hover-only 20px filled circle in the side's theme color (control sources orange, Agents blue-purple) with a white minus or plus, placed between the node and its outer arc, nearer the node. It collapses or expands the node's whole outer arc and children. Hovering the toggle keeps the node's path lit. Keyboard focus counts as hover.
-- Auto rules: Source L2 exposes added connector instances; Agent L2 expands when the tool has multiple profiles; L3 expands when an account has tasks; manual choices persist and win. A collapsed node shows a badge with the hidden task count, in warning color when any is pending. Pending work is never hidden without that badge.
-- Path highlight: hovering a task or node lights the union of its paths (connector instance → source platform → hub → local Agent → Agent account → task). Everything else dims (lines about 0.18, nodes 0.32, bubbles 0.35). Lit nodes scale slightly with a soft ring; lit bubbles shift about 6px outward with a stronger shadow. When the target is collapsed, the nearest visible ancestor lights.
-- Account panels: Agent account nodes open an account-scoped panel with the account alias, its quota, and tasks with recorded attribution to that account. Task details and Back retain the selected account. Selected nodes keep an outer arc on both sides, including when they have no tasks.
-- Geometry stays in `ui/topology/solve.ts` and the existing animator; no per-frame React renders.
+- Account siblings fold through TopologyGroup based on configuration and viewport width. Explicit disclosure preserves keyboard focus and layered Escape.
+- Account panels open scoped activity with recorded attribution and available quota.
+- Geometry stays in `ui/topology/layout.ts`. Tasks use the separate card feed and working capsules.
 
 ## Fixtures
 

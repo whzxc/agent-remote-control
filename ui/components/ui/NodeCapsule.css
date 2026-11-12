@@ -1,0 +1,19 @@
+.node-capsule-anchor { position: relative; display: inline-flex; width: 48px; height: 48px; flex-shrink: 0; }
+.node-capsule { position: absolute; left: 0; top: 0; height: 48px; transform-origin: 24px 24px; }
+.node-capsule-anchor[data-wing=left] .node-capsule { left: auto; right: 0; transform-origin: center; }
+.node-capsule-fill { position: absolute; inset: 1.5px; border-radius: 999px; background: var(--surface); box-shadow: var(--shadow-sm); }
+.node-capsule-ring { position: absolute; inset: 0; pointer-events: none; }
+.node-capsule-logo { position: absolute; inset: 0 auto auto 0; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 50%; z-index: 1; }
+.node-capsule[data-unconfirmed] .node-capsule-logo { opacity: .6; }
+.node-capsule-tasks { position: absolute; left: 40px; right: 0; top: 0; height: 48px; border-radius: 0 999px 999px 0; overflow: hidden; }
+.node-capsule-items { position: absolute; inset: 0; }
+.node-capsule-disc { position: absolute; top: 13px; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--surface-subtle); color: var(--text-tertiary); }
+.node-capsule-disc[data-kind=attention] { background: var(--warning); color: var(--canvas); font-size: var(--text-caption); font-weight: 650; font-variant-numeric: tabular-nums; }
+.node-capsule-disc[data-phase=reading], .node-capsule-disc[data-phase=editing] { color: var(--phase-file); }
+.node-capsule-disc[data-phase=thinking] { color: var(--phase-thinking); }
+.node-capsule-disc[data-phase=command] { color: var(--phase-command); }
+.node-capsule-disc[data-phase=running] { color: var(--role-agent); animation: capsule-pulse 1.4s ease-in-out infinite; }
+.node-capsule-unread { position: absolute; width: 9px; height: 9px; border: 2px solid var(--canvas); border-radius: 50%; background: var(--accent-text); pointer-events: none; }
+@keyframes capsule-pulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .node-capsule-disc { animation: none; } }
+.node-capsule-logo, .node-capsule-tasks { border: 0; padding: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }

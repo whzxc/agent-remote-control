@@ -19,7 +19,7 @@ export function BoardHeader({ date, time, dateTime, clockLabel, title, activityL
     <div className="board-header-activity" role="status" aria-label={activityLabel} aria-live="polite" aria-atomic="true">
       <Button id="board-trigger" variant="ghost" className="board-header-trigger" aria-label={openLabel}
         aria-description={summary || undefined} aria-haspopup="dialog" onClick={onOpen}>
-        {summary || title}
+        {title}
       </Button>
     </div>
   </header>;

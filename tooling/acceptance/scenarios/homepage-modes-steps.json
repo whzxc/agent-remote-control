@@ -1,0 +1,98 @@
+{
+  "theme": "light",
+  "language": "en",
+  "agents": [
+    "codex"
+  ],
+  "quota": "single-ring-pace",
+  "clock": "2026-01-01T00:00:00Z",
+  "timezone": "Asia/Shanghai",
+  "viewports": [
+    {
+      "width": 390,
+      "height": 844
+    },
+    {
+      "width": 1280,
+      "height": 800
+    }
+  ],
+  "homepage": {
+    "mode": "topology",
+    "check": "steps"
+  },
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "file",
+      "title": "Observed step 1",
+      "headline": "Recorded operation",
+      "originSource": true,
+      "entries": [
+        {
+          "type": "file",
+          "status": "running",
+          "path": "queue.rs",
+          "operation": "read"
+        }
+      ]
+    },
+    {
+      "agent": "codex",
+      "phase": "file",
+      "title": "Observed step 2",
+      "headline": "Recorded operation",
+      "originSource": true,
+      "entries": [
+        {
+          "type": "file",
+          "status": "running",
+          "path": "queue.rs",
+          "operation": "edit"
+        }
+      ]
+    },
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Observed step 3",
+      "headline": "Recorded operation",
+      "originSource": true,
+      "entries": [
+        {
+          "type": "command",
+          "status": "running",
+          "command": "cargo check --lib"
+        }
+      ]
+    },
+    {
+      "agent": "codex",
+      "phase": "thinking",
+      "title": "Observed step 4",
+      "headline": "Recorded operation",
+      "originSource": true,
+      "entries": [
+        {
+          "type": "thinking",
+          "status": "running",
+          "text": "Review queue ordering"
+        }
+      ]
+    },
+    {
+      "agent": "codex",
+      "phase": "tool",
+      "title": "Observed step 5",
+      "headline": "Recorded operation",
+      "originSource": true,
+      "entries": [
+        {
+          "type": "tool",
+          "status": "pending",
+          "title": "Waiting for an observed tool item"
+        }
+      ]
+    }
+  ]
+}

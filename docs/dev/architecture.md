@@ -102,7 +102,7 @@ without changing pairings.
 The installer installs a Windows inbound TCP rule for the configured peer port
 (default 7143), limited to the Private profile. A port change requires refreshing
 that rule. The local CLI and management catalog own pairing and configuration;
-Desktop exposes the Devices workspace through the Experimental capsule entry. The wire contract is in
+Desktop exposes paired devices as homepage topology nodes. The right add endpoint opens pairing; device nodes open management panels. The wire contract is in
 [CLI reference](../reference/cli.md#device-link).
 
 ### Device-tier management projections

@@ -11,22 +11,13 @@ export const checks = [
                     await page.getByRole('button', { name: new RegExp(`${escapeRegex(messages.manageAgents)}|${escapeRegex(messages.addAgent)}`) }).click();
                     if (fixture.agentDisplay) {
                         await page.getByRole('button', { name: messages.agentDisplaySettings, exact: true }).click();
-                        const density = page.getByRole('radiogroup', { name: messages['activity.density'], exact: true });
-                        if (await density.count()) {
-                            const standard = density.getByRole('radio', { name: messages['activity.density.standard'], exact: true });
-                            await standard.press('ArrowRight', { delay: 50 });
-                            await density.getByRole('radio', { name: messages['activity.density.detailed'], exact: true, checked: true }).waitFor({ timeout: 3000 });
-                            await density.getByRole('radio', { name: messages['activity.density.detailed'], exact: true }).press('ArrowLeft', { delay: 50 });
-                            await density.getByRole('radio', { name: messages['activity.density.standard'], exact: true, checked: true }).waitFor({ timeout: 3000 });
-                        }
-                        else {
-                            const trigger = page.getByRole('combobox', { name: messages['activity.density'], exact: true });
-                            await trigger.press('Enter');
-                            await page.getByRole('option', { name: messages['activity.density.detailed'], exact: true }).click();
-                            await trigger.press('Enter');
-                            await page.getByRole('option', { name: messages['activity.density.standard'], exact: true }).click();
-                            if (!await trigger.evaluate(element => element === document.activeElement))
-                                throw new Error('Density menu did not restore trigger focus.');
+                        const quota = page.getByRole('radiogroup', { name: messages.agentQuotaDisplay, exact: true });
+                        if (await quota.count()) {
+                            await quota.getByRole('radio', { name: messages.usageUsed, exact: true }).click();
+                            await quota.getByRole('radio', { name: messages.usageUsed, exact: true, checked: true }).waitFor();
+                        } else {
+                            await page.getByRole('combobox', { name: messages.agentQuotaDisplay, exact: true }).click();
+                            await page.getByRole('option', { name: messages.usageUsed, exact: true }).click();
                         }
                     }
                     if (fixture.agentDetail) {

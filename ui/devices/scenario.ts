@@ -1,6 +1,7 @@
+import { deviceTasks, type DeviceTaskSnapshot } from './tasks';
 import { deviceOffer, devicePair, deviceSnapshot, deviceView, memberOutcome, type DeviceSnapshot, type PairState, type Peer } from './state';
 
-export type DeviceFixture = { state: string; enabled?: boolean };
+export type DeviceFixture = { state: string; enabled?: boolean; taskSnapshots?: Record<string, DeviceTaskSnapshot> };
 const controller: Peer = { deviceId: 'b10c'.repeat(16), name: 'Anchor Mac', addresses: [], tunnelUrl: null, addressOverride: null };
 const members: Peer[] = [
   { deviceId: 'c34d'.repeat(16), name: 'Cedar Mac', addresses: ['192.168.50.21:7143', '[fd12:3456:789a::21]:7143'], tunnelUrl: 'https://cedar.example.net/arc-peer/3', addressOverride: 'cedar.local:7143' },
@@ -20,15 +21,16 @@ export function deviceScenario(fixture?: DeviceFixture) {
     const state = fixture.state;
     const empty = ['empty', 'pair-input', 'member-idle', 'member-offer', 'member-pending', 'member-expired', 'member-declined', 'member-controlled', 'revoke-controller'].includes(state);
     snapshot = { deviceId: state.startsWith('member-') || state === 'revoke-controller' ? members[0].deviceId : controller.deviceId, name: state.startsWith('member-') ? members[0].name : controller.name,
-      controller: state === 'member-controlled' || state === 'revoke-controller' ? controller : null,
+      controller: state === 'member-controlled' || state === 'revoke-controller' ? { ...controller, showUpstreamSources: false, upstreamSources: [] } : null,
       members: empty ? [] : structuredClone(members), pending: state === 'member-pending' ? { deviceId: controller.deviceId, name: controller.name, expiresInSeconds: 492 } : null,
       offerExpiresInSeconds: state === 'member-offer' ? 522 : null,
       devices: empty ? [] : members.map((member, index) => ({ id: member.deviceId, name: member.name, platform: ['darwin', 'windows', 'linux'][index], arch: ['arm64', 'x86_64', 'aarch64'][index], arcVersion: index === 1 ? '1.7.2' : '1.8.0',
         state: index === 2 ? 'offline' : 'online', path: index === 1 ? 'tunnel' : 'lan', lastSeen: index === 2 ? '2025-12-31T23:42:00Z' : '2026-01-01T00:00:00Z', latency: index === 2 ? null : index === 1 ? 82 : 4,
         capabilities: { tools: ['guide', 'query', 'act'], screen: index === 0, forwarding: false } })) };
     deviceSnapshot.set(structuredClone(snapshot));
-    const detail = state === 'detail-windows' ? members[1].deviceId : state === 'detail-linux' ? members[2].deviceId : state === 'detail-mac' || state === 'address' || state === 'revoke-member' ? members[0].deviceId : undefined;
-    deviceView.set({ side: state.startsWith('member-') || state === 'revoke-controller' ? 'member' : 'controller', detail,
+    deviceTasks.set(Object.fromEntries(Object.entries(fixture.taskSnapshots ?? {}).map(([id, snapshot]) => [id, { snapshot: structuredClone(snapshot) }])));
+    const detail = state === 'revoke-controller' ? controller.deviceId : state === 'detail-windows' ? members[1].deviceId : state === 'detail-linux' ? members[2].deviceId : state === 'detail-mac' || state === 'address' || state === 'revoke-member' ? members[0].deviceId : undefined;
+    deviceView.set({ side: state.startsWith('member-') || state === 'revoke-controller' ? 'member' : 'controller', detail: detail ?? (state.startsWith('member-') ? state === 'member-controlled' ? controller.deviceId : 'pairing' : undefined),
       dialog: state.startsWith('pair-') ? 'pair' : state === 'address' ? 'address' : state.startsWith('revoke-') ? 'revoke' : undefined,
       revoke: state === 'revoke-controller' ? controller : state === 'revoke-member' ? members[0] : undefined });
     deviceOffer.set(state === 'member-offer' ? { pairingString, expiresAt: Date.now() + 522000 } : undefined);
@@ -41,6 +43,14 @@ export function deviceScenario(fixture?: DeviceFixture) {
     if (!path.startsWith('device/') || method !== 'POST' || !snapshot) return undefined;
     const action = path.slice(7), args = body as Record<string, unknown> | undefined;
     if (action === 'cancel-pair') { cancelPair?.(new Error('DEVICE_PAIRING_CANCELLED')); cancelPair = undefined; return { cancelled: true }; }
+    if (action === 'tasks') {
+      const data = fixture?.taskSnapshots?.[String(args?.device)];
+      return structuredClone(data ?? { observedAt: '2026-01-01T00:00:00Z', activeAgents: [], agents: {}, availableAgents: [], records: [], omittedRecords: 0 });
+    }
+    if (action === 'configure') {
+      if (snapshot.controller) { snapshot.controller.showUpstreamSources = args?.showUpstreamSources === true; snapshot.controller.upstreamSources = snapshot.controller.showUpstreamSources ? [{ sourceId: 'fixture-upstream-source', sourceLabel: 'ChatGPT', controlSource: 'chatgpt' }] : []; }
+      return { showUpstreamSources: args?.showUpstreamSources === true };
+    }
     if (action === 'snapshot') return structuredClone(snapshot);
     if (action === 'offer') { snapshot.offerExpiresInSeconds = 600; return { pairingString, deviceId: snapshot.deviceId, expiresInSeconds: 600, protocolVersion: 3 }; }
     if (action === 'approve' || action === 'decline') { if (action === 'approve') snapshot.controller = controller; snapshot.pending = null; return { [action === 'approve' ? 'approved' : 'declined']: true, deviceId: controller.deviceId }; }

@@ -248,7 +248,7 @@ export const checks = [
             const { page, fixture, name, width, height, row, root } = context;
             let { model } = context;
             try {
-                if (width >= 1280 && !fixture.page && !fixture.panel && fixture.detailTask === undefined && fixture.tasks.some(task => task.completed)) {
+                if (width >= 1280 && !fixture.homepage && !fixture.page && !fixture.panel && fixture.detailTask === undefined && fixture.tasks.some(task => task.completed)) {
                     // Regression: dragging a completed card left a click guard that swallowed its mark-read action.
                     const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
                     const completed = fixture.tasks.flatMap((task, index) => task.completed && model.topology.tasks.some(row => row.taskId === `fixture-task-${index}`)

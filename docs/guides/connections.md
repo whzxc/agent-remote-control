@@ -57,3 +57,15 @@ Joined relays remain in the upper-arc connection panel. The homepage topology sw
 ## Limits
 
 Only join trusted relays: their deployer can technically inspect relayed traffic in Cloudflare. ARC uses Streamable HTTP, not a standalone legacy SSE endpoint. LocalXpose temporary mode is unavailable because the first request is redirected. Provider accounts, domains, quotas and outbound connectivity remain your responsibility. None authentication allows anyone who can reach the endpoint to use its allowed tools. Local connections cannot be switch targets; a non-OAuth target must have no source and completes the switch on an authenticated client request rather than OAuth approval.
+
+## Homepage modes and paired devices
+
+Choose **Topology** or **Tasks** below Board. ARC remembers your choice. Tasks shows needs-input work first, followed by running, completed unread and unconfirmed tasks. Open a task title for its detail. Use the separate check action to mark a completion read. On narrow windows, **Activity** expands the recorded steps in place.
+
+In Topology, click a node's logo to manage it. Click its working segment to open Tasks scoped to that node. **Clear node filter** restores all tasks.
+
+Enable **Device link** in **Settings → About → Experimental**. Use the right-wing **Add Agent or device** endpoint to add a device. On the member computer, choose **This device** at that endpoint and create a pairing offer. Paste the offer on the controller and approve it on the member. Click a paired device to inspect its LAN or Tunnel path, edit its LAN override, or unpair it. On a member, the controller appears on the left. **Show upstream control sources** in Settings starts off.
+
+### Limits
+
+Remote cards show tasks this controller dispatched. Core currently provides partial remote history. Remote timeline and response forwarding and account/quota inventory remain unavailable through management. Device file transfer is available through the CLI.

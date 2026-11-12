@@ -54,7 +54,7 @@ Answer and Review approval entries preserve the existing request interaction; co
 unread cards retain their separate check action. Only Needs me and Running reorder.
 Recent completed starts collapsed. The header remains available while groups scroll.
 `modules/tasks.tsx`, `modules/task-activity.tsx`, and `surfaces/homepage-tasks.tsx` own
-these user-approved Tasks forms. Existing task-bearing topology sources remain pending retirement.
+these user-approved Tasks forms. Historical task-bearing sources remain retained for history presentation. Their homepage task-layout consumers are retired.
 
 #### Recorded task fields and presentation limits
 
@@ -70,9 +70,11 @@ these user-approved Tasks forms. Existing task-bearing topology sources remain p
 | Partial coverage | AgentTimeline coverage and executionEvidence | Mark partial history and omit unavailable details. An activity snapshot alone does not promise timeline text. |
 
 No new canonical task field is assumed. The proposed card summary and node phase
-aggregate are new derived UI projections over these existing reads; a joined cross-task
-card feed is not present. Implementation still needs bounded timeline reads, provider
-coverage and remote joins. The proposal assumes no ETA, live provider percentage,
+aggregate are new derived UI projections over these existing reads; the local cross-task
+card feed is derived in `ui/state/homepageTasks.ts`. Timeline summaries retain at most
+80 entries per task and use the existing recent-preview read. Remote cards join native controller-scoped `device/tasks` activity and up to 200
+records. Remote timeline/response forwarding and account/quota inventory remain
+management coverage gaps. The proposal assumes no ETA, live provider percentage,
 invented step duration, or inferred waiting phase. All rendered content is fictional.
 
 ### Device level
@@ -128,16 +130,15 @@ with the existing topology spring (stiffness 210, damping 26, approximately 8ms
 integration steps); logo, label and branch rails do not animate with activity. Reduced
 motion sets the endpoint directly and disables the running pulse. Logo activation
 opens the existing node panel; task-area activation opens Tasks filtered to that node.
-The idle and working frames specify endpoints; runtime spring timing is not implemented
-or verified by these static sources.
+The idle and working frames specify endpoints. Runtime width and outgoing ports share
+the topology spring integrator with stiffness 210, damping 26 and 8ms substeps.
 
 Portrait 640×800 and mobile 390×844 retain node labels and fixed compact columns.
 Explicit horizontal pan reveals deeper device/Agent/account columns without reflow;
 the Board header, mode switch and navigation stay fixed. The root, branch and account
 viewport frames show this proposal. Pan never follows task activity. Remote sibling
 accounts/profiles continue to fold with TopologyGroup.
-These frames are user-approved. Existing approved summary and workspace sources remain
-retained until topology implementation replaces their consumers. See the mapping for
+These frames are user-approved. The separate Devices workspace, navigation entry and summary sources are retired. See the mapping for
 retirement scope and Known gaps.
 
 ## Ownership and project configuration
@@ -147,7 +148,7 @@ ADG discovers `components`, `modules` and `surfaces` in that order. The [mapping
 `modules/homepage-topology.tsx` owns TopologyScreen and Scene. Homepage node, mark, canvas, Board header and navigation parts live in their defining modules. `fixtures/topology.ts` owns scene records; `fixtures/topology-mobile.ts` owns the narrow layout. Type-only references point to the defining visual owner. All production compositions participate in default discovery.
 
 
-`design/tsconfig.json` resolves generated declarations in ignored `design/.adg/`. `adg.config.mjs` owns paths and the browser fixture adapter. Generated output belongs in ignored `output/design/`. `TopologyScene` accepts fixture coordinates inside `data-free`; runtime geometry remains owned by `ui/topology/solve.ts`.
+`design/tsconfig.json` resolves generated declarations in ignored `design/.adg/`. `adg.config.mjs` owns paths and the browser fixture adapter. Generated output belongs in ignored `output/design/`. `TopologyScene` accepts fixture coordinates inside `data-free`; runtime geometry remains owned by `ui/topology/layout.ts`.
 
 ## Review and adoption
 

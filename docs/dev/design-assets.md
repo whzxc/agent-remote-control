@@ -85,7 +85,7 @@ Generic sources live in `components/`; feature sources live in `modules/`. The o
 | `components/switch.tsx` / Input family | `Switch` | `off`, `on` | `components/settings-row`, `modules/agent-settings`, `modules/display-settings`, `modules/general-settings`, `modules/mcp-service` | `ui/components/ui/index.tsx#Switch` | Reviewed. Adopted by settings-row, settings and MCP. Track, inset and thumb dimensions match the runtime source. Runtime interaction and disabled-state fidelity remain pending. |
 | `components/tag.tsx` / Feedback family | `Tag` | `tag-meta`, `tag-fact`, `tag-danger`, `tag-ownership` | `modules/agent-activity`, `modules/mcp-service`, `modules/task-presentation` | `ui/components/ui/index.tsx#Tag`; `ui/components/ui/TaskPresentation.tsx#OwnershipTag` | Pending generic label-family review. Props have no task-state semantics; MCP tool labels, project metadata and application ownership reuse the generic part. |
 | `components/tag.tsx` / Feedback family | `Disclosure` | `disclosure`; module MCP compositions | `modules/mcp-service` | `ui/components/ui/index.tsx#Disclosure` | Reviewed. Runtime fidelity remains in the mapped implementation scope. |
-| `modules/task-presentation.tsx` / Task presentation | `TaskBubble` | `task-bubble-compact`, `task-bubble-detailed`, `task-bubble-row`, `task-bubble-row-attention`, `task-bubble-standard` | `modules/homepage-topology`, `surfaces/agent-panel`, `surfaces/homepage-topology-mobile`, `surfaces/settings` | `ui/components/ActivityBubbles.tsx#ActivityBubbleContent` | Reviewed. Adopted by topology, Agent activity and display settings. Fixtures own sample content; static source widths and runtime adaptive conversation layouts require implementation fidelity review. |
+| `modules/task-presentation.tsx` / Task presentation | `TaskBubble` | `task-bubble-compact`, `task-bubble-detailed`, `task-bubble-row`, `task-bubble-row-attention`, `task-bubble-standard` | `modules/homepage-topology`, `surfaces/agent-panel`, `surfaces/homepage-topology-mobile`, `surfaces/settings` | `ui/components/ActivityBubbles.tsx#ActivityBubbleContent` | Reviewed. Retained by Agent history. The homepage uses TaskCard and NodeCapsule. Fixtures own sample content; static source widths and runtime adaptive conversation layouts require implementation fidelity review. |
 | `modules/task-presentation.tsx` / Task presentation | `TaskRow` | `task-row`, `task-row-attention`; compact use in Agent/source groups | `modules/agent-activity`, `modules/source-activity` | `ui/components/ui/TaskRow.tsx#TaskRow`; runtime `ui/components/SourceDispatches.tsx` | Reviewed. Adopted. Compact layout, copy and trailing slots preserve each owner's row presentation. Independent part frames show the standard and attention presentations. Runtime is a button with disabled/focus behavior and a 1px copy gap; design is static. Agent runtime history still uses ConversationRow/ActivityBubbleContent. |
 | `modules/task-presentation.tsx` / Task presentation | `TaskMessage` | `task-message-prompt`, `task-message-queued` | `modules/timeline` | `ui/components/ui/TaskPresentation.tsx#TaskMessage`; runtime `ui/components/TimelineEntries.tsx` and `ui/components/TaskQueuedMessages.tsx` | Reviewed. Adopted. Runtime uses fit-content, 12px vertical padding and 22px line-height; source is full-width with 15px padding and 16px line-height. Queued gaps also differ. |
 | `modules/agent-activity.tsx` / Agent activity | `AgentTaskHistory` | `history` | `surfaces/agent-panel` | `ui/components/AgentConversations.tsx#ConversationRow`; `ui/components/ActivityBubbles.tsx#ActivityBubbleContent` | Reviewed. Adopted. Uses shared TaskRow; grouping, project metadata and dates remain Agent-owned. Runtime history still uses ActivityBubbleContent; projection and fidelity remain in Agent scope. |
@@ -94,7 +94,7 @@ Generic sources live in `components/`; feature sources live in `modules/`. The o
 | `modules/task-relationships.tsx` / Task relationships | `TaskParentLink` | `task-parent-link` | Same-source TaskDetailHeader; transitive surfaces/task-relationships | `ui/components/ui/TaskRelation.tsx#TaskParentLink` | Reviewed. Adopted. Runtime is an actionable Button with 16px gap and 8px horizontal padding; source is static with 14px gap and 12px padding. |
 | `modules/task-relationships.tsx` / Task relationships | `RelationTaskCard` | `relation-task-card`; all five cards in surfaces/task-relationships/family | Same-source TaskFamily; transitive surfaces/task-relationships | Unknown dedicated counterpart; relation cards are composed in `ui/components/ActivityBubbles.tsx` | Reviewed. Adopted by the family region. Dedicated runtime counterpart remains unknown; ActivityBubbleContent composes relation labels into task bubbles. Native relationship projection and fidelity remain in implementation scope. |
 | `modules/task-relationships.tsx` / Task relationships | `TaskDetailHeader` | `task-detail-header-side-chat`, `task-detail-header-subagent` | Same-source TaskFamily; transitive surfaces/task-relationships | `ui/components/ActivityTimeline.tsx` (inline header) | Reviewed. Adopted. Runtime header belongs to the adaptive task detail region; source crops the existing fixed-width family headers. Native navigation and parent evidence remain in implementation scope. |
-| `modules/task-relationships.tsx` / Task relationships | `TaskFamily` | `surfaces/task-relationships/family` | `surfaces/task-relationships` | `ui/topology/Topology.tsx`; `ui/components/ActivityBubbles.tsx`; `ui/components/ActivityTimeline.tsx` (combined relationship presentation) | Reviewed. Adopted by the family region. Agent marker, overflow control and branch layout belong to this composition. No dedicated runtime owner or prepared capture exists for this combined 1140×520 layout. |
+| `modules/task-relationships.tsx` / Task relationships | `TaskFamily` | `surfaces/task-relationships/family` | `surfaces/task-relationships` | `ui/components/ActivityBubbles.tsx`; `ui/components/ActivityTimeline.tsx` (combined relationship presentation) | Reviewed. Adopted by the family region. Agent marker, overflow control and branch layout belong to this composition. No dedicated runtime owner or prepared capture exists for this combined 1140×520 layout. |
 | `modules/timeline.tsx` / Timeline | `TimelineChanges` | timeline-changes | Same-source TimelineTurn and TaskTimeline | `ui/components/TaskChanges.tsx#ChangedFiles` | Reviewed. Adopted. Runtime derives file counts, links and detailed changes from native evidence; source uses the representative summary. |
 | `modules/timeline.tsx` / Timeline | `TimelineProcessButton` | timeline-process-button-failed; normal control in timeline-turn-expanded | Same-source TimelineTurn and TaskTimeline | `ui/components/TimelineEntries.tsx#Fold` | Reviewed. Adopted. Runtime owns process disclosure and keyboard state; source preserves the normal and failed labels in their turn contexts. |
 | `modules/timeline.tsx` / Timeline | `TimelinePrompt` | timeline-prompt | Same-source TimelineTurn and TaskTimeline | `ui/components/TimelineEntries.tsx#UserMessage` | Reviewed. Adopted. Runtime supports markdown, truncation and disclosure; source shows the existing two-line prompt. |
@@ -230,7 +230,7 @@ Board records may reference tasks, connections, updates or AX candidates; their 
 
 ### Homepage Tasks mode
 
-**User-approved. Awaiting implementation.** The ordinary homepage mode selector is
+**User-approved. Runtime adoption in the homepage.** The ordinary homepage mode selector is
 below Board, outside the bottom navigation capsule. It uses SingleChoice; it is not
 an experimental entry. Selection persists and task observations never switch modes.
 Node task-state activation explicitly selects Tasks and opens a transient,
@@ -238,44 +238,46 @@ clearable node scope with scroll and keyboard focus at its matching tasks.
 
 | Source / part | Declared forms | Consumer / intended runtime owner | Status |
 | --- | --- | --- | --- |
-| `modules/homepage-mode.tsx` / HomepageModeSwitch | `mode-switch-topology-attention`, `mode-switch-tasks` | HomepageHeader; intended homepage navigation | User-approved. Manual two-choice selector; Topology shows the needs-me badge on Tasks. |
+| `modules/homepage-mode.tsx` / HomepageModeSwitch | `mode-switch-topology-attention`, `mode-switch-tasks` | `ui/display/Studio.tsx`; `ui/state/homepage.ts` | User-approved. Manual two-choice selector; Topology shows the needs-me badge on Tasks. |
 | `modules/homepage-mode.tsx` / HomepageHeader | `homepage-header-topology`, `homepage-header-tasks` | TopologyScreen and `surfaces/homepage-tasks.tsx` | User-approved. Reuses BoardHeader and keeps its date/time centered in both modes. |
-| `modules/tasks.tsx` / TaskCard | `task-card-{input-wide,approval-wide,local-wide,remote-lan-wide,remote-tunnel-wide,unread-wide,unconfirmed-wide,standard,portrait-collapsed,portrait-expanded,mobile-collapsed,mobile-expanded}` | TasksList; intended task presentation owner | User-approved. Reuses Card, Tile, Button and the task-activity parts. Detail, mark read and overflow are separate controls. Offline has no live activity verbs. |
+| `modules/tasks.tsx` / TaskCard | `task-card-{input-wide,approval-wide,local-wide,remote-lan-wide,remote-tunnel-wide,unread-wide,unconfirmed-wide,standard,portrait-collapsed,portrait-expanded,mobile-collapsed,mobile-expanded}` | `ui/components/ui/TaskCard.tsx` | User-approved. Reuses Card, Tile, Button and the task-activity parts. Detail, mark read and overflow are separate controls. Offline has no live activity verbs. |
 | `modules/tasks.tsx` / OriginChain | `origin-chain-{local,remote,member,offline}` | TaskCard | User-approved. Source → optional remote device → Agent → account. Each small icon retains its full identity; no wires. |
 | `modules/tasks.tsx` / NodeTaskFilter | `node-task-filter` | TasksList / focused-node | User-approved. Accent chip identifies the node scope and has a separate clear action. |
 | `modules/tasks.tsx` / TaskOverflow | `task-overflow` | Tasks card overflow | User-approved. Existing ArrowUp/Down semantics and menu actions reorder only within Needs me or Running. They do not schedule work. |
 | `modules/tasks.tsx` / TasksList, TasksEmpty | `tasks-empty`; composed list states below | `surfaces/homepage-tasks.tsx` | User-approved. Needs me → Running → Completed unread → Unconfirmed; recent completed starts collapsed. Scroll replaces queue compaction. |
-| `surfaces/homepage-tasks.tsx` | `wide-landscape`, `standard-landscape`, `empty`, `focused-node`, `member-origin`, `portrait`, `portrait-expanded`, `mobile`, `mobile-expanded` | Intended homepage content owner; no runtime adoption | User-approved. Wide 1600×1000, standard 1280×800, portrait 640×800, mobile 390×844. Mixed includes input, approval, local/remote LAN work, completed unread and remote offline unconfirmed. Narrow layouts are scrolling single-column lists with in-place Activity expansion. Wide/standard cards retain five/three recent steps, plan counts, timing and the latest artifact. The content width has no 960px cap. |
+| `surfaces/homepage-tasks.tsx` | `wide-landscape`, `standard-landscape`, `empty`, `focused-node`, `member-origin`, `portrait`, `portrait-expanded`, `mobile`, `mobile-expanded` | `ui/components/HomepageTasks.tsx`; `ui/state/homepageTasks.ts` | User-approved. Wide 1600×1000, standard 1280×800, portrait 640×800, mobile 390×844. Mixed includes input, approval, local/remote LAN work, completed unread and remote offline unconfirmed. Narrow layouts are scrolling single-column lists with in-place Activity expansion. Wide/standard cards retain five/three recent steps, plan counts, timing and the latest artifact. The content width has no 960px cap. |
 | `fixtures/tasks.ts`, `fixtures/homepage-mode.ts` | Support data | Tasks and mode parts | User-approved. Fictional tasks, device identities and origin chains. |
 
-Known gaps: these frames have no reachable runtime fixtures. Mode persistence, badge
-navigation, scroll/focus handoff, node filtering, task actions, reorder boundaries,
-tooltip identity and live task projection await implementation in the implementation phase. The
-header and navigation remain available while the list scrolls. Offline tasks do not
-contribute live needs-me counts. The highlighted filter constrains the matching groups;
-clearing it restores all tasks. Manual Tasks selection also starts unfiltered.
+Runtime mapping uses `ui/state/taskProjection.ts` for bounded timeline summaries and
+`ui/state/activityModel.ts` for groups and node aggregates. `ui/components/HomepageTasks.tsx`
+owns the full-width feed, transient scope, focus and local ordering. Shared TaskCard and
+NodeCapsule live in `ui/components/ui/`. The `homepage-modes-*` browser family covers
+both modes, responsive densities, manual persistence, capsule focus, completion read
+and device management in both themes. Remote cards join the controller-scoped `device/tasks` activity and bounded records.
+Native visibility determines the remote task scope. Local cards use the current
+Agent activity and existing task records. Partial timeline coverage remains explicit.
 
 `modules/task-activity.tsx` owns TaskActivityIcon, TaskLiveTimeline, TaskPlanProgress
 and TaskChangeSummary. Frames are `task-live-timeline-{wide,standard}`,
 `task-plan-progress`, and `task-change-summary`. `fixtures/task-activity.ts` owns
 fictional steps, plan and diff content. Both node capsules and task cards reuse the same
 activity-icon owner. These parts are user-approved and consumed by Tasks and topology.
-The field mapping and missing joined-feed projection are documented in `design.md`.
+The recorded-field mapping is documented in `design.md`.
 
-### Task topology assets pending retirement
+### Retired task topology consumers
 
-Retain approved sources until their runtime consumers migrate. No shim or task overlay
+Retained historical sources have no active homepage task-layout consumer. No shim or task overlay
 is part of the new model. Shared primitives, native transcripts, task detail and queued
 messages inside a conversation retain their owners.
 
 | Existing source / forms | Retirement scope | Replacement / retained use |
 | --- | --- | --- |
-| `modules/task-presentation.tsx` / TaskBubble `task-bubble-{compact,standard,detailed,row,row-attention}` | Pending retirement for homepage task-bubble and queue presentation | TaskCard and OriginChain replace homepage task interaction. Retain current Agent/history/settings consumers until their own migration; TaskRow, StatePill and TaskMessage remain shared parts. |
-| `surfaces/homepage-topology-tasks.tsx` / `tasks`; `homepage-topology-studio.tsx` / `studio` | Pending retirement: task tentacles and task-dependent full-page arrangements | Static device topology plus Tasks mode. |
+| `modules/task-presentation.tsx` / TaskBubble `task-bubble-{compact,standard,detailed,row,row-attention}` | Retired from homepage; retained for history rows | TaskCard and OriginChain replace homepage task interaction. Retain current Agent/history consumers; TaskRow, StatePill and TaskMessage remain shared parts. |
+| `surfaces/homepage-topology-tasks.tsx` / `tasks`; `homepage-topology-studio.tsx` / `studio` | Retired runtime task tentacles and task-dependent full-page arrangements | Static device topology plus Tasks mode. |
 | `surfaces/homepage-topology-accounts.tsx` / `accounts`, `dense` | Pending retirement: task-bearing/compacted arrangements | Retain TopologyGroup and configuration account/profile nesting. Activity cannot trigger compaction or reposition nodes. |
-| `surfaces/homepage-topology-portrait.tsx` / `expanded-single-task`, `expanded-two-tasks`, `sources-compacted`, `tasks-and-accounts` | Pending retirement: task expansion, queues and task-pressure compaction | Static portrait device tiers and Tasks list. Configuration-only node/group forms remain retained. |
-| `surfaces/homepage-topology-mobile.tsx` / `narrow-two-tasks` | Pending retirement: task-connected mobile canvas | `surfaces/homepage-tasks.tsx` / `mobile`. |
-| `surfaces/agent-panel.tsx` / task-bearing and centered task-overview forms; `modules/agent-activity.tsx`, `modules/source-activity.tsx` / homepage activity projections | Pending retirement for focus-to-expand homepage task overlays and task queues | Tasks mode owns primary task access. Retain management, quota, native history and source/account parts until their consuming surface migration. |
+| `surfaces/homepage-topology-portrait.tsx` / `expanded-single-task`, `expanded-two-tasks`, `sources-compacted`, `tasks-and-accounts` | Retired runtime task expansion, queues and task-pressure compaction | Static portrait device tiers and Tasks list. Configuration-only node/group forms remain retained. |
+| `surfaces/homepage-topology-mobile.tsx` / `narrow-two-tasks` | Retired runtime task-connected mobile canvas | `surfaces/homepage-tasks.tsx` / `mobile`. |
+| `surfaces/agent-panel.tsx` / task-bearing and centered task-overview forms; `modules/agent-activity.tsx`, `modules/source-activity.tsx` / homepage activity projections | Retired runtime focus-to-expand homepage task overlays and task queues | Tasks mode owns primary task access. Retain management, quota, native history and source/account parts until their consuming surface migration. |
 
 There is no separate approved queue-only source. Queue and compaction ownership is
 embedded in the task-bearing topology compositions above. Retiring those usages does
@@ -291,12 +293,12 @@ Local Agents retain their current position without a local-device wrapper.
 
 | Source / part | Declared forms | Consumer / intended implementation | Status |
 | --- | --- | --- | --- |
-| `modules/device-topology.tsx` / DeviceNode, DeviceBranch | `device-branch-{idle,lan,tunnel,offline,merged-collapsed,merged-expanded}` | `surfaces/device-link-topology.tsx`; intended `ui/topology/Topology.tsx` | User-approved. Reuses TopologyNode at its existing 48px graphic size, TopologyGroup; task content is represented only by NodeCapsule. Device glyph, merged Agent badge and reachability dot extend the node language. Offline fades the complete branch. |
-| `modules/device-topology.tsx` / DeviceNodePanel | `device-node-panel-{lan,tunnel,offline}` | `surfaces/device-link-topology.tsx` / `device-panel`; intended topology panel owner | User-approved. Reuses PanelShell, PanelHeader, Field/Input and Button for pairing state, LAN/Tunnel path, latency, last seen/error, address/override, transfer and unpair. |
-| `modules/device-topology.tsx` / ControllerSourcePanel | `controller-source-panel-{off,on}` | `surfaces/device-link-topology.tsx` / `member-upstreams-{off,on}`; intended source panel owner | User-approved. Show upstream control sources defaults off; the shared Switch lives in the controller node panel. Manage device opens its management content using the existing nested-panel pattern. |
-| `modules/device-topology.tsx` / DeviceAddEndpoint | `device-add-endpoint-open` | Controller and narrow compositions; intended right-wing add endpoint | User-approved. Existing endpoint dot offers Add Agent and Add device. Pairing dialogs remain owned by `modules/device-link.tsx`. |
-| `modules/device-topology.tsx` / PortraitDeviceBranch | Composed in `controller-portrait{,-idle,-offline,-accounts}`, `controller-mobile{,-idle,-overflow,-offline,-branch,-accounts}` | `surfaces/device-link-topology.tsx`; intended portrait topology owner | User-approved. Remote account/profile levels fold with TopologyGroup. Fixed compact columns retain node labels; horizontal pan reveals branch and account tiers. |
-| `surfaces/device-link-topology.tsx` | `controller-idle`, `controller-overflow`, `controller-lan`, `controller-tunnel`, `controller-offline`, `merged-collapsed`, `merged-expanded`, `member-upstreams-off`, `member-upstreams-on`, `device-panel`, `controller-portrait{,-idle,-offline,-accounts}`, `controller-mobile{,-idle,-overflow,-offline,-branch,-accounts}` | Intended `ui/topology/Topology.tsx`; no runtime adoption | User-approved. Landscape 1280×800; portrait 640×800; mobile 390×844. Both themes use existing tokens. |
+| `modules/device-topology.tsx` / DeviceNode, DeviceBranch | `device-branch-{idle,lan,tunnel,offline,merged-collapsed,merged-expanded}` | `surfaces/device-link-topology.tsx`; `ui/topology/Topology.tsx` | User-approved. Reuses TopologyNode at its existing 48px graphic size, TopologyGroup; task content is represented only by NodeCapsule. Device glyph, merged Agent badge and reachability dot extend the node language. Offline fades the complete branch. |
+| `modules/device-topology.tsx` / DeviceNodePanel | `device-node-panel-{lan,tunnel,offline}` | `surfaces/device-link-topology.tsx` / `device-panel`; `ui/devices/DeviceNodePanel.tsx` | User-approved. Reuses PanelShell, PanelHeader, Field/Input and Button for pairing state, LAN/Tunnel path, latency, last seen/error, address/override, transfer and unpair. |
+| `modules/device-topology.tsx` / ControllerSourcePanel | `controller-source-panel-{off,on}` | `surfaces/device-link-topology.tsx` / `member-upstreams-{off,on}`; `ui/components/SettingsPage.tsx`; `ui/devices/DeviceNodePanel.tsx` | User-approved. Show upstream control sources defaults off; the shared Switch lives in the controller node panel. Manage device opens its management content using the existing nested-panel pattern. |
+| `modules/device-topology.tsx` / DeviceAddEndpoint | `device-add-endpoint-open` | Controller and narrow compositions; `ui/topology/Topology.tsx` | User-approved. Existing endpoint dot offers Add Agent and Add device. Pairing dialogs remain owned by `modules/device-link.tsx`. |
+| `modules/device-topology.tsx` / PortraitDeviceBranch | Composed in `controller-portrait{,-idle,-offline,-accounts}`, `controller-mobile{,-idle,-overflow,-offline,-branch,-accounts}` | `surfaces/device-link-topology.tsx`; `ui/topology/Topology.tsx` | User-approved. Remote account/profile levels fold with TopologyGroup. Fixed compact columns retain node labels; horizontal pan reveals branch and account tiers. |
+| `surfaces/device-link-topology.tsx` | `controller-idle`, `controller-overflow`, `controller-lan`, `controller-tunnel`, `controller-offline`, `merged-collapsed`, `merged-expanded`, `member-upstreams-off`, `member-upstreams-on`, `device-panel`, `controller-portrait{,-idle,-offline,-accounts}`, `controller-mobile{,-idle,-overflow,-offline,-branch,-accounts}` | `ui/topology/Topology.tsx` | User-approved. Landscape 1280×800; portrait 640×800; mobile 390×844. Both themes use existing tokens. |
 | `fixtures/device-topology.ts` | Support data | Device topology parts and surface | User-approved. Fictional devices, accounts, tasks and inert example endpoints; visual types remain in their owning modules. |
 
 Device status appears only on device nodes and their expanded management content. The
@@ -307,12 +309,14 @@ may control further devices; each homepage renders one hop, without protocol for
 The architecture proposal is in `arch/mechanisms/device-link.*`, `device-forward.*`
 and `arch/system-map.*`.
 
-Known gaps: these proposal frames have no reachable runtime fixtures and intentionally
-omit fixture/capture bindings. Runtime tree projection, fold thresholds, spatial panel
-transitions, node task-area activation, source-switch persistence, native pairing cycle rejection and operation
-device targeting await implementation after gallery approval. Transfer is an entry;
-its downstream UI remains outside this proposal. Existing workspace-only assets below
-remain retained until their runtime consumers are replaced, then are retired with no shims.
+Runtime adoption uses static configuration columns and explicit account disclosure.
+The device node panel replaces the separate Devices workspace and summary. Pairing,
+address and revoke dialogs retain their shared shells. Native management currently
+exposes paired devices, paths and reachability. Remote Agent tiers and single-Agent merge use `availableAgents`. The native
+`controller.showUpstreamSources` setting controls `controller.upstreamSources`.
+Remote account/quota inventory, remote timeline/response forwarding and transfer UI
+remain limited by the available management reads. Native addressing and cycle semantics belong
+to the device-tier owner.
 
 `modules/node-capsule.tsx` owns NodeCapsule and its shared outer-port geometry:
 `idle`, `working`, `attention`, `unread`, `aggregate`, `thinking-waiting`, `overflow`,
@@ -339,22 +343,20 @@ Portrait/mobile retain labels and use explicit horizontal pan to reveal deeper
 columns; header/navigation remain fixed. Pan is independent of task state.
 Management panel disclosure folds the device's child branch to reserve panel space.
 
-Known gaps specific to NodeCapsule: gallery frames specify the idle/working endpoints
-and split logo/task actions; runtime interpolation, keyboard actions, pan controls and
-hit targets await implementation. Shell width, task-area reveal and outgoing port
-must share the existing 210/26 topology spring and approximately 8ms substeps.
-Reduced motion applies the endpoint directly and disables the running pulse. Static
-renders do not verify temporal spring behavior. Tasks mode's approved sources are unchanged.
+Runtime capsules split logo and task activation, retain keyboard node ordering,
+and share width, reveal and outgoing ports through the 210/26 spring with 8ms
+substeps. Reduced motion applies endpoints directly and disables the pulse.
+`homepage-modes-*` fixtures own capsule, filter, pan and device interactions.
 
 All proposed device frames are static. Activity cannot move nodes or change grouping.
 Task bubbles, queues, task-only arcs and task focus overlays are absent. Node positions
 follow configuration and explicit structural disclosure within a fixed viewport.
 
-### Retained Device link workspace sources
+### Retained Device link management parts
 
-**Approved. Adopted. Scheduled for retirement where noted.** `modules/device-link.tsx` owns DeviceExperiment,
-DeviceNavigation, DeviceMemberRow, DeviceStatus, DeviceFingerprint, DeviceDetail, DevicePairDialog,
-DeviceAddressDialog, DeviceRevokeDialog, DeviceMemberView, DevicesWorkspace and DeviceTopologyEntry.
+**Approved. Adopted.** `modules/device-link.tsx` owns DeviceExperiment,
+DeviceMemberRow, DeviceStatus, DeviceFingerprint, DeviceDetail, DevicePairDialog,
+DeviceAddressDialog, DeviceRevokeDialog and DeviceMemberView.
 `fixtures/device-link.ts` owns fictional names, fingerprints, LAN endpoints, pairing content,
 countdowns, errors and English / Simplified Chinese copy. Each declared state has `-en` and
 `-zh-CN` forms; themes come from tokens. No real environment data is used.
@@ -362,31 +364,14 @@ countdowns, errors and English / Simplified Chinese copy. Each declared state ha
 | Parts / source | Declared forms | Consumer / intended runtime mapping | Status |
 | --- | --- | --- | --- |
 | DeviceExperiment | `device-experiment-{off,on}-{locale}` | Experimental settings row; `ui/components/ExperimentalSettings.tsx` | Approved. Reuses Card, SettingLine and Switch; no embedded actions. |
-| DeviceNavigation (scheduled for retirement) | `device-navigation-{disabled,enabled}-{locale}` | Navigation in `ui/App.tsx` | Retained approved source. Retire the Devices navigation entry with the topology implementation. |
-| DevicePairDialog | `device-pair-{input,waiting,success,invalid,expired,protocol,declined,unreachable}-{locale}` | `ui/devices/DevicesWorkspace.tsx` | Approved. Reuses the M Dialog with fixed actions, Field/Input, Notice and Button. Waiting retains the initiating action, controller fingerprint and original offer deadline. |
-| DeviceAddressDialog / DeviceRevokeDialog | `device-address-{locale}`, `device-revoke-{member,controller}-{locale}` | `ui/devices/DevicesWorkspace.tsx` | Approved. Both use the M Dialog with fixed actions. Override supports save and clear. Both revocation directions confirm immediate loss of access while preserving running work. |
-| DeviceMemberRow / DeviceStatus / DeviceFingerprint / DeviceDetail | In `surfaces/devices`: `controller`, `detail-mac`, `detail-windows`, `detail-linux` | `ui/devices/DevicesWorkspace.tsx` | Approved. Online/offline, LAN/tunnel, latency, last seen, full fingerprint, platform/arch, ARC version, capabilities and addresses. Windows/Linux omit screen capability and show its absence. Offline path is explicitly historical; unavailable latency is omitted. |
-| DeviceMemberView / DevicesWorkspace (scheduled for retirement) | In `surfaces/devices`: all workspace forms below | `ui/devices/DevicesWorkspace.tsx` | Retained approved workspace in the L center Panel slot. Remove after management and pairing entry points move to topology; preserve shared pairing/address/revoke parts. |
-| DeviceTopologyEntry (scheduled for retirement) | In `surfaces/device-link-topology`: `summary` | `ui/devices/DeviceSummary.tsx`, `ui/topology/Topology.tsx` | Retained approved summary chip, scheduled for removal with its runtime consumer. Known gap: the full composition retains older surrounding Board copy and an add-connection text action, which differ from their current owning sources. |
+| DevicePairDialog | `device-pair-{input,waiting,success,invalid,expired,protocol,declined,unreachable}-{locale}` | `ui/devices/DeviceNodePanel.tsx` | Approved. Reuses the M Dialog with fixed actions, Field/Input, Notice and Button. Waiting retains the initiating action, controller fingerprint and original offer deadline. |
+| DeviceAddressDialog / DeviceRevokeDialog | `device-address-{locale}`, `device-revoke-{member,controller}-{locale}` | `ui/devices/DeviceNodePanel.tsx` | Approved. Both use the M Dialog with fixed actions. Override supports save and clear. Both revocation directions confirm immediate loss of access while preserving running work. |
+| DeviceMemberRow / DeviceStatus / DeviceFingerprint / DeviceDetail | In `surfaces/devices`: `controller`, `detail-mac`, `detail-windows`, `detail-linux` | `ui/devices/DeviceNodePanel.tsx` | Approved. Online/offline, LAN/tunnel, latency, last seen, full fingerprint, platform/arch, ARC version, capabilities and addresses. Windows/Linux omit screen capability and show its absence. Offline path is explicitly historical; unavailable latency is omitted. |
 
-`surfaces/devices.tsx` declares `controller`, `empty`, `detail-mac`, `detail-windows`,
-`detail-linux`, `member-idle`, `member-offer`, `member-pending`, `member-controlled`,
-`member-expired` and `member-declined`, each in both locales in the L center workspace slot.
-Pairing and address dialogs use 560px; revocation uses 480px. Closing the waiting dialog hides it while pairing continues until approval or the original deadline; reopening Add device restores that pending request. Native form semantics, focus restoration,
-layered Escape and async state binding use shared runtime controls.
-
-`surfaces/device-link-topology.tsx` declares `summary-{locale}` at 1280×800.
-The retained approved summary chip opens the current Devices workspace. These two
-legacy summary frames remain unchanged for consumer tracing. The proposed topology
-compositions above replace that chip and navigation entry after approval.
-
-`ui/devices/` owns the desktop workspace and its management projection. All frames declare browser
-fixtures and captures. Scenarios use `device-{state}-{en,zh-CN}-{light,dark}`.
-`design/fixtures/device-link.ts` provides design data only. Forwarded tasks and notifications retain
-the originating device name under the existing behavior contract; their existing surfaces are outside
-the retained workspace composition. The current adopted workspace has no file-transfer UI.
-The proposal adds a device-panel transfer entry. Headless Linux is represented only as a
-remote member detail; local offer and approval remain CLI operations on headless hosts.
+`ui/devices/DeviceNodePanel.tsx` owns device detail, member pairing offers,
+approval, address override and revocation. The retired Devices workspace, its navigation
+entry, summary chip and their design frames have been removed. The retained
+`modules/device-link.tsx` owns pairing/address/revoke forms and shared device facts.
 
 ## Surface mappings and declared frames
 
@@ -397,9 +382,8 @@ Surfaces with mapped implementation usage are **adopted**. Declared compositions
 | `surfaces/layers.tsx` | `workspace-fit`, `workspace-cap`, `workspace-dialog`, `node-panel`, `portrait-workspace` | `ui/App.tsx`, `ui/components/ui/Panel.tsx`, `ui/topology/Topology.tsx`, `ui/state/layers.ts`, `ui/components/ui/layerFrame.ts` | Reviewed (user-approved). Slot-owned XL/M widths and always-centered geometry match the accepted runtime. First-level panels have no scrim; only the nested M dialog adds one. Entry and exit fade only. Relay hosting uses its real empty content for content-fit height and portrait. Full Settings reaches the height cap with a fixed header and scrolling body, including beneath the confirmation dialog. Workspace scenes hide the Board header. The node scene centers the Board on the hub and retains the existing secondary tentacle shape. Dialog slot geometry and dismissal footers are adopted. Workspace center slots and M node slots are adopted. Node surface captures use the panel region; the layer-slot reference and browser bounds checks own viewport placement. |
 | `surfaces/agent-panel.tsx` | `empty`, `overview`, `short`, `loading`, `centered-landscape`, `centered-portrait` | `ui/components/AgentPanel.tsx` | Reviewed and adopted. Overview height follows content, with a fixed header and scrolling body at the cap. All six frames capture the fixed M panel region. The legacy centered frame names retain landscape and collapsed-portrait coverage; placement belongs to the layer-slot source and acceptance bounds checks. |
 | `surfaces/agent-platform.tsx` | `accounts`, `single-account`, `empty`, `loading`, `native` | `ui/components/AgentPlatformView.tsx` | Reviewed and adopted. The account overview fits its content, and the account list scrolls at the viewport cap. The loading frame has a dedicated browser fixture. The native specimen remains unreachable through the current fixture route. |
-| `surfaces/devices.tsx` | See retained workspace sources; both locales | `ui/devices/DevicesWorkspace.tsx` | Retained approved source; scheduled for retirement after topology migration. |
-| `surfaces/homepage-tasks.tsx` | `wide-landscape`, `standard-landscape`, `empty`, `focused-node`, `member-origin`, `portrait`, `portrait-expanded`, `mobile`, `mobile-expanded` | Intended homepage content owner | User-approved; no runtime fixture. |
-| `surfaces/device-link-topology.tsx` | New forms listed above; retained `summary-{en,zh-CN}` | `ui/topology/Topology.tsx` | New forms User-approved. Legacy summary frames retained and scheduled for retirement. |
+| `surfaces/homepage-tasks.tsx` | `wide-landscape`, `standard-landscape`, `empty`, `focused-node`, `member-origin`, `portrait`, `portrait-expanded`, `mobile`, `mobile-expanded` | Intended homepage content owner | User-approved. `homepage-modes-*` browser fixtures cover the local feed and responsive forms. |
+| `surfaces/device-link-topology.tsx` | Forms listed above | `ui/topology/Topology.tsx` | User-approved. Device nodes and management are adopted within current native field coverage. |
 | `surfaces/connections.tsx` | `overview` | `ui/components/ConnectionsContent.tsx` | Reviewed. Composes modules/connection-management. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
 | `surfaces/coordination-ax.tsx` | `closed`, `detail`, `open` | `ui/coordination/AXPanel.tsx` | Reviewed. Composes modules/ax. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
 | `surfaces/coordination.tsx` | `current`, `empty`, `gap`, `unavailable` | `ui/coordination/CoordinationCenter.tsx` | Reviewed. Composes modules/board. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
@@ -417,7 +401,7 @@ Surfaces with mapped implementation usage are **adopted**. Declared compositions
 | `surfaces/settings.tsx` | `about`, `agent-detail`, `agents`, `display`, `experimental` | `ui/components/SettingsPage.tsx`; `ui/components/AgentsSettings.tsx`; `ui/components/AgentDisplaySettings.tsx`; `ui/components/ExperimentalSettings.tsx` | Reviewed. Composes modules/agent-settings, modules/display-settings, modules/experimental, modules/general-settings. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
 | `surfaces/setup.tsx` | `method`, `ready`, `relay-login`, `source-address`, `source-approval`, `source-connection`, `source-empty`, `source-local`, `source-product`, `source-success`, `stacked-join`, `stacked-local`, `stacked-method`, `stacked-own`, `stacked-ready`, `stacked-relay`, `stacked-secure`, `welcome` | `ui/components/SetupDialog.tsx`; `ui/components/AddConnection.tsx`; `ui/components/AddControlSource.tsx`; `ui/components/Onboarding.tsx` | Reviewed. Composes modules/connection-onboarding, modules/onboarding, modules/source-onboarding, modules/welcome. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
 | `surfaces/source-panel.tsx` | `dispatches`, `history`, `platform`, `loading` | `ui/components/SourcePanel.tsx`; `ui/components/SourcePlatformView.tsx` | Reviewed and adopted. Dispatch and connector overviews fit their content and scroll at the viewport cap. The dispatch loading frame has a dedicated browser fixture. |
-| `surfaces/task-relationships.tsx` | `family` | `ui/topology/Topology.tsx`; `ui/components/ActivityBubbles.tsx`; `ui/components/ActivityTimeline.tsx` | Reviewed. Composes modules/task-relationships. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
+| `surfaces/task-relationships.tsx` | `family` | `ui/components/ActivityBubbles.tsx`; `ui/components/ActivityTimeline.tsx` | Reviewed. Composes modules/task-relationships. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
 | `surfaces/task-detail.tsx` | `failed-turn`, `needs-you`, `running-multi-turn` | `ui/components/ActivityTimeline.tsx` | Reviewed. Composes modules/timeline. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
 | `surfaces/updates.tsx` | `available`, `downloading`, `download-failed`, `installing`, `history`, `settings` | `ui/components/AppUpdate.tsx`; `ui/components/SettingsPage.tsx` | Reviewed and adopted. Each form has a browser fixture. Settings capture targets the embedded About section. |
 
@@ -569,9 +553,9 @@ Pet preview atlas labels are decorative image content inside `aria-hidden` previ
 
 ## Known gaps
 
-- Two-mode homepage and task cards are User-approved. Persistence, navigation/focus, origin tooltips, task actions and scroll behavior require runtime adoption; legacy task topology usages remain pending retirement.
+- Remote task cards use `device/tasks`. Remote timelines and responses require device-aware management routing. Cards retain partial-history status until a timeline is available.
 
-- Device-level homepage frames are User-approved; runtime fixtures, projection, interaction and native cycle/addressing behavior await approved implementation. The separate workspace and its nav/summary assets remain retained pending that migration.
+- Device nodes and management use `homepage-modes-controller` and `homepage-modes-member`. Remote Agent tiers, single-Agent merge and upstream controller sources are adopted. Remote account/quota inventory and transfer UI remain unavailable.
 
 - Isolated AX badges, general/display settings content and the theme swatch have pixel-only crop fidelity differences with matching element, layout and color snapshots.
 - Agent platform native has no reachable fixture. Its legacy drawing remains a retained exception.
@@ -582,3 +566,14 @@ Pet preview atlas labels are decorative image content inside `aria-hidden` previ
 `surfaces/permissions.tsx` / `readiness` maps the L center workspace to `ui/App.tsx` and `ui/components/PermissionsPage.tsx`. `modules/permissions.tsx` owns readiness rows and `fixtures/permissions.ts` owns their representative text. Status: Proposed for gallery review; the source records existing business content under the approved Panel geometry.
 
 The shared layer shells implement fixed M node slots and the reviewed XL workspace slot. Setup frames inherit the M Dialog shell, fixed footer and retained stacked parents. Hover help uses the shared Tooltip; shell and interaction motion read design tokens.
+
+## Homepage implementation owners
+
+| Approved owner | Runtime owner | Adoption |
+| --- | --- | --- |
+| `modules/homepage-mode.tsx` | `ui/display/Studio.tsx`, `ui/state/homepage.ts` | Manual persisted mode; needs-me badge capped at 99+. |
+| `modules/tasks.tsx`, `modules/task-activity.tsx`, `surfaces/homepage-tasks.tsx` | `ui/components/ui/TaskCard.tsx`, `ui/components/HomepageTasks.tsx`, `ui/state/homepageTasks.ts`, `ui/state/taskProjection.ts`, `ui/state/activityModel.ts` | Local and controller-dispatched remote cross-task feed, bounded local timeline tail, responsive activity, request/detail/read actions, ordering and node scope. Remote cards use native controller-scoped activity and records. Remote timeline and response forwarding remain unavailable through management. |
+| `modules/node-capsule.tsx`, `modules/topology-node.tsx` | `ui/components/ui/NodeCapsule.tsx`, `ui/components/GraphNode.tsx`, `ui/topology/spring.ts` | Stadium quota outline, phase discs, attention, overflow, unread, unconfirmed and mirrored wing. Shared 210/26 spring integrates width and outgoing port. |
+| `modules/device-topology.tsx`, `surfaces/device-link-topology.tsx` | `ui/topology/Topology.tsx`, `ui/devices/DeviceNodePanel.tsx`, `ui/components/SettingsPage.tsx` | One-hop paired-device nodes, management and right add endpoint. Default-off controller-source disclosure. Remote inventory and single-Agent merge use `device/tasks`. Upstream disclosure uses native device configuration. Remote account/quota inventory remains unavailable. |
+
+The task-bearing solver, task-pressure compaction, portrait task renderer, task wires and their tuning controls are retired. `ui/topology/layout.ts` projects configuration columns and explicit account disclosure. Browser task-card scenarios replace retired queue/drag renderer cases.

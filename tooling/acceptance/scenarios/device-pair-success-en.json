@@ -8,7 +8,6 @@
     "state": "pair-success",
     "enabled": true
   },
-  "page": "devices",
   "viewports": [
     {
       "width": 1280,

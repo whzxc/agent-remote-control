@@ -161,9 +161,9 @@ The Agent list merges live tasks with unarchived conversation metadata by sessio
 
 Node and task panels use the shared Panel, fixed left/right M slots, retained content-fit height and the layer store's dismissal and focus restoration. Source panels use the left slot; Agent and task details use the right. Narrow and portrait viewports collapse both into the full available width. See [UI conventions](ui.md) for geometry, entry motion and switching.
 
-Portrait orientation, rails and panel placement follow [Portrait layout](portrait-layout.md). The geometry below describes landscape.
+Narrow configuration columns and Tasks cards follow [Portrait layout](portrait-layout.md).
 
-Reserved panel space shifts/compresses the scene without vertical reorder, preserving 40px selected-node/name clearance. Below 760px, overlay mode leaves about 18px of selected-node edge. Pause drag/keyboard reorder while open. All Agent bubbles/tentacles fade toward nodes while outer arcs retain their geometry. Nonselected active nodes show counts with warning for pending. Selected nodes retain normal scale without an outline or halo. Their primary tentacle brightens and a secondary tentacle connects to the panel edge. Closing restores bubbles. reduced-motion switches directly without flow.
+Static topology positions depend on configuration, viewport and explicit disclosure. Capsule activity updates the outline, phase discs and outgoing port. Tasks mode owns the card feed. Opening a panel preserves topology positions.
 
 Details have Back, a single-line task title with a full-title tooltip, native link, width toggle, status, project, and localized duration. The title omits the Agent name; the metadata row retains it. A second metadata line shows known source/connection information, the latest turn configuration, and turn count. Agent and task layers share the default 400px or viewport-minus-32px width. Forward/back slide slightly in opposite directions over 160ms without shell resizing. Activity-snapshot membership means ongoing, including external sessions whose completion is snapshot removal rather than old item status. Timelines scroll internally with jump-to-latest.
 

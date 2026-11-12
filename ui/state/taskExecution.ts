@@ -37,13 +37,13 @@ export function acceptTaskExecution(agent: string, id: string, timeline: AgentTi
     return changed ? { ...old, [agent]: restoreActivityReads(agent, sessions, Date.now(), selected?.agent === agent ? selected.session?.id : undefined) } : old;
   });
 }
-export function refreshTaskExecution(agent: string, id: string): Promise<void> {
+export function refreshTaskExecution(agent: string, id: string, recent = false): Promise<void> {
   const identity = key(agent, id), pending = reads.get(identity);
   if (pending) return pending;
   if (performance.now() - (lastRead.get(identity) ?? -Infinity) < 10000) return Promise.resolve();
   lastRead.set(identity, performance.now());
   const started = generation;
-  const read = api<AgentTimeline>("agents/conversations/timeline", "POST", { agent, id })
+  const read = api<AgentTimeline>("agents/conversations/timeline", "POST", { agent, id, ...(recent ? { recent: true } : {}) })
     .then(timeline => { if (started === generation) acceptTaskExecution(agent, id, timeline); })
     .finally(() => { if (reads.get(identity) === read) reads.delete(identity); });
   reads.set(identity, read); return read;

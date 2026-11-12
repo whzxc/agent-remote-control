@@ -4,10 +4,11 @@ import { isDesktop, notifyNative } from "../platform";
 import { t } from "../i18n";
 import type { TaskOwnership } from "../types";
 export interface TaskRecord {
+  agentAccountId?: string | null;
   agent?: string;
   open?: { taskId: string };
   taskId?: string;
-  origin?: { ingressId?: string; sourceId?: string; sourceLabel?: string };
+  origin?: import("../types").AgentActivitySession["origin"];
   requestId: string;
   executionOwner?: "desktop" | "connector";
   threadId?: string;
@@ -19,7 +20,7 @@ export interface TaskRecord {
   approval: { decision: string; source: string; at: string };
   error?: { message?: string };
   task: {
-    origin?: { ingressId?: string; sourceId?: string; sourceLabel?: string };
+    origin?: import("../types").AgentActivitySession["origin"];
     detailsRecorded?: boolean;
     kind: string;
     title?: string;
@@ -35,6 +36,7 @@ export interface TaskRecord {
 export interface TaskRuntime {
   ownership?: TaskOwnership;
   archived?: boolean;
+  status?: string;
   runtimeStatus: string;
   title?: string;
   project?: string;

@@ -1,33 +1,28 @@
+import RemoteTaskPanel from './RemoteTaskPanel';
+import { observeHomepage } from '../acceptance';
+import { homepageTaskFocus } from '../state/homepage';
+import HomepageTasks from './HomepageTasks';
+import { homepageMode } from '../state/homepage';
+import { useHomepageTasks } from '../state/homepageTasks';
+import { deviceLinkEnabled } from '../devices/state';
+import DeviceNodePanel from '../devices/DeviceNodePanel';
 import { PanelRoute } from './ui/Panel';
-import { Icon } from "./ui";
-import { ChevronDown } from "lucide-react";
 import { readOnlyBrowser } from "../browserMode";
-import { activityState } from "../state/taskExecutionModel";
-import { taskExecution, taskExecutions } from "../state/taskExecution";
-import { pendingSessions } from "../state/taskInteractions";
-import { activityApprovals } from "../state/activity";
-import { useAppNow } from "../state/appEnvironment";
+import { taskExecutions } from "../state/taskExecution";
 import { appEnvironment } from "../state/appEnvironment";
 import { controlSource, controlSourcePlatform } from '../controlSources';
-import { orderedSubset } from '../topology/order';
 import { accountViews } from '../topology/accountViews';
 import { visibleAgents } from '../topology/visibleAgents';
-import { accountOwns } from '../accountPresentation';
 import { topologyMode, topologyAccountOrder } from '../topology/accountState';
 import { useAccounts } from '../state/accounts';
 import { agentPanel, selectAgentPanel, ingressPanel, selectIngressPanel, selectSourcePlatform, sourcePanelId, agentPanelId } from "../state/overviewPanels";
-import { PhaseTile, PhaseLabel } from "./activity";
 import { resetActivityCore, useActivityTracking } from "../state/activity";
-import { markActivitiesRead } from "../state/activityBubbles";
-import { orderActivity, visibleActivity, activityHierarchy, activityFamilyAccounts, effectiveBubbleDensity, bubbleWidths, bubbleHeights } from "../state/activityModel";
-import { taskOrder, reorderTasks } from "../state/taskOrder";
-import { maxVisibleAgents, bubbleDensity, bubbleWidth, bubbleAutoCompact } from "../subscriptions/displayPreferences";
+import { maxVisibleAgents } from "../subscriptions/displayPreferences";
 import { platformQuotaForAgent, subscriptions } from "../state/subscriptions";
 import { navigation, openConnections } from "../state/navigation";
 import { AgentQuotaIcon } from "../subscriptions/AgentQuotaIcon";
 import { accountQuotaProvider } from "../subscriptions/accountQuota";
 import {
-  useCallback,
   useEffect,
   useState,
   useRef,
@@ -38,7 +33,6 @@ import {
   agents as agentStore,
   orderedAgents,
   moveAgent,
-  reorderAgents,
   name,
   type Agent,
 } from "../state/agents";
@@ -46,9 +40,7 @@ import type { Ingress } from "../state/types";
 import SourceIcon from "./SourceIcon";
 import { isPendingSource } from "../sourcePresentation";
 import GraphNode from "./GraphNode";
-import { ActivityBubble } from "./ActivityBubbles";
-import Topology, { type TopologyHandle, type NodeView } from "../topology/Topology";
-import type { LayerRect as SurfaceRect } from "../components/ui/layerFrame";
+import Topology, { type NodeView } from "../topology/Topology";
 import type { WireState } from "../topology/render";
 import { onboarding, openOnboarding, connectionSetup, connectionSwitch, addedSource } from "../state/onboarding";
 import IngressPanel from "./IngressPanel";
@@ -67,10 +59,14 @@ function wireState(state: string): WireState {
   return "inactive";
 }
 export default function ConnectionOverview({ visible = true }: { visible?: boolean }) {
-  const activityClock = useRef(new Map<string, number>());
+  const homeMode = homepageMode.use(), homepageTasks = useHomepageTasks();
+  const homepageObservation = useRef({ mode: homeMode, tasks: homepageTasks });
+  homepageObservation.current = { mode: homeMode, tasks: homepageTasks };
+  useEffect(() => observeHomepage(() => ({ mode: homepageMode.get(), focus: homepageTaskFocus.get(), tasks: homepageObservation.current.tasks.map(task => ({ key: task.key, agent: task.agent, id: task.session.id, group: task.group, deviceId: task.deviceId, controllerDeviceId: task.controllerDeviceId, step: task.activity.steps.at(-1)?.kind })) })), []);
+  const devicesEnabled = deviceLinkEnabled.use();
   taskExecutions.use();
-  const submissions = activityApprovals.use();
-  const { tracked, markRead } = useActivityTracking(), manualOrder = taskOrder.use(), selection = agentPanel.use(), sourceSelection = ingressPanel.use();
+  useActivityTracking();
+  const selection = agentPanel.use(), sourceSelection = ingressPanel.use();
   const flow = onboarding.use(), newConnection = connectionSetup.use(), switching = connectionSwitch.use(), nav = navigation.use();
   const newSourceId = addedSource.use();
   useEffect(() => {
@@ -80,41 +76,12 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   }, [newSourceId, flow]);
   const detailOpen = !!selection || !!sourceSelection, panelOpen = detailOpen || !!flow || !!newConnection || !!nav.connectionsOpen || !!switching;
   const [panelExpanded, setPanelExpanded] = useState(false);
-  const panelKey = selection && !selection.closing ? `agent:${agentPanelId(selection)}`
-    : sourceSelection && !sourceSelection.closing ? `source:${sourcePanelId(sourceSelection)}` : undefined;
   appEnvironment.use();
   useEffect(() => { if (!detailOpen) setPanelExpanded(false); }, [detailOpen]);
   const { status, hubHealth, error } = connector.use();
   const inventory = agentStore.use();
   const { items: accounts } = useAccounts(), mode = topologyMode.use(), accountOrders = topologyAccountOrder.use();
   const max = maxVisibleAgents.use();
-  const density = bubbleDensity.use(), width = bubbleWidths[bubbleWidth.use()], autoCompact = bubbleAutoCompact.use();
-  const [expandedQueue, setExpandedQueue] = useState<string>();
-  const [expandedFamily, setExpandedFamily] = useState<string>();
-  const expandedTrigger = useRef<string>(undefined), restoreOverflowFocus = useRef(false);
-  useEffect(() => { if (!visible || panelOpen) setExpandedQueue(undefined); }, [visible, panelOpen]);
-  useEffect(() => {
-    if (!expandedQueue) {
-      if (restoreOverflowFocus.current) {
-        restoreOverflowFocus.current = false;
-        [...(core.current?.querySelectorAll<HTMLButtonElement>("[data-overflow-key]") ?? [])]
-          .find(button => button.dataset.overflowKey === expandedTrigger.current)?.focus();
-      }
-      return;
-    }
-    const outside = (event: PointerEvent) => {
-      if (!(event.target instanceof Element) || event.target.closest<HTMLElement>("[data-activity-queue]")?.dataset.activityQueue !== expandedQueue) setExpandedQueue(undefined);
-    };
-    const escape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented) return;
-      event.preventDefault();
-      restoreOverflowFocus.current = true;
-      setExpandedQueue(undefined);
-    };
-    window.addEventListener("pointerdown", outside, true);
-    window.addEventListener("keydown", escape);
-    return () => { window.removeEventListener("pointerdown", outside, true); window.removeEventListener("keydown", escape); };
-  }, [expandedQueue]);
   const { snapshot } = subscriptions.use();
   const [agentsOpen, setAgentsOpen] = useState(false), [displaySettingsOpen, setDisplaySettingsOpen] = useState<string | false>(false);
   const sources = status?.ingresses ?? [];
@@ -189,11 +156,8 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     if (!i.enabled) return "disabled";
     return error ? "unknown" : ingressState(i);
   }
-  const core = useRef<HTMLElement>(null), topology = useRef<TopologyHandle>(null);
-  const now = useAppNow(visible && Object.values(tracked).some(s => s.length) ? 1000 : null);
   useEffect(() => { if (status?.core.backendSession) resetActivityCore(status.core.backendSession); }, [status?.core.backendSession]);
   const selectedAgent = selection && (orderedAgents().find(a => a.agent === selection.agent) ?? { agent: selection.agent });
-  const panelFrame = useCallback((rect: SurfaceRect | null) => topology.current?.panelFrame(rect), []);
   function moveSource(id: string, by: number) {
     const ids = controlSources.map(source => source.id);
     const index = ids.indexOf(id), target = index + by;
@@ -216,13 +180,9 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     const platform = controlSourcePlatform(source.product), platformLabel = platform.displayName;
     const nodeLabel = source.label;
     return [{
-      id: source.id, platform: platform.id, platformLabel, label: nodeLabel, activityAt: (source.lastSeenAt ?? 0) * 1000, activityLevel: Math.max(source.state === "connected" ? 1 : 0,
-        ...Object.values(tracked).flat().filter(session => session.origin?.sourceId === source.id && session.endedAt === undefined).map(session => session.interaction ? 3 : 2)),
+      id: source.id, platform: platform.id, platformLabel, label: nodeLabel,
       sourceProduct: source.product, sourceProductLabel: controlSource(source.product)?.displayName ?? source.product,
-      icon: <SourceIcon platform={source.product} panelVisual />, sourceIds: [source.id], state: wireState(state), attention: false, selected, tasks: [], reorderable: !readOnlyBrowser && !panelOpen,
-      unread: Object.entries(tracked).flatMap(([agent, sessions]) => sessions.filter(session => session.endedAt !== undefined && session.readAt === undefined
-        && (session.origin?.sourceId ? session.origin.sourceId === source.id : accounts.some(account => account.sources.includes(source.id) && accountOwns(account, session.origin?.accountId))))
-        .map(session => ({ agent, id: session.id }))),
+      icon: <SourceIcon platform={source.product} panelVisual />, sourceIds: [source.id], state: wireState(state), attention: false, selected,
       content: <GraphNode label={`${nodeLabel}: ${t(state)}`} state={wireState(state)} highlighted={selected} hideLabel={selected} panelExpanded={selected} caption={<span className="graph-node-name">{nodeLabel}</span>} newlyAdded={source.id === newSourceId && !flow}
         onMove={readOnlyBrowser || panelOpen ? undefined : by => moveSource(source.id, by)}
         onOpen={() => selectIngressPanel(ingress, { toggle: true, client: { id: source.id, name: source.label, source: source.product } })}>
@@ -230,83 +190,19 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
       </GraphNode>,
     }];
   });
-  const taskQueues = new Map<string, (typeof tracked)[string]>();
   const agentViews: NodeView[] = agents.map(agent => {
-    const sessions = orderActivity((tracked[agent.agent] ?? []).map(session => {
-      const execution = taskExecution(agent.agent, session.id);
-      const pending = pendingSessions(agent.agent, session, execution?.interactions ?? [], submissions);
-      return { ...session, interaction: session.observed === false ? undefined : pending[0]?.interaction };
-    }), manualOrder[agent.agent] ?? []), selected = !selection?.closing && selection?.agent === agent.agent;
-    const recentActivity = Math.max(activityClock.current.get(agent.agent) ?? 0, ...sessions.map(s => Math.max(Date.parse(s.phaseSince ?? '') || 0, Date.parse(s.turnStartedAt ?? s.startedAt ?? '') || 0)));
-    activityClock.current.set(agent.agent, recentActivity);
-    const agentAccounts = accounts.filter(a => a.agentProfiles.some(p => p.agent === agent.agent));
-    const sharedAccount = agentAccounts.length === 1 && agentAccounts[0].quotaProviderId ? agentAccounts[0] : undefined;
-    const provider = sharedAccount ? accountQuotaProvider(agent.agent, sharedAccount.quota) : platformQuotaForAgent(snapshot, agent.agent);
+    const selected = !selection?.closing && selection?.agent === agent.agent;
+    const agentAccounts = accounts.filter(account => account.agentProfiles.some(profile => profile.agent === agent.agent));
+    const shared = agentAccounts.length === 1 && agentAccounts[0].quotaProviderId ? agentAccounts[0] : undefined;
+    const provider = shared ? accountQuotaProvider(agent.agent, shared.quota) : platformQuotaForAgent(snapshot, agent.agent);
     const icon = <AgentQuotaIcon agent={agent.agent} provider={provider} summary={agent.agent !== "claude"} />;
-    const accountIds = agentAccounts.map(a => a.id);
-    const accountGroup = (id: string | null | undefined) => agentAccounts.find(account => accountOwns(account, id))?.id;
-    const family = activityHierarchy(sessions);
-    const parents = new Map(family.map(row => [row.task.id, row.parentTaskId]));
-    const familyAccounts = activityFamilyAccounts(sessions, accountGroup);
-    const sessionAccount = (session: typeof sessions[number] | undefined) => session && familyAccounts.get(session.id);
-    const origin = (session: typeof sessions[number]) => session.origin && { ...session.origin,
-      accountId: accounts.find(account => accountOwns(account, session.origin?.accountId))?.id ?? session.origin.accountId };
-    const groups = accountIds.length > 1 ? [...new Set(sessions.map(sessionAccount))].map(id => sessions.filter(s => sessionAccount(s) === id)) : [sessions];
-    const queueKey = (group: typeof sessions) => JSON.stringify([agent.agent, accountIds.length > 1 ? sessionAccount(group[0]) : null]);
-    for (const group of groups) for (const session of group) taskQueues.set(JSON.stringify([agent.agent, session.id]), group);
-    const shownGroups = groups.map(group => ({ ...visibleActivity(group, selected ? selection.session?.id : undefined, expandedQueue === queueKey(group) ? expandedFamily ?? true : false), group }));
-    const shown = { sessions: shownGroups.flatMap(group => group.sessions) };
-    const effectiveDensity = effectiveBubbleDensity(density, autoCompact, sessions.length);
     return {
-      id: agent.agent, platform: agent.agent, platformLabel: name(agent),
-      activityAt: recentActivity,
-      activityLevel: sessions.some(s => !!s.interaction) ? 3 : sessions.some(s => s.endedAt === undefined) ? 2 : 0, icon,
-      selectedAccountId: accountGroup(selection?.accountId), state: wireState(agentState(agent)), attention: sessions.some(s => !!s.interaction), selected, reorderable: !readOnlyBrowser && agent.enabled && !panelOpen,
-      unread: sessions.filter(session => session.endedAt !== undefined && session.readAt === undefined)
-        .map(session => ({ agent: agent.agent, id: session.id, agentAccountId: sessionAccount(session) })),
+      id: agent.agent, platform: agent.agent, platformLabel: name(agent), label: name(agent), icon, quota: provider,
+      selectedAccountId: selection?.accountId, state: wireState(agentState(agent)), attention: false, selected,
       content: <GraphNode label={`${name(agent)}: ${t(agentState(agent))}`} state={wireState(agentState(agent))}
         onMove={!readOnlyBrowser && agent.enabled && !panelOpen ? by => moveVisibleAgent(agent.agent, by) : undefined}
-        highlighted={selected} hideLabel={selected} panelExpanded={selected} caption={<span className="graph-node-name">{name(agent)}</span>} onOpen={() => selectAgentPanel({ type: "platform", agent: agent.agent, toggle: true })}>
-        {icon}
-        {selection && !selected && sessions.some(s => s.endedAt === undefined) && <span className="agent-task-count" data-attention={sessions.some(s => !!s.interaction) || undefined}>{sessions.filter(s => s.endedAt === undefined).length}</span>}
-        {effectiveDensity !== density && <span className="agent-auto-compact">{t("activity.autoCompacted")}</span>}
-      </GraphNode>,
-      tasks: [
-        ...shown.sessions.map(session => ({ id: JSON.stringify([agent.agent, session.id]), activityQueue: queueKey([session]), activityAt: Math.max(Date.parse(session.phaseSince ?? '') || 0, Date.parse(session.turnStartedAt ?? session.startedAt ?? '') || 0), width, height: bubbleHeights[effectiveDensity], taskId: session.id, parentTaskId: parents.get(session.id) ? JSON.stringify([agent.agent, parents.get(session.id)]) : undefined, threadId: session.nativeSessionId, agentAccountId: sessionAccount(session), origin: origin(session),
-          state: (() => {
-            const execution = taskExecution(agent.agent, session.id);
-            return activityState(session, execution, pendingSessions(agent.agent, session, execution?.interactions ?? [], submissions).length > 0);
-          })(),
-          selected: selected && selection.session?.id === session.id, reorderable: !readOnlyBrowser && !panelOpen,
-          content: <ActivityBubble agent={agent.agent} session={session} now={now} density={effectiveDensity} onRead={() => markRead(agent.agent, session.id)} onMove={readOnlyBrowser || panelOpen ? undefined : by => {
-            const group = shown.sessions.filter(s => (accountIds.length <= 1 || sessionAccount(s) === sessionAccount(session)) && parents.get(s.id) === parents.get(session.id) && !!s.interaction === !!session.interaction);
-            const from = group.findIndex(s => s.id === session.id), to = from + by;
-            if (to < 0 || to >= group.length) return;
-            const ids = group.map(s => s.id); ids.splice(from, 1); ids.splice(to, 0, session.id);
-            reorderTasks(agent.agent, ids, sessions, taskQueues.get(JSON.stringify([agent.agent, session.id])));
-          }} />,
-        })),
-        ...shownGroups.flatMap(group => group.hiddenGroups.map(hidden => ({
-          id: JSON.stringify([agent.agent, null, sessionAccount(group.group[0]), hidden.parentId ?? null]), activityQueue: queueKey(group.group),
-          parentTaskId: hidden.parentId ? JSON.stringify([agent.agent, hidden.parentId]) : undefined,
-          petTaskIds: hidden.sessions.map(s => s.id),
-          members: hidden.sessions.map(s => ({ origin: origin(s), agentAccountId: sessionAccount(s), pending: !!s.interaction })),
-          agentAccountId: accountIds.length > 1 ? sessionAccount(group.group[0]) : undefined, count: hidden.sessions.length,
-          pending: hidden.sessions.some(s => !!s.interaction), width, height: hidden.parentId ? 36 : bubbleHeights.compact, state: "summary" as const, selected: false,
-          content: <button type="button" className={`activity-bubble activity-summary ${hidden.parentId ? "activity-family-summary" : ""}`} data-overflow-key={JSON.stringify([queueKey(group.group), hidden.parentId ?? null])} aria-expanded={false} onClick={event => {
-            expandedTrigger.current = event.currentTarget.dataset.overflowKey;
-            setExpandedFamily(hidden.parentId);
-            setExpandedQueue(queueKey(group.group));
-            if (event.detail === 0) {
-              requestAnimationFrame(() => [...(core.current?.querySelectorAll<HTMLButtonElement>("[data-activity-session]") ?? [])]
-                .find(button => button.dataset.activitySession === JSON.stringify([agent.agent, hidden.sessions[0]?.id]))?.focus());
-            }
-          }}>
-            {hidden.parentId ? <><Icon icon={ChevronDown} /><span>{t("activity.moreChildren", { count: hidden.sessions.length })}</span></>
-              : <><PhaseTile phase="tool" animated={false} /><span className="activity-copy"><span className="activity-phase"><PhaseLabel phase="tool">{t("activity.more", { count: hidden.sessions.length })}</PhaseLabel></span><span className="activity-headline">{t("activity.viewAll")}</span></span></>}
-          </button>,
-        }))),
-      ],
+        highlighted={selected} hideLabel={false} panelExpanded={selected} caption={<span className="graph-node-name">{name(agent)}</span>}
+        onOpen={() => selectAgentPanel({ type: 'platform', agent: agent.agent, toggle: true })}>{icon}</GraphNode>,
     };
   });
   const openAccountNode = (side: -1 | 1, platform: string, sourceId?: string, accountId?: string) => {
@@ -325,29 +221,10 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     open: openAccountNode, openPlatform: agent => selectAgentPanel({ type: 'platform', agent, toggle: true }),
     selectedPlatform: selection?.platform && !selection.closing ? selection.agent : undefined,
   });
-  const flatten = (nodes: NodeView[]): NodeView[] => nodes.flatMap(n => [n, ...flatten(n.children ?? [])]);
-  const reorderNodes = (side: -1 | 1, ids: string[]) => {
-    if (readOnlyBrowser) return;
-    const nodes = flatten(side === -1 ? topologyLeft : topologyRight), first = nodes.find(n => n.id === ids[0]);
-    if (first?.account && !first.sourceProduct) {
-      topologyAccountOrder.set(old => ({ ...old, [`${side}:${first.platform}`]: ids.flatMap(id => nodes.find(n => n.id === id)?.accountId ?? []) }));
-    } else if (side === -1) reorderSources(orderedSubset(controlSources, ids.flatMap(id => nodes.find(n => n.id === id)?.sourceIds ?? [id])).map(s => s.id));
-    else reorderAgents(orderedSubset(agents.map(a => ({ id: a.agent })), ids).map(a => a.id));
-  };
   return (
-    <div style={{ display: 'contents' }} onPointerDownCapture={event => {
-      if (!event.currentTarget.contains(event.target as Node)) topology.current?.memberLayerPointer(event.nativeEvent);
-    }}>
-      <section ref={core} inert={flow?.step === "welcome"} aria-hidden={flow?.step === "welcome" || undefined} className={`connection-core brand-mode ${panelOpen ? "side-panel-open" : ""}`} aria-label={t("connectionStatus")}>
-        <Topology ref={topology} boundary={core} accountsEnabled left={topologyLeft} right={topologyRight} panelKey={panelKey} panelExpanded={panelExpanded}
-          onCollapseSide={side => { if (side === -1) ingressPanel.set(undefined); else agentPanel.set(undefined); }}
-          onMarkRead={markActivitiesRead}
-          onReorderNodes={reorderNodes}
-          onReorderTasks={(_side, parent, ids) => {
-            if (readOnlyBrowser) return;
-            const agent = flatten(topologyRight).find(n => n.id === parent)?.platform ?? parent;
-            reorderTasks(agent, ids.map(id => JSON.parse(id)[1] as string), tracked[agent] ?? [], taskQueues.get(ids[0]));
-          }}
+    <div style={{ display: 'contents' }}>
+      <section inert={flow?.step === "welcome"} aria-hidden={flow?.step === "welcome" || undefined} className={`connection-core brand-mode ${panelOpen ? "side-panel-open" : ""}`} aria-label={t("connectionStatus")}>
+        {homeMode === 'tasks' ? <HomepageTasks tasks={homepageTasks} /> : <Topology tasks={homepageTasks} onAddAgent={() => setAgentsOpen(true)} left={topologyLeft} right={topologyRight}
           brand={<Hub
             remote={{ unhealthy: remoteFailed, label: t(remoteFailed ? "hub.remoteUnavailable" : "hub.remoteHealthy"),
               open: openConnections, recover: remoteFailed && !readOnlyBrowser ? () => setRecovery("remote") : undefined }}
@@ -355,16 +232,16 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
               busy: stopping, action: readOnlyBrowser || !hubHealth ? undefined : coreState !== "ready" ? () => setRecovery("core") : () => void stopCore() }}
             sourceEmpty={!sourceViews.length} agentEmpty={!agents.length}
             onAddSource={() => openOnboarding("product")}
-            onManageAgents={() => setAgentsOpen(true)} />} />
+            onManageAgents={() => setAgentsOpen(true)} />} />}
+        {devicesEnabled && <><DeviceNodePanel /><RemoteTaskPanel tasks={homepageTasks} /></>}
         <PanelRoute value={selectedAgent ? selection : undefined} identity={agentPanelId}>{(snapshot, active) => {
           const agent = inventory.items.find(item => item.agent === snapshot.agent);
           return agent && <AgentPanel selection={snapshot} active={active} agent={agent} expanded={panelExpanded} onToggleWidth={() => setPanelExpanded(value => !value)}
-            onSettings={() => setDisplaySettingsOpen(agent.agent)} onPanelFrame={panelFrame} />;
+            onSettings={() => setDisplaySettingsOpen(agent.agent)} />;
         }}</PanelRoute>
         <PanelRoute value={sourceSelection} identity={sourcePanelId}>{snapshot =>
-          <IngressPanel selection={snapshot} expanded={panelExpanded} onToggleWidth={() => setPanelExpanded(value => !value)} onPanelFrame={panelFrame} />
+          <IngressPanel selection={snapshot} expanded={panelExpanded} onToggleWidth={() => setPanelExpanded(value => !value)} />
         }</PanelRoute>
-        <div className="activity-edge-fade" aria-hidden="true" />
 
         {error && coreState === "ready" && (
           <div className="graph-error">

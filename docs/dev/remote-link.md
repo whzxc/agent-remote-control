@@ -167,10 +167,11 @@ RelayProgress supports account selection when Core returns multiple Cloudflare a
 
 ## Device link
 
-The Experimental Device link switch exposes Devices in the navigation capsule.
-The center workspace supports local pairing offers, member approval, cancellable pairing attempts, paired device details, address overrides and revocation.
+The Experimental Device link switch enables paired-device topology nodes.
+The right add endpoint offers Add Agent, Add device and this-device pairing offers.
+Device nodes open side panels with paths, reachability, addresses, overrides and revocation.
+The member controller is a left-wing source. Settings owns its default-off upstream-source disclosure.
 A submitted pairing attempt is clean after any finished result until the user edits it again.
 A waiting attempt is running work and offers Keep open and Stop and close through the shared Dialog.
-The homepage currently uses a summary button to open this workspace.
 [Device architecture](architecture.md#device-identity-and-peer-listeners) owns transport, liveness, forwarding, task association, notifications and resumable transfer.
-[Remaining device topology](device-link-proposal.md) describes the node composition still to implement.
+[Device presentation limits](device-link-proposal.md) describes management field coverage.

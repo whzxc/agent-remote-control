@@ -1,3 +1,4 @@
+import { deviceLinkEnabled, deviceSnapshot, setControllerSources } from '../devices/state';
 import { useDialogFeedback } from "./ui/Dialog";
 import { useSubmittedDirty } from "./ui/useSubmittedDirty";
 import { usePanelState } from "./ui/Panel";
@@ -53,6 +54,7 @@ export default function SettingsPage() {
   const proxyDraft = useSubmittedDirty({ mode: proxyMode, url: proxyMode === "custom" ? proxyUrl : "" },
     proxyMode !== (status?.config.proxyMode || "system") || proxyMode === "custom" && proxyUrl !== (status?.config.proxyUrl || ""));
   usePanelState({ busy: !!busy, dirty: proxyDraft.dirty || delayDraft !== undefined && delayDraft !== savedDelay });
+  const controllerDevice = deviceSnapshot.use()?.controller, deviceLink = deviceLinkEnabled.use();
   const notifications = notificationsPreference.use(), topology = topologyMode.use(), privateMode = usePrivacy();
   const mac = isDesktop && navigator.platform.toLowerCase().includes("mac");
   useEffect(() => {
@@ -252,6 +254,7 @@ export default function SettingsPage() {
             options={[{ value: "tree", label: t("topology.tree") }, { value: "flat", label: t("topology.flat") }]}
             onChange={value => topologyMode.set(value as "tree" | "flat")} />
         </Row>
+          {deviceLink && controllerDevice && <Row toggle title={t('homepage.upstreamSources')}><Switch label={t('homepage.upstreamSources')} checked={controllerDevice.showUpstreamSources === true} disabled={!!busy} onChange={show => void run('device-sources', () => setControllerSources(show))} /></Row>}
         <Row title={t('accounts.privacy')} width={80}>
           <SingleChoice fill iconOnly label={t('accounts.privacy')} value={privateMode ? 'hidden' : 'visible'}
             onChange={value => setPrivacy(value === 'hidden')}

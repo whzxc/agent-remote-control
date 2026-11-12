@@ -3,15 +3,11 @@ import { useState } from "react";
 import { t } from "../i18n";
 import { subscriptions, saveSubscriptions } from "../state/subscriptions";
 import {
-  quotaDisplay, topologyLayout, type LayoutPreference,
+  quotaDisplay,
   resetDisplay,
   maxVisibleAgents,
-  bubbleDensity, bubbleWidth, bubbleAutoCompact,
 } from "../subscriptions/displayPreferences";
-import { bubbleWidths, bubbleHeights, type BubbleDensity, type BubbleWidth } from "../state/activityModel";
-import { ActivityBubbleContent } from "./ActivityBubbles";
 import AgentDispatchDefaults from "./AgentDispatchDefaults";
-import type { CSSProperties } from "react";
 import {
   Notice,
   SingleChoice,
@@ -27,9 +23,9 @@ export default function AgentDisplaySettings({
   agent?: string;
 }) {
   const { snapshot } = subscriptions.use(),
-    layout = topologyLayout.use(), quota = quotaDisplay.use(),
+    quota = quotaDisplay.use(),
     reset = resetDisplay.use(),
-    max = maxVisibleAgents.use(), density = bubbleDensity.use(), width = bubbleWidth.use(), autoCompact = bubbleAutoCompact.use();
+    max = maxVisibleAgents.use();
   const [defaultsBusy, setDefaultsBusy] = useState(false);
   const [saving, setSaving] = useState(false),
     [error, setError] = useState("");
@@ -49,25 +45,7 @@ export default function AgentDisplaySettings({
       <div className="settings-stack display-settings">
       {error && <Notice>{error}</Notice>}
       {agent && <AgentDispatchDefaults agent={agent} onBusy={setDefaultsBusy} />}
-      <Group title={t("activity.bubbleSettings")}>
-        <div className="activity-preview" aria-label={t("activity.preview")}>
-          <div className="activity-bubble" data-density={density} style={{ "--bubble-width": `${bubbleWidths[width]}px`, "--bubble-height": `${bubbleHeights[density]}px` } as CSSProperties}>
-            <ActivityBubbleContent agent="codex" density={density} now={83000} session={{ id: "preview", source: "arc-task", title: t("activity.previewTitle"), phase: "command", headline: "npm run check", phaseSince: null,
-              turnStartedAt: "1970-01-01T00:00:00Z", timeline: false, orderAt: 0, project: "/workspace/arc", recentContent: [t("activity.previewPrevious"), "npm run check"], recentSteps: ["thinking", "file", "command"],
-              dispatchSummary: { model: "gpt-6.1-sol", effort: "high", serviceTier: "priority", controlSource: { kind: "claude", label: "Claude" } },
-            }} />
-          </div>
-        </div>
-        <Row title={t("activity.density")}><SingleChoice fill label={t("activity.density")} value={density} onChange={value => bubbleDensity.set(value as BubbleDensity)}
-          options={Object.keys(bubbleHeights).map(value => ({ value, label: t(`activity.density.${value}`) }))} /></Row>
-        <Row title={t("activity.width")}><SingleChoice fill label={t("activity.width")} value={width} onChange={value => bubbleWidth.set(value as BubbleWidth)}
-          options={Object.keys(bubbleWidths).map(value => ({ value, label: t(`activity.width.${value}`) }))} /></Row>
-        <Row toggle title={t("activity.autoCompact")} description={t("activity.autoCompactHint")}><Switch label={t("activity.autoCompact")} checked={autoCompact} onChange={bubbleAutoCompact.set} /></Row>
-      </Group>
       <Group title={t("usageAppearance")}>
-        <Row title={t("topology.layout")}><SingleChoice fill label={t("topology.layout")} value={layout}
-          onChange={value => topologyLayout.set(value as LayoutPreference)}
-          options={['auto', 'landscape', 'portrait'].map(value => ({ value, label: t(`topology.layout.${value}`) }))} /></Row>
         <Row title={t("agentsMaxVisible")} width={200}>
           <SingleChoice fill
             value={String(max)}

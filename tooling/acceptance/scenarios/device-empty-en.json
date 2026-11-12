@@ -8,7 +8,6 @@
     "state": "empty",
     "enabled": true
   },
-  "page": "devices",
   "viewports": [
     {
       "width": 1280,

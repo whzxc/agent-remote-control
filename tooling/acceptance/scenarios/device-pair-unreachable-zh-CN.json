@@ -8,7 +8,6 @@
     "state": "pair-unreachable",
     "enabled": true
   },
-  "page": "devices",
   "viewports": [
     {
       "width": 1280,

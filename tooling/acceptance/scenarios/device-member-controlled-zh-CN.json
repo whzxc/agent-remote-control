@@ -8,7 +8,6 @@
     "state": "member-controlled",
     "enabled": true
   },
-  "page": "devices",
   "viewports": [
     {
       "width": 1280,

@@ -84,7 +84,7 @@ function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWi
 }
 
 export default function AgentPanel({ selection: selected, active, agent, onSettings, onPanelFrame, expanded, onToggleWidth }: {
-  selection: NonNullable<ReturnType<typeof agentPanel.get>>; active: boolean; agent: Agent; onSettings: () => void; onPanelFrame: (rect: LayerRect | null) => void;
+  selection: NonNullable<ReturnType<typeof agentPanel.get>>; active: boolean; agent: Agent; onSettings: () => void; onPanelFrame?: (rect: LayerRect | null) => void;
   expanded: boolean; onToggleWidth: () => void;
 }) {
   const back = panelBack.use();

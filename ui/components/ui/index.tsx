@@ -49,7 +49,7 @@ export { SetupAction, WelcomeChoice, WelcomeStatusAction } from "./SetupChoice";
 export { HoverPreviewGroup } from "./HoverPreviewGroup";
 export { ErrorCallout, LoadingIndicator } from "./Feedback";
 export { DataTable, Pagination } from "./DataTable";
-export type IconSize = 12 | 14 | 16 | 18 | 20;
+export type IconSize = 10 | 12 | 13 | 14 | 16 | 18 | 20 | 24 | 26 | 28 | 32;
 /** A compact label. `spec` names a choice, `fact` states a property and `danger` flags a risk. */
 export function Tag({ children, title, id, form = "spec" }: { children: ReactNode; title?: string; id?: string; form?: "spec" | "fact" | "danger" }) {
   return <Tooltip text={title}><span id={id} className="tag" data-form={form}>{children}</span></Tooltip>;
@@ -80,8 +80,11 @@ export function Icon({
   );
 }
 /** A tinted square that carries an icon in the color of its parent's `color`. */
-export function Tile({ icon, className = "" }: { icon: LucideIcon; className?: string }) {
-  return <span className={`tile ${className}`} aria-hidden="true"><Icon icon={icon} size={18} /></span>;
+export function Tile({ icon, className = "", form = 'card', tone }: {
+  icon: LucideIcon; className?: string; form?: 'card' | 'phase'; tone?: 'warning' | 'success' | 'neutral' | 'command' | 'file' | 'thinking';
+}) {
+  const colors = { warning: 'var(--warning)', success: 'var(--success)', neutral: 'var(--text-tertiary)', command: 'var(--phase-command)', file: 'var(--phase-file)', thinking: 'var(--phase-thinking)' };
+  return <span className={`tile ${form === 'phase' ? 'tile-phase' : ''} ${className}`} style={tone ? { color: colors[tone] } : undefined} aria-hidden="true"><Icon icon={icon} size={form === 'phase' ? 16 : 18} /></span>;
 }
 /** Bundled brand artwork with no control or quota decoration. */
 export function BrandMark({ markup, size = 40 }: { markup?: string; size?: number }) {
@@ -480,7 +483,7 @@ export function SingleChoice({
           <div ref={measure}>
             {options.map((option) => (
               <span key={option.value} data-selected={option.value === value || undefined}>
-                {!swatches && <>{option.icon && <Icon icon={option.icon} />}{!iconOnly && option.label}</>}
+                {!swatches && <>{option.graphic}{option.icon && <Icon icon={option.icon} />}{!iconOnly && option.label}</>}
               </span>
             ))}
           </div>

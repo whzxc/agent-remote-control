@@ -1,0 +1,30 @@
+{
+  "theme": "light",
+  "language": "en",
+  "agents": [
+    "codex",
+    "claude"
+  ],
+  "quota": "single-ring-pace",
+  "clock": "2026-01-01T00:00:00Z",
+  "timezone": "Asia/Shanghai",
+  "viewports": [
+    {
+      "width": 390,
+      "height": 844
+    },
+    {
+      "width": 1280,
+      "height": 800
+    },
+    {
+      "width": 1600,
+      "height": 1000
+    }
+  ],
+  "homepage": {
+    "mode": "topology",
+    "check": "idle"
+  },
+  "tasks": []
+}

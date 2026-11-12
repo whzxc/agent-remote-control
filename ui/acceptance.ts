@@ -19,6 +19,11 @@ import { locale } from './i18n';
 import { navigation } from './state/navigation';
 import { onboarding, connectionSetup, connectionSwitch } from './state/onboarding';
 
+let homepage: (() => unknown) | undefined;
+export function observeHomepage(read: () => unknown) {
+  homepage = read;
+  return () => { if (homepage === read) homepage = undefined; };
+}
 let topology: (() => unknown) | undefined;
 export function observeTopology(read: () => unknown) {
   topology = read;
@@ -40,6 +45,7 @@ export function viewModel(layoutSettled = false) {
     window: { width: innerWidth, height: innerHeight, devicePixelRatio },
     theme: document.documentElement.dataset.theme, language: locale.get(),
     topology: topology?.() ?? null,
+    homepage: homepage?.() ?? null,
     taskDetail: detail,
     taskBubbles: activityBubbleSnapshot(),
     pets: petSnapshot(),

@@ -1,12 +1,16 @@
+import { deviceTasks } from './tasks';
+import { focusNodeTasks } from '../state/homepage';
+import { icons, name as agentName } from '../state/agents';
+import { setControllerSources } from './state';
 import { useSubmittedDirty } from "../components/ui/useSubmittedDirty";
 import Panel from "../components/ui/Panel";
 import { DialogActions, useDialogCompletion } from "../components/ui/Dialog";
 import { useEffect, useId, useRef, useState } from 'react';
-import { ArrowLeft, ChevronRight, Laptop, Monitor, Pencil, Plus, Server, Unlink } from 'lucide-react';
+import { ChevronRight, Laptop, Monitor, Pencil, Plus, Server, Unlink } from 'lucide-react';
 import { api } from '../api';
 import { locale, t } from '../i18n';
 import { relativeTime } from '../lib/relativeTime';
-import { ConfirmDialog, Button, CopyField, Dialog, Field, Icon, IconButton, Input, Loading, Notice, SingleChoice, Tag, Tile } from '../components/ui';
+import { ConfirmDialog, Button, CopyField, Dialog, Field, Icon, IconButton, Input, Notice, Tag, Tile, Switch, BrandMark } from '../components/ui';
 import { Card } from '../components/ui/card';
 import { SettingLine } from '../components/ui/Settings';
 import { cancelDevicePair, connectDevice, deviceError, deviceOffer, devicePair, deviceSnapshot, deviceView, memberOutcome, pairedDevices, refreshDevices, type Device, type Peer } from './state';
@@ -39,7 +43,7 @@ function Detail({ device }: { device: Device }) {
   const platform = device.platform === 'darwin' || device.platform === 'macos' ? 'macOS' : device.platform === 'windows' ? 'Windows' : device.platform === 'linux' ? 'Linux' : device.platform;
   return <div className="device-detail">
     <DeviceIdentity device={device} />
-    {device.state === 'offline' && <Notice layout="inline" tone="warning">{c('offlineHint')}</Notice>}
+    {device.state === 'offline' && <Notice layout="inline" tone="warning">{device.error || c('offlineHint')}</Notice>}
     <Card padded><Fingerprint value={device.id} /><dl className="device-facts">
       <div><dt>{c('platform')}</dt><dd>{[platform, device.arch].filter(Boolean).join(' · ') || c('none')}</dd></div>
       <div><dt>{c('version')}</dt><dd>{device.arcVersion || c('none')}</dd></div>
@@ -111,38 +115,47 @@ function RevokeDialog({ peer, memberSide, close }: { peer: Peer; memberSide: boo
     try { await api('device/revoke', 'POST', { deviceId: peer.deviceId }); await refreshDevices(); await completion.finish(); }
     catch (error) { setError(String(error)); } finally { setBusy(false); }
   }
-  return <ConfirmDialog layerId={completion.layerId} returnFocus={memberSide ? '[data-device-offer]' : '[data-device-add]'} title={c(memberSide ? 'revokeMemberTitle' : 'revokeTitle', { name: peer.name })} className="device-dialog" onClose={close} busy={busy} actionsClassName="device-actions" confirmLabel={c('revoke')} onConfirm={revoke}>
+  return <ConfirmDialog layerId={completion.layerId} returnFocus='[data-device-add]' title={c(memberSide ? 'revokeMemberTitle' : 'revokeTitle', { name: peer.name })} className="device-dialog" onClose={close} busy={busy} actionsClassName="device-actions" confirmLabel={c('revoke')} onConfirm={revoke}>
     <div className="device-revoke-copy"><p>{c(memberSide ? 'revokeMemberEffect' : 'revokeEffect', { name: peer.name })}</p><p className="device-muted">{c('localWork')}</p></div>
     {error && <Notice layout="inline">{error}</Notice>}
   </ConfirmDialog>;
 }
-export default function DevicesWorkspace({ expanded, onToggleWidth, onClose }: { expanded: boolean; onToggleWidth: () => void; onClose: () => void }) {
+export default function DeviceNodePanel() {
   const snapshot = deviceSnapshot.use(), error = deviceError.use(), view = deviceView.use();
   const devices = pairedDevices(snapshot), detail = devices.find(device => device.id === view.detail);
+  const remote = deviceTasks.use();
+  const selectedAgent = detail && remote[detail.id]?.snapshot?.availableAgents.find(agent => agent.agent === view.agent);
+  const upstream = snapshot?.controller?.upstreamSources?.find(source => source.sourceId === view.upstreamSource);
+  const controller = view.side === 'member' && view.detail === snapshot?.controller?.deviceId;
   const [busy, setBusy] = useState(false), [actionError, setActionError] = useState('');
   const close = () => deviceView.set(old => ({ ...old, dialog: undefined, revoke: undefined }));
-  const back = () => {
-    deviceView.set({ side: 'controller' });
-    requestAnimationFrame(() => document.querySelector<HTMLElement>(`[aria-label="${CSS.escape(`${c('open')}: ${detail?.name}`)}"]`)?.focus());
-  };
   async function act(action: 'offer' | 'approve' | 'decline') {
     setBusy(true); setActionError('');
-    try { const result = await api<{ pairingString?: string; expiresInSeconds: number }>(`device/${action}`, 'POST');
+    try {
+      const result = await api<{ pairingString?: string; expiresInSeconds: number }>(`device/${action}`, 'POST');
       if (result.pairingString) deviceOffer.set({ pairingString: result.pairingString, expiresAt: Date.now() + result.expiresInSeconds * 1000 });
-      if (action !== 'offer') { deviceOffer.set(undefined); memberOutcome.set(action === 'decline' ? 'declined' : undefined); } else memberOutcome.set(undefined);
+      if (action !== 'offer') { deviceOffer.set(undefined); memberOutcome.set(action === 'decline' ? 'declined' : undefined); }
+      else memberOutcome.set(undefined);
       await refreshDevices();
     } catch (error) { setActionError(String(error)); } finally { setBusy(false); }
   }
-  const add = <Button data-device-add variant="primary" onClick={() => deviceView.set(old => ({ ...old, dialog: 'pair' }))}><Icon icon={Plus} />{c('add')}</Button>;
-  return <Panel role="region" className="devices-workspace" title={c('devices')} busy={busy} expanded={expanded} onToggleWidth={onToggleWidth} onClose={onClose}
-    returnFocus='[data-page="devices"]' onEscapeKeyDown={event => { if (!view.dialog && detail) { event.preventDefault(); back(); } }} leading={detail && <IconButton icon={ArrowLeft} label={c('back')} onClick={back} />}
-    actions={!detail && view.side === 'controller' && devices.length > 0 ? add : undefined}>
-    <main className="devices-content">{(error || actionError) && <Notice layout="inline">{error || actionError}</Notice>}
-      {!snapshot ? !error && <Loading /> : detail ? <Detail device={detail} /> : <>
-        <SingleChoice form="equal-pills" label={c('view')} value={view.side} options={[{ value: 'controller', label: c('members') }, { value: 'member', label: c('thisDevice') }]} onChange={side => deviceView.set({ side: side as 'controller' | 'member' })} />
-        {view.side === 'member' ? <Member busy={busy} act={action => void act(action)} /> : devices.length ? <div className="device-list">{devices.map(device => <Card key={device.id} padded><DeviceIdentity device={device} row /></Card>)}</div> : <div className="device-empty"><Tile icon={Monitor} className="device-neutral" /><h3>{c('empty')}</h3><p className="device-paragraph device-muted">{c('emptyHint')}</p>{add}</div>}
-      </>}
-    </main>
-    {view.dialog === 'pair' && <PairDialog close={close} />}{view.dialog === 'address' && detail && <AddressDialog device={detail} close={close} />}{view.dialog === 'revoke' && view.revoke && <RevokeDialog peer={view.revoke} memberSide={view.side === 'member'} close={close} />}
-  </Panel>;
+  async function showSources(show: boolean) {
+    setBusy(true); setActionError('');
+    try { await setControllerSources(show); } catch (error) { setActionError(String(error)); } finally { setBusy(false); }
+  }
+  return <>
+    {(detail || controller || view.detail === 'pairing') && <Panel side={view.side === 'member' ? 'left' : 'right'} title={selectedAgent ? `${detail!.name} · ${agentName(selectedAgent)}` : upstream?.sourceLabel ?? detail?.name ?? (controller ? snapshot?.controller?.name : c('thisDevice'))}
+      className="device-node-panel" busy={busy} onClose={() => deviceView.set({ side: view.side })}>
+      <div className="devices-content">{(error || actionError) && <Notice layout="inline">{error || actionError}</Notice>}
+        {selectedAgent && detail ? <div className="device-detail"><div className="device-identity"><BrandMark markup={icons[selectedAgent.agent]} size={28} /><strong>{agentName(selectedAgent)}</strong></div>
+          <p>{selectedAgent.version}</p><Button onClick={() => { deviceView.set({ side: 'controller' }); focusNodeTasks({ id: `device:${detail.id}:agent:${selectedAgent.agent}`, deviceId: detail.id, agent: selectedAgent.agent, label: `${detail.name} · ${agentName(selectedAgent)}` }); }}>{t('homepage.tasks')}</Button>
+        </div> : detail ? <Detail device={detail} /> : <><Member busy={busy} act={action => void act(action)} />
+          {controller && <Card className="device-setting"><SettingLine title={t('homepage.upstreamSources')}><Switch label={t('homepage.upstreamSources')} checked={snapshot?.controller?.showUpstreamSources === true} disabled={busy} onChange={show => void showSources(show)} /></SettingLine></Card>}
+        </>}
+      </div>
+    </Panel>}
+    {view.dialog === 'pair' && <PairDialog close={close} />}
+    {view.dialog === 'address' && detail && <AddressDialog device={detail} close={close} />}
+    {view.dialog === 'revoke' && view.revoke && <RevokeDialog peer={view.revoke} memberSide={view.side === 'member'} close={close} />}
+  </>;
 }

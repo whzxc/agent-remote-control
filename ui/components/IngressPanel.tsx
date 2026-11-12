@@ -16,7 +16,7 @@ import {  IconButton, Notice } from "./ui";
 import { useDockOpening } from "./useDockOpening";
 
 export default function IngressPanel({ selection: selected, onPanelFrame, expanded, onToggleWidth }: {
-  selection: NonNullable<ReturnType<typeof ingressPanel.get>>; onPanelFrame: (rect: LayerRect | null) => void; expanded: boolean; onToggleWidth: () => void;
+  selection: NonNullable<ReturnType<typeof ingressPanel.get>>; onPanelFrame?: (rect: LayerRect | null) => void; expanded: boolean; onToggleWidth: () => void;
 }) {
   const focusTrigger = useRef(layerTrigger());
   const { status, sources, sourcesLoaded, error: connectorError } = connector.use();

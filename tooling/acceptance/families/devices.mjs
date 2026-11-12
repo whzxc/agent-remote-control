@@ -6,7 +6,7 @@ export const checks = [
             const { page, fixture, root } = context;
             let { model } = context;
             try {
-                if (fixture.deviceLink) {
+                if (fixture.deviceLink && !fixture.homepage) {
                     const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
                     await verifyDevices(page, fixture, messages);
                 }

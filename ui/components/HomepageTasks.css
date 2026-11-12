@@ -1,0 +1,20 @@
+.homepage-tasks { position: absolute; inset: 174px 0 72px; overflow-y: auto; padding: 0 24px 16px; display: flex; flex-direction: column; gap: 20px; outline: none; }
+.homepage-tasks section { display: flex; flex-direction: column; gap: 12px; scroll-margin-top: 8px; }
+.homepage-tasks h2 { display: flex; gap: 8px; align-items: center; font-size: var(--text-body); font-weight: 650; line-height: 20px; }
+.homepage-tasks h2 > span { color: var(--text-tertiary); font-size: var(--text-meta); font-variant-numeric: tabular-nums; }
+.homepage-tasks section[aria-label] { min-width: 0; }
+.homepage-tasks section[data-focused] .task-feed-card-shell { box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-text) 35%, transparent); }
+.homepage-task-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.homepage-task-filter { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; border: 1px solid color-mix(in srgb, var(--accent-text) 40%, transparent); background: color-mix(in srgb, var(--accent-text) 10%, transparent); color: var(--accent-text); border-radius: 999px; padding-left: 12px; font-size: var(--text-small); font-weight: 600; }
+.homepage-tasks-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--text-secondary); }
+.homepage-mode-switch { position: absolute; top: 123px; left: 50%; transform: translateX(-50%); z-index: 3; }
+.homepage-attention-badge { display: flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px; background: var(--warning); color: var(--canvas); font-size: var(--text-caption); font-weight: 650; font-variant-numeric: tabular-nums; }
+@media (min-width: 1500px) { .homepage-task-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 999px) { .homepage-task-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 499px) { .homepage-tasks { padding-inline: 16px; } .homepage-mode-switch { top: 112px; } }
+.homepage-mode-switch { width: 240px; max-width: calc(100vw - 32px); display: flex; justify-content: center; }
+.homepage-mode-switch > .choice { width: 100%; }
+.homepage-tasks section[data-group=needs-me] h2 { color: var(--warning); }
+.homepage-tasks section[data-group=unread] h2 { color: var(--accent-text); }
+.homepage-mode-switch > .choice { display: flex; justify-content: center; }
+@media (min-width: 1500px) { .homepage-task-grid[data-small] { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

@@ -72,11 +72,11 @@ try {
         await runScenarioChecks("prepare",context);
         let model = await page.evaluate(() => window.__ARC_VIEW_MODEL__());
         if (!model.scenario?.ready) throw new Error(model.scenario?.error || 'Fixture task detail is not ready');
-        if (!fixture.page && !model.topology) throw new Error('No rendered topology exported');
+        if (!fixture.page && model.homepage?.mode !== 'tasks' && !model.topology) throw new Error('No rendered topology exported');
         const actualAgents = representedTopologyRoots(model.topology, 1);
-        if (!fixture.page && fixture.agents.some(a => !actualAgents.includes(a))) throw new Error('Fixture agents were not rendered');
-        const representedTasks = model.topology?.tasks.reduce((sum, task) => sum + (task.count ?? 1), 0);
-        if (!fixture.page && !fixture.panel && representedTasks !== fixture.tasks.length) throw new Error(`Task count mismatch: ${representedTasks}/${fixture.tasks.length}`);
+        if (!fixture.page && model.homepage?.mode !== 'tasks' && fixture.agents.some(a => !actualAgents.includes(a))) throw new Error('Fixture agents were not rendered');
+        const representedTasks = model.homepage?.tasks.length ?? model.topology?.tasks.reduce((sum, task) => sum + (task.count ?? 1), 0);
+        if (!fixture.page && !fixture.panel && representedTasks !== fixture.tasks.length + (fixture.homepage?.remoteTaskCount ?? 0)) throw new Error(`Task count mismatch: ${representedTasks}/${fixture.tasks.length}`);
         if (fixture.panel?.kind === 'agent' && model.panels.agent?.agent !== fixture.panel.id) throw new Error('Agent panel not opened');
         if (fixture.panel?.kind === 'source' && model.panels.source !== fixture.panel.id) throw new Error('Source panel not opened');
         context.model=model;

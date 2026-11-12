@@ -1,0 +1,1353 @@
+{
+  "theme": "light",
+  "language": "en",
+  "agents": [
+    "codex",
+    "claude"
+  ],
+  "quota": "single-ring-pace",
+  "clock": "2026-01-01T00:00:00Z",
+  "timezone": "Asia/Shanghai",
+  "viewports": [
+    {
+      "width": 390,
+      "height": 844
+    },
+    {
+      "width": 1280,
+      "height": 800
+    }
+  ],
+  "homepage": {
+    "mode": "topology",
+    "check": "overflow"
+  },
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 1",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 2",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 3",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 4",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 5",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 6",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 7",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 8",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 9",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 10",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 11",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 12",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 13",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 14",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 15",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 16",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 17",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 18",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 19",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 20",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 21",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 22",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 23",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 24",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 25",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 26",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 27",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 28",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 29",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 30",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 31",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 32",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 33",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 34",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 35",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 36",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 37",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 38",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 39",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 40",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 41",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 42",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 43",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 44",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 45",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 46",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 47",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 48",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 49",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 50",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 51",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 52",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 53",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 54",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 55",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 56",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 57",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 58",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 59",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 60",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 61",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 62",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 63",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 64",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 65",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 66",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 67",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 68",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 69",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 70",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 71",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 72",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 73",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 74",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 75",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 76",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 77",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 78",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 79",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 80",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 81",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 82",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 83",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 84",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 85",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 86",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 87",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 88",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 89",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 90",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 91",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 92",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 93",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 94",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 95",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 96",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 97",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 98",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 99",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 100",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Review request 101",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "file",
+      "title": "Running check 1",
+      "headline": "Reviewing queue ordering after the edit",
+      "entries": [
+        {
+          "type": "file",
+          "status": "completed",
+          "path": "src/dispatch.rs",
+          "operation": "read",
+          "durationMs": 820
+        },
+        {
+          "type": "file",
+          "status": "completed",
+          "path": "src/dispatch.rs",
+          "operation": "edit",
+          "changes": [
+            {
+              "path": "src/dispatch.rs",
+              "added": 24,
+              "removed": 8
+            }
+          ],
+          "durationMs": 1600
+        },
+        {
+          "type": "command",
+          "status": "completed",
+          "command": "cargo check --lib",
+          "durationMs": 1700
+        },
+        {
+          "type": "thinking",
+          "status": "completed",
+          "text": "Reviewing the queue ordering"
+        },
+        {
+          "type": "plan",
+          "status": "running",
+          "plan": [
+            {
+              "content": {
+                "state": "available",
+                "text": "Read the dispatch queue",
+                "truncated": false,
+                "sha256": "fixture",
+                "hashScope": "excerpt"
+              },
+              "status": "completed"
+            },
+            {
+              "content": {
+                "state": "available",
+                "text": "Verify task ordering",
+                "truncated": false,
+                "sha256": "fixture",
+                "hashScope": "excerpt"
+              },
+              "status": "in_progress"
+            }
+          ]
+        },
+        {
+          "type": "file",
+          "status": "running",
+          "operation": "read",
+          "path": "src/dispatch.rs",
+          "title": "Read src/dispatch.rs"
+        }
+      ],
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "file",
+      "title": "Running check 2",
+      "headline": "Reviewing queue ordering after the edit",
+      "entries": [
+        {
+          "type": "file",
+          "status": "completed",
+          "path": "src/dispatch.rs",
+          "operation": "read",
+          "durationMs": 820
+        },
+        {
+          "type": "file",
+          "status": "completed",
+          "path": "src/dispatch.rs",
+          "operation": "edit",
+          "changes": [
+            {
+              "path": "src/dispatch.rs",
+              "added": 24,
+              "removed": 8
+            }
+          ],
+          "durationMs": 1600
+        },
+        {
+          "type": "command",
+          "status": "completed",
+          "command": "cargo check --lib",
+          "durationMs": 1700
+        },
+        {
+          "type": "thinking",
+          "status": "completed",
+          "text": "Reviewing the queue ordering"
+        },
+        {
+          "type": "plan",
+          "status": "running",
+          "plan": [
+            {
+              "content": {
+                "state": "available",
+                "text": "Read the dispatch queue",
+                "truncated": false,
+                "sha256": "fixture",
+                "hashScope": "excerpt"
+              },
+              "status": "completed"
+            },
+            {
+              "content": {
+                "state": "available",
+                "text": "Verify task ordering",
+                "truncated": false,
+                "sha256": "fixture",
+                "hashScope": "excerpt"
+              },
+              "status": "in_progress"
+            }
+          ]
+        },
+        {
+          "type": "file",
+          "status": "running",
+          "operation": "read",
+          "path": "src/dispatch.rs",
+          "title": "Read src/dispatch.rs"
+        }
+      ],
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "file",
+      "title": "Running check 3",
+      "headline": "Reviewing queue ordering after the edit",
+      "entries": [
+        {
+          "type": "file",
+          "status": "completed",
+          "path": "src/dispatch.rs",
+          "operation": "read",
+          "durationMs": 820
+        },
+        {
+          "type": "file",
+          "status": "completed",
+          "path": "src/dispatch.rs",
+          "operation": "edit",
+          "changes": [
+            {
+              "path": "src/dispatch.rs",
+              "added": 24,
+              "removed": 8
+            }
+          ],
+          "durationMs": 1600
+        },
+        {
+          "type": "command",
+          "status": "completed",
+          "command": "cargo check --lib",
+          "durationMs": 1700
+        },
+        {
+          "type": "thinking",
+          "status": "completed",
+          "text": "Reviewing the queue ordering"
+        },
+        {
+          "type": "plan",
+          "status": "running",
+          "plan": [
+            {
+              "content": {
+                "state": "available",
+                "text": "Read the dispatch queue",
+                "truncated": false,
+                "sha256": "fixture",
+                "hashScope": "excerpt"
+              },
+              "status": "completed"
+            },
+            {
+              "content": {
+                "state": "available",
+                "text": "Verify task ordering",
+                "truncated": false,
+                "sha256": "fixture",
+                "hashScope": "excerpt"
+              },
+              "status": "in_progress"
+            }
+          ]
+        },
+        {
+          "type": "file",
+          "status": "running",
+          "operation": "read",
+          "path": "src/dispatch.rs",
+          "title": "Read src/dispatch.rs"
+        }
+      ],
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "file",
+      "title": "Running check 4",
+      "headline": "Reviewing queue ordering after the edit",
+      "entries": [
+        {
+          "type": "file",
+          "status": "completed",
+          "path": "src/dispatch.rs",
+          "operation": "read",
+          "durationMs": 820
+        },
+        {
+          "type": "file",
+          "status": "completed",
+          "path": "src/dispatch.rs",
+          "operation": "edit",
+          "changes": [
+            {
+              "path": "src/dispatch.rs",
+              "added": 24,
+              "removed": 8
+            }
+          ],
+          "durationMs": 1600
+        },
+        {
+          "type": "command",
+          "status": "completed",
+          "command": "cargo check --lib",
+          "durationMs": 1700
+        },
+        {
+          "type": "thinking",
+          "status": "completed",
+          "text": "Reviewing the queue ordering"
+        },
+        {
+          "type": "plan",
+          "status": "running",
+          "plan": [
+            {
+              "content": {
+                "state": "available",
+                "text": "Read the dispatch queue",
+                "truncated": false,
+                "sha256": "fixture",
+                "hashScope": "excerpt"
+              },
+              "status": "completed"
+            },
+            {
+              "content": {
+                "state": "available",
+                "text": "Verify task ordering",
+                "truncated": false,
+                "sha256": "fixture",
+                "hashScope": "excerpt"
+              },
+              "status": "in_progress"
+            }
+          ]
+        },
+        {
+          "type": "file",
+          "status": "running",
+          "operation": "read",
+          "path": "src/dispatch.rs",
+          "title": "Read src/dispatch.rs"
+        }
+      ],
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "file",
+      "title": "Running check 5",
+      "headline": "Reviewing queue ordering after the edit",
+      "entries": [
+        {
+          "type": "file",
+          "status": "completed",
+          "path": "src/dispatch.rs",
+          "operation": "read",
+          "durationMs": 820
+        },
+        {
+          "type": "file",
+          "status": "completed",
+          "path": "src/dispatch.rs",
+          "operation": "edit",
+          "changes": [
+            {
+              "path": "src/dispatch.rs",
+              "added": 24,
+              "removed": 8
+            }
+          ],
+          "durationMs": 1600
+        },
+        {
+          "type": "command",
+          "status": "completed",
+          "command": "cargo check --lib",
+          "durationMs": 1700
+        },
+        {
+          "type": "thinking",
+          "status": "completed",
+          "text": "Reviewing the queue ordering"
+        },
+        {
+          "type": "plan",
+          "status": "running",
+          "plan": [
+            {
+              "content": {
+                "state": "available",
+                "text": "Read the dispatch queue",
+                "truncated": false,
+                "sha256": "fixture",
+                "hashScope": "excerpt"
+              },
+              "status": "completed"
+            },
+            {
+              "content": {
+                "state": "available",
+                "text": "Verify task ordering",
+                "truncated": false,
+                "sha256": "fixture",
+                "hashScope": "excerpt"
+              },
+              "status": "in_progress"
+            }
+          ]
+        },
+        {
+          "type": "file",
+          "status": "running",
+          "operation": "read",
+          "path": "src/dispatch.rs",
+          "title": "Read src/dispatch.rs"
+        }
+      ],
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "file",
+      "title": "Running check 6",
+      "headline": "Reviewing queue ordering after the edit",
+      "entries": [
+        {
+          "type": "file",
+          "status": "completed",
+          "path": "src/dispatch.rs",
+          "operation": "read",
+          "durationMs": 820
+        },
+        {
+          "type": "file",
+          "status": "completed",
+          "path": "src/dispatch.rs",
+          "operation": "edit",
+          "changes": [
+            {
+              "path": "src/dispatch.rs",
+              "added": 24,
+              "removed": 8
+            }
+          ],
+          "durationMs": 1600
+        },
+        {
+          "type": "command",
+          "status": "completed",
+          "command": "cargo check --lib",
+          "durationMs": 1700
+        },
+        {
+          "type": "thinking",
+          "status": "completed",
+          "text": "Reviewing the queue ordering"
+        },
+        {
+          "type": "plan",
+          "status": "running",
+          "plan": [
+            {
+              "content": {
+                "state": "available",
+                "text": "Read the dispatch queue",
+                "truncated": false,
+                "sha256": "fixture",
+                "hashScope": "excerpt"
+              },
+              "status": "completed"
+            },
+            {
+              "content": {
+                "state": "available",
+                "text": "Verify task ordering",
+                "truncated": false,
+                "sha256": "fixture",
+                "hashScope": "excerpt"
+              },
+              "status": "in_progress"
+            }
+          ]
+        },
+        {
+          "type": "file",
+          "status": "running",
+          "operation": "read",
+          "path": "src/dispatch.rs",
+          "title": "Read src/dispatch.rs"
+        }
+      ],
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "file",
+      "title": "Running check 7",
+      "headline": "Reviewing queue ordering after the edit",
+      "entries": [
+        {
+          "type": "file",
+          "status": "completed",
+          "path": "src/dispatch.rs",
+          "operation": "read",
+          "durationMs": 820
+        },
+        {
+          "type": "file",
+          "status": "completed",
+          "path": "src/dispatch.rs",
+          "operation": "edit",
+          "changes": [
+            {
+              "path": "src/dispatch.rs",
+              "added": 24,
+              "removed": 8
+            }
+          ],
+          "durationMs": 1600
+        },
+        {
+          "type": "command",
+          "status": "completed",
+          "command": "cargo check --lib",
+          "durationMs": 1700
+        },
+        {
+          "type": "thinking",
+          "status": "completed",
+          "text": "Reviewing the queue ordering"
+        },
+        {
+          "type": "plan",
+          "status": "running",
+          "plan": [
+            {
+              "content": {
+                "state": "available",
+                "text": "Read the dispatch queue",
+                "truncated": false,
+                "sha256": "fixture",
+                "hashScope": "excerpt"
+              },
+              "status": "completed"
+            },
+            {
+              "content": {
+                "state": "available",
+                "text": "Verify task ordering",
+                "truncated": false,
+                "sha256": "fixture",
+                "hashScope": "excerpt"
+              },
+              "status": "in_progress"
+            }
+          ]
+        },
+        {
+          "type": "file",
+          "status": "running",
+          "operation": "read",
+          "path": "src/dispatch.rs",
+          "title": "Read src/dispatch.rs"
+        }
+      ],
+      "originSource": true
+    }
+  ]
+}

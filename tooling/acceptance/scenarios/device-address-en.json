@@ -8,7 +8,6 @@
     "state": "address",
     "enabled": true
   },
-  "page": "devices",
   "viewports": [
     {
       "width": 1280,

@@ -8,7 +8,6 @@
     "state": "detail-mac",
     "enabled": true
   },
-  "page": "devices",
   "viewports": [
     {
       "width": 1280,
