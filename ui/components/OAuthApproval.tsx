@@ -1,3 +1,4 @@
+import { useSubmittedDirty } from "./ui/useSubmittedDirty";
 import { DialogActions, useDialogCompletion } from "./ui/Dialog";
 import { layers } from "../state/layers";
 import { readOnlyBrowser } from "../browserMode";
@@ -18,7 +19,8 @@ export function ApprovalCard({ request, ingress, inline = false, product, onDeci
   const [sourceId, setSourceId] = useState(request.switchSourceId || "new"), [label, setLabel] = useState(() => nextSourceName(product ?? request.product ?? "custom", connector.get().sources.filter(s => s.id !== request.sourceId).map(s => s.label))), [labelError, setLabelError] = useState("");
   const { status, sources } = connector.use();
   const initialLabel = useRef(label);
-  useEffect(() => { onDirty?.(label !== initialLabel.current || sourceId !== (request.switchSourceId || "new")); }, [label, sourceId, request.switchSourceId, onDirty]);
+  const draft = useSubmittedDirty({ label, sourceId }, label !== initialLabel.current || sourceId !== (request.switchSourceId || "new"));
+  useEffect(() => { onDirty?.(draft.dirty); }, [draft.dirty, onDirty]);
   const fixed = sources.find(s => s.id === request.switchSourceId);
   const oldConnection = status?.ingresses.find(i => i.id === fixed?.ingressId);
   const remaining = sources.filter(s => s.ingressId === fixed?.ingressId && s.id !== fixed?.id && s.state !== "revoked" && s.connectedAt !== null);
@@ -29,7 +31,7 @@ export function ApprovalCard({ request, ingress, inline = false, product, onDeci
     if (allow && sourceId === "new" && new TextEncoder().encode(label.trim()).length > 120) {
       setLabelError(t("sourceNameTooLong")); document.getElementById(`approval-label-${request.id}`)?.focus(); return;
     }
-    setBusy(true); setError("");
+    draft.submit(); setBusy(true); setError("");
     try {
       if (allow && request.sourceId) {
         if (!request.switchSourceId && (product || sourceId === "new" && label.trim())) await api(`source/${request.sourceId}`, "PUT", { ...(product ? { product } : {}), ...(sourceId === "new" && label.trim() ? { label: label.trim() } : {}) });

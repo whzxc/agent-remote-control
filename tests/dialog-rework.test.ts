@@ -142,3 +142,39 @@ test('choosing a modal SingleChoice option applies it outside dialogs and retain
     }
   });
 });
+
+test('a finished submitted attempt is clean until the user edits the value again', async () => {
+  // Regression: device pairing errors left the submitted code dirty and Escape could no longer close the finished attempt.
+  await withDialog(async ({ server, root, settle }) => {
+    const { default: Dialog } = await server.ssrLoadModule('/ui/components/ui/Dialog.tsx');
+    const { useSubmittedDirty } = await server.ssrLoadModule('/ui/components/ui/useSubmittedDirty.ts');
+    const { Input, Button } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
+    const { t } = await server.ssrLoadModule('/ui/i18n.ts');
+    let finish = () => {};
+    function Owner() {
+      const [open, setOpen] = useState(true), [value, setValue] = useState(''), [busy, setBusy] = useState(false), [failed, setFailed] = useState(false);
+      const draft = useSubmittedDirty(value, !!value);
+      const submit = async () => {
+        draft.submit(); setBusy(true);
+        await new Promise<void>(resolve => { finish = resolve; });
+        setFailed(true); setBusy(false);
+      };
+      return h('main', null, h(Button, { onClick: () => setOpen(true) }, 'Open form'), open && h(Dialog, {
+        size: 'm', title: 'Pair device', dirty: draft.dirty, busy, onClose: () => setOpen(false),
+      }, h(Input, { 'aria-label': 'Pairing code', value, onChange: (event: Event) => setValue((event.target as HTMLInputElement).value) }),
+      failed && h('p', { role: 'alert' }, 'Pairing failed'), h(Button, { onClick: () => void submit() }, 'Pair')));
+    }
+    const page = within(document.body);
+    await act(async () => root.render(h(Owner))); await settle();
+    await act(async () => fireEvent.change(page.getByRole('textbox', { name: 'Pairing code' }), { target: { value: 'Submitted code' } }));
+    await act(async () => fireEvent.click(page.getByRole('button', { name: 'Pair', exact: true })));
+    await act(async () => finish()); await settle();
+    assert.ok(page.getByRole('alert'));
+    await act(async () => fireEvent.keyDown(page.getByRole('dialog', { name: 'Pair device' }), { key: 'Escape' })); await settle();
+    assert.equal(page.queryByRole('dialog', { name: 'Pair device' }), null);
+    await act(async () => fireEvent.click(page.getByRole('button', { name: 'Open form' }))); await settle();
+    await act(async () => fireEvent.change(page.getByRole('textbox', { name: 'Pairing code' }), { target: { value: 'Edited after result' } }));
+    await act(async () => fireEvent.keyDown(page.getByRole('dialog', { name: 'Pair device' }), { key: 'Escape' })); await settle();
+    assert.ok(page.getByRole('button', { name: t('layers.keepEditing') }));
+  });
+});

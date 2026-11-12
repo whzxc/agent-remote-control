@@ -1,3 +1,4 @@
+import { useSubmittedDirty } from "./ui/useSubmittedDirty";
 import { useEffect, useState } from "react";
 import { ExternalLink, Plus } from "lucide-react";
 import { api } from "../api";
@@ -19,6 +20,7 @@ export default function ChangeConnection() {
   const flow = connectionSwitch.use()!, { status, sources } = connector.use();
   const [busy, setBusy] = useState(false), [approvalDirty, setApprovalDirty] = useState(false), [error, setError] = useState("");
   const [credentials, setCredentials] = useState<{ ingressId: string; bearerToken: string }>();
+  const draft = useSubmittedDirty(flow.ingressId, flow.step === "connection" && !!flow.ingressId);
   const source = sources.find(s => s.id === flow.sourceId);
   const entries = status?.ingresses ?? [], current = entries.find(i => i.id === source?.ingressId), target = entries.find(i => i.id === flow.ingressId);
   const info = controlSource(source?.product ?? "custom"), productName = info?.shortName ?? t("connect.other");
@@ -45,7 +47,7 @@ export default function ChangeConnection() {
     return () => { alive = false; };
   }, [flow.step, target?.id, target?.auth]);
   async function perform(action: () => Promise<void>) {
-    setBusy(true); setError("");
+    draft.submit(); setBusy(true); setError("");
     try { await action(); completion.feedback(`${t("switch.reauthorize")} · ${t("activity.completed")}`); } catch (e) { setError(String(e)); completion.feedback(String(e), true); } finally { setBusy(false); }
   }
   async function cancel(close: boolean) {
@@ -67,7 +69,7 @@ export default function ChangeConnection() {
   const expired = flow.step !== "connection" && ((!source?.pendingSwitch && source?.ingressId !== flow.ingressId) || request?.status === "expired" || request?.status === "denied");
   const canApprove = request?.status === "pending" && !expired;
   const waiting = flow.step === "address" && !expired && source?.ingressId !== flow.ingressId;
-  return <SetupDialog layerId={completion.layerId} title={t("switch.sourceTitle", { name: source?.label ?? flow.sourceId })} active={steps.indexOf(flow.step)} busy={busy || waiting} dirty={approvalDirty || flow.step === "connection" && !!flow.ingressId}
+  return <SetupDialog layerId={completion.layerId} title={t("switch.sourceTitle", { name: source?.label ?? flow.sourceId })} active={steps.indexOf(flow.step)} busy={busy || waiting} dirty={approvalDirty || draft.dirty}
     steps={[{ label: t("source.step.connection"), value: target?.name }, { label: t("switch.address") }, { label: t("switch.reauthorize") }]}
     actionLayout={flow.step === "approval" && canApprove ? "end" : "split"} returnFocus="[data-change-connection]" onCancel={waiting ? () => cancel(true) : undefined} onClose={async () => { await cancel(true); }} footer={<>
       {flow.step === "approval" && canApprove ? <><Button form={`approval-${request.id}`} type="submit" value="deny" disabled={busy}>{t("oauthDeny")}</Button><Button form={`approval-${request.id}`} type="submit" value="allow" variant="primary" busy={busy}>{t("switch.approve")}</Button></> : <>

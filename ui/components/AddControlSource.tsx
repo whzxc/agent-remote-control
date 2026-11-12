@@ -1,3 +1,4 @@
+import { useSubmittedDirty } from "./ui/useSubmittedDirty";
 import { readOnlyBrowser } from "../browserMode";
 import { useEffect, useRef, useState } from "react";
 import { Check, Cloud, Link, Plug, ExternalLink, Plus } from "lucide-react";
@@ -23,6 +24,7 @@ export default function AddControlSource({ returnFocus }: { returnFocus?: string
   const [route, setRoute] = useState("");
   const [choiceDirty, setChoiceDirty] = useState(false);
   const initialProduct = useRef(flow.source);
+  const draft = useSubmittedDirty({ source: flow.source, route }, choiceDirty || flow.source !== initialProduct.current);
   const [credentials, setCredentials] = useState<{ ingressId: string; bearerToken: string }>();
   const product = flow.source ?? "custom", info = controlSource(product), name = info?.shortName ?? t("connect.other");
   const settingsUrl = info?.setup?.url;
@@ -45,7 +47,7 @@ export default function AddControlSource({ returnFocus }: { returnFocus?: string
   }, [flow.step, current?.id, current?.auth]);
   function step(next: OnboardingStep) { setError(""); onboarding.set(old => old && { ...old, step: next, ...(["product", "connection"].includes(next) ? { requestId: undefined, ingressId: old.fixedConnection ? old.ingressId : undefined, sourceId: undefined } : {}) }); }
   async function perform(action: () => Promise<void>) {
-    setBusy(true); setError("");
+    draft.submit(); setBusy(true); setError("");
     try { await action(); completion.feedback(`${t("addControlSource")} · ${t("activity.completed")}`); } catch (e) { setError(String(e)); completion.feedback(String(e), true); }
     finally { setBusy(false); }
   }
@@ -99,7 +101,7 @@ export default function AddControlSource({ returnFocus }: { returnFocus?: string
   return <SetupDialog layerId={completion.layerId} title={title} steps={steps.slice(0, 4).map((value, index) => ({ label: t(`source.step.${value}`), value: index === 0 ? productName(selectedProduct || "custom") : index === 1 ? current?.name : undefined }))}
     context={flow.step === "product" && flow.fixedConnection && current ? t("setup.via", { name: current.name }) : undefined}
     actionLayout={["product", "approval", "success"].includes(flow.step) ? "end" : "split"}
-    active={steps.indexOf(flow.step)} done={flow.step === "success"} busy={busy || flow.step === "address" && !connected} dirty={approvalDirty || choiceDirty || flow.source !== initialProduct.current} onClose={finishSourceSetup}
+    active={steps.indexOf(flow.step)} done={flow.step === "success"} busy={busy || flow.step === "address" && !connected} dirty={approvalDirty || draft.dirty} onClose={finishSourceSetup}
     initialFocus={flow.step === "product" && flow.focusGroup ? `platform-${flow.focusGroup}` : undefined}
     returnFocus={returnFocus}
     footer={footer}>

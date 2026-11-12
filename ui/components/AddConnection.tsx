@@ -1,3 +1,4 @@
+import { useSubmittedDirty } from "./ui/useSubmittedDirty";
 import { useEffect, useId, useRef, useState } from "react";
 import { Check, ExternalLink } from "lucide-react";
 import { api } from "../api";
@@ -25,6 +26,7 @@ export default function AddConnection({ options, onClose, onAdded, returnFocus }
   const initialMethod = useRef(method);
   const [busy, setBusy] = useState(false), [configBusy, setConfigBusy] = useState(false), [configDirty, setConfigDirty] = useState(false), [error, setError] = useState("");
   const [link, setLink] = useState(""), [account, setAccount] = useState(""), [deviceName, setDeviceName] = useState(status?.deviceName ?? "");
+  const draft = useSubmittedDirty({ method, link, account, deviceName }, method !== initialMethod.current || !!link || !!account || deviceName !== (status?.deviceName ?? ""));
   const protect = useSensitiveText([link]);
   const [createdId, setCreatedId] = useState<string | undefined>(options.createdId);
   const [operation, setOperation] = useState<"create" | "join" | "redeploy">();
@@ -57,7 +59,7 @@ export default function AddConnection({ options, onClose, onAdded, returnFocus }
     return () => { alive = false; };
   }, [target]);
   async function perform(action: () => Promise<void>) {
-    setBusy(true); setError("");
+    draft.submit(); setBusy(true); setError("");
     try { await action(); }
     catch (e) { setError(String(e).includes("LOCAL_CONFIG_CONFLICT") ? t("connect.localConflict") : String(e)); completion.feedback(String(e), true); }
     finally { setBusy(false); }
@@ -100,7 +102,7 @@ export default function AddConnection({ options, onClose, onAdded, returnFocus }
   const flow = onboarding.get();
   const parentTitle = options.forSwitch ? t("switch.sourceTitle", { name: sources.find(s => s.id === connectionSwitch.get()?.sourceId)?.label ?? "" }) : flow?.source ? t("setup.addProduct", { name: flow.localTarget === "code" ? "Claude Code" : flow.localTarget === "desktop" ? t("setup.claudeDesktop") : controlSource(flow.source)?.shortName ?? t("setup.otherClient") }) : t("addControlSource");
   return <SetupDialog layerId={completion.layerId} title={t("source.newConnection")} steps={[{ label: t("setup.method"), value: methodName }, { label: t("source.step.address") }, { label: t("setup.ready") }]}
-    active={steps.indexOf(step)} done={step === "success"} stacked={(options.forSource || options.forSwitch)} parentTitle={parentTitle} busy={busy || configBusy || waiting} dirty={method !== initialMethod.current || configDirty || !!link || !!account || deviceName !== (status?.deviceName ?? "")}
+    active={steps.indexOf(step)} done={step === "success"} stacked={(options.forSource || options.forSwitch)} parentTitle={parentTitle} busy={busy || configBusy || waiting} dirty={draft.dirty || configDirty}
     onCancel={waiting ? cancelRelay : undefined} onClose={onClose}
     returnFocus={returnFocus} actionLayout={step === "method" || step === "success" ? "end" : "split"}
     footer={<>

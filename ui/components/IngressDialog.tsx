@@ -1,3 +1,4 @@
+import { useSubmittedDirty } from "./ui/useSubmittedDirty";
 import { useDialogCompletion } from "./ui/Dialog";
 import { useState, useRef, useEffect, type ReactNode, type ComponentProps } from "react";
 import { ChevronLeft } from "lucide-react";
@@ -80,6 +81,7 @@ export default function IngressDialog({
     [toolPolicy, setToolPolicy] = useState<ToolPolicy | undefined>(
       ingress?.toolPolicy,
     );
+  const draft = useSubmittedDirty({ name, form, auth, toolPolicy }, dirty.current.size > 0);
   const protect = useSensitiveText([form.domain, form.tunnelId, ...secretFields.map(field => String(form[field.key]))]);
   const [working, setWorking] = useState(false),
     [error, setError] = useState(""),
@@ -162,7 +164,7 @@ export default function IngressDialog({
   }
   async function save() {
     if (working || !validate()) return;
-    setWorking(true);
+    draft.submit(); setWorking(true);
     setError("");
     try {
       const config: Record<string, unknown> = { ...form };
@@ -259,7 +261,7 @@ export default function IngressDialog({
     </Field>
   );
   useEffect(() => { onBusy?.(working); return () => onBusy?.(false); }, [working, onBusy]);
-  useEffect(() => { onDirty?.(dirty.current.size > 0); }, [name, form, auth, toolPolicy, onDirty]);
+  useEffect(() => { onDirty?.(draft.dirty); }, [draft.dirty, onDirty]);
   const nameField = (<Field
             id="ingress-name"
             label={t("setup.connectionName")}
@@ -280,7 +282,7 @@ export default function IngressDialog({
           </Field>);
   const Frame = setupFormId ? IngressSetupBody : embedded ? IngressEditLayer : Dialog;
   return (
-    <Frame layerId={completion.layerId} size="m" dirty={dirty.current.size > 0}
+    <Frame layerId={completion.layerId} size="m" dirty={draft.dirty}
       initialFocus={focusField ? `ingress-${focusField}` : undefined}
       title={t(ingress ? "source.editConnection" : "source.newConnection")}
       onClose={onClose}

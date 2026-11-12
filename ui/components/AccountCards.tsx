@@ -1,3 +1,4 @@
+import { useSubmittedDirty } from "./ui/useSubmittedDirty";
 import { useDialogCompletion } from "./ui/Dialog";
 import { useId, useState, type FormEvent } from 'react';
 import { Pencil, RefreshCw, Trash2 } from 'lucide-react';
@@ -61,6 +62,7 @@ function AccountEdit({ account, profile, action, returnFocus, onClose }: {
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   const removing = action === 'remove';
   const completion = useDialogCompletion(onClose);
+  const draft = useSubmittedDirty(alias, !removing && alias !== account.alias);
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!removing && !alias.trim()) {
@@ -68,7 +70,7 @@ function AccountEdit({ account, profile, action, returnFocus, onClose }: {
       document.getElementById(id)?.focus();
       return;
     }
-    setBusy(true); setError('');
+    draft.submit(); setBusy(true); setError('');
     try {
       if (removing) await accountsApi.remove({ id: account.id, agent: profile.agent, running: 'finish' });
       else await accountsApi.update({ id: account.id, alias: alias.trim() });
@@ -78,7 +80,7 @@ function AccountEdit({ account, profile, action, returnFocus, onClose }: {
     } catch (error) { setError(String(error)); } finally { setBusy(false); }
   }
   return <Dialog layerId={completion.layerId} size="s" title={removing ? t('accounts.removeTitle', { alias: account.alias }) : t('accounts.editAliasAction')}
-    className="agent-account-add" initialFocus={removing ? undefined : id} dirty={!removing && alias !== account.alias} busy={busy} returnFocus={returnFocus} onClose={onClose}
+    className="agent-account-add" initialFocus={removing ? undefined : id} dirty={!removing && draft.dirty} busy={busy} returnFocus={returnFocus} onClose={onClose}
     footer={<Button form={id + '-form'} type="submit" variant={removing ? 'danger' : 'primary'} busy={busy}>
       {t(removing ? 'accounts.removeAction' : 'save')}
     </Button>}>

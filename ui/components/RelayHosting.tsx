@@ -1,3 +1,4 @@
+import { useSubmittedDirty } from "./ui/useSubmittedDirty";
 import { DialogActions, useDialogCompletion } from "./ui/Dialog";
 import { Sensitive } from "./Sensitive";
 import { useCallback, useEffect, useState } from "react";
@@ -117,6 +118,7 @@ export default function RelayHosting() {
   const relays = useRelays(), { status } = connector.use();
   const [job, setJob] = useState<Job>(), [dialogOpen, setDialogOpen] = useState(false), [busy, setBusy] = useState(false);
   const [account, setAccount] = useState(""), [error, setError] = useState("");
+  const draft = useSubmittedDirty(account, !!account);
   const [revision, setRevision] = useState(0);
   const deployment = useDialogCompletion(() => { setJob(undefined); setDialogOpen(false); setAccount(""); });
   const { progress, setProgress, error: progressError } = useRelayProgress(!!job, () => {
@@ -135,7 +137,7 @@ export default function RelayHosting() {
     return () => { alive = false; };
   }, [setProgress]);
   async function startJob(next: Job) {
-    setDialogOpen(true); setBusy(true); setError("");
+    draft.submit(); setDialogOpen(true); setBusy(true); setError("");
     try {
       const value = await api<Progress>(`relay/${next.action}`, "POST", { ...(next.id ? { id: next.id } : {}), ...(next.action === "create" ? { name: status?.deviceName || t("connect.thisComputer") } : {}), ...(next.action !== "delete" && account ? { accountId: account } : {}) });
       setProgress(value); setJob(next); return true;
@@ -157,12 +159,12 @@ export default function RelayHosting() {
   return <div className="relay-hosting">
     <div className="hosting-empty-group"><h2>{t("hosting.title")}</h2>
       {!relays.loaded ? <Loading /> : !owners.length && !relays.error && <p className="muted">{t("hosting.empty")}</p>}
-      <Button disabled={busy || !!job} onClick={() => { setError(""); setAccount(""); setDialogOpen(true); }}>{t("hosting.deploy")}</Button>
+      <Button disabled={busy || !!job} onClick={() => { setError(""); setAccount(""); draft.submit(""); setDialogOpen(true); }}>{t("hosting.deploy")}</Button>
     </div>
     {relays.error && <Notice tone="danger" action={<Button onClick={() => void relays.refresh().catch(() => {})}>{t("retry")}</Button>}>{t("connect.readFailed")}</Notice>}
     {error && !dialogOpen && !job && <Notice tone="danger">{error}</Notice>}
     {owners.map(relay => <HostedRelay key={`${relay.id}:${revision}`} relay={relay} version={relays.version} startJob={startJob} disabled={busy || !!job} />)}
-    {dialogOpen && <Dialog layerId={deployment.layerId} size="m" title={t(job?.action === "delete" ? "hosting.deleteTitle" : job?.action === "redeploy" ? "connect.updateRelay" : "hosting.deploy")} busy={busy || !!job && ["login", "deploying", "connecting"].includes(progress.phase)} dirty={!!account}
+    {dialogOpen && <Dialog layerId={deployment.layerId} size="m" title={t(job?.action === "delete" ? "hosting.deleteTitle" : job?.action === "redeploy" ? "connect.updateRelay" : "hosting.deploy")} busy={busy || !!job && ["login", "deploying", "connecting"].includes(progress.phase)} dirty={draft.dirty}
       onCancel={job ? cancel : undefined} onClose={() => { setDialogOpen(false); setJob(undefined); setError(""); }}>
       {error && <Notice tone="danger">{error}</Notice>}
       {progressError && job && <Notice tone="danger">{t("connect.readFailed")}</Notice>}

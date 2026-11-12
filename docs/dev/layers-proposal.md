@@ -124,6 +124,7 @@ Related defects:
 - Escape MUST act only on the topmost layer and MUST follow the same rules as outside pointer input.
 - Outside input MUST close a layer that holds no edited input and no running work.
 - Outside input on a layer with edited input MUST show a discard confirmation instead of closing.
+- Edited input means changes not yet submitted; a submitted value whose attempt has finished, with any result, is clean until the user edits it again.
 - Outside input on a layer with running work MUST show that work's state instead of closing.
 - When running work can be cancelled, that state MUST offer to stop the work and close.
 - When running work cannot be cancelled, that state MUST say that the layer closes after the work finishes.

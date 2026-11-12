@@ -1,3 +1,4 @@
+import { useSubmittedDirty } from "./ui/useSubmittedDirty";
 import { useDialogCompletion } from "./ui/Dialog";
 import { useEffect, useId, useState, type FormEvent } from 'react';
 import { accountsApi, api } from '../api';
@@ -30,6 +31,8 @@ export default function AgentAccountAdd({ kind, account, onClose }: {
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [errors, setErrors] = useState<Errors>({});
   const [login, setLogin] = useState<AccountLogin | null>(null);
   const [code, setCode] = useState(''), [submitted, setSubmitted] = useState(false);
+  const values = { auth, program, args, code, browser, method, owner };
+  const draft = useSubmittedDirty(values, !!auth || !!program || !!args || !!code || browser !== "default" || method !== (importOnly ? "import" : "oauth"));
   const active = login?.state === 'starting' || login?.state === 'waiting';
   const expired = login?.state === 'failed' && !!login.error?.startsWith('CLAUDE_LOGIN_TIMEOUT');
   useEffect(() => {
@@ -96,12 +99,12 @@ export default function AgentAccountAdd({ kind, account, onClose }: {
         setErrors(invalid); requestAnimationFrame(() => document.getElementById(`${id}-${Object.keys(invalid)[0]}`)?.focus()); return;
       }
     }
-    setBusy(true);
+    draft.submit(); setBusy(true);
     try {
       if (active && login) {
         if (kind === 'claude' && code.trim()) {
           await accountsApi.login({ loginId: login.loginId, action: 'code', code: code.trim() });
-          setCode(''); setSubmitted(true);
+          draft.submit({ ...values, code: '' }); setCode(''); setSubmitted(true);
         }
       } else if (desktop) {
         await api('agents/open', 'POST', { agent: 'codex' });
@@ -120,7 +123,7 @@ export default function AgentAccountAdd({ kind, account, onClose }: {
         }
       } else {
         const result = await accountsApi.importCodex({ auth: credentials, accountId: account?.id, refreshOwner: owner, ...(owner === 'external' ? { refreshCommand: { program: program.trim(), args: arguments_ } } : {}) });
-        setAuth(''); await refreshAccounts(true); await completion.finish();
+        draft.submit({ ...values, auth: '' }); setAuth(''); await refreshAccounts(true); await completion.finish();
         void refreshAccountQuota(result.accountId).catch(() => {});
       }
     } catch (e) { setError(String(e)); completion.feedback(String(e), true); }
@@ -132,7 +135,7 @@ export default function AgentAccountAdd({ kind, account, onClose }: {
   const waitingBrowser = login?.browserName ?? browsers.find(option => option.id === login?.browserId)?.name;
   const focusTarget = account ? `[data-account-reauth="${CSS.escape(account.id)}"], [data-add-agent-account]` : '[data-add-agent-account]';
   return <Dialog layerId={completion.layerId} size="m" title={title} className="agent-account-add" busy={busy || active}
-    dirty={!!auth || !!program || !!args || !!code || browser !== "default" || method !== (importOnly ? "import" : "oauth")}
+    dirty={draft.dirty}
     onCancel={active && !desktop ? cancelLogin : undefined}
     onClose={onClose} returnFocus={focusTarget} footer={<div className="actions">
     {!account && kind === 'codex' && <DialogClose asChild><Button>{t('cancel')}</Button></DialogClose>}
