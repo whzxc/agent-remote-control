@@ -170,7 +170,11 @@ export function LayerShell({ kind, side = 'center', entryTrigger, onPanelFrame, 
   onCancel ??= running.length === 1 ? running[0].onCancel : undefined;
   const anchorTop = useRef<number | undefined>(undefined);
   const retainedHeight = useRef(0), previousView = useRef(`${contentKey}:${viewKey}`), resetHeight = useRef(false);
-  if (previousView.current !== `${contentKey}:${viewKey}`) { retainedHeight.current = 0; previousView.current = `${contentKey}:${viewKey}`; anchorTop.current = undefined; resetHeight.current = true; }
+  if (previousView.current !== `${contentKey}:${viewKey}`) {
+    retainedHeight.current = 0;
+    if (!previousView.current.startsWith(`${contentKey}:`) || side === 'right') anchorTop.current = undefined;
+    previousView.current = `${contentKey}:${viewKey}`; resetHeight.current = true;
+  }
   const latest = useRef({ onClose, dirty, busy, onCancel });
   latest.current = { onClose, dirty, busy, onCancel };
   useLayoutEffect(() => { if (kind === 'panel' && !present) layers.remove(id); }, [present, kind, id]);
