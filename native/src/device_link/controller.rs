@@ -346,6 +346,20 @@ impl Controller {
             .filter(|m| m.peer.name == selector)
             .collect::<Vec<_>>();
         if matching.len() != 1 {
+            let path = self.directory.join("peers.json");
+            let stored: Stored = if path.exists() {
+                serde_json::from_value(crate::kernel::file_cache::load(&path)?)
+                    .map_err(|e| e.to_string())?
+            } else {
+                Stored::default()
+            };
+            if stored
+                .controller
+                .as_ref()
+                .is_some_and(|peer| peer.device_id == selector || peer.name == selector)
+            {
+                return Err(device_error("DEVICE_UNPAIRED", "This device is an upstream controller, not a paired member. Pair a direct member locally; query guide with topic:device.",json!({"via":"query","op":"guide","args":{"topic":"device"}})));
+            }
             return Err(device_error(
                 "DEVICE_UNKNOWN",
                 "Use a device ID or a unique paired name from query devices.",
@@ -353,6 +367,21 @@ impl Controller {
             ));
         }
         Ok(matching[0].clone())
+    }
+    pub async fn tasks(self: &Arc<Self>, device: &str) -> Result<Value> {
+        let response = self
+            .forward(
+                "query",
+                json!({"device":device,"op":"task_activity","args":{}}),
+                None,
+                crate::sources::panel_origin().await?,
+            )
+            .await?;
+        let value = crate::egress::tool_value(&response)?;
+        if response["isError"] == true {
+            return Err(value.to_string());
+        }
+        Ok(value)
     }
     pub async fn forward(
         self: &Arc<Self>,
@@ -446,7 +475,7 @@ impl Controller {
         if write {
             body["requestId"] = json!(request);
         }
-        let wire = json!({"version":VERSION,"tool":tool,"body":body,"origin":{"sourceId":source}});
+        let wire = json!({"version":VERSION,"tool":tool,"body":body,"origin":{"sourceId":source,"sourceLabel":origin["sourceLabel"],"controlSource":origin["controlSource"]}});
         prepared.validate(&wire)?;
         if write && op != "receipt" {
             let mut records = self.records.lock().unwrap();
@@ -541,6 +570,11 @@ impl Controller {
                     )
                     .await?;
                 }
+                let mut response = response;
+                if let Ok(mut value) = crate::egress::tool_value(&response) {
+                    qualify_actions(&mut value, &member.peer.device_id);
+                    response = crate::egress::tool(value, response["isError"] == true);
+                }
                 Ok(response)
             }
             Err(error) => {
@@ -589,4 +623,38 @@ fn offline() -> String {
 }
 fn uncertain(request: &str, device: &str, message: &str) -> String {
     json!({"code":"DEVICE_OUTCOME_UNCERTAIN","state":"unconfirmed","requestId":request,"message":message,"next":{"via":"act","op":"device","args":{"device":device,"op":"receipt","args":{"requestId":request,"action":"read"}}}}).to_string()
+}
+
+/// Keep member continuations on their original directly paired device.
+fn qualify_actions(value: &mut Value, device: &str) {
+    match value {
+        Value::Array(rows) => {
+            for row in rows {
+                qualify_actions(row, device);
+            }
+        }
+        Value::Object(fields) => {
+            if matches!(
+                fields.get("via").and_then(Value::as_str),
+                Some("query" | "act")
+            ) && fields.get("op").is_some_and(Value::is_string)
+                && fields.get("args").is_some_and(Value::is_object)
+            {
+                let op = fields["op"].clone();
+                let args = fields["args"].clone();
+                fields.insert("op".into(), json!("device"));
+                fields.insert("args".into(), json!({"device":device,"op":op,"args":args}));
+                return;
+            }
+            for (key, child) in fields {
+                if !matches!(
+                    key.as_str(),
+                    "input" | "output" | "arguments" | "params" | "peerOrigin"
+                ) {
+                    qualify_actions(child, device);
+                }
+            }
+        }
+        _ => (),
+    }
 }

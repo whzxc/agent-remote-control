@@ -297,6 +297,10 @@ impl Service {
         method: &str,
         body: Value,
     ) -> Result<Value> {
+        if route == "device/tasks" && method == "POST" {
+            crate::management::resolve("device.tasks", &json!({"body":body}))?;
+            return self.execution.devices.tasks(string(&body, "device")).await;
+        }
         if route == "ingress"
             || route.starts_with("ingress/")
             || route.starts_with("ingress-drafts")

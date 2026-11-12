@@ -254,6 +254,8 @@ pub(crate) async fn list(c: &Arc<control::Control>, args: &Value) -> Result<Valu
         None => c.profile_task_page(params).await?,
     };
     let rows = page["data"].as_array().ok_or("NATIVE_TASKS_MISSING")?;
+    let source = crate::device_link::visibility::peer_device();
+    let rows = rows.iter().filter(|row| source.as_ref().is_none_or(|source| crate::device_link::visibility::visible("codex", string(row,"id"), source))).cloned().collect::<Vec<_>>();
     crate::runtime_metrics::cost::scan_set(rows.len());
     crate::runtime_metrics::cost::rows(rows.len());
     if !enrich {

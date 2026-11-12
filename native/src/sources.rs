@@ -762,7 +762,11 @@ pub async fn connection_state(ingress: &str, connected: bool) -> Result<()> {
     .await
 }
 pub fn origin(source: &Value, auth: &str) -> Value {
-    json!({"ingressId":source["ingressId"],"sourceId":source["id"],"accountId":crate::accounts::source_account(source).ok().flatten(),"controlSource":source["product"],"authType":auth,"sourceLabel":source["label"]})
+    let mut origin = json!({"ingressId":source["ingressId"],"sourceId":source["id"],"accountId":crate::accounts::source_account(source).ok().flatten(),"controlSource":source["product"],"authType":auth,"sourceLabel":source["label"]});
+    if source["credential"]["type"] == "peer" {
+        origin["deviceId"] = source["credential"]["deviceId"].clone();
+    }
+    origin
 }
 /// Preserve the rejected source and recovery instructions across string transports.
 pub fn authorization_error(source: &Value) -> String {
@@ -934,18 +938,21 @@ pub fn decorate(value: &mut Value) {
 pub fn decorate_labels(value: &mut Value, rows: &[Value]) {
     let labels: BTreeMap<_, _> = rows
         .iter()
-        .filter_map(|source| Some((source["id"].as_str()?, &source["label"])))
+        .filter_map(|source| Some((source["id"].as_str()?, source)))
         .collect();
     fn visit(v: &mut Value, labels: &BTreeMap<&str, &Value>) {
         match v {
             Value::Object(o) => {
-                if let Some(label) = o
+                if let Some(source) = o
                     .get("sourceId")
                     .filter(|_| o.contains_key("authType"))
                     .and_then(Value::as_str)
                     .and_then(|id| labels.get(id))
                 {
-                    o.insert("sourceLabel".into(), (*label).clone());
+                    o.insert("sourceLabel".into(), source["label"].clone());
+                    if source["credential"]["type"] == "peer" {
+                        o.insert("deviceId".into(), source["credential"]["deviceId"].clone());
+                    }
                 }
                 for (key, v) in o.iter_mut() {
                     if ![

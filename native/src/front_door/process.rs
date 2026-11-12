@@ -438,10 +438,18 @@ pub(crate) fn forwarded_receipt(request: &Request) -> Option<Value> {
         Operation::LocalControl => &request.body,
         _ => return None,
     };
-    if envelope["op"] != "device" {
+    if envelope["op"] != "device" && !envelope["args"]["device"].is_string() {
         return None;
     }
-    let args = &envelope["args"];
+    let direct;
+    let args = if envelope["op"] == "device" {
+        &envelope["args"]
+    } else {
+        let mut inner = envelope["args"].clone();
+        inner.as_object_mut().unwrap().remove("device");
+        direct = json!({"device":envelope["args"]["device"],"op":envelope["op"],"args":inner});
+        &direct
+    };
     let receipt = if args["op"] == "receipt" {
         args["args"]["requestId"].as_str().unwrap_or(&request.id.0)
     } else {

@@ -338,6 +338,7 @@ pub fn receipt(value: Value) -> Value {
             "sourceLabel",
             "controlSource",
             "authType",
+            "deviceId",
         ] {
             if let Some(text) = value["origin"][key].as_str() {
                 origin[key] = json!(text);
@@ -556,6 +557,7 @@ pub(crate) fn dispatch_summary(value: &Value) -> Option<Value> {
         ("accountId", "accountId"),
         ("label", "sourceLabel"),
         ("kind", "controlSource"),
+        ("deviceId", "deviceId"),
     ] {
         if let Some(text) = known(&value["origin"][origin]) {
             source[field] = json!(text);

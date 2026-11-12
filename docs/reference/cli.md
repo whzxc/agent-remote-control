@@ -230,6 +230,17 @@ Member event streams and forwarded notification delivery are not
 available. Windows and Linux peer `screen` are unavailable. LAN interface listeners and
 advertisements refresh every five seconds without changing pairing identity.
 
+Pairing rejects self-links, reciprocal links and descendant cycles before member
+approval. Acyclic nested pairings remain supported. Pairing checks use pinned LAN
+metadata reads across the existing member chain. Restore unreachable chain members
+before pairing; business requests never forward transitively.
+
+`device configure --stdin` also accepts `showUpstreamSources:boolean` (default
+`false`). `device.snapshot` returns this setting on `controller.showUpstreamSources`
+and conditionally exposes `controller.upstreamSources`. This is presentation only;
+the controller device remains the task source. `device.tasks` is a local management
+read with `{body:{device}}`; it returns the member's controller-scoped activity.
+
 ## Local control and condition waits
 
 `cli control <op> [--stdin]` acts as the built-in `local-cli` control source.

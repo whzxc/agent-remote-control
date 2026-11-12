@@ -16,7 +16,8 @@
               "approvals",
               "coordination",
               "src",
-              "context"
+              "context",
+              "device"
             ],
             "default": "loop"
           },
@@ -425,7 +426,10 @@
     },
     {
       "name": "read",
-      "guideParameters": ["path", "maxEdge"],
+      "guideParameters": [
+        "path",
+        "maxEdge"
+      ],
       "description": "Read UTF-8 text by line or return an MCP image, with sha256 and file metadata. Absolute paths are supported. Continue text reads with nextLine. macOS protected locations require Full Disk Access (Core file tools and the Codex execution host for command). See ARC Permissions & readiness.",
       "inputSchema": {
         "type": "object",
@@ -1368,7 +1372,7 @@
     },
     {
       "name": "codex_thread",
-      "description": "Native thread search, fork, rename, archive, compaction, history rollback, and background terminals. Rollback does not undo files. Desktop extensions are limited to supported operations. Digest applies only to search, timeline and backgroundTerminals/list. Rows describe native list entries and their observed states. view:digest returns {view,revision,counts,rows,omitted,coverage,next}, at most 8 KiB and 20 rows. Counts carry kind:exact|bounded|unknown for the authorized filtered snapshot. Actionable rows sort first, then stable opaque ID. Every row has a detail action for its full snapshot row. Optional row.read reads fresh owner detail and may be absent. Follow row.detail, next or omitted.full (control_output with UTF-16 offsets). Digest snapshots share the one-hour temporary output cache. A missing/expired cursor returns a restart action; evicted snapshots may require reapplying filters.",
+      "description": "Native thread search, fork, rename, archive, compaction, history rollback, and background terminals. Rollback does not undo files. Desktop extensions are limited to supported operations. Digest applies only to search, timeline and backgroundTerminals/list. Rows describe native list entries and their observed states. view:digest returns {view,revision,counts,rows,omitted,coverage,next}, at most 8 KiB and 20 rows. Counts carry kind:exact|bounded|unknown for the authorized filtered snapshot. Actionable rows sort first, then stable opaque ID. Every row has a detail action for its full snapshot row. Optional row.read reads fresh owner detail and may be absent. Follow row.detail, next or omitted.full (control_output with UTF-16 offsets). Digest snapshots share the one-hour temporary output cache. A missing/expired cursor returns a restart action; evicted snapshots may require reapplying filters. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1445,6 +1449,11 @@
             "type": "string",
             "pattern": "^[0-9a-fA-F-]{36}:[0-9]+$",
             "description": "Opaque temporary snapshot cursor returned by digest actions. Replay the returned action unchanged. view:full reads one snapshot row. Expiry returns a restart action."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -1512,7 +1521,7 @@
     },
     {
       "name": "codex_account",
-      "description": "Read the current native account, usage, limits, and workspace messages.",
+      "description": "Read the current native account, usage, limits, and workspace messages. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1558,6 +1567,11 @@
             "minimum": 0,
             "maximum": 120000,
             "description": "Milliseconds to wait synchronously for the operation result. Default 25000. Timeout returns pending."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -1651,7 +1665,7 @@
     },
     {
       "name": "codex_tasks",
-      "description": "List local native tasks. The default compact view includes title, threadId, project, status, runtimeStatus, updatedAt, currentTurn, and model. view:full retains all fields and prompt previews. Project is an optional filter, not a task-source restriction. updatedAt is Unix seconds. currentTurn is the latest observed turn, not proof of activity. A confirmed selected turn reports completed, failed, or cancelled independently of thread runtimeStatus, including idle or unknown. Without a confirmed outcome, owner evidence reports needs-input, retrying, running, queued, idle, or unconfirmed/statusReason. Queue counts and retry metadata may coexist with a terminal turn. Historical terminal evidence survives owner loss or read failure; currentTurn retains source:persisted-history when applicable. Missing models use null/modelSource:not-reported-by-owner. Reads never resume tasks. Live enrichment has an eight-second page budget. Use view:full when preview/configuration/actions are needed. Archived metadata-only lists read the native SQLite index without rollout scans when available; metadataSource identifies index or native API fallback. Reuse search/project filters with the opaque cursor. Rows describe selected-turn outcomes and pending interactions, with unknown evidence labeled. view:digest returns {view,revision,counts,rows,omitted,coverage,next}, at most 8 KiB and 20 rows. Counts carry kind:exact|bounded|unknown for the authorized filtered snapshot. Actionable rows sort first, then stable opaque ID. Every row has a detail action for its full snapshot row. Optional row.read reads fresh owner detail and may be absent. Follow row.detail, next or omitted.full (control_output with UTF-16 offsets). Digest snapshots share the one-hour temporary output cache. A missing/expired cursor returns a restart action; evicted snapshots may require reapplying filters.",
+      "description": "List local native tasks. The default compact view includes title, threadId, project, status, runtimeStatus, updatedAt, currentTurn, and model. view:full retains all fields and prompt previews. Project is an optional filter, not a task-source restriction. updatedAt is Unix seconds. currentTurn is the latest observed turn, not proof of activity. A confirmed selected turn reports completed, failed, or cancelled independently of thread runtimeStatus, including idle or unknown. Without a confirmed outcome, owner evidence reports needs-input, retrying, running, queued, idle, or unconfirmed/statusReason. Queue counts and retry metadata may coexist with a terminal turn. Historical terminal evidence survives owner loss or read failure; currentTurn retains source:persisted-history when applicable. Missing models use null/modelSource:not-reported-by-owner. Reads never resume tasks. Live enrichment has an eight-second page budget. Use view:full when preview/configuration/actions are needed. Archived metadata-only lists read the native SQLite index without rollout scans when available; metadataSource identifies index or native API fallback. Reuse search/project filters with the opaque cursor. Rows describe selected-turn outcomes and pending interactions, with unknown evidence labeled. view:digest returns {view,revision,counts,rows,omitted,coverage,next}, at most 8 KiB and 20 rows. Counts carry kind:exact|bounded|unknown for the authorized filtered snapshot. Actionable rows sort first, then stable opaque ID. Every row has a detail action for its full snapshot row. Optional row.read reads fresh owner detail and may be absent. Follow row.detail, next or omitted.full (control_output with UTF-16 offsets). Digest snapshots share the one-hour temporary output cache. A missing/expired cursor returns a restart action; evicted snapshots may require reapplying filters. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1693,6 +1707,11 @@
             "type": "string",
             "pattern": "^[0-9a-fA-F-]{36}:[0-9]+$",
             "description": "Opaque temporary snapshot cursor returned by digest actions. Replay the returned action unchanged. view:full reads one snapshot row. Expiry returns a restart action."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "$schema": "http://json-schema.org/draft-07/schema#",
@@ -1728,12 +1747,13 @@
         "limit",
         "enrich",
         "view",
-        "digestCursor"
+        "digestCursor",
+        "device"
       ]
     },
     {
       "name": "codex_read",
-      "description": "Read task status and recent records. includeImages=true adds MCP images, up to 4 by default. unknown means current activity cannot be confirmed. statusOnly omits turn details. Read notify_status for delivery details. retry and successorTurnId expose capacity recovery and successor turns. Recovery rules are in codex_wait. Pushed receipts contain dispatch metadata only. Query the task for the final message and codex_changes for change evidence. Full event data and completion-time snapshots remain persisted. Default compact returns messages, file changes, errors, and command summaries. Use view:full for complete items and text pagination. Start control-source review with view:review for outcome-only evidence. When finalResponseTruncated is true, follow finalResponseNext to control_output for an immutable plain-text snapshot of that exact turn. Join text pages using returned nextOffset values (UTF-16 units); do not JSON-parse the message. Read-only views and statusOnly do not require native writer ownership. While an external writer holds the thread, ARC reads native App Server records without resuming the thread and marks readObservation with source:native-app-server, degraded:true and staleness:unknown. The owner may have newer progress. Writes retain THREAD_WRITER_BUSY.",
+      "description": "Read task status and recent records. includeImages=true adds MCP images, up to 4 by default. unknown means current activity cannot be confirmed. statusOnly omits turn details. Read notify_status for delivery details. retry and successorTurnId expose capacity recovery and successor turns. Recovery rules are in codex_wait. Pushed receipts contain dispatch metadata only. Query the task for the final message and codex_changes for change evidence. Full event data and completion-time snapshots remain persisted. Default compact returns messages, file changes, errors, and command summaries. Use view:full for complete items and text pagination. Start control-source review with view:review for outcome-only evidence. When finalResponseTruncated is true, follow finalResponseNext to control_output for an immutable plain-text snapshot of that exact turn. Join text pages using returned nextOffset values (UTF-16 units); do not JSON-parse the message. Read-only views and statusOnly do not require native writer ownership. While an external writer holds the thread, ARC reads native App Server records without resuming the thread and marks readObservation with source:native-app-server, degraded:true and staleness:unknown. The owner may have newer progress. Writes retain THREAD_WRITER_BUSY. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1792,6 +1812,11 @@
             "type": "string",
             "minLength": 1,
             "description": "Pin the read to this turn, including summary and review evidence. Omit to read the latest turn."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -1831,12 +1856,13 @@
         "waitMs",
         "includeImages",
         "view",
-        "includeItemKeys"
+        "includeItemKeys",
+        "device"
       ]
     },
     {
       "name": "codex_wait",
-      "description": "Read-only wait for the current or specified turn, using events and periodic observation. Terminal states or interactions return immediately. until controls conditionMet. expectedHash controls changed. Safe serverOverloaded failures start another turn automatically only when the complete failed history has no tool activity and the model is known. Recovery retains the thread and model. Defaults are 30/60/120 seconds and at most three attempts. task-settings allows codexRetryMaxAttempts (0..10) and codexRetryInitialSeconds (1..3600). Backoff is capped at one hour. Tool activity, non-capacity errors, unknown history/model, or uncertain writes stop recovery. No failed notification is sent during retry. Query results include the attempt count after exhaustion. retry/successorTurnId identify recovery state. External side effects are not guaranteed exactly once. You SHOULD continue with expectedHash:<previous snapshotHash> and until:terminal. Omitting expectedHash retains content. Unchanged nonterminal content returns finalResponseUnchanged:true with textHash and other metadata. Nonterminal states without interactions return only the latest confirmed complete Agent message. No complete message means no content. Terminal states and interactions always retain content. Claude waits are capped at 170000 milliseconds and return waitLimit when exceeded. Long tasks use segmented wait with next.args, retaining until and actual timeoutMs. Timeout results include compact progress from the last native observation and bounded Git evidence since the turn baseline. When finalResponseTruncated is true, follow finalResponseNext to control_output for an immutable plain-text snapshot of that exact turn. Join text pages using returned nextOffset values (UTF-16 units); do not JSON-parse the message.",
+      "description": "Read-only wait for the current or specified turn, using events and periodic observation. Terminal states or interactions return immediately. until controls conditionMet. expectedHash controls changed. Safe serverOverloaded failures start another turn automatically only when the complete failed history has no tool activity and the model is known. Recovery retains the thread and model. Defaults are 30/60/120 seconds and at most three attempts. task-settings allows codexRetryMaxAttempts (0..10) and codexRetryInitialSeconds (1..3600). Backoff is capped at one hour. Tool activity, non-capacity errors, unknown history/model, or uncertain writes stop recovery. No failed notification is sent during retry. Query results include the attempt count after exhaustion. retry/successorTurnId identify recovery state. External side effects are not guaranteed exactly once. You SHOULD continue with expectedHash:<previous snapshotHash> and until:terminal. Omitting expectedHash retains content. Unchanged nonterminal content returns finalResponseUnchanged:true with textHash and other metadata. Nonterminal states without interactions return only the latest confirmed complete Agent message. No complete message means no content. Terminal states and interactions always retain content. Claude waits are capped at 170000 milliseconds and return waitLimit when exceeded. Long tasks use segmented wait with next.args, retaining until and actual timeoutMs. Timeout results include compact progress from the last native observation and bounded Git evidence since the turn baseline. When finalResponseTruncated is true, follow finalResponseNext to control_output for an immutable plain-text snapshot of that exact turn. Join text pages using returned nextOffset values (UTF-16 units); do not JSON-parse the message. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1875,6 +1901,11 @@
               "summary"
             ],
             "description": "Opt in to a task-only outcome: 800-character final message, at most 50 changed paths, diffstat and complete-evidence continuation. Omits inbox and cross-thread data. Omission preserves the existing result. When finalResponseTruncated is true, follow finalResponseNext to control_output for an immutable plain-text snapshot of that exact turn. Join text pages using returned nextOffset values (UTF-16 units); do not JSON-parse the message."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -1912,12 +1943,13 @@
         "turnId",
         "timeoutMs",
         "expectedHash",
-        "until"
+        "until",
+        "device"
       ]
     },
     {
       "name": "codex_create",
-      "description": "Create and execute a text task. Desktop executes by default. Agent Remote Control executes when auto-open is disabled. Returns task identifiers and a compact receipt. See guide for orchestration. DESKTOP_IPC_ENDPOINT_MISSING identifies the absent Desktop IPC endpoint and links to the current guide. Before submission, an absent endpoint permits App Server fallback for a new thread or an unheld thread never handed to Desktop. DESKTOP_IPC_CONNECT_FAILED identifies other endpoint I/O failures; uncertain ownership never permits fallback. New-turn dispatch receipts include coordination:{association,conflicts,conflictCoverage,boardRevision,admissionBoardRevision,boardRead,observedAt,freshness}. Conflicts are advisory. Each conflict identifies its canonical resource, kind, age and boardRead action. freshness is admission or refreshed. Replays retain dispatch identity and refresh advisory data only.",
+      "description": "Create and execute a text task. Desktop executes by default. Agent Remote Control executes when auto-open is disabled. Returns task identifiers and a compact receipt. See guide for orchestration. DESKTOP_IPC_ENDPOINT_MISSING identifies the absent Desktop IPC endpoint and links to the current guide. Before submission, an absent endpoint permits App Server fallback for a new thread or an unheld thread never handed to Desktop. DESKTOP_IPC_CONNECT_FAILED identifies other endpoint I/O failures; uncertain ownership never permits fallback. New-turn dispatch receipts include coordination:{association,conflicts,conflictCoverage,boardRevision,admissionBoardRevision,boardRead,observedAt,freshness}. Conflicts are advisory. Each conflict identifies its canonical resource, kind, age and boardRead action. freshness is admission or refreshed. Replays retain dispatch identity and refresh advisory data only. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2057,6 +2089,11 @@
             "type": "string",
             "minLength": 1,
             "description": "Account ID or unique alias. Omitted uses the Agent default. A running task retains its execution profile."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [],
@@ -2102,12 +2139,13 @@
         "serviceTier",
         "account",
         "reason",
-        "pack"
+        "pack",
+        "device"
       ]
     },
     {
       "name": "codex_send",
-      "description": "Send text to a task. Steers an active turn or starts a new turn otherwise. turn parameters pass through. Desktop first opens/resumes unloaded threads. Confirmed absence of an owner falls back to ARC App Server. See guide for orchestration. Receipt dispatchMode is steered/new-turn/queued. sendMode:queue returns queueId. Inspect with codex_queue. Cancel or resume with codex_queue_control. sendMode:steer never starts a new turn. Control-source messages represent user intent and route through a current Desktop writer without extra confirmation. THREAD_WRITER_BUSY is reserved for owners ARC cannot route to. A Desktop handoff retains sends/steer/queue/next, answers, approvals, interrupts and notification observation through follower/IPC. Omitted notify on a same-origin send continues its open thread binding; an explicit override starts a new scope. Omitted model and effort inherit the thread latest explicit settings independently; policy defaults apply only when that field has no thread setting. Explicit values override inheritance. Queued sends resolve omitted fields at dispatch time; replacement prompt continuations use the same rule. DESKTOP_IPC_ENDPOINT_MISSING identifies the absent Desktop IPC endpoint and links to the current guide. Before submission, an absent endpoint permits App Server fallback for a new thread or an unheld thread never handed to Desktop. DESKTOP_IPC_CONNECT_FAILED identifies other endpoint I/O failures; uncertain ownership never permits fallback. New-turn dispatch receipts include coordination:{association,conflicts,conflictCoverage,boardRevision,admissionBoardRevision,boardRead,observedAt,freshness}. Conflicts are advisory. Each conflict identifies its canonical resource, kind, age and boardRead action. freshness is admission or refreshed. Replays retain dispatch identity and refresh advisory data only.",
+      "description": "Send text to a task. Steers an active turn or starts a new turn otherwise. turn parameters pass through. Desktop first opens/resumes unloaded threads. Confirmed absence of an owner falls back to ARC App Server. See guide for orchestration. Receipt dispatchMode is steered/new-turn/queued. sendMode:queue returns queueId. Inspect with codex_queue. Cancel or resume with codex_queue_control. sendMode:steer never starts a new turn. Control-source messages represent user intent and route through a current Desktop writer without extra confirmation. THREAD_WRITER_BUSY is reserved for owners ARC cannot route to. A Desktop handoff retains sends/steer/queue/next, answers, approvals, interrupts and notification observation through follower/IPC. Omitted notify on a same-origin send continues its open thread binding; an explicit override starts a new scope. Omitted model and effort inherit the thread latest explicit settings independently; policy defaults apply only when that field has no thread setting. Explicit values override inheritance. Queued sends resolve omitted fields at dispatch time; replacement prompt continuations use the same rule. DESKTOP_IPC_ENDPOINT_MISSING identifies the absent Desktop IPC endpoint and links to the current guide. Before submission, an absent endpoint permits App Server fallback for a new thread or an unheld thread never handed to Desktop. DESKTOP_IPC_CONNECT_FAILED identifies other endpoint I/O failures; uncertain ownership never permits fallback. New-turn dispatch receipts include coordination:{association,conflicts,conflictCoverage,boardRevision,admissionBoardRevision,boardRead,observedAt,freshness}. Conflicts are advisory. Each conflict identifies its canonical resource, kind, age and boardRead action. freshness is admission or refreshed. Replays retain dispatch identity and refresh advisory data only. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2247,6 +2285,11 @@
             "type": "string",
             "minLength": 1,
             "description": "Account ID or unique alias. Omitted uses the Agent default. A running task retains its execution profile."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -2293,12 +2336,13 @@
         "serviceTier",
         "account",
         "reason",
-        "pack"
+        "pack",
+        "device"
       ]
     },
     {
       "name": "codex_review",
-      "description": "Review any existing terminal turn in a readable thread, including turns started outside ARC. Omitted turnId selects the latest terminal turn. Stores reviewer provenance and dispatchOrigin (arc with dispatchRequestId, or external with available model/effort/serviceTier). The latest verdict replaces previous verdicts. rework links the next new-turn dispatch in the same thread.",
+      "description": "Review any existing terminal turn in a readable thread, including turns started outside ARC. Omitted turnId selects the latest terminal turn. Stores reviewer provenance and dispatchOrigin (arc with dispatchRequestId, or external with available model/effort/serviceTier). The latest verdict replaces previous verdicts. rework links the next new-turn dispatch in the same thread. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2332,7 +2376,15 @@
           },
           "foundBy": {
             "type": "string",
-            "enum": ["segment", "controller", "acceptance", "installed", "user", "automation", "unknown"],
+            "enum": [
+              "segment",
+              "controller",
+              "acceptance",
+              "installed",
+              "user",
+              "automation",
+              "unknown"
+            ],
             "description": "Gate that found the reported findings."
           },
           "defects": {
@@ -2349,6 +2401,11 @@
             "type": "string",
             "maxLength": 4000,
             "description": "Per-invariant evidence and follow-up summary. Maximum 4000 characters."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -2390,12 +2447,13 @@
         "foundBy",
         "defects",
         "advisory",
-        "note"
+        "note",
+        "device"
       ]
     },
     {
       "name": "codex_interrupt",
-      "description": "Request interruption of the specified turn, subject to the upstream response. Confirm terminal status with codex_wait/read.",
+      "description": "Request interruption of the specified turn, subject to the upstream response. Confirm terminal status with codex_wait/read. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2428,6 +2486,11 @@
             "minimum": 0,
             "maximum": 120000,
             "description": "Milliseconds to wait synchronously for the operation result. Default 25000. Timeout returns pending."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -2463,7 +2526,7 @@
     },
     {
       "name": "codex_resume",
-      "description": "Resume the latest interrupted ARC-bound turn in the same thread without new user content. Retains the dispatch origin and notification scope. Uses the current Desktop owner or native connector acquisition; never takes another live writer. Retain requestId for uncertain retries. Resuming inherits the thread latest explicit model and effort without replacing them with current policy defaults.",
+      "description": "Resume the latest interrupted ARC-bound turn in the same thread without new user content. Retains the dispatch origin and notification scope. Uses the current Desktop owner or native connector acquisition; never takes another live writer. Retain requestId for uncertain retries. Resuming inherits the thread latest explicit model and effort without replacing them with current policy defaults. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2487,6 +2550,11 @@
             "minimum": 0,
             "maximum": 120000,
             "description": "Milliseconds to wait synchronously for the operation result. Default 25000. Timeout returns pending."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -2524,7 +2592,8 @@
         "threadId",
         "turnId",
         "requestId",
-        "waitMs"
+        "waitMs",
+        "device"
       ]
     },
     {
@@ -2798,10 +2867,16 @@
     },
     {
       "name": "codex_capabilities",
-      "description": "Current service version, native model catalog, default configuration sources, and connection boundaries.",
+      "description": "Current service version, native model catalog, default configuration sources, and connection boundaries. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
-        "properties": {},
+        "properties": {
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
+          }
+        },
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false,
         "required": []
@@ -2830,7 +2905,7 @@
     },
     {
       "name": "receipt",
-      "description": "Read or approve/bypass/reject a write receipt. reserved means submission is pending; executing confirms operation execution. Only an overdue reserved submission sets progressStalled. awaiting-approval waits for approval. completed and failed describe the operation outcome; a completed dispatch receipt confirms submission, independently of the native Agent turn. Returns compact results without echoing arguments. For unconfirmed submission, read the original requestId receipt; do not resubmit. New-turn dispatch receipts include coordination:{association,conflicts,conflictCoverage,boardRevision,admissionBoardRevision,boardRead,observedAt,freshness}. Conflicts are advisory. Each conflict identifies its canonical resource, kind, age and boardRead action. freshness is admission or refreshed. Replays retain dispatch identity and refresh advisory data only.",
+      "description": "Read or approve/bypass/reject a write receipt. reserved means submission is pending; executing confirms operation execution. Only an overdue reserved submission sets progressStalled. awaiting-approval waits for approval. completed and failed describe the operation outcome; a completed dispatch receipt confirms submission, independently of the native Agent turn. Returns compact results without echoing arguments. For unconfirmed submission, read the original requestId receipt; do not resubmit. New-turn dispatch receipts include coordination:{association,conflicts,conflictCoverage,boardRevision,admissionBoardRevision,boardRead,observedAt,freshness}. Conflicts are advisory. Each conflict identifies its canonical resource, kind, age and boardRead action. freshness is admission or refreshed. Replays retain dispatch identity and refresh advisory data only. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2864,6 +2939,11 @@
           "knownNextHash": {
             "type": "string",
             "description": "Previously returned next.hash for this receipt. A match returns next:{hash,unchanged:true}; retain the cached next instructions."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -2898,7 +2978,7 @@
     },
     {
       "name": "codex_items",
-      "description": "Read task items by page. latest=true starts from the latest items of the latest turn. Continue with turnId/cursor/latest. Text uses offset/length. includeImages=true adds MCP images. Default compact returns messages, file changes, errors, and command summaries. Use view:full for complete items and text pagination.",
+      "description": "Read task items by page. latest=true starts from the latest items of the latest turn. Continue with turnId/cursor/latest. Text uses offset/length. includeImages=true adds MCP images. Default compact returns messages, file changes, errors, and command summaries. Use view:full for complete items and text pagination. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2972,6 +3052,11 @@
               "pattern": "^[a-f0-9]{64}$"
             },
             "description": "Compact view only. Omit unchanged complete items previously returned with itemKey by codex_read/items. Continue nextCursor even when items is empty."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -3015,12 +3100,13 @@
         "includeImages",
         "view",
         "includeItemKeys",
-        "knownItemKeys"
+        "knownItemKeys",
+        "device"
       ]
     },
     {
       "name": "codex_schema",
-      "description": "Discover all native methods from the current Codex binary. method returns the full JSON parameter schema. direction=server discovers approval/input callback parameters and response schemas.",
+      "description": "Discover all native methods from the current Codex binary. method returns the full JSON parameter schema. direction=server discovers approval/input callback parameters and response schemas. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3049,6 +3135,11 @@
             "type": "integer",
             "exclusiveMinimum": 0,
             "maximum": 9007199254740991
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "$schema": "http://json-schema.org/draft-07/schema#",
@@ -3079,7 +3170,7 @@
     },
     {
       "name": "codex_query",
-      "description": "Common native read-only methods with params passed through completely. Other methods are available through codex_call without this shortcut classification.",
+      "description": "Common native read-only methods with params passed through completely. Other methods are available through codex_call without this shortcut classification. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3123,6 +3214,11 @@
                 "type": "null"
               }
             ]
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -3158,7 +3254,7 @@
     },
     {
       "name": "codex_call",
-      "description": "Pass through native method and params, returning a compact receipt. See codex_schema for the protocol. Loaded Desktop tasks retain ownership. Explicit new turns or resume can load historical threads. Confirmed absence of an owner falls back to ARC App Server. For thread/start or thread/fork, callers SHOULD name the returned thread with codex_thread action:name/set and params:{threadId,name}; use a short human-readable title of at most 120 characters for task lists and notifications. Prefer codex_create with title for prompt dispatch.",
+      "description": "Pass through native method and params, returning a compact receipt. See codex_schema for the protocol. Loaded Desktop tasks retain ownership. Explicit new turns or resume can load historical threads. Confirmed absence of an owner falls back to ARC App Server. For thread/start or thread/fork, callers SHOULD name the returned thread with codex_thread action:name/set and params:{threadId,name}; use a short human-readable title of at most 120 characters for task lists and notifications. Prefer codex_create with title for prompt dispatch. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3207,6 +3303,11 @@
             "minimum": 0,
             "maximum": 120000,
             "description": "Milliseconds to wait synchronously for the operation result. Default 25000. Timeout returns pending."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -3245,13 +3346,18 @@
     },
     {
       "name": "codex_pending",
-      "description": "Read unanswered questions and approval/input requests owned by ARC or Desktop. threadId forces a current Desktop read. Requests retain native owner and expose stale plus turnStatus when known. Requests from terminal turns never block replacement. Desktop asynchronous questions remain answerable; a late answer steers the active turn or starts a new turn.",
+      "description": "Read unanswered questions and approval/input requests owned by ARC or Desktop. threadId forces a current Desktop read. Requests retain native owner and expose stale plus turnStatus when known. Requests from terminal turns never block replacement. Desktop asynchronous questions remain answerable; a late answer steers the active turn or starts a new turn. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "threadId": {
             "type": "string",
             "description": "Refresh the Desktop snapshot for the specified thread. Omission returns observed requests, including notify-bound threads."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "$schema": "http://json-schema.org/draft-07/schema#",
@@ -3282,7 +3388,7 @@
     },
     {
       "name": "codex_respond",
-      "description": "Respond to an interaction with respondToken + result. Tokens bind ingress/thread/turn/question, expire after 24 hours, and permit one successful use. Existing id + backendSession remains supported. Desktop asynchronous questions use result:{answer:\"text\"}. Synchronous questions and approvals retain native result. You SHOULD use the notification's respond arguments. Synchronous multiple questions require one answers map covering all question IDs. Command/file approvals use result:{decision:\"accept\"|\"decline\"|\"cancel\"}. Permissions and MCP elicitation follow native schemas (codex_schema direction:server). Optional threadId verifies thread ownership. Refresh codex_pending if missing or expired. Desktop persistent callbacks are revalidated by the live owner across restarts. App-server callbacks bind backendSession. Read back after responding. Do not blindly replay unconfirmed responses. Handle canRespond:false in the native client.",
+      "description": "Respond to an interaction with respondToken + result. Tokens bind ingress/thread/turn/question, expire after 24 hours, and permit one successful use. Existing id + backendSession remains supported. Desktop asynchronous questions use result:{answer:\"text\"}. Synchronous questions and approvals retain native result. You SHOULD use the notification's respond arguments. Synchronous multiple questions require one answers map covering all question IDs. Command/file approvals use result:{decision:\"accept\"|\"decline\"|\"cancel\"}. Permissions and MCP elicitation follow native schemas (codex_schema direction:server). Optional threadId verifies thread ownership. Refresh codex_pending if missing or expired. Desktop persistent callbacks are revalidated by the live owner across restarts. App-server callbacks bind backendSession. Read back after responding. Do not blindly replay unconfirmed responses. Handle canRespond:false in the native client. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3326,6 +3432,11 @@
             "type": "string",
             "minLength": 1,
             "description": "Optional thread assertion for token calls. Mismatches are rejected."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "$schema": "http://json-schema.org/draft-07/schema#",
@@ -3392,12 +3503,13 @@
       "guideParameters": [
         "respondToken",
         "result",
-        "threadId"
+        "threadId",
+        "device"
       ]
     },
     {
       "name": "codex_events",
-      "description": "Read native notifications by cursor. The memory window retains the latest 2000 events or 8 MiB. Read current state on gap/reset.",
+      "description": "Read native notifications by cursor. The memory window retains the latest 2000 events or 8 MiB. Read current state on gap/reset. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3415,6 +3527,11 @@
           },
           "backendSession": {
             "type": "string"
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "$schema": "http://json-schema.org/draft-07/schema#",
@@ -3499,10 +3616,16 @@
     },
     {
       "name": "agents",
-      "description": "Discover local non-Codex Agents, versions, and protocols. available does not prove authentication.",
+      "description": "Discover local non-Codex Agents, versions, and protocols. available does not prove authentication. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
-        "properties": {},
+        "properties": {
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
+          }
+        },
         "required": [],
         "additionalProperties": false,
         "$schema": "http://json-schema.org/draft-07/schema#"
@@ -3531,7 +3654,7 @@
     },
     {
       "name": "agent_capabilities",
-      "description": "Read non-Codex Agent capabilities. taskId returns negotiated capabilities.",
+      "description": "Read non-Codex Agent capabilities. taskId returns negotiated capabilities. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3546,6 +3669,11 @@
           "taskId": {
             "type": "string",
             "description": "taskId returned by Agent Remote Control."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -3580,7 +3708,7 @@
     },
     {
       "name": "agent_tasks",
-      "description": "List tasks. Antigravity/Pi/ACP lists only persistent tasks created by Agent Remote Control. Rows describe selected-turn outcomes and pending interactions, with unknown evidence labeled. view:digest returns {view,revision,counts,rows,omitted,coverage,next}, at most 8 KiB and 20 rows. Counts carry kind:exact|bounded|unknown for the authorized filtered snapshot. Actionable rows sort first, then stable opaque ID. Every row has a detail action for its full snapshot row. Optional row.read reads fresh owner detail and may be absent. Follow row.detail, next or omitted.full (control_output with UTF-16 offsets). Digest snapshots share the one-hour temporary output cache. A missing/expired cursor returns a restart action; evicted snapshots may require reapplying filters.",
+      "description": "List tasks. Antigravity/Pi/ACP lists only persistent tasks created by Agent Remote Control. Rows describe selected-turn outcomes and pending interactions, with unknown evidence labeled. view:digest returns {view,revision,counts,rows,omitted,coverage,next}, at most 8 KiB and 20 rows. Counts carry kind:exact|bounded|unknown for the authorized filtered snapshot. Actionable rows sort first, then stable opaque ID. Every row has a detail action for its full snapshot row. Optional row.read reads fresh owner detail and may be absent. Follow row.detail, next or omitted.full (control_output with UTF-16 offsets). Digest snapshots share the one-hour temporary output cache. A missing/expired cursor returns a restart action; evicted snapshots may require reapplying filters. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3613,6 +3741,11 @@
             "type": "string",
             "pattern": "^[0-9a-fA-F-]{36}:[0-9]+$",
             "description": "Opaque temporary snapshot cursor returned by digest actions. Replay the returned action unchanged. view:full reads one snapshot row. Expiry returns a restart action."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -3647,7 +3780,7 @@
     },
     {
       "name": "agent_create",
-      "description": "Create a persistent task and optionally send text. Returns taskId and a write receipt. See guide for orchestration. Model and options are confirmed before the prompt. Failed configuration prevents the prompt. The receipt returns sessionConfirmation. New-turn dispatch receipts include coordination:{association,conflicts,conflictCoverage,boardRevision,admissionBoardRevision,boardRead,observedAt,freshness}. Conflicts are advisory. Each conflict identifies its canonical resource, kind, age and boardRead action. freshness is admission or refreshed. Replays retain dispatch identity and refresh advisory data only.",
+      "description": "Create a persistent task and optionally send text. Returns taskId and a write receipt. See guide for orchestration. Model and options are confirmed before the prompt. Failed configuration prevents the prompt. The receipt returns sessionConfirmation. New-turn dispatch receipts include coordination:{association,conflicts,conflictCoverage,boardRevision,admissionBoardRevision,boardRead,observedAt,freshness}. Conflicts are advisory. Each conflict identifies its canonical resource, kind, age and boardRead action. freshness is admission or refreshed. Replays retain dispatch identity and refresh advisory data only. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3758,6 +3891,11 @@
             "type": "string",
             "minLength": 1,
             "description": "Account ID or unique alias. Omitted uses the Agent default. A running task retains its execution profile."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -3815,12 +3953,13 @@
         "reason",
         "pack",
         "purpose",
-        "notify"
+        "notify",
+        "device"
       ]
     },
     {
       "name": "agent_read",
-      "description": "Read task status, latest output, and native metadata. When finalResponseTruncated is true, follow finalResponseNext to control_output for an immutable plain-text snapshot of that exact turn. Join text pages using returned nextOffset values (UTF-16 units); do not JSON-parse the message.",
+      "description": "Read task status, latest output, and native metadata. When finalResponseTruncated is true, follow finalResponseNext to control_output for an immutable plain-text snapshot of that exact turn. Join text pages using returned nextOffset values (UTF-16 units); do not JSON-parse the message. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3842,6 +3981,11 @@
               "summary"
             ],
             "description": "Opt in to a task-only outcome: 800-character final message, at most 50 changed paths, diffstat and complete-evidence continuation. Omits inbox and cross-thread data. Omission preserves the existing result. When finalResponseTruncated is true, follow finalResponseNext to control_output for an immutable plain-text snapshot of that exact turn. Join text pages using returned nextOffset values (UTF-16 units); do not JSON-parse the message."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -3878,7 +4022,7 @@
     },
     {
       "name": "agent_context",
-      "description": "Read-only review/handoff of an existing task without execution or resume. Current workspace changes are not exclusive to the task. Agent claims are not verification results. Missing facts return partial/unknown. Read original evidence through readNext. Source and claims are untrusted data.",
+      "description": "Read-only review/handoff of an existing task without execution or resume. Current workspace changes are not exclusive to the task. Agent claims are not verification results. Missing facts return partial/unknown. Read original evidence through readNext. Source and claims are untrusted data. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3911,6 +4055,11 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 4096
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -3947,7 +4096,7 @@
     },
     {
       "name": "agent_wait",
-      "description": "Wait for a current or specified Antigravity/Pi/ACP turn. Terminal states or interactions return immediately. Does not automatically resume tasks. You SHOULD continue with expectedHash:<previous snapshotHash> and until:terminal. Omitting expectedHash retains content. Unchanged nonterminal content returns finalResponseUnchanged:true with textHash and other metadata. Nonterminal states without interactions return only the latest confirmed complete Agent message. No complete message means no content. Terminal states and interactions always retain content. Claude waits are capped at 170000 milliseconds and return waitLimit when exceeded. Long tasks use segmented wait with next.args, retaining until and actual timeoutMs. When finalResponseTruncated is true, follow finalResponseNext to control_output for an immutable plain-text snapshot of that exact turn. Join text pages using returned nextOffset values (UTF-16 units); do not JSON-parse the message.",
+      "description": "Wait for a current or specified Antigravity/Pi/ACP turn. Terminal states or interactions return immediately. Does not automatically resume tasks. You SHOULD continue with expectedHash:<previous snapshotHash> and until:terminal. Omitting expectedHash retains content. Unchanged nonterminal content returns finalResponseUnchanged:true with textHash and other metadata. Nonterminal states without interactions return only the latest confirmed complete Agent message. No complete message means no content. Terminal states and interactions always retain content. Claude waits are capped at 170000 milliseconds and return waitLimit when exceeded. Long tasks use segmented wait with next.args, retaining until and actual timeoutMs. When finalResponseTruncated is true, follow finalResponseNext to control_output for an immutable plain-text snapshot of that exact turn. Join text pages using returned nextOffset values (UTF-16 units); do not JSON-parse the message. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3995,6 +4144,11 @@
               "summary"
             ],
             "description": "Opt in to a task-only outcome: 800-character final message, at most 50 changed paths, diffstat and complete-evidence continuation. Omits inbox and cross-thread data. Omission preserves the existing result. When finalResponseTruncated is true, follow finalResponseNext to control_output for an immutable plain-text snapshot of that exact turn. Join text pages using returned nextOffset values (UTF-16 units); do not JSON-parse the message."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -4031,7 +4185,7 @@
     },
     {
       "name": "agent_send",
-      "description": "Continue a task. Confirmed stopped sessions resume according to negotiated capabilities. See guide for orchestration. Model and options are confirmed before the prompt. Failed configuration prevents the prompt. The receipt returns sessionConfirmation. New-turn dispatch receipts include coordination:{association,conflicts,conflictCoverage,boardRevision,admissionBoardRevision,boardRead,observedAt,freshness}. Conflicts are advisory. Each conflict identifies its canonical resource, kind, age and boardRead action. freshness is admission or refreshed. Replays retain dispatch identity and refresh advisory data only.",
+      "description": "Continue a task. Confirmed stopped sessions resume according to negotiated capabilities. See guide for orchestration. Model and options are confirmed before the prompt. Failed configuration prevents the prompt. The receipt returns sessionConfirmation. New-turn dispatch receipts include coordination:{association,conflicts,conflictCoverage,boardRevision,admissionBoardRevision,boardRead,observedAt,freshness}. Conflicts are advisory. Each conflict identifies its canonical resource, kind, age and boardRead action. freshness is admission or refreshed. Replays retain dispatch identity and refresh advisory data only. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -4128,6 +4282,11 @@
             "type": "string",
             "minLength": 1,
             "description": "Account ID or unique alias. Omitted uses the Agent default. A running task retains its execution profile."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -4172,12 +4331,13 @@
         "reason",
         "pack",
         "purpose",
-        "notify"
+        "notify",
+        "device"
       ]
     },
     {
       "name": "agent_review",
-      "description": "Review any existing confirmed terminal turn in a readable Agent task, including turns without ARC dispatch records. Omitted turnId selects the latest confirmed terminal turn. Stores reviewer provenance and dispatchOrigin (arc with dispatchRequestId, or external with available model/effort/serviceTier). The latest verdict replaces previous verdicts. Rework links the next turn in the same task.",
+      "description": "Review any existing confirmed terminal turn in a readable Agent task, including turns without ARC dispatch records. Omitted turnId selects the latest confirmed terminal turn. Stores reviewer provenance and dispatchOrigin (arc with dispatchRequestId, or external with available model/effort/serviceTier). The latest verdict replaces previous verdicts. Rework links the next turn in the same task. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -4207,7 +4367,15 @@
           },
           "foundBy": {
             "type": "string",
-            "enum": ["segment", "controller", "acceptance", "installed", "user", "automation", "unknown"],
+            "enum": [
+              "segment",
+              "controller",
+              "acceptance",
+              "installed",
+              "user",
+              "automation",
+              "unknown"
+            ],
             "description": "Gate that found the reported findings."
           },
           "defects": {
@@ -4236,6 +4404,11 @@
           "taskId": {
             "type": "string",
             "format": "uuid"
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -4280,12 +4453,13 @@
         "foundBy",
         "defects",
         "advisory",
-        "note"
+        "note",
+        "device"
       ]
     },
     {
       "name": "agent_archive",
-      "description": "Optionally archive an explicitly selected ended non-Codex Agent task with a durable receipt. Refuses active turns and pending interactions; use agent_interrupt or agent_respond first. Closes only the ARC-owned process and hides the task from listings and live observation. Retains readable task evidence, native upstream sessions and transcripts. No restore operation. Archival is optional. Read the task outcome and resolve active turns and interactions before cleanup.",
+      "description": "Optionally archive an explicitly selected ended non-Codex Agent task with a durable receipt. Refuses active turns and pending interactions; use agent_interrupt or agent_respond first. Closes only the ARC-owned process and hides the task from listings and live observation. Retains readable task evidence, native upstream sessions and transcripts. No restore operation. Archival is optional. Read the task outcome and resolve active turns and interactions before cleanup. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -4312,6 +4486,11 @@
             "minimum": 0,
             "maximum": 120000,
             "description": "Milliseconds to wait synchronously for the operation result. Default 25000. Timeout returns pending."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -4348,7 +4527,7 @@
     },
     {
       "name": "agent_interrupt",
-      "description": "Request cancellation of a non-Codex task. The request records intent; Pi abort acknowledgement also leaves the turn active until native settlement confirms interruption. Confirm terminal status with agent_wait.",
+      "description": "Request cancellation of a non-Codex task. The request records intent; Pi abort acknowledgement also leaves the turn active until native settlement confirms interruption. Confirm terminal status with agent_wait. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -4382,6 +4561,11 @@
             "minimum": 0,
             "maximum": 120000,
             "description": "Milliseconds to wait synchronously for the operation result. Default 25000. Timeout returns pending."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -4418,7 +4602,7 @@
     },
     {
       "name": "agent_events",
-      "description": "Read native Antigravity/Pi/ACP events. Continue the complete archive through control_output.",
+      "description": "Read native Antigravity/Pi/ACP events. Continue the complete archive through control_output. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -4445,6 +4629,11 @@
           },
           "backendSession": {
             "type": "string"
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -4481,7 +4670,7 @@
     },
     {
       "name": "agent_pending",
-      "description": "List pending permission requests or Pi extension interactions without automatic approval.",
+      "description": "List pending permission requests or Pi extension interactions without automatic approval. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -4496,6 +4685,11 @@
           "taskId": {
             "type": "string",
             "description": "taskId returned by Agent Remote Control."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -4532,7 +4726,7 @@
     },
     {
       "name": "agent_respond",
-      "description": "Respond to Pi/ACP pending requests. ACP uses optionId. Pi uses value/confirmed. cancelled is supported.",
+      "description": "Respond to Pi/ACP pending requests. ACP uses optionId. Pi uses value/confirmed. cancelled is supported. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -4579,6 +4773,11 @@
             "minimum": 0,
             "maximum": 120000,
             "description": "Milliseconds to wait synchronously for the operation result. Default 25000. Timeout returns pending."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -4765,7 +4964,7 @@
     },
     {
       "name": "codex_changes",
-      "description": "Query commits since the turn baseline, file statistics, and a paged file diff. Terminal events and reads persist file statistics and the commit range within a five-second budget, independently of dispatch source or notification bindings. Summary, review and changes reuse this evidence after lane removal. Active turns use live workspace evidence. Missing evidence returns null with a reason and correction hint, never an empty successful list. Committed patches use the saved range in the common repository; unavailable objects or uncommitted snapshot patches return diff:null with a correction hint. Git attribution may include other tasks and pre-existing dirty files. Completed notifications retain a compact snapshot with up to five commits; delivery retries reuse it.",
+      "description": "Query commits since the turn baseline, file statistics, and a paged file diff. Terminal events and reads persist file statistics and the commit range within a five-second budget, independently of dispatch source or notification bindings. Summary, review and changes reuse this evidence after lane removal. Active turns use live workspace evidence. Missing evidence returns null with a reason and correction hint, never an empty successful list. Committed patches use the saved range in the common repository; unavailable objects or uncommitted snapshot patches return diff:null with a correction hint. Git attribution may include other tasks and pre-existing dirty files. Completed notifications retain a compact snapshot with up to five commits; delivery retries reuse it. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -4797,6 +4996,11 @@
             "minimum": 1,
             "maximum": 65536,
             "default": 16000
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -4831,7 +5035,8 @@
         "path",
         "limit",
         "offset",
-        "length"
+        "length",
+        "device"
       ]
     },
     {
@@ -5740,7 +5945,7 @@
     },
     {
       "name": "codex_queue",
-      "description": "Inspect the current source's persistent send queue. Returns status, summary, queueId, and submission results in FIFO position order. Filter by thread or queue item. The queue persists across restarts with per-thread FIFO order. Active turns and pending interactions keep it waiting. Confirmed failed/interrupted turns pause subsequent messages. Owner-loss or conflicting terminal evidence keeps admission unconfirmed. Capacity recovery takes precedence. Successful recovery resumes the queue. Native writes are revalidated serially. Thread advancement or uncertain submission leaves failed entries without automatic resend or steering. Read the corresponding receipt first.",
+      "description": "Inspect the current source's persistent send queue. Returns status, summary, queueId, and submission results in FIFO position order. Filter by thread or queue item. The queue persists across restarts with per-thread FIFO order. Active turns and pending interactions keep it waiting. Confirmed failed/interrupted turns pause subsequent messages. Owner-loss or conflicting terminal evidence keeps admission unconfirmed. Capacity recovery takes precedence. Successful recovery resumes the queue. Native writes are revalidated serially. Thread advancement or uncertain submission leaves failed entries without automatic resend or steering. Read the corresponding receipt first. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -5751,6 +5956,11 @@
           "queueId": {
             "type": "string",
             "format": "uuid"
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "additionalProperties": false
@@ -5777,12 +5987,13 @@
       "example": {},
       "guideParameters": [
         "threadId",
-        "queueId"
+        "queueId",
+        "device"
       ]
     },
     {
       "name": "codex_queue_control",
-      "description": "Cancel or resume undispatched messages in the current source. Omitted queueId applies to all queued/blocked items. Promote requires one queueId and injects that message into the current active turn once; it never starts a new turn. Local CLI and panel can also cancel legacy records missing source attribution. Inspect state with codex_queue; never replay an uncertain submission.",
+      "description": "Cancel or resume undispatched messages in the current source. Omitted queueId applies to all queued/blocked items. Promote requires one queueId and injects that message into the current active turn once; it never starts a new turn. Local CLI and panel can also cancel legacy records missing source attribution. Inspect state with codex_queue; never replay an uncertain submission. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -5800,6 +6011,11 @@
               "resume",
               "promote"
             ]
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -5834,7 +6050,8 @@
       "guideParameters": [
         "threadId",
         "action",
-        "queueId"
+        "queueId",
+        "device"
       ]
     },
     {
@@ -6556,7 +6773,7 @@
     },
     {
       "name": "codex_interactions",
-      "description": "Read answered ARC interactions as flat question, options, answer, and source records. No timeline expansion required. Most recent first; use nextOffset for history.",
+      "description": "Read answered ARC interactions as flat question, options, answer, and source records. No timeline expansion required. Most recent first; use nextOffset for history. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -6573,6 +6790,11 @@
             "minimum": 1,
             "maximum": 100,
             "default": 20
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -6606,7 +6828,7 @@
     },
     {
       "name": "codex_archive",
-      "description": "Optionally archive an explicitly selected ended native thread, including ARC-created and self-test threads, using native thread/archive with a durable receipt. Keeping self-test traces for observation is supported. Active or externally held threads return ARCHIVE_ACTIVE_TURN or ARCHIVE_WRITER_BUSY with recovery guidance. Never deletes writer locks or interrupts another session. Archival is optional. Read the task outcome and resolve active turns and interactions before cleanup.",
+      "description": "Optionally archive an explicitly selected ended native thread, including ARC-created and self-test threads, using native thread/archive with a durable receipt. Keeping self-test traces for observation is supported. Active or externally held threads return ARCHIVE_ACTIVE_TURN or ARCHIVE_WRITER_BUSY with recovery guidance. Never deletes writer locks or interrupts another session. Archival is optional. Read the task outcome and resolve active turns and interactions before cleanup. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -6630,6 +6852,11 @@
             "type": "boolean",
             "default": false,
             "description": "No-op when the writer is unheld or ARC owns an idle session; native archive handles that writer atomically. Otherwise require a confirmed safe per-thread release. Desktop/external writers retain their exact owner handoff step."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -6664,13 +6891,18 @@
     },
     {
       "name": "codex_owner",
-      "description": "Probe the native writer without loading a thread. Reports held/unheld/unknown and connector/desktop/external ownership; unheld is a point-in-time observation, not permission to bypass native checks. Includes observed handoff history; Desktop Resume after connector shutdown is a supported handoff.",
+      "description": "Probe the native writer without loading a thread. Reports held/unheld/unknown and connector/desktop/external ownership; unheld is a point-in-time observation, not permission to bypass native checks. Includes observed handoff history; Desktop Resume after connector shutdown is a supported handoff. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "threadId": {
             "type": "string",
             "format": "uuid"
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "$schema": "http://json-schema.org/draft-07/schema#",
@@ -6703,7 +6935,7 @@
     },
     {
       "name": "codex_release",
-      "description": "Release an idle ARC connector-owned thread with no pending interactions through native unsubscribe and confirm its writer lock is unheld. Native rejection or incomplete cleanup returns a specific writer release error and a codex_owner continuation. Desktop/external owners return app/process evidence and exact manual handoff instructions; no process is killed.",
+      "description": "Release an idle ARC connector-owned thread with no pending interactions through native unsubscribe and confirm its writer lock is unheld. Native rejection or incomplete cleanup returns a specific writer release error and a codex_owner continuation. Desktop/external owners return app/process evidence and exact manual handoff instructions; no process is killed. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -6722,6 +6954,11 @@
             "minimum": 0,
             "maximum": 120000,
             "description": "Milliseconds to wait synchronously for the operation result. Default 25000. Timeout returns pending."
+          },
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
           }
         },
         "required": [
@@ -9637,7 +9874,7 @@
         "taskSupport": "forbidden"
       },
       "name": "device",
-      "description": "Forward a member read through query device or a member write through act device using {device,op,args}. Select a device ID or unique name from devices. Member results are returned unchanged. Use op:guide to discover member contracts. Honor the inner op tool, including act for receipt reads. LAN is preferred; existing public HTTPS ingress is fallback. HTTPS uses 1 MiB request and 4 MiB response caps, 25-second deadlines and wait segments of at most 15000 ms. A sent request never changes path. A sent write is never resent. On uncertain outcome retain requestId and use the forwarded receipt read in next.",
+      "description": "Forward a member read through query device or a member write through act device using {device,op,args}. Select a device ID or unique name from devices. Member results retain their payload; returned action addresses are qualified with the member device. Use op:guide to discover member contracts. Honor the inner op tool, including act for receipt reads. LAN is preferred; existing public HTTPS ingress is fallback. HTTPS uses 1 MiB request and 4 MiB response caps, 25-second deadlines and wait segments of at most 15000 ms. A sent request never changes path. A sent write is never resent. On uncertain outcome retain requestId and use the forwarded receipt read in next. Address Agent ops with args.agent for non-Codex Agents; codex_* ops select Codex. Pass the optional account in inner args. Unknown/unpaired devices and unexposed Agents return recovery guidance. Task lists, details and receipts exclude other controllers and member-local sources. Raw native task enumeration is unavailable to peers; use codex_tasks, agent_tasks and task_activity. Pairing rejects cycles.",
       "tools": [
         "query",
         "act"
@@ -9819,6 +10056,44 @@
           "path": "/workspace/output.bin"
         }
       }
+    },
+    {
+      "name": "task_activity",
+      "description": "Read bounded active Agent sessions, availableAgents inventory, and up to 200 dispatch records with omittedRecords. On a member, only sessions and records dispatched by the authenticated controller are returned. Native runtimes own sessions and history. Use device to select one directly paired member. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "device": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Directly paired member ID or unique name from query devices. Omit for local execution. Agent and optional account are resolved on that member. Received peer requests cannot forward again."
+          }
+        },
+        "required": [],
+        "additionalProperties": false,
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "result": {}
+        },
+        "required": [
+          "result"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "example": {}
     }
   ],
   "domains": {
@@ -11510,13 +11785,27 @@
         "conditional": false
       },
       "devices": {
-        "presets": []
+        "presets": [
+          "profile-device"
+        ]
       },
       "device": {
-        "presets": []
+        "presets": [
+          "profile-device"
+        ]
       },
       "device_transfer": {
         "presets": []
+      },
+      "task_activity": {
+        "group": "agents",
+        "tier": "advanced",
+        "conditional": false,
+        "presets": [
+          "profile-device",
+          "readOnly"
+        ],
+        "requires": []
       }
     }
   },
@@ -11535,7 +11824,8 @@
       "profile-src": "You SHOULD use src_conversations to inspect source-account conversation bindings.\nYou MUST read the selected op schema before importing login state or changing a binding.\nConversation visibility does not establish notification reachability.",
       "profile-context": "You SHOULD use context_resolve for configured project context.\nYou MUST retain upstream evidence and source attribution.\nYou SHOULD use context_search and context_read for details.",
       "profile-review": "You MUST inspect the completed turn and validation evidence before recording a verdict.\nYou MAY use view:summary for a bounded outcome and follow completeEvidence for the full result.\nYou SHOULD dispatch a separate task for cross-model assessment.\nReview ops record pass or rework rather than launch that assessment.\nWhen finalResponseTruncated is true, you SHOULD follow finalResponseNext for the complete selected-turn message as plain text.\nYou MUST continue control_output with its returned nextOffset until null.\nYou MUST NOT JSON-parse plain-text message pages.\nWhen the turn used a pack, check its review checklist from the review or summary read.\nYou MUST review rendered images and screenshots with read, using maxEdge to bound image dimensions.\nYou MUST NOT review images through command text output.\n",
-      "profile-approvals": "You MUST read the task-specific pending interaction before responding.\nYou MUST retain the interaction identifiers from that read.\nYou MUST NOT replay an uncertain response blindly."
+      "profile-approvals": "You MUST read the task-specific pending interaction before responding.\nYou MUST retain the interaction identifiers from that read.\nYou MUST NOT replay an uncertain response blindly.",
+      "profile-device": "You MUST address remote execution by one directly paired device and Agent. Use an Agent op with args.device, or query/act device with {device,op,args}. codex_* selects Codex. Non-Codex Agent ops require args.agent. Optional account is resolved on the member. You SHOULD read query devices with all:true and the member guide before dispatch. Pairing MUST reject self-links and ancestor/descendant cycles before approval. A member MAY control further members. Received business requests MUST NOT forward again. A controller MUST see only tasks it dispatched to the member. Task lists, details, activity and receipts enforce that boundary. Raw native task enumeration is unavailable to peers. The member MUST attribute dispatched tasks to the controller device source. showUpstreamSources is a member-local device.configure boolean, off by default. It affects optional source presentation only. You MUST retain sent write request IDs and read their member receipts after uncertain outcomes. You MUST NOT resend a sent write."
     }
   },
   "tools": [

@@ -634,6 +634,13 @@ impl AgentHost {
             Vec::new()
         };
         for (agent_id, agent) in agents.iter_mut() {
+            for session in agent["sessions"].as_array_mut().into_iter().flatten() {
+                let origin =
+                    crate::sources::task_origin(string(session, "id"), session["turnId"].as_str());
+                if origin.is_object() {
+                    session["origin"] = origin;
+                }
+            }
             if agent_id == "codex" {
                 for session in agent["sessions"].as_array_mut().into_iter().flatten() {
                     if let Some(name) = crate::projects::display_name(
@@ -646,7 +653,9 @@ impl AgentHost {
                     if let Some(record) = recorded.iter().find(|r| {
                         r["threadId"] == session["id"] || r["task"]["threadId"] == session["id"]
                     }) {
-                        session["origin"] = record["origin"].clone();
+                        if !session["origin"].is_object() {
+                            session["origin"] = record["origin"].clone();
+                        }
                         session["agentAccountId"] = record["agentAccountId"].clone();
                     }
                 }
@@ -992,7 +1001,16 @@ impl AgentHost {
                 if path.extension().is_some_and(|e| e == "json") {
                     let result: Result<Option<Value>> = async {
                         let t = load(&path)?;
-                        if t["agent"] == agent && t["archived"] != true {
+                        if t["agent"] == agent
+                            && t["archived"] != true
+                            && crate::device_link::visibility::peer_device().is_none_or(|source| {
+                                crate::device_link::visibility::visible(
+                                    agent,
+                                    string(&t, "taskId"),
+                                    &source,
+                                )
+                            })
+                        {
                             Ok(Some(self.task(agent, string(&t, "taskId")).await?))
                         } else {
                             Ok(None)

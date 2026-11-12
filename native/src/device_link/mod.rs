@@ -2,12 +2,14 @@
 mod addresses;
 mod client;
 mod connections;
+mod topology;
 pub(crate) mod transfer;
 mod tunnel;
 #[cfg(test)]
 mod tunnel_fixture;
 #[cfg(test)]
 mod tunnel_tests;
+pub(crate) mod visibility;
 use addresses::{lan_interfaces, lan_sockets};
 pub(crate) mod controller;
 #[cfg(test)]
@@ -127,6 +129,10 @@ struct Stored {
     name: Option<String>,
     controller: Option<Peer>,
     members: BTreeMap<String, Peer>,
+    #[serde(default)]
+    show_upstream_sources: bool,
+    #[serde(default)]
+    upstream_sources: BTreeMap<String, Value>,
 }
 impl Default for Stored {
     fn default() -> Self {
@@ -136,6 +142,8 @@ impl Default for Stored {
             name: None,
             controller: None,
             members: BTreeMap::new(),
+            show_upstream_sources: false,
+            upstream_sources: BTreeMap::new(),
         }
     }
 }
@@ -309,6 +317,7 @@ impl Manager {
                 {
                     state.stored.controller = None;
                     state.stored.members.clear();
+                    state.stored.upstream_sources.clear();
                 }
                 state.stored.identity_id = Some(identity.id.clone());
                 state.identity = Some(identity);
@@ -381,7 +390,7 @@ impl Manager {
                     |expires: Instant| expires.saturating_duration_since(Instant::now()).as_secs();
                 Ok(json!({
                     "deviceId":identity.id,"name":state.stored.name.as_deref().unwrap_or("ARC device"),
-                    "controller":state.stored.controller.as_ref().map(peer),
+                    "controller":state.stored.controller.as_ref().map(|p| { let mut row = peer(p); row["showUpstreamSources"] = json!(state.stored.show_upstream_sources); row["upstreamSources"] = json!(if state.stored.show_upstream_sources {state.stored.upstream_sources.values().cloned().collect::<Vec<_>>()} else {vec![]}); row }),
                     "members":state.stored.members.values().map(peer).collect::<Vec<_>>(),
                     "offerExpiresInSeconds":state.offer.as_ref().map(|(_,expires)|remaining(*expires)),
                     "pending":state.pending.as_ref().filter(|p|p.expires > Instant::now() && !p.decision.is_closed()).map(|p|json!({"deviceId":p.peer.device_id,"name":p.peer.name,"expiresInSeconds":remaining(p.expires)}))
@@ -449,6 +458,14 @@ impl Manager {
             }
             "revoke" => self.revoke(string(&body, "deviceId")).await,
             "configure" => {
+                let show_upstream_sources = body
+                    .get("showUpstreamSources")
+                    .map(|value| {
+                        value
+                            .as_bool()
+                            .ok_or("INVALID_ARGUMENT: showUpstreamSources must be a boolean")
+                    })
+                    .transpose()?;
                 let port = body
                     .get("port")
                     .map(|port| {
@@ -473,6 +490,9 @@ impl Manager {
                     .transpose()?;
                 {
                     let mut state = self.state.lock().unwrap();
+                    if let Some(show) = show_upstream_sources {
+                        state.stored.show_upstream_sources = show;
+                    }
                     if let Some(port) = port {
                         state.stored.port = port;
                     }
@@ -483,7 +503,9 @@ impl Manager {
                 }
                 self.reconcile(enabled()).await?;
                 let port = self.state.lock().unwrap().stored.port;
-                Ok(json!({"deviceId":self.identity()?.id,"port":port,"name":self.name()?}))
+                Ok(
+                    json!({"deviceId":self.identity()?.id,"port":port,"name":self.name()?,"showUpstreamSources":self.state.lock().unwrap().stored.show_upstream_sources}),
+                )
             }
             _ => Err("UNKNOWN_OPERATION: Read cli guide for Device link commands.".into()),
         }
@@ -533,6 +555,7 @@ impl Manager {
         )
     }
     async fn prove(&self, id: &str, public_key: &str, body: &Value) -> Result<Value> {
+        self.reject_cycle(id).await?;
         let (tx, rx) = tokio::sync::oneshot::channel();
         let expires = {
             let mut state = self.state.lock().unwrap();
@@ -626,6 +649,10 @@ impl Manager {
             )));
             return Ok(json!({"declined":true,"deviceId":pending.peer.device_id}));
         }
+        if let Err(error) = self.reject_cycle(&pending.peer.device_id).await {
+            let _ = pending.decision.send(Err(error.clone()));
+            return Err(error);
+        }
         let identity = self.identity()?;
         // Core owns the source store; front-door pairing never writes it directly.
         crate::front_door::process::authority("peer_connect", json!({"deviceId":pending.peer.device_id,"publicKey":pending.peer.public_key,"name":pending.peer.name})).await?;
@@ -664,6 +691,7 @@ impl Manager {
                 .is_some_and(|p| p.device_id == id);
             if controller {
                 state.stored.controller = None;
+                state.stored.upstream_sources.clear();
             } else if state.stored.members.remove(id).is_none() {
                 return Err(error(
                     "DEVICE_UNPAIRED",
@@ -699,12 +727,13 @@ pub fn operations() -> Vec<Value> {
     if !enabled() {
         return vec![];
     }
-    ["snapshot","offer","pending","approve","decline","pair","cancel-pair","revoke","configure","address"].into_iter().map(|action| {
+    ["snapshot","offer","pending","approve","decline","pair","cancel-pair","revoke","configure","address","tasks"].into_iter().map(|action| {
         let (properties, required) = match action {
             "pair" => (json!({"pairingString":{"type":"string","maxLength":16384}}),json!(["pairingString"])),
+            "tasks" => (json!({"device":{"type":"string","minLength":1}}),json!(["device"])),
             "address" => (json!({"device":{"type":"string","minLength":1},"address":{"type":["string","null"]}}),json!(["device","address"])),
             "revoke" => (json!({"deviceId":{"type":"string","pattern":"^[a-f0-9]{64}$"}}),json!(["deviceId"])),
-            "configure" => (json!({"port":{"type":"integer","minimum":1,"maximum":65535},"name":{"type":"string","minLength":1,"maxLength":120}}),json!([])),
+            "configure" => (json!({"showUpstreamSources":{"type":"boolean","default":false},"port":{"type":"integer","minimum":1,"maximum":65535},"name":{"type":"string","minLength":1,"maxLength":120}}),json!([])),
             _ => (json!({}),json!([])),
         };
         json!({"name":format!("device.{action}"),"method":"POST","route":format!("device/{action}"),"localOnly":true,"description":format!("Device link local {action}. Read cli guide for pairing and transport contracts."),

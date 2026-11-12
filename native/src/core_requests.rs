@@ -146,6 +146,14 @@ async fn peer_control(service: &Arc<Service>, device: &str, body: Value) -> Resu
     crate::kernel::origin::ORIGIN.scope(origin, async {
         let source=ControlSource::Peer(&service.execution);
         let op=string(&request.body,"op");
+        if let Err(error) = crate::device_link::visibility::authorize(op, &request.body["args"], string(&crate::kernel::origin::current_origin(),"deviceId"), &service.control.session) { return Ok(crate::egress::tool(json!({"error":crate::egress::failure(&error)}),true)); }
+        let agent = if op.starts_with("codex_") { "codex" } else { string(&request.body["args"],"agent") };
+        if !agent.is_empty() {
+            let inventory = service.agents.ui_inventory(false).await;
+            if !inventory["agents"].as_array().is_some_and(|rows| rows.iter().any(|row| row["agent"] == agent && row["enabled"] == true && row["available"] == true)) {
+                return Ok(crate::egress::tool(json!({"error":{"code":"DEVICE_AGENT_UNAVAILABLE","message":"This member does not expose the requested Agent. Query agents or codex_capabilities on this member and choose an enabled available Agent; query guide with topic:device.","next":{"via":"query","op":"guide","args":{"topic":"device"}}}}),true));
+            }
+        }
         let spec=catalog()["ops"].as_array().unwrap().iter().find(|spec|spec["name"]==op);
         let generic=request.tool=="act" && op!="receipt" && spec.is_some_and(|spec|spec["annotations"]["readOnlyHint"]!=true && crate::egress::retry_contract(spec)["mode"]!="receipt");
         if !generic {return call_tool(&source,&request.tool,request.body,None).await;}
@@ -192,7 +200,7 @@ async fn call_tool(
     envelope: Value,
     rpc_id: Option<&Value>,
 ) -> Result<Value> {
-    let forwarded = envelope["op"] == "device";
+    let forwarded = envelope["op"] == "device" || envelope["args"]["device"].is_string();
     let metric = crate::control_metrics::Call::new(&s.origin().await, tool, &envelope);
     let mut response = call_tool_inner(s, tool, envelope, rpc_id).await;
     if rpc_id.is_some() && !forwarded {
@@ -220,7 +228,34 @@ async fn call_tool_inner(
     } else {
         envelope["args"].clone()
     };
-    if name == "device" {
+    if name != "device" && args["device"].is_string() {
+        if matches!(s, ControlSource::Peer(_)) {
+            return Err("DEVICE_PEER_FORBIDDEN: Received requests cannot address another device; query guide with topic:device.".into());
+        }
+        let spec = catalog()["ops"].as_array().unwrap().iter().find(|op| {
+            op["name"] == name && op["inputSchema"]["properties"].get("device").is_some()
+        });
+        if let Some(spec) = spec {
+            crate::egress::validate_op(spec, &args)?;
+            if let ControlSource::Ingress(ingress) = s {
+                if !crate::kernel::policy::allows(&ingress.meta.lock().await["toolPolicy"], name) {
+                    return Err(
+                        "OP_UNAVAILABLE: Read query guide for enabled device-addressable ops."
+                            .into(),
+                    );
+                }
+            }
+            if tool != crate::egress::via(spec) {
+                return Err(format!(
+                    "WRONG_TOOL: Use {} for {name}.",
+                    crate::egress::via(spec)
+                ));
+            }
+            let device = args.as_object_mut().unwrap().remove("device").unwrap();
+            args = json!({"device":device,"op":name,"args":args});
+        }
+    }
+    if name == "device" || args["device"].is_string() && args["op"].is_string() {
         let forward = async {
             if !s.connected() || !s.allows("device").await {
                 return Err(crate::device_link::unavailable());

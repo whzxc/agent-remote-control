@@ -29,7 +29,8 @@ impl PeerRequest {
             ));
         }
         let op = string(&self.body, "op");
-        if forbidden(op)
+        if self.body["args"].get("device").is_some()
+            || forbidden(op)
             || self.body["op"] == "guide" && forbidden(string(&self.body["args"], "op"))
         {
             return Err(error("DEVICE_PEER_FORBIDDEN", "Peer-origin Device link and local management calls are unavailable; read query guide."));
@@ -322,7 +323,10 @@ impl Manager {
         if request.method() != hyper::Method::POST
             || !matches!(
                 path.as_str(),
-                "/arc-peer/3/pair" | "/arc-peer/3/request" | "/arc-peer/3/hello"
+                "/arc-peer/3/pair"
+                    | "/arc-peer/3/request"
+                    | "/arc-peer/3/hello"
+                    | "/arc-peer/3/topology"
             )
         {
             return Err(error(
@@ -351,6 +355,14 @@ impl Manager {
                 "Use peer protocol version 3; read cli guide.",
             ));
         }
+        if path.ends_with("/topology") {
+            self.controller(id)?;
+            let visited: Vec<String> = serde_json::from_value(body["visited"].clone())
+                .map_err(|_| "INVALID_ARGUMENT: topology requires visited device IDs")?;
+            return Ok(
+                json!({"contains": self.contains_descendant(string(&body,"deviceId"), visited).await?}),
+            );
+        }
         if path.ends_with("/hello") {
             return self.hello().await;
         }
@@ -369,6 +381,23 @@ impl Manager {
         let request: PeerRequest = serde_json::from_value(body)
             .map_err(|_| "INVALID_ARGUMENT: expected {version,tool,body,origin}")?;
         request.validate()?;
+        if let Some(source) = request.origin["sourceId"]
+            .as_str()
+            .filter(|id| !id.is_empty())
+        {
+            let mut state = self.state.lock().unwrap();
+            let reference = json!({"sourceId": source,"sourceLabel":request.origin["sourceLabel"],"controlSource":request.origin["controlSource"]});
+            if state.stored.upstream_sources.get(source) != Some(&reference)
+                && (state.stored.upstream_sources.len() < 128
+                    || state.stored.upstream_sources.contains_key(source))
+            {
+                state
+                    .stored
+                    .upstream_sources
+                    .insert(source.into(), reference);
+                self.persist(&state)?;
+            }
+        }
         #[cfg(test)]
         let request_id = request.body["requestId"].as_str().map(str::to_owned);
         let result = crate::front_door::process::call(
@@ -407,7 +436,7 @@ impl Manager {
         {
             return Err(error(
                 "DEVICE_PEER_FORBIDDEN",
-                "A member cannot pair its controller as a member. Read cli guide.",
+                "Pairing would create a controller/member cycle. Revoke the ancestor relationship locally; query guide with topic:device.",
             ));
         }
         let mut closed = self.closed.subscribe();

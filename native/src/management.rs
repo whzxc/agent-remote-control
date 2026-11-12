@@ -281,6 +281,10 @@ pub fn error_code(message: &str) -> &str {
     for code in [
         "DEVICE_OFFLINE",
         "DEVICE_UNKNOWN",
+        "DEVICE_PAIRING_CYCLE",
+        "DEVICE_TOPOLOGY_UNAVAILABLE",
+        "DEVICE_AGENT_UNAVAILABLE",
+        "DEVICE_TASK_NOT_VISIBLE",
         "DEVICE_CONNECTION_REFUSED",
         "DEVICE_RESPONSE_LOST",
         "DEVICE_OUTCOME_UNCERTAIN",

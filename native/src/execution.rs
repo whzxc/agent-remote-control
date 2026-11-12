@@ -102,6 +102,28 @@ impl Execution {
             crate::egress::validate_op(spec, &args)?;
             return self.devices.transfer(args).await;
         }
+        if name == "task_activity" {
+            let mut activity = self.agents.activity(&self.control).await;
+            let inventory = self.agents.ui_inventory(false).await;
+            activity["availableAgents"] = inventory["agents"].clone();
+            let codex = self.control.task_display_records().await?;
+            let agents = self.agents.task_records()?;
+            let source = crate::device_link::visibility::peer_device();
+            let mut records = crate::task_overview::list_records(&codex, &agents, &self.agents);
+            records.retain(|record| {
+                source.as_ref().is_none_or(|source| {
+                    crate::device_link::visibility::owns(&record["origin"], source)
+                })
+            });
+            let omitted = records.len().saturating_sub(200);
+            records.truncate(200);
+            activity["records"] = json!(records);
+            activity["omittedRecords"] = json!(omitted);
+            if let Some(source) = crate::device_link::visibility::peer_device() {
+                crate::device_link::visibility::filter_activity(&mut activity, &source);
+            }
+            return Ok(activity);
+        }
         if name == "devices" {
             return Ok(self.devices.list(args["all"] == true).await);
         }

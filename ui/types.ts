@@ -61,7 +61,7 @@ export interface CoreSnapshot {
 
 export type AgentPhase = "thinking" | "command" | "file" | "tool" | "text" | "interaction" | "idle";
 export interface DispatchSummary {
-  controlSource?: { id?: string; accountId?: string; label?: string; kind?: string };
+  controlSource?: { id?: string; accountId?: string; label?: string; kind?: string; deviceId?: string };
   agentAccountId?: string;
   model?: string;
   effort?: string;
@@ -88,7 +88,7 @@ export interface AgentActivitySession {
   turnCount?: number;
   projectName?: string | null;
   dispatchSummary?: DispatchSummary;
-  origin?: { ingressId?: string; sourceId?: string; accountId?: string; controlSource?: string };
+  origin?: { ingressId?: string; sourceId?: string; accountId?: string; controlSource?: string; deviceId?: string; sourceLabel?: string; authType?: string; peerOrigin?: { sourceId?: string; sourceLabel?: string; controlSource?: string } };
   agentAccountId?: string | null;
   id: string;
   source: "arc-task" | "codex-thread" | "transcript";

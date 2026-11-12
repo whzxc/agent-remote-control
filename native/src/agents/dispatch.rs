@@ -37,7 +37,13 @@ impl AgentHost {
                         }
                     };
                     let agent = string(&task, "agent");
-                    if filter.is_some_and(|id| id != agent)
+                    if crate::device_link::visibility::peer_device().is_some_and(|source| {
+                        !crate::device_link::visibility::visible(
+                            agent,
+                            string(&task, "taskId"),
+                            &source,
+                        )
+                    }) || filter.is_some_and(|id| id != agent)
                         || !task["metadata"].as_object().is_some_and(|m| !m.is_empty())
                     {
                         continue;

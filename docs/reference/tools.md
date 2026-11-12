@@ -130,6 +130,7 @@ common guide remains compact. The three frozen MCP tool envelopes are unchanged.
 | `query devices` | `{all?:boolean}` | Online paired members by default; `all:true` includes offline members |
 | `query device` | `{device,op,args}` | Member read result, including `op:"guide"` |
 | `act device` | `{device,op,args}` with optional outer `requestId` | Member write result |
+| `query task_activity` | `{device?:string}` | Bounded active sessions; peer reads include only controller-dispatched sessions |
 | `act device_transfer` | `{from:{device?,path},to:{device?,path},expectedSha256?,overwrite?}` with optional outer `requestId` | One file-transfer receipt |
 
 `device` accepts a device ID or a unique paired name. A member row contains `id`,
@@ -148,14 +149,34 @@ online state. `dispatch_policy.devices` uses the same default online scope.
 {"op":"device","args":{"device":"<device-id>","op":"guide","args":{"view":"full"}}}
 ```
 
+
+Agent operations also accept `args.device` directly. Use `codex_*` for Codex, or
+`agent_*` with `agent` for another exposed Agent. The optional `account` belongs to
+the selected member. Local Agent installation is not required on the controller.
+The MCP tool envelopes and notification subscription shape remain unchanged.
+
+```json
+{"op":"codex_create","args":{"device":"<device-id>","prompt":"Implement the requested change","account":"<member-account>"}}
+{"op":"agent_create","args":{"device":"<device-id>","agent":"pi","cwd":"/workspace","prompt":"Inspect the project"}}
+{"op":"task_activity","args":{"device":"<device-id>"}}
+```
+
+`query guide {topic:"device"}` describes device addressing and visibility.
+Raw native task enumeration (`codex_thread`, `codex_query`, `codex_call`,
+`codex_events`) is unavailable to peer callers; use `codex_tasks`, `agent_tasks`
+and `task_activity`. Peer `codex_pending` and `codex_respond` require `threadId`.
+On the member, `origin.deviceId` and `dispatchSummary.controlSource.deviceId`
+identify the controller device. `origin.peerOrigin` is optional upstream source
+metadata and never changes task attribution or authority.
+
 Use the inner op's assigned tool. `receipt` uses `act`, including a receipt read:
 
 ```json
 {"op":"device","args":{"device":"<device-id>","op":"receipt","args":{"requestId":"<original-uuid>","action":"read"}}}
 ```
 
-The controller returns the member's complete tool result without adding its own
-projection or ARC version. Concurrent calls use HTTP/2 streams over a persistent
+The controller preserves the member result and qualifies returned action addresses
+with the member device so continuations remain remote. Concurrent calls use HTTP/2 streams over a persistent
 business connection; heartbeat has a separate persistent connection. At most 64
 business requests run per member. Op wait/timeout arguments set request deadlines;
 a long member wait does not block another read or heartbeat. HTTPS fallback uses the member's existing public ingress, including a relay link
@@ -178,14 +199,13 @@ resending. Argument changes under the same ID return `REQUEST_ID_CONFLICT`.
 Receipt approval/rejection continues to address the original member receipt.
 
 The controller stores at most 4096 task/source associations for event routing.
-These records do not authorize task or receipt access; unknown or evicted
-associations do not prevent forwarding. The member applies its existing
-non-local source rules, including to tasks created outside forwarding. Receipt
-reads have no additional originating-source restriction, matching local receipt
-reads. Write replay still checks request identity and arguments. A later receipt
-read associates a task with the original submitting source while its forward
-record is retained, regardless of who reads the receipt. An expired forward
-record does not attribute the task to the reader. Agent sessions and histories
+Member task visibility follows the existing dispatch/receipt associations of the
+authenticated controller device recorded in peer origins. Lists, activity, task details, mutations and receipt reads
+exclude member-local work and work dispatched by other controllers. An evicted
+controller event-routing association does not change member ownership. A later
+receipt read associates a task with the original submitting source while its forward
+record is retained, regardless of which upstream source on that controller reads it.
+An expired forward record does not attribute the task to the reader. Agent sessions and histories
 remain in the member's native stores.
 
 Each online member has one ordinary-request long poll, independent of task count.
@@ -216,6 +236,11 @@ semantics.
 | Error | Action |
 | --- | --- |
 | `DEVICE_OFFLINE` | Request was not transmitted. Query `devices` and wait for the member to return. |
+| `DEVICE_AGENT_UNAVAILABLE` | Query the member guide and Agent inventory; choose an enabled available Agent on that device. |
+| `DEVICE_TASK_NOT_VISIBLE` | List tasks dispatched by this controller on the member. |
+| `DEVICE_UNPAIRED` | Pair and approve a direct member locally; an upstream controller is not an execution target. |
+| `DEVICE_PAIRING_CYCLE` | Remove the ancestor relationship locally before pairing. |
+| `DEVICE_TOPOLOGY_UNAVAILABLE` | Restore LAN reachability across the member chain or upgrade its device-tier support, then retry pairing. |
 | `DEVICE_UNKNOWN` | Query `devices` with `all:true`; use an ID or a unique name. |
 | `DEVICE_PROTOCOL_MISMATCH` | Read the `device` guide and install matching peer protocol versions. ARC versions may differ when the peer protocol matches. |
 | `DEVICE_OUTCOME_UNCERTAIN` | Retain `error.requestId` and follow `next`, an `act device` member receipt read. Never resend the write. |

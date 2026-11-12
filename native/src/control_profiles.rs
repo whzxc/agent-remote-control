@@ -101,6 +101,7 @@ pub(crate) fn render(
         "notify" => "profile-notify",
         "coordination" => "profile-coordination",
         "src" => "profile-src",
+        "device" => "profile-device",
         "context" => "profile-context",
         "review" => "profile-review",
         "approvals" => "profile-approvals",

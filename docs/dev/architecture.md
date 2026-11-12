@@ -68,8 +68,13 @@ proof consumes the secret and waits for member-local approve or decline until
 the original expiry. Approval creates one source with `credential.type:peer` in
 `sources.rs`, stores the controller public key on the member, and returns the
 member public key, label and addresses for the controller's local record. A member
-has one controller. The listener rejects members attempting to control their
-controller. Local revocation deletes the local pin and cancels peer connections
+has one controller. Pairing rejects self-links, reciprocal links and
+ancestor/descendant cycles before
+local approval. Pinned `/arc-peer/3/topology` metadata probes traverse existing
+member relationships for the candidate controller ID. Unreachable or unsupported
+chain members prevent new pairings with `DEVICE_TOPOLOGY_UNAVAILABLE`. These probes
+carry no Agent operations or task data. Business forwarding remains one hop.
+Local revocation deletes the local pin and cancels peer connections
 before waiting on Core; member revocation also revokes its peer source. Disabling
 closes listener tasks, active handshakes, requests and DNS-SD advertisement.
 
@@ -77,9 +82,17 @@ Peer guide/query/act envelopes travel over the existing authenticated private IP
 as `PeerControl` with a server-derived peer principal. Core rechecks the enabled
 preference, pairing record and active peer source at admission and delivery.
 Execution uses the same control profiles, task/resource boundaries and receipt
-owner as existing sources. The original request ID is preserved. A bounded
+owner as existing sources. The original request ID is preserved.
+Agent operation arguments may select a
+direct member through `device`; non-Codex operations also select `agent`, with
+optional member-local `account`. The controller uses the existing `device` forward
+owner and qualifies returned continuations with the member address. A bounded
 controller origin reference is retained under `origin.peerOrigin`; it cannot
-replace member source identity. Both front-door routing and Core reject peer
+replace member source identity. Peer task lists, detail reads, mutations, activity and
+receipt reads use controller device identity in the peer dispatch associations. They exclude
+member-local tasks and other controllers. Raw native enumeration is unavailable to
+peers. Runtime sessions, transcripts and native indexes retain their existing owners.
+Both front-door routing and Core reject peer
 Device link operations, pairing, revocation and multihop forwarding. The peer
 transport has no local-management route.
 
@@ -91,6 +104,24 @@ The installer installs a Windows inbound TCP rule for the configured peer port
 that rule. The local CLI and management catalog own pairing and configuration;
 Desktop exposes the Devices workspace through the Experimental capsule entry. The wire contract is in
 [CLI reference](../reference/cli.md#device-link).
+
+### Device-tier management projections
+
+`device.snapshot` retains device reachability and pairing facts. Its controller
+projection includes `showUpstreamSources` (default false) and `upstreamSources`.
+The latter is empty unless enabled with `device.configure`. Upstream sources are
+bounded display references learned from authenticated forwarded requests. They
+never replace the controller source. Revocation clears these references.
+
+`device.tasks` accepts `{body:{device}}` and reads the selected member's
+`task_activity` op through the existing forward owner. The response uses the
+`agents/activity` shape with peer-owned sessions only, `availableAgents` inventory,
+and up to 200 peer-owned dispatch `records` with `omittedRecords`. Offline reads return
+`DEVICE_OFFLINE`; presentation retains its last observation as unconfirmed.
+On the member, `AgentActivitySession.origin.deviceId` and
+`dispatchSummary.controlSource.deviceId` identify the controller. `sourceLabel`
+provides its current label. `peerOrigin` may retain upstream display attribution.
+The topology consumes one device hop and may explicitly reveal upstream sources.
 
 ### Device file transfer
 
