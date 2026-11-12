@@ -77,3 +77,27 @@ export function installDenseTopologyAccounts(status: Status, activity: AgentActi
   });
   return [...sources, ...codex];
 }
+
+export function installDevicePortraitAccounts(status: Status, activity: AgentActivitySnapshot): ProviderAccount[] {
+  const base = status.ingresses[0].sources![0];
+  const groups = [
+    { platform: 'anthropic', product: 'claude', agent: 'claude', aliases: ['Personal', 'Review'] },
+    { platform: 'xai', product: 'xai', agent: undefined, aliases: ['Personal', 'Work'] },
+    { platform: 'openai', product: 'chatgpt', agent: 'codex', aliases: ['Pro', 'Studio'] },
+  ];
+  const accounts = groups.flatMap(group => group.aliases.map((alias, index): ProviderAccount => ({
+    id: `portrait-${group.platform}-${index}`, provider: group.platform, identityKey: `portrait-${group.platform}-${index}`,
+    alias, sources: [`portrait-source-${group.platform}-${index}`],
+    agentProfiles: group.agent ? [{ agent: group.agent, profileId: `portrait-profile-${group.platform}-${index}`, kind: group.agent === 'codex' ? 'codex-home' : 'cli-profile', state: 'signed-in', default: index === 0 }] : [],
+    createdAt: activity.observedAt, observedAt: activity.observedAt, health: { state: 'ready' },
+    notifications: { state: 'n/a', sessions: [] }, quota: { state: 'unavailable', windows: [] },
+  })));
+  status.ingresses[0].sources = groups.flatMap(group => group.aliases.map((alias, index) => ({
+    ...base, id: `portrait-source-${group.platform}-${index}`, platform: group.platform, product: group.product, label: alias,
+  })));
+  for (const [agent, group] of Object.entries(activity.agents)) for (const session of group.sessions) {
+    session.agentAccountId = accounts.find(account => account.agentProfiles.some(profile => profile.agent === agent))?.id;
+    session.origin = { sourceId: 'portrait-source-anthropic-0', ingressId: base.ingressId };
+  }
+  return accounts;
+}

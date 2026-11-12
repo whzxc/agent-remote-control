@@ -46,8 +46,8 @@ function CapsuleRing({ width, readings = [], used, dashed }: { width: number; re
     })}
   </svg>;
 }
-export function NodeCapsule({ label, state, graphic, mark, readings, used, compact = false, wing = 'right', expanded, onOpen, onTasks, onWidth, onMove }: {
-  label: string; state: NodeTaskState; graphic: ReactNode; mark?: ReactNode; readings?: readonly AgentIconReading[]; used?: boolean;
+export function NodeCapsule({ label, state, graphic, mark, neutralRing, readings, used, compact = false, wing = 'right', expanded, onOpen, onTasks, onWidth, onMove }: {
+  neutralRing?: boolean; label: string; state: NodeTaskState; graphic: ReactNode; mark?: ReactNode; readings?: readonly AgentIconReading[]; used?: boolean;
   compact?: boolean; wing?: 'left' | 'right'; expanded?: boolean; onOpen: () => void; onTasks: () => void; onWidth?: (width: number) => void; onMove?: (by: number) => void;
 }) {
   const items = capsuleItems(state, compact), target = 48 + 28 * items.length;
@@ -74,7 +74,7 @@ export function NodeCapsule({ label, state, graphic, mark, readings, used, compa
   const mirror = wing === 'left', active = target > 48 || width > 48.1;
   return <span className="node-capsule-anchor" data-wing={wing}>
     <span className="node-capsule" data-unconfirmed={state.unconfirmed || undefined} style={{ width, transform: mirror ? 'scaleX(-1)' : undefined }}>
-      {active && <><span className="node-capsule-fill" /><CapsuleRing width={width} readings={state.unconfirmed ? undefined : readings} used={used} dashed={state.unconfirmed} /></>}
+      {(active || neutralRing) && <>{active && <span className="node-capsule-fill" />}<CapsuleRing width={width} readings={state.unconfirmed ? undefined : readings} used={used} dashed={state.unconfirmed} /></>}
       <button type="button" className="node-capsule-logo" data-panel-anchor data-layer-switcher aria-label={label} aria-expanded={expanded}
         onClick={onOpen} aria-keyshortcuts={onMove ? 'ArrowUp ArrowDown' : undefined}
         onKeyDown={event => { if (onMove && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) { event.preventDefault(); onMove(event.key === 'ArrowUp' ? -1 : 1); } }} style={{ transform: mirror ? 'scaleX(-1)' : undefined }}>{active ? mark ?? graphic : graphic}</button>

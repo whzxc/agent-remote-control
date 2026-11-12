@@ -251,13 +251,20 @@ test('provider grouping keeps Grok and Grok Bot as separate connector entries', 
     const { ingressPanel } = await server.ssrLoadModule('/ui/state/overviewPanels.ts');
     await act(() => topologyMode.set('tree'));
     const { controlSourcePlatform } = await server.ssrLoadModule('/ui/controlSources.ts');
+    const { t } = await server.ssrLoadModule('/ui/i18n.ts');
+    const disclose = async () => {
+      const group = page.queryByRole('button', { name: new RegExp(`${t('topology.expand')}$`) });
+      if (group) await act(() => fireEvent.click(group));
+    };
     assert.ok(page.getByRole('button', { name: controlSourcePlatform('grok').displayName, exact: true }));
+    await disclose();
     for (const [product, label] of [['grok', 'Grok'], ['grok-bot', 'Grok Bot']]) {
       await act(() => fireEvent.click(page.getByRole('button', { name: label, exact: true })));
       assert.equal(ingressPanel.get()?.client?.id, `source-${product}`);
       await act(() => ingressPanel.set(undefined));
     }
     await act(() => topologyMode.set('flat'));
+    await disclose();
     assert.ok(page.getByRole('button', { name: 'Grok', exact: true }));
     assert.ok(page.getByRole('button', { name: 'Grok Bot', exact: true }));
     await act(() => fireEvent.click(page.getByRole('button', { name: 'Grok secondary', exact: true })));

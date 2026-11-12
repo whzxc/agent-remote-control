@@ -108,9 +108,9 @@ function CapsuleItem({ item }: { item: Item }) {
   </span>;
 }
 
-export function NodeCapsule({ state, label, graphic, mark, readings, used, compact = false, wing = 'right', expanded }: {
+export function NodeCapsule({ state, label, graphic, mark, readings, used, neutralRing = false, compact = false, wing = 'right', expanded }: {
   state?: NodeTaskState; label: string; graphic: unknown; mark?: unknown; readings?: readonly AgentIconReading[];
-  used?: boolean; compact?: boolean; wing?: 'left' | 'right'; expanded?: boolean;
+  used?: boolean; neutralRing?: boolean; compact?: boolean; wing?: 'left' | 'right'; expanded?: boolean;
 }) {
   const model = nodeCapsuleLayout(state, compact);
   const summary = state?.unconfirmed ? stepCopy.unconfirmed : [
@@ -141,6 +141,7 @@ export function NodeCapsule({ state, label, graphic, mark, readings, used, compa
               transform: mirror ? 'scaleX(-1)' : undefined }}><CapsuleItem item={item} /></span>)}
         </button>
       </> : <span class="absolute left-0 top-0 flex size-12" style={{ transform: mirror ? 'scaleX(-1)' : undefined }}>
+        {neutralRing && <CapsuleRing width={48} />}
         {graphic}</span>}
       {unread && <span aria-label={`${state!.unread} completed unread`}
         class="absolute z-20 size-[9px] rounded-full border-2 border-canvas bg-accent-text"

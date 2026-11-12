@@ -16,17 +16,17 @@ import { copy, states, branchForms, accountMembers, profileMembers } from '../fi
 export type DeviceTopologyState = 'lan' | 'tunnel' | 'offline';
 export type DeviceBranchForm = 'multiple' | 'merged-collapsed' | 'merged-expanded';
 
-export function DeviceNode({ state = 'lan', merged = false, expanded = false, controller = false, compact = false, idle = false, overflow = false }: {
-  state?: DeviceTopologyState; merged?: boolean; expanded?: boolean; controller?: boolean; compact?: boolean; idle?: boolean; overflow?: boolean;
+export function DeviceNode({ name = copy.member, latency, quotaAvailable = true, state = 'lan', merged = false, expanded = false, controller = false, compact = false, idle = false, overflow = false }: {
+  name?: string; latency?: number; quotaAvailable?: boolean; state?: DeviceTopologyState; merged?: boolean; expanded?: boolean; controller?: boolean; compact?: boolean; idle?: boolean; overflow?: boolean;
 }) {
-  const label = controller ? copy.controller : merged ? copy.merged : copy.member;
-  const status = states.find(s => s.name === state)!.status;
+  const label = controller ? copy.controller : merged ? `${name} · Codex` : name;
+  const status = latency === undefined ? states.find(s => s.name === state)!.status : `${copy.online} · ${state === 'lan' ? 'LAN' : 'Tunnel'} · ${latency} ms`;
   return <div aria-label={`${label} · ${status}`}
     class="flex flex-col items-center text-text" style={{ width: 156 }}>
     <TopologyNode label={label} width={156} capsuleCompact={compact} capsuleWing={controller ? "left" : "right"}
       panelExpanded={expanded}
       taskState={idle ? {} : state === 'offline' ? unconfirmed : overflow ? overflowAggregate : deviceAggregate}
-      capsuleReadings={merged ? quotaReadings : undefined}
+      capsuleNeutralRing={merged && !quotaAvailable} capsuleReadings={merged && quotaAvailable ? quotaReadings : []}
       capsuleMark={<span class="relative flex size-12 items-center justify-center text-text">
         {merged ? <BrandMark brand="codex" size={28} /> : <Icon name={controller ? 'monitor' : 'laptop'} size={26} />}
         <span class={`absolute bottom-[9px] left-[9px] size-[6px] rounded-full ${state === 'offline' ? 'bg-text-tertiary' : 'bg-success'}`} />
@@ -36,7 +36,7 @@ export function DeviceNode({ state = 'lan', merged = false, expanded = false, co
       </span>}
       graphic={
       <span class="relative flex size-12 items-center justify-center text-text">
-        <>{merged ? <AgentIcon brand="codex" readings={quotaReadings} /> : <Icon name={controller ? 'monitor' : 'laptop'} size={32} />}</>
+        <>{merged ? quotaAvailable ? <AgentIcon brand="codex" readings={quotaReadings} /> : <span class="flex size-12 items-center justify-center"><BrandMark brand="codex" size={28} /></span> : <Icon name={controller ? 'monitor' : 'laptop'} size={32} />}</>
         <span class={`absolute bottom-1 left-1 size-[6px] rounded-full ${state === 'offline' ? 'bg-text-tertiary' : 'bg-success'}`} />
         {merged && <span class="absolute bottom-0 right-0 flex size-5 items-center justify-center rounded-full bg-canvas">
           <Icon name="laptop" size={12} />
@@ -161,6 +161,7 @@ export function PortraitDeviceBranch({ rootX, idle = false, state = 'lan', overf
 }
 
 export default () => [
+  <Frame name="device-online-no-quota"><DeviceNode name="MacBook" latency={39} merged idle quotaAvailable={false} /></Frame>,
   ...branchForms.map(({ name, ...props }) => <Frame name={name}><DeviceBranch {...props} /></Frame>),
   ...states.map(({ name }) => <Frame name={`device-node-panel-${name}`}><DeviceNodePanel state={name} /></Frame>),
   ...[false, true].map(upstreams => <Frame name={`controller-source-panel-${upstreams ? 'on' : 'off'}`}>

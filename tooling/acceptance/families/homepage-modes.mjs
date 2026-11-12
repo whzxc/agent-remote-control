@@ -27,6 +27,46 @@ export const checks = [{ stage: 'verify', order: 18, visual: true, async run(con
   const mode = () => page.evaluate(() => window.__ARC_VIEW_MODEL__().homepage.mode);
   if (await mode() !== fixture.homepage.mode) throw new Error('Homepage mode did not restore the viewer preference.');
   const check = fixture.homepage.check;
+  if (check === 'portrait-device') {
+    const issues = await page.evaluate(() => {
+      const hub = document.querySelector('.static-topology-hub').getBoundingClientRect();
+      const pan = document.querySelector('.static-topology-pan').getBoundingClientRect();
+      const protectedMark = { left: hub.left + hub.width / 4, right: hub.right - hub.width / 4, top: hub.top, bottom: hub.bottom };
+      const headerBottom = Math.max(...[...document.querySelectorAll('.board-header, .homepage-mode-switch')].map(node => node.getBoundingClientRect().bottom));
+      const overlaps = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+      const issues = [];
+      for (const node of document.querySelectorAll('.node-capsule, .topology-group-capsule, .static-graph-node .graph-node-name')) {
+        const box = node.getBoundingClientRect();
+        if (box.left < 0 || box.right > innerWidth || box.top < pan.top || box.bottom > pan.bottom) issues.push('A node, account group or label is clipped.');
+        if (overlaps(box, hub)) issues.push('A node or label overlaps ARC.');
+        if (box.top < headerBottom) issues.push('A node or label overlaps the header.');
+      }
+      const svg = document.querySelector('.static-topology-wires').getBoundingClientRect();
+      for (const path of document.querySelectorAll('.static-topology-wires path')) {
+        const length = path.getTotalLength();
+        for (let at = 0; at <= length; at += 4) {
+          const point = path.getPointAtLength(at), x = point.x + svg.x, y = point.y + svg.y;
+          if (y < headerBottom || x < 0 || x > innerWidth) issues.push('A connector leaves the clear topology area.');
+          if (x > protectedMark.left && x < protectedMark.right && y > protectedMark.top && y < protectedMark.bottom) issues.push('A connector crosses ARC.');
+        }
+      }
+      const endpoint = document.querySelector('[data-device-add]').getBoundingClientRect();
+      const model = window.__ARC_VIEW_MODEL__().topology;
+      const route = model.paths.find(path => path.key === 'add');
+      const path = [...document.querySelectorAll('.static-topology-wires path')].find(path => path.getAttribute('d') === route?.d);
+      const end = path?.getPointAtLength(path.getTotalLength());
+      if (!end || Math.abs(end.x + svg.x - endpoint.x - endpoint.width / 2) > 1 || Math.abs(end.y + svg.y - endpoint.y - endpoint.height / 2) > 1) issues.push('The add endpoint is detached from its trunk.');
+      return issues;
+    });
+    if (issues.length) throw new Error([...new Set(issues)].join(' '));
+    const device = page.getByRole('button', { name: 'MacBook · Codex', exact: true });
+    await device.getByRole('img', { name: messages['device.online'], exact: true }).waitFor();
+    if (await page.getByRole('button', { name: new RegExp(`^MacBook.*${text('unconfirmed')}`) }).count()) throw new Error('Online device inherited unknown task status.');
+    if (await page.getByRole('button', { name: new RegExp(`^${text('accounts').replace('{count}', '2')}.*${messages['topology.expand']}$`) }).count() !== 5) throw new Error('The composition lost an account group.');
+    await page.getByRole('button', { name: text('add'), exact: true }).click();
+    await page.getByRole('menuitem', { name: messages['device.add'], exact: true }).waitFor();
+    await page.keyboard.press('Escape');
+  }
   if (check === 'remote-error') {
     await page.waitForFunction(async () => {
       const { deviceTasks } = await import('/devices/tasks.ts');

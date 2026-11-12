@@ -1,9 +1,10 @@
 import { Frame } from 'adg';
+import { TopologyGroup } from '../modules/topology-group';
 import { TopologyNode } from '../modules/topology-node';
 import { DeviceNode, DeviceBranch, DeviceNodePanel, ControllerSourcePanel,
   DeviceAddEndpoint, PortraitDeviceBranch } from '../modules/device-topology';
 import { controllerForms, memberForms, portraitForms, landscapePaths, memberPaths,
-  sourceNodes, copy } from '../fixtures/device-topology';
+  sourceNodes, copy, controllerAccountForms, controllerAccountSources, controllerAccountAgents } from '../fixtures/device-topology';
 import { localRunning, localAttention, deviceAggregate, quotaReadings, overflow } from '../fixtures/node-capsule';
 import { nodeCapsuleLayout } from '../modules/node-capsule';
 import { HomepageHeader } from '../modules/homepage-mode';
@@ -18,6 +19,37 @@ const chrome = (width: number, height: number, attention = 2) => [
 ];
 
 export default () => [
+  ...controllerAccountForms.map(form => {
+    const rail = form.compact ? 72 : 88;
+    const rootPath = (x: number, y: number, side: -1 | 1, endpoint = false) => {
+      const start = form.hub.x + side * form.hub.size * 83.48 / 240;
+      const finish = x - side * (endpoint ? 0 : 24);
+      if (!form.compact) return `M${start} ${form.hub.y}H${x - side * rail}V${y}H${finish}`;
+      const outside = form.hub.x + side * (form.hub.size / 2 + 24);
+      const junction = form.hub.y + side * (form.hub.size / 2 + (side === -1 ? 12 : 24));
+      return `M${start} ${form.hub.y}H${outside}V${junction}H${x - side * rail}V${y}H${finish}`;
+    };
+    const sourcePaths = form.sourceRows.flatMap(y => [rootPath(form.sourceX, y, -1), `M${form.sourceX - 24} ${y}H${form.sourceAccountX + 24}`]);
+    const agentPaths = [...form.agentRows.map(y => rootPath(form.agentX, y, 1)), rootPath(form.agentX, form.deviceY, 1), rootPath(form.agentX, form.addY, 1, true),
+      ...form.agentRows.slice(0, 2).map(y => `M${form.agentX + 52} ${y}H${form.agentAccountX - 24}`)];
+    return <Frame name={form.name} width={form.width} height={form.height} locale="en">
+      <TopologyScreen width={form.width} height={form.height} scene={{ nodes: [], tasks: [],
+        mark: { x: form.hub.x - form.hub.size / 2, y: form.hub.y - form.hub.size / 2, size: form.hub.size, sourceAction: false, agentAction: false },
+        chrome: chrome(form.width, form.height, 0),
+        links: [...sourcePaths.map(d => ({ d, class: 'stroke-role-source/55', 'stroke-width': '2' })), ...agentPaths.map(d => ({ d, class: 'stroke-role-agent/55', 'stroke-width': '2' }))],
+        items: [
+          ...controllerAccountSources.flatMap((source, index) => [
+            { x: form.sourceX - 55, y: form.sourceRows[index] - 26, content: <TopologyNode {...source} taskState={index === 0 ? { running: 2, steps: ['thinking', 'editing'] } : {}} capsuleCompact={form.compact} capsuleWing="left" /> },
+            { x: form.sourceAccountX + 24, y: form.sourceRows[index] - 20, anchor: 'right' as const, content: <TopologyGroup label="2 accounts" hideLabel={form.compact} members={[{ brand: source.brand, quota: 'unknown' }, { brand: source.brand, quota: 'unknown' }]} /> },
+          ]),
+          ...controllerAccountAgents.map((agent, index) => ({ x: form.agentX - 55, y: form.agentRows[index] - 26, content: <TopologyNode {...agent} taskState={index < 2 ? { running: 1, steps: [index === 0 ? 'thinking' : 'editing'] } : {}} capsuleCompact={form.compact} /> })),
+          ...controllerAccountAgents.slice(0, 2).map((agent, index) => ({ x: form.agentAccountX - 24, y: form.agentRows[index] - 20, content: <TopologyGroup label="2 accounts" hideLabel={form.compact} members={[{ brand: agent.brand, quota: 'unknown' }, { brand: agent.brand, quota: 'unknown' }]} /> })),
+          { x: form.agentX - 78, y: form.deviceY - 26, content: <DeviceNode name="MacBook" latency={39} merged idle quotaAvailable={false} compact={form.compact} /> },
+          { x: form.agentX - 6, y: form.addY - 6, content: <DeviceAddEndpoint /> },
+        ],
+      }} />
+    </Frame>;
+  }),
   ...controllerForms.map(option => <Frame name={option.name} width={1280} height={800} locale="en"
     note="Proposed. Static configuration geometry. Working node capsules open scoped Tasks; offline is unconfirmed.">
     <TopologyScreen width={1280} height={800} scene={{

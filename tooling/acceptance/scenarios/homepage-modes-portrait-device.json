@@ -1,0 +1,114 @@
+{
+  "theme": "dark",
+  "language": "en",
+  "clock": "2026-01-01T00:00:00Z",
+  "agents": [
+    "codex",
+    "claude",
+    "dsh",
+    "opencode"
+  ],
+  "maxVisibleAgents": 4,
+  "topologyAccounts": "device-portrait",
+  "homepage": {
+    "mode": "topology",
+    "check": "portrait-device",
+    "remoteTaskCount": 1
+  },
+  "viewports": [
+    {
+      "width": 800,
+      "height": 1250
+    },
+    {
+      "width": 1280,
+      "height": 800
+    }
+  ],
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "thinking",
+      "title": "Inspect local configuration",
+      "headline": "Review current settings"
+    },
+    {
+      "agent": "claude",
+      "phase": "file",
+      "title": "Review local changes",
+      "headline": "src/settings.ts"
+    }
+  ],
+  "deviceLink": {
+    "state": "controller",
+    "enabled": true,
+    "snapshot": {
+      "deviceId": "b10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10c",
+      "name": "Example controller",
+      "controller": null,
+      "members": [
+        {
+          "deviceId": "c34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34d",
+          "name": "MacBook",
+          "addresses": [
+            "cedar.example.test:7143"
+          ],
+          "tunnelUrl": null,
+          "addressOverride": null
+        }
+      ],
+      "pending": null,
+      "offerExpiresInSeconds": null,
+      "devices": [
+        {
+          "id": "c34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34d",
+          "platform": "darwin",
+          "arch": "arm64",
+          "arcVersion": "fixture",
+          "state": "online",
+          "path": "lan",
+          "latency": 39,
+          "lastSeen": "2026-01-01T00:00:00Z",
+          "capabilities": null
+        }
+      ]
+    },
+    "taskSnapshots": {
+      "c34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34d": {
+        "observedAt": "2026-01-01T00:00:00Z",
+        "activeAgents": [],
+        "agents": {},
+        "availableAgents": [
+          {
+            "agent": "codex",
+            "displayName": "Codex",
+            "installed": true,
+            "enabled": true,
+            "available": true
+          }
+        ],
+        "records": [
+          {
+            "agent": "codex",
+            "taskId": "remote-unknown",
+            "requestId": "fixture-remote-request",
+            "state": "completed",
+            "createdAt": "2026-01-01T00:00:00Z",
+            "updatedAt": "2026-01-01T00:00:00Z",
+            "approval": {
+              "decision": "automatic",
+              "source": "peer",
+              "at": "2026-01-01T00:00:00Z"
+            },
+            "task": {
+              "kind": "create",
+              "title": "Recorded remote dispatch",
+              "prompt": "Inspect the workspace"
+            }
+          }
+        ],
+        "omittedRecords": 0
+      }
+    }
+  }
+}

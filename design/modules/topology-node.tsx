@@ -16,6 +16,7 @@ export type TopologyNodeProps = {
   capsuleMark?: unknown;
   capsuleReadings?: readonly AgentIconReading[];
   taskState?: NodeTaskState;
+  capsuleNeutralRing?: boolean;
   capsuleCompact?: boolean;
   capsuleWing?: "left" | "right";
   panelExpanded?: boolean;
@@ -32,6 +33,7 @@ export function TopologyNode({
   capsuleMark,
   capsuleReadings,
   taskState,
+  capsuleNeutralRing = false,
   capsuleCompact = false,
   capsuleWing = "right",
   panelExpanded,
@@ -54,7 +56,7 @@ export function TopologyNode({
   );
   const mark = capsuleMark ?? (customGraphic ? undefined : <BrandMark brand={brand} size={readings?.length ? 28 : 32} />);
   const graphic = taskState ? <NodeCapsule state={taskState} label={label} graphic={baseGraphic} mark={mark}
-    readings={capsuleReadings ?? readings} used={used}
+    readings={capsuleReadings ?? readings} used={used} neutralRing={capsuleNeutralRing}
     compact={capsuleCompact} wing={capsuleWing} expanded={panelExpanded} /> : baseGraphic;
   return (
     <div

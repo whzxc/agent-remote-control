@@ -16,3 +16,5 @@
 .device-node-status[data-online=true] { background: var(--success); }
 .device-node-badge { position: absolute; right: 6px; bottom: 6px; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--surface); }
 .topology-add-endpoint { border: 0; padding: 0; background: transparent; color: inherit; cursor: pointer; }
+
+.static-topology-node[data-wing=left] > .topology-group { transform: translateX(calc(48px - 100%)); }

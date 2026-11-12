@@ -222,11 +222,12 @@ export function homepageTaskGroup(session: TrackedActivity, pending: boolean, st
 }
 
 const phaseFor = (task: HomepageTask) => task.activity.steps.at(-1)?.kind ?? ({ command: 'command', thinking: 'thinking' } as const)[task.session.phase as 'command' | 'thinking'];
-export function nodeTaskState(tasks: HomepageTask[], offline = false): NodeTaskState {
+export function nodeTaskState(tasks: HomepageTask[], deviceState?: 'online' | 'offline'): NodeTaskState {
+  const offline = deviceState === 'offline';
   const running = tasks.filter(task => task.group === 'running');
   return { attention: offline ? 0 : tasks.filter(task => task.group === 'needs-me').length, running: offline ? 0 : running.length,
     unread: offline ? 0 : tasks.filter(task => task.group === 'unread').length,
-    unconfirmed: offline || tasks.some(task => task.group === 'unconfirmed') && !tasks.some(task => task.group === 'running' || task.group === 'needs-me'), steps: running.map(phaseFor) };
+    unconfirmed: offline || deviceState !== 'online' && tasks.some(task => task.group === 'unconfirmed') && !tasks.some(task => task.group === 'running' || task.group === 'needs-me'), steps: running.map(phaseFor) };
 }
 
 export type NodeTaskState = { attention: number; running: number; unread: number; unconfirmed?: boolean; steps: (TaskStepKind | undefined)[] };

@@ -314,7 +314,7 @@ and `arch/system-map.*`.
 
 Runtime adoption uses static configuration columns and explicit account disclosure.
 Landscape centers the reserved configuration bounds, independently of task counts.
-A single source merges with its platform to avoid a redundant outer tier. The Tasks
+A single source merges with its platform to avoid a redundant outer tier. Compact layouts reserve source rows above ARC and executor rows below it. Each wing centers its own configuration bounds, including folded account capsules. Primary trunks route outside the mark and its labels. The add endpoint terminates the executor trunk. The Tasks
 scroll area reserves the navigation capsule's height and bottom margin.
 The device node panel replaces the separate Devices workspace and summary. Pairing,
 address and revoke dialogs retain their shared shells. Native management currently
@@ -583,3 +583,11 @@ The shared layer shells implement fixed M node slots and the reviewed XL workspa
 | `modules/device-topology.tsx`, `surfaces/device-link-topology.tsx` | `ui/topology/Topology.tsx`, `ui/devices/DeviceNodePanel.tsx`, `ui/components/SettingsPage.tsx` | One-hop paired-device nodes, management and right add endpoint. Default-off controller-source disclosure. Remote inventory and single-Agent merge use `device/tasks`. Upstream disclosure uses native device configuration. Remote account/quota inventory remains unavailable. |
 
 The task-bearing solver, task-pressure compaction, portrait task renderer, task wires and their tuning controls are retired. `ui/topology/layout.ts` projects configuration columns and explicit account disclosure. Browser task-card scenarios replace retired queue/drag renderer cases.
+
+The `controller-accounts-portrait` and `controller-accounts-landscape` frames in
+`surfaces/device-link-topology.tsx` cover three source groups, four local Agents,
+two local account pools and one merged online device. Their runtime fixture is
+`homepage-modes-portrait-device` at 800×1250 and 1280×800 in both themes.
+`modules/device-topology.tsx` / `device-online-no-quota` maps to the shared neutral
+NodeCapsule ring. Device reachability controls its unconfirmed outline. Unknown
+remote task observations remain in Tasks without changing an online device's ring.

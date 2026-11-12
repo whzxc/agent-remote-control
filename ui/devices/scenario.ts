@@ -1,7 +1,7 @@
 import { deviceTasks, type DeviceTaskSnapshot } from './tasks';
 import { deviceOffer, devicePair, deviceSnapshot, deviceView, memberOutcome, type DeviceSnapshot, type PairState, type Peer } from './state';
 
-export type DeviceFixture = { state: string; enabled?: boolean; taskResponses?: Record<string, unknown>; taskSnapshots?: Record<string, DeviceTaskSnapshot> };
+export type DeviceFixture = { state: string; enabled?: boolean; snapshot?: DeviceSnapshot; taskResponses?: Record<string, unknown>; taskSnapshots?: Record<string, DeviceTaskSnapshot> };
 const controller: Peer = { deviceId: 'b10c'.repeat(16), name: 'Anchor Mac', addresses: [], tunnelUrl: null, addressOverride: null };
 const members: Peer[] = [
   { deviceId: 'c34d'.repeat(16), name: 'Cedar Mac', addresses: ['192.168.50.21:7143', '[fd12:3456:789a::21]:7143'], tunnelUrl: 'https://cedar.example.net/arc-peer/3', addressOverride: 'cedar.local:7143' },
@@ -27,6 +27,7 @@ export function deviceScenario(fixture?: DeviceFixture) {
       devices: empty ? [] : members.map((member, index) => ({ id: member.deviceId, name: member.name, platform: ['darwin', 'windows', 'linux'][index], arch: ['arm64', 'x86_64', 'aarch64'][index], arcVersion: index === 1 ? '1.7.2' : '1.8.0',
         state: index === 2 ? 'offline' : 'online', path: index === 1 ? 'tunnel' : 'lan', lastSeen: index === 2 ? '2025-12-31T23:42:00Z' : '2026-01-01T00:00:00Z', latency: index === 2 ? null : index === 1 ? 82 : 4,
         capabilities: { tools: ['guide', 'query', 'act'], screen: index === 0, forwarding: false } })) };
+    snapshot = fixture.snapshot ? structuredClone(fixture.snapshot) : snapshot;
     deviceSnapshot.set(structuredClone(snapshot));
     deviceTasks.set(Object.fromEntries(Object.entries(fixture.taskSnapshots ?? {}).map(([id, snapshot]) => [id, { snapshot: structuredClone(snapshot) }])));
     const detail = state === 'revoke-controller' ? controller.deviceId : state === 'detail-windows' ? members[1].deviceId : state === 'detail-linux' ? members[2].deviceId : state === 'detail-mac' || state === 'address' || state === 'revoke-member' ? members[0].deviceId : undefined;

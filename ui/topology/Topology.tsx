@@ -26,7 +26,7 @@ import { quotaColor } from '../subscriptions/presentation';
 import type { ProviderSnapshot } from '../subscriptions/types';
 import type { AgentIconReading } from '../components/ui/agent-icon';
 import { observeTopology } from '../acceptance';
-import { nodeKey, layoutTopology } from './layout';
+import { nodeKey, layoutTopology, topologyRoute, topologyPath } from './layout';
 import type { Side } from './geometry';
 import type { PaintNode } from './render';
 import { t } from '../i18n';
@@ -66,11 +66,11 @@ function StaticNode({ node, tasks, compact, onWidth }: { node: PositionedNode; t
     if (node.side === -1) return !!node.sourceIds?.some(source => task.sourceIds.includes(source));
     return task.agent === node.platform && (!node.accountId || accountStore.get().items.some(account => account.id === node.accountId && accountOwns(account, task.accountId)));
   });
-  const state = nodeTaskState(own, !!node.deviceId && node.state === 'inactive');
+  const state = nodeTaskState(own, node.deviceId ? node.state === 'inactive' ? 'offline' : 'online' : undefined);
   if (!isValidElement(node.content)) return node.content;
   const graphic = node.deviceId ? undefined : node.side === 1 ? <BrandMark markup={icons[node.platform ?? node.id]} size={28} /> : <SourceIcon platform={node.platform ?? node.id} panelVisual />;
   return cloneElement(node.content as React.ReactElement<React.ComponentProps<typeof GraphNode>>, {
-    capsule: state, compact, wing: node.side === -1 ? 'left' : 'right', capsuleMark: node.capsuleMark ?? graphic, readings, used: display === 'used', hideLabel: false,
+    capsule: state, neutralRing: !!node.deviceId, compact, wing: node.side === -1 ? 'left' : 'right', capsuleMark: node.capsuleMark ?? graphic, readings, used: display === 'used', hideLabel: false,
     onWidth: widthChanged, onTasks: () => focusNodeTasks({ id: node.id, label: node.label ?? node.platformLabel ?? node.id,
       agent: node.remoteAgent ?? (node.side === 1 && !node.deviceId ? node.platform ?? node.id : undefined), accountId: node.accountId,
       upstreamSourceId: node.upstreamSourceId, sourceIds: node.side === -1 && !node.upstreamSourceId ? node.sourceIds : undefined, deviceId: node.side === 1 ? node.deviceId : undefined }),
@@ -82,7 +82,7 @@ export default function Topology({ left, right, brand, tasks = [], onAddAgent }:
 
 }) {
   const sourceSnapshot = connector.use().sources;
-  const compact = window.innerWidth < 1000, enabled = deviceLinkEnabled.use(), snapshot = deviceSnapshot.use(), deviceSelection = deviceView.use();
+  const enabled = deviceLinkEnabled.use(), snapshot = deviceSnapshot.use(), deviceSelection = deviceView.use();
   const remote = deviceTasks.use();
   const openDevice = (selection: ReturnType<typeof deviceView.get>) => {
     const current = deviceView.get();
@@ -98,9 +98,6 @@ export default function Topology({ left, right, brand, tasks = [], onAddAgent }:
   const restore = useRef<string | null>(null);
   const setWidth = useCallback((key: string, width: number) => setWidths(old => Math.abs((old[key] ?? 48) - width) < .01 ? old : { ...old, [key]: width }), []);
   useEffect(() => { const resize = () => setViewport({ width: window.innerWidth, height: window.innerHeight }); window.addEventListener('resize', resize); return () => window.removeEventListener('resize', resize); }, []);
-  const pitch = compact ? 152 : 260, height = Math.max(600, viewport.height - 180);
-  const hubSize = !compact && enabled && snapshot?.members.length ? 180 : 240;
-  const hubX = compact ? Math.round(viewport.width * .35) : enabled && snapshot?.members.length ? Math.max(250, viewport.width * .258) : viewport.width / 2, hubY = compact ? 240 : viewport.height / 2 - 174 - (enabled && snapshot?.members.length ? 10 : 0);
   const controller = enabled && snapshot?.controller;
   const upstreamNodes: NodeView[] = controller && controller.showUpstreamSources ? (controller.upstreamSources ?? []).map(source => ({
     id: `upstream:${source.sourceId}`, upstreamSourceId: source.sourceId, platform: source.controlSource ?? 'custom', label: source.sourceLabel ?? source.sourceId,
@@ -116,7 +113,7 @@ export default function Topology({ left, right, brand, tasks = [], onAddAgent }:
     const single = inventory.length === 1 ? inventory[0] : undefined;
     const state = device.state === 'online' ? 'normal' as const : 'inactive' as const;
     const graphic = <span className="device-node-graphic">{single ? <BrandMark markup={icons[single.agent]} size={28} /> : <Icon icon={Laptop} size={28} />}
-      <span className="device-node-status" data-online={device.state === 'online'} />{single && <span className="device-node-badge"><Icon icon={Laptop} size={10} /></span>}</span>;
+      <span className="device-node-status" role="img" aria-label={t(device.state === 'online' ? 'device.online' : 'device.offline')} data-online={device.state === 'online'} />{single && <span className="device-node-badge"><Icon icon={Laptop} size={10} /></span>}</span>;
     const label = single ? `${device.name} · ${agentName(single)}` : device.name;
     const managingDevice = deviceSelection.detail === device.id && !deviceSelection.agent;
     const children: NodeView[] = single || managingDevice ? [] : inventory.map(agent => ({
@@ -133,30 +130,16 @@ export default function Topology({ left, right, brand, tasks = [], onAddAgent }:
     };
   }) : [];
   const executorRoots = [...right, ...members];
-  const { nodes, groups } = layoutTopology(sourceRoots, executorRoots, { compact, pitch, hubX, hubY, expanded: openGroups });
+  const scene = layoutTopology(sourceRoots, executorRoots, { ...viewport, expanded: openGroups });
+  const { nodes, groups, compact, hub, add, width: sceneWidth, height: maxY } = scene;
+  const hubX = hub.x, hubY = hub.y, hubSize = hub.size;
   const allPositions = [...nodes, ...groups.map(group => group.node)];
-  const maxX = Math.max(viewport.width, ...allPositions.map(node => node.x + pitch)), minX = Math.min(0, ...allPositions.map(node => node.x - pitch));
-  const addY = Math.max(...nodes.filter(node => node.side === 1).map(node => node.y + 110), hubY + 140);
-  const maxY = Math.max(height, addY + 48, ...allPositions.map(node => node.y + 95));
-  const reservedCap = compact ? 104 : 188;
-  const contentLeft = Math.min(hubX - hubSize / 2, ...allPositions.map(node => node.x - (node.side === -1 ? reservedCap - 24 : 70)));
-  const contentRight = Math.max(hubX + hubSize / 2, ...allPositions.map(node => node.x + (node.side === 1 ? reservedCap - 24 : 70)));
-  const sceneWidth = compact ? maxX - minX : Math.max(viewport.width, contentRight - contentLeft + 48);
-  const offsetX = compact ? -minX : (sceneWidth - contentRight - contentLeft) / 2;
   const wires = allPositions.map(node => {
     const parent = nodes.find(parent => parent.id === node.parent && parent.side === node.side);
-    const direction = node.side;
     const parentWidth = parent ? widths[nodeKey(parent.side, parent.id)] ?? 48 : 48;
-    const fromX = parent ? parent.x + direction * (parentWidth - 24) : hubX + node.side * hubSize * 83.48 / 240;
-    const fromY = parent?.y ?? hubY;
-    const toX = node.x - direction * 24, railX = node.x - direction * 50;
-    const radius = Math.min(12, Math.abs(node.y - fromY) / 2);
-    const vertical = node.y > fromY ? 1 : -1;
-    const d = radius === 0 ? `M${fromX + offsetX} ${fromY}H${toX + offsetX}`
-      : `M${fromX + offsetX} ${fromY}H${railX + offsetX - direction * radius}Q${railX + offsetX} ${fromY} ${railX + offsetX} ${fromY + vertical * radius}V${node.y - vertical * radius}Q${railX + offsetX} ${node.y} ${railX + offsetX + direction * radius} ${node.y}H${toX + offsetX}`;
-    return { key: nodeKey(node.side, node.id), side: node.side, d };
+    return { key: nodeKey(node.side, node.id), side: node.side, d: topologyPath(topologyRoute(node, parent, hub, compact, parentWidth)) };
   });
-  useLayoutEffect(() => { if (pan.current) pan.current.scrollLeft = compact ? offsetX : 0; }, [compact]);
+  if (enabled) wires.push({ key: 'add', side: 1, d: topologyPath(topologyRoute({ ...add, side: 1 }, undefined, hub, compact, 48, true)) });
   const current = useRef({ nodes, wires }); current.current = { nodes, wires };
   useEffect(() => observeTopology(() => ({ orientation: compact ? 'portrait' : 'landscape', source: 'auto', orientationPending: false,
     origin: graph.current?.getBoundingClientRect(), size: viewport, panel: null, groups: [], tasks: [],
@@ -182,7 +165,7 @@ export default function Topology({ left, right, brand, tasks = [], onAddAgent }:
     if (restore.current) { graph.current?.querySelector<HTMLElement>(`[data-group="${CSS.escape(restore.current)}"] button`)?.focus(); restore.current = null; } }, [openGroups]);
   const petGeometry = (): PetGeometry => {
     const bounds = { x: sceneWidth, y: maxY, top: 0 };
-    const obstacles: Rect[] = nodes.map(node => ({ x: node.x + offsetX - 24, y: node.y - 24,
+    const obstacles: Rect[] = nodes.map(node => ({ x: node.x - 24, y: node.y - 24,
       width: widths[nodeKey(node.side, node.id)] ?? 48, height: 80 }));
     return { bounds, taskFrame: () => undefined, taskPresent: () => false, task: () => undefined,
       participant: (participant, accountId, size) => {
@@ -190,7 +173,7 @@ export default function Topology({ left, right, brand, tasks = [], onAddAgent }:
           && (node.id === participant.nativeId || node.sourceIds?.includes(participant.nativeId) || node.platform === participant.nativeId)
           && (!accountId || node.accountId === accountId));
         if (!node || !size) return;
-        return participantPost({ x: node.x + offsetX - 24, y: node.y - 24, width: 48, height: 80 }, { x: hubX + offsetX, y: hubY }, obstacles, bounds, size);
+        return participantPost({ x: node.x - 24, y: node.y - 24, width: 48, height: 80 }, { x: hubX, y: hubY }, obstacles, bounds, size);
       },
       route: (from, to, size, occupied = []) => petPath(from, to, bounds, [...obstacles, ...occupied], size),
       wander: (from, size, occupied) => wanderPost(from, bounds, [...obstacles, ...occupied], size),
@@ -202,8 +185,8 @@ export default function Topology({ left, right, brand, tasks = [], onAddAgent }:
       <svg className="static-topology-wires" width={sceneWidth} height={maxY} aria-hidden="true"><g fill="none" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
         {wires.map(wire => <path key={wire.key} d={wire.d} stroke={wire.side === -1 ? 'var(--topology-source)' : 'var(--topology-agent)'} opacity={.55} />)}
       </g></svg>
-      <div className="topology-hub static-topology-hub" style={{ left: hubX + offsetX - hubSize / 2, top: hubY - hubSize / 2, width: hubSize, height: hubSize, '--hub-dot-size': `${hubSize * 20 / 92}px` } as React.CSSProperties}>{brand}</div>
-      {enabled && <div className="static-topology-add" style={{ left: hubX + offsetX + (compact ? pitch : 210) - 6, top: addY }}>
+      <div className="topology-hub static-topology-hub" style={{ left: hubX - hubSize / 2, top: hubY - hubSize / 2, width: hubSize, height: hubSize, '--hub-dot-size': `${hubSize * 20 / 92}px` } as React.CSSProperties}>{brand}</div>
+      {enabled && <div className="static-topology-add" style={{ left: add.x - 14, top: add.y - 14 }}>
         <DropdownMenu.Root><DropdownMenu.Trigger asChild><button className="topology-add-endpoint" data-device-add data-panel-anchor aria-label={t('homepage.add')}><span /></button></DropdownMenu.Trigger>
           <DropdownMenu.Portal><DropdownMenu.Content className="task-card-menu" sideOffset={8}>
             <DropdownMenu.Item onSelect={onAddAgent}><Icon icon={Bot} />{t('addAgent')}</DropdownMenu.Item>
@@ -213,8 +196,8 @@ export default function Topology({ left, right, brand, tasks = [], onAddAgent }:
         </DropdownMenu.Root>
       </div>}
       {nodes.map(node => <div key={nodeKey(node.side, node.id)} className="static-topology-node" data-node={node.id} data-group-owner={node.parent} data-offline={node.state === 'inactive' && !!node.deviceId || undefined}
-        style={{ left: node.x + offsetX - 24, top: node.y - 24 }}><StaticNode node={node} tasks={tasks} compact={compact} onWidth={setWidth} /></div>)}
-      {groups.map(group => <div key={group.key} className="static-topology-node" data-group={group.node.parent} style={{ left: group.node.x + offsetX - 24, top: group.node.y - 20 }}>
+        style={{ left: node.x - 24, top: node.y - 24 }}><StaticNode node={node} tasks={tasks} compact={compact} onWidth={setWidth} /></div>)}
+      {groups.map(group => <div key={group.key} className="static-topology-node" data-group={group.node.parent} data-wing={group.node.side === -1 ? 'left' : 'right'} style={{ left: group.node.x - 24, top: group.node.y - (compact ? 24 : 20) }}>
         <TopologyGroup label={t('homepage.accounts', { count: group.members.length })} members={group.members.map(member => ({ brand: member.platform ?? member.id, mark: member.icon ?? <BrandMark markup={icons[member.platform ?? member.id]} size={28} />, quota: member.quota }))}
           layout={compact ? group.node.side === -1 ? 'source' : 'agent' : 'vertical'} aria-expanded={false}
           onClick={event => { if (event.detail === 0) focusMembers.current = group.node.parent!; setOpenGroups(old => new Set([...old, group.node.parent!])); }} />

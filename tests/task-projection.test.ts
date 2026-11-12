@@ -166,7 +166,7 @@ test('homepage task groups keep missing observations unconfirmed', async () => {
   assert.equal(homepageTaskGroup(session, true), 'needs-me');
   assert.equal(homepageTaskGroup({ ...session, endedAt: 1, readAt: 2 }, false), 'recent');
   const task = { key: 'sample', agent: 'codex', session, group: 'running' as const, sourceIds: [], activity: { steps: [] }, partial: true };
-  const offline = nodeTaskState([task], true);
+  const offline = nodeTaskState([task], 'offline');
   assert.equal(offline.running, 0);
   assert.equal(offline.attention, 0);
   assert.equal(offline.unconfirmed, true);
@@ -200,4 +200,16 @@ test('recorded timestamps preserve epoch units and omit unknown starts', async (
   assert.equal(recordedTimestamp(null), undefined);
   assert.equal(recordedTimestamp(''), undefined);
   assert.equal(recordedTimestamp(0), undefined);
+});
+
+
+test('online devices keep a neutral capsule for unknown task observations', async () => {
+  // Regression: an online LAN device inherited the unconfirmed ring from a retained remote dispatch record.
+  const { nodeTaskState, capsuleItems } = await import('../ui/state/activityModel.ts');
+  const task = { key: 'remote', agent: 'codex', session: { id: 'remote', orderAt: 0 }, group: 'unconfirmed', sourceIds: [], activity: { steps: [] }, partial: true };
+  const online = nodeTaskState([task], 'online');
+  assert.equal(online.unconfirmed, false);
+  assert.equal(online.running, 0);
+  assert.deepEqual(capsuleItems(online, true), []);
+  assert.equal(nodeTaskState([task], 'offline').unconfirmed, true);
 });
