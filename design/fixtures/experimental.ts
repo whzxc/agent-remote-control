@@ -25,6 +25,14 @@ export const experiments = [
     checked: false,
   },
   {
+    title: "Home topology tuning",
+    description: [
+      "Add topology controls to the navigation capsule.",
+      "Saved adjustments stay active when this is off.",
+    ],
+    checked: false,
+  },
+  {
     title: "Pets",
     description: [
       "Show interactive pets on Home and choose",

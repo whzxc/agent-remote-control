@@ -1,22 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { layoutTopology, topologyRoute } from '../ui/topology/layout.ts';
 import { integrateSpring } from '../ui/topology/spring.ts';
-
-test('configuration positions ignore task observations', () => {
-  // Property: only configuration, viewport and explicit disclosure determine topology positions.
-  const roots = [{ id: 'agent', children: [{ id: 'one', account: true }, { id: 'two', account: true }] }];
-  const options = { width: 640, height: 800, expanded: new Set<string>() };
-  const before = layoutTopology([], roots, options);
-  const working = roots.map(node => ({ ...node, attention: true, activityLevel: 3, activityAt: 100 }));
-  const after = layoutTopology([], working, options);
-  assert.deepEqual(after.nodes.map(({ id, x, y }) => ({ id, x, y })), before.nodes.map(({ id, x, y }) => ({ id, x, y })));
-  assert.deepEqual(after.groups.map(group => group.members.map(member => member.id)), [['one', 'two']]);
-  const expanded = layoutTopology([], roots, { ...options, expanded: new Set(['agent']) });
-  assert.deepEqual(expanded.nodes.map(node => node.id), ['agent', 'one', 'two']);
-  assert.equal(expanded.nodes[0].id, before.nodes[0].id);
-  assert.ok(expanded.nodes.every(node => node.y > 0));
-});
+import { solve, type Entity } from '../ui/topology/solve.ts';
 
 test('capsule spring converges from either direction and supports retargeting', () => {
   // Property: shared spring integration converges to its current target without changing unrelated anchors.
@@ -30,21 +15,23 @@ test('capsule spring converges from either direction and supports retargeting', 
   }
 });
 
+test('task observations do not enter the node solver', () => {
+  // Regression: task activity changed topology positions, queues and compaction before homepage modes.
+  const roots: Entity[] = [{ id: 'agent', children: [{ id: 'account-one' }, { id: 'account-two' }] }];
+  const scene = { vw: 1280, vh: 800, left: [], right: roots };
+  const before = solve(scene);
+  const observed = roots.map(node => ({ ...node, tasks: [{ id: 'unprojected-task', width: 400, height: 600 }], activityLevel: 3 }));
+  assert.deepEqual(solve({ ...scene, right: observed }), before);
+});
 
-test('portrait configuration separates source rows, ARC and executor rows', () => {
-  // Regression: the portrait source column and its trunk overlapped ARC while account groups extended beyond the viewport.
-  const accounts = (id: string) => [{ id: `${id}-one`, account: true }, { id: `${id}-two`, account: true }];
-  const left = ['anthropic', 'xai', 'openai'].map(id => ({ id, children: accounts(id) }));
-  const right = ['codex', 'claude', 'dsh', 'opencode'].map(id => ({ id, children: ['codex', 'claude'].includes(id) ? accounts(id) : [] }));
-  for (const viewport of [{ width: 800, height: 1250 }, { width: 1280, height: 800 }, { width: 390, height: 844 }]) {
-    const scene = layoutTopology(left, [...right, { id: 'device', deviceId: 'member', children: [] }], { ...viewport, expanded: new Set() });
-    assert.equal(scene.groups.length, 5);
-    if (scene.compact) {
-      assert.ok(scene.nodes.filter(node => node.side === -1).every(node => node.y < scene.hub.y - scene.hub.size / 2));
-      assert.ok(scene.nodes.filter(node => node.side === 1).every(node => node.y > scene.hub.y + scene.hub.size / 2));
-    }
-    const route = topologyRoute({ ...scene.add, side: 1 }, undefined, scene.hub, scene.compact, 48, true);
-    assert.deepEqual(route.at(-1), scene.add);
-    assert.ok(scene.groups.every(group => group.node.x > 0 && group.node.x < viewport.width));
+test('capsule extent keeps child branches and controls beyond its task segment', () => {
+  // Regression: the old outer arc intercepted a working capsule task segment because its width was absent from node geometry.
+  for (const width of [48, 104, 160]) {
+    const layout = solve({ vw: 1920, vh: 1050, left: [], right: [{ id: 'agent', extent: width, children: [{ id: 'account' }] }] });
+    const [parent, child] = layout.wings[1].nodes;
+    assert.equal(parent.extent, width);
+    assert.ok(parent.arc!.R > (width - 24) * parent.size / 44);
+    assert.ok(child.x - child.size / 2 - 6 > parent.x + parent.arc!.R);
+    assert.ok(layout.hub.x + layout.balance[1].full <= layout.vw);
   }
 });

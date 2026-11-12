@@ -8,7 +8,7 @@ import { resetBoardObservation, centerView, boardOpen } from './coordination/sta
 import { installPetFixture } from "./pets/scenario";
 import { srcConversationsScenario } from './scenarioSrcConversations';
 import { installTopologyAccounts, installDenseTopologyAccounts, installDevicePortraitAccounts } from './topology/scenarioAccounts';
-import { nodeKey } from './topology/layout';
+import { nodeKey } from './topology/animate';
 import { sourcePlatformNodeId } from './topology/accounts';
 import { setPrivacy } from './state/privacy';
 import { accountScenario } from "./scenarioAccounts";
@@ -195,7 +195,7 @@ export async function installScenario(name: string) {
   centerView.set({ view: 'current', filter: 'all', resource: '' });
   beginScenario(name, fixture.detailTask === undefined ? undefined : `fixture-task-${fixture.detailTask}`);
   localStorage.setItem('arc-page', 'overview');
-  const preferences = { 'arc.homepage-mode': JSON.stringify(fixture.homepage?.mode ?? 'topology'), 'arc.controller-sources': 'false', 'device-link': fixture.deviceLink?.enabled === false || !fixture.deviceLink ? 'off' : 'on', 'mcp-services': fixture.mcpHub ? 'on' : 'off', 'arc.relay-hosting': String(!!fixture.relayHosting), 'arc.display.enabled': String(!!fixture.studio), 'arc.display.phase': fixture.studio ?? 'auto', 'update-skipped-version': '', 'arc.privacy': fixture.deviceLink ? 'false' : 'true', theme: fixture.theme, language: fixture.language, 'arc.agent-order': JSON.stringify(fixture.agents), 'agents-max-visible': String(fixture.maxVisibleAgents ?? 4), 'quota-display': fixture.quotaDisplay ?? 'remaining', 'quota-reset-display': fixture.resetDisplay ?? 'countdown', 'task-bubble-density': fixture.bubbles?.density ?? 'standard', 'task-bubble-width': fixture.bubbles?.width ?? 'medium', 'task-bubble-auto-compact': fixture.bubbles?.autoCompact === false ? 'off' : 'on' };
+  const preferences = { 'arc.topology-tuning': String(!!fixture.topologyTuning), 'topology-layout': 'auto', 'arc.homepage-mode': JSON.stringify(fixture.homepage?.mode ?? 'topology'), 'arc.controller-sources': 'false', 'device-link': fixture.deviceLink?.enabled === false || !fixture.deviceLink ? 'off' : 'on', 'mcp-services': fixture.mcpHub ? 'on' : 'off', 'arc.relay-hosting': String(!!fixture.relayHosting), 'arc.display.enabled': String(!!fixture.studio), 'arc.display.phase': fixture.studio ?? 'auto', 'update-skipped-version': '', 'arc.privacy': fixture.deviceLink ? 'false' : 'true', theme: fixture.theme, language: fixture.language, 'arc.agent-order': JSON.stringify(fixture.agents), 'agents-max-visible': String(fixture.maxVisibleAgents ?? 4), 'quota-display': fixture.quotaDisplay ?? 'remaining', 'quota-reset-display': fixture.resetDisplay ?? 'countdown', 'task-bubble-density': fixture.bubbles?.density ?? 'standard', 'task-bubble-width': fixture.bubbles?.width ?? 'medium', 'task-bubble-auto-compact': fixture.bubbles?.autoCompact === false ? 'off' : 'on' };
   const now = new Date().toISOString();
   const defaults = Object.fromEntries(Object.entries(config.fields).map(([key, field]) => [key, field.default]));
   const status = {

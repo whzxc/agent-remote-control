@@ -27,22 +27,41 @@ export const checks = [{ stage: 'verify', order: 18, visual: true, async run(con
   const mode = () => page.evaluate(() => window.__ARC_VIEW_MODEL__().homepage.mode);
   if (await mode() !== fixture.homepage.mode) throw new Error('Homepage mode did not restore the viewer preference.');
   const check = fixture.homepage.check;
+  const reveal = async name => {
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const target = page.getByRole('button', { name, exact: true });
+      if (await target.count()) return target;
+      const label = await page.evaluate(() => {
+        const topology = window.__ARC_VIEW_MODEL__().topology;
+        const group = topology.groups.find(group => group.side === 1 && !group.parent && group.folded);
+        return group && topology.nodes.find(node => node.id === group.id)?.label;
+      });
+      const group = label ? page.getByRole('button', { name: `${label} · ${messages['topology.expand']}`, exact: true })
+        : page.getByRole('button', { name: new RegExp(`${messages['topology.expand']}$`) }).first();
+      if (!await group.count()) throw new Error(`Configured node is unavailable: ${name}`);
+      await group.click();
+    }
+    throw new Error(`Configured node stayed folded: ${name}`);
+  };
   if (check === 'portrait-device') {
     const issues = await page.evaluate(() => {
-      const hub = document.querySelector('.static-topology-hub').getBoundingClientRect();
-      const pan = document.querySelector('.static-topology-pan').getBoundingClientRect();
+      const hub = document.querySelector('.topology-hub').getBoundingClientRect();
+      const pan = document.querySelector('.topology-viewport').getBoundingClientRect();
       const protectedMark = { left: hub.left + hub.width / 4, right: hub.right - hub.width / 4, top: hub.top, bottom: hub.bottom };
       const headerBottom = Math.max(...[...document.querySelectorAll('.board-header, .homepage-mode-switch')].map(node => node.getBoundingClientRect().bottom));
       const overlaps = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
       const issues = [];
-      for (const node of document.querySelectorAll('.node-capsule, .topology-group-capsule, .static-graph-node .graph-node-name')) {
+      for (const node of document.querySelectorAll('.node-capsule, .topology-group-capsule, .capsule-graph-node .graph-node-name')) {
         const box = node.getBoundingClientRect();
+        if (!box.width || !box.height || node.closest('[inert]')) continue;
         if (box.left < 0 || box.right > innerWidth || box.top < pan.top || box.bottom > pan.bottom) issues.push('A node, account group or label is clipped.');
         if (overlaps(box, hub)) issues.push('A node or label overlaps ARC.');
         if (box.top < headerBottom) issues.push('A node or label overlaps the header.');
       }
-      const svg = document.querySelector('.static-topology-wires').getBoundingClientRect();
-      for (const path of document.querySelectorAll('.static-topology-wires path')) {
+      const activeSvg = document.querySelector('.topology-wires[data-inactive=false]');
+      const svg = activeSvg.getBoundingClientRect();
+      for (const path of activeSvg.querySelectorAll('path')) {
+        if (!path.getAttribute('d')) continue;
         const length = path.getTotalLength();
         for (let at = 0; at <= length; at += 4) {
           const point = path.getPointAtLength(at), x = point.x + svg.x, y = point.y + svg.y;
@@ -51,18 +70,27 @@ export const checks = [{ stage: 'verify', order: 18, visual: true, async run(con
         }
       }
       const endpoint = document.querySelector('[data-device-add]').getBoundingClientRect();
-      const model = window.__ARC_VIEW_MODEL__().topology;
-      const route = model.paths.find(path => path.key === 'add');
-      const path = [...document.querySelectorAll('.static-topology-wires path')].find(path => path.getAttribute('d') === route?.d);
-      const end = path?.getPointAtLength(path.getTotalLength());
-      if (!end || Math.abs(end.x + svg.x - endpoint.x - endpoint.width / 2) > 1 || Math.abs(end.y + svg.y - endpoint.y - endpoint.height / 2) > 1) issues.push('The add endpoint is detached from its trunk.');
+      const node = window.__ARC_VIEW_MODEL__().topology.nodes.find(node => node.endpoint);
+      const path = [...activeSvg.querySelectorAll('path')].find(path => path.getAttribute('aria-label') === `${node?.label} connection`)
+        ?? activeSvg.querySelector('.portrait-rail.right');
+      if (!path?.getAttribute('d') || !endpoint.width) issues.push('The add endpoint lost its solver branch.');
+      else {
+        const start = path.getPointAtLength(0), end = path.getPointAtLength(path.getTotalLength());
+        const distance = point => Math.hypot(point.x + svg.x - endpoint.x - endpoint.width / 2, point.y + svg.y - endpoint.y - endpoint.height / 2);
+        if (Math.min(distance(start), distance(end)) > endpoint.width / 2) issues.push('The add endpoint is detached from its solver branch.');
+      }
       return issues;
     });
     if (issues.length) throw new Error([...new Set(issues)].join(' '));
-    const device = page.getByRole('button', { name: 'MacBook · Codex', exact: true });
+    const device = await reveal('MacBook · Codex');
     await device.getByRole('img', { name: messages['device.online'], exact: true }).waitFor();
     if (await page.getByRole('button', { name: new RegExp(`^MacBook.*${text('unconfirmed')}`) }).count()) throw new Error('Online device inherited unknown task status.');
-    if (await page.getByRole('button', { name: new RegExp(`^${text('accounts').replace('{count}', '2')}.*${messages['topology.expand']}$`) }).count() !== 5) throw new Error('The composition lost an account group.');
+    const representedRoots = await page.evaluate(() => {
+      const topology = window.__ARC_VIEW_MODEL__().topology;
+      return new Set([...topology.nodes.filter(node => node.side === 1 && !node.parent && !node.group && !node.endpoint).map(node => node.id),
+        ...topology.groups.filter(group => group.side === 1 && !group.parent && group.folded).flatMap(group => group.members)]).size;
+    });
+    if (representedRoots !== 5) throw new Error('The composition lost a configured Agent or device.');
     await page.getByRole('button', { name: text('add'), exact: true }).click();
     await page.getByRole('menuitem', { name: messages['device.add'], exact: true }).waitFor();
     await page.keyboard.press('Escape');
@@ -94,9 +122,21 @@ export const checks = [{ stage: 'verify', order: 18, visual: true, async run(con
     if (await page.getByRole('button', { name: text('clearFilter'), exact: true }).count()) throw new Error('Manual Tasks navigation retained a node filter.');
   } else if (check === 'accounts') {
     const group = page.getByRole('button', { name: new RegExp(`${messages['topology.expand']}$`) }).first();
+    if (!await group.count()) {
+      if (!await page.getByRole('button', { name: /Personal|Pro|Review|Studio/ }).count()) throw new Error('Account nodes and their disclosure are unavailable.');
+    } else {
+    const trigger = await group.elementHandle();
     await group.focus(); await group.press('Enter');
+    await page.keyboard.press('Enter');
+    const panel = page.getByRole('dialog').last();
+    await panel.waitFor();
+    await panel.getByRole('button', { name: messages.expandPanelWidth, exact: true }).click();
+    if (await page.evaluate(() => window.__ARC_VIEW_MODEL__().topology.groups.every(group => group.folded))) throw new Error('A member panel pointer folded its open topology group.');
     await page.keyboard.press('Escape');
-    if (!await group.evaluate(button => button === document.activeElement)) throw new Error('Account disclosure did not restore its trigger focus.');
+    await panel.waitFor({ state: 'hidden' });
+    await page.keyboard.press('Escape');
+    if (!await trigger.evaluate(button => button === document.activeElement)) throw new Error('Account disclosure did not restore its trigger focus.');
+    }
   } else if (check === 'tasks') {
     const feed = page.getByRole('main', { name: text('tasks'), exact: true });
     for (const task of fixture.tasks) await feed.getByRole('article', { name: task.title, exact: true }).waitFor();
@@ -122,20 +162,21 @@ export const checks = [{ stage: 'verify', order: 18, visual: true, async run(con
     await page.keyboard.press('Escape');
   } else if (check === 'controller' || check === 'member') {
     const name = check === 'member' ? 'Anchor Mac' : 'Cedar Mac';
-    await page.getByRole('button', { name, exact: true }).click();
+    await (await reveal(name)).click();
     const panel = page.getByRole('dialog', { name, exact: true });
     await panel.waitFor();
     await panel.getByRole('button', { name: messages['device.revoke'], exact: true }).waitFor();
+    await page.waitForFunction(() => window.__ARC_VIEW_MODEL__().topology.panel?.width > 0);
     if (check === 'member') {
       const toggle = panel.getByRole('switch', { name: text('upstreamSources'), exact: true });
       if (await toggle.isChecked()) throw new Error('Controller upstream sources must start off.');
       await toggle.click();
-      await page.getByRole('button', { name: 'ChatGPT', exact: true }).waitFor();
     }
     await page.keyboard.press('Escape');
+    if (check === 'member') await page.getByRole('button', { name: 'ChatGPT', exact: true }).waitFor();
     if (check === 'controller') {
-      await page.getByRole('button', { name: 'Quartz PC · Codex', exact: true }).waitFor();
-      await page.getByRole('button', { name: 'Cedar Mac · Codex', exact: true }).waitFor();
+      await (await reveal('Quartz PC · Codex')).waitFor();
+      await (await reveal('Cedar Mac · Codex')).waitFor();
       await page.getByRole('button', { name: new RegExp(`^Cedar Mac\\..*${text('openTasks')}$`) }).click();
       await page.getByRole('article', { name: 'Review remote workspace changes', exact: true }).waitFor();
       if (await page.getByRole('article', { name: 'Inspect the dispatch queue', exact: true }).count()) throw new Error('Device scope included a local task.');
@@ -149,6 +190,12 @@ export const checks = [{ stage: 'verify', order: 18, visual: true, async run(con
     await page.keyboard.press('Escape');
   }
   if (fixture.homepage.mode === 'topology' && check !== 'focus' && fixture.tasks.length) {
+    await page.waitForFunction(async () => {
+      const positions = () => JSON.stringify(window.__ARC_VIEW_MODEL__().topology.nodes.map(node => [node.id, node.position.x, node.position.y]));
+      const before = positions();
+      await new Promise(requestAnimationFrame);
+      return !window.__ARC_VIEW_MODEL__().topology.orientationPending && positions() === before;
+    });
     const before = await page.evaluate(() => window.__ARC_VIEW_MODEL__().topology.nodes.map(node => [node.id, node.position.x, node.position.y]));
     await page.evaluate(async () => {
       const { trackedActivity } = await import('/state/activityBubbles.ts');

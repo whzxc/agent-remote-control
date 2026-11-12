@@ -163,7 +163,7 @@ Node and task panels use the shared Panel, fixed left/right M slots, retained co
 
 Narrow configuration columns and Tasks cards follow [Portrait layout](portrait-layout.md).
 
-Static topology positions depend on configuration, viewport and explicit disclosure. Capsule activity updates the outline, phase discs and outgoing port. Tasks mode owns the card feed. Opening a panel preserves topology positions.
+Topology geometry uses the retained node solvers, viewport fitting and explicit disclosure. Attention protects configuration branches. Capsule activity updates the outline, phase discs and width extent. Tasks mode owns the card feed. Opening a panel preserves topology positions.
 
 Details have Back, a single-line task title with a full-title tooltip, native link, width toggle, status, project, and localized duration. The title omits the Agent name; the metadata row retains it. A second metadata line shows known source/connection information, the latest turn configuration, and turn count. Agent and task layers share the default 400px or viewport-minus-32px width. Forward/back slide slightly in opposite directions over 160ms without shell resizing. Activity-snapshot membership means ongoing, including external sessions whose completion is snapshot removal rather than old item status. Timelines scroll internally with jump-to-latest.
 

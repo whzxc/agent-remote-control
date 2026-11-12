@@ -69,20 +69,3 @@ export const portraitForms = [
   { name: 'controller-mobile-branch', width: 390, height: 844, rootX: 264, pan: 152 },
   { name: 'controller-mobile-accounts', width: 390, height: 844, rootX: 264, pan: 304 },
 ] as const;
-
-
-export const controllerAccountForms = [
-  { name: 'controller-accounts-portrait', width: 800, height: 1250, compact: true,
-    hub: { x: 400, y: 554, size: 144 }, sourceX: 495, sourceAccountX: 343, sourceRows: [220, 312, 404],
-    agentX: 305, agentAccountX: 457, agentRows: [696, 788, 880, 972], deviceY: 1064, addY: 1158 },
-  { name: 'controller-accounts-landscape', width: 1280, height: 800, compact: false,
-    hub: { x: 640, y: 420, size: 180 }, sourceX: 430, sourceAccountX: 170, sourceRows: [328, 420, 512],
-    agentX: 850, agentAccountX: 1110, agentRows: [236, 328, 420, 512], deviceY: 604, addY: 698 },
-] as const;
-export const controllerAccountSources = [
-  { label: 'Anthropic', brand: 'anthropic' }, { label: 'xAI', brand: 'xai' }, { label: 'OpenAI', brand: 'openai' },
-] as const;
-export const controllerAccountAgents = [
-  { label: 'Codex', brand: 'codex' }, { label: 'Claude Code', brand: 'claude-code' },
-  { label: 'DeepSeek', brand: 'deepseek' }, { label: 'OpenCode', brand: 'opencode' },
-] as const;

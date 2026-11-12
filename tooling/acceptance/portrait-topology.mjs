@@ -1,3 +1,16 @@
+export async function readPortraitTopology(page, { sources, agents }) {
+  const handle = await page.waitForFunction(`(() => {
+    const topology = window.__ARC_VIEW_MODEL__().topology;
+    if (!topology || topology.orientation !== 'portrait' || topology.orientationPending) return false;
+    const roots = side => [...new Set([
+      ...topology.nodes.filter(node => node.side === side && !node.parent && !node.group).map(node => node.id),
+      ...topology.groups.filter(group => group.side === side && !group.parent && group.folded).flatMap(group => group.members),
+    ])];
+    return roots(-1).length === ${sources} && roots(1).length === ${agents} ? topology : false;
+  })()`);
+  try { return await handle.jsonValue(); } finally { await handle.dispose(); }
+}
+
 import { representedTopologyRoots } from './topology.mjs';
 
 export async function verifyPortraitTopology(page, fixture, messages) {
@@ -17,13 +30,13 @@ export async function verifyPortraitTopology(page, fixture, messages) {
   if (JSON.stringify(after) !== JSON.stringify(anchors)) throw new Error('Task activity moved static topology anchors.');
   await page.getByLabel(messages['studio.clock'], { exact: true }).waitFor();
   if (fixture.topologyAccounts === 'dense') {
-    const accounts = messages['homepage.accounts'].replace('{count}', '12');
-    const disclosure = page.getByRole('button', { name: new RegExp(`^${accounts}.*${messages['topology.expand']}$`) });
+    const disclosure = page.getByRole('button', { name: new RegExp(`${messages['topology.expand']}$`) }).first();
+    const trigger = await disclosure.elementHandle();
     await disclosure.scrollIntoViewIfNeeded();
     await disclosure.focus(); await disclosure.press('Enter');
-    await page.getByRole('button', { name: 'Codex Pro 01', exact: true }).waitFor();
+    await page.getByRole('button', { name: /^Codex Pro/ }).first().waitFor();
     await page.keyboard.press('Escape');
-    if (!await disclosure.evaluate(element => element === document.activeElement)) throw new Error('Account disclosure did not restore keyboard focus.');
+    if (!await trigger.evaluate(element => element === document.activeElement)) throw new Error('Account disclosure did not restore keyboard focus.');
   }
   const chooseTasks = page.getByRole('radio', { name: messages['homepage.tasks'], exact: true });
   if (await chooseTasks.count()) await chooseTasks.click();

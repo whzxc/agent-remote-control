@@ -277,8 +277,8 @@ messages inside a conversation retain their owners.
 | --- | --- | --- |
 | `modules/task-presentation.tsx` / TaskBubble `task-bubble-{compact,standard,detailed,row,row-attention}` | Retired from homepage; retained for history rows | TaskCard and OriginChain replace homepage task interaction. Retain current Agent/history consumers; TaskRow, StatePill and TaskMessage remain shared parts. |
 | `surfaces/homepage-topology-tasks.tsx` / `tasks`; `homepage-topology-studio.tsx` / `studio` | Retired runtime task tentacles and task-dependent full-page arrangements | Static device topology plus Tasks mode. |
-| `surfaces/homepage-topology-accounts.tsx` / `accounts`, `dense` | Pending retirement: task-bearing/compacted arrangements | Retain TopologyGroup and configuration account/profile nesting. Activity cannot trigger compaction or reposition nodes. |
-| `surfaces/homepage-topology-portrait.tsx` / `expanded-single-task`, `expanded-two-tasks`, `sources-compacted`, `tasks-and-accounts` | Retired runtime task expansion, queues and task-pressure compaction | Static portrait device tiers and Tasks list. Configuration-only node/group forms remain retained. |
+| `surfaces/homepage-topology-accounts.tsx` / `accounts`, `dense` | Retained node/account grouping and animated topology | Retain TopologyGroup and configuration account/profile nesting. Activity cannot drive compaction; capsule width participates in horizontal fitting. |
+| `surfaces/homepage-topology-portrait.tsx` / `expanded-single-task`, `expanded-two-tasks`, `sources-compacted`, `tasks-and-accounts` | Portrait solver/painter retained; task slots and queues removed | Portrait rails, node groups, device trees and Tasks cards. Configuration-only node/group forms remain retained. |
 | `surfaces/homepage-topology-mobile.tsx` / `narrow-two-tasks` | Retired runtime task-connected mobile canvas | `surfaces/homepage-tasks.tsx` / `mobile`. |
 | `surfaces/agent-panel.tsx` / task-bearing and centered task-overview forms; `modules/agent-activity.tsx`, `modules/source-activity.tsx` / homepage activity projections | Retired runtime focus-to-expand homepage task overlays and task queues | Tasks mode owns primary task access. Retain management, quota, native history and source/account parts until their consuming surface migration. |
 
@@ -312,10 +312,7 @@ may control further devices; each homepage renders one hop, without protocol for
 The architecture proposal is in `arch/mechanisms/device-link.*`, `device-forward.*`
 and `arch/system-map.*`.
 
-Runtime adoption uses static configuration columns and explicit account disclosure.
-Landscape centers the reserved configuration bounds, independently of task counts.
-A single source merges with its platform to avoid a redundant outer tier. Compact layouts reserve source rows above ARC and executor rows below it. Each wing centers its own configuration bounds, including folded account capsules. Primary trunks route outside the mark and its labels. The add endpoint terminates the executor trunk. The Tasks
-scroll area reserves the navigation capsule's height and bottom margin.
+Runtime adoption retains the topology solver, automatic/manual orientation, portrait solver and painter, node group/fold planner, earcup actions and scene animator. Landscape uses the original grown-wire and tentacle geometry. Capsules provide node extents and retain their logo ports. Task observations populate capsules and Tasks cards without adding task slots or task-driven compaction. The topology and Tasks scroll areas reserve the header, mode switch and navigation capsule.
 The device node panel replaces the separate Devices workspace and summary. Pairing,
 address and revoke dialogs retain their shared shells. Native management currently
 exposes paired devices, paths and reachability. Remote Agent tiers and single-Agent merge use `availableAgents`. The native
@@ -354,7 +351,7 @@ and share width, reveal and outgoing ports through the 210/26 spring with 8ms
 substeps. Reduced motion applies endpoints directly and disables the pulse.
 `homepage-modes-*` fixtures own capsule, filter, pan and device interactions.
 
-All proposed device frames are static. Activity cannot move nodes or change grouping.
+Device nodes use the retained topology engine. Configuration and attention determine grouping; capsule extents participate in horizontal fitting.
 Task bubbles, queues, task-only arcs and task focus overlays are absent. Node positions
 follow configuration and explicit structural disclosure within a fixed viewport.
 
@@ -582,12 +579,7 @@ The shared layer shells implement fixed M node slots and the reviewed XL workspa
 | `modules/node-capsule.tsx`, `modules/topology-node.tsx` | `ui/components/ui/NodeCapsule.tsx`, `ui/components/GraphNode.tsx`, `ui/topology/spring.ts` | Stadium quota outline, phase discs, attention, overflow, unread, unconfirmed and mirrored wing. Shared 210/26 spring integrates width and outgoing port. |
 | `modules/device-topology.tsx`, `surfaces/device-link-topology.tsx` | `ui/topology/Topology.tsx`, `ui/devices/DeviceNodePanel.tsx`, `ui/components/SettingsPage.tsx` | One-hop paired-device nodes, management and right add endpoint. Default-off controller-source disclosure. Remote inventory and single-Agent merge use `device/tasks`. Upstream disclosure uses native device configuration. Remote account/quota inventory remains unavailable. |
 
-The task-bearing solver, task-pressure compaction, portrait task renderer, task wires and their tuning controls are retired. `ui/topology/layout.ts` projects configuration columns and explicit account disclosure. Browser task-card scenarios replace retired queue/drag renderer cases.
+`ui/topology/solve.ts`, `compact.ts`, `orientation.ts`, `portrait.ts`, `portraitRender.ts`, `render.ts` and `animate.ts` retain the topology engine. Node geometry, grouping, earcups, tentacles, springs and clock are adopted. Task slots, task queues, task wires and task-driven priorities are removed. `ArcActions.tsx` and `TuningControls.tsx` retain branch disclosure/read actions and the optional navigation entry. Browser fixtures cover the restored node engine alongside Tasks cards.
 
-The `controller-accounts-portrait` and `controller-accounts-landscape` frames in
-`surfaces/device-link-topology.tsx` cover three source groups, four local Agents,
-two local account pools and one merged online device. Their runtime fixture is
-`homepage-modes-portrait-device` at 800×1250 and 1280×800 in both themes.
-`modules/device-topology.tsx` / `device-online-no-quota` maps to the shared neutral
-NodeCapsule ring. Device reachability controls its unconfirmed outline. Unknown
-remote task observations remain in Tasks without changing an online device's ring.
+The `homepage-modes-portrait-device` fixture covers three source groups, four local Agents, two local account pools and one merged online device at 800×1250 and 1280×800 in both themes. It uses the restored solver and portrait painter.
+`modules/device-topology.tsx` / `device-online-no-quota` maps to the shared neutral NodeCapsule ring. Device reachability controls its unconfirmed outline. Unknown remote task observations remain in Tasks without changing an online device's ring.

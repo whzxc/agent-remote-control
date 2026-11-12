@@ -135,7 +135,7 @@ Local Agents are separate from platforms. An Agent with multiple profiles opens 
 - Connector marks identify the external product; platform roots use platform marks. Local Agent account nodes retain their own quota rings. No Agent account identity merges source-side nodes.
 - Account siblings fold through TopologyGroup based on configuration and viewport width. Explicit disclosure preserves keyboard focus and layered Escape.
 - Account panels open scoped activity with recorded attribution and available quota.
-- Geometry stays in `ui/topology/layout.ts`. Tasks use the separate card feed and working capsules.
+- Geometry stays in `ui/topology/solve.ts`, `compact.ts` and `portrait.ts`. Tasks use the separate card feed and working capsules.
 
 ## Fixtures
 

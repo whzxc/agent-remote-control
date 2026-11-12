@@ -133,7 +133,7 @@ opens the existing node panel; task-area activation opens Tasks filtered to that
 The idle and working frames specify endpoints. Runtime width and outgoing ports share
 the topology spring integrator with stiffness 210, damping 26 and 8ms substeps.
 
-Portrait 640×800 and mobile 390×844 retain node labels and fixed compact columns.
+Portrait 640×800 and mobile 390×844 retain the portrait solver, rails, compact node presentation and configuration group planner.
 Explicit horizontal pan reveals deeper device/Agent/account columns without reflow;
 the Board header, mode switch and navigation stay fixed. The root, branch and account
 viewport frames show this proposal. Pan never follows task activity. Remote sibling
@@ -148,7 +148,7 @@ ADG discovers `components`, `modules` and `surfaces` in that order. The [mapping
 `modules/homepage-topology.tsx` owns TopologyScreen and Scene. Homepage node, mark, canvas, Board header and navigation parts live in their defining modules. `fixtures/topology.ts` owns scene records; `fixtures/topology-mobile.ts` owns the narrow layout. Type-only references point to the defining visual owner. All production compositions participate in default discovery.
 
 
-`design/tsconfig.json` resolves generated declarations in ignored `design/.adg/`. `adg.config.mjs` owns paths and the browser fixture adapter. Generated output belongs in ignored `output/design/`. `TopologyScene` accepts fixture coordinates inside `data-free`; runtime geometry remains owned by `ui/topology/layout.ts`.
+`design/tsconfig.json` resolves generated declarations in ignored `design/.adg/`. `adg.config.mjs` owns paths and the browser fixture adapter. Generated output belongs in ignored `output/design/`. `TopologyScene` accepts fixture coordinates inside `data-free`; runtime geometry remains owned by `ui/topology/solve.ts`, `compact.ts` and `portrait.ts`.
 
 ## Review and adoption
 

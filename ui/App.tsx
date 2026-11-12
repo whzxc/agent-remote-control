@@ -63,6 +63,7 @@ import { showPets } from "./pets/state";
 import RelayHosting from "./components/RelayHosting";
 import { relayHostingEnabled } from "./state/relay";
 import { permissions, permissionsReady, refreshPermissions, startPermissions } from "./state/permissions";
+import TuningControls from "./topology/TuningControls";
 export default function App() {
   locale.use();
   const studio = studioEnabled.use();
@@ -279,6 +280,7 @@ export default function App() {
 
             </button>
           ))}
+          <TuningControls available={page === "overview" && !welcome && !modalOpen && !workspace} />
           <StudioControls available={studio && page === "overview" && !welcome && !modalOpen && !workspace} />
           <UpdateDock />
         </HoverScope>

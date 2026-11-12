@@ -1,20 +1,11 @@
-.static-topology-pan { position: absolute; inset: 174px 0 72px; overflow: auto; overscroll-behavior: contain; outline-offset: -4px; }
-.static-topology-scene { position: relative; min-width: 100%; }
-.static-topology-wires { position: absolute; inset: 0; pointer-events: none; }
-.static-topology-node { position: absolute; width: 48px; height: 48px; }
-.static-topology-node[data-offline] { opacity: .4; }
-.static-graph-node { position: relative; display: flex; flex-direction: column; align-items: center; width: 48px; }
-.static-graph-node .graph-node-name { position: absolute; top: 56px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 2px; width: 140px; text-align: center; font-size: var(--text-small); line-height: 20px; }
-.static-graph-node .graph-node-name small { font-size: var(--text-caption); color: var(--text-secondary); }
-.static-topology-hub { position: absolute; }
-.topology-add-menu { position: absolute; left: calc(50% + 30px); top: calc(50% + 50px); z-index: 4; display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface); padding: 8px; box-shadow: var(--shadow-md); }
-.static-topology-add { position: absolute; }
-.topology-add-endpoint { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
-.topology-add-endpoint > span { width: 12px; height: 12px; border-radius: 50%; background: var(--role-agent); }
+.topology-viewport { position: absolute; inset: 174px 0 calc(var(--dock-bottom) + 60px); overflow: auto; overscroll-behavior: contain; overflow-anchor: none; }
+.topology-node .capsule-graph-node { position: absolute; left: -2px; top: -2px; width: 48px; }
+.topology-node .capsule-graph-node .graph-node-name { position: absolute; top: 60px; left: 24px; width: 110px; text-align: center; }
+.topology-node .capsule-graph-node small { display: block; color: var(--text-secondary); }
 .device-node-graphic { position: relative; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; }
 .device-node-status { position: absolute; left: 9px; bottom: 9px; width: 6px; height: 6px; border-radius: 50%; background: var(--text-tertiary); }
 .device-node-status[data-online=true] { background: var(--success); }
 .device-node-badge { position: absolute; right: 6px; bottom: 6px; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--surface); }
-.topology-add-endpoint { border: 0; padding: 0; background: transparent; color: inherit; cursor: pointer; }
-
-.static-topology-node[data-wing=left] > .topology-group { transform: translateX(calc(48px - 100%)); }
+.topology-add-endpoint { position: absolute; left: 8px; top: 8px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 0; padding: 0; border-radius: 50%; background: transparent; cursor: pointer; }
+.topology-add-endpoint > span { width: 12px; height: 12px; border-radius: 50%; background: var(--role-agent); }
+.topology-scene[data-orientation=portrait] .node-capsule-logo { background: var(--canvas); border-radius: 50%; }

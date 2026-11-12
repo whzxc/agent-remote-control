@@ -120,7 +120,7 @@ function RevokeDialog({ peer, memberSide, close }: { peer: Peer; memberSide: boo
     {error && <Notice layout="inline">{error}</Notice>}
   </ConfirmDialog>;
 }
-export default function DeviceNodePanel() {
+export default function DeviceNodePanel({ onPanelFrame }: { onPanelFrame?: (rect: import('../components/ui/layerFrame').LayerRect | null) => void } = {}) {
   const snapshot = deviceSnapshot.use(), error = deviceError.use(), view = deviceView.use();
   const devices = pairedDevices(snapshot), detail = devices.find(device => device.id === view.detail);
   const remote = deviceTasks.use();
@@ -145,7 +145,7 @@ export default function DeviceNodePanel() {
   }
   return <>
     {(detail || controller || view.detail === 'pairing') && <Panel side={view.side === 'member' ? 'left' : 'right'} title={selectedAgent ? `${detail!.name} · ${agentName(selectedAgent)}` : upstream?.sourceLabel ?? detail?.name ?? (controller ? snapshot?.controller?.name : c('thisDevice'))}
-      className="device-node-panel" busy={busy} onClose={() => deviceView.set({ side: view.side })}>
+      className="device-node-panel" onPanelFrame={onPanelFrame} busy={busy} onClose={() => deviceView.set({ side: view.side })}>
       <div className="devices-content">{detail && remote[detail.id]?.error && <Notice layout="inline">{remote[detail.id].error}</Notice>}{(error || actionError) && <Notice layout="inline">{error || actionError}</Notice>}
         {selectedAgent && detail ? <div className="device-detail"><div className="device-identity"><BrandMark markup={icons[selectedAgent.agent]} size={28} /><strong>{agentName(selectedAgent)}</strong></div>
           <p>{selectedAgent.version}</p><Button onClick={() => { deviceView.set({ side: 'controller' }); focusNodeTasks({ id: `device:${detail.id}:agent:${selectedAgent.agent}`, deviceId: detail.id, agent: selectedAgent.agent, label: `${detail.name} · ${agentName(selectedAgent)}` }); }}>{t('homepage.tasks')}</Button>

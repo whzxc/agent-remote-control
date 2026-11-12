@@ -1,6 +1,4 @@
-export type Side = -1 | 1;
-export interface Point { x: number; y: number }
-export const deg = (degrees: number) => degrees * Math.PI / 180;
+import { deg, type Point, type Side } from "./solve.ts";
 
 export const finitePoints = (...points: Point[]) => points.every(p => Number.isFinite(p.x) && Number.isFinite(p.y));
 

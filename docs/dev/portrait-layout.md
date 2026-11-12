@@ -1,24 +1,20 @@
 # Portrait homepage layout
 
 The approved `device-link-topology` and `homepage-tasks` surfaces own narrow presentation.
-`ui/topology/layout.ts` owns configuration columns.
+`ui/topology/orientation.ts` chooses the orientation and `portrait.ts` owns portrait geometry.
 
 ## Topology
 
-Windows below 1000px use compact 152px columns and 48px logo anchors.
-Capsules reserve at most two 22px discs on 28px steps.
-Visible node labels retain their logo anchors.
-Horizontal and vertical scrolling reveal configuration tiers without following task activity.
-The ARC mark, Board header, mode switch and navigation remain available.
+Automatic orientation retains the solver's aspect-ratio hysteresis and defers changes while dragging. The portrait solver keeps source and Agent rails, inward child columns and earcup connections. Node geometry follows configuration and explicit disclosure. Capsule width contributes to horizontal extents. The header, mode switch and bottom navigation reserve space outside the scrollable topology viewport. Portrait labels follow the existing compact painter's presentation.
 
 ## Account groups
 
-Multiple account siblings fold into TopologyGroup in compact columns.
+Viewport pressure folds eligible node siblings through the topology group planner.
 Explicit activation unfolds members.
 Keyboard activation focuses the first member.
 Escape dismisses a member layer before folding its group and restoring trigger focus.
 Outside canvas input folds the group.
-Task updates retain explicit disclosure and configuration positions.
+Task observations retain explicit disclosure and do not determine fold priority.
 
 ## Tasks
 

@@ -9,10 +9,10 @@ export default function GraphNode({ label, state, onOpen, onMove, highlighted, n
   label: string; state: WireState; onOpen: () => void; onMove?: (by: number) => void;
   caption?: ReactNode; hideLabel?: boolean; panelExpanded?: boolean; highlighted?: boolean; newlyAdded?: boolean; children: ReactNode;
 }) {
-  if (capsule && onTasks) return <span className="static-graph-node" data-connection-state={state}>
+  if (capsule && onTasks) return <span className="capsule-graph-node" data-connection-state={state}>
     <NodeCapsule label={label} state={capsule} graphic={children} mark={capsuleMark} readings={readings} used={used} compact={compact} wing={wing}
       neutralRing={neutralRing} expanded={panelExpanded} onMove={onMove} onOpen={onOpen} onTasks={onTasks} onWidth={onWidth} />
-    {caption}
+    {!hideLabel && caption}
   </span>;
   return <button type="button" className="graph-node" data-panel-anchor data-layer-switcher
     data-highlighted={highlighted || undefined} data-new-source={newlyAdded || undefined} data-connection-state={state}

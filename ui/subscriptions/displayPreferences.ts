@@ -19,3 +19,6 @@ export const maxVisibleAgents = preference<number>('agents-max-visible', 4);
 export const bubbleDensity = preference<BubbleDensity>('task-bubble-density', 'standard', value => value === 'compact' || value === 'detailed' ? value : 'standard', value => value);
 export const bubbleWidth = preference<BubbleWidth>('task-bubble-width', 'medium', value => value === 'narrow' || value === 'wide' ? value : 'medium', value => value);
 export const bubbleAutoCompact = preference('task-bubble-auto-compact', true, value => value !== 'off', value => value ? 'on' : 'off');
+
+export type LayoutPreference = 'auto' | 'landscape' | 'portrait';
+export const topologyLayout = preference<LayoutPreference>('topology-layout', 'auto', value => value === 'portrait' || value === 'landscape' ? value : 'auto', value => value);

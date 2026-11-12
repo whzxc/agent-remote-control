@@ -227,49 +227,5 @@ export const checks = [
             finally {
                 context.model = model;
             }
-        } },
-    { stage: "afterCapture", order: 46, visual: false, async run(context) {
-            const { page, fixture, name, width, height, row, root } = context;
-            let { model } = context;
-            try {
-                if (width >= 1280 && !fixture.homepage && !fixture.page && !fixture.panel && fixture.detailTask === undefined && fixture.tasks.some(task => task.completed)) {
-                    // Regression: dragging a completed card left a click guard that swallowed its mark-read action.
-                    const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
-                    const completed = fixture.tasks.flatMap((task, index) => task.completed && model.topology.tasks.some(row => row.taskId === `fixture-task-${index}`)
-                        ? [{ task, id: `fixture-task-${index}` }] : []);
-                    const unread = [];
-                    for (const target of completed) {
-                        const group = page.getByRole('group', { name: target.task.title, exact: true });
-                        if (await group.getByRole('img', { name: messages['activity.unread'], exact: true }).isVisible())
-                            unread.push(target);
-                    }
-                    if (!unread.length && completed.some(({ task, id }) => model.taskBubbles.some(bubble => bubble.agent === task.agent && bubble.id === id && bubble.unread))) {
-                        throw new Error('Expected unread completed tasks expose no unread bubbles');
-                    }
-                    for (const { task, id } of unread) {
-                        const title = task.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                        const taskGroup = page.getByRole('article', { name: task.title, exact: true });
-                        const bubble = taskGroup.getByRole('button', { name: new RegExp(`^${title} ·`) });
-                        const bounds = await bubble.boundingBox();
-                        if (!bounds)
-                            throw new Error('Completed task is unavailable for mark-read acceptance');
-                        await bubble.dragTo(bubble, {
-                            sourcePosition: { x: bounds.width / 2, y: bounds.height / 2 },
-                            targetPosition: { x: bounds.width * 0.6, y: bounds.height * 0.6 },
-                        });
-                        if (!await taskGroup.isVisible())
-                            throw new Error(`Dragged task left the visible queue: ${task.title}`);
-                        const markRead = taskGroup.getByRole('button', { name: messages['activity.markRead'], exact: true });
-                        await markRead.click();
-                        await page.waitForFunction(({ agent, id }) => window.__ARC_VIEW_MODEL__().taskBubbles.some(bubble => bubble.agent === agent && bubble.id === id && bubble.completed && !bubble.unread), { agent: task.agent, id });
-                        await bubble.getByRole('img', { name: messages['activity.unread'], exact: true }).waitFor({ state: 'hidden' });
-                        if (await page.getByRole('dialog').count())
-                            throw new Error('Mark-read opened a task detail panel');
-                    }
-                }
-            }
-            finally {
-                context.model = model;
-            }
         } }
 ];

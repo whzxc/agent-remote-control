@@ -3,7 +3,7 @@ import { useState } from "react";
 import { t } from "../i18n";
 import { subscriptions, saveSubscriptions } from "../state/subscriptions";
 import {
-  quotaDisplay,
+  quotaDisplay, topologyLayout, type LayoutPreference,
   resetDisplay,
   maxVisibleAgents,
 } from "../subscriptions/displayPreferences";
@@ -23,7 +23,7 @@ export default function AgentDisplaySettings({
   agent?: string;
 }) {
   const { snapshot } = subscriptions.use(),
-    quota = quotaDisplay.use(),
+    layout = topologyLayout.use(), quota = quotaDisplay.use(),
     reset = resetDisplay.use(),
     max = maxVisibleAgents.use();
   const [defaultsBusy, setDefaultsBusy] = useState(false);
@@ -46,6 +46,9 @@ export default function AgentDisplaySettings({
       {error && <Notice>{error}</Notice>}
       {agent && <AgentDispatchDefaults agent={agent} onBusy={setDefaultsBusy} />}
       <Group title={t("usageAppearance")}>
+        <Row title={t("topology.layout")}><SingleChoice fill label={t("topology.layout")} value={layout}
+          onChange={value => topologyLayout.set(value as LayoutPreference)}
+          options={['auto', 'landscape', 'portrait'].map(value => ({ value, label: t(`topology.layout.${value}`) }))} /></Row>
         <Row title={t("agentsMaxVisible")} width={200}>
           <SingleChoice fill
             value={String(max)}
