@@ -4,7 +4,7 @@ flowchart TB
   src["Control sources<br/>ChatGPT · Claude · other MCP clients"]
   net["Connections<br/>OpenAI Secure Tunnel · dedicated tunnel · relay"]
   subgraph HOST["ARC on this computer"]
-    local["Desktop app · arc CLI"]
+    local["Desktop app · arc CLI<br/>Desktop: manual persisted Topology / Execution mode"]
     fd["Front door<br/>listeners · auth · tunnels<br/>queue during Core swap"]
     state[("State directory<br/>sources · receipts · bindings")]
     hub["MCP hub<br/>downstream MCP servers"]

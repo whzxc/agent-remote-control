@@ -42,6 +42,7 @@ Inspector.
 | [mechanisms/notification-flow.mmd](../../arch/mechanisms/notification-flow.mmd) | Binding, observation, delivery gates, L1/L2 sends and the ingress inbox |
 | [mechanisms/notification-delivery.mmd](../../arch/mechanisms/notification-delivery.mmd) | Status of one delivery record |
 | [mechanisms/notification-reachability.mmd](../../arch/mechanisms/notification-reachability.mmd) | Handshake state of one notification target |
+| [mechanisms/homepage-modes.mmd](../../arch/mechanisms/homepage-modes.mmd) | Proposed persisted manual modes, static layout inputs, node task-state navigation, execution origin chains and offline task presentation |
 | [mechanisms/device-link.mmd](../../arch/mechanisms/device-link.mmd) | Proposed cycle-safe pairing, reachability and one-hop nested homepage device tiers |
 | [mechanisms/device-forward.mmd](../../arch/mechanisms/device-forward.mmd) | Proposed (device, agent) dispatch, frozen MCP structures and controller task visibility |
 

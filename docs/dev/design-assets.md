@@ -80,7 +80,7 @@ Generic sources live in `components/`; feature sources live in `modules/`. The o
 | `components/tag.tsx` / Feedback family | `Tag` | `tag-meta`, `tag-fact`, `tag-danger`, `tag-ownership` | `modules/agent-activity`, `modules/mcp-service`, `modules/task-presentation` | `ui/components/ui/index.tsx#Tag`; `ui/components/ui/TaskPresentation.tsx#OwnershipTag` | Pending generic label-family review. Props have no task-state semantics; MCP tool labels, project metadata and application ownership reuse the generic part. |
 | `components/tag.tsx` / Feedback family | `Disclosure` | `disclosure`; module MCP compositions | `modules/mcp-service` | `ui/components/ui/index.tsx#Disclosure` | Reviewed. Runtime fidelity remains in the mapped implementation scope. |
 | `modules/task-presentation.tsx` / Task presentation | `TaskBubble` | `task-bubble-compact`, `task-bubble-detailed`, `task-bubble-row`, `task-bubble-row-attention`, `task-bubble-standard` | `modules/homepage-topology`, `surfaces/agent-panel`, `surfaces/homepage-topology-mobile`, `surfaces/settings` | `ui/components/ActivityBubbles.tsx#ActivityBubbleContent` | Reviewed. Adopted by topology, Agent activity and display settings. Fixtures own sample content; static source widths and runtime adaptive conversation layouts require implementation fidelity review. |
-| `modules/task-presentation.tsx` / Task presentation | `TaskRow` | `task-row`, `task-row-attention`; compact use in Agent/source groups | `modules/agent-activity`, `modules/source-activity` | `ui/components/ui/TaskRow.tsx#TaskRow`; runtime `ui/components/SourceDispatches.tsx` | Reviewed. Adopted. Compact layout, copy and trailing slots preserve each owner's row presentation. Independent part frames show the standard and attention presentations. Runtime is a button with disabled/focus behavior and a 1px copy gap; design is static. Agent runtime history still uses ConversationRow/ActivityBubbleContent. |
+| `modules/task-presentation.tsx` / Task presentation | `TaskRow` | `task-row`, `task-row-attention`; compact use in Agent/source groups | `modules/agent-activity`, `modules/source-activity`, Proposed `modules/execution` | `ui/components/ui/TaskRow.tsx#TaskRow`; runtime `ui/components/SourceDispatches.tsx` | Reviewed. Adopted. Compact layout, copy and trailing slots preserve each owner's row presentation. Independent part frames show the standard and attention presentations. Runtime is a button with disabled/focus behavior and a 1px copy gap; design is static. Agent runtime history still uses ConversationRow/ActivityBubbleContent. |
 | `modules/task-presentation.tsx` / Task presentation | `TaskMessage` | `task-message-prompt`, `task-message-queued` | `modules/timeline` | `ui/components/ui/TaskPresentation.tsx#TaskMessage`; runtime `ui/components/TimelineEntries.tsx` and `ui/components/TaskQueuedMessages.tsx` | Reviewed. Adopted. Runtime uses fit-content, 12px vertical padding and 22px line-height; source is full-width with 15px padding and 16px line-height. Queued gaps also differ. |
 | `modules/agent-activity.tsx` / Agent activity | `AgentTaskHistory` | `history` | `surfaces/agent-panel` | `ui/components/AgentConversations.tsx#ConversationRow`; `ui/components/ActivityBubbles.tsx#ActivityBubbleContent` | Reviewed. Adopted. Uses shared TaskRow; grouping, project metadata and dates remain Agent-owned. Runtime history still uses ActivityBubbleContent; projection and fidelity remain in Agent scope. |
 | `modules/source-activity.tsx` / Source activity | `SourceTaskGroups` | `dispatches`, `history` | `surfaces/source-panel` | `ui/components/SourceDispatches.tsx` | Reviewed. Adopted. Uses shared TaskRow; group labels, phase text and disclosure availability remain source-owned. Runtime disabled rows and native state projection remain in source scope. |
@@ -222,6 +222,52 @@ Board records may reference tasks, connections, updates or AX candidates; their 
 
 `surfaces/setup.tsx` assembles the modules and owns the 18 complete forms and their fixture/capture declarations. Cropped part frames use the existing content. The shared shell's child slot keeps business conditions with their source or connection owner. Welcome choices retain the parent grid's stretched height. SetupAction is source-specific; generic SetupChoice remains independent.
 
+### Homepage execution mode
+
+**Proposed. Awaiting user gallery approval.** The ordinary homepage mode selector is
+below Board, outside the bottom navigation capsule. It uses SingleChoice; it is not
+an experimental entry. Selection persists and task observations never switch modes.
+Node task-state activation explicitly selects Execution and opens a transient,
+clearable node scope with scroll and keyboard focus at its matching tasks.
+
+| Source / part | Declared forms | Consumer / intended runtime owner | Status |
+| --- | --- | --- | --- |
+| `modules/homepage-mode.tsx` / HomepageModeSwitch | `mode-switch-topology-attention`, `mode-switch-execution` | HomepageHeader; intended homepage navigation | Proposed. Manual two-choice selector; Topology shows the needs-me badge on Execution. |
+| `modules/homepage-mode.tsx` / HomepageHeader | `homepage-header-topology`, `homepage-header-execution` | TopologyScreen and `surfaces/homepage-execution.tsx` | Proposed. Reuses BoardHeader and keeps its date/time centered in both modes. |
+| `modules/execution.tsx` / ExecutionTaskCard | `execution-task-card-{window,approve,queue,review,report,remote-report,offline}` | ExecutionList; intended task presentation owner | Proposed. Reuses TaskRow and Tile. Detail, mark read and overflow are separate controls. Offline has no live activity verbs. |
+| `modules/execution.tsx` / OriginChain | `origin-chain-{local,remote,member,offline}` | ExecutionTaskCard | Proposed. Source → optional remote device → Agent → account. Each small icon retains its full identity; no wires. |
+| `modules/execution.tsx` / NodeTaskFilter | `node-task-filter` | ExecutionList / focused-node | Proposed. Accent chip identifies the node scope and has a separate clear action. |
+| `modules/execution.tsx` / ExecutionTaskOverflow | `execution-task-overflow` | Execution card overflow | Proposed. Existing ArrowUp/Down semantics and menu actions reorder only within Needs me or Running. They do not schedule work. |
+| `modules/execution.tsx` / ExecutionList, ExecutionEmpty | `execution-empty`; composed list states below | `surfaces/homepage-execution.tsx` | Proposed. Needs me → Running → Completed unread → Unconfirmed; recent completed starts collapsed. Scroll replaces queue compaction. |
+| `surfaces/homepage-execution.tsx` | `mixed`, `empty`, `focused-node`, `member-origin`, `portrait`, `mobile` | Intended homepage content owner; no runtime adoption | Proposed. Landscape 1280×800, portrait 640×800, mobile 390×844. Mixed includes input, approval, local/remote LAN work, completed unread and remote offline unconfirmed. Narrow layouts are scrolling single-column lists. |
+| `fixtures/execution.ts`, `fixtures/homepage-mode.ts` | Support data | Execution and mode parts | Proposed. Fictional tasks, device identities and origin chains. |
+
+Known gaps: these frames have no reachable runtime fixtures. Mode persistence, badge
+navigation, scroll/focus handoff, node filtering, task actions, reorder boundaries,
+tooltip identity and live task projection await implementation after approval. The
+header and navigation remain available while the list scrolls. Offline tasks do not
+contribute live needs-me counts. The highlighted filter constrains the matching groups;
+clearing it restores all tasks. Manual Execution selection also starts unfiltered.
+
+### Task topology assets pending retirement
+
+Retain approved sources until their runtime consumers migrate. No shim or task overlay
+is part of the new model. Shared primitives, native transcripts, task detail and queued
+messages inside a conversation retain their owners.
+
+| Existing source / forms | Retirement scope | Replacement / retained use |
+| --- | --- | --- |
+| `modules/task-presentation.tsx` / TaskBubble `task-bubble-{compact,standard,detailed,row,row-attention}` | Pending retirement for homepage task-bubble and queue presentation | ExecutionTaskCard and OriginChain replace homepage task interaction. Retain current Agent/history/settings consumers until their own migration; TaskRow, StatePill and TaskMessage remain shared parts. |
+| `surfaces/homepage-topology-tasks.tsx` / `tasks`; `homepage-topology-studio.tsx` / `studio` | Pending retirement: task tentacles and task-dependent full-page arrangements | Static device topology plus Execution mode. |
+| `surfaces/homepage-topology-accounts.tsx` / `accounts`, `dense` | Pending retirement: task-bearing/compacted arrangements | Retain TopologyGroup and configuration account/profile nesting. Activity cannot trigger compaction or reposition nodes. |
+| `surfaces/homepage-topology-portrait.tsx` / `expanded-single-task`, `expanded-two-tasks`, `sources-compacted`, `tasks-and-accounts` | Pending retirement: task expansion, queues and task-pressure compaction | Static portrait device tiers and Execution list. Configuration-only node/group forms remain retained. |
+| `surfaces/homepage-topology-mobile.tsx` / `narrow-two-tasks` | Pending retirement: task-connected mobile canvas | `surfaces/homepage-execution.tsx` / `mobile`. |
+| `surfaces/agent-panel.tsx` / task-bearing and centered task-overview forms; `modules/agent-activity.tsx`, `modules/source-activity.tsx` / homepage activity projections | Pending retirement for focus-to-expand homepage task overlays and task queues | Execution owns primary task access. Retain management, quota, native history and source/account parts until their consuming surface migration. |
+
+There is no separate approved queue-only source. Queue and compaction ownership is
+embedded in the task-bearing topology compositions above. Retiring those usages does
+not retire conversation-level queued messages or structural account-group folding.
+
 ### Device level in homepage topology
 
 **Proposed. Awaiting user gallery approval.** The homepage retains its left control-source
@@ -313,6 +359,7 @@ Surfaces with mapped implementation usage are **adopted**. Declared compositions
 | `surfaces/agent-panel.tsx` | `empty`, `overview`, `short`, `loading`, `centered-landscape`, `centered-portrait` | `ui/components/AgentPanel.tsx` | Reviewed and adopted. Overview height follows content, with a fixed header and scrolling body at the cap. The centered frames show the dock aligned to its selected node in the full topology view. |
 | `surfaces/agent-platform.tsx` | `accounts`, `single-account`, `empty`, `loading`, `native` | `ui/components/AgentPlatformView.tsx` | Reviewed and adopted. The account overview fits its content, and the account list scrolls at the viewport cap. The loading frame has a dedicated browser fixture. The native specimen remains unreachable through the current fixture route. |
 | `surfaces/devices.tsx` | See retained workspace sources; both locales | `ui/devices/DevicesWorkspace.tsx` | Retained approved source; scheduled for retirement after topology migration. |
+| `surfaces/homepage-execution.tsx` | `mixed`, `empty`, `focused-node`, `member-origin`, `portrait`, `mobile` | Intended homepage content owner | Proposed; no runtime fixture. |
 | `surfaces/device-link-topology.tsx` | New forms listed above; retained `summary-{en,zh-CN}` | `ui/topology/Topology.tsx` | New forms Proposed. Legacy summary frames retained and scheduled for retirement. |
 | `surfaces/connections.tsx` | `overview` | `ui/components/ConnectionsContent.tsx` | Reviewed. Composes modules/connection-management. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
 | `surfaces/coordination-ax.tsx` | `closed`, `detail`, `open` | `ui/coordination/AXPanel.tsx` | Reviewed. Composes modules/ax. Full-region forms and captures are declared in this surface. Runtime fidelity and missing-state gaps remain listed below. |
@@ -482,6 +529,8 @@ Full-content frames in `coordination/current`, `settings/about` and `settings/di
 Pet preview atlas labels are decorative image content inside `aria-hidden` previews; review them as shapes in the overlay.
 
 ## Known gaps
+
+- Two-mode homepage and execution cards are Proposed. Persistence, navigation/focus, origin tooltips, task actions and scroll behavior require runtime adoption; legacy task topology usages remain pending retirement.
 
 - Device-level homepage frames are Proposed; runtime fixtures, projection, interaction and native cycle/addressing behavior await approved implementation. The separate workspace and its nav/summary assets remain retained pending that migration.
 

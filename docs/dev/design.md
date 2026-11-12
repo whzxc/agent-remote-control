@@ -12,7 +12,7 @@ ARC uses warm neutral surfaces, restrained semantic tints, rounded shared contro
 
 The desktop targets are macOS and Windows. Headless Linux has no product UI. Each source uses one representative language; English and Simplified Chinese content follow its mapped fixture. Frame dimensions and capture viewports are declared in TSX. Landscape homepage forms use 1280×800, portrait forms use 640×800, expanded-single-task uses 640×1000, and `homepage-topology-mobile/narrow-two-tasks` uses 390×844. Portrait forms omit visible node and group labels and retain accessible names. The outer rails leave the center for account branches and task cards. Rails reserve node and quota-ring space; the date/time header stays centered.
 
-The default exports declare the maintained presentations. Apply the toolkit's single-part and multi-part frame naming rules when the owning family is reviewed, updating all references together. Task bubbles retain compact, standard, detailed, row and row-attention; the Board header retains active and idle. Portrait topology retains expanded-empty, expanded-single-task, expanded-two-tasks, sources-compacted, sources-folded and agents-folded. The tasks-and-accounts form uses a 640×1000 frame to show task cards connected to an active account alongside folded sibling accounts. Setup retains standalone and nested flows, including distinct method and ready controls. AX Board retains open, closed and detail forms; detail replaces the list inside the same panel and can scroll beyond the viewport.
+The default exports declare presentations. Approved task-bearing homepage forms remain retained pending the two-mode migration below. Apply the toolkit's single-part and multi-part frame naming rules when the owning family is reviewed, updating all references together. Task bubbles retain compact, standard, detailed, row and row-attention; the Board header retains active and idle. Portrait topology retains expanded-empty, expanded-single-task, expanded-two-tasks, sources-compacted, sources-folded and agents-folded. The tasks-and-accounts form uses a 640×1000 frame to show task cards connected to an active account alongside folded sibling accounts. Setup retains standalone and nested flows, including distinct method and ready controls. AX Board retains open, closed and detail forms; detail replaces the list inside the same panel and can scroll beyond the viewport.
 
 ### ARC health
 
@@ -21,6 +21,35 @@ The upper arc shows ARC's remote connection health. The lower arc shows local Co
 The upper arc reports unhealthy when any ARC-owned listener or transport expected to run is unavailable. An unconfigured or deliberately stopped remote connection adds no fault. The lower arc uses Desktop's authenticated check of Core and its management listener. Both reads exclude source and Agent state, OAuth, account state, task activity, and local client bridges. A source lifecycle action cannot change ARC's expected remote transport state. A client leaving or losing its lease cannot stop Core while Desktop owns it.
 
 Remote recovery retries the remote check or restarts only the affected remote connection. Remote access depends on Core, so when Core is unavailable an expected remote connection also shows unhealthy. Its recovery panel directs the user to Core recovery. Core stop and recovery use a local Desktop action independent of Core request routing. An explicit stop is a host-level intent honored by all automatic start paths. The lower arc shows unavailable and offers Start Core. When a new Core passes its health check, it restores the last explicit ARC-managed remote connection intent. Each recovery keeps its fault treatment until the relevant check passes.
+
+### Proposed two-mode homepage
+
+**Proposed.** A shared SingleChoice below the centered Board header selects Topology
+or Execution manually. Persist the choice; task activity never switches modes. In
+Topology, the Execution option shows the needs-me count. Node task-state activation
+is explicit navigation to Execution with a highlighted, clearable node filter, scroll
+position and keyboard focus at its matching tasks. The filter is transient; manually
+selecting Execution opens all tasks.
+
+Topology retains the left/right wings, ARC hub and earcups. Its layout inputs are
+configuration, viewport and explicit structural disclosure. Task observations change
+badges only. Task bubbles, queues, task-only tentacles/outer arcs, task-driven layout
+and focus-to-expand task overlays are removed from the proposed homepage.
+
+Execution makes task cards primary. Compact origin icons identify source, remote
+device when applicable, Agent and account, without wires. The controller shows only
+tasks it dispatched to a member. A controller-dispatched task on that member uses the
+controller device as its source. Needs me precedes Running and Completed unread;
+Unconfirmed follows, then optional collapsed Recent completed. Offline device tasks
+use unconfirmed state and last-seen metadata, without live verbs or counts.
+
+Open detail, separate mark-as-read, and within-group presentation reordering move to
+Execution. Reordering applies to Needs me and Running only. List overflow scrolls;
+long titles retain their accessible value. Portrait/mobile use a single column.
+`modules/homepage-mode.tsx`, `modules/execution.tsx` and
+`surfaces/homepage-execution.tsx` own these Proposed forms. Existing approved task
+presentation sources remain retained until their consumers migrate; the mapping owns
+per-part retirement scope. See `arch/mechanisms/homepage-modes.*` for the model.
 
 ### Proposed device level
 

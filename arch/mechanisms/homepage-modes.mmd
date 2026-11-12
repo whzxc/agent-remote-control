@@ -1,0 +1,33 @@
+%% Homepage modes (layer 2): static topology and task execution are independent projections.
+%% Index and code mapping: docs/dev/arch-assets.md
+flowchart TB
+  preference[("Persisted homepage mode<br/>Topology or Execution")]
+  switch["User selects SingleChoice<br/>below Board header"]
+  topology["TOPOLOGY MODE<br/>sources LEFT · executors RIGHT<br/>ARC hub and earcups · one device hop"]
+  config["Configuration + viewport / structural disclosure<br/>sources · connections · Agents · accounts · paired devices"]
+  positions["Static node / branch positions<br/>no task bubbles, queues or task arcs<br/>no task focus overlay"]
+  observations["Native task observations"]
+  badges["Node state only<br/>running count · needs me · completed unread<br/>device aggregate in controller-visible scope"]
+  jump["User activates node task state<br/>persist Execution mode<br/>set transient node scope and focus its tasks"]
+  execution["EXECUTION MODE<br/>task cards · no wires<br/>Needs me → Running → Completed unread<br/>then Unconfirmed → collapsed recent completed"]
+  chain["Card origin icon chain<br/>source → remote device only → Agent → account<br/>controller: Anchor Mac → Cedar Mac → Codex → Studio<br/>member: Anchor Mac as source → Codex → Studio"]
+  offline["Offline member tasks<br/>Unconfirmed · last seen<br/>no live verbs or counts"]
+  filter["Highlighted node filter chip<br/>Clear returns to all tasks"]
+  details["Open task detail"]
+  read["Separate check action<br/>mark completed task as read without opening detail"]
+  order["Move up/down within Needs me or Running<br/>never cross groups · no execution rescheduling"]
+  overflow["Scrollable list · text truncation retains full accessible title<br/>portrait/mobile: one column<br/>no overflow queues or task-driven compaction"]
+  switch -->|"persist manual selection only"| preference
+  preference -->|"restore Topology"| topology
+  preference -->|"restore Execution"| execution
+  config --> positions --> topology
+  observations --> badges --> topology
+  observations -->|"update cards without changing mode"| execution
+  topology -->|"explicit badge activation"| jump --> filter --> execution
+  execution --> chain
+  execution --> offline
+  execution --> details
+  execution --> read
+  execution --> order
+  execution --> overflow
+  execution -->|"manual return keeps static geometry"| switch

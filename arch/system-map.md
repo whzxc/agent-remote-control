@@ -31,3 +31,8 @@ Experimental marks this proposed device projection; native session ownership is 
 The proposed homepage topology has configuration-only geometry. Task activity updates
 node badges without adding task children, queues or task arcs. Offline task state is
 unconfirmed with no live counts. Task presentation moves to execution mode.
+
+Desktop offers a manually selected, persisted Topology or Execution homepage mode.
+Task observations update static badges or execution cards without switching modes.
+See [Homepage modes](mechanisms/homepage-modes.md) for task origin chains, node-scoped
+navigation and the separation of presentation from dispatch ownership.

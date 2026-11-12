@@ -34,8 +34,9 @@ const retainedSummary = () => locales.flatMap(locale => topologyOptions.map(opti
 }));
 
 
-const chrome = (width: number, height: number) => [
-  { kind: 'board' as const, x: (width - 240) / 2, y: 27, date: copy.date, time: copy.time, title: copy.board },
+const chrome = (width: number, height: number, attention = 2) => [
+  { kind: 'board' as const, x: (width - 240) / 2, y: 27, date: copy.date, time: copy.time, title: copy.board,
+    mode: 'topology' as const, attention },
   { kind: 'nav' as const, x: 24, y: height - 68, active: '' },
 ];
 
@@ -48,7 +49,7 @@ export default () => [
       links: landscapePaths.map((path, i) => i === 3 && option.state === 'offline'
         ? { ...path, class: 'stroke-role-agent/20' } : path),
       mark: { x: 332, y: 300, size: 180, sourceAction: false, agentAction: false },
-      chrome: chrome(1280, 800),
+      chrome: chrome(1280, 800, option.state === 'offline' ? 1 : 2),
       items: [
         { x: 660, y: 170, content: <TopologyNode label="Codex" brand="codex" taskState={localRunning} /> },
         { x: 660, y: 280, content: <TopologyNode label="Claude Code" brand="claude-code" taskState={localAttention} /> },
@@ -63,7 +64,7 @@ export default () => [
     </TopologyScreen>
   </Frame>),
   ...memberForms.map(({ name, upstreams }) => <Frame name={name} width={1280} height={800} locale="en"
-    note="Proposed. Controller is tier 1 on the left; optional upstream sources stay off by default. Execution keeps controller attribution.">
+    note="Proposed. Tier-1 controller source; upstream sources default off. Execution keeps controller attribution.">
     <TopologyScreen width={1280} height={800} scene={{
       nodes: [], tasks: [],
       links: [...memberPaths, ...(upstreams ? upstreamPaths : [])],
