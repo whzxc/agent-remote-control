@@ -15,6 +15,30 @@ import { LayerOwnerContext } from './TransientLayer';
 import { Button, IconButton, Notice } from './index';
 import './Dialog.css';
 
+function measureLayerContent(node: HTMLElement) {
+  const body = node.querySelector<HTMLElement>(':scope > .dialog-body');
+  const previousFlex = body?.style.flex ?? '';
+  const previousHeight = body?.style.height ?? '';
+  if (body) {
+    body.style.flex = 'none';
+    body.style.height = 'max-content';
+  }
+  const style = getComputedStyle(node);
+  const parts = Array.from(node.children).filter((part): part is HTMLElement => {
+    if (!(part instanceof HTMLElement)) return false;
+    const css = getComputedStyle(part);
+    return css.display !== 'none' && css.position !== 'absolute' && css.position !== 'fixed';
+  });
+  const height = parts.reduce((sum, part) => sum + part.getBoundingClientRect().height, 0)
+    + Math.max(0, parts.length - 1) * (parseFloat(style.rowGap) || 0)
+    + (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
+  if (body) {
+    body.style.flex = previousFlex;
+    body.style.height = previousHeight;
+  }
+  return height;
+}
+
 const CloseContext = createContext<{ id: string; busy?: boolean; close: () => void; feedback: (message: string, error: boolean) => void } | null>(null);
 export function useDialogClose() { return useContext(CloseContext)?.close; }
 export function useDialogFeedback() {
@@ -121,8 +145,8 @@ export type DialogProps = {
   returnFocus?: string;
 };
 
-export function LayerShell({ kind, side = 'center', entryTrigger, onPanelFrame, labelledBy, role = 'dialog', closeLabel, expanded = false, viewKey, contentKey, headerNavigation, onEscapeKeyDown, layerId, open = true, onClose, dirty, busy, onCancel, title, description, children,
-  footer, actions, leading, headerDetail, stepBar, headerless, className = '', initialFocus, returnFocus }: DialogProps & { kind: LayerKind; side?: LayerSide; entryTrigger?: ReturnType<typeof layerTrigger>; onPanelFrame?: (rect: LayerRect | null) => void; labelledBy?: string; role?: 'dialog' | 'region'; closeLabel?: string; expanded?: boolean; viewKey?: string; contentKey?: string; headerNavigation?: ReactNode; onEscapeKeyDown?: (event: KeyboardEvent) => void }) {
+export function LayerShell({ kind, side = 'center', focusTrigger, onPanelFrame, labelledBy, role = 'dialog', closeLabel, expanded = false, viewKey, contentKey, headerNavigation, onEscapeKeyDown, layerId, open = true, onClose, dirty, busy, onCancel, title, description, children,
+  footer, actions, leading, headerDetail, stepBar, headerless, className = '', initialFocus, returnFocus }: DialogProps & { kind: LayerKind; side?: LayerSide; focusTrigger?: ReturnType<typeof layerTrigger>; onPanelFrame?: (rect: LayerRect | null) => void; labelledBy?: string; role?: 'dialog' | 'region'; closeLabel?: string; expanded?: boolean; viewKey?: string; contentKey?: string; headerNavigation?: ReactNode; onEscapeKeyDown?: (event: KeyboardEvent) => void }) {
   const present = useIsPresent();
   const generatedId = useId(), id = layerId ?? generatedId, snapshot = layers.use(), reduced = useReducedMotion();
   const [headerTarget, setHeaderTarget] = useState<HTMLElement | null>(null);
@@ -145,7 +169,6 @@ export function LayerShell({ kind, side = 'center', entryTrigger, onPanelFrame, 
   const viewContext = useMemo(() => ({ set: setActiveView, body: viewBody, footer: viewFooter }), [viewBody, viewFooter, setActiveView]);
   const back = () => { view?.back(); requestAnimationFrame(() => view?.trigger?.focus({ preventScroll: true })); };
   const [frame, setFrame] = useState<ReturnType<typeof layerFrame>>();
-  const source = useRef<ReturnType<typeof layerTrigger>>(undefined);
   const focusSource = useRef<HTMLElement | null>(null);
   const safeAction = useRef<HTMLButtonElement>(null);
   const self = snapshot.find(layer => layer.id === id);
@@ -168,26 +191,30 @@ export function LayerShell({ kind, side = 'center', entryTrigger, onPanelFrame, 
   const contributions = Object.values(panelStates), running = contributions.filter(state => state.busy);
   dirty ||= contributions.some(state => state.dirty); busy ||= !!running.length;
   onCancel ??= running.length === 1 ? running[0].onCancel : undefined;
-  const anchorTop = useRef<number | undefined>(undefined);
-  const retainedHeight = useRef(0), previousView = useRef(`${contentKey}:${viewKey}`), resetHeight = useRef(false);
+  const retainedHeight = useRef(0), previousView = useRef(`${contentKey}:${viewKey}`);
   if (previousView.current !== `${contentKey}:${viewKey}`) {
     retainedHeight.current = 0;
-    if (!previousView.current.startsWith(`${contentKey}:`) || side === 'right') anchorTop.current = undefined;
-    previousView.current = `${contentKey}:${viewKey}`; resetHeight.current = true;
+    previousView.current = `${contentKey}:${viewKey}`;
   }
-  const latest = useRef({ onClose, dirty, busy, onCancel });
-  latest.current = { onClose, dirty, busy, onCancel };
+  const onExit = useCallback(async () => {
+    if (!node || reduced || kind !== 'dialog') return;
+    const animation = node.animate?.([{ opacity: getComputedStyle(node).opacity }, { opacity: 0 }], {
+      duration: motionTransition('fast').duration * 1000, fill: 'forwards',
+      easing: getComputedStyle(document.documentElement).getPropertyValue('--ease-exit').trim() || 'ease-out',
+    });
+    await animation?.finished.catch(() => {});
+  }, [node, reduced, kind]);
+  const latest = useRef({ onClose, dirty, busy, onCancel, onExit: kind === 'dialog' ? onExit : undefined });
+  latest.current = { onClose, dirty, busy, onCancel, onExit: kind === 'dialog' ? onExit : undefined };
   useLayoutEffect(() => { if (kind === 'panel' && !present) layers.remove(id); }, [present, kind, id]);
   useLayoutEffect(() => {
     if (!open || !allowed || !present) return;
-    source.current = layerTrigger() ?? entryTrigger;
-    focusSource.current = source.current?.element ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    focusSource.current = layerTrigger() ?? focusTrigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     layers.open({ id, kind, node: null, trigger: focusSource.current, returnFocus, ...latest.current });
     return () => layers.remove(id);
   }, [open, allowed, id, kind, present]);
   useLayoutEffect(() => {
-    source.current = layerTrigger() ?? entryTrigger;
-    focusSource.current = source.current?.element ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    focusSource.current = layerTrigger() ?? focusTrigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     layers.retarget(id, focusSource.current, returnFocus);
     if (node && kind === "panel" && !reduced) for (const part of node.querySelectorAll<HTMLElement>(":scope > .dialog-header, :scope > .layer-custom-header, :scope > .dialog-body")) part.animate?.([{ opacity: .25 }, { opacity: 1 }], { duration: motionTransition("fast").duration * 1000, easing: getComputedStyle(document.documentElement).getPropertyValue("--ease-enter").trim() || "ease-out" });
   }, [contentKey, viewKey, returnFocus]);
@@ -198,26 +225,26 @@ export function LayerShell({ kind, side = 'center', entryTrigger, onPanelFrame, 
     return layers.observeOutsidePointer(id);
   }, [node, id]);
   useLayoutEffect(() => {
-    if (!node) return;
+    if (!node || !present) return;
     const measure = () => {
-      if (resetHeight.current) { node.style.minHeight = "0px"; resetHeight.current = false; }
-      const body = node.querySelector<HTMLElement>(':scope > .dialog-body');
-      const naturalHeight = node.scrollHeight + (body ? Math.max(0, body.scrollHeight - body.clientHeight) : 0);
+      const naturalHeight = measureLayerContent(node);
+      const contentHeight = view && viewHeight.current ? viewHeight.current : naturalHeight;
+      const desiredHeight = kind === 'panel' ? Math.max(retainedHeight.current, contentHeight) : contentHeight;
       const next = layerFrame(kind, side, { width: innerWidth, height: innerHeight, desktop: isDesktop },
-        readLayerTokens(), naturalHeight, source.current?.rect, expanded, anchorTop.current);
-      anchorTop.current = next.y;
-      if (kind === 'panel') {
-        retainedHeight.current = Math.max(retainedHeight.current, next.height);
-        next.height = Math.min(retainedHeight.current, next.maxHeight);
-      }
+        readLayerTokens(), desiredHeight, expanded);
+      if (kind === 'panel') retainedHeight.current = next.height;
       setFrame(previous => previous && JSON.stringify(previous) === JSON.stringify(next) ? previous : next);
+      if (kind === 'panel') reportFrame.current?.(node.getBoundingClientRect());
     };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(node);
+    node.querySelectorAll('.dialog-swap').forEach(part => observer.observe(part));
+    const changes = new MutationObserver(measure);
+    changes.observe(node, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['hidden', 'open'] });
     window.addEventListener('resize', measure);
-    return () => { observer.disconnect(); window.removeEventListener('resize', measure); };
-  }, [node, id, initialFocus, kind, side, expanded, viewKey, contentKey]);
+    return () => { observer.disconnect(); changes.disconnect(); window.removeEventListener('resize', measure); };
+  }, [node, id, initialFocus, kind, side, expanded, viewKey, contentKey, view, present]);
   useLayoutEffect(() => {
     if (!node) return;
     const focusFrame = requestAnimationFrame(() => {
@@ -231,7 +258,7 @@ export function LayerShell({ kind, side = 'center', entryTrigger, onPanelFrame, 
     if (node && frame) reportFrame.current?.(node.getBoundingClientRect());
   }, [node, frame]);
   useLayoutEffect(() => () => { if (!layers.get().some(layer => layer.kind === "panel" && layer.id !== id)) reportFrame.current?.(null); }, []);
-  useLayoutEffect(() => { layers.update(id, { dirty, busy, onClose, onCancel }); }, [id, dirty, busy, onClose, onCancel]);
+  useLayoutEffect(() => { layers.update(id, { dirty, busy, onClose, onCancel, onExit: kind === 'dialog' ? onExit : undefined }); }, [id, dirty, busy, onClose, onCancel, onExit, kind]);
   useLayoutEffect(() => { if (self?.dismissal !== 'none') safeAction.current?.focus({ preventScroll: true }); }, [self]);
   const [feedback, setFeedback] = useState<{ message: string; error: boolean }>();
   const status = self?.dismissal ?? 'none';
@@ -248,9 +275,8 @@ export function LayerShell({ kind, side = 'center', entryTrigger, onPanelFrame, 
         data-layer-kind={kind} data-layer-side={kind === 'panel' ? side : undefined} data-panel-depth={depth + 1} inert={recessed || !present || undefined} aria-hidden={!present || undefined} data-exiting={!present || undefined}
         {...(labelledBy ? { "aria-labelledby": labelledBy } : {})}
         aria-describedby={description ? `${id}-description` : undefined}
-        style={{ left: frame?.x, top: frame?.y, width: frame?.width ?? `var(--layer-${kind === 'panel' && side === 'center' ? 'xl' : 'm'})`, height: view ? viewHeight.current : undefined, maxHeight: frame?.maxHeight, minHeight: kind === 'panel' ? frame?.height : undefined,
+        style={{ left: frame?.x, top: frame?.y, width: frame?.width ?? `var(--layer-${kind === 'panel' && side === 'center' ? 'xl' : 'm'})`, height: frame?.height, maxHeight: frame?.maxHeight,
           visibility: frame ? undefined : 'hidden', zIndex: kind === 'panel' ? stack.panel : stack.dialog,
-          '--layer-entry-x': `${-(frame?.entry.x ?? 0)}px`, '--layer-entry-y': `${-(frame?.entry.y ?? -6)}px`,
           animation: reduced || !present ? 'none' : undefined } as CSSProperties}
         onOpenAutoFocus={event => {
           event.preventDefault();

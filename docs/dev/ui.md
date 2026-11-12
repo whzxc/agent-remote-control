@@ -40,7 +40,7 @@ Collapsed timeline turns expand from any point on the card. Expanded turns colla
 
 Codex subagents use their native nickname as the display title in activity, conversation lists and task details. External Codex activity without a nickname reads conversation titles from the native session index. An incremental rollout reader retains the first readable user message as a fallback, plus creation time and project metadata outside the bounded headline tail. Fast uses an explicit turn service tier when present, otherwise the thread setting captured at that turn's start. Later settings do not change earlier turn summaries.
 
-Source and connector nodes use the left M Panel slot, and Agent, platform and task details use the right M slot. The slot fixes the horizontal position and 560px width, independently of the trigger. On open, `layerFrame` vertically centers the content between the top line and bottom margin. The top edge stays fixed during growth until the bottom margin requires an upward correction, bounded by the top line. Shrinking never moves the top edge. Height fits content, retains its largest value until a whole-view replacement, and caps with a scrolling body under fixed headers and footers. Below 760px or in portrait, all panels share the collapsed full-width slot. Same-slot navigation retains the shell and crossfades content while height and y animate over `--motion-fast`. Different slots exit and enter concurrently. Initial entry uses a fade and the 8px trigger-to-slot vector; reduced motion swaps instantly. Closing restores the latest trigger.
+Source and connector nodes use the left M Panel slot, and Agent, platform and task details use the right M slot. The slot fixes the horizontal position and 560px width, independently of the trigger. `layerFrame` always centers the current height between the top line and bottom margin. Growth and allowed shrink move both edges symmetrically around that fixed center. Height fits content, retains its largest value until a whole-view replacement, and caps with a scrolling body under fixed headers and footers. Below 760px or in portrait, all panels share the collapsed full-width slot. Same-slot navigation retains the shell and crossfades content while height and y animate together over `--motion-base`. Different slots exit and enter concurrently. Entry and exit use opacity fades. Reduced motion swaps instantly. Closing restores the latest trigger.
 
 Node panels have no scrim, scene scroll lock or background inert. Nodes and the navigation capsule are marked panel switchers and use the layer store for replacement and toggling. A clean panel closes on outside pointer input or Escape, consuming the outside click. Dirty or busy panels show the shared dismissal footer with its safe action focused. The selected node hides its visible label while retaining its accessible name and logo action. Closing restores trigger focus, falling back to the owning node. Node panels pause topology dragging and keyboard sorting while open. The solver receives one horizontal boundary reserving `--layer-m` plus the side margin on the selected side. Expanded and collapsed panels overlay the scene without a horizontal reservation. Existing task branches, outer arcs and focus overlays keep their current behavior until the approved homepage implementation replaces them.
 
@@ -76,7 +76,7 @@ Inline approval groups the pairing code with its comparison instruction and comb
 
 Activity phases never change ordering. Completed unread bubbles remain until marked as read or their details are viewed. Mark as read dismisses immediately. After leaving details, bubbles remain about 2s then fade. Completion while details are open counts as read immediately. Details retain acquired results until that layer is left. Read acknowledgements persist across reloads and app restarts in WebView storage, bounded to 30 days and the newest 1000 agent/task records. A new observed turn clears its prior acknowledgement. Native-app badges remain separate. reduced-motion switches directly and stops flow. See [Task tracking](task-tracking.md#homepage-ui).
 
-Workspaces use the shared nonmodal [Panel](../../ui/components/ui/Panel.tsx). Settings, Platforms, Permissions, Pets, Relay hosting, Devices, Connections, Agents management, Coordination Board and MCP hub all use the center XL slot at 960px, capped by both 16px viewport margins. There is no per-surface size prop. The explicit width toggle expands to the available width and its state carries across workspace switches. The top line is 48px on desktop or 20px in the browser. Opening and switching center the new content vertically between that line and the bottom margin. Growth extends down from the retained top edge, moving up only enough to stay inside the bottom margin; shrinking does not move the top edge. Header and footer stay fixed while the body scrolls at the cap. Capsule switches replace content inside one mounted shell without entry or exit animations. Nested dialogs keep the parent visible and stationary beneath their scrim.
+Workspaces use the shared nonmodal [Panel](../../ui/components/ui/Panel.tsx). Settings, Platforms, Permissions, Pets, Relay hosting, Devices, Connections, Agents management, Coordination Board and MCP hub all use the center XL slot at 960px, capped by both 16px viewport margins. There is no per-surface size prop. The explicit width toggle expands to the available width and its state carries across workspace switches. The top line is 48px on desktop or 20px in the browser. The current height always stays centered vertically between that line and the bottom margin. Growth, allowed shrink and content replacement move both edges symmetrically with a shared height and y transition. Header and footer stay fixed while the body scrolls at the cap. Capsule switches replace content inside one mounted shell without entry or exit animations. Nested dialogs keep the parent visible and stationary beneath their scrim.
 
 The layer store permits one panel. Opening another replaces it. The navigation capsule remains available as the workspace switcher. Another capsule entry replaces a clean workspace and shows its discard or running footer when needed; the active entry toggles it closed. Keep editing or Keep open withdraws a pending switch. Other outside pointer input closes a clean workspace and consumes the release and click. Workspaces without ordinary actions create a footer only for dismissal states.
 
@@ -123,7 +123,7 @@ Reuse Button, Input, Slider, Field, SingleChoice, Switch, Dialog, Tooltip, Popov
 - SingleChoice uses pills for at most five options when space permits, otherwise dropdowns. Its tabs form provides panel navigation with the same Radix keyboard selection and narrow-space fallback. Platform selection uses its navigation form; resource scope can request its dropdown form directly. [single-choice.tsx](../../design/components/single-choice.tsx) defines the forms. Remote-link product and connection choices retain Radix navigation.
 - Native forms default to one column with labels above. Only short related fields share rows.
 - Field errors remain associated with inputs. Failed submission focuses the first error and preserves input.
-- Dialog has an accessible title, a fixed header and footer, and a scrolling body at the content-height cap. Its width is the shared M slot width. `layerFrame` owns the viewport slot and entry vector. Dialogs center horizontally and vertically on open, then retain their top edge until growth requires an upward correction. The top line is 48px on desktop and 20px in the browser. Narrow and portrait dialogs fill the viewport width minus both 16px side margins.
+- Dialog has an accessible title, a fixed header and footer, and a scrolling body at the content-height cap. Its width is the shared M slot width. `layerFrame` owns stateless viewport geometry. Dialogs stay horizontally and vertically centered for their current height. The top line is 48px on desktop and 20px in the browser. Narrow and portrait dialogs fill the viewport width minus both 16px side margins.
 - `TransientLayer` preserves each portaled transient's layer owner. The layer store owns scrim, dialog and transient stacking order. A transient sits above its owner and below a stacked child dialog. Select in either position, menus, popovers and tooltips share this rule. Input inside an owned transient belongs to its owning layer's input boundary.
 - `ui/state/layers.ts` owns the open-layer registry, immediate clean switching, deferred dirty or busy switching, dismissal and focus restoration. At most two dialogs are stacked. First-level layers have no scrim; only a dialog over another panel or dialog dims everything beneath it. Modal focus containment and consumed outside dismissal stay active without a scrim. A child retains its parent's mounted content and viewport position beneath the scrim. Only the top layer handles Escape or outside pointer input. Clean layers close. Edited input means changes not yet submitted. A submitted value whose attempt has finished, with any result, is clean until edited again. Edited input replaces footer actions with a discard confirmation focused on Keep editing. Running work replaces footer actions with a pending-close message focused on Keep open. Cancellable work also offers Stop and close. A pending close completes when the work finishes unless Keep open withdrew it. Close and Cancel close clean or dirty layers directly. During running work they show the same pending-close footer as outside input. Closing restores trigger focus, falling back to the layer below. Outside dismissal consumes the pointer release and click.
 - Icon buttons have accessible names. Disabled/loading/empty/expired/failure/success states reflect real responses.
@@ -136,7 +136,7 @@ Agent artwork is resolved by `ui/assets/brand-reserve/magpie/manifest.json`. Age
 
 Functional icons use shared Icon with Lucide and a 1.75px rendered stroke at every size. Icon buttons stay circular; local overrides change only `--icon-button-size`. Brands retain their assets. ui/style.css owns controls. ui/product.css owns product layout.
 
-Dialog entry fades over `--motion-base` with a 6px movement toward its initial centered frame from the trigger direction. Entry without a trigger moves upward from below. The trigger sets direction only. Subsequent content growth preserves the top edge until the bottom margin requires moving it upward. Panel switches inside the same physical slot keep the shell mounted, crossfade the header and body over `--motion-fast`, and animate height and y to the replacement content's centered frame. Different slots leave and enter concurrently. Dialogs and panels have no header drag or shell morph. Reduced motion removes movement and performs replacements instantly. Related tooltips remain mounted and move/resize continuously between triggers. HoverScope uses shared token-driven highlights following pointer, keyboard, and Radix state.
+Every dialog and panel enters and exits with an opacity fade. The trigger is used only for focus restoration. `layerFrame` computes the current height and y from the slot and viewport without placement history. Height and y transition together over `--motion-base` with `--ease-enter`, keeping the vertical center fixed throughout growth, allowed shrink, view reset and content replacement. Retained height still applies within one panel view. Same-slot replacement keeps the shell mounted and crossfades its header and body. Cross-slot switches fade out and in concurrently. Reduced motion applies geometry and opacity changes instantly. Related tooltips remain mounted and move/resize continuously between triggers. HoverScope uses shared token-driven highlights following pointer, keyboard, and Radix state.
 
 ## Functional pages
 
@@ -279,10 +279,9 @@ Tray and deep-link navigation received while a dialog is open becomes actionable
 - The center panel slot MUST be horizontally centered.
 - Node panels MUST NOT follow the vertical position of their node.
 - Dialogs MUST be horizontally centered on the viewport.
-- Every layer MUST center vertically on open within the top line and bottom margin.
-- The top edge MUST remain fixed while open until content growth requires moving it up to avoid the bottom margin.
-- Growth MUST never move a layer above the top line.
-- Shrinking content MUST NOT move the top edge.
+- Every layer MUST stay vertically centered between the top line and bottom margin for its current height.
+- Height and y MUST transition together so both edges move symmetrically.
+- Placement MUST be independent of history and trigger geometry.
 - A stacked child dialog MUST use the same horizontal slot and width as its parent dialog.
 - A dialog opened from a panel MUST use the dialog slot, not the panel's center.
 - Transient layers MUST anchor to their trigger with collision handling.
@@ -302,7 +301,7 @@ Tray and deep-link navigation received while a dialog is open becomes actionable
 - Dialogs MUST NOT expand.
 - Widths MUST be capped at the viewport width minus both side margins.
 - Height MUST fit content.
-- Height MUST be capped at the space between the layer's top edge and the bottom margin.
+- Height MUST be capped at the full interval between the top line and bottom margin.
 - Layers MUST NOT stretch to the available height when content is shorter.
 - Headers and footers MUST stay fixed while the body scrolls at the cap.
 - A panel's height MUST NOT shrink while it stays open, so filters, tabs and refreshes do not move its bottom edge.
@@ -313,19 +312,17 @@ Tray and deep-link navigation received while a dialog is open becomes actionable
 
 - Motion tokens MUST own every duration and easing outside the topology animator.
 - `--motion-fast` is 120ms for hover, press, tooltip and toast.
-- `--motion-base` is 160ms for dialog and transient entry and for content swaps.
-- `--motion-panel` is 180ms for panel entry and height changes.
+- `--motion-base` is 160ms for dialog and transient entry, content swaps, and synchronized height and y transitions.
+- `--motion-panel` is 180ms for panel opacity entry.
 - Exit durations MUST be at most their entry durations.
 - `--ease-enter` and `--ease-exit` MUST be the only easing curves outside the topology springs.
-- A panel MUST enter with a fade and an 8px movement, and a dialog with a fade and a 6px movement.
-- The movement MUST point from the trigger's center toward the layer's slot, so the layer arrives from the direction of the click.
-- A layer opened without a trigger, such as by external navigation, MUST move upward from below.
-- The trigger MUST only set the entry direction and MUST NOT change the final position or size.
+- Every panel and dialog MUST enter and exit with an opacity fade only.
+- The trigger MUST be used only for focus restoration.
 - Transient layers MUST enter with a fade.
-- Content swaps inside one layer MUST crossfade without changing the shell position.
+- Content swaps inside one layer MUST crossfade while the shell stays centered for its current height.
 - Trigger morphing, visual copies of triggers, automatic shell morphing on content change and overshoot curves MUST be removed.
 - Infinite animations MUST only indicate a running state, with at most one per element.
-- Reduced motion MUST remove movement and keep instant opacity changes.
+- Reduced motion MUST apply geometry and opacity changes instantly.
 
 ### Dismissal, focus and feedback
 
@@ -359,7 +356,7 @@ The layer registry in `ui/state/layers.ts` owns stacking, exclusivity, dismissal
 ### Retained panel replacement
 
 The shared Panel provider keeps one shell mounted for each physical slot.
-A same-slot switch replaces the header and body with a `--motion-fast` crossfade and animates height and y to the new content's centered frame.
+A same-slot switch replaces the header and body with a `--motion-fast` crossfade and animates height and y together around the fixed available-area center.
 The width remains unchanged during a same-slot switch.
 Narrow and portrait viewports treat all panel switches as same-slot replacements.
 Different slots exit and enter concurrently without an empty frame.

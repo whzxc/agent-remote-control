@@ -12,7 +12,7 @@ import { LayerShell, DialogActions, type DialogProps } from './Dialog';
 export { usePanelState, LayerHeader as PanelHeader } from './Dialog';
 
 export type PanelProps = DialogProps & {
-  side?: LayerSide; entryTrigger?: ReturnType<typeof layerTrigger>; labelledBy?: string; onPanelFrame?: (rect: LayerRect | null) => void; role?: 'dialog' | 'region'; expanded?: boolean; onToggleWidth?: () => void;
+  side?: LayerSide; focusTrigger?: ReturnType<typeof layerTrigger>; labelledBy?: string; onPanelFrame?: (rect: LayerRect | null) => void; role?: 'dialog' | 'region'; expanded?: boolean; onToggleWidth?: () => void;
   viewKey?: string; headerNavigation?: ReactNode; onEscapeKeyDown?: (event: KeyboardEvent) => void;
 };
 /** Shared nonmodal shell for center workspaces and mirrored node slots. */

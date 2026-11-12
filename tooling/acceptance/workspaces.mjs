@@ -8,14 +8,13 @@ export async function verifyWorkspace(page, fixture, messages, width, height) {
   const top = await page.evaluate(async () => (await import('/platform.ts')).isDesktop ? 48 : 20);
   const size = 960;
   const expectedWidth = width < 760 || height > width ? width - 32 : Math.min(size, width - 32);
-  if (!box || Math.abs(box.x - (width - expectedWidth) / 2) > 1 || box.y < top - 1
+  if (!box || Math.abs(box.x - (width - expectedWidth) / 2) > 1 || Math.abs(box.y + box.height / 2 - (top + height - 16) / 2) > 1
     || Math.abs(box.width - expectedWidth) > 1 || box.y + box.height > height - 15) {
     throw new Error(`Workspace must use its center slot: expected ${expectedWidth}px wide within the vertical margins above y=${top}, got ${JSON.stringify(box)}.`);
   }
   if (fixture.page === 'relay-hosting' && box.y + box.height >= height - 17) {
     throw new Error('Empty Relay hosting must fit its content.');
   }
-  if (fixture.page === 'relay-hosting' && Math.abs(box.y - (top + (height - 16 - top - box.height) / 2)) > 2) throw new Error('The content-fit workspace must center at open.');
   if (fixture.mcpHub === 'ready') {
     const search = panel.getByRole('searchbox');
     await search.fill('fixture-no-matching-server');
@@ -23,7 +22,7 @@ export async function verifyWorkspace(page, fixture, messages, width, height) {
     await empty.waitFor();
     await page.evaluate(async () => { for (let frame = 0; frame < 3; frame++) await new Promise(requestAnimationFrame); });
     const filtered = await panel.boundingBox();
-    if (!filtered || Math.abs(filtered.y + filtered.height - box.y - box.height) > 1) throw new Error('Filtering shortened the workspace and moved its bottom edge.');
+    if (!filtered || Math.abs(filtered.height - box.height) > 1 || Math.abs(filtered.y + filtered.height / 2 - (top + height - 16) / 2) > 1) throw new Error('Filtering must retain height and the available-area center.');
     await search.fill('');
     await empty.waitFor({ state: 'hidden' });
   }

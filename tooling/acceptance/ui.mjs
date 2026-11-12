@@ -32,7 +32,7 @@ function checkNodePanelBounds(box, viewportWidth, viewportHeight, top, side = "r
   if (!box) throw new Error('The node panel has no visible bounds.');
   const width = viewportWidth < 760 || viewportHeight > viewportWidth ? viewportWidth - 32 : 560;
   const x = side === "left" ? 16 : viewportWidth - width - 16;
-  if (Math.abs(box.x - x) > 1 || box.y < top - 1 || Math.abs(box.width - width) > 1
+  if (Math.abs(box.x - x) > 1 || Math.abs(box.y + box.height / 2 - (top + viewportHeight - 16) / 2) > 1 || Math.abs(box.width - width) > 1
     || box.y + box.height > viewportHeight - 15) throw new Error(`Node panel must use the M ${side} slot: ${JSON.stringify(box)}`);
 }
 async function checkOverviewGrowth(dialog, initial, viewportWidth, viewportHeight, top, side = "right") {
@@ -50,7 +50,7 @@ async function checkOverviewGrowth(dialog, initial, viewportWidth, viewportHeigh
     }
     throw new Error('The overview did not grow when its data arrived.');
   }, initial.height);
-  for (const box of frames) { if (Math.abs(box.y - Math.min(initial.y, Math.max(top, viewportHeight - 16 - box.height))) > 2) throw new Error("Growing content moved its top before reaching the bottom margin."); checkNodePanelBounds(box, viewportWidth, viewportHeight, top, side); if (box.height + 1 < initial.height) throw new Error("Loading shortened the open panel."); }
+  for (const box of frames) { checkNodePanelBounds(box, viewportWidth, viewportHeight, top, side); if (box.height + 1 < initial.height) throw new Error("Loading shortened the open panel."); }
   return frames.at(-1);
 }
 // Picks a model from the picker's nested menu and, when given, moves the effort slider to that step.

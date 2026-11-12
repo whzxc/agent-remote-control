@@ -22,12 +22,12 @@
 .layer-dismissal .button.primary:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
 :is(.layer-dialog, .layer-panel) > .setup-steps { flex: none; margin: 0; }
 :is(.layer-dialog, .layer-panel) > .setup-return, :is(.layer-dialog, .layer-panel) > .setup-context { flex: none; margin: 0; }
-@keyframes layer-dialog-enter { from { opacity: 0; transform: translate(var(--layer-entry-x), var(--layer-entry-y)); } to { opacity: 1; transform: none; } }
+@keyframes layer-dialog-enter { from { opacity: 0; } to { opacity: 1; } }
 
 .dialog.layer-panel { animation-name: layer-panel-enter; animation-duration: var(--motion-panel); }
 .layer-panel > .dialog-header .panel-title { flex: 0 1 auto; }
 .layer-panel > .dialog-header .actions { margin-left: auto; }
-@keyframes layer-panel-enter { from { opacity: 0; transform: translate(var(--layer-entry-x), var(--layer-entry-y)); } to { opacity: 1; transform: none; } }
+@keyframes layer-panel-enter { from { opacity: 0; } to { opacity: 1; } }
 
 .layer-panel > .dialog-body { flex: 1 1 auto; }
 @media (prefers-reduced-motion: reduce) { .dialog:is(.layer-dialog, .layer-panel) { animation: none; } }
@@ -72,7 +72,7 @@
 .node-panel[data-layer-side="left"] .layer-custom-header > .dialog-header { gap: 16px; }
 .node-panel .source-account-brand, .node-panel .source-account-brand .source-icon, .node-panel .source-account-brand .source-icon > span, .node-panel .source-account-brand svg { width: 36px; height: 36px; }
 
-.layer-panel { transition: top var(--motion-fast) var(--ease-enter), min-height var(--motion-fast) var(--ease-enter); }
+.dialog:is(.layer-dialog, .layer-panel) { transition: top var(--motion-base) var(--ease-enter), height var(--motion-base) var(--ease-enter); }
 .layer-panel[data-exiting] { pointer-events: none; }
-@media (prefers-reduced-motion: reduce) { .layer-panel { transition: none; } }
-:root[data-reduced-motion="true"] .layer-panel { transition: none; }
+@media (prefers-reduced-motion: reduce) { .dialog:is(.layer-dialog, .layer-panel) { transition: none; } }
+:root[data-reduced-motion="true"] .dialog:is(.layer-dialog, .layer-panel) { transition: none; }

@@ -18,7 +18,7 @@ import { useDockOpening } from "./useDockOpening";
 export default function IngressPanel({ onPanelFrame, expanded, onToggleWidth }: {
   onPanelFrame: (rect: LayerRect | null) => void; expanded: boolean; onToggleWidth: () => void;
 }) {
-  const entryTrigger = useRef(layerTrigger());
+  const focusTrigger = useRef(layerTrigger());
   const selected = ingressPanel.use()!, { status, sources, sourcesLoaded, error: connectorError } = connector.use();
   const tasksLoading = useSyncExternalStore(tasks.subscribe, () => tasks.get().loading);
   const connection = 'ingress' in selected ? selected : undefined;
@@ -59,7 +59,7 @@ export default function IngressPanel({ onPanelFrame, expanded, onToggleWidth }: 
   }, [panelId]);
   const ready = useDockOpening(panelId, pending, selected.closing, cancelOpening);
   if (!ready) return null;
-  return <Panel entryTrigger={entryTrigger.current} side="left" className="activity-panel" expanded={expanded} headerless title={title} busy={busy}
+  return <Panel focusTrigger={focusTrigger.current} side="left" className="activity-panel" expanded={expanded} headerless title={title} busy={busy}
     viewKey={`${panelId}:${connection?.editing ? "edit" : "view"}`}
     onClose={() => ingressPanel.set(undefined)}
     returnFocus={platform ? `[data-source-platform="${CSS.escape(platform)}"] button` : `[data-source-node="${CSS.escape(client?.id ?? entry?.id ?? panelId)}"] button`} onPanelFrame={onPanelFrame}>

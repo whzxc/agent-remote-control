@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type { LayerKind, LayerRect } from '../components/ui/layerFrame';
+import type { LayerKind } from '../components/ui/layerFrame';
 
 export type Dismissal = 'none' | 'discard' | 'running';
 export type Layer = {
@@ -12,6 +12,7 @@ export type Layer = {
   dirty?: boolean;
   busy?: boolean;
   onClose: () => void | Promise<void>;
+  onExit?: () => Promise<void>;
   onCancel?: () => void | boolean | Promise<void | boolean>;
   dismissal: Dismissal;
   keepAfterWork: boolean;
@@ -38,6 +39,7 @@ export function createLayerStore() {
     if (!layer || closing.has(id)) return;
     closing.add(id);
     try {
+      if (layer.onExit) await layer.onExit();
       const next = pendingSwitch?.id === id ? pendingSwitch.open : undefined;
       if (next) { pendingSwitch = undefined; switching = true; }
       const result = (complete ?? layer.onClose)();
@@ -121,11 +123,12 @@ export function createLayerStore() {
       if (!layer || layer.ready && layer.node === node) return;
       publish(current.map(item => item.id === id ? { ...item, node, ready: true } : item));
     },
-    update(id: string, next: Pick<Layer, 'dirty' | 'busy' | 'onClose' | 'onCancel'>) {
+    update(id: string, next: Pick<Layer, 'dirty' | 'busy' | 'onClose' | 'onCancel' | 'onExit'>) {
       const previous = current.find(layer => layer.id === id);
       if (!previous) return;
       previous.onClose = next.onClose;
       previous.onCancel = next.onCancel;
+      previous.onExit = next.onExit;
       if (previous.dirty === next.dirty && previous.busy === next.busy) return;
       const finished = previous.busy && !next.busy && previous.dismissal === 'running';
       const dismissal = previous.dismissal === 'discard' && !next.dirty ? 'none' : previous.dismissal;
@@ -169,12 +172,12 @@ export function createLayerStore() {
 }
 export const layers = createLayerStore();
 
-let clickTrigger: { element: HTMLElement; rect: LayerRect } | undefined;
+let clickTrigger: HTMLElement | undefined;
 let triggerTimer: ReturnType<typeof setTimeout> | undefined;
 export function captureLayerTrigger(target: EventTarget | null) {
   clearTimeout(triggerTimer);
   const element = target instanceof Element ? target.closest<HTMLElement>('button, a, [role="button"], [data-panel-anchor]') : null;
-  clickTrigger = element ? { element, rect: element.getBoundingClientRect() } : undefined;
+  clickTrigger = element ?? undefined;
   triggerTimer = setTimeout(() => { clickTrigger = undefined; }, 200);
 }
 export function layerTrigger() { return clickTrigger; }

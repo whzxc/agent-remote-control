@@ -88,7 +88,7 @@ export default function AgentPanel({ agent, onSettings, onPanelFrame, expanded, 
   expanded: boolean; onToggleWidth: () => void;
 }) {
   const back = panelBack.use();
-  const entryTrigger = useRef(layerTrigger());
+  const focusTrigger = useRef(layerTrigger());
   const selected = agentPanel.use()!, { error } = agentActivity.use();
   const accountState = useAccounts();
   const linkedAccounts = accountState.items.filter(account => account.agentProfiles.some(profile => profile.agent === agent.agent));
@@ -136,7 +136,7 @@ export default function AgentPanel({ agent, onSettings, onPanelFrame, expanded, 
     return () => { current = false; };
   }, [agent.agent, panelId, shouldReadHistory]);
   if (!ready) return null;
-  return <Panel entryTrigger={entryTrigger.current} side="right" className="activity-panel" expanded={expanded} headerless title={selected.platform ? name(agent) : account?.alias ?? name(agent)} labelledBy={session ? taskTitleId : undefined}
+  return <Panel focusTrigger={focusTrigger.current} side="right" className="activity-panel" expanded={expanded} headerless title={selected.platform ? name(agent) : account?.alias ?? name(agent)} labelledBy={session ? taskTitleId : undefined}
     viewKey={`${panelId}:${session?.id ?? "overview"}`}
     onClose={() => { panelBack.set(undefined); agentPanel.set(undefined); }}
     returnFocus={selected.platform ? `[data-agent-platform="${CSS.escape(agent.agent)}"] button` : `[data-agent-node="${CSS.escape(agent.agent)}"]${selected.accountId ? `[data-account-id="${CSS.escape(account?.id ?? selected.accountId)}"]` : ""} button`} onPanelFrame={onPanelFrame}>
