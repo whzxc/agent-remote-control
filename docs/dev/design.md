@@ -153,13 +153,26 @@ ADG discovers `components`, `modules` and `surfaces` in that order. The [mapping
 
 Review roles do not authorize dispatch to Claude Code CLI. Launching or resuming work there requires explicit user authorization for the task or a clearly defined scope. Without it, the current authorized agent reviews the sources and renders and reports any remaining review gap.
 
-Codex proposes and implements each batch. The current control source reviews ownership, mappings and both-theme renders unless the user assigns autonomous structural release. The user approves visual changes in the gallery. The control source approves structural-only batches under the pixel and crop/part-frame criteria below. A crop or part frame is structural only when every existing render, including its parent, is pixel-identical in both themes and every differing pixel belongs to one of these classes: (a) imperceptible, channel delta at most 2 with no count limit; (b) antialiasing on shape, glyph or corner edges, below 0.5% of the crop area with maximum channel delta at most 48, only when the part's element, layout and color snapshots match the parent region; (c) boundary bleed from parent-scene content outside the part, including connectors, neighbors or seams, within 2 device pixels of the crop edge; (d) bitmap resampling, any channel delta inside the box of a raster image element (img or SVG image), only when snapshots match and below 0.1% of the crop area. Report per-frame class counts in the comparison output. Any geometry or snapshot mismatch, other difference, shifted box, changed fill or token, or missing or added element inside the part stops the turn with a gallery URL. Otherwise continue. Other visual differences or open decisions go to the user's gallery review. Record current review/adoption status and remaining gaps in the mapping; keep batch history, check results and decision logs outside repository documentation.
+Layout and behavior changes MAY be implemented directly.
+The owning TSX source SHOULD be updated to match once the user accepts the result.
+New visual directions and redesigns SHOULD start in the owning TSX source.
+The user approves their renders before implementation.
+Approved frames describe the intended result.
+`adg compare` differences are review notes, not a gate.
 
-For user-assigned autonomous governance, pixel-only crop differences with matching snapshots may remain Known gaps while work continues. Existing render changes and checks that cannot be fixed structurally remain stop conditions.
+Work on one cohesive family, feature module or composed surface at a time.
+Keep current ownership, mappings, review status and known gaps in the mapping.
+Keep batch history, check results and decision logs outside repository documentation.
 
-Work on one cohesive family, feature module or composed surface at a time. The active scope and queued responsibilities are in the mapping. Before editing, render affected frames from the batch base commit in a disposable copy outside the checkout and report its path. After editing, run `adg check`, render and inspect every affected frame in both themes, and compare each with its baseline. Token edits include all dependent frames. A structural comparison uses decoded pixel equality, including dimensions. Implementation comparison uses the fixture/capture adapter described in the mapping.
+After implementation, run `adg compare` once on the affected frames as a review list.
+Rework missing or extra texts and offsets shared by many texts.
+Accept isolated small offsets.
+The user reviews the running result, or the gallery for new directions.
+Run `adg check` before committing.
 
-Commit the scoped changes with a single-line Conventional Commits subject and inspect `git show --stat HEAD` for unrelated files. For visual differences or open decisions, open `adg open <lane>/design --port=<free-port>` and provide the gallery URL; do not use port 4310. Keep review evidence in ignored output or an external disposable directory. Update current mapping/status at each batch boundary. Implementation edits and runtime acceptance require their own assigned scope.
+Commit scoped changes with a single-line Conventional Commits subject.
+Inspect `git show --stat HEAD` for unrelated files.
+Keep review evidence in ignored output or an external disposable directory.
 
 ## Implementation checklist
 
@@ -173,6 +186,7 @@ Commit the scoped changes with a single-line Conventional Commits subject and in
 
 ## Migration
 
-- A surface without an approved source keeps its current implementation. Its next visual change starts by writing its source.
+- Existing surfaces MAY receive layout and behavior changes directly.
+- Update their owning source once the user accepts the result.
 - `ui/tokens.css` is the runtime token sheet. Migrating a surface aligns the tokens it uses with `design/tokens.css`.
 - Migrating a surface deletes its visual statements from [UI conventions](ui.md) and keeps its behavior statements.

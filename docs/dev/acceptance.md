@@ -8,6 +8,12 @@ UI/UX acceptance (layout, visual states, copy, light/dark, widths, panel and tas
 
 Isolated-instance runtime acceptance is reserved for behavior fixtures cannot simulate: native windows and focus, the replacement/update lifecycle, real Agent dispatch and resume, and notification delivery. Keep it to the scenarios the change affects.
 
+Before a push, UI changes MUST pass `npm test` and the `accept:ui` fixture families they affect.
+Browser-only fixtures MAY run in an assigned lane with `--lane-fixtures` on a non-default port.
+Run the full `accept:ui` sweep before releases.
+A full sweep is not required before every push.
+Run the app, installs and `dev:isolated` only in the main checkout.
+
 ## Focus policy
 
 Acceptance MUST default to background operation. Development and isolated desktops start with visible, unfocused windows and do not activate the macOS app. Packaged acceptance fixtures MUST use the existing development bundle identifier, `com.whzxc.agent-remote-control.dev`, so both initial launch and replacement restart stay in the background. Explicit deep links, tray actions, OAuth, and permission flows still focus normally. Installed production startup is unchanged.
@@ -136,13 +142,15 @@ Task-detail fixtures use sanitized payloads matching `AgentTimeline` / `AgentInt
 
 Task dialogs take their accessible name from the visible native task-title heading; returning to the Agent overview restores the Agent name.
 
-At narrow panel widths, open the needs-you banner to inspect the capped bottom sheet in either long-input scenario.
+At narrow panel widths, open the needs-you banner to inspect the capped request Dialog in either long-input scenario.
 
-Target one fixture with `npm run accept:ui -- --scenario=task-owner-desktop` from main. The runner uses browser fixtures and screenshots. A missing route fails readiness with its method and path in `scenario.missingRoutes` and `data-scenario-error`.
+Target one fixture with `npm run accept:ui -- --scenario=task-owner-desktop` from main.
+In an assigned lane, use `npm run accept:ui -- --lane-fixtures --no-screenshots --port=5287 --scenario=task-owner-desktop`.
+The runner uses browser fixtures and can omit screenshots. A missing route fails readiness with its method and path in `scenario.missingRoutes` and `data-scenario-error`.
 
 `quota-ring-remaining` and `quota-ring-used` show Codex ahead of time, Cursor even with time, and OpenCode behind time in the two quota display modes.
 
-`agent-panel-short` and `agent-panel-loading` cover a content-sized overview in landscape and portrait. The short fixture also clicks a different node to verify that its overview opens beside that node. The slow fixture verifies node alignment and dock bounds while the history arrives. `agent-platform-loading` and `source-panel-loading` verify the same transition for an initial account list and dispatch feed.
+`agent-panel-short` and `agent-panel-loading` cover a content-sized overview in landscape and portrait. The short fixture also clicks a different node to verify that its overview opens in its fixed slot. The slow fixture verifies fixed slot bounds while the history arrives. `agent-platform-loading` and `source-panel-loading` verify the same transition for an initial account list and dispatch feed.
 
 `task-states` covers all six execution states in the Agent panel. `dispatch-states` covers turn-bound historical results and separate submission states. `task-review-unavailable` keeps a completed execution readable while optional review retrieval fails.
 
@@ -222,4 +230,5 @@ These fixtures are stateful and never contact downstream services.
 
 `tests/mcp-hub.test.ts` in `npm run test:extended` drives a synthetic stdio server through the hub ops: disabled exposure, add, paginated discovery, calls, `list_changed` refresh, error codes, Codex import, disable and removal.
 
-Browser-only fixtures may run in an explicitly assigned lane with `npm run accept:ui -- --lane-fixtures --no-screenshots --scenario='device-*'`. The scenario filter accepts a trailing `*` for a family. Manual fixture preview uses `npm run dev:ui -- --mode fixtures`; fixture mode omits the native management proxy. This path never launches native instances.
+Browser-only fixtures may run in an explicitly assigned lane with `npm run accept:ui -- --lane-fixtures --no-screenshots --port=5287 --scenario='device-*'`.
+The port MUST differ from the default preview port. The scenario filter accepts a trailing `*` for a family. Manual fixture preview uses `npm run dev:ui -- --mode fixtures`; fixture mode omits the native management proxy. This path never launches native instances.
