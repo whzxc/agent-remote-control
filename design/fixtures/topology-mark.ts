@@ -42,14 +42,14 @@ export const ringCopy = {
 };
 
 export const markForms = [
-  { name: "topology-mark", note: "Both arcs healthy. Hover or keyboard focus reveals a separate icon button." },
-  { name: "topology-mark-remote-hover", revealed: "remote", note: "View connections." },
+  { name: "topology-mark", note: "Both arcs healthy. Hover or keyboard focus reveals the arc actions." },
+  { name: "topology-mark-remote-hover", revealed: "remote", note: "View connections, including when none are configured." },
   { name: "topology-mark-core-hover", revealed: "core", note: "Stop Core." },
   {
     name: "topology-mark-remote-unhealthy",
     remote: "unhealthy",
     revealed: "remote",
-    note: "The remote transport is unavailable. Core is healthy.",
+    note: "An expected remote transport is unavailable. View connections and Recover remote connections remain available.",
   },
   {
     name: "topology-mark-core-unhealthy",

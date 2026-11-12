@@ -132,7 +132,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   const controlSources = orderedSources().filter(s => s.state !== "revoked" && !isPendingSource(s, sources));
   const agents = visibleAgents(orderedAgents(), max, selection?.agent);
   const coreState = hubHealth?.core ?? "ready";
-  const remoteFailed = !!((hubHealth?.remoteFaults ?? status?.remoteFaults)?.length || hubHealth?.remoteUnavailable);
+  const remoteFailed = (hubHealth?.remoteFaults ?? status?.remoteFaults ?? []).length > 0;
   const [recovery, setRecovery] = useState<"remote" | "core">();
   const [stopping, setStopping] = useState(false);
   async function stopCore() {
@@ -361,8 +361,8 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
             reorderTasks(agent, ids.map(id => JSON.parse(id)[1] as string), tracked[agent] ?? [], taskQueues.get(ids[0]));
           }}
           brand={<Hub
-            remote={{ unhealthy: remoteFailed, recovery: remoteFailed && !readOnlyBrowser, label: t(remoteFailed ? "hub.remoteUnavailable" : "hub.remoteHealthy"),
-              action: remoteFailed && !readOnlyBrowser ? () => setRecovery("remote") : openConnections }}
+            remote={{ unhealthy: remoteFailed, label: t(remoteFailed ? "hub.remoteUnavailable" : "hub.remoteHealthy"),
+              open: openConnections, recover: remoteFailed && !readOnlyBrowser ? () => setRecovery("remote") : undefined }}
             core={{ unhealthy: coreState !== "ready", recovery: coreState !== "ready", label: t(coreState === "ready" ? "hub.coreHealthy" : coreState === "stopped" ? "hub.coreStopped" : "hub.coreUnavailable"),
               busy: stopping, action: readOnlyBrowser || !hubHealth ? undefined : coreState !== "ready" ? () => setRecovery("core") : () => void stopCore() }}
             sourceEmpty={!sourceViews.length} agentEmpty={!agents.length}

@@ -259,6 +259,21 @@ try {
           await page.keyboard.press('Escape');
           await settings.waitFor({ state: 'visible' });
         }
+        if (name === 'studio-no-connections') {
+          // Regression: a remote check failure without any configured connection hid the add-connection entry.
+          const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+          await page.getByRole('img', { name: messages['hub.remoteHealthy'], exact: true }).waitFor();
+          await page.getByRole('button', { name: messages['hub.viewConnections'], exact: true }).press('Enter');
+          const connections = page.getByRole('dialog', { name: messages['connections.title'], exact: true });
+          await connections.getByRole('button', { name: messages['source.newConnection'], exact: true }).click();
+          const setup = page.getByRole('dialog', { name: messages['source.newConnection'], exact: true });
+          await setup.waitFor();
+          await page.keyboard.press('Escape');
+          await setup.waitFor({ state: 'hidden' });
+          await connections.waitFor();
+          await page.keyboard.press('Escape');
+          await connections.waitFor({ state: 'hidden' });
+        }
         if (['studio-connections', 'studio-stopped', 'studio-unavailable'].includes(name)) {
           // Regression: an unavailable local client made the remote arc partial and the mark coupled two lifecycles.
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
@@ -275,6 +290,22 @@ try {
             await page.mouse.click(coreArcPoint.x, coreArcPoint.y);
             await arc('hub.coreHealthy').waitFor();
             if (await page.getByRole('dialog').count()) throw new Error('The status arc activated an operation');
+
+            // Regression: the recovery action displaced Connections while a remote connection was unavailable.
+            const remotePoint = await arc('hub.remoteUnavailable').evaluate(svg => {
+              const point = new DOMPoint(50, 18).matrixTransform(svg.getScreenCTM());
+              return { x: point.x, y: point.y };
+            });
+            await page.mouse.move(remotePoint.x, remotePoint.y);
+            const connectionsBounds = await button('hub.viewConnections').boundingBox();
+            const connectionsCenter = { x: connectionsBounds.x + connectionsBounds.width / 2, y: connectionsBounds.y + connectionsBounds.height / 2 };
+            await page.mouse.move(connectionsCenter.x, connectionsCenter.y, { steps: 8 });
+            if (screenshots) await page.screenshot({ path: path.join(out, `${key}-remote-actions.png`) });
+            await page.mouse.click(connectionsCenter.x, connectionsCenter.y);
+            await dialog('connections.title').getByRole('button', { name: messages['source.newConnection'] }).waitFor();
+            await page.keyboard.press('Escape');
+            await dialog('connections.title').waitFor({ state: 'hidden' });
+
             await button('hub.remoteRecovery').press('Enter');
             await dialog('hub.remoteRecoveryTitle').waitFor();
             if (screenshots) await page.screenshot({ path: path.join(out, `${key}-remote-recovery.png`) });

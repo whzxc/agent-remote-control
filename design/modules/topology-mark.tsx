@@ -34,8 +34,8 @@ export function TopologyMark({
 }) {
   const g = geometry;
   const fault = {
-    ...(remote === "unhealthy" ? { "--remote-arc-color": "var(--danger)", "--remote-arc-dash": "39 22 39" } : {}),
-    ...(core === "unhealthy" ? { "--core-arc-color": "var(--danger)", "--core-arc-dash": "39 22 39" } : {}),
+    ...(remote === "unhealthy" ? { "--remote-arc-color": "var(--danger)" } : {}),
+    ...(core === "unhealthy" ? { "--core-arc-color": "var(--danger)" } : {}),
   };
   const mark = (
     <svg
@@ -55,13 +55,15 @@ export function TopologyMark({
     </svg>
   );
   if (!revealed) return mark;
-  const action = ringCopy[revealed][revealed === "remote" ? remote : core];
   const upper = revealed === "remote";
+  const actions = upper
+    ? remote === "unhealthy" ? [ringCopy.remote.healthy, ringCopy.remote.unhealthy] : [ringCopy.remote.healthy]
+    : [ringCopy.core[core]];
   return (
     <div class={`relative flex justify-center ${upper ? "pt-4" : "pb-4"}`} style={{ width: size }}>
       {mark}
-      <div class={`absolute left-1/2 -translate-x-1/2 ${upper ? "top-0" : "bottom-0"}`}>
-        <IconButton {...action} compact active />
+      <div class={`absolute left-1/2 flex -translate-x-1/2 gap-2 ${upper ? "top-0" : "bottom-0"}`}>
+        {actions.map((action) => <IconButton {...action} compact active />)}
       </div>
     </div>
   );

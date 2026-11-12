@@ -1048,12 +1048,15 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .hub-arc-orbit { transform: rotate(var(--hub-rotation, 0deg)); }
 .hub-arc > svg { width: 100%; height: 100%; overflow: visible; }
 .hub-arc-hit { pointer-events: stroke; }
-.hub-arc[data-unhealthy] .hub-arc-stroke { stroke: var(--danger); stroke-dasharray: 39 22 39; }
+.hub-arc[data-unhealthy] .hub-arc-stroke { stroke: var(--danger); }
 .hub-arc-bridge, .hub-arc-action { position: absolute; left: 50%; }
 .hub-arc-bridge { width: var(--control-height-compact); height: 36%; transform: translateX(-50%); }
+.hub-arc[data-paired] .hub-arc-bridge { width: calc(2 * var(--control-height-compact) + var(--space-2)); }
 .hub-arc-top .hub-arc-bridge { top: -4px; }
 .hub-arc-bottom .hub-arc-bridge { bottom: -4px; }
 .hub-arc-action {
+  display: flex;
+  gap: var(--space-2);
   z-index: 1;
   opacity: 0;
   transform: translateX(-50%) rotate(calc(0deg - var(--hub-rotation, 0deg)));

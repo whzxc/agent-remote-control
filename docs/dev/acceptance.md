@@ -72,7 +72,7 @@ gap; acceptance never changes host settings to manufacture them.
 
 ## UI scenarios
 
-The `studio-connections`, `studio-stopped` and `studio-unavailable` fixtures cover independent remote and Core health, arc hover and keyboard disclosure, scoped recovery, and explicit Core stop and start. Fixture actions preserve the displayed tasks. Review landscape and portrait layouts, focus restoration and reduced motion alongside the existing `studio-night`, `studio-day` and `studio-idle` scenarios.
+The `studio-connections`, `studio-stopped` and `studio-unavailable` fixtures cover independent remote and Core health, arc hover and keyboard disclosure, scoped recovery, and explicit Core stop and start. `studio-no-connections` covers opening Connections and Add connection after an inconclusive remote check with an empty configuration. Fixture actions preserve the displayed tasks. Review landscape and portrait layouts, focus restoration and reduced motion alongside the existing `studio-night`, `studio-day` and `studio-idle` scenarios.
 
 ```sh
 npm ci
