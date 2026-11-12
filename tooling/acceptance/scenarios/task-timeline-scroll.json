@@ -1,0 +1,187 @@
+{
+  "language": "en",
+  "agents": [
+    "codex"
+  ],
+  "panel": {
+    "kind": "agent",
+    "id": "codex"
+  },
+  "detailTask": 0,
+  "viewports": [
+    {
+      "width": 1280,
+      "height": 800
+    }
+  ],
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "text",
+      "title": "Timeline scrolling regression",
+      "headline": "Reading fixture updates",
+      "entries": [
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 0: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 1: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 2: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 3: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 4: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 5: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 6: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 7: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 8: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 9: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 10: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 11: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 12: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 13: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 14: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 15: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 16: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 17: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 18: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 19: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 20: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 21: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 22: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 23: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 24: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 25: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 26: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 27: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 28: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 29: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 30: The fixture keeps earlier task updates readable while new entries arrive."
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Observation 31: The fixture keeps earlier task updates readable while new entries arrive."
+        }
+      ]
+    }
+  ]
+}

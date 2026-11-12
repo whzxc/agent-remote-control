@@ -183,9 +183,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
     if (timeline.preview && (running || node.scrollHeight <= node.clientHeight)) requestEarlier.current?.();
     if (manualDisclosure.current) return;
     const target = timelineScrollTarget(following.current, running || previousRunning.current, initial.current, node.scrollHeight);
-    // Initial reading position is explicit; shell measurement must not reset scrolling.
-    if (initial.current) node.scrollTop = 0;
-    else if (target !== undefined) { node.scrollTop = target; previousTop.current = node.scrollTop; }
+    if (target !== undefined) { node.scrollTop = target; previousTop.current = node.scrollTop; }
     if (target !== undefined) setAtLatest(true);
     initial.current = false; previousRunning.current = running;
   }, [timeline, running]);
