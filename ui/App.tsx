@@ -1,3 +1,4 @@
+import { PanelProvider } from "./components/ui/Panel";
 import { oauthApproval, requestExternalNavigation } from "./state/externalNavigation";
 import DevicesWorkspace from './devices/DevicesWorkspace';
 import { deviceLinkEnabled, observeDevices } from './devices/state';
@@ -130,9 +131,6 @@ export default function App() {
 
   function navigate(next: Page) {
     if ((next === "pets" && !showPets.get()) || (next === "relay-hosting" && !relayHostingEnabled.get()) || (next === "mcp-hub" && !mcpHubEnabled.get())) return;
-    if (next !== "overview") {
-      setSheetWide(false);
-    }
     setPage(next);
   }
   useEffect(() => {
@@ -224,7 +222,7 @@ export default function App() {
     ...(mcp ? [{ id: "mcp-hub" as const, label: t("mcp.title"), icon: Plug }] : []),
   ];
   return (
-    <div role="region" aria-label="ARC homepage"
+    <PanelProvider><div role="region" aria-label="ARC homepage"
       className={`app-scene ${isDesktop ? "desktop" : ""} ${isDesktop && navigator.platform.toLowerCase().includes("mac") ? "mac" : ""}`}
       data-display={studio ? "studio" : undefined}
       onClickCapture={(e) => captureLayerTrigger(e.target)}
@@ -244,7 +242,7 @@ export default function App() {
         <DevicesWorkspace expanded={sheetWide} onToggleWidth={() => setSheetWide(!sheetWide)} onClose={() => setPage("overview")} /> : page === "mcp-hub" ?
         <McpHub expanded={sheetWide} onToggleWidth={() => setSheetWide(!sheetWide)} onClose={() => setPage("overview")} /> : page === "relay-hosting" ?
         <RelayHosting expanded={sheetWide} onToggleWidth={() => setSheetWide(!sheetWide)} onClose={() => setPage("overview")} /> :
-        <Panel key={page} role="region" size="l" title={<>{pages.find(item => item.id === page)?.label}
+        <Panel key={page} role="region" title={<>{pages.find(item => item.id === page)?.label}
           {page === "settings" && nav.settingsExperimental && <><span aria-hidden="true"> / </span>{t("topology.experimental")}</>}</>}
           expanded={sheetWide} onToggleWidth={() => setSheetWide(!sheetWide)}
           onClose={() => setPage("overview")} returnFocus={`[data-page="${page}"]`}
@@ -281,7 +279,7 @@ export default function App() {
               data-hover-target={item.id}
               aria-label={item.label}
               aria-pressed={page === item.id}
-              onClick={() => layerStore.switchPanel(() => navigate(page === item.id ? "overview" : item.id))}
+              onClick={() => layerStore.switchPanel(() => navigate(page === item.id ? "overview" : item.id), page === item.id)}
             >
               <Icon icon={item.icon} size={20} />
 
@@ -318,6 +316,6 @@ export default function App() {
       }} />}
       {bulletinOpen && <CoordinationCenter />}
       <OAuthApproval inlineEnabled={page === "overview"} requested={oauthRequest} onClose={() => setOauthRequest(undefined)} />
-    </div>
+    </div></PanelProvider>
   );
 }

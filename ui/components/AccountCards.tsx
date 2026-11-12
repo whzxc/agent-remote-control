@@ -79,7 +79,7 @@ function AccountEdit({ account, profile, action, returnFocus, onClose }: {
       void refreshAccounts(true);
     } catch (error) { setError(String(error)); } finally { setBusy(false); }
   }
-  return <Dialog layerId={completion.layerId} size="s" title={removing ? t('accounts.removeTitle', { alias: account.alias }) : t('accounts.editAliasAction')}
+  return <Dialog layerId={completion.layerId} title={removing ? t('accounts.removeTitle', { alias: account.alias }) : t('accounts.editAliasAction')}
     className="agent-account-add" initialFocus={removing ? undefined : id} dirty={!removing && draft.dirty} busy={busy} returnFocus={returnFocus} onClose={onClose}
     footer={<Button form={id + '-form'} type="submit" variant={removing ? 'danger' : 'primary'} busy={busy}>
       {t(removing ? 'accounts.removeAction' : 'save')}

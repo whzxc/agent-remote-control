@@ -50,7 +50,7 @@ export default function HubRecovery({ side, onClose, openCore }: {
   const reason = remote
     ? blocked ? "hub.remoteBlocked" : hubHealth?.remoteUnavailable ? "hub.remoteCheckFailed" : "hub.remoteFailed"
     : stopped ? "hub.coreStopped" : "hub.coreFailed";
-  return <Dialog layerId={completion.layerId} size="s" title={t(remote ? "hub.remoteRecoveryTitle" : "hub.coreRecoveryTitle")}
+  return <Dialog layerId={completion.layerId} title={t(remote ? "hub.remoteRecoveryTitle" : "hub.coreRecoveryTitle")}
     busy={!!busy} onClose={onClose} returnFocus={remote ? ".hub-remote-recovery, .hub-arc:not([data-paired]) .hub-connections" : ".hub-core-action"}
     footer={blocked
       ? <Button variant="primary" onClick={openCore}>{t("hub.openCoreRecovery")}</Button>

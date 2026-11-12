@@ -71,3 +71,8 @@
 .node-panel .agent-panel-heading { gap: 4px; }
 .node-panel[data-layer-side="left"] .layer-custom-header > .dialog-header { gap: 16px; }
 .node-panel .source-account-brand, .node-panel .source-account-brand .source-icon, .node-panel .source-account-brand .source-icon > span, .node-panel .source-account-brand svg { width: 36px; height: 36px; }
+
+.layer-panel { transition: top var(--motion-fast) var(--ease-enter), min-height var(--motion-fast) var(--ease-enter); }
+.layer-panel[data-exiting] { pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .layer-panel { transition: none; } }
+:root[data-reduced-motion="true"] .layer-panel { transition: none; }

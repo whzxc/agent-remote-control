@@ -50,7 +50,7 @@ test('Close and Cancel retain busy work until completion and the dialog stays cl
         setJob('finished'); await completion.finish();
       };
       return h('main', null, h('p', { role: 'status' }, job), open && h(Dialog, {
-        layerId: completion.layerId, size: 's', title: 'Deployment', busy: job === 'running', onClose: () => setOpen(false),
+        layerId: completion.layerId, title: 'Deployment', busy: job === 'running', onClose: () => setOpen(false),
         footer: h(DialogClose, { asChild: true }, h(Button, null, t('cancel'))),
       }, h(Button, { onClick: () => void start() }, 'Start')));
     }
@@ -118,11 +118,11 @@ test('choosing a modal SingleChoice option applies it outside dialogs and retain
         h(SingleChoice, { dropdown: true, position, label: 'Browser profile', value: profile, onChange: setProfile,
           options: [{ value: 'default', label: 'Default browser' }, { value: 'chrome-profile-a', label: 'Google Chrome · Profile A' }] }),
         h('output', { 'aria-label': 'Selected profile' }, profile));
-      return dialog ? open && h(Dialog, { size: 'm', title: 'Agent account', onClose: () => setOpen(false) }, choices) : choices;
+      return dialog ? open && h(Dialog, { title: 'Agent account', onClose: () => setOpen(false) }, choices) : choices;
     }
     for (const position of ['popper', 'item-aligned'] as const) for (const host of ['none', 'single', 'stacked']) {
       await act(async () => root.render(h(TooltipProvider, null,
-        host === 'stacked' && h(Dialog, { size: 'm', title: 'Setup', onClose() {} }, 'Parent retained'),
+        host === 'stacked' && h(Dialog, { title: 'Setup', onClose() {} }, 'Parent retained'),
         h(Profile, { position, dialog: host !== 'none' }))));
       await settle();
       await act(async () => fireEvent.keyDown(page.getByRole('combobox', { name: 'Browser profile' }), { key: 'Enter' }));
@@ -166,8 +166,8 @@ test('workspaces replace on open and capsule switching preserves dirty drafts un
         h('nav', { 'data-workspace-switcher': true }, ...['Settings', 'Relay'].map(title => h(Button, {
           key: title, onClick: () => layers.switchPanel(() => setWorkspace(workspace === title ? undefined : title)),
         }, `Open ${title}`)), h(Button, { onClick: () => setBoard(true) }, 'Open Board')),
-        workspace && h(Panel, { key: workspace, size: 'l', title: workspace, onClose: () => setWorkspace(undefined) }, h(Editor), h(Button, { onClick: () => setClean(true) }, 'Load another connector'), clean && h(CleanContributor)),
-        board && h(Panel, { size: 'xl', title: 'Board', onClose: () => setBoard(false) }, 'Board contents'));
+        workspace && h(Panel, { key: workspace, title: workspace, onClose: () => setWorkspace(undefined) }, h(Editor), h(Button, { onClick: () => setClean(true) }, 'Load another connector'), clean && h(CleanContributor)),
+        board && h(Panel, { title: 'Board', onClose: () => setBoard(false) }, 'Board contents'));
     }
     const page = within(document.body);
     await act(async () => root.render(h(Owner))); await settle();
@@ -218,7 +218,7 @@ test('a finished submitted attempt is clean until the user edits the value again
         setFailed(true); setBusy(false);
       };
       return h('main', null, h(Button, { onClick: () => setOpen(true) }, 'Open form'), open && h(Dialog, {
-        size: 'm', title: 'Pair device', dirty: draft.dirty, busy, onClose: () => setOpen(false),
+        title: 'Pair device', dirty: draft.dirty, busy, onClose: () => setOpen(false),
       }, h(Input, { 'aria-label': 'Pairing code', value, onChange: (event: Event) => setValue((event.target as HTMLInputElement).value) }),
       failed && h('p', { role: 'alert' }, 'Pairing failed'), h(Button, { onClick: () => void submit() }, 'Pair')));
     }
@@ -251,7 +251,7 @@ test('deferred close focus restoration preserves the next action trigger', async
       function Owner() {
         const [open, setOpen] = useState(false);
         return h('main', null, h(Button, { onClick: () => setOpen(true) }, 'Connections'), h(Button, null, 'Recover remote'),
-          open && h(Dialog, { size: 'm', title: 'Connections', onClose: () => setOpen(false) }, 'Connection details'));
+          open && h(Dialog, { title: 'Connections', onClose: () => setOpen(false) }, 'Connection details'));
       }
       const page = within(document.body);
       await act(async () => root.render(h(Owner)));
@@ -284,7 +284,7 @@ test('node switchers replace clean panels, protect edits and toggle their own pa
       return h('main', null, ...['Source', 'Agent'].map(id => h(GraphNode, { key: id, label: id, state: 'normal',
         hideLabel: selected === id, panelExpanded: selected === id, caption: `${id} caption`,
         onOpen: () => { const next = selected === id ? undefined : id; layers.switchPanel(() => setSelected(next)); },
-      }, id === 'Source' ? 'S' : 'A')), selected && h(Panel, { key: selected, size: selected === 'Workspace' ? 'l' : 'm',
+      }, id === 'Source' ? 'S' : 'A')), selected && h(Panel, { key: selected,
         side: selected === 'Source' ? 'left' : selected === 'Agent' ? 'right' : 'center', title: `${selected} editor`, onClose: () => setSelected(undefined),
       }, h(Draft), h(Button, { onClick: () => setSelected(undefined) }, 'Finish')));
     }
@@ -322,7 +322,7 @@ test('external navigation waits as attention while a modal draft remains open', 
       const attention = navigationAttention.use();
       return h('main', null, h('p', { role: 'status' }, target),
         attention.map((item: { title: string }) => h(Button, { key: item.title, onClick: () => openNavigationAttention(item.title) }, item.title)),
-        open && h(Dialog, { size: 's', title: 'Draft', onClose: () => setOpen(false) }, h('input', { 'aria-label': 'Name', defaultValue: 'Unsaved' })));
+        open && h(Dialog, { title: 'Draft', onClose: () => setOpen(false) }, h('input', { 'aria-label': 'Name', defaultValue: 'Unsaved' })));
     }
     await act(async () => root.render(h(Owner))); await settle();
     await act(async () => requestExternalNavigation('Settings', () => root.render(h('p', { role: 'status' }, 'Settings opened'))));
@@ -348,7 +348,7 @@ test('action feedback stays in the open owner and late results use global feedba
     function Action() { report = useDialogFeedback(); return h(Button, { onClick: () => report('Saved inside') }, 'Save'); }
     function Owner() {
       const [open, setOpen] = useState(true), { feedback } = connector.use();
-      return h('main', null, feedback.text && h('p', { role: 'status' }, feedback.text), open && h(Dialog, { size: 's', title: 'Editor', onClose: () => setOpen(false) }, h(Action)));
+      return h('main', null, feedback.text && h('p', { role: 'status' }, feedback.text), open && h(Dialog, { title: 'Editor', onClose: () => setOpen(false) }, h(Action)));
     }
     await act(async () => root.render(h(Owner))); await settle();
     const page = within(document.body);

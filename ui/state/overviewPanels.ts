@@ -33,7 +33,7 @@ export function selectAgentPanel(action: AgentPanelAction) {
   const next = agentPanelSelection(agentPanel.get(), action);
   const open = () => { if (!['task', 'back'].includes(action.type)) panelBack.set(undefined); agentPanel.set(next?.closing ? undefined : next); };
   const panel = layers.get().find(layer => layer.kind === 'panel');
-  if (action.type === "toggle" || (action.type === "platform" || action.type === "task") && action.toggle || panel?.dirty || panel?.busy) layers.switchPanel(open);
+  if (action.type === "toggle" || (action.type === "platform" || action.type === "task") && action.toggle || panel?.dirty || panel?.busy) layers.switchPanel(open, !next || !!next.closing);
   else open();
 }
 export function selectIngressPanel(ingress: Ingress, options: { client?: IngressConnectionSelection["client"]; editing?: boolean; field?: string; autoConnect?: boolean; toggle?: boolean } = {}) {
@@ -44,12 +44,12 @@ export function selectIngressPanel(ingress: Ingress, options: { client?: Ingress
   const next = options.toggle && current?.ingress.id === ingress.id && current.client?.id === options.client?.id
       ? undefined
       : { ingress, client: options.client ?? (current?.ingress.id === ingress.id ? current.client : undefined), editing: options.editing, field: options.field, autoConnect: options.autoConnect };
-  if (options.toggle) layers.switchPanel(() => ingressPanel.set(next)); else ingressPanel.set(next);
+  if (options.toggle) layers.switchPanel(() => ingressPanel.set(next), !next); else ingressPanel.set(next);
 }
 export function selectSourcePlatform(platform: string, toggle = false) {
   connectionSetup.set(undefined);
   onboarding.set(undefined);
   const old = ingressPanel.get();
   const next = toggle && old && 'platform' in old && old.platform === platform ? undefined : { platform };
-  if (toggle) layers.switchPanel(() => ingressPanel.set(next)); else ingressPanel.set(next);
+  if (toggle) layers.switchPanel(() => ingressPanel.set(next), !next); else ingressPanel.set(next);
 }

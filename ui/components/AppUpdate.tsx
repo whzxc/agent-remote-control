@@ -155,7 +155,7 @@ function UpdateHistory({ currentVersion, onClose }: { currentVersion?: string; o
     return () => { current = false; };
   }, [currentVersion, request]);
   const retry = () => { setFailed(false); setRequest(previous => previous + 1); };
-  return <Dialog size="m" title={t("updates.history")} className="update-history" onClose={onClose}>
+  return <Dialog title={t("updates.history")} className="update-history" onClose={onClose}>
     {actionError && <Notice tone="danger">{actionError}</Notice>}
     {failed ? <Notice action={<Button onClick={retry}>{t("retry")}</Button>}>{t("updates.historyFailed")}</Notice>
       : !releases ? <p role="status">{t("updates.historyLoading")}</p>

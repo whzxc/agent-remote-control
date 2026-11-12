@@ -18,7 +18,7 @@ import { DialogClose, Button, CopyField, Dialog, Icon, IconButton, Notice, Statu
 import { Card, CardContent, CardHeader } from "./ui/card";
 
 export function ConnectionsPanel() {
-  return <Panel title={t("connections.title")} size="l"
+  return <Panel title={t("connections.title")}
     actions={<Button variant="primary" disabled={readOnlyBrowser} data-new-connection onClick={() => openConnectionSetup({ forConnections: true })}><Icon icon={Plus} />{t("source.newConnection")}</Button>}
     returnFocus=".hub-connections" onClose={() => navigation.set(old => ({ ...old, connectionsOpen: false, remoteConnectionId: undefined }))}>
     <ConnectionsContent />
@@ -74,7 +74,7 @@ export default function ConnectionsContent() {
       </section></Card>;
     })}
     {(error || relays.error) && <Notice>{error || t("connect.readFailed")}</Notice>}
-    {removing && <Dialog layerId={removal.layerId} size="s" title={t(joined ? "connect.confirm.leave" : "setup.removeConnection")} busy={removeBusy} onClose={() => setRemoving(undefined)} footer={<><DialogClose asChild><Button>{t("cancel")}</Button></DialogClose><Button variant="danger" busy={removeBusy} onClick={() => void removeConnection()}>{t(joined ? "connect.leave" : "remove")}</Button></>}>
+    {removing && <Dialog layerId={removal.layerId} title={t(joined ? "connect.confirm.leave" : "setup.removeConnection")} busy={removeBusy} onClose={() => setRemoving(undefined)} footer={<><DialogClose asChild><Button>{t("cancel")}</Button></DialogClose><Button variant="danger" busy={removeBusy} onClick={() => void removeConnection()}>{t(joined ? "connect.leave" : "remove")}</Button></>}>
       <p>{t("setup.removeConfirm", { name: removing.name, names: visible.filter(s => s.ingressId === removing.id).map(s => s.label).join(", ") || t("source.unused") })}</p>{error && <Notice>{error}</Notice>}
     </Dialog>}
     {editing && <IngressDialog ingress={editing} onClose={() => setEditing(undefined)} onRemoved={() => setEditing(undefined)} onSaved={entry => {

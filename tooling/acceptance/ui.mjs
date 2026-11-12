@@ -32,7 +32,7 @@ function checkNodePanelBounds(box, viewportWidth, viewportHeight, top, side = "r
   if (!box) throw new Error('The node panel has no visible bounds.');
   const width = viewportWidth < 760 || viewportHeight > viewportWidth ? viewportWidth - 32 : 560;
   const x = side === "left" ? 16 : viewportWidth - width - 16;
-  if (Math.abs(box.x - x) > 1 || Math.abs(box.y - top) > 1 || Math.abs(box.width - width) > 1
+  if (Math.abs(box.x - x) > 1 || box.y < top - 1 || Math.abs(box.width - width) > 1
     || box.y + box.height > viewportHeight - 15) throw new Error(`Node panel must use the M ${side} slot: ${JSON.stringify(box)}`);
 }
 async function checkOverviewGrowth(dialog, initial, viewportWidth, viewportHeight, top, side = "right") {
@@ -50,7 +50,7 @@ async function checkOverviewGrowth(dialog, initial, viewportWidth, viewportHeigh
     }
     throw new Error('The overview did not grow when its data arrived.');
   }, initial.height);
-  for (const box of frames) { checkNodePanelBounds(box, viewportWidth, viewportHeight, top, side); if (box.height + 1 < initial.height) throw new Error("Loading shortened the open panel."); }
+  for (const box of frames) { if (Math.abs(box.y - Math.min(initial.y, Math.max(top, viewportHeight - 16 - box.height))) > 2) throw new Error("Growing content moved its top before reaching the bottom margin."); checkNodePanelBounds(box, viewportWidth, viewportHeight, top, side); if (box.height + 1 < initial.height) throw new Error("Loading shortened the open panel."); }
   return frames.at(-1);
 }
 // Picks a model from the picker's nested menu and, when given, moves the effort slider to that step.
@@ -95,6 +95,13 @@ try {
       try {
         await page.goto(`http://127.0.0.1:${port}/${fixture.browser ? 'browser.html' : ''}?scenario=${encodeURIComponent(name)}${fixture.browser ? '&key=arc_fixture_browser_key' : ''}`);
         await page.waitForFunction(name => document.documentElement.dataset.scenarioError || document.documentElement.dataset.scenarioReady === name, name, { timeout: 15000 });
+        await page.evaluate(async () => {
+          await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame);
+          const dialogs = [...document.querySelectorAll('.layer-dialog')].filter(node => getComputedStyle(node).visibility !== 'hidden');
+          const panels = [...document.querySelectorAll('.layer-panel')].filter(node => !node.hasAttribute('data-exiting'));
+          const expected = Math.max(0, dialogs.length - (panels.length ? 0 : 1));
+          if (dialogs.length && document.querySelectorAll('.layer-scrim').length !== expected) throw new Error('Only nested dialogs may show a scrim.');
+        });
         if (fixture.accountAdd) {
           const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
           await page.getByRole('button', { name: messages['accounts.addAgentAccount'], exact: true }).click();

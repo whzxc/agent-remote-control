@@ -69,7 +69,7 @@ export default function TaskNeedsYou({ agent, session, entries, source, narrow }
   return <>{count > 0 && <footer className="dialog-footer task-detail-footer" onFocusCapture={pauseOnInteraction} onPointerDownCapture={pauseOnInteraction} onClickCapture={pauseOnInteraction} onKeyDownCapture={pauseOnInteraction}>
     <RequestEntry title={`${t("detail.needsYou")} · ${count}`} summary={interaction?.title || interaction?.summary} action={t("detail.openRequest")} onOpen={() => { if (!readOnlyBrowser) void routing.change("pause"); setSheetOpen(true); }} />
   </footer>}
-    {sheetOpen && <Dialog layerId={layerId} size={(resolved ? held.current?.question : interaction?.kind === "question") ? "m" : "s"} dirty={!resolved && interaction?.kind === "question" && Object.values(drafts[identity!] ?? {}).some(values => values.some(value => value.length > 0))}
+    {sheetOpen && <Dialog layerId={layerId} dirty={!resolved && interaction?.kind === "question" && Object.values(drafts[identity!] ?? {}).some(values => values.some(value => value.length > 0))}
       busy={!resolved && (!!identity && submissions[identity]?.status === "submitting" || routing.busy)} title={t("detail.needsYou")} description={!resolved ? passive : undefined} onClose={() => setSheetOpen(false)} returnFocus=".request-entry button"><div className="task-input-sheet">{resolved ? <p role="status">{t("timeline.resolved")}</p> : dock}</div></Dialog>}
   </>;
 

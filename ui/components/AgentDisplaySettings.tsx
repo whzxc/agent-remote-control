@@ -45,7 +45,7 @@ export default function AgentDisplaySettings({
     }
   }
   return (
-    <Dialog size="l" title={t("agentDisplaySettings")} onClose={onClose} busy={saving || defaultsBusy}>
+    <Dialog title={t("agentDisplaySettings")} onClose={onClose} busy={saving || defaultsBusy}>
       <div className="settings-stack display-settings">
       {error && <Notice>{error}</Notice>}
       {agent && <AgentDispatchDefaults agent={agent} onBusy={setDefaultsBusy} />}

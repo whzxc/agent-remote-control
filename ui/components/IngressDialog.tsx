@@ -283,7 +283,7 @@ export default function IngressDialog({
           </Field>);
   const Frame = setupFormId ? IngressSetupBody : embedded ? IngressEditLayer : Dialog;
   return (
-    <Frame layerId={completion.layerId} size="m" dirty={draft.dirty}
+    <Frame layerId={completion.layerId} dirty={draft.dirty}
       initialFocus={focusField ? `ingress-${focusField}` : undefined}
       title={t(ingress ? "source.editConnection" : "source.newConnection")}
       onClose={onClose}

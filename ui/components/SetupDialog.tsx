@@ -10,7 +10,7 @@ export default function SetupDialog({ layerId, title, steps, active, done, stack
   dirty?: boolean; onCancel?: () => void | boolean | Promise<void | boolean>;
   busy?: boolean; onClose: () => void | Promise<void>; footer?: ReactNode; children: ReactNode; initialFocus?: string; returnFocus?: string;
 }) {
-  return <Dialog layerId={layerId} size="m" title={title} busy={busy} dirty={dirty} onCancel={onCancel} onClose={onClose} initialFocus={initialFocus} returnFocus={returnFocus ?? ".hub-source"}
+  return <Dialog layerId={layerId} title={title} busy={busy} dirty={dirty} onCancel={onCancel} onClose={onClose} initialFocus={initialFocus} returnFocus={returnFocus ?? ".hub-source"}
     headerDetail={(stacked || context) && <p className={stacked ? "setup-return" : "setup-context"}>{stacked ? t("setup.returns", { name: parentTitle ?? t("addControlSource") }) : context}</p>}
     stepBar={<ol className="setup-steps" aria-label={title} data-done={done || undefined}>{steps.map((step, index) => <li key={index}
       data-complete={index < active || done || undefined} aria-current={index === active && !done ? "step" : undefined}>

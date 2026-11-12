@@ -260,7 +260,7 @@ export default function CoordinationCenter() {
     : page && <footer className="center-footer"><span>{t('center.observedAgo', { time: ago(page.observedAt) })}</span></footer>;
   const busy = (view.view === 'ax' ? ax.loading : reading || observed.loading || loadingHistory) || !!pendingAction;
   const runAction = async (action: string, run: () => Promise<unknown>) => { setPendingAction(action); try { await run(); } finally { setPendingAction(''); } };
-  return <Panel initialFocus={initialFocus} title={t('center.title')} size="xl" viewKey={view.view} busy={busy} footer={view.view === "ax" ? undefined : footer}
+  return <Panel initialFocus={initialFocus} title={t('center.title')} viewKey={view.view} busy={busy} footer={view.view === "ax" ? undefined : footer}
     headerNavigation={<div className="center-navigation"><SingleChoice tabs disabled={busy} label={t('center.view')} value={view.view} onChange={value => patch({ view: value as typeof view.view })} options={['current','activity','ax'].map(value => ({ value, label: value === 'ax' ? 'AX' : t(value === 'activity' ? 'center.activityView' : `center.${value}`) }))} /></div>}
     actions={<IconButton icon={RefreshCw} label={t('refresh')} busy={pendingAction === 'refresh' || !pendingAction && (view.view === 'ax' ? ax.loading : reading || observed.loading || loadingHistory)} disabled={busy} onClick={() => void runAction('refresh', async () => {
       if (view.view === 'ax') { await refreshAX(); return; }

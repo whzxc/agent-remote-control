@@ -126,7 +126,7 @@ export function TaskSpecChoice({ agent, threadId, taskId, summary, editable }: {
 
 function TaskDispatchDialog({ agent, threadId, onClose }: { agent: string; threadId: string; onClose: () => void }) {
   const { defaults, error, saving, save } = useDefaults("tasks/dispatch-defaults/read", "tasks/dispatch-defaults", { threadId });
-  return <Dialog size="s" busy={saving} title={t("taskDispatch.title")} onClose={onClose} description={t("taskDispatch.hint")}>
+  return <Dialog busy={saving} title={t("taskDispatch.title")} onClose={onClose} description={t("taskDispatch.hint")}>
     {error && <Notice>{error}</Notice>}
     {defaults && <div className="form">
       <DefaultsFields agent={agent} defaults={defaults} effort inline inheritLabel={t("taskDispatch.inherit")}

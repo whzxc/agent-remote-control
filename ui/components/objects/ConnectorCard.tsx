@@ -79,7 +79,7 @@ export default function ConnectorCard({ source }: { source: ControlSource }) {
       </div>
     </div></CardHeader>
     <CardContent><dl className="connector-facts">{facts.filter(group => group.length).map((group, index) => <div className="connector-fact-group" key={index}>{group.map(([name, value]) => <div className="connector-fact" key={name}><dt>{name}</dt><dd><Sensitive>{value}</Sensitive></dd></div>)}</div>)}</dl></CardContent>
-    {removing && <Dialog layerId={completion.layerId} size="s" title={t('platforms.remove', { name: source.label })} busy={busy} onClose={() => setRemoving(false)} footer={<><DialogClose asChild><Button>{t("cancel")}</Button></DialogClose><Button variant="danger" busy={busy} onClick={() => void remove()}>{t('remove')}</Button></>}>
+    {removing && <Dialog layerId={completion.layerId} title={t('platforms.remove', { name: source.label })} busy={busy} onClose={() => setRemoving(false)} footer={<><DialogClose asChild><Button>{t("cancel")}</Button></DialogClose><Button variant="danger" busy={busy} onClick={() => void remove()}>{t('remove')}</Button></>}>
       <p>{t('platforms.removeConfirm')}</p>{error && <Notice>{error}</Notice>}
     </Dialog>}
   </section></Card>;

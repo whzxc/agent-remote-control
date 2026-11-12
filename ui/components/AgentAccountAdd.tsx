@@ -134,7 +134,7 @@ export default function AgentAccountAdd({ kind, account, onClose }: {
   const notice = error || loginError || login?.browserError;
   const waitingBrowser = login?.browserName ?? browsers.find(option => option.id === login?.browserId)?.name;
   const focusTarget = account ? `[data-account-reauth="${CSS.escape(account.id)}"], [data-add-agent-account]` : '[data-add-agent-account]';
-  return <Dialog layerId={completion.layerId} size="m" title={title} className="agent-account-add" busy={busy || active}
+  return <Dialog layerId={completion.layerId} title={title} className="agent-account-add" busy={busy || active}
     dirty={draft.dirty}
     onCancel={active && !desktop ? cancelLogin : undefined}
     onClose={onClose} returnFocus={focusTarget} footer={<div className="actions">

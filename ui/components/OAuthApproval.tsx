@@ -91,7 +91,7 @@ export default function OAuthApproval({ requested, onClose, inlineEnabled }: { r
   if (selected && inFlow(selected.request.id)) return null;
   if (!selected && !requested) return null;
   function close() { if (selected) dismissed.current.add(selected.request.id); setResolved(undefined); previousSelection.current = undefined; onClose(); }
-  return <Dialog layerId={completion.layerId} size="s" dirty={dirty} busy={busy} title={t("connect.approveTitle")} onClose={close}>
+  return <Dialog layerId={completion.layerId} dirty={dirty} busy={busy} title={t("connect.approveTitle")} onClose={close}>
     {selected ? <ApprovalCard key={selected.request.id} {...selected} onBusy={setBusy} onDirty={setDirty} onDecided={allow => {
       setResolved({ ...selected, request: { ...selected.request, status: allow ? "approved" : "denied" } });
       setDirty(false); void completion.finish();

@@ -113,7 +113,7 @@ export function AgentDetails({
       )
     : undefined;
   return (
-    <Dialog size="l" busy={savingDefaults} title={name(agent)} onClose={onClose} headerless>
+    <Dialog busy={savingDefaults} title={name(agent)} onClose={onClose} headerless>
       <div className="agent-summary">
         <BrandMark markup={icons[agent.agent]} />
         <div>
@@ -144,8 +144,7 @@ export default function AgentsSettings({ onClose, initialAgent }: { onClose: () 
   return (
     <>
       <Panel className="settings-dialog"
-        title={t("agents")}
-        size="l" busy={state.loading || !!state.saving}
+        title={t("agents")} busy={state.loading || !!state.saving}
         onClose={onClose}
         actions={
           <>

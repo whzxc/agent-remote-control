@@ -31,14 +31,18 @@ export function createLayerStore() {
       || target.closest<HTMLElement>('[data-layer-owner]')?.dataset.layerOwner === id);
   const remove = (id: string) => { if (current.some(layer => layer.id === id)) publish(current.filter(layer => layer.id !== id)); };
   const closing = new Set<string>();
+  let switching = false;
   let pendingSwitch: { id: string; open: () => void } | undefined;
   const finishClose = async (id: string, complete?: () => void | Promise<void>) => {
     const layer = current.find(item => item.id === id);
     if (!layer || closing.has(id)) return;
     closing.add(id);
     try {
-      await (complete ?? layer.onClose)();
-      if (pendingSwitch?.id === id) { const next = pendingSwitch.open; pendingSwitch = undefined; next(); }
+      const next = pendingSwitch?.id === id ? pendingSwitch.open : undefined;
+      if (next) { pendingSwitch = undefined; switching = true; }
+      const result = (complete ?? layer.onClose)();
+      next?.();
+      await result;
     }
     finally { closing.delete(id); }
   };
@@ -89,13 +93,14 @@ export function createLayerStore() {
     },
     use: () => useSyncExternalStore(subscribe, get, get),
     canOpen,
-    switchPanel(open: () => void) {
+    isSwitching: () => switching,
+    endSwitch: () => { switching = false; },
+    switchPanel(open: () => void, toggle = false) {
       if (top()?.kind === 'dialog') return;
       const panel = current.find(layer => layer.kind === 'panel');
       if (!panel) { open(); return; }
-      pendingSwitch = { id: panel.id, open };
-      if (panel.busy || panel.dirty) dismiss(panel.id);
-      else void close(panel.id);
+      if (panel.busy || panel.dirty) { pendingSwitch = { id: panel.id, open }; dismiss(panel.id); }
+      else { switching = !toggle; open(); }
     },
     open(layer: LayerInput) {
       if (current.some(item => item.id === layer.id)) return;
@@ -106,6 +111,10 @@ export function createLayerStore() {
         publish([{ ...layer, dismissal: 'none', keepAfterWork: false, ready: !!layer.node }, ...current.filter(item => item.kind !== 'panel')]);
         previous.forEach(item => { void item.onClose(); });
       } else publish([...current, { ...layer, dismissal: 'none', keepAfterWork: false, ready: !!layer.node }]);
+    },
+    retarget(id: string, trigger: HTMLElement | null, returnFocus?: string) {
+      const layer = current.find(item => item.id === id);
+      if (layer) { layer.trigger = trigger; layer.returnFocus = returnFocus; }
     },
     ready(id: string, node: HTMLElement) {
       const layer = current.find(item => item.id === id);
@@ -126,6 +135,7 @@ export function createLayerStore() {
     keepOpen(id: string) {
       if (top()?.id !== id) return;
       if (pendingSwitch?.id === id) pendingSwitch = undefined;
+      switching = false;
       publish(current.map(layer => layer.id === id ? { ...layer, dismissal: 'none', keepAfterWork: layer.dismissal === 'running' } : layer));
     },
     async stopAndClose(id: string) {

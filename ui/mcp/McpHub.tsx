@@ -121,7 +121,7 @@ export default function McpHub({ expanded, onToggleWidth, onClose }: { expanded:
   }
   const summary = snapshot && hubSummary(snapshot.servers);
   const visible = snapshot?.servers.filter(server => matchServer(server, query).server) ?? [];
-  return <Panel role="region" size="xl" className="mcp-page" title={t('mcp.title')} busy={reading || !!busy}
+  return <Panel role="region" className="mcp-page" title={t('mcp.title')} busy={reading || !!busy}
     expanded={expanded} onToggleWidth={onToggleWidth} onClose={onClose} returnFocus='[data-page="mcp-hub"]'
     headerNavigation={summary && summary.total > 0 && <p className="mcp-stats">
       {`${t('mcp.serverCount', { count: summary.total })} · ${t('mcp.availableCount', { count: summary.available })}${summary.failed > 0 ? ' · ' : ` · ${t('mcp.toolTotal', { count: summary.tools })}`}`}
@@ -145,7 +145,7 @@ export default function McpHub({ expanded, onToggleWidth, onClose }: { expanded:
         <ImportPrompt actionBelow />
       </section>}
     </main>
-    {adding && <Dialog size="m" title={t('mcp.addTitle')} onClose={() => setAdding(false)} footer={<Button onClick={() => setAdding(false)}>{t('close')}</Button>}>
+    {adding && <Dialog title={t('mcp.addTitle')} onClose={() => setAdding(false)} footer={<Button onClick={() => setAdding(false)}>{t('close')}</Button>}>
       <div className="mcp-add">
         <p>{t('mcp.addIntro')}</p>
         <section aria-label={t('mcp.addImport')}><h3>{t('mcp.addImport')}</h3><ImportPrompt /></section>
@@ -153,7 +153,7 @@ export default function McpHub({ expanded, onToggleWidth, onClose }: { expanded:
         <section aria-label={t('mcp.addStdio')}><h3>{t('mcp.addStdio')}</h3><Prompt label={t('mcp.copyPrompt')} context={t('mcp.addStdio')} text={t('mcp.promptStdio')} /></section>
       </div>
     </Dialog>}
-    {removing && <Dialog layerId={removal.layerId} size="s" title={t('mcp.remove', { name: removing.name })} onClose={() => setRemoving(undefined)} busy={!!busy} footer={<>
+    {removing && <Dialog layerId={removal.layerId} title={t('mcp.remove', { name: removing.name })} onClose={() => setRemoving(undefined)} busy={!!busy} footer={<>
       <DialogClose asChild><Button>{t("cancel")}</Button></DialogClose>
       <Button variant="danger" busy={!!busy} onClick={() => void act('remove', removing)}>{t('delete')}</Button>
     </>}>

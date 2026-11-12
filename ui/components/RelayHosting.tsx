@@ -108,7 +108,7 @@ function HostedRelay({ relay, version, startJob, disabled }: {
       <Button variant="danger" disabled={blocked} onClick={() => { setError(""); setConfirm("delete"); }}>{t("hosting.delete")}</Button>
     </div>
     {error && !confirm && <Notice tone="danger">{error}</Notice>}
-    {confirm && <Dialog layerId={confirmation.layerId} size="s" title={t(confirm === "reset-token" ? "hosting.resetTitle" : confirm === "delete" ? "hosting.deleteTitle" : "connect.confirm.remove")} onClose={() => setConfirm(undefined)} busy={!!busy} footer={<>
+    {confirm && <Dialog layerId={confirmation.layerId} title={t(confirm === "reset-token" ? "hosting.resetTitle" : confirm === "delete" ? "hosting.deleteTitle" : "connect.confirm.remove")} onClose={() => setConfirm(undefined)} busy={!!busy} footer={<>
       <DialogClose asChild><Button>{t("cancel")}</Button></DialogClose>
       <Button variant={confirm === "reset-token" ? "primary" : "danger"} busy={!!busy} onClick={() => void action(typeof confirm === "string" ? confirm : "remove", typeof confirm === "object" ? confirm : undefined)}>{t(confirm === "reset-token" ? "hosting.reset" : confirm === "delete" ? "delete" : "hosting.remove")}</Button>
     </>}>
@@ -122,7 +122,7 @@ export default function RelayHosting({ expanded, onToggleWidth, onClose }: { exp
   locale.use();
   const relays = useRelays();
   const ready = useDockOpening("relay-hosting", !relays.loaded, undefined, onClose);
-  return ready ? <Panel role="region" size="l" title={t("hosting.feature")} expanded={expanded} onToggleWidth={onToggleWidth}
+  return ready ? <Panel role="region" title={t("hosting.feature")} expanded={expanded} onToggleWidth={onToggleWidth}
     onClose={onClose} returnFocus='[data-page="relay-hosting"]'><RelayHostingContent relays={relays} /></Panel> : null;
 }
 function RelayHostingContent({ relays }: { relays: ReturnType<typeof useRelays> }) {
@@ -175,7 +175,7 @@ function RelayHostingContent({ relays }: { relays: ReturnType<typeof useRelays> 
     {relays.error && <Notice tone="danger" action={<Button onClick={() => void relays.refresh().catch(() => {})}>{t("retry")}</Button>}>{t("connect.readFailed")}</Notice>}
     {error && !dialogOpen && !job && <Notice tone="danger">{error}</Notice>}
     {owners.map(relay => <HostedRelay key={`${relay.id}:${revision}`} relay={relay} version={relays.version} startJob={startJob} disabled={busy || !!job} />)}
-    {dialogOpen && <Dialog layerId={deployment.layerId} size="m" title={t(job?.action === "delete" ? "hosting.deleteTitle" : job?.action === "redeploy" ? "connect.updateRelay" : "hosting.deploy")} busy={busy || !!job && ["login", "deploying", "connecting"].includes(progress.phase)} dirty={draft.dirty}
+    {dialogOpen && <Dialog layerId={deployment.layerId} title={t(job?.action === "delete" ? "hosting.deleteTitle" : job?.action === "redeploy" ? "connect.updateRelay" : "hosting.deploy")} busy={busy || !!job && ["login", "deploying", "connecting"].includes(progress.phase)} dirty={draft.dirty}
       onCancel={job ? cancel : undefined} onClose={() => { setDialogOpen(false); setJob(undefined); setError(""); }}>
       {error && <Notice tone="danger">{error}</Notice>}
       {progressError && job && <Notice tone="danger">{t("connect.readFailed")}</Notice>}
