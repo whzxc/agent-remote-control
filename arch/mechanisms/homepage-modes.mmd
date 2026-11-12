@@ -9,14 +9,14 @@ flowchart TB
   observations["Native task observations"]
   badges["Anchored node task pill<br/>140px full / 104px compact · +N overflow<br/>attention · running · step icons · unread<br/>device aggregate in controller-visible scope"]
   jump["User activates node task state<br/>persist Tasks mode<br/>set transient node scope and focus its tasks"]
-  tasks["TASKS MODE<br/>task cards · no wires<br/>Needs me → Running → Completed unread<br/>then Unconfirmed → collapsed recent completed"]
+  tasks["TASKS MODE<br/>responsive task cards · no wires<br/>3 / 2 / 1 columns · full content width<br/>Needs me → Running → Completed unread<br/>then Unconfirmed → collapsed recent completed"]
   chain["Card origin icon chain<br/>source → remote device only → Agent → account<br/>controller: Anchor Mac → Cedar Mac → Codex → Studio<br/>member: Anchor Mac as source → Codex → Studio"]
   offline["Offline member tasks<br/>Unconfirmed · last seen<br/>no live verbs or counts"]
   filter["Highlighted node filter chip<br/>Clear returns to all tasks"]
   details["Open task detail"]
   read["Separate check action<br/>mark completed task as read without opening detail"]
   order["Move up/down within Needs me or Running<br/>never cross groups · presentation order only"]
-  overflow["Scrollable list · text truncation retains full accessible title<br/>portrait/mobile: one column<br/>no overflow queues or task-driven compaction"]
+  overflow["Scrollable groups · native timeline tail / plan / timing / changes<br/>wide 5 steps · standard 3 · expanded compact 4<br/>portrait/mobile cards expand in place<br/>no overflow queues or task-driven compaction"]
   switch -->|"persist manual selection only"| preference
   preference -->|"restore Topology"| topology
   preference -->|"restore Tasks"| tasks

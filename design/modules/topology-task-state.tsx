@@ -1,14 +1,10 @@
 import { Frame, Icon } from 'adg';
+import { TaskActivityIcon, type TaskStepKind } from './task-activity';
 import { pillForms, stepCopy } from '../fixtures/topology-task-state';
 
-export type NodeTaskStep = 'reading' | 'editing' | 'command' | 'thinking' | 'waiting';
 export type NodeTaskState = {
-  running?: number; attention?: number; unread?: number; unconfirmed?: boolean; steps?: readonly NodeTaskStep[];
+  running?: number; attention?: number; unread?: number; unconfirmed?: boolean; steps?: readonly TaskStepKind[];
 };
-const icons: Record<NodeTaskStep, string> = {
-  reading: 'file-search', editing: 'file-pen-line', command: 'terminal', thinking: 'brain', waiting: 'clock-3',
-};
-
 /** A fixed overlay envelope, never a topology entity or a layout input. */
 export function NodeTaskPill({ state, label, compact = false }: {
   state: NodeTaskState; label: string; compact?: boolean;
@@ -35,7 +31,7 @@ export function NodeTaskPill({ state, label, compact = false }: {
         <Icon name="play" size={10} />{count(state.running)}
       </span>}
       <span class="inline-flex min-w-0 items-center gap-[3px]">
-        {shown.map(step => <Icon name={icons[step]} size={11} />)}
+        {shown.map(step => <TaskActivityIcon kind={step} size={11} />)}
         {hidden > 0 && <span class="text-text-secondary">+{hidden}</span>}
       </span>
       {!!state.unread && <span aria-label={`${state.unread} completed unread`}

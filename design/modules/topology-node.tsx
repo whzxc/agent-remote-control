@@ -44,7 +44,7 @@ export function TopologyNode({
     </span>
   );
   const anchors = {
-    "above-end": "-top-7 right-0 w-[140px]",
+    "above-end": "-top-7 -right-px w-[104px]",
     "above-center": "-top-7 left-1/2 -translate-x-1/2 w-[140px]",
     "below-label": "top-[78px] left-1/2 -translate-x-1/2 w-[140px]",
     "rail-left": "top-3 right-14 w-[104px]",
@@ -55,7 +55,7 @@ export function TopologyNode({
   const graphic = taskState ? <span class="relative inline-flex shrink-0">
     {baseGraphic}
     <span class={`absolute flex ${alignment} ${anchors[taskPillAnchor]}`}>
-      <NodeTaskPill state={taskState} label={label} compact={hideLabel} />
+      <NodeTaskPill state={taskState} label={label} compact={hideLabel || taskPillAnchor === "above-end"} />
     </span>
   </span> : baseGraphic;
   return (

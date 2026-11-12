@@ -50,3 +50,16 @@ The account-group capsule retains its distinct 40px avatar-and-quota form.
 
 The task capsule fits its content inside its fixed overlay envelope; status changes
 resize only the capsule paint and never move nodes, labels or configuration wires.
+
+Tasks uses full-width responsive columns: up to three on wide landscape, two on
+standard landscape, one on portrait/mobile. Cards expose the current activity, a
+bounded native timeline tail (five/three rows), known plan-item counts, elapsed time,
+recorded artifact/command/diff summaries and remote path facts. Compact cards expand
+in place to four timeline rows. Answer/approval entries, detail and mark-read stay
+separate. Partial coverage is visible. No new canonical field, ETA or inferred provider
+progress is assumed; the joined card summary remains a new derived UI projection.
+The field-to-source mapping is in docs/dev/design.md.
+
+Nested Agent pills also use the 104px compact envelope on landscape. Its right-edge
+anchor keeps the maximum capsule clear of the neighboring local-Agent label band
+and the remote configuration branch, including at overflow counts.

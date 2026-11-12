@@ -24,7 +24,8 @@ Remote recovery retries the remote check or restarts only the affected remote co
 
 ### Proposed two-mode homepage
 
-**Proposed.** A shared SingleChoice below the centered Board header selects Topology
+**Proposed.** Topology presents ARC configuration; Tasks presents task execution.
+A shared SingleChoice below the centered Board header selects Topology
 or Tasks manually. Persist the choice; task activity never switches modes. In
 Topology, the Tasks option shows the needs-me count. Node task-state activation
 is explicit navigation to Tasks with a highlighted, clearable node filter, scroll
@@ -43,13 +44,34 @@ controller device as its source. Needs me precedes Running and Completed unread;
 Unconfirmed follows, then optional collapsed Recent completed. Offline device tasks
 use unconfirmed state and last-seen metadata, without live verbs or counts.
 
-Open detail, separate mark-as-read, and within-group presentation reordering move to
-Tasks. Reordering applies to Needs me and Running only. List overflow scrolls;
-long titles retain their accessible value. Portrait/mobile use a single column.
-`modules/homepage-mode.tsx`, `modules/tasks.tsx` and
-`surfaces/homepage-tasks.tsx` own these Proposed forms. Existing approved task
-presentation sources remain retained until their consumers migrate; the mapping owns
-per-part retirement scope. See `arch/mechanisms/homepage-modes.*` for the model.
+Tasks uses the full available content width. At 1500px and wider, groups can use
+three columns and show five recent steps; standard landscape uses two columns and
+three steps. Portrait/mobile use one column, with compact cards and explicit in-place
+Activity expansion showing four steps. The title opens task detail independently.
+Answer and Review approval entries preserve the existing request interaction; completed
+unread cards retain their separate check action. Only Needs me and Running reorder.
+Recent completed starts collapsed. The header remains available while groups scroll.
+`modules/tasks.tsx`, `modules/task-activity.tsx`, and `surfaces/homepage-tasks.tsx` own
+these Proposed forms. Existing task-bearing topology sources remain pending retirement.
+
+#### Recorded task fields and presentation limits
+
+| Proposed detail | Existing source | Presentation rule |
+| --- | --- | --- |
+| Current activity, state and origin | `ui/types.ts`: AgentActivitySession phase, headline, recentSteps, interaction, origin, agentAccountId and dispatchSummary | Use the current observation; unconfirmed tasks show no live verbs or counters. |
+| Recent step icons and short text | AgentTimelineEntry type, status, title/text, command, operation, commandActions and excerpt fields; `ui/state/taskProjection.ts` | Reading/editing derive from file operations; waiting requires an observed pending item. Keep chronological order in the bounded tail. |
+| Elapsed time | AgentActivitySession turnStartedAt; AgentTimeline turnTimings; AgentTimelineEntry durationMs | Derive from recorded timing. Omit when unavailable; do not tick an offline task. |
+| Plan progress | AgentTimelineEntry plan item content and status | Count completed plan items over known items. Show the current item; omit absent/empty plans. This is not an overall task completion estimate. |
+| Latest file, command and diff summary | AgentTimelineEntry path, operation, command, changes added/removed/diff, input/output and exitCode | Render recorded summaries and available counts; truncate with full accessible values. |
+| Request and response state | AgentInteraction and AgentTimelineEntry response; `ui/state/activityModel.ts` approval submissions; native receipt state/result | The inline entry opens the existing request UI. Pending/unconfirmed response state follows the receipt and is never inferred from the card. |
+| Remote path and freshness | `native/src/device_link/controller.rs`: list path, latency and lastSeen; `native/src/device_link/records.rs`: device/task/source associations | Compose the origin chain with current device facts. On the member, the controller remains the source without a local-device wrapper. |
+| Partial coverage | AgentTimeline coverage and executionEvidence | Mark partial history and omit unavailable details. An activity snapshot alone does not promise timeline text. |
+
+No new canonical task field is assumed. The proposed card summary and node phase
+aggregate are new derived UI projections over these existing reads; a joined cross-task
+card feed is not present. Implementation still needs bounded timeline reads, provider
+coverage and remote joins. The proposal assumes no ETA, live provider percentage,
+invented step duration, or inferred waiting phase. All rendered content is fictional.
 
 ### Proposed device level
 
