@@ -45,7 +45,7 @@ async function harness(readOnly = false) {
     async close() { await act(() => root.unmount()); await server.close(); await window.happyDOM.close(); globalThis.fetch = originalFetch; } };
 }
 
-test('topology shows platform roots and independent connector names', async () => {
+test('single-source layouts preserve independent connector names', async () => {
   // Regression: connector instances were collapsed into account nodes and lost their custom names.
   const fixture = await harness();
   try {
@@ -79,7 +79,7 @@ test('topology shows platform roots and independent connector names', async () =
       await fixture.settle();
       assert.ok(page.getByRole('button', { name: label, exact: true }));
       assert.equal(page.queryByRole('button', { name: name => name.includes(local.label) || name.includes(controlSource('local-cli').displayName) }), null);
-      assert.equal(!!page.queryByRole('button', { name: 'OpenAI', exact: true }), mode === 'tree');
+      assert.equal(page.getAllByRole('button', { name: label, exact: true }).length, 1);
     }
   } finally { await fixture.close(); }
 });

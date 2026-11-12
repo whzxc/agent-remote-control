@@ -24,7 +24,7 @@
       "parent": 0,
       "relationKind": "side-chat",
       "phase": "tool",
-      "title": "更新设计工作流",
+      "title": "检查设计工作流分支",
       "headline": "exec",
       "completed": true,
       "elapsedSeconds": 62
@@ -93,5 +93,8 @@
       "completed": true,
       "elapsedSeconds": 331
     }
-  ]
+  ],
+  "homepage": {
+    "mode": "tasks"
+  }
 }

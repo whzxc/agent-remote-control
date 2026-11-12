@@ -1,7 +1,7 @@
 import { deviceTasks, type DeviceTaskSnapshot } from './tasks';
 import { deviceOffer, devicePair, deviceSnapshot, deviceView, memberOutcome, type DeviceSnapshot, type PairState, type Peer } from './state';
 
-export type DeviceFixture = { state: string; enabled?: boolean; taskSnapshots?: Record<string, DeviceTaskSnapshot> };
+export type DeviceFixture = { state: string; enabled?: boolean; taskResponses?: Record<string, unknown>; taskSnapshots?: Record<string, DeviceTaskSnapshot> };
 const controller: Peer = { deviceId: 'b10c'.repeat(16), name: 'Anchor Mac', addresses: [], tunnelUrl: null, addressOverride: null };
 const members: Peer[] = [
   { deviceId: 'c34d'.repeat(16), name: 'Cedar Mac', addresses: ['192.168.50.21:7143', '[fd12:3456:789a::21]:7143'], tunnelUrl: 'https://cedar.example.net/arc-peer/3', addressOverride: 'cedar.local:7143' },
@@ -44,7 +44,7 @@ export function deviceScenario(fixture?: DeviceFixture) {
     const action = path.slice(7), args = body as Record<string, unknown> | undefined;
     if (action === 'cancel-pair') { cancelPair?.(new Error('DEVICE_PAIRING_CANCELLED')); cancelPair = undefined; return { cancelled: true }; }
     if (action === 'tasks') {
-      const data = fixture?.taskSnapshots?.[String(args?.device)];
+      const data = fixture?.taskResponses?.[String(args?.device)] ?? fixture?.taskSnapshots?.[String(args?.device)];
       return structuredClone(data ?? { observedAt: '2026-01-01T00:00:00Z', activeAgents: [], agents: {}, availableAgents: [], records: [], omittedRecords: 0 });
     }
     if (action === 'configure') {

@@ -377,11 +377,16 @@ impl Controller {
                 crate::sources::panel_origin().await?,
             )
             .await?;
-        let value = crate::egress::tool_value(&response)?;
-        if response["isError"] == true {
-            return Err(value.to_string());
-        }
-        Ok(value)
+        let origin = crate::sources::panel_origin().await?;
+        crate::management::device_read(response, |args| {
+            self.forward(
+                "query",
+                json!({"device":device,"op":"control_output","args":args}),
+                None,
+                origin.clone(),
+            )
+        })
+        .await
     }
     pub async fn forward(
         self: &Arc<Self>,

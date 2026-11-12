@@ -213,7 +213,7 @@ export type HomepageTask = {
   key: string; agent: string; session: TrackedActivity; group: HomepageTaskGroup;
   deviceId?: string; controllerDeviceId?: string; upstreamSourceId?: string; sourceIds: string[]; accountId?: string | null;
   activity: ReturnType<typeof import('./taskProjection.ts').taskCardActivity>;
-  partial: boolean; freshness?: string; startedAt?: string | null; endedAt?: string | null;
+  partial: boolean; observedAt?: string; freshness?: string; startedAt?: string | null; endedAt?: string | null;
 };
 export function homepageTaskGroup(session: TrackedActivity, pending: boolean, status?: string): HomepageTaskGroup {
   if (session.observed !== false && session.endedAt === undefined) return pending ? 'needs-me' : 'running';
@@ -275,6 +275,6 @@ export function projectDeviceTasks(device: import('../devices/state').Device, ob
       sourceIds: session.origin?.peerOrigin?.sourceId ? [session.origin.peerOrigin.sourceId] : [],
       accountId: session.agentAccountId ?? session.dispatchSummary?.agentAccountId,
       activity: { steps: [], plan: undefined, change: undefined }, partial: true, startedAt: unconfirmed ? undefined : session.turnStartedAt,
-      freshness: device.lastSeen ?? snapshot.observedAt };
+      observedAt: snapshot.observedAt, freshness: device.lastSeen ?? snapshot.observedAt };
   });
 }

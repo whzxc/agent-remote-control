@@ -24,7 +24,7 @@ function stadium(width: number) {
     return [24 - radius * Math.sin(angle), 24 + radius * Math.cos(angle), -Math.sin(angle), Math.cos(angle)];
   };
   const path = (from: number, to: number) => {
-    const count = Math.max(2, Math.ceil(Math.abs(to - from)));
+    const count = Math.max(2, Math.ceil(Math.abs(to - from) * 2));
     return Array.from({ length: count + 1 }, (_, index) => at(from + (to - from) * index / count))
       .map(([x, y], index) => `${index ? 'L' : 'M'}${x.toFixed(2)} ${y.toFixed(2)}`).join('');
   };

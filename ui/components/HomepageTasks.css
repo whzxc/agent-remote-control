@@ -1,4 +1,4 @@
-.homepage-tasks { position: absolute; inset: 174px 0 72px; overflow-y: auto; padding: 0 24px 16px; display: flex; flex-direction: column; gap: 20px; outline: none; }
+.homepage-tasks { position: absolute; inset: 174px 0 calc(var(--dock-bottom) + 60px); overflow-y: auto; padding: 0 24px 16px; display: flex; flex-direction: column; gap: 20px; outline: none; }
 .homepage-tasks section { display: flex; flex-direction: column; gap: 12px; scroll-margin-top: 8px; }
 .homepage-tasks h2 { display: flex; gap: 8px; align-items: center; font-size: var(--text-body); font-weight: 650; line-height: 20px; }
 .homepage-tasks h2 > span { color: var(--text-tertiary); font-size: var(--text-meta); font-variant-numeric: tabular-nums; }

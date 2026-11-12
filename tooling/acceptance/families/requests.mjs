@@ -13,10 +13,10 @@ export const checks = [
                     await dialog.waitFor();
                     const bounds = await dialog.boundingBox();
                     if (!bounds || Math.abs(bounds.x - 16) > 1 || Math.abs(bounds.width - (width - 32)) > 1
-                        || Math.abs(bounds.y - Math.max(48, height * 0.12)) > 1 || bounds.y + bounds.height > height - 15) {
+                        || Math.abs(bounds.y + bounds.height / 2 - (20 + height - 16) / 2) > 1 || bounds.y + bounds.height > height - 15) {
                         throw new Error('Narrow requests must use the capped portrait dialog slot.');
                     }
-                    if (name.includes('-question-')) {
+                    if (fixture.tasks[fixture.detailTask].question === true) {
                         await dialog.getByRole('radio', { name: /Alpha/ }).click();
                         await page.keyboard.press('Escape');
                         const keepEditing = dialog.getByRole('button', { name: messages['layers.keepEditing'], exact: true });
@@ -35,7 +35,7 @@ export const checks = [
                     await page.waitForFunction(element => element === document.activeElement, await entry.elementHandle(), { timeout: 3000 });
                     await entry.click();
                     await dialog.waitFor();
-                    if (name.includes('-question-') && !await dialog.getByRole('radio', { name: /Alpha/ }).isChecked())
+                    if (fixture.tasks[fixture.detailTask].question === true && !await dialog.getByRole('radio', { name: /Alpha/ }).isChecked())
                         throw new Error('Reopening the request lost its draft.');
                     await dialog.getByRole('button', { name: messages.close, exact: true }).click();
                     await dialog.waitFor({ state: 'hidden' });

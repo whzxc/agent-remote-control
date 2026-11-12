@@ -254,6 +254,9 @@ owns the full-width feed, transient scope, focus and local ordering. Shared Task
 NodeCapsule live in `ui/components/ui/`. The `homepage-modes-*` browser family covers
 both modes, responsive densities, manual persistence, capsule focus, completion read
 and device management in both themes. Remote cards join the controller-scoped `device/tasks` activity and bounded records.
+Remote task snapshots are validated at the read boundary. Failed or malformed reads
+retain that device's last observation as unconfirmed and expose its error in the
+device panel. Remote elapsed time ends at the snapshot's observation timestamp.
 Native visibility determines the remote task scope. Local cards use the current
 Agent activity and existing task records. Partial timeline coverage remains explicit.
 
@@ -310,6 +313,9 @@ The architecture proposal is in `arch/mechanisms/device-link.*`, `device-forward
 and `arch/system-map.*`.
 
 Runtime adoption uses static configuration columns and explicit account disclosure.
+Landscape centers the reserved configuration bounds, independently of task counts.
+A single source merges with its platform to avoid a redundant outer tier. The Tasks
+scroll area reserves the navigation capsule's height and bottom margin.
 The device node panel replaces the separate Devices workspace and summary. Pairing,
 address and revoke dialogs retain their shared shells. Native management currently
 exposes paired devices, paths and reachability. Remote Agent tiers and single-Agent merge use `availableAgents`. The native

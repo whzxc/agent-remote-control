@@ -31,7 +31,7 @@ export const checks = [
                     await page.getByRole('dialog').waitFor();
                     await page.keyboard.press('Escape');
                     await page.getByRole('dialog').waitFor({ state: 'hidden' });
-                    await page.getByRole('button', { name: /^Codex: / }).click();
+                    await page.getByRole('button', { name: `Codex: ${messages.connected}`, exact: true }).click();
                     await page.getByRole('dialog').waitFor();
                     if (screenshots)
                         await page.screenshot({ path: path.join(out, `${key}-agent.png`) });

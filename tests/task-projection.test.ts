@@ -188,3 +188,16 @@ test('remote cards keep controller scope, receipt uncertainty and offline freshn
   const offline = projectDeviceTasks({ ...device, state: 'offline' }, { snapshot }, []);
   assert.ok(offline.every(task => task.group === 'unconfirmed' && !task.session.interaction && !task.startedAt));
 });
+
+
+test('recorded timestamps preserve epoch units and omit unknown starts', async () => {
+  // Regression: a remote card displayed hundreds of thousands of elapsed minutes from an invalid start.
+  const { recordedTimestamp } = await import('../ui/state/taskProjection.ts');
+  const milliseconds = Date.parse('2026-01-01T00:00:00Z');
+  assert.equal(recordedTimestamp(milliseconds / 1000), milliseconds);
+  assert.equal(recordedTimestamp(String(milliseconds)), milliseconds);
+  assert.equal(recordedTimestamp('2026-01-01T00:00:00Z'), milliseconds);
+  assert.equal(recordedTimestamp(null), undefined);
+  assert.equal(recordedTimestamp(''), undefined);
+  assert.equal(recordedTimestamp(0), undefined);
+});

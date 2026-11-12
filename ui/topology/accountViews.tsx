@@ -19,7 +19,7 @@ export function accountViews(views: NodeView[], side: -1 | 1, accounts: Topology
     return [...groups].flatMap<NodeView>(([platform, members]) => {
       const first = members[0], label = first.platformLabel ?? platform;
       const children = members.map(view => ({ ...view, account: true, content: <GraphNode label={view.label ?? view.id} state={view.state} highlighted={view.selected} hideLabel={view.selected} panelExpanded={view.selected} caption={<span className="graph-node-name">{view.label}</span>} onOpen={() => actions.open(-1, platform, view.id)}>{view.icon}</GraphNode> }));
-      if (mode === 'flat') return children;
+      if (mode === 'flat' || members.length === 1) return children;
       const selected = actions.selectedPlatform === platform;
       const state = (['normal', 'connecting', 'error', 'inactive'] as const).find(state => members.some(view => view.state === state)) ?? first.state;
       const icon = <SourceIcon platform={platform} panelVisual />;

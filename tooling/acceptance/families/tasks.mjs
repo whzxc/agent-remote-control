@@ -106,13 +106,19 @@ export const checks = [
             let { model } = context;
             try {
                 if (name === 'dispatch-spec') {
-                    const [three, five, historical] = fixture.tasks.map(task => page.getByRole('group', { name: task.title, exact: true }));
                     const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
-                    await three.getByRole('img', { name: new RegExp(`Example Three.*${messages['dispatchSpec.effort.medium']}.*${messages['activity.fast']}`) }).waitFor();
-                    await five.getByRole('img', { name: new RegExp(`Example Five.*${messages['dispatchSpec.effort.high']}`) }).waitFor();
-                    if (await five.getByRole('img', { name: new RegExp(messages['activity.fast']) }).count())
-                        throw new Error('Default service tier displayed Fast');
-                    await historical.getByText(fixture.tasks[2].spec.effort, { exact: true }).waitFor();
+                    for (const [index, task] of fixture.tasks.entries()) {
+                        await page.getByRole('article', { name: task.title, exact: true }).getByRole('button', { name: `${messages['homepage.openDetail']}: ${task.title}`, exact: true }).click();
+                        const dialog = page.getByRole('dialog', { name: task.title, exact: true });
+                        if (index === 0) await dialog.getByRole('img', { name: new RegExp(`Example Three.*${messages['dispatchSpec.effort.medium']}.*${messages['activity.fast']}`) }).first().waitFor();
+                        else if (index === 1) {
+                            await dialog.getByRole('img', { name: new RegExp(`Example Five.*${messages['dispatchSpec.effort.high']}`) }).first().waitFor();
+                            if (await dialog.getByRole('img', { name: new RegExp(messages['activity.fast']) }).count()) throw new Error('Default service tier displayed Fast');
+                        } else await dialog.getByText(task.spec.effort, { exact: true }).first().waitFor();
+                        await page.keyboard.press('Escape');
+                        await dialog.waitFor({ state: 'hidden' });
+                    }
+
                 }
             }
             finally {
@@ -124,35 +130,12 @@ export const checks = [
             let { model } = context;
             try {
                 if (name === 'task-queue-overflow') {
-                    // Regression: overflow hid running tasks, and View all opened the Agent panel instead of temporarily revealing the queue.
+                    // Regression: unfinished work was hidden behind completed tasks in the retired topology queue.
                     const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
-                    const summary = page.getByRole('button', { name: new RegExp(`${messages['activity.viewAll']}$`) });
-                    const taskButton = task => page.getByRole('button', { name: new RegExp(`^${task.title} ·`) });
-                    for (const task of fixture.tasks.filter(task => !task.completed)) {
-                        if (!await taskButton(task).isVisible())
-                            throw new Error('Overflow hid unfinished work behind completed tasks');
-                    }
-                    await summary.click();
-                    for (const task of fixture.tasks)
-                        await taskButton(task).waitFor({ state: 'visible' });
-                    const expanded = await page.evaluate(() => window.__ARC_VIEW_MODEL__());
-                    if (expanded.panels.agent || expanded.panels.source || await page.getByRole('dialog').count())
-                        throw new Error('View all opened a detail panel');
-                    if (screenshots)
-                        await page.screenshot({ path: path.join(out, `${key}-expanded.png`), animations: 'disabled' });
-                    await page.keyboard.press('Escape');
-                    await summary.waitFor({ state: 'visible' });
-                    await taskButton(fixture.tasks[1]).waitFor({ state: 'hidden' });
-                    if (!await summary.evaluate(element => element === document.activeElement))
-                        throw new Error('Escape did not restore overflow trigger focus');
-                    await summary.press('Enter');
-                    for (const task of fixture.tasks)
-                        await taskButton(task).waitFor({ state: 'visible' });
-                    if (!await taskButton(fixture.tasks[1]).evaluate(element => element === document.activeElement))
-                        throw new Error('Keyboard expansion did not focus a revealed task');
-                    await page.getByRole('main').click({ position: { x: 1, y: 1 } });
-                    await summary.waitFor({ state: 'visible' });
-                    await taskButton(fixture.tasks[1]).waitFor({ state: 'hidden' });
+                    const feed = page.getByRole('main', { name: messages['homepage.tasks'], exact: true });
+                    for (const task of fixture.tasks) await feed.getByRole('article', { name: task.title, exact: true }).waitFor();
+                    if (await page.getByRole('dialog').count()) throw new Error('Opening the Tasks feed opened a detail panel.');
+
                 }
             }
             finally {
@@ -201,12 +184,13 @@ export const checks = [
                             throw new Error('The replaced task queue remains accessible behind the detail panel');
                         const parent = fixture.tasks[task.parent];
                         await detail.getByRole('button', { name: `${messages['activity.parentThread']} ${parent.title}`, exact: true }).click();
-                        await page.waitForFunction(id => window.__ARC_VIEW_MODEL__().panels.agent?.session?.id === id, `fixture-task-${task.parent}`);
                         await page.getByRole('dialog', { name: parent.title, exact: true }).waitFor();
                         await page.keyboard.press('Escape');
                         await page.getByRole('dialog').waitFor({ state: 'hidden' });
-                        await page.getByRole('button', { name: new RegExp(`^${escapeRegex(task.title)} · ${escapeRegex(messages[`activity.relation.${task.relationKind ?? 'subagent'}`])} ·`) }).click();
-                        await page.waitForFunction(id => window.__ARC_VIEW_MODEL__().panels.agent?.session?.id === id, `fixture-task-${fixture.detailTask}`);
+                        await page.getByRole('radio', { name: messages['homepage.tasks'], exact: true }).click();
+                        const card = page.getByRole('article', { name: task.title, exact: true });
+                        if (!await card.count()) await page.getByRole('button', { name: new RegExp(`^${escapeRegex(messages['homepage.recent'])}`) }).click();
+                        await card.getByRole('button', { name: `${messages['homepage.openDetail']}: ${task.title}`, exact: true }).click();
                         await detail.waitFor();
                     }
                     // Semantic snapshots exclude aria-hidden Radix form inputs and visual announcement mirrors.
@@ -264,7 +248,7 @@ export const checks = [
                     }
                     for (const { task, id } of unread) {
                         const title = task.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                        const taskGroup = page.getByRole('group', { name: task.title, exact: true });
+                        const taskGroup = page.getByRole('article', { name: task.title, exact: true });
                         const bubble = taskGroup.getByRole('button', { name: new RegExp(`^${title} ·`) });
                         const bounds = await bubble.boundingBox();
                         if (!bounds)

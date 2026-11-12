@@ -12,9 +12,30 @@ export const checks = [{ stage: 'verify', order: 18, visual: true, async run(con
     await page.getByRole('combobox', { name: text('mode'), exact: true }).click();
     await page.getByRole('option', { name: text(mode), exact: true }).click();
   };
+  if (fixture.homepage.mode === 'tasks') {
+    const feed = await page.getByRole('main', { name: text('tasks'), exact: true }).boundingBox();
+    const nav = await page.locator('.navigation-capsule').boundingBox();
+    if (feed && nav && feed.y + feed.height > nav.y) throw new Error('Tasks scroll area overlaps the navigation capsule.');
+  }
+  if (fixture.homepage.check === 'controller' && width >= 1000) {
+    const clipped = await page.locator('.node-capsule').evaluateAll(nodes => nodes.some(node => {
+      const box = node.getBoundingClientRect();
+      return box.left < 16 || box.right > innerWidth - 16;
+    }));
+    if (clipped) throw new Error('A configured device topology capsule is clipped horizontally.');
+  }
   const mode = () => page.evaluate(() => window.__ARC_VIEW_MODEL__().homepage.mode);
   if (await mode() !== fixture.homepage.mode) throw new Error('Homepage mode did not restore the viewer preference.');
   const check = fixture.homepage.check;
+  if (check === 'remote-error') {
+    await page.waitForFunction(async () => {
+      const { deviceTasks } = await import('/devices/tasks.ts');
+      return !!deviceTasks.get()['c34d'.repeat(16)]?.error;
+    });
+    const tasks = await page.evaluate(() => window.__ARC_VIEW_MODEL__().homepage.tasks);
+    if (!tasks.some(task => task.deviceId === 'd45e'.repeat(16) && task.group === 'running')
+        || tasks.some(task => task.deviceId === 'c34d'.repeat(16) && task.group !== 'unconfirmed')) throw new Error('A malformed device read affected other devices or retained live claims.');
+  }
   if (check === 'overflow') await page.getByRole('img', { name: text('attentionCount').replace('{count}', '101'), exact: true }).waitFor();
   if (check === 'idle') {
     await choose('tasks'); await page.getByRole('main', { name: text('tasks'), exact: true }).waitFor();
@@ -87,7 +108,7 @@ export const checks = [{ stage: 'verify', order: 18, visual: true, async run(con
     await page.getByRole('dialog', { name: messages['device.add'], exact: true }).getByRole('textbox', { name: messages['device.pairing'], exact: true }).waitFor();
     await page.keyboard.press('Escape');
   }
-  if (check !== 'tasks' && check !== 'focus' && fixture.tasks.length) {
+  if (fixture.homepage.mode === 'topology' && check !== 'focus' && fixture.tasks.length) {
     const before = await page.evaluate(() => window.__ARC_VIEW_MODEL__().topology.nodes.map(node => [node.id, node.position.x, node.position.y]));
     await page.evaluate(async () => {
       const { trackedActivity } = await import('/state/activityBubbles.ts');

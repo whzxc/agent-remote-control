@@ -146,7 +146,7 @@ export default function DeviceNodePanel() {
   return <>
     {(detail || controller || view.detail === 'pairing') && <Panel side={view.side === 'member' ? 'left' : 'right'} title={selectedAgent ? `${detail!.name} · ${agentName(selectedAgent)}` : upstream?.sourceLabel ?? detail?.name ?? (controller ? snapshot?.controller?.name : c('thisDevice'))}
       className="device-node-panel" busy={busy} onClose={() => deviceView.set({ side: view.side })}>
-      <div className="devices-content">{(error || actionError) && <Notice layout="inline">{error || actionError}</Notice>}
+      <div className="devices-content">{detail && remote[detail.id]?.error && <Notice layout="inline">{remote[detail.id].error}</Notice>}{(error || actionError) && <Notice layout="inline">{error || actionError}</Notice>}
         {selectedAgent && detail ? <div className="device-detail"><div className="device-identity"><BrandMark markup={icons[selectedAgent.agent]} size={28} /><strong>{agentName(selectedAgent)}</strong></div>
           <p>{selectedAgent.version}</p><Button onClick={() => { deviceView.set({ side: 'controller' }); focusNodeTasks({ id: `device:${detail.id}:agent:${selectedAgent.agent}`, deviceId: detail.id, agent: selectedAgent.agent, label: `${detail.name} · ${agentName(selectedAgent)}` }); }}>{t('homepage.tasks')}</Button>
         </div> : detail ? <Detail device={detail} /> : <><Member busy={busy} act={action => void act(action)} />

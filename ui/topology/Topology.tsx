@@ -138,7 +138,11 @@ export default function Topology({ left, right, brand, tasks = [], onAddAgent }:
   const maxX = Math.max(viewport.width, ...allPositions.map(node => node.x + pitch)), minX = Math.min(0, ...allPositions.map(node => node.x - pitch));
   const addY = Math.max(...nodes.filter(node => node.side === 1).map(node => node.y + 110), hubY + 140);
   const maxY = Math.max(height, addY + 48, ...allPositions.map(node => node.y + 95));
-  const sceneWidth = maxX - minX, offsetX = -minX;
+  const reservedCap = compact ? 104 : 188;
+  const contentLeft = Math.min(hubX - hubSize / 2, ...allPositions.map(node => node.x - (node.side === -1 ? reservedCap - 24 : 70)));
+  const contentRight = Math.max(hubX + hubSize / 2, ...allPositions.map(node => node.x + (node.side === 1 ? reservedCap - 24 : 70)));
+  const sceneWidth = compact ? maxX - minX : Math.max(viewport.width, contentRight - contentLeft + 48);
+  const offsetX = compact ? -minX : (sceneWidth - contentRight - contentLeft) / 2;
   const wires = allPositions.map(node => {
     const parent = nodes.find(parent => parent.id === node.parent && parent.side === node.side);
     const direction = node.side;
@@ -152,7 +156,7 @@ export default function Topology({ left, right, brand, tasks = [], onAddAgent }:
       : `M${fromX + offsetX} ${fromY}H${railX + offsetX - direction * radius}Q${railX + offsetX} ${fromY} ${railX + offsetX} ${fromY + vertical * radius}V${node.y - vertical * radius}Q${railX + offsetX} ${node.y} ${railX + offsetX + direction * radius} ${node.y}H${toX + offsetX}`;
     return { key: nodeKey(node.side, node.id), side: node.side, d };
   });
-  useLayoutEffect(() => { if (pan.current) pan.current.scrollLeft = offsetX; }, [compact]);
+  useLayoutEffect(() => { if (pan.current) pan.current.scrollLeft = compact ? offsetX : 0; }, [compact]);
   const current = useRef({ nodes, wires }); current.current = { nodes, wires };
   useEffect(() => observeTopology(() => ({ orientation: compact ? 'portrait' : 'landscape', source: 'auto', orientationPending: false,
     origin: graph.current?.getBoundingClientRect(), size: viewport, panel: null, groups: [], tasks: [],

@@ -100,3 +100,10 @@ export function taskCardActivity(entries: readonly AgentTimelineEntry[]) {
     output: latest.output?.text, exitCode: latest.exitCode } : undefined;
   return { steps, plan, change };
 }
+
+export function recordedTimestamp(value: unknown): number | undefined {
+  if (value == null || value === '') return;
+  const numeric = typeof value === 'number' || typeof value === 'string' && /^\d+(?:\.\d+)?$/.test(value);
+  const timestamp = numeric ? Number(value) * (Number(value) < 1e12 ? 1000 : 1) : typeof value === 'string' ? Date.parse(value) : NaN;
+  return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : undefined;
+}

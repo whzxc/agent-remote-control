@@ -1,15 +1,66 @@
 {
   "theme": "light",
   "language": "en",
-  "agents": ["codex", "claude"],
+  "agents": [
+    "codex",
+    "claude"
+  ],
   "tasks": [
-    { "agent": "codex", "phase": "command", "title": "Completed check 1", "headline": "npm run check", "completed": true },
-    { "agent": "codex", "phase": "file", "title": "Completed check 2", "headline": "config.json", "completed": true },
-    { "agent": "codex", "phase": "command", "title": "Completed check 3", "headline": "npm run check", "completed": true },
-    { "agent": "codex", "phase": "file", "title": "Completed check 4", "headline": "config.json", "completed": true },
-    { "agent": "codex", "phase": "command", "title": "Completed check 5", "headline": "npm run check", "completed": true },
-    { "agent": "codex", "phase": "command", "title": "Running check", "headline": "npm run check" },
-    { "agent": "codex", "phase": "file", "title": "Updating configuration", "headline": "config.json" },
-    { "agent": "codex", "phase": "thinking", "title": "Reviewing changes", "headline": "Review project changes" }
-  ]
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Completed check 1",
+      "headline": "npm run check",
+      "completed": true
+    },
+    {
+      "agent": "codex",
+      "phase": "file",
+      "title": "Completed check 2",
+      "headline": "config.json",
+      "completed": true
+    },
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Completed check 3",
+      "headline": "npm run check",
+      "completed": true
+    },
+    {
+      "agent": "codex",
+      "phase": "file",
+      "title": "Completed check 4",
+      "headline": "config.json",
+      "completed": true
+    },
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Completed check 5",
+      "headline": "npm run check",
+      "completed": true
+    },
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Running check",
+      "headline": "npm run check"
+    },
+    {
+      "agent": "codex",
+      "phase": "file",
+      "title": "Updating configuration",
+      "headline": "config.json"
+    },
+    {
+      "agent": "codex",
+      "phase": "thinking",
+      "title": "Reviewing changes",
+      "headline": "Review project changes"
+    }
+  ],
+  "homepage": {
+    "mode": "tasks"
+  }
 }

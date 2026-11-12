@@ -14,12 +14,6 @@ export async function verifyDevices(page, fixture, messages) {
     }
   };
   const openDevice = name => page.getByRole('button', { name, exact: true }).click();
-  const assertSnapshot = async check => {
-    await page.waitForFunction(async check => {
-      const { deviceSnapshot } = await import('/devices/state.ts');
-      return new Function('snapshot', `return (${check})(snapshot)`)(deviceSnapshot.get());
-    }, check.toString());
-  };
   if (state.startsWith('experiment')) {
     const toggle = page.getByRole('switch', { name: c('deviceLink'), exact: true });
     if (await toggle.isChecked() !== fixture.deviceLink.enabled) throw new Error('Device link switch does not match its preference.');
@@ -87,12 +81,14 @@ export async function verifyDevices(page, fixture, messages) {
     await workspace.getByRole('button', { name: c('edit'), exact: true }).click();
     await dialog.getByRole('button', { name: c('clear'), exact: true }).click();
     await workspace.getByText(c('automatic'), { exact: true }).waitFor();
-    await assertSnapshot(snapshot => snapshot.members[0].addressOverride === null);
+    await workspace.getByRole('button', { name: c('edit'), exact: true }).click();
+    if (await dialog.getByRole('textbox', { name: 'Cedar Mac', exact: true }).inputValue()) throw new Error('Clearing an address did not persist when reopening the editor.');
+    await page.keyboard.press('Escape');
   } else if (state.startsWith('revoke-')) {
     const peerName = state === 'revoke-controller' ? 'Anchor Mac' : 'Cedar Mac';
     const dialog = page.getByRole('dialog', { name: c('revokeTitle').replace('{name}', peerName), exact: true });
     await dialog.getByRole('button', { name: c('revoke'), exact: true }).click();
-    await assertSnapshot(snapshot => snapshot.controller === null && (snapshot.members.length === 0 || snapshot.members.length === 2));
+    await page.getByRole('button', { name: peerName, exact: true }).waitFor({ state: 'hidden' });
     await dialog.waitFor({ state: 'hidden' });
   } else if (state.startsWith('pair-')) {
     const dialog = page.getByRole('dialog', { name: c('add'), exact: true });

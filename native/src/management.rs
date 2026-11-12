@@ -328,3 +328,72 @@ pub fn error_code(message: &str) -> &str {
         "COMMAND_FAILED"
     }
 }
+
+/// Management readers receive complete JSON even when a peer uses MCP output paging.
+pub(crate) async fn device_read<F, Fut>(response: Value, mut read_output: F) -> Result<Value>
+where
+    F: FnMut(Value) -> Fut,
+    Fut: std::future::Future<Output = Result<Value>>,
+{
+    fn decode(response: &Value) -> Result<Value> {
+        let value = crate::egress::tool_value(response)?;
+        if response["isError"] == true {
+            return Err(value.to_string());
+        }
+        Ok(value)
+    }
+    let value = decode(&response)?;
+    let Some(output) = value["outputId"]
+        .as_str()
+        .filter(|_| value["nextAction"] == "control_output")
+    else {
+        return Ok(value);
+    };
+    let mut text = String::new();
+    let mut offset = 0;
+    loop {
+        let page =
+            decode(&read_output(json!({"outputId":output,"offset":offset,"length":65536})).await?)?;
+        text.push_str(
+            page["text"]
+                .as_str()
+                .ok_or("Invalid device output page: expected text")?,
+        );
+        match page["nextOffset"].as_u64() {
+            Some(next) if next > offset => offset = next,
+            Some(_) => return Err("Invalid device output page: offset did not advance".into()),
+            None => {
+                return serde_json::from_str(&text)
+                    .map_err(|error| format!("Invalid complete device JSON: {error}"))
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod device_read_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn management_device_tasks_restores_complete_peer_json() {
+        // Regression: blank desktop from paged device/tasks management response
+        let snapshot = json!({"observedAt":"2026-01-01T00:00:00Z","agents":{"codex":{"sessions":[{"id":"example","headline":"x".repeat(30000)}]}},"availableAgents":[],"records":[],"omittedRecords":0});
+        let text = snapshot.to_string();
+        let envelope = crate::egress::tool(
+            json!({"outputId":"example-output","nextAction":"control_output","text":&text[..2048],"nextOffset":2048}),
+            false,
+        );
+        let complete = device_read(envelope, |args| {
+            let offset = args["offset"].as_u64().unwrap() as usize;
+            let end = (offset + 4096).min(text.len());
+            std::future::ready(Ok(crate::egress::tool(json!({"text":&text[offset..end],"nextOffset":if end < text.len() { Some(end) } else { None }}), false)))
+        }).await.unwrap();
+        assert_eq!(complete, snapshot);
+        let direct = device_read(crate::egress::tool(snapshot.clone(), false), |_| async {
+            Err("Unexpected continuation".into())
+        })
+        .await
+        .unwrap();
+        assert_eq!(direct["agents"], snapshot["agents"]);
+    }
+}

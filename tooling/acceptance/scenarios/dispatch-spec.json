@@ -2,7 +2,7 @@
   "theme": "light",
   "language": "en",
   "agents": ["codex"],
-  "bubbles": { "autoCompact": false },
+  "homepage": { "mode": "tasks" },
   "dispatchModels": [
     { "model": "fixture-three", "displayName": "Example Three", "efforts": ["low", "medium", "high"] },
     { "model": "fixture-five", "displayName": "Example Five", "efforts": ["minimal", "low", "medium", "high", "max"] }

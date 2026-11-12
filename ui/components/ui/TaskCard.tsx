@@ -5,6 +5,7 @@ import { Button, Icon, IconButton, Tile, Tooltip } from './index';
 import { Card } from './card';
 import { taskPhaseIcons } from './NodeCapsule';
 import type { HomepageTask } from '../../state/activityModel';
+import { recordedTimestamp } from '../../state/taskProjection';
 import { t } from '../../i18n';
 import './TaskCard.css';
 
@@ -21,8 +22,10 @@ export function TaskCard({ task, origins, density, now, path, freshness, onOpen,
   const offline = task.group === 'unconfirmed', needsMe = task.group === 'needs-me', unread = task.group === 'unread';
   const title = task.session.title || task.session.headline || task.session.id;
   const details = density !== 'compact' || expanded;
-  const elapsed = task.startedAt && !offline ? Date.parse(task.endedAt ?? '') || task.session.endedAt || (task.group === 'running' || needsMe ? now : NaN) : NaN;
-  const duration = elapsed - Date.parse(task.startedAt ?? '');
+  const start = recordedTimestamp(task.startedAt);
+  const liveEnd = task.deviceId ? recordedTimestamp(task.observedAt) : now;
+  const end = recordedTimestamp(task.endedAt) ?? task.session.endedAt ?? (task.group === 'running' || needsMe ? liveEnd : undefined);
+  const duration = !offline && start !== undefined && end !== undefined && end >= start ? end - start : NaN;
   const { steps, plan, change } = task.activity;
   const phase = steps.at(-1)?.kind ?? (task.session.phase === 'command' ? 'command' : task.session.phase === 'thinking' ? 'thinking' : undefined);
   const stateLabel = offline ? 'unconfirmed' : needsMe ? task.session.interaction?.kind === 'question' ? 'needsInput' : 'approvalRequired' : task.group === 'running' ? phase ?? 'running' : task.session.status === 'failed' ? 'failed' : ['cancelled', 'interrupted'].includes(task.session.status ?? '') ? 'interrupted' : 'completed';
