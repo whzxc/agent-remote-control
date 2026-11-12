@@ -283,7 +283,7 @@ Tray and deep-link navigation received while a dialog is open becomes actionable
 - The top edge MUST remain fixed while open until content growth requires moving it up to avoid the bottom margin.
 - Growth MUST never move a layer above the top line.
 - Shrinking content MUST NOT move the top edge.
-- A stacked child dialog MUST use the same slot as its parent dialog.
+- A stacked child dialog MUST use the same horizontal slot and width as its parent dialog.
 - A dialog opened from a panel MUST use the dialog slot, not the panel's center.
 - Transient layers MUST anchor to their trigger with collision handling.
 - Only transient layers MAY be positioned by their trigger.

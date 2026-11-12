@@ -588,7 +588,7 @@ try {
               if (tiles.length >= 3 && (Math.abs(tiles[0].width - tiles[1].width) > 1 || Math.abs(tiles[1].width - tiles[2].width) > 1 || tiles[0].top !== tiles[2].top)) throw new Error('Platform grid is not three equal columns');
             }
             if (dialog.stacked && !layout.some(parent => parent.recessed && Math.abs(parent.x - dialog.x) <= 1
-              && Math.abs(parent.y - dialog.y) <= 1 && Math.abs(parent.width - dialog.width) <= 1)) throw new Error('Stacked setup dialogs do not retain the same slot and size class');
+              && Math.abs(parent.width - dialog.width) <= 1)) throw new Error('Stacked setup dialogs must share their horizontal slot and width');
           }
         }
         if (fixture.update && !fixture.coordination) {
