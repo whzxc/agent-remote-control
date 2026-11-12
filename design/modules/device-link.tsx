@@ -124,7 +124,9 @@ export function DevicePairDialog({ locale, state }: Localized & { state: PairSta
   const c = deviceCopy[locale];
   const error = state in errors ? errors[state as keyof typeof errors] : undefined;
   const waiting = state === 'waiting', success = state === 'success';
-  return <Dialog title={c.add} width={560}>
+  return <Dialog title={c.add} size="m" footer={<div class="flex justify-end gap-2">
+    <Button variant="primary" busy={waiting}>{success ? c.done : waiting ? c.waiting : c.pair}</Button>
+  </div>}>
     <div class="flex flex-col gap-5">
       {success ? <Notice tone="success" title={c.paired}>
         <span class="text-text">{c.online} · {c.lan} · {members[0].latency}</span>
@@ -142,30 +144,25 @@ export function DevicePairDialog({ locale, state }: Localized & { state: PairSta
           <p class="text-text">{c[error.detail]}</p><code class="font-mono text-caption">{error.code}</code>
         </Notice> : <p class="text-small leading-5 text-text-secondary">{c.lanOnly}</p>}
       </>}
-      <div class="flex justify-end gap-2">
-        <Button variant="primary" busy={waiting}>{success ? c.done : waiting ? c.waiting : c.pair}</Button>
-      </div>
     </div>
   </Dialog>;
 }
 export function DeviceAddressDialog({ locale }: Localized) {
   const c = deviceCopy[locale];
-  return <Dialog title={c.override} width={560}>
+  return <Dialog title={c.override} size="s" footer={<div class="flex justify-end gap-2"><Button>{c.clear}</Button><Button variant="primary">{c.save}</Button></div>}>
     <form class="flex flex-col gap-5">
       <Field label={members[0].name}><Input value={members[0].override} /></Field>
       <p class="text-small leading-5 text-text-secondary">{c.overrideHint}</p>
-      <div class="flex justify-end gap-2"><Button>{c.clear}</Button><Button variant="primary">{c.save}</Button></div>
     </form>
   </Dialog>;
 }
 export function DeviceRevokeDialog({ locale, memberSide }: Localized & { memberSide: boolean }) {
   const c = deviceCopy[locale];
-  return <Dialog title={memberSide ? c.revokeMemberTitle : c.revokeTitle} width={480}>
+  return <Dialog title={memberSide ? c.revokeMemberTitle : c.revokeTitle} size="s" footer={<div class="flex justify-end gap-2"><Button>{c.cancel}</Button><Button variant="danger">{c.revoke}</Button></div>}>
     <div class="flex flex-col gap-3 text-small leading-5">
       <p>{memberSide ? c.revokeMemberEffect : c.revokeEffect}</p>
       <p class="text-text-secondary">{c.localWork}</p>
     </div>
-    <div class="flex justify-end gap-2"><Button>{c.cancel}</Button><Button variant="danger">{c.revoke}</Button></div>
   </Dialog>;
 }
 export function DeviceMemberView({ locale, state }: Localized & { state: WorkspaceState }) {

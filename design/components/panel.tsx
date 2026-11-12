@@ -54,7 +54,7 @@ export function Panel({
       )}
       {headerDetail}
       {description && (
-        <p class="text-small text-text-secondary">{description}</p>
+        <div class="text-small text-text-secondary">{description}</div>
       )}
       {size ? <div class="min-h-0 overflow-y-auto">{children}</div> : children}
       {size && footer ? <div class="shrink-0">{footer}</div> : footer}

@@ -1,5 +1,5 @@
 import { Frame } from 'adg';
-import { Panel } from '../components/panel';
+import { Dialog } from '../components/panel';
 import { Button } from '../components/button';
 import { Field, Input } from '../components/field';
 import { SingleChoice } from '../components/single-choice';
@@ -23,7 +23,7 @@ export function AgentAccountAdd({
       </div>
     );
     return (
-      <Panel width={480} title={title} footer={footer}>
+      <Dialog size="m" title={title} footer={footer}>
         {waiting ? (
           <div class="flex flex-col gap-4">
             <p class="text-small font-medium" role="status">{signIn.waiting} · {signIn.browsers[1].label}</p>
@@ -36,10 +36,10 @@ export function AgentAccountAdd({
             <SingleChoice label={signIn.browser} value="chrome-profile" options={signIn.browsers} dropdown fill />
           </Field>
         )}
-      </Panel>
+      </Dialog>
     );
   }
-  return <Panel width={560} title={copy.title} footer={<div class="flex justify-end gap-3"><Button>{copy.cancel}</Button><Button variant="primary">{method === 'oauth' ? copy.login : copy.import}</Button></div>}>
+  return <Dialog size="m" title={copy.title} footer={<div class="flex justify-end gap-3"><Button>{copy.cancel}</Button><Button variant="primary">{method === 'oauth' ? copy.login : copy.import}</Button></div>}>
     <div class="flex flex-col gap-5">
       <SingleChoice label="添加方式" value={method} options={copy.methods} fill />
       {method === 'oauth' ? <Field label={copy.browser}><SingleChoice label={copy.browser} value="default" options={copy.browsers} dropdown fill /></Field> : <>
@@ -51,7 +51,7 @@ export function AgentAccountAdd({
         </>}
       </>}
     </div>
-  </Panel>;
+  </Dialog>;
 }
 export default () => [
   <Frame name="oauth" fixture="codex-account-add-oauth-light" capture={{ selector: ".agent-account-add", viewport: "1280x800" }}><AgentAccountAdd /></Frame>,

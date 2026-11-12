@@ -3,7 +3,7 @@ import { Button } from "../components/button";
 import { Card } from "../components/card";
 import { Field, Input } from "../components/field";
 import { IconButton } from "../components/icon-button";
-import { Panel } from "../components/panel";
+import { Dialog } from "../components/panel";
 import { Tag } from "../components/tag";
 import { platformAccountCopy as copy, platformAccounts } from "../fixtures/agent-accounts";
 import { QuotaCards, type QuotaWindow } from "./quota";
@@ -46,19 +46,19 @@ export function AccountCard({ account }: { account: AgentAccount }) {
 
 export function EditAccountAlias({ account }: { account: AgentAccount }) {
   return (
-    <Panel width={440} title={copy.edit}
+    <Dialog size="s" title={copy.edit}
       footer={<div class="flex justify-end"><Button variant="primary">{copy.save}</Button></div>}>
       <Field label={copy.alias}><Input value={account.alias} /></Field>
-    </Panel>
+    </Dialog>
   );
 }
 
 export function RemoveAccount() {
   return (
-    <Panel width={440} title={copy.removeTitle}
+    <Dialog size="s" title={copy.removeTitle}
       footer={<div class="flex justify-end"><Button variant="danger">{copy.remove}</Button></div>}>
       <p class="text-small leading-5">{copy.removal}</p>
-    </Panel>
+    </Dialog>
   );
 }
 

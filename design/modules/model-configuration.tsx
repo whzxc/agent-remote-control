@@ -1,5 +1,5 @@
 import { Frame, Icon } from "adg";
-import { PanelShell, PanelHeader } from "../components/panel";
+import { Dialog, PanelShell } from "../components/panel";
 import { SingleChoice } from "../components/single-choice";
 import { IconButton } from "../components/icon-button";
 import {
@@ -166,14 +166,12 @@ export function DispatchSpec({
 
 export function ModelDialog() {
   return (
-    <PanelShell width={440} class="px-6 pt-4 pb-6">
-      <PanelHeader title={modelExample.title} />
-      <p class="mt-[3px] text-small leading-5 text-text-secondary">
+    <Dialog size="s" title={modelExample.title} description={<p class="text-small leading-5 text-text-secondary">
         {modelExample.description[0]}
         <br />
         {modelExample.description[1]}
-      </p>
-      <div class="mt-[18px] flex items-center gap-6">
+      </p>}>
+      <div class="flex items-center gap-4">
         <span class="text-small leading-4 font-semibold">{modelExample.setting}</span>
         <SingleChoice
           value="follow"
@@ -183,7 +181,7 @@ export function ModelDialog() {
           class="gap-[18px]"
         />
       </div>
-    </PanelShell>
+    </Dialog>
   );
 }
 
