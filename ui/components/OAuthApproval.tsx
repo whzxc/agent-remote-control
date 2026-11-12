@@ -62,7 +62,6 @@ export default function OAuthApproval({ requested, onClose, inlineEnabled }: { r
   const flow = inlineEnabled ? savedFlow : undefined;
   const dismissed = useRef(new Set<string>());
   const [busy, setBusy] = useState(false), [dirty, setDirty] = useState(false);
-  const [selectedId, setSelectedId] = useState<string>();
   const [resolved, setResolved] = useState<{ ingress: Ingress; request: OAuthRequest }>();
   const completion = useDialogCompletion(close);
   const keepAfterWork = layers.use().find(layer => layer.id === completion.layerId)?.keepAfterWork;
@@ -86,13 +85,12 @@ export default function OAuthApproval({ requested, onClose, inlineEnabled }: { r
     onClose();
   }, [requested, status]);
   const inFlow = (id: string) => requests.some(p => p.request.id === id && p.request.switchSourceId === switching?.sourceId && !!switching) || requests.some(p => p.request.id === id && p.ingress.id === flow?.ingressId && ["address", "approval"].includes(flow.step));
-  const candidate = requested ? requests.find(p => p.request.id === requested.id) : requests.find(p => p.request.id === selectedId && p.request.status === "pending" && !inFlow(p.request.id))
-    ?? requests.find(p => p.request.status === "pending" && !dismissed.current.has(p.request.id) && !inFlow(p.request.id));
+  const candidate = requested ? requests.find(p => p.request.id === requested.id) : undefined;
   const selected = keepAfterWork ? resolved ?? previousSelection.current ?? candidate : candidate;
-  useEffect(() => { if (selected) { previousSelection.current = selected; setSelectedId(selected.request.id); } }, [selected]);
+  useEffect(() => { if (selected) { previousSelection.current = selected; } }, [selected]);
   if (selected && inFlow(selected.request.id)) return null;
   if (!selected && !requested) return null;
-  function close() { if (selected) dismissed.current.add(selected.request.id); setSelectedId(undefined); setResolved(undefined); previousSelection.current = undefined; onClose(); }
+  function close() { if (selected) dismissed.current.add(selected.request.id); setResolved(undefined); previousSelection.current = undefined; onClose(); }
   return <Dialog layerId={completion.layerId} size="s" dirty={dirty} busy={busy} title={t("connect.approveTitle")} onClose={close}>
     {selected ? <ApprovalCard key={selected.request.id} {...selected} onBusy={setBusy} onDirty={setDirty} onDecided={allow => {
       setResolved({ ...selected, request: { ...selected.request, status: allow ? "approved" : "denied" } });

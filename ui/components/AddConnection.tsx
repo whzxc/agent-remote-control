@@ -100,9 +100,9 @@ export default function AddConnection({ options, onClose, onAdded, returnFocus }
     finally { setBusy(false); }
   }
   const flow = onboarding.get();
-  const parentTitle = options.forSwitch ? t("switch.sourceTitle", { name: sources.find(s => s.id === connectionSwitch.get()?.sourceId)?.label ?? "" }) : flow?.source ? t("setup.addProduct", { name: flow.localTarget === "code" ? "Claude Code" : flow.localTarget === "desktop" ? t("setup.claudeDesktop") : controlSource(flow.source)?.shortName ?? t("setup.otherClient") }) : t("addControlSource");
+  const parentTitle = options.forConnections ? t("connections.title") : options.forSwitch ? t("switch.sourceTitle", { name: sources.find(s => s.id === connectionSwitch.get()?.sourceId)?.label ?? "" }) : flow?.source ? t("setup.addProduct", { name: flow.localTarget === "code" ? "Claude Code" : flow.localTarget === "desktop" ? t("setup.claudeDesktop") : controlSource(flow.source)?.shortName ?? t("setup.otherClient") }) : t("addControlSource");
   return <SetupDialog layerId={completion.layerId} title={t("source.newConnection")} steps={[{ label: t("setup.method"), value: methodName }, { label: t("source.step.address") }, { label: t("setup.ready") }]}
-    active={steps.indexOf(step)} done={step === "success"} stacked={(options.forSource || options.forSwitch)} parentTitle={parentTitle} busy={busy || configBusy || waiting} dirty={draft.dirty || configDirty}
+    active={steps.indexOf(step)} done={step === "success"} stacked={(options.forSource || options.forSwitch || options.forConnections)} parentTitle={parentTitle} busy={busy || configBusy || waiting} dirty={draft.dirty || configDirty}
     onCancel={waiting ? cancelRelay : undefined} onClose={onClose}
     returnFocus={returnFocus} actionLayout={step === "method" || step === "success" ? "end" : "split"}
     footer={<>
@@ -110,11 +110,11 @@ export default function AddConnection({ options, onClose, onAdded, returnFocus }
       {step === "method" && <Button variant="primary" disabled={!!reason(method)} onClick={() => { setError(""); setStep("address"); if (method === "create") void startRelay(); }}>{method === "create" && <Icon icon={ExternalLink} />}{t(method === "create" ? "setup.deploy" : "source.next")}</Button>}
       {step === "address" && !operation && <Button type="submit" form={formId} variant="primary" busy={busy || configBusy} disabled={!!reason(method) || !!target && (!local || !local[target === "code" ? "codeAvailable" : "desktopAvailable"] || revoked)}>{t(editing ? "setup.saveStart" : method === "create" ? "setup.deploy" : "source.next")}</Button>}
       {waiting && <><DialogClose asChild><Button variant="ghost">{t("cancel")}</Button></DialogClose><Button variant="primary" busy>{t("connect.inProgress")}</Button></>}
-      {step === "success" && <><Button variant="primary" disabled={!created || busy} onClick={() => { if (!createdId) return; onAdded(createdId); if (!(options.forSource || options.forSwitch)) openOnboarding("product", { ingressId: createdId, fixedConnection: true }); }}>{t((options.forSource || options.forSwitch) ? "setup.continueConnection" : "setup.addSourceForConnection")}</Button></>}
+      {step === "success" && <><Button variant="primary" disabled={!created || busy} onClick={() => { if (!createdId) return; onAdded(createdId); if (!(options.forSource || options.forSwitch || options.forConnections)) openOnboarding("product", { ingressId: createdId, fixedConnection: true }); }}>{t((options.forSource || options.forSwitch || options.forConnections) ? "setup.continueConnection" : "setup.addSourceForConnection")}</Button></>}
     </>}>
     <div className={`setup-content ${step === "method" ? "setup-methods" : ""}`}>
       {error && <Notice>{protect(error)}</Notice>}
-      {step === "method" && <SingleChoice form="setup-row" secondaryFrom={options.forSource || options.forSwitch ? undefined : 3} label={t("connectionMethod")} value={method} onChange={value => { setMethod(value as ConnectionMethod); setError(""); }} options={methods.filter(option => !option.disabled)} />}
+      {step === "method" && <SingleChoice form="setup-row" secondaryFrom={options.forSource || options.forSwitch || options.forConnections ? undefined : 3} label={t("connectionMethod")} value={method} onChange={value => { setMethod(value as ConnectionMethod); setError(""); }} options={methods.filter(option => !option.disabled)} />}
       {["https", "openai-tunnel"].includes(method) && <div hidden={!editing}><IngressDialog key={method} setupFormId={formId}
         initialTransport={method === "openai-tunnel" ? "openai-tunnel" : "https"} onBusy={setConfigBusy} onDirty={setConfigDirty} onClose={() => setStep("method")} onRemoved={onClose} onSaved={entry => {
           complete(entry.id); void perform(async () => { await api(`ingress/${entry.id}/start`, "POST"); await refreshConnector(); });

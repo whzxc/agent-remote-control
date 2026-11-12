@@ -6,6 +6,7 @@ import { agentPanelSelection, type AgentPanelSelection, type AgentPanelAction } 
 import { sourcePlatformNodeId } from "../topology/accounts";
 import type { Ingress } from "./types";
 
+export const panelBack = createStore<{ label: string; open: () => void } | undefined>(undefined);
 export const agentPanel = createStore<AgentPanelSelection>(undefined);
 export function agentPanelId(selection: NonNullable<AgentPanelSelection>) {
   return `${selection.agent}:${selection.platform ? 'platform' : selection.accountId ?? ''}`;
@@ -21,6 +22,8 @@ export function managesAgentAccounts(agent: string): agent is "claude" | "codex"
   return agent === "claude" || agent === "codex";
 }
 export function selectAgentPanel(action: AgentPanelAction) {
+  if (action.type === 'back' && panelBack.get()) { const back = panelBack.get()!; panelBack.set(undefined); agentPanel.set(undefined); back.open(); return; }
+  if (!['task', 'back'].includes(action.type)) panelBack.set(undefined);
   if (action.type === 'platform' && !managesAgentAccounts(action.agent)) {
     const agent = action.agent;
     const linked = accounts.get().items.filter(account => account.agentProfiles.some(profile => profile.agent === agent));

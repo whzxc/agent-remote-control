@@ -239,3 +239,11 @@ Add server opens a Dialog of copyable Agent prompts for import, Streamable HTTP 
 The empty state offers the import prompt with a product choice.
 Privacy mode leaves server names, commands, endpoints and prompts readable; env and header values are never rendered.
 See [MCP hub](mcp-hub.md) for ownership and session behavior.
+
+## Navigation and interruption
+
+Pending OAuth requests appear in Board attention. They never open a dialog automatically. A user-started setup or connection-switch flow may advance into its approval step. Opening an approval from Board is an explicit action.
+
+Board-to-task navigation retains an explicit Back action to the Board and restores the originating row. Closing task details closes the panel. Add connection opened from Connections retains the parent panel, visible and stationary under its dialog scrim, and returns focus to Add connection.
+
+Tray and deep-link navigation received while a dialog is open becomes actionable Board attention. It does not discard, replace or navigate behind that dialog. The user opens the deferred target from Board after closing the dialog.

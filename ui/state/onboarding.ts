@@ -6,7 +6,7 @@ export type SourceSetup = { step: OnboardingStep; source?: string; localTarget?:
 export const onboarding = createStore<SourceSetup | undefined>(undefined);
 export const addedSource = createStore<string | undefined>(undefined);
 export type ConnectionMethod = "create" | "join" | "https" | "openai-tunnel" | "local-code" | "local-desktop";
-export type ConnectionSetup = { method?: ConnectionMethod; step?: "method" | "address" | "success"; createdId?: string; forSource?: boolean; forSwitch?: boolean; product?: string; localTarget?: "code" | "desktop" };
+export type ConnectionSetup = { method?: ConnectionMethod; step?: "method" | "address" | "success"; createdId?: string; forSource?: boolean; forSwitch?: boolean; forConnections?: boolean; product?: string; localTarget?: "code" | "desktop" };
 export const connectionSetup = createStore<ConnectionSetup | undefined>(undefined);
 export function openOnboarding(step: OnboardingStep = "product", options: Partial<SourceSetup> = {}) {
   connectionSetup.set(undefined);

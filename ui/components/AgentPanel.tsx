@@ -3,7 +3,7 @@ import Panel, { PanelHeader, usePanelState } from "./ui/Panel";
 import { readOnlyBrowser } from "../browserMode";
 import PetPicker from '../pets/PetPicker';
 import { controlSourcePlatform } from '../controlSources';
-import { agentPanel, selectAgentPanel, agentPanelId, managesAgentAccounts } from "../state/overviewPanels";
+import { agentPanel, panelBack, selectAgentPanel, agentPanelId, managesAgentAccounts } from "../state/overviewPanels";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { ArrowUpRight, Settings, Maximize2, Minimize2, RefreshCw } from "lucide-react";
 import { api } from "../api";
@@ -136,7 +136,7 @@ export default function AgentPanel({ agent, onSettings, onPanelFrame, expanded, 
   if (!ready) return null;
   return <Panel entryTrigger={entryTrigger.current} size="m" side="right" className="activity-panel" expanded={expanded} headerless title={selected.platform ? name(agent) : account?.alias ?? name(agent)} labelledBy={session ? taskTitleId : undefined}
     viewKey={`${panelId}:${session?.id ?? "overview"}`}
-    onClose={() => agentPanel.set(undefined)}
+    onClose={() => { panelBack.set(undefined); agentPanel.set(undefined); }}
     returnFocus={selected.platform ? `[data-agent-platform="${CSS.escape(agent.agent)}"] button` : `[data-agent-node="${CSS.escape(agent.agent)}"]${selected.accountId ? `[data-account-id="${CSS.escape(account?.id ?? selected.accountId)}"]` : ""} button`} onPanelFrame={onPanelFrame}>
     {error && <span className="sr-only" role="status">{t("activity.disconnected")}</span>}
     <div ref={content} className="agent-panel-view">

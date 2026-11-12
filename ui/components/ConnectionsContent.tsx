@@ -19,7 +19,7 @@ import { Card, CardContent, CardHeader } from "./ui/card";
 
 export function ConnectionsPanel() {
   return <Panel title={t("connections.title")} size="l"
-    actions={<Button variant="primary" disabled={readOnlyBrowser} data-new-connection onClick={() => openConnectionSetup()}><Icon icon={Plus} />{t("source.newConnection")}</Button>}
+    actions={<Button variant="primary" disabled={readOnlyBrowser} data-new-connection onClick={() => openConnectionSetup({ forConnections: true })}><Icon icon={Plus} />{t("source.newConnection")}</Button>}
     returnFocus=".hub-connections" onClose={() => navigation.set(old => ({ ...old, connectionsOpen: false, remoteConnectionId: undefined }))}>
     <ConnectionsContent />
   </Panel>;

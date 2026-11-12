@@ -1,3 +1,4 @@
+import { oauthApproval, requestExternalNavigation } from "./state/externalNavigation";
 import DevicesWorkspace from './devices/DevicesWorkspace';
 import { deviceLinkEnabled, observeDevices } from './devices/state';
 import McpHub from './mcp/McpHub';
@@ -85,7 +86,7 @@ export default function App() {
     const focusId = returning.focusId;
     centerReturn.set(undefined); boardFocus.set(focusId); boardOpen.set(true);
   }, [returning, taskSelection, connectionSelection, updatePanelOpen]);
-  const [oauthRequest, setOauthRequest] = useState<{ id: string }>();
+  const oauthRequest = oauthApproval.use(), setOauthRequest = oauthApproval.set;
   const { feedback, status } = connector.use();
   updates.use();
   const permissionState = permissions.use();
@@ -152,29 +153,30 @@ export default function App() {
     let stopped = false;
     const stops: (() => void)[] = [];
     void import("@tauri-apps/api/event").then(async ({ listen }) => {
+      const external = <T,>(title: string, action: (event: { payload: T }) => void) => (event: { payload: T }) => requestExternalNavigation(title, () => action(event));
       const listeners = await Promise.all([
         listen<{ id: string; panel?: PanelRequest }>("acceptance:snapshot", e => { void captureRequest(e.payload, () => navigate("overview")); }),
-        listen<string>("oauth:open", (e) => setOauthRequest({ id: e.payload })),
-        listen<{ id: string; field: string }>("ingress:edit", (e) => {
+        listen<string>("oauth:open", external(t("connect.approveTitle"), (e: { payload: string }) => setOauthRequest({ id: e.payload }))),
+        listen<{ id: string; field: string }>("ingress:edit", external(t("connections.title"), (e: { payload: { id: string; field: string } }) => {
           navigation.set((old) => ({ ...old, ingressEdit: e.payload }));
           navigate("overview");
-        }),
-        listen("permissions:open", () => navigate("permissions")),
+        })),
+        listen("permissions:open", () => requestExternalNavigation(t("permissions"), () => navigate("permissions"))),
         listen("codex:login", () => { void api("codex/login", "POST").catch((e: Error) => notify(e.message, true)); }),
         listen("updates:check", () => {
-          showUpdate();
+          requestExternalNavigation(t("updates"), showUpdate);
           void checkUpdate();
         }),
-        listen<string>("navigate", (e) => {
+        listen<string>("navigate", external(t("open"), (e: { payload: string }) => {
           if (e.payload === "remote") { openConnections(); return; }
           if (["tasks", "logs"].includes(e.payload)) { navigate("overview"); return; }
           if (["overview", "settings", "accounts", "permissions", "pets", "relay-hosting"].includes(e.payload))
             navigate(e.payload as Page);
-        }),
-        listen<string>("subscriptions:open", (e) => {
+        })),
+        listen<string>("subscriptions:open", external(t("platforms.title"), (e: { payload: string }) => {
           navigation.set((old) => ({ ...old, providerId: e.payload }));
           navigate("overview");
-        }),
+        })),
         listen<string>("connection-error", (e) => notify(e.payload, true)),
       ]);
       if (stopped) listeners.forEach((stop) => stop());
@@ -190,7 +192,7 @@ export default function App() {
     };
   }, []);
   useEffect(() => {
-    const handle = (event: Event) => {
+    const handle = (event: Event) => requestExternalNavigation(t("open"), () => {
       const url = new URL((event as CustomEvent<string>).detail);
       if (url.hostname === "ingress") {
         navigation.set(old => ({ ...old, ingressEdit: { id: url.searchParams.get("id") ?? "", field: url.searchParams.get("field") ?? "" } }));
@@ -206,7 +208,7 @@ export default function App() {
       else if (url.hostname === "setup" && url.searchParams.get("target") === "codex-login") {
         void api("codex/login", "POST").catch((e: Error) => notify(e.message, true));
       }
-    };
+    });
     window.addEventListener("arc:open-url", handle);
     return () => window.removeEventListener("arc:open-url", handle);
   }, []);

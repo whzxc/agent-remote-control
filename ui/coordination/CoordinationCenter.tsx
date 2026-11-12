@@ -1,3 +1,4 @@
+import { oauthApproval, openNavigationAttention } from "../state/externalNavigation";
 import Panel from "../components/ui/Panel";
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { Braces, ChevronDown, ChevronRight, Inbox, RefreshCw, type LucideIcon } from 'lucide-react';
@@ -12,7 +13,7 @@ import { trackedActivity } from '../state/activityBubbles';
 import { tasks } from '../state/tasks';
 import { agents, name as agentName } from '../state/agents';
 import { taskExecutions } from '../state/taskExecution';
-import { selectAgentPanel, selectIngressPanel } from '../state/overviewPanels';
+import { selectAgentPanel, selectIngressPanel, panelBack } from '../state/overviewPanels';
 import { activityState } from '../state/taskExecutionModel';
 import { showUpdate } from '../state/updates';
 import { useAppNow } from '../state/appEnvironment';
@@ -127,9 +128,12 @@ export default function CoordinationCenter() {
   }
   function openTask(threadId: string, turnId: string | undefined, focusId: string) {
     const target = taskTarget(threadId, turnId); if (!target) return;
-    centerReturn.set({ kind: 'task', focusId }); boardOpen.set(false); selectAgentPanel({ type: 'task', ...target });
+    panelBack.set({ open: () => { boardFocus.set(focusId); boardOpen.set(true); }, label: t('center.title') });
+    boardOpen.set(false); selectAgentPanel({ type: 'task', ...target });
   }
   function openAttention(item: Attention, focusId: string) {
+    if (item.kind === 'oauth') { oauthApproval.set({ id: item.requestId }); return; }
+    if (item.kind === 'navigation') { openNavigationAttention(item.title); return; }
     if (item.kind === 'blocker') { void readRecord(item.record); return; }
     if (item.kind === 'task') { openTask(item.session.id, item.session.turnId ?? undefined, focusId); return; }
     if (item.kind === 'ax') return;
@@ -157,7 +161,7 @@ export default function CoordinationCenter() {
   const title = (item: Attention) => item.kind === 'task' ? item.session.title ?? taskTarget(item.session.id)?.session.title ?? item.session.id : item.kind === 'blocker' ? item.record.summary : item.kind === 'ax' ? item.item.summary ?? t('center.axTriage', { count: item.item.open ?? 0 }) : item.title;
   const sourceName = (id?: string) => connection.sources.find(source => source.id === id)?.label ?? id ?? t('center.unknown');
   const owner = (row: BoardRecord) => row.localOrigin ? t('center.local') : connection.sources.find(source => source.id === row.ownerSourceId)?.label ?? row.ownerSourceId ?? t('center.unknown');
-  const kindLabel = (item: Attention) => item.kind === 'task' ? t(item.state === 'needsYou' ? 'center.waitUser' : `detail.state.${item.state}`) : t(item.kind === 'connection' && item.notification ? 'center.notification' : `center.${item.kind}`);
+  const kindLabel = (item: Attention) => item.kind === 'oauth' ? t('connect.approveTitle') : item.kind === 'navigation' ? t('open') : item.kind === 'task' ? t(item.state === 'needsYou' ? 'center.waitUser' : `detail.state.${item.state}`) : t(item.kind === 'connection' && item.notification ? 'center.notification' : `center.${item.kind}`);
   const chips = (keys: readonly string[]) => keys.length > 0 && <span className="center-chips">{keys.map(key => <span key={key} className="center-chip">{resourceLabel(key)}</span>)}</span>;
   const coverageNote = (row: BoardRecord) => row.activityCoverage !== 'observed' && <span className="center-note">{t(`center.coverage.${row.activityCoverage}`)}</span>;
   function attentionRow(item: Attention) {
