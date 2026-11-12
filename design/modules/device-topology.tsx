@@ -1,5 +1,5 @@
 import { Frame, Icon } from 'adg';
-import { AgentIcon } from '../components/agent-icon';
+import { AgentIcon, BrandMark } from '../components/agent-icon';
 import { Button } from '../components/button';
 import { Card } from '../components/card';
 import { Field, Input } from '../components/field';
@@ -26,6 +26,14 @@ export function DeviceNode({ state = 'lan', merged = false, expanded = false, co
     <TopologyNode label={label} width={156} capsuleCompact={compact} capsuleWing={controller ? "left" : "right"}
       panelExpanded={expanded}
       taskState={idle ? {} : state === 'offline' ? unconfirmed : overflow ? overflowAggregate : deviceAggregate}
+      capsuleReadings={merged ? quotaReadings : undefined}
+      capsuleMark={<span class="relative flex size-12 items-center justify-center text-text">
+        {merged ? <BrandMark brand="codex" size={28} /> : <Icon name={controller ? 'monitor' : 'laptop'} size={26} />}
+        <span class={`absolute bottom-[9px] left-[9px] size-[6px] rounded-full ${state === 'offline' ? 'bg-text-tertiary' : 'bg-success'}`} />
+        {merged && <span class="absolute bottom-[6px] right-[6px] flex size-4 items-center justify-center rounded-full bg-surface">
+          <Icon name="laptop" size={10} />
+        </span>}
+      </span>}
       graphic={
       <span class="relative flex size-12 items-center justify-center text-text">
         <>{merged ? <AgentIcon brand="codex" readings={quotaReadings} /> : <Icon name={controller ? 'monitor' : 'laptop'} size={32} />}</>

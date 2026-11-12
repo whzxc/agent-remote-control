@@ -314,20 +314,19 @@ remain retained until their runtime consumers are replaced, then are retired wit
 `compact-unconfirmed`, and `account-contrast`. `fixtures/node-capsule.ts` owns fictional
 counts, observed phases and quota readings. All node capsule forms are **Proposed**.
 
-The working capsule contains the existing 48px logo/quota ring at the inner end;
-the label stays below that logo. Its 48px semantic outline and running indicator
-separate it from the account capsule's 40px avatar-and-quota-dot form. No account dots
-are reused as task phases. Attention uses warning; running uses role-agent; a solid
-accent dot marks unread. Offline replaces live counts and steps with unconfirmed.
+The quota ring is the capsule outline: the idle circle stretches into a 48px stadium
+whose quota arcs keep their fractional meaning; the pace trace stays on the idle ring.
+Items are 22px discs on a 28px step, concentric with the caps: the needs-me count as a
+solid warning disc (the only number), one phase disc per running task tinted with the
+phase tokens, and a three-dot overflow disc. Completed unread is an accent dot on the
+outer cap and does not expand an idle node. Unconfirmed uses a dashed neutral outline,
+a help disc and a dimmed logo. The account capsule remains 40px with a 1px border,
+brand marks, quota dots and a count.
 
-The maximum width is 208px landscape, 120px compact. Full capsules show up to three
-observed phase icons; compact capsules show one. Higher counts remove icons first;
-+N counts omitted icons. A compact overflow combination uses an ellipsis when +N
-cannot fit. Counts cap at 99+ or 9+; exact values remain accessible. Reading, editing,
-command, thinking and waiting require observed activity. All-state width is reserved
-in fixed 260px/152px columns. Capsule paint grows outward; logo and label positions
-never change with task activity. Outgoing wires share the computed capsule width and
-start at its actual outer edge. Incoming ports and branch rails stay fixed.
+The maximum width is 188px landscape (five items) and 104px compact (two items),
+reserved in fixed 260px/152px columns. Capsule paint grows outward; logo and label
+positions never change with task activity. Outgoing wires share the computed capsule
+width and start at its actual outer edge. Incoming ports and branch rails stay fixed.
 
 Idle/working full compositions and narrow viewport pairs expose stable anchors.
 Portrait/mobile retain labels and use explicit horizontal pan to reveal deeper

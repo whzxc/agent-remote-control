@@ -86,22 +86,41 @@ folds its child branch while the panel is open, using explicit structural disclo
 
 #### Proposed working node capsule
 
-The node itself grows from a 48px idle logo into a 48px-high capsule, with the logo and
-quota ring retained at its inner end. The label stays under the fixed logo. It grows
-rightward on the executor wing and leftward on the control-source wing. A semantic
-outline, running indicator and observed step icons distinguish work from the existing
-40px account capsule and its quota dots.
+The quota ring is the capsule outline. An idle node is the existing 48px logo and
+circular quota ring. A working node stretches that same ring into a 48px-high stadium:
+a circle is a stadium with no straight run, so idle and working are one outline. Quota
+arcs keep their meaning as fractions of the outline, starting at the top of the inner
+cap and running clockwise; the elapsed tick stays on the outline. The pace trace stays
+on the idle ring and in panels only. Plain devices draw a neutral track; unconfirmed
+draws a dashed neutral track with no quota. The capsule fills with surface and grows
+rightward on the executor wing and leftward, mirrored, on the control-source wing.
 
-Reserve the maximum width in every configuration column, even at idle: 208px on
-landscape, 120px in portrait/mobile, with column pitches of 260px and 152px respectively.
-Full capsules show at most three observed step icons; compact capsules show at most
-one. Reduce step icons first; +N counts omitted icons. If the compact count combination
-still exceeds the envelope, use an ellipsis in place of +N. Counts cap at 99+ or 9+;
-exact values and step names remain accessible. Attention uses warning, running uses
-role-agent, and a solid accent marker represents completed unread. Offline uses only
-unconfirmed state with no live counts or step icons. Device capsules aggregate only
-the controller-visible task scope. Local/remote Agents and merged device+Agent nodes
-retain the existing quota ring; plain devices have no invented quota.
+Content follows one rhythm. Every item is a 22px disc centered on the capsule's
+midline at a 28px step. The logo is concentric with the inner cap and the last item
+with the outer cap, so width is exactly 48px plus 28px per item. Item order from the
+logo outward: the needs-me count, one disc per running task showing that task's
+current phase, then an overflow disc.
+
+- Needs me: a solid warning disc with the count (9+ cap), matching the Tasks badge in
+  the mode switch. It is the only number in the capsule.
+- Running: each disc is one task. Its icon is the observed phase (reading, editing,
+  command, thinking, waiting) on a subtle surface, tinted with the phase tokens;
+  waiting is tertiary. A running task without an observed phase shows a loader.
+- Overflow: a three-dot disc replaces the last running disc when the limit is
+  reached. Exact counts and phase names are in the accessible summary.
+- Completed unread: an accent dot on the outline at 45 degrees of the outer cap. It
+  does not expand the node; an idle node with unread work stays a circle with the dot.
+- Unconfirmed: one help disc, the logo at reduced opacity, and the dashed outline.
+
+The account capsule stays distinct: it is 40px high with a 1px border, brand marks,
+quota dots and a member count; the working capsule is 48px with the 3px quota outline
+and phase discs.
+
+At most five items fit landscape (188px) and two fit portrait/mobile (104px). Reserve
+the maximum width in every configuration column, even at idle, with column pitches of
+260px and 152px respectively. Device capsules aggregate only the controller-visible
+task scope. Local/remote Agents and merged device+Agent nodes keep their quota on the
+outline; plain devices have no invented quota.
 
 Incoming wires end at the fixed inner logo edge. Outgoing wires start at the actual
 capsule outer edge. Width, task-area reveal and the outgoing port interpolate together

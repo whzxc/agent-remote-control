@@ -42,21 +42,19 @@ Portrait and mobile use one column and preserve the header and mode control.
 All nodes use the neutral architecture vocabulary. The sidecar's Proposed status
 covers the presentation and navigation model; it does not add an experimental flag.
 
-A node is a 48px logo/quota ring at idle and a 48px-high working capsule when it has
-tasks. Logo and label stay anchored; the capsule grows outward from the incoming
-wire. Maximum widths of 208px full and 120px compact are reserved at idle as well.
+A node is a 48px logo with a circular quota ring at idle. When it has tasks the same
+ring stretches into a 48px-high capsule outline, growing outward from the incoming
+wire. Maximum widths of 188px full and 104px compact are reserved at idle as well.
 Configuration column pitches are 260px and 152px, independent of task observations.
 Outgoing wires start at the actual capsule outer edge. Capsule width, reveal and its
 outgoing port share the existing 210/26 topology spring with approximately 8ms
-substeps; reduced motion sets endpoints directly and disables the running pulse.
-No task-state transition moves a node, label or branch rail.
+substeps; reduced motion sets endpoints directly. No task-state transition moves a
+node, label or branch rail.
 
-Attention, running, observed step icons and an unread marker share the node capsule.
-Full capsules show at most three steps; compact capsules show one. Icons yield first;
-+N counts omitted icons, or an ellipsis when compact +N cannot fit. Counts cap at
-99+ / 9+, with exact accessible values. Offline uses unconfirmed without live counts
-or steps. The 48px semantic outline and running indicator distinguish it from the
-40px account-group avatar/quota capsule. The logo opens its existing node panel;
+The capsule holds 22px discs on a 28px step: the needs-me count, one phase disc per
+running task, and an overflow disc. Full capsules hold five items; compact hold two.
+Completed unread is a dot on the outline. Offline uses unconfirmed without live counts
+or phases. The logo opens its existing node panel;
 the task area opens scoped Tasks. Narrow topology pans horizontally between reserved
 columns by explicit user input; the header/navigation stay fixed. Device management
 explicitly folds the child branch while its panel is open.

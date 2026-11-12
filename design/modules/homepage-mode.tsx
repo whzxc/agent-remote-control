@@ -10,7 +10,7 @@ export function HomepageModeSwitch({ mode, attention = 0 }: { mode: HomepageMode
     { value: 'topology', label: copy.topology },
     { value: 'tasks', label: copy.tasks, graphic: mode === 'topology' && attention > 0
       ? <span aria-label={`${attention} need me`} class="mr-1 flex h-[18px] min-w-[18px] items-center justify-center
-          rounded-full bg-warning px-1 text-caption font-semibold text-canvas">{attention}</span> : undefined },
+          rounded-full bg-warning px-1 text-caption font-semibold tabular-nums text-canvas">{attention > 99 ? '99+' : attention}</span> : undefined },
   ]} />;
 }
 
