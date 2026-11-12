@@ -309,7 +309,7 @@ its downstream UI remains outside this proposal. Existing workspace-only assets 
 remain retained until their runtime consumers are replaced, then are retired with no shims.
 
 `modules/topology-task-state.tsx` owns NodeTaskPill: `running`, `attention`, `unread`,
-`aggregate`, `overflow`, `compact-overflow`, `unconfirmed`, `compact-unconfirmed`.
+`aggregate`, `thinking-waiting`, `overflow`, `compact-overflow`, `unconfirmed`, `compact-unconfirmed`.
 The task capsule borrows the account group's rounded silhouette, with a 24px height,
 canvas fill, semantic outline and no repeated Agent avatar. The account capsule keeps
 its 40px height, surface fill, Agent avatar and quota dots. Attention uses warning;

@@ -13,11 +13,13 @@ export const stepCopy = {
   reading: 'Reading', editing: 'Editing', command: 'Running a command', thinking: 'Thinking', waiting: 'Waiting',
   unconfirmed: 'Unconfirmed',
 };
+const thinkingWaiting: NodeTaskState = { running: 2, steps: ['thinking', 'waiting'], unread: 1 };
 export const pillForms = [
   { name: 'running', label: 'Codex', state: localRunning },
   { name: 'attention', label: 'Claude Code', state: localAttention },
   { name: 'unread', label: 'Codex', state: remoteUnread },
   { name: 'aggregate', label: 'Cedar Mac', state: deviceAggregate },
+  { name: 'thinking-waiting', label: 'Codex', state: thinkingWaiting },
   { name: 'overflow', label: 'Cedar Mac', state: overflow },
   { name: 'compact-overflow', label: 'Cedar Mac', state: overflow, compact: true },
   { name: 'unconfirmed', label: 'Cedar Mac', state: unconfirmed },
