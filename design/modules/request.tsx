@@ -1,48 +1,66 @@
 import { Frame, Icon } from "adg";
 import { Button } from "../components/button";
 import { Card } from "../components/card";
-import { PanelShell, PanelHeader } from "../components/panel";
+import { Dialog } from "../components/panel";
 import { Input } from "../components/field";
 import { SingleChoice } from "../components/single-choice";
 import {
   permissionExample, requestCopy, requestExample, questionOptions, routingForms, routingActions,
 } from "../fixtures/request";
 
+function PermissionActions({ sheet = false }: { sheet?: boolean } = {}) {
+  return (
+      <div class="flex justify-end gap-2">
+        <Button>{permissionExample.deny}</Button>
+        <Button disabled class="opacity-42">
+          {permissionExample.bypass}
+        </Button>
+        <Button variant="primary" class={sheet ? "px-4" : "px-5"}>
+          {permissionExample.approve}
+        </Button>
+      </div>
+  );
+}
+
 export function PermissionCard({
   title = permissionExample.title,
   scope = permissionExample.scope,
   command = permissionExample.command,
-}: { title?: string; scope?: string; command?: string } = {}) {
+  sheet = false,
+}: { title?: string; scope?: string; command?: string; sheet?: boolean } = {}) {
   return (
     <Card padded class="gap-4">
       <div class="flex flex-col gap-1">
-        <strong class="text-body leading-4 font-semibold">
+        <strong class={`text-body ${sheet ? "leading-[18px]" : "leading-4"} font-semibold`}>
           {title}
         </strong>
-        <span class="text-meta leading-3 text-text-secondary">
+        <span class={`text-meta ${sheet ? "leading-4" : "leading-3"} text-text-secondary`}>
           {scope}
         </span>
       </div>
       <pre class="flex h-11 items-center rounded-field bg-surface-sunken px-[14px] text-meta font-mono">
         {command}
       </pre>
-      <div class="flex justify-end gap-2">
-        <Button>{permissionExample.deny}</Button>
-        <Button disabled class="opacity-42">
-          {permissionExample.bypass}
-        </Button>
-        <Button variant="primary" class="px-5">
-          {permissionExample.approve}
-        </Button>
-      </div>
+      {!sheet && <PermissionActions />}
     </Card>
   );
 }
 
-export function QuestionCard() {
+function QuestionActions({ sheet = false }: { sheet?: boolean } = {}) {
+  return (
+      <div class="flex justify-end gap-2">
+        <Button variant="ghost">{requestCopy.skip}</Button>
+        <Button variant="primary" disabled class={`opacity-42 ${sheet ? "px-4" : "px-[30px]"}`}>
+          {requestCopy.send}
+        </Button>
+      </div>
+  );
+}
+
+export function QuestionCard({ sheet = false }: { sheet?: boolean } = {}) {
   return (
     <Card padded class="gap-4">
-      <strong class="text-body leading-[14px] font-semibold">
+      <strong class={`text-body ${sheet ? "leading-5" : "leading-[14px]"} font-semibold`}>
         {requestCopy.question}
       </strong>
       <SingleChoice
@@ -58,31 +76,18 @@ export function QuestionCard() {
         </label>
         <Input />
       </div>
-      <div class="flex justify-end gap-2">
-        <Button variant="ghost">{requestCopy.skip}</Button>
-        <Button variant="primary" disabled class="opacity-42 px-[30px]">
-          {requestCopy.send}
-        </Button>
-      </div>
+      {!sheet && <QuestionActions />}
     </Card>
   );
 }
 
 export function RequestSheet({ question = false }: { question?: boolean }) {
   return (
-    <PanelShell width={360} class="px-6 pt-4 pb-6">
-      <PanelHeader title={requestCopy.title} />
-      <p class="mt-[3px] text-meta leading-4 text-text-tertiary">
-        {requestCopy.status}
-      </p>
-      <div class="mt-[19px]">
-        {question ? (
-          <QuestionCard />
-        ) : (
-          <PermissionCard />
-        )}
-      </div>
-    </PanelShell>
+    <Dialog size={question ? "m" : "s"} title={requestCopy.title}
+      description={<div class="text-meta leading-[18px]">{requestCopy.status}</div>}
+      footer={question ? <QuestionActions sheet /> : <PermissionActions sheet />}>
+      {question ? <QuestionCard sheet /> : <PermissionCard sheet />}
+    </Dialog>
   );
 }
 
@@ -238,28 +243,27 @@ export function RequestRouting({
 export default () => [
   <Frame
     name="request-sheet-permission"
+    width={358}
     fixture="approval-permission"
     capture={{
-      selector: '.dialog[data-sheet="true"]',
-      viewport: "510x844",
+      selector: ".layer-dialog:has(.task-input-sheet)",
+      viewport: "390x844",
       clicks: ["打开"],
     }}
-    note={
-      "Prepared task in the adapter. Width drift: asset 360px, implementation 332px. A wider host " +
-      "switches to the inline request; permission has no Open control at 525x844."
-    }
+    note="Narrow task body (at most 360px) opens an S dialog in the full-width portrait slot, with fixed actions."
   >
     <RequestSheet />
   </Frame>,
   <Frame
     name="request-sheet-question"
+    width={358}
     fixture="approval-question"
     capture={{
-      selector: '.dialog[data-sheet="true"]',
-      viewport: "525x844",
+      selector: ".layer-dialog:has(.task-input-sheet)",
+      viewport: "390x844",
       clicks: ["打开"],
     }}
-    note="Prepared task in the adapter. Width drift: asset 360px, implementation 330px. A wider host switches to the inline request."
+    note="Narrow task body opens an M dialog, capped to the portrait slot width, with fixed actions."
   >
     <RequestSheet question />
   </Frame>,

@@ -1,0 +1,27 @@
+{
+  "theme": "light",
+  "language": "zh-CN",
+  "agents": [
+    "codex"
+  ],
+  "panel": {
+    "kind": "agent",
+    "id": "codex"
+  },
+  "detailTask": 0,
+  "viewports": [
+    {
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "阅读项目说明",
+      "headline": "理解 README 中的项目结构",
+      "approval": true
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "theme": "dark",
+  "language": "zh-CN",
+  "agents": [
+    "codex"
+  ],
+  "panel": {
+    "kind": "agent",
+    "id": "codex"
+  },
+  "detailTask": 0,
+  "viewports": [
+    {
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Waiting for input",
+      "headline": "Choose an option",
+      "question": true
+    }
+  ]
+}
