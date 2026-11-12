@@ -48,7 +48,7 @@ export function CapsuleNode({ node, tasks, compact, onWidth }: { node: Positione
   const widthChanged = useCallback((width: number) => onWidth(key, width), [onWidth, key]);
   const state = capsuleState(node, tasks);
   if (!isValidElement(node.content) || node.content.type !== GraphNode) return node.content;
-  const graphic = node.deviceId ? undefined : node.side === 1 ? <BrandMark markup={icons[node.platform ?? node.id]} size={28} /> : <SourceIcon platform={node.platform ?? node.id} panelVisual />;
+  const graphic = node.deviceId ? undefined : node.side === 1 ? <BrandMark markup={icons[node.platform ?? node.id]} size={28} /> : <SourceIcon platform={node.platform ?? node.id} size={28} />;
   return cloneElement(node.content as React.ReactElement<React.ComponentProps<typeof GraphNode>>, {
     capsule: state, neutralRing: !!node.deviceId, compact, wing: node.side === -1 ? 'left' : 'right', capsuleMark: node.capsuleMark ?? graphic, readings, used: display === 'used', hideLabel: node.selected,
     onWidth: widthChanged, onTasks: () => focusNodeTasks({ id: node.id, label: node.label ?? node.platformLabel ?? node.id,

@@ -1,5 +1,5 @@
 import type { NodeTaskState } from '../modules/node-capsule';
-import type { AgentIconReading } from '../components/agent-icon';
+import type { Brand, AgentIconReading } from '../components/agent-icon';
 
 export const quotaReadings: readonly AgentIconReading[] = [
   { id: 'quota', label: 'Session quota', value: 72, color: 'var(--success)', elapsed: 0.4 },
@@ -19,7 +19,7 @@ export const stepCopy = {
   reading: 'Reading', editing: 'Editing', command: 'Running a command', thinking: 'Thinking', waiting: 'Waiting',
   unconfirmed: 'Unconfirmed',
 };
-export const capsuleForms: { name: string; state: NodeTaskState; compact?: boolean; wing?: 'left' | 'right' }[] = [
+export const capsuleForms: { name: string; state: NodeTaskState; brand?: Brand; label?: string; compact?: boolean; wing?: 'left' | 'right' }[] = [
   { name: 'idle', state: {} },
   { name: 'working', state: localRunning },
   { name: 'attention', state: localAttention },
@@ -29,6 +29,7 @@ export const capsuleForms: { name: string; state: NodeTaskState; compact?: boole
   { name: 'overflow', state: overflow },
   { name: 'left-idle', state: {}, wing: 'left' },
   { name: 'left-working', state: deviceAggregate, wing: 'left' },
+  { name: 'left-source-attention', state: deviceAggregate, wing: 'left', brand: 'anthropic', label: 'Personal' },
   { name: 'compact', state: deviceAggregate, compact: true },
   { name: 'compact-overflow', state: overflow, compact: true },
   { name: 'unconfirmed', state: unconfirmed },

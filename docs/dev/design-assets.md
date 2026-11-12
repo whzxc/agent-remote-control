@@ -323,7 +323,7 @@ to the device-tier owner.
 `modules/node-capsule.tsx` owns NodeCapsule and its shared outer-port geometry:
 `idle`, `working`, `attention`, `unread`, `aggregate`, `thinking-waiting`, `overflow`,
 `left-idle`, `left-working`, `compact`, `compact-overflow`, `unconfirmed`,
-`compact-unconfirmed`, and `account-contrast`. `fixtures/node-capsule.ts` owns fictional
+`compact-unconfirmed`, `left-source-attention`, and `account-contrast`. `fixtures/node-capsule.ts` owns fictional
 counts, observed phases and quota readings. All node capsule forms are **User-approved**.
 
 The quota ring is the capsule outline: the idle circle stretches into a 48px stadium
@@ -586,3 +586,5 @@ The shared layer contract uses one centered slot for every node panel, workspace
 `modules/node-capsule.tsx`, `topology-node.tsx` and `topology-group.tsx` map to their shared runtime components and `ui/topology/nodeViews.tsx`. Only owning leaf nodes show task segments. Configuration parents remain normal nodes. Unread, per-member quota and device status dots are removed from topology. Tasks mode and panels retain status information.
 
 `modules/topology-mark.tsx` maps to `ui/topology/Hub.tsx`. Its lower arc exposes Device link beside the Core action. The action opens `ui/devices/DeviceNodePanel.tsx` for adding and pairing devices. The right-wing add endpoint and its tentacle are removed. `solve.ts`, `Topology.tsx`, `render.ts` and `portraitRender.ts` render outward brackets only for configuration parents. Leaves have no outward arc or arc controls in any interaction or task state. `homepage-modes-polish` covers these rules in landscape and portrait, with both themes.
+
+Working source capsules use `SourceIcon` at 28px through the shared `BrandMark` renderer. The compact artwork stays inside the inner cap and mirrors without covering outward task discs. `modules/node-capsule.tsx` / `left-source-attention` maps to `ui/topology/nodeViews.tsx` and `ui/components/SourceIcon.tsx`. Status: adopted. The `homepage-modes-polish` and `homepage-modes-capsules` fixtures cover source artwork separation and outward item placement in both themes.

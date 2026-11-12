@@ -32,6 +32,13 @@ export const checks = [{ stage: 'verify', order: 18.5, visual: true, async run({
   };
   const positions = () => page.evaluate(() => JSON.stringify(window.__ARC_VIEW_MODEL__().topology.nodes.map(node => [node.id, node.position.x, node.position.y, node.position.size])));
   await inspect();
+  // Reveal configuration members before exercising their individual controls.
+  const folded = await page.evaluate(() => {
+    const topology = window.__ARC_VIEW_MODEL__().topology;
+    return topology.groups.filter(group => group.side === 1 && !group.parent && group.folded)
+      .map(group => topology.nodes.find(node => node.id === group.id)?.label).filter(Boolean);
+  });
+  for (const label of folded) await page.getByRole('button', { name: `${label} · ${messages['topology.expand']}`, exact: true }).click();
   const leaves = await page.evaluate(() => window.__ARC_VIEW_MODEL__().topology.nodes.filter(node => !node.hasChildren && !node.group));
   if (!leaves.some(node => node.attention) || !leaves.some(node => node.unread?.length)) throw new Error('Fixture needs attention and unread leaves.');
   for (const node of leaves) {
