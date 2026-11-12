@@ -360,3 +360,26 @@ test('action feedback stays in the open owner and late results use global feedba
     assert.equal(page.getByRole('status').textContent, 'Background failure');
   });
 });
+
+test('cross-slot Back retains the originating panel detail and restores its control', async () => {
+  // Regression: an exiting Board shell ran its close callback again when the task slot entered, clearing the retained record and Back focus target.
+  await withDialog(async ({ server, root, settle, focused }) => {
+    const { default: Panel, PanelProvider } = await server.ssrLoadModule('/ui/components/ui/Panel.tsx');
+    const { Button } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
+    const { layers } = await server.ssrLoadModule('/ui/state/layers.ts');
+    function Owner() {
+      const [view, setView] = useState('board'), [record, setRecord] = useState(true);
+      return h('main', null,
+        view === 'board' && h(Panel, { title: 'Board', initialFocus: 'inspect-task', onClose: () => { setRecord(false); setView('closed'); } },
+          record && h('section', { role: 'region', 'aria-label': 'Record details' }, h(Button, { id: 'inspect-task', onClick: () => layers.switchPanel(() => setView('task')) }, 'Inspect task'))),
+        view === 'task' && h(Panel, { title: 'Task', side: 'right', onClose: () => setView('closed') }, h(Button, { onClick: () => layers.switchPanel(() => setView('board')) }, 'Back to Board')));
+    }
+    await act(async () => root.render(h(PanelProvider, null, h(Owner)))); await settle();
+    const page = within(document.body);
+    await act(async () => fireEvent.click(page.getByRole('button', { name: 'Inspect task' })));
+    assert.ok(page.getByRole('dialog', { name: 'Task' }));
+    await act(async () => fireEvent.click(page.getByRole('button', { name: 'Back to Board' }))); await settle();
+    assert.ok(page.getByRole('region', { name: 'Record details' }));
+    assertNodeIdentity(focused(), page.getByRole('button', { name: 'Inspect task' }));
+  });
+});

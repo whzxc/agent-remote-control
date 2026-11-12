@@ -173,13 +173,14 @@ export function LayerShell({ kind, side = 'center', entryTrigger, onPanelFrame, 
   if (previousView.current !== `${contentKey}:${viewKey}`) { retainedHeight.current = 0; previousView.current = `${contentKey}:${viewKey}`; anchorTop.current = undefined; resetHeight.current = true; }
   const latest = useRef({ onClose, dirty, busy, onCancel });
   latest.current = { onClose, dirty, busy, onCancel };
+  useLayoutEffect(() => { if (kind === 'panel' && !present) layers.remove(id); }, [present, kind, id]);
   useLayoutEffect(() => {
-    if (!open || !allowed) return;
+    if (!open || !allowed || !present) return;
     source.current = layerTrigger() ?? entryTrigger;
     focusSource.current = source.current?.element ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
     layers.open({ id, kind, node: null, trigger: focusSource.current, returnFocus, ...latest.current });
     return () => layers.remove(id);
-  }, [open, allowed, id, kind]);
+  }, [open, allowed, id, kind, present]);
   useLayoutEffect(() => {
     source.current = layerTrigger() ?? entryTrigger;
     focusSource.current = source.current?.element ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);

@@ -1,3 +1,4 @@
+import { layers } from "../state/layers";
 import { Tooltip as HoverHelp } from "../components/ui/index";
 import { oauthApproval, openNavigationAttention } from "../state/externalNavigation";
 import Panel from "../components/ui/Panel";
@@ -130,7 +131,7 @@ export default function CoordinationCenter() {
   function openTask(threadId: string, turnId: string | undefined, focusId: string) {
     const target = taskTarget(threadId, turnId); if (!target) return;
     panelBack.set({ open: () => { boardFocus.set(focusId); boardOpen.set(true); }, label: t('center.title') });
-    boardOpen.set(false); selectAgentPanel({ type: 'task', ...target });
+    layers.switchPanel(() => { boardOpen.set(false); selectAgentPanel({ type: 'task', ...target }); });
   }
   function openAttention(item: Attention, focusId: string) {
     if (item.kind === 'feedback') return;

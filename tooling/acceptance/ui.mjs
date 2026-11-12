@@ -840,7 +840,7 @@ try {
             if (await page.getByRole('dialog').count()) throw new Error('Mark-read opened a task detail panel');
           }
         }
-      } catch (error) { errors.push(String(error)); if (screenshots) await page.screenshot({ path: path.join(out, `${key}-error.png`), animations: 'disabled' }).catch(() => {}); }
+      } catch (error) { errors.push(error.stack ?? String(error)); if (screenshots) await page.screenshot({ path: path.join(out, `${key}-error.png`), animations: 'disabled' }).catch(() => {}); }
       if (errors.length) { report.failures.push(key); console.error(`${key}: ${errors.join("; ")}`); }
       report.scenarios.push(row);
       await page.close();
