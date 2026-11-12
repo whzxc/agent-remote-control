@@ -15,7 +15,7 @@ The Agent platform and quota assets use synthetic data from `fixtures/agent-acco
 
 ## Status conventions and scope
 
-Review and adoption are separate. **Proposed** means a new visual proposal awaits user gallery approval and has no runtime adoption. **Pending** means the current asset has not completed its assigned governance review. **Awaiting Claude** means the proposed structural family awaits control-source review. **Awaiting user** means the current proposal requires gallery approval. **Reviewed** requires Claude's approval; visual differences outside the structural crop criteria or open decisions also require user gallery approval. **Adopted** means a design composition or mapped implementation consumes the part. **Unknown** means the named counterpart or consumer is unresolved. A specimen alone is not a consumer. Existing usage does not imply a reviewed visual match.
+Review and adoption are separate. **Proposed** means a new visual proposal awaits user gallery approval and has no runtime adoption. **User-approved** means the user has approved the visual source; runtime adoption remains separate. **Pending** means the current asset has not completed its assigned governance review. **Awaiting Claude** means the proposed structural family awaits control-source review. **Awaiting user** means the current proposal requires gallery approval. **Reviewed** requires Claude's approval; visual differences outside the structural crop criteria or open decisions also require user gallery approval. **Adopted** means a design composition or mapped implementation consumes the part. **Unknown** means the named counterpart or consumer is unresolved. A specimen alone is not a consumer. Existing usage does not imply a reviewed visual match.
 
 The mapping records current review, adoption and retained exceptions. Codex owns proposals, implementation and comparisons; release follows the assigned review authority. New visual direction requires user gallery approval.
 
@@ -224,7 +224,7 @@ Board records may reference tasks, connections, updates or AX candidates; their 
 
 ### Homepage Tasks mode
 
-**Proposed. Awaiting user gallery approval.** The ordinary homepage mode selector is
+**User-approved. Awaiting implementation.** The ordinary homepage mode selector is
 below Board, outside the bottom navigation capsule. It uses SingleChoice; it is not
 an experimental entry. Selection persists and task observations never switch modes.
 Node task-state activation explicitly selects Tasks and opens a transient,
@@ -232,19 +232,19 @@ clearable node scope with scroll and keyboard focus at its matching tasks.
 
 | Source / part | Declared forms | Consumer / intended runtime owner | Status |
 | --- | --- | --- | --- |
-| `modules/homepage-mode.tsx` / HomepageModeSwitch | `mode-switch-topology-attention`, `mode-switch-tasks` | HomepageHeader; intended homepage navigation | Proposed. Manual two-choice selector; Topology shows the needs-me badge on Tasks. |
-| `modules/homepage-mode.tsx` / HomepageHeader | `homepage-header-topology`, `homepage-header-tasks` | TopologyScreen and `surfaces/homepage-tasks.tsx` | Proposed. Reuses BoardHeader and keeps its date/time centered in both modes. |
-| `modules/tasks.tsx` / TaskCard | `task-card-{input-wide,approval-wide,local-wide,remote-lan-wide,remote-tunnel-wide,unread-wide,unconfirmed-wide,standard,portrait-collapsed,portrait-expanded,mobile-collapsed,mobile-expanded}` | TasksList; intended task presentation owner | Proposed. Reuses Card, Tile, Button and the task-activity parts. Detail, mark read and overflow are separate controls. Offline has no live activity verbs. |
-| `modules/tasks.tsx` / OriginChain | `origin-chain-{local,remote,member,offline}` | TaskCard | Proposed. Source → optional remote device → Agent → account. Each small icon retains its full identity; no wires. |
-| `modules/tasks.tsx` / NodeTaskFilter | `node-task-filter` | TasksList / focused-node | Proposed. Accent chip identifies the node scope and has a separate clear action. |
-| `modules/tasks.tsx` / TaskOverflow | `task-overflow` | Tasks card overflow | Proposed. Existing ArrowUp/Down semantics and menu actions reorder only within Needs me or Running. They do not schedule work. |
-| `modules/tasks.tsx` / TasksList, TasksEmpty | `tasks-empty`; composed list states below | `surfaces/homepage-tasks.tsx` | Proposed. Needs me → Running → Completed unread → Unconfirmed; recent completed starts collapsed. Scroll replaces queue compaction. |
-| `surfaces/homepage-tasks.tsx` | `wide-landscape`, `standard-landscape`, `empty`, `focused-node`, `member-origin`, `portrait`, `portrait-expanded`, `mobile`, `mobile-expanded` | Intended homepage content owner; no runtime adoption | Proposed. Wide 1600×1000, standard 1280×800, portrait 640×800, mobile 390×844. Mixed includes input, approval, local/remote LAN work, completed unread and remote offline unconfirmed. Narrow layouts are scrolling single-column lists with in-place Activity expansion. Wide/standard cards retain five/three recent steps, plan counts, timing and the latest artifact. The content width has no 960px cap. |
-| `fixtures/tasks.ts`, `fixtures/homepage-mode.ts` | Support data | Tasks and mode parts | Proposed. Fictional tasks, device identities and origin chains. |
+| `modules/homepage-mode.tsx` / HomepageModeSwitch | `mode-switch-topology-attention`, `mode-switch-tasks` | HomepageHeader; intended homepage navigation | User-approved. Manual two-choice selector; Topology shows the needs-me badge on Tasks. |
+| `modules/homepage-mode.tsx` / HomepageHeader | `homepage-header-topology`, `homepage-header-tasks` | TopologyScreen and `surfaces/homepage-tasks.tsx` | User-approved. Reuses BoardHeader and keeps its date/time centered in both modes. |
+| `modules/tasks.tsx` / TaskCard | `task-card-{input-wide,approval-wide,local-wide,remote-lan-wide,remote-tunnel-wide,unread-wide,unconfirmed-wide,standard,portrait-collapsed,portrait-expanded,mobile-collapsed,mobile-expanded}` | TasksList; intended task presentation owner | User-approved. Reuses Card, Tile, Button and the task-activity parts. Detail, mark read and overflow are separate controls. Offline has no live activity verbs. |
+| `modules/tasks.tsx` / OriginChain | `origin-chain-{local,remote,member,offline}` | TaskCard | User-approved. Source → optional remote device → Agent → account. Each small icon retains its full identity; no wires. |
+| `modules/tasks.tsx` / NodeTaskFilter | `node-task-filter` | TasksList / focused-node | User-approved. Accent chip identifies the node scope and has a separate clear action. |
+| `modules/tasks.tsx` / TaskOverflow | `task-overflow` | Tasks card overflow | User-approved. Existing ArrowUp/Down semantics and menu actions reorder only within Needs me or Running. They do not schedule work. |
+| `modules/tasks.tsx` / TasksList, TasksEmpty | `tasks-empty`; composed list states below | `surfaces/homepage-tasks.tsx` | User-approved. Needs me → Running → Completed unread → Unconfirmed; recent completed starts collapsed. Scroll replaces queue compaction. |
+| `surfaces/homepage-tasks.tsx` | `wide-landscape`, `standard-landscape`, `empty`, `focused-node`, `member-origin`, `portrait`, `portrait-expanded`, `mobile`, `mobile-expanded` | Intended homepage content owner; no runtime adoption | User-approved. Wide 1600×1000, standard 1280×800, portrait 640×800, mobile 390×844. Mixed includes input, approval, local/remote LAN work, completed unread and remote offline unconfirmed. Narrow layouts are scrolling single-column lists with in-place Activity expansion. Wide/standard cards retain five/three recent steps, plan counts, timing and the latest artifact. The content width has no 960px cap. |
+| `fixtures/tasks.ts`, `fixtures/homepage-mode.ts` | Support data | Tasks and mode parts | User-approved. Fictional tasks, device identities and origin chains. |
 
 Known gaps: these frames have no reachable runtime fixtures. Mode persistence, badge
 navigation, scroll/focus handoff, node filtering, task actions, reorder boundaries,
-tooltip identity and live task projection await implementation after approval. The
+tooltip identity and live task projection await implementation in the implementation phase. The
 header and navigation remain available while the list scrolls. Offline tasks do not
 contribute live needs-me counts. The highlighted filter constrains the matching groups;
 clearing it restores all tasks. Manual Tasks selection also starts unfiltered.
@@ -252,8 +252,8 @@ clearing it restores all tasks. Manual Tasks selection also starts unfiltered.
 `modules/task-activity.tsx` owns TaskActivityIcon, TaskLiveTimeline, TaskPlanProgress
 and TaskChangeSummary. Frames are `task-live-timeline-{wide,standard}`,
 `task-plan-progress`, and `task-change-summary`. `fixtures/task-activity.ts` owns
-fictional steps, plan and diff content. Both node pills and task cards reuse the same
-activity-icon owner. These parts are Proposed and consumed by Tasks and topology.
+fictional steps, plan and diff content. Both node capsules and task cards reuse the same
+activity-icon owner. These parts are user-approved and consumed by Tasks and topology.
 The field mapping and missing joined-feed projection are documented in `design.md`.
 
 ### Task topology assets pending retirement
@@ -285,12 +285,12 @@ Local Agents retain their current position without a local-device wrapper.
 
 | Source / part | Declared forms | Consumer / intended implementation | Status |
 | --- | --- | --- | --- |
-| `modules/device-topology.tsx` / DeviceNode, DeviceBranch | `device-branch-{lan,tunnel,offline,merged-collapsed,merged-expanded}` | `surfaces/device-link-topology.tsx`; intended `ui/topology/Topology.tsx` | Proposed. Reuses TopologyNode at its existing 48px graphic size, TopologyGroup; task content is represented only by NodeTaskPill. Device glyph, merged Agent badge and reachability dot extend the node language. Offline fades the complete branch. |
+| `modules/device-topology.tsx` / DeviceNode, DeviceBranch | `device-branch-{idle,lan,tunnel,offline,merged-collapsed,merged-expanded}` | `surfaces/device-link-topology.tsx`; intended `ui/topology/Topology.tsx` | Proposed. Reuses TopologyNode at its existing 48px graphic size, TopologyGroup; task content is represented only by NodeCapsule. Device glyph, merged Agent badge and reachability dot extend the node language. Offline fades the complete branch. |
 | `modules/device-topology.tsx` / DeviceNodePanel | `device-node-panel-{lan,tunnel,offline}` | `surfaces/device-link-topology.tsx` / `device-panel`; intended topology panel owner | Proposed. Reuses PanelShell, PanelHeader, Field/Input and Button for pairing state, LAN/Tunnel path, latency, last seen/error, address/override, transfer and unpair. |
 | `modules/device-topology.tsx` / ControllerSourcePanel | `controller-source-panel-{off,on}` | `surfaces/device-link-topology.tsx` / `member-upstreams-{off,on}`; intended source panel owner | Proposed. Show upstream control sources defaults off; the shared Switch lives in the controller node panel. Manage device opens its management content using the existing nested-panel pattern. |
 | `modules/device-topology.tsx` / DeviceAddEndpoint | `device-add-endpoint-open` | Controller and narrow compositions; intended right-wing add endpoint | Proposed. Existing endpoint dot offers Add Agent and Add device. Pairing dialogs remain owned by `modules/device-link.tsx`. |
-| `modules/device-topology.tsx` / PortraitDeviceBranch | Composed in `controller-portrait`, `controller-mobile` | `surfaces/device-link-topology.tsx`; intended portrait topology owner | Proposed. Remote account/profile levels fold with TopologyGroup. Nodes/groups retain accessible names and omit visible labels. |
-| `surfaces/device-link-topology.tsx` | `controller-lan`, `controller-tunnel`, `controller-offline`, `merged-collapsed`, `merged-expanded`, `member-upstreams-off`, `member-upstreams-on`, `device-panel`, `controller-portrait`, `controller-mobile` | Intended `ui/topology/Topology.tsx`; no runtime adoption | Proposed. Landscape 1280×800; portrait 640×800; mobile 390×844. Both themes use existing tokens. |
+| `modules/device-topology.tsx` / PortraitDeviceBranch | Composed in `controller-portrait{,-idle,-offline,-accounts}`, `controller-mobile{,-idle,-overflow,-offline,-branch,-accounts}` | `surfaces/device-link-topology.tsx`; intended portrait topology owner | Proposed. Remote account/profile levels fold with TopologyGroup. Fixed compact columns retain node labels; horizontal pan reveals branch and account tiers. |
+| `surfaces/device-link-topology.tsx` | `controller-idle`, `controller-overflow`, `controller-lan`, `controller-tunnel`, `controller-offline`, `merged-collapsed`, `merged-expanded`, `member-upstreams-off`, `member-upstreams-on`, `device-panel`, `controller-portrait{,-idle,-offline,-accounts}`, `controller-mobile{,-idle,-overflow,-offline,-branch,-accounts}` | Intended `ui/topology/Topology.tsx`; no runtime adoption | Proposed. Landscape 1280×800; portrait 640×800; mobile 390×844. Both themes use existing tokens. |
 | `fixtures/device-topology.ts` | Support data | Device topology parts and surface | Proposed. Fictional devices, accounts, tasks and inert example endpoints; visual types remain in their owning modules. |
 
 Device status appears only on device nodes and their expanded management content. The
@@ -303,34 +303,43 @@ and `arch/system-map.*`.
 
 Known gaps: these proposal frames have no reachable runtime fixtures and intentionally
 omit fixture/capture bindings. Runtime tree projection, fold thresholds, spatial panel
-transitions, task-state badge activation, source-switch persistence, native pairing cycle rejection and operation
+transitions, node task-area activation, source-switch persistence, native pairing cycle rejection and operation
 device targeting await implementation after gallery approval. Transfer is an entry;
 its downstream UI remains outside this proposal. Existing workspace-only assets below
 remain retained until their runtime consumers are replaced, then are retired with no shims.
 
-`modules/topology-task-state.tsx` owns NodeTaskPill: `running`, `attention`, `unread`,
-`aggregate`, `thinking-waiting`, `overflow`, `compact-overflow`, `unconfirmed`, `compact-unconfirmed`.
-The task capsule borrows the account group's rounded silhouette, with a 24px height,
-canvas fill, semantic outline and no repeated Agent avatar. The account capsule keeps
-its 40px height, surface fill, Agent avatar and quota dots. Attention uses warning;
-running uses role-agent; a solid accent dot marks completed unread.
+`modules/node-capsule.tsx` owns NodeCapsule and its shared outer-port geometry:
+`idle`, `working`, `attention`, `unread`, `aggregate`, `thinking-waiting`, `overflow`,
+`left-idle`, `left-working`, `compact`, `compact-overflow`, `unconfirmed`,
+`compact-unconfirmed`, and `account-contrast`. `fixtures/node-capsule.ts` owns fictional
+counts, observed phases and quota readings. All node capsule forms are **Proposed**.
 
-The fixed overlay envelope is 140×24px on landscape and 104×24px on portrait/mobile.
-Full pills show up to three current-task step icons; compact pills show one. Higher
-counts reduce icons first. `+N` counts omitted observed phase icons, not unread tasks.
-Counts cap at 99+ (full) or 9+ (compact); accessible labels retain exact values. Reading,
-editing, command, thinking and waiting are drawn only from observed task activity.
-Offline replaces all counts and step icons with the unconfirmed capsule.
+The working capsule contains the existing 48px logo/quota ring at the inner end;
+the label stays below that logo. Its 48px semantic outline and running indicator
+separate it from the account capsule's 40px avatar-and-quota-dot form. No account dots
+are reused as task phases. Attention uses warning; running uses role-agent; a solid
+accent dot marks unread. Offline replaces live counts and steps with unconfirmed.
 
-TopologyNode owns explicit anchor presets. Local landscape Agents use the band below
-their label; remote Agents use the upper end of their graphic; landscape devices use
-the centered upper band. On portrait/mobile, the rail Agent uses a left sidecar,
-remote Agents use the band below the icon, and devices use the lower-left corner.
-The capsule fits its content inside the envelope. Nested landscape Agents also use
-the 104px compact envelope to clear adjacent tiers at overflow counts. These absolute
-envelopes do not participate in node measurement. Existing node, label
-and group coordinates remain fixed. Portrait configuration wires route outside the
-reserved envelope with at least 4px clearance. The pill always opens node-scoped Tasks.
+The maximum width is 208px landscape, 120px compact. Full capsules show up to three
+observed phase icons; compact capsules show one. Higher counts remove icons first;
++N counts omitted icons. A compact overflow combination uses an ellipsis when +N
+cannot fit. Counts cap at 99+ or 9+; exact values remain accessible. Reading, editing,
+command, thinking and waiting require observed activity. All-state width is reserved
+in fixed 260px/152px columns. Capsule paint grows outward; logo and label positions
+never change with task activity. Outgoing wires share the computed capsule width and
+start at its actual outer edge. Incoming ports and branch rails stay fixed.
+
+Idle/working full compositions and narrow viewport pairs expose stable anchors.
+Portrait/mobile retain labels and use explicit horizontal pan to reveal deeper
+columns; header/navigation remain fixed. Pan is independent of task state.
+Management panel disclosure folds the device's child branch to reserve panel space.
+
+Known gaps specific to NodeCapsule: gallery frames specify the idle/working endpoints
+and split logo/task actions; runtime interpolation, keyboard actions, pan controls and
+hit targets await implementation. Shell width, task-area reveal and outgoing port
+must share the existing 210/26 topology spring and approximately 8ms substeps.
+Reduced motion applies the endpoint directly and disables the running pulse. Static
+renders do not verify temporal spring behavior. Tasks mode's approved sources are unchanged.
 
 All proposed device frames are static. Activity cannot move nodes or change grouping.
 Task bubbles, queues, task-only arcs and task focus overlays are absent. Node positions

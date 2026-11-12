@@ -7,7 +7,9 @@ flowchart TB
   config["Configuration + viewport / structural disclosure<br/>sources · connections · Agents · accounts · paired devices"]
   positions["Static node / branch positions<br/>no task bubbles, queues or task arcs<br/>no task focus overlay"]
   observations["Native task observations"]
-  badges["Anchored node task pill<br/>140px full / 104px compact · +N overflow<br/>attention · running · step icons · unread<br/>device aggregate in controller-visible scope"]
+  badges["Working NodeCapsule · logo + quota retained<br/>idle 48px · max 208px / 120px compact<br/>outward growth · reserved 260px / 152px columns · +N overflow<br/>attention · running · step icons · unread<br/>device aggregate in controller-visible scope"]
+  ports["Incoming port / logo / label / rails stay fixed<br/>outgoing port follows actual capsule edge<br/>width + reveal + port share spring 210/26<br/>reduced motion: direct endpoint · no pulse"]
+  panel["Logo activation opens node panel<br/>narrow: explicit horizontal pan · fixed header"]
   jump["User activates node task state<br/>persist Tasks mode<br/>set transient node scope and focus its tasks"]
   tasks["TASKS MODE<br/>responsive task cards · no wires<br/>3 / 2 / 1 columns · full content width<br/>Needs me → Running → Completed unread<br/>then Unconfirmed → collapsed recent completed"]
   chain["Card origin icon chain<br/>source → remote device only → Agent → account<br/>controller: Anchor Mac → Cedar Mac → Codex → Studio<br/>member: Anchor Mac as source → Codex → Studio"]
@@ -22,8 +24,10 @@ flowchart TB
   preference -->|"restore Tasks"| tasks
   config --> positions --> topology
   observations --> badges --> topology
+  badges --> ports
+  badges --> panel
   observations -->|"update cards without changing mode"| tasks
-  topology -->|"explicit task-pill activation"| jump --> filter --> tasks
+  topology -->|"explicit capsule task-area activation"| jump --> filter --> tasks
   tasks --> chain
   tasks --> offline
   tasks --> details

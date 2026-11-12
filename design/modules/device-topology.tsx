@@ -1,5 +1,5 @@
 import { Frame, Icon } from 'adg';
-import { BrandMark } from '../components/agent-icon';
+import { AgentIcon } from '../components/agent-icon';
 import { Button } from '../components/button';
 import { Card } from '../components/card';
 import { Field, Input } from '../components/field';
@@ -9,32 +9,33 @@ import { Switch } from '../components/switch';
 import { TopologyNode } from './topology-node';
 import { TopologyGroup } from './topology-group';
 import { TopologyScene, type SceneItem, type ScenePath } from './topology-scene';
-import { deviceAggregate, remoteRunning, remoteUnread, unconfirmed } from '../fixtures/topology-task-state';
+import { deviceAggregate, remoteRunning, remoteUnread, unconfirmed, quotaReadings, overflow as overflowState, overflowAggregate } from '../fixtures/node-capsule';
+import { nodeCapsuleLayout } from './node-capsule';
 import { copy, states, branchForms, accountMembers, profileMembers } from '../fixtures/device-topology';
 
 export type DeviceTopologyState = 'lan' | 'tunnel' | 'offline';
 export type DeviceBranchForm = 'multiple' | 'merged-collapsed' | 'merged-expanded';
 
-export function DeviceNode({ state = 'lan', merged = false, expanded = false, controller = false, hideLabel = false }: {
-  state?: DeviceTopologyState; merged?: boolean; expanded?: boolean; controller?: boolean; hideLabel?: boolean;
+export function DeviceNode({ state = 'lan', merged = false, expanded = false, controller = false, compact = false, idle = false, overflow = false }: {
+  state?: DeviceTopologyState; merged?: boolean; expanded?: boolean; controller?: boolean; compact?: boolean; idle?: boolean; overflow?: boolean;
 }) {
   const label = controller ? copy.controller : merged ? copy.merged : copy.member;
   const status = states.find(s => s.name === state)!.status;
   return <div aria-label={`${label} · ${status}`}
-    class="flex flex-col items-center text-text" style={{ width: hideLabel ? 48 : 156 }}>
-    <TopologyNode label={label} width={156} hideLabel={hideLabel}
-      taskState={state === 'offline' ? unconfirmed : deviceAggregate}
-      taskPillAnchor={hideLabel ? "device-corner" : "above-center"} graphic={
-      <button aria-label={`Manage ${label}`} aria-expanded={expanded}
-        class="relative flex size-12 items-center justify-center text-text">
-        <Icon name={controller ? 'monitor' : 'laptop'} size={32} />
+    class="flex flex-col items-center text-text" style={{ width: 156 }}>
+    <TopologyNode label={label} width={156} capsuleCompact={compact} capsuleWing={controller ? "left" : "right"}
+      panelExpanded={expanded}
+      taskState={idle ? {} : state === 'offline' ? unconfirmed : overflow ? overflowAggregate : deviceAggregate}
+      graphic={
+      <span class="relative flex size-12 items-center justify-center text-text">
+        <>{merged ? <AgentIcon brand="codex" readings={quotaReadings} /> : <Icon name={controller ? 'monitor' : 'laptop'} size={32} />}</>
         <span class={`absolute bottom-1 left-1 size-[6px] rounded-full ${state === 'offline' ? 'bg-text-tertiary' : 'bg-success'}`} />
         {merged && <span class="absolute bottom-0 right-0 flex size-5 items-center justify-center rounded-full bg-canvas">
-          <BrandMark brand="codex" size={16} />
+          <Icon name="laptop" size={12} />
         </span>}
-      </button>
+      </span>
     } />
-    {!hideLabel && <span class="text-caption leading-5 text-text-secondary">{status}</span>}
+    {<span class="text-caption leading-5 text-text-secondary">{status}</span>}
   </div>;
 }
 
@@ -88,57 +89,67 @@ export function DeviceAddEndpoint({ open = false }: { open?: boolean }) {
   </div>;
 }
 
-export function DeviceBranch({ state = 'lan', form = 'multiple' }: { state?: DeviceTopologyState; form?: DeviceBranchForm }) {
-  const merged = form !== 'multiple';
-  const expanded = form !== 'merged-collapsed';
-  const items: SceneItem[] = [
-    { x: 0, y: expanded ? 90 : 28, content: <DeviceNode state={state} merged={merged} expanded={expanded} /> },
-  ];
+export function DeviceBranch({ state = 'lan', form = 'multiple', idle = false, panelOpen = false, overflow = false }: {
+  state?: DeviceTopologyState; form?: DeviceBranchForm; idle?: boolean; panelOpen?: boolean; overflow?: boolean;
+}) {
+  const merged = form !== 'multiple', expanded = form !== 'merged-collapsed';
+  const deviceState = idle ? {} : state === 'offline' ? unconfirmed : overflow ? overflowAggregate : deviceAggregate;
+  const agentState = idle ? {} : state === 'offline' ? unconfirmed : overflow ? overflowState : remoteRunning;
+  const otherState = idle ? {} : state === 'offline' ? unconfirmed : overflow ? overflowState : remoteUnread;
+  const deviceEdge = 54 + nodeCapsuleLayout(deviceState).width;
+  const agentEdge = 314 + nodeCapsuleLayout(agentState).width;
+  const otherEdge = 314 + nodeCapsuleLayout(otherState).width;
+  const items: SceneItem[] = [{ x: 0, y: 120, content: <DeviceNode state={state} merged={merged} expanded={expanded} idle={idle} overflow={overflow} /> }];
   const paths: ScenePath[] = [];
   const link = (d: string) => paths.push({ d, class: 'stroke-role-agent/55', 'stroke-width': '2' });
-  if (!merged) {
+  if (!merged && !panelOpen) {
     items.push(
-      { x: 180, y: 40, content: <TopologyNode label="Codex" brand="codex"
-        taskState={state === 'offline' ? unconfirmed : remoteRunning} /> },
-      { x: 180, y: 220, content: <TopologyNode label="Claude Code" brand="claude-code"
-        taskState={state === 'offline' ? unconfirmed : remoteUnread} /> },
-      { x: 288, y: 0, content: <TopologyNode label={copy.profile} brand="codex" /> },
-      { x: 312, y: 120, content: <TopologyGroup label={copy.accounts} members={accountMembers} /> },
-      { x: 288, y: 220, content: <TopologyNode label={copy.profile} brand="claude-code" /> },
+      { x: 283, y: 60, content: <TopologyNode label="Codex" brand="codex" readings={quotaReadings} taskState={agentState} /> },
+      { x: 283, y: 290, content: <TopologyNode label="Claude Code" brand="claude-code" readings={quotaReadings} taskState={otherState} /> },
+      { x: 543, y: 0, content: <TopologyNode label={copy.profile} brand="codex" /> },
+      { x: 574, y: 170, content: <TopologyGroup label={copy.accounts} members={accountMembers} /> },
+      { x: 543, y: 290, content: <TopologyNode label={copy.profile} brand="claude-code" /> },
     );
-    link('M102 114H140Q152 114 152 102V76Q152 64 164 64H211 M152 114V232Q152 244 164 244H211');
-    link('M259 64H274Q286 64 286 52V36Q286 24 298 24H319 M286 64V128Q286 140 298 140H312');
-    link('M259 244H319');
-  } else if (expanded) {
+    link(`M${deviceEdge} 146H270Q286 146 286 130V100Q286 86 300 86H314 M286 146V300Q286 316 302 316H314`);
+    link(`M${agentEdge} 86H542Q558 86 558 70V42Q558 26 574 26 M558 86V174Q558 190 574 190`);
+    link(`M${otherEdge} 316H574`);
+  } else if (merged && expanded && !panelOpen) {
     items.push(
-      { x: 180, y: 40, content: <TopologyNode label={copy.profile} brand="codex" /> },
-      { x: 204, y: 180, content: <TopologyGroup label={copy.accounts} members={accountMembers} /> },
+      { x: 283, y: 60, content: <TopologyNode label={copy.profile} brand="codex" /> },
+      { x: 314, y: 230, content: <TopologyGroup label={copy.accounts} members={accountMembers} /> },
     );
-    link('M102 114H140Q152 114 152 102V76Q152 64 164 64H211 M152 114V188Q152 200 164 200H204');
+    link(`M${deviceEdge} 146H270Q286 146 286 130V102Q286 86 302 86H314 M286 146V234Q286 250 314 250`);
   }
   return <div class={`inline-flex ${state === 'offline' ? 'opacity-40' : ''}`}>
-    <TopologyScene width={!expanded ? 156 : merged ? 300 : 422} height={!expanded ? 124 : merged ? 244 : 296}
+    <TopologyScene width={merged ? expanded ? 430 : 300 : 690} height={merged ? 300 : 366}
       transparent items={items} paths={paths} />
   </div>;
 }
 
-export function PortraitDeviceBranch({ narrow = false }: { narrow?: boolean }) {
-  const device = narrow ? { x: 326, y: 100 } : { x: 568, y: 70 };
-  const agentX = narrow ? 254 : 480;
-  const agentY = narrow ? [0, 240] : [10, 230];
-  const groupX = narrow ? 154 : 386;
-  const links = narrow
-    ? ['M326 124H314V24H302 M314 124V264H302', 'M254 24H243 M254 264H218']
-    : ['M568 94H556V34H528 M556 94V254H528', 'M480 34H448 M480 254H448'];
-  return <TopologyScene width={narrow ? 390 : 640} height={320} transparent
-    items={[
-      { ...device, content: <DeviceNode hideLabel expanded /> },
-      ...agentY.map((y, i) => ({ x: agentX, y, content: <TopologyNode hideLabel
-        label={i ? 'Claude Code' : 'Codex'} brand={i ? 'claude-code' : 'codex'}
-        taskState={i ? remoteUnread : remoteRunning} /> })),
-      ...agentY.map((y, i) => ({ x: groupX, y: y + 4, content: <TopologyGroup hideLabel
-        label={i ? copy.profiles : copy.accounts} members={i ? profileMembers : accountMembers} /> })),
-    ]} paths={links.map(d => ({ d, class: 'stroke-role-agent/55', 'stroke-width': '2' }))} />;
+export function PortraitDeviceBranch({ rootX, idle = false, state = 'lan', overflow = false }: { rootX: number; idle?: boolean; state?: DeviceTopologyState; overflow?: boolean }) {
+  const deviceState = idle ? {} : state === 'offline' ? unconfirmed : overflow ? overflowAggregate : deviceAggregate;
+  const agentState = idle ? {} : state === 'offline' ? unconfirmed : overflow ? overflowState : remoteRunning;
+  const otherState = idle ? {} : state === 'offline' ? unconfirmed : overflow ? overflowState : remoteUnread;
+  const deviceEdge = rootX + nodeCapsuleLayout(deviceState, true).width;
+  const agentX = rootX + 152, accountX = rootX + 304;
+  const agentEdge = agentX + nodeCapsuleLayout(agentState, true).width;
+  const otherEdge = agentX + nodeCapsuleLayout(otherState, true).width;
+  return <div class={state === 'offline' ? 'opacity-40' : ''}><TopologyScene width={rootX + 430} height={800} transparent items={[
+    { x: rootX - 54, y: 540, content: <DeviceNode compact expanded idle={idle} state={state} overflow={overflow} /> },
+    { x: agentX - 31, y: 490, content: <TopologyNode label="Codex" brand="codex" readings={quotaReadings}
+      taskState={agentState} capsuleCompact /> },
+    { x: agentX - 31, y: 640, content: <TopologyNode label="Claude Code" brand="claude-code" readings={quotaReadings}
+      taskState={otherState} capsuleCompact /> },
+    { x: accountX - 31, y: 460, content: <TopologyNode label={copy.profile} brand="codex" /> },
+    { x: accountX, y: 560, content: <TopologyGroup label={copy.accounts} members={accountMembers} /> },
+    { x: accountX - 31, y: 640, content: <TopologyNode label={copy.profile} brand="claude-code" /> },
+  ]} paths={[
+    `M${deviceEdge} 566H${rootX + 126}Q${rootX + 136} 566 ${rootX + 136} 556V526Q${rootX + 136} 516 ${agentX} 516`,
+    `M${rootX + 136} 566V654Q${rootX + 136} 666 ${agentX} 666`,
+    `M${agentEdge} 516H${accountX - 28}Q${accountX - 16} 516 ${accountX - 16} 504V498Q${accountX - 16} 486 ${accountX} 486`,
+    `M${accountX - 16} 516V568Q${accountX - 16} 580 ${accountX} 580`,
+    `M${otherEdge} 666H${accountX}`,
+  ].map(d => ({ d, class: 'stroke-role-agent/55', 'stroke-width': '2' }))} /></div>;
 }
 
 export default () => [

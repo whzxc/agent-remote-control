@@ -13,9 +13,10 @@ the needs-me count while Topology is selected. This is ordinary navigation, with
 Experimental toggle or a new bottom-navigation workspace.
 
 Topology positions depend only on configuration, viewport and explicit structural
-disclosure. Task observations update task pills without entering layout inputs. No task
-children, queues, secondary task tentacles/outer arcs or task focus overlays remain.
-A node task pill is a separate task-state action from its management action. Activating it
+disclosure. Task observations resize only the working node capsule shell and its
+outgoing port, without entering node-position layout inputs. No task children, queues,
+secondary task tentacles/outer arcs or task focus overlays remain.
+The node capsule keeps separate task-area and logo actions. Activating the task area
 is an explicit user navigation: persist Tasks mode, scope the list to the node,
 scroll to its first matching task and transfer keyboard focus. The highlighted node
 chip clears that transient scope. Manual Tasks selection opens all tasks. Mode
@@ -41,15 +42,24 @@ Portrait and mobile use one column and preserve the header and mode control.
 All nodes use the neutral architecture vocabulary. The sidecar's Proposed status
 covers the presentation and navigation model; it does not add an experimental flag.
 
-Node task pills are fixed absolute overlays (140×24px full, 104×24px compact), with
-semantic outlines and no Agent avatar. Attention, running, current-step icons and an
-unread marker share one capsule. Omitted observed phase icons use +N. Counts cap at
-99+ or 9+; exact values remain accessible. Offline shows unconfirmed without counts
-or live icons. Anchors use fixed label/graphic clearance bands without moving nodes.
-The account-group capsule retains its distinct 40px avatar-and-quota form.
+A node is a 48px logo/quota ring at idle and a 48px-high working capsule when it has
+tasks. Logo and label stay anchored; the capsule grows outward from the incoming
+wire. Maximum widths of 208px full and 120px compact are reserved at idle as well.
+Configuration column pitches are 260px and 152px, independent of task observations.
+Outgoing wires start at the actual capsule outer edge. Capsule width, reveal and its
+outgoing port share the existing 210/26 topology spring with approximately 8ms
+substeps; reduced motion sets endpoints directly and disables the running pulse.
+No task-state transition moves a node, label or branch rail.
 
-The task capsule fits its content inside its fixed overlay envelope; status changes
-resize only the capsule paint and never move nodes, labels or configuration wires.
+Attention, running, observed step icons and an unread marker share the node capsule.
+Full capsules show at most three steps; compact capsules show one. Icons yield first;
++N counts omitted icons, or an ellipsis when compact +N cannot fit. Counts cap at
+99+ / 9+, with exact accessible values. Offline uses unconfirmed without live counts
+or steps. The 48px semantic outline and running indicator distinguish it from the
+40px account-group avatar/quota capsule. The logo opens its existing node panel;
+the task area opens scoped Tasks. Narrow topology pans horizontally between reserved
+columns by explicit user input; the header/navigation stay fixed. Device management
+explicitly folds the child branch while its panel is open.
 
 Tasks uses full-width responsive columns: up to three on wide landscape, two on
 standard landscape, one on portrait/mobile. Cards expose the current activity, a
@@ -59,7 +69,3 @@ in place to four timeline rows. Answer/approval entries, detail and mark-read st
 separate. Partial coverage is visible. No new canonical field, ETA or inferred provider
 progress is assumed; the joined card summary remains a new derived UI projection.
 The field-to-source mapping is in docs/dev/design.md.
-
-Nested Agent pills also use the 104px compact envelope on landscape. Its right-edge
-anchor keeps the maximum capsule clear of the neighboring local-Agent label band
-and the remote configuration branch, including at overflow counts.

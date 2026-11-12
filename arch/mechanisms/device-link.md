@@ -36,8 +36,8 @@ homepage projection. LAN remains preferred; a sent request never changes path.
 
 The proposed topology is static within its viewport and configuration/disclosure state.
 Only sources, connections, Agents, accounts and paired-device configuration affect its
-layout. Task activity changes node task pills only: running count, needs-input/approval
-attention and completed unread. Device task pills aggregate the visible task scope. Offline
+layout. Task activity changes working node capsules only: running count, needs-input/approval
+attention and completed unread. Device capsules aggregate the visible task scope. Offline
 devices and their Agents show unconfirmed task state with no live counts. Task bubbles,
 queues, task tentacles/outer arcs and focus-to-expand task overlays are absent. Activating
-a task-state badge opens Tasks mode scoped and focused to that node's tasks.
+a node task area opens Tasks mode scoped and focused to that node's tasks.

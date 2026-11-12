@@ -19,12 +19,15 @@ export const states: { name: DeviceTopologyState; status: string }[] = [
   { name: 'tunnel', status: 'Online · Tunnel · 82 ms' },
   { name: 'offline', status: 'Offline · 18 min ago' },
 ];
-export const branchForms: { name: string; state: DeviceTopologyState; form?: DeviceBranchForm }[] = [
+export const branchForms: { name: string; state: DeviceTopologyState; form?: DeviceBranchForm; idle?: boolean }[] = [
+  { name: 'device-branch-idle', state: 'lan', idle: true },
   ...states.map(({ name }) => ({ name: `device-branch-${name}`, state: name })),
   { name: 'device-branch-merged-collapsed', state: 'lan', form: 'merged-collapsed' },
   { name: 'device-branch-merged-expanded', state: 'lan', form: 'merged-expanded' },
 ];
 export const controllerForms = [
+  { name: 'controller-idle', state: 'lan', idle: true },
+  { name: 'controller-overflow', state: 'lan', overflow: true },
   { name: 'controller-lan', state: 'lan' },
   { name: 'controller-tunnel', state: 'tunnel' },
   { name: 'controller-offline', state: 'offline' },
@@ -45,20 +48,24 @@ export const sourceNodes = [
   { x: 104, y: 292, label: 'Claude', brand: 'claude' },
 ] as const;
 export const landscapePaths: ScenePath[] = [
-  { d: 'M187 390H359', class: 'stroke-role-source/55', 'stroke-width': '2' },
-  { d: 'M485 390H604Q628 390 628 366V194H691', class: 'stroke-role-agent/55', 'stroke-width': '2' },
-  { d: 'M628 304H691 M628 366V686Q628 710 604 710H592', class: 'stroke-role-agent/55', 'stroke-width': '2' },
-  { d: 'M628 464H691', class: 'stroke-role-agent/55', 'stroke-width': '2' },
+  { d: 'M168 392H267', class: 'stroke-role-source/55', 'stroke-width': '2' },
+  { d: 'M393 390H456Q480 390 480 366V220Q480 196 504 196H520', class: 'stroke-role-agent/55', 'stroke-width': '2' },
+  { d: 'M480 306H520 M480 366V686Q480 710 504 710H520', class: 'stroke-role-agent/55', 'stroke-width': '2' },
+  { d: 'M480 456H520', class: 'stroke-role-agent/55', 'stroke-width': '2' },
 ];
 export const memberPaths: ScenePath[] = [
-  { d: 'M414 264H464Q488 264 488 288V376Q488 400 512 400H556', class: 'stroke-role-source/55', 'stroke-width': '2' },
-  { d: 'M724 400H792Q816 400 816 376V264H860 M816 376V474H860', class: 'stroke-role-agent/55', 'stroke-width': '2' },
-];
-export const upstreamPaths: ScenePath[] = [
-  { d: 'M183 172H260Q284 172 284 196V240Q284 264 308 264H366', class: 'stroke-role-source/55', 'stroke-width': '2' },
-  { d: 'M183 316H260Q284 316 284 292V264', class: 'stroke-role-source/55', 'stroke-width': '2' },
+  { d: 'M414 266H464Q488 266 488 290V376Q488 400 512 400H556', class: 'stroke-role-source/55', 'stroke-width': '2' },
+  { d: 'M724 400H792Q816 400 816 376V266H867 M816 376V476H867', class: 'stroke-role-agent/55', 'stroke-width': '2' },
 ];
 export const portraitForms = [
-  { name: 'controller-portrait', width: 640, height: 800, narrow: false },
-  { name: 'controller-mobile', width: 390, height: 844, narrow: true },
-];
+  { name: 'controller-portrait', width: 640, height: 800, rootX: 384, pan: 24 },
+  { name: 'controller-portrait-idle', width: 640, height: 800, rootX: 384, pan: 24, idle: true },
+  { name: 'controller-portrait-offline', width: 640, height: 800, rootX: 384, pan: 24, state: 'offline' },
+  { name: 'controller-portrait-accounts', width: 640, height: 800, rootX: 384, pan: 176 },
+  { name: 'controller-mobile', width: 390, height: 844, rootX: 264, pan: 0 },
+  { name: 'controller-mobile-idle', width: 390, height: 844, rootX: 264, pan: 0, idle: true },
+  { name: 'controller-mobile-overflow', width: 390, height: 844, rootX: 264, pan: 0, overflow: true },
+  { name: 'controller-mobile-offline', width: 390, height: 844, rootX: 264, pan: 152, state: 'offline' },
+  { name: 'controller-mobile-branch', width: 390, height: 844, rootX: 264, pan: 152 },
+  { name: 'controller-mobile-accounts', width: 390, height: 844, rootX: 264, pan: 304 },
+] as const;

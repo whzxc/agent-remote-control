@@ -29,10 +29,10 @@ opens from that node. The existing right-wing add endpoint adds Agents or device
 Experimental marks this proposed device projection; native session ownership is unchanged.
 
 The proposed homepage topology has configuration-only geometry. Task activity updates
-node task pills without adding task children, queues or task arcs. Offline task state is
+working node capsules without adding task children, queues or task arcs. Offline task state is
 unconfirmed with no live counts. Task presentation moves to Tasks mode.
 
 Desktop offers a manually selected, persisted Topology or Tasks homepage mode.
-Task observations update static badges or task cards without switching modes.
+Task observations update node capsules or task cards without switching modes.
 See [Homepage modes](mechanisms/homepage-modes.md) for task origin chains, node-scoped
 navigation and the separation of presentation from dispatch ownership.

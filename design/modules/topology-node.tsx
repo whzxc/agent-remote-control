@@ -1,6 +1,6 @@
 import { example } from "../fixtures/topology-node";
 import { Frame } from "adg";
-import { NodeTaskPill, type NodeTaskState } from "./topology-task-state";
+import { NodeCapsule, type NodeTaskState } from "./node-capsule";
 import { AgentIcon, type AgentIconReading, type Brand } from "../components/agent-icon";
 
 export type TopologyNodeProps = {
@@ -13,7 +13,9 @@ export type TopologyNodeProps = {
   hideLabel?: boolean;
   graphic?: unknown;
   taskState?: NodeTaskState;
-  taskPillAnchor?: "above-end" | "above-center" | "below-label" | "rail-left" | "below-icon" | "device-corner";
+  capsuleCompact?: boolean;
+  capsuleWing?: "left" | "right";
+  panelExpanded?: boolean;
 };
 export function TopologyNode({
   label,
@@ -25,7 +27,9 @@ export function TopologyNode({
   hideLabel = false,
   graphic: customGraphic,
   taskState,
-  taskPillAnchor = hideLabel ? "below-icon" : "above-end",
+  capsuleCompact = false,
+  capsuleWing = "right",
+  panelExpanded,
 }: TopologyNodeProps) {
   const horizontal = layout !== "vertical";
   const baseGraphic = customGraphic ?? (
@@ -43,21 +47,8 @@ export function TopologyNode({
       </span>
     </span>
   );
-  const anchors = {
-    "above-end": "-top-7 -right-px w-[104px]",
-    "above-center": "-top-7 left-1/2 -translate-x-1/2 w-[140px]",
-    "below-label": "top-[78px] left-1/2 -translate-x-1/2 w-[140px]",
-    "rail-left": "top-3 right-14 w-[104px]",
-    "below-icon": "top-[52px] right-0 w-[104px]",
-    "device-corner": "top-[52px] -left-30 w-[104px]",
-  };
-  const alignment = taskPillAnchor === "above-center" || taskPillAnchor === "below-label" ? "justify-center" : "justify-end";
-  const graphic = taskState ? <span class="relative inline-flex shrink-0">
-    {baseGraphic}
-    <span class={`absolute flex ${alignment} ${anchors[taskPillAnchor]}`}>
-      <NodeTaskPill state={taskState} label={label} compact={hideLabel || taskPillAnchor === "above-end"} />
-    </span>
-  </span> : baseGraphic;
+  const graphic = taskState ? <NodeCapsule state={taskState} label={label} graphic={baseGraphic}
+    compact={capsuleCompact} wing={capsuleWing} expanded={panelExpanded} /> : baseGraphic;
   return (
     <div
       aria-label={hideLabel ? label : undefined}

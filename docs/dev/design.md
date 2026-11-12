@@ -22,9 +22,10 @@ The upper arc reports unhealthy when any ARC-owned listener or transport expecte
 
 Remote recovery retries the remote check or restarts only the affected remote connection. Remote access depends on Core, so when Core is unavailable an expected remote connection also shows unhealthy. Its recovery panel directs the user to Core recovery. Core stop and recovery use a local Desktop action independent of Core request routing. An explicit stop is a host-level intent honored by all automatic start paths. The lower arc shows unavailable and offers Start Core. When a new Core passes its health check, it restores the last explicit ARC-managed remote connection intent. Each recovery keeps its fault treatment until the relevant check passes.
 
-### Proposed two-mode homepage
+### Two-mode homepage
 
-**Proposed.** Topology presents ARC configuration; Tasks presents task execution.
+**Tasks presentation is user-approved; the node capsule remains Proposed.**
+Topology presents ARC configuration; Tasks presents task execution.
 A shared SingleChoice below the centered Board header selects Topology
 or Tasks manually. Persist the choice; task activity never switches modes. In
 Topology, the Tasks option shows the needs-me count. Node task-state activation
@@ -34,8 +35,9 @@ selecting Tasks opens all tasks.
 
 Topology retains the left/right wings, ARC hub and earcups. Its layout inputs are
 configuration, viewport and explicit structural disclosure. Task observations change
-badges only. Task bubbles, queues, task-only tentacles/outer arcs, task-driven layout
-and focus-to-expand task overlays are removed from the proposed homepage.
+only the node capsule shell, task content and its outgoing wire port. Logo anchors,
+labels, columns and branch rails stay fixed. Task bubbles, queues, task-only tentacles
+and outer arcs, task-driven layout and focus-to-expand task overlays are removed from the proposed homepage.
 
 Tasks mode makes task cards primary. Compact origin icons identify source, remote
 device when applicable, Agent and account, without wires. The controller shows only
@@ -52,7 +54,7 @@ Answer and Review approval entries preserve the existing request interaction; co
 unread cards retain their separate check action. Only Needs me and Running reorder.
 Recent completed starts collapsed. The header remains available while groups scroll.
 `modules/tasks.tsx`, `modules/task-activity.tsx`, and `surfaces/homepage-tasks.tsx` own
-these Proposed forms. Existing task-bearing topology sources remain pending retirement.
+these user-approved Tasks forms. Existing task-bearing topology sources remain pending retirement.
 
 #### Recorded task fields and presentation limits
 
@@ -78,13 +80,43 @@ invented step duration, or inferred waiting phase. All rendered content is ficti
 `surfaces/device-link-topology.tsx` composes the proposed paired-device level using
 `modules/device-topology.tsx`. Static landscape frames cover LAN, Tunnel, offline, merged
 single-Agent collapse/expansion, the device panel and the member controller source
-with optional upstream sources off/on. Portrait 640×800 and mobile 390×844 fold remote
-accounts/profiles with TopologyGroup and retain accessible node names without visible
-labels. Device nodes retain the existing 48px graphic size. The ARC mark, earcups,
-local tier-1 Agents and shared navigation capsule remain part of the homepage.
-Task activity changes task pills only. Task bubbles, queues and task arcs are absent;
-a task pill opens Tasks mode scoped to the node. Offline task pills show unconfirmed.
+with optional upstream sources off/on. The ARC mark, earcups, local tier-1 Agents and
+shared navigation capsule remain part of the homepage. Device management temporarily
+folds its child branch while the panel is open, using explicit structural disclosure.
 
+#### Proposed working node capsule
+
+The node itself grows from a 48px idle logo into a 48px-high capsule, with the logo and
+quota ring retained at its inner end. The label stays under the fixed logo. It grows
+rightward on the executor wing and leftward on the control-source wing. A semantic
+outline, running indicator and observed step icons distinguish work from the existing
+40px account capsule and its quota dots.
+
+Reserve the maximum width in every configuration column, even at idle: 208px on
+landscape, 120px in portrait/mobile, with column pitches of 260px and 152px respectively.
+Full capsules show at most three observed step icons; compact capsules show at most
+one. Reduce step icons first; +N counts omitted icons. If the compact count combination
+still exceeds the envelope, use an ellipsis in place of +N. Counts cap at 99+ or 9+;
+exact values and step names remain accessible. Attention uses warning, running uses
+role-agent, and a solid accent marker represents completed unread. Offline uses only
+unconfirmed state with no live counts or step icons. Device capsules aggregate only
+the controller-visible task scope. Local/remote Agents and merged device+Agent nodes
+retain the existing quota ring; plain devices have no invented quota.
+
+Incoming wires end at the fixed inner logo edge. Outgoing wires start at the actual
+capsule outer edge. Width, task-area reveal and the outgoing port interpolate together
+with the existing topology spring (stiffness 210, damping 26, approximately 8ms
+integration steps); logo, label and branch rails do not animate with activity. Reduced
+motion sets the endpoint directly and disables the running pulse. Logo activation
+opens the existing node panel; task-area activation opens Tasks filtered to that node.
+The idle and working frames specify endpoints; runtime spring timing is not implemented
+or verified by these static sources.
+
+Portrait 640×800 and mobile 390×844 retain node labels and fixed compact columns.
+Explicit horizontal pan reveals deeper device/Agent/account columns without reflow;
+the Board header, mode switch and navigation stay fixed. The root, branch and account
+viewport frames show this proposal. Pan never follows task activity. Remote sibling
+accounts/profiles continue to fold with TopologyGroup.
 These frames are Proposed. Existing approved summary and workspace sources remain
 retained until topology implementation replaces their consumers. See the mapping for
 retirement scope and Known gaps.
