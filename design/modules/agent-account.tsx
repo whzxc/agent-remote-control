@@ -46,7 +46,7 @@ export function AccountCard({ account }: { account: AgentAccount }) {
 
 export function EditAccountAlias({ account }: { account: AgentAccount }) {
   return (
-    <Dialog size="s" title={copy.edit}
+    <Dialog title={copy.edit}
       footer={<div class="flex justify-end"><Button variant="primary">{copy.save}</Button></div>}>
       <Field label={copy.alias}><Input value={account.alias} /></Field>
     </Dialog>
@@ -55,7 +55,7 @@ export function EditAccountAlias({ account }: { account: AgentAccount }) {
 
 export function RemoveAccount() {
   return (
-    <Dialog size="s" title={copy.removeTitle}
+    <Dialog title={copy.removeTitle}
       footer={<div class="flex justify-end"><Button variant="danger">{copy.remove}</Button></div>}>
       <p class="text-small leading-5">{copy.removal}</p>
     </Dialog>

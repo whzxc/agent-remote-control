@@ -15,7 +15,7 @@ function AgentPanel({ history = "long", portrait = false }: {
 }) {
   const tasks = history === "long" ? active : [];
   return (
-    <PanelShell size="m" viewportHeight={800} viewportWidth={portrait ? 640 : 1280} class="gap-[25px] overflow-hidden pt-[13px] px-6 pb-6">
+    <PanelShell viewportHeight={800} viewportWidth={portrait ? 640 : 1280} class="gap-[25px] overflow-hidden pt-[13px] px-6 pb-6">
       <header class="flex shrink-0 items-center gap-3">
         <AgentIcon
           brand="codex"

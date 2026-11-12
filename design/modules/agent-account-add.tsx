@@ -23,7 +23,7 @@ export function AgentAccountAdd({
       </div>
     );
     return (
-      <Dialog size="m" title={title} footer={footer}>
+      <Dialog title={title} footer={footer}>
         {waiting ? (
           <div class="flex flex-col gap-4">
             <p class="text-small font-medium" role="status">{signIn.waiting} · {signIn.browsers[1].label}</p>
@@ -39,7 +39,7 @@ export function AgentAccountAdd({
       </Dialog>
     );
   }
-  return <Dialog size="m" title={copy.title} footer={<div class="flex justify-end gap-3"><Button>{copy.cancel}</Button><Button variant="primary">{method === 'oauth' ? copy.login : copy.import}</Button></div>}>
+  return <Dialog title={copy.title} footer={<div class="flex justify-end gap-3"><Button>{copy.cancel}</Button><Button variant="primary">{method === 'oauth' ? copy.login : copy.import}</Button></div>}>
     <div class="flex flex-col gap-5">
       <SingleChoice label="添加方式" value={method} options={copy.methods} fill />
       {method === 'oauth' ? <Field label={copy.browser}><SingleChoice label={copy.browser} value="default" options={copy.browsers} dropdown fill /></Field> : <>

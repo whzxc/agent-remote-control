@@ -22,8 +22,7 @@ export function ExperimentalContent() {
 
 export function Experimental({ workspace = false }: { workspace?: boolean } = {}) {
   return (
-    <Panel
-      size="l" viewportHeight={workspace ? 800 : undefined}
+    <Panel viewportHeight={workspace ? 800 : undefined}
       leading={<IconButton icon="arrow-left" label={copy.text1} />}
       title={<>{copy.text2.split(" / ").map((part, index) => <>{index > 0 && <span aria-hidden="true"> / </span>}<span>{part}</span></>)}</>}
       actions={<IconButton icon="maximize-2" label={copy.text3} />}

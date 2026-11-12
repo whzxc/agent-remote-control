@@ -5,11 +5,6 @@ import { Field, Input } from "./field";
 import { dismissalCopy, dismissalForms } from "../fixtures/layers";
 import { panelExample } from "../fixtures/panels";
 
-export type LayerSize = "s" | "m" | "l" | "xl";
-const layerWidths: Record<LayerSize, string> = {
-  s: "var(--layer-s)", m: "var(--layer-m)", l: "var(--layer-l)", xl: "var(--layer-xl)",
-};
-
 export function Panel({
   title,
   kind = "panel",
@@ -20,11 +15,9 @@ export function Panel({
   headerDetail,
   headerNavigation,
   description,
-  width = 560,
-  size,
   slot,
   retainedHeight,
-  viewportHeight,
+  viewportHeight = 800,
   viewportWidth = 1280,
   headerless = false,
   roomyHeader = false,
@@ -38,9 +31,7 @@ export function Panel({
   headerDetail?: unknown;
   headerNavigation?: unknown;
   description?: unknown;
-  width?: number;
-  size?: LayerSize;
-  slot?: "center";
+  slot?: "center" | "left" | "right";
   retainedHeight?: number;
   viewportHeight?: number;
   viewportWidth?: number;
@@ -49,11 +40,11 @@ export function Panel({
 }) {
   return (
     <section
-      style={{ width: viewportHeight && (viewportWidth < 760 || viewportHeight > viewportWidth) ? `calc(${viewportWidth}px - 2 * var(--layer-side-margin))` : size ? layerWidths[size] : width, "--layer-retained-height": retainedHeight ? `${retainedHeight}px` : "0px", "--layer-viewport-height": viewportHeight ? `${viewportHeight}px` : undefined, "--layer-frame-top": kind === "dialog" ? "max(var(--layer-top-browser), calc(var(--layer-viewport-height) * 0.12))" : "var(--layer-top-browser)" }}
+      style={{ width: viewportHeight && (viewportWidth < 760 || viewportHeight > viewportWidth) ? `calc(${viewportWidth}px - 2 * var(--layer-side-margin))` : `var(--layer-${kind === "panel" && (!slot || slot === "center") ? "xl" : "m"})`, "--layer-retained-height": retainedHeight ? `${retainedHeight}px` : "0px", "--layer-viewport-height": viewportHeight ? `${viewportHeight}px` : undefined, "--layer-frame-top": "var(--layer-top-browser)" }}
       class={`flex min-h-(--layer-retained-height) flex-col rounded-panel bg-surface-raised pb-6 px-6 text-text shadow-lg
-        ${slot ? "mx-auto mt-(--layer-top) max-w-[calc(100%_-_2_*_var(--layer-side-margin))]! max-h-[calc(100%_-_var(--layer-top)_-_var(--layer-side-margin))]! max-[759px]:w-[calc(100%_-_2_*_var(--layer-side-margin))]! portrait:w-[calc(100%_-_2_*_var(--layer-side-margin))]!" : ""}
+        ${slot === "center" ? "mx-auto max-w-[calc(100%_-_2_*_var(--layer-side-margin))]! max-h-[calc(100%_-_var(--layer-top)_-_var(--layer-side-margin))]! max-[759px]:w-[calc(100%_-_2_*_var(--layer-side-margin))]! portrait:w-[calc(100%_-_2_*_var(--layer-side-margin))]!" : ""}
         ${viewportHeight ? "max-h-[calc(var(--layer-viewport-height)_-_var(--layer-frame-top)_-_var(--layer-side-margin))]!" : ""}
-        ${size ? "max-w-full max-h-full [&>header]:shrink-0" : ""}
+        max-w-full [&>header]:shrink-0
         ${roomyHeader ? "gap-[29px] pt-[21px]" : "gap-[25px] pt-[13px]"}`}
     >
       {!headerless && (
@@ -71,8 +62,8 @@ export function Panel({
       {description && (
         <div class="text-small text-text-secondary">{description}</div>
       )}
-      {size ? <div class="min-h-0 flex-1 overflow-y-auto">{children}</div> : children}
-      {size && footer ? <div class="shrink-0">{footer}</div> : footer}
+      {headerless ? children : <div class="min-h-0 flex-1 overflow-y-auto">{children}</div>}
+      {footer ? <div class="shrink-0">{footer}</div> : footer}
     </section>
   );
 }
@@ -81,16 +72,12 @@ export function Dialog(props: Parameters<typeof Panel>[0]) {
 }
 /** Content-sized shell for topology panels and workspace-specific headers. */
 export function PanelShell({
-  width,
-  size,
-  viewportHeight,
+  viewportHeight = 800,
   viewportWidth = 1280,
   height,
   children,
   class: extra = "",
 }: {
-  width?: number;
-  size?: LayerSize;
   viewportHeight?: number;
   viewportWidth?: number;
   height?: number;
@@ -99,7 +86,7 @@ export function PanelShell({
 }) {
   return (
     <section
-      style={{ width: viewportHeight && (viewportWidth < 760 || viewportHeight > viewportWidth) ? `calc(${viewportWidth}px - 2 * var(--layer-side-margin))` : size ? layerWidths[size] : width, height, "--layer-viewport-height": viewportHeight ? `${viewportHeight}px` : undefined }}
+      style={{ width: viewportHeight && (viewportWidth < 760 || viewportHeight > viewportWidth) ? `calc(${viewportWidth}px - 2 * var(--layer-side-margin))` : "var(--layer-m)", height, "--layer-viewport-height": viewportHeight ? `${viewportHeight}px` : undefined }}
       class={`flex min-h-(--layer-retained-height) flex-col rounded-panel bg-surface-raised text-text shadow-lg ${viewportHeight ? "max-h-[calc(var(--layer-viewport-height)_-_var(--layer-top-browser)_-_var(--layer-side-margin))]!" : ""} ${extra}`}
     >
       {children}
@@ -173,7 +160,7 @@ export default () => {
   return [
     ...dismissalForms.map(({ name, state, note }) => (
       <Frame name={name} note={note}>
-        <Dialog size="s" title={dismissalCopy.title} footer={<DialogDismissalFooter state={state} />}>
+        <Dialog title={dismissalCopy.title} footer={<DialogDismissalFooter state={state} />}>
           <Field label={dismissalCopy.field}><Input value={dismissalCopy.value} /></Field>
         </Dialog>
       </Frame>
@@ -185,7 +172,7 @@ export default () => {
       <Dialog title={panelExample.title} actions={actions}>{content}</Dialog>
     </Frame>,
     <Frame name="panel-shell">
-      <PanelShell width={560}>{content}</PanelShell>
+      <PanelShell>{content}</PanelShell>
     </Frame>,
     <Frame name="panel-header" width={512}>
       <div class="w-full bg-surface-raised text-text">

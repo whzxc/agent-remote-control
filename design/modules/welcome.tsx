@@ -1,5 +1,4 @@
 import { Frame } from "adg";
-import { Panel } from "../components/panel";
 import { Button } from "../components/button";
 import { Tile } from "../components/tile";
 import ArcMark from "../art/setup-arc.svg";
@@ -35,7 +34,7 @@ export function WelcomeStatus() {
 }
 export function Welcome() {
   return (
-    <Panel width={680} headerless>
+    <section class="flex w-[680px] flex-col rounded-panel bg-surface-raised px-6 pt-[13px] pb-6 text-text shadow-lg">
       <div class="flex flex-col pt-[15px]">
         <div class="flex flex-col items-center gap-[21px]">
           <ArcMark data-brand width={64} height={64} />
@@ -48,7 +47,7 @@ export function Welcome() {
         </div>
         <div class="mt-9"><WelcomeStatus /></div>
       </div>
-    </Panel>
+    </section>
   );
 }
 export default () => [

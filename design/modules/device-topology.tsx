@@ -53,7 +53,7 @@ export function DeviceNodePanel({ state = 'lan' }: { state?: DeviceTopologyState
     { label: copy.address, value: copy.addressValue },
     { label: copy.tunnel, value: copy.tunnelValue },
   ];
-  return <PanelShell width={420} class="p-5 gap-5">
+  return <PanelShell class="p-5 gap-5">
     <PanelHeader title={copy.member} />
     <div class="flex items-center gap-3 text-small">
       <Icon name="laptop" size={24} /><span>{copy.paired} · {status}</span>
@@ -78,7 +78,7 @@ export function DeviceNodePanel({ state = 'lan' }: { state?: DeviceTopologyState
 }
 
 export function ControllerSourcePanel({ upstreams }: { upstreams: boolean }) {
-  return <PanelShell width={420} class="p-5 gap-4">
+  return <PanelShell class="p-5 gap-4">
     <PanelHeader title={copy.controller} />
     <Card class="py-0! gap-0!">
       <SettingLine title={copy.upstreams}><Switch checked={upstreams} label={copy.upstreams} /></SettingLine>

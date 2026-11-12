@@ -1,5 +1,5 @@
 import { Frame, Icon } from "adg";
-import { Dialog, PanelShell } from "../components/panel";
+import { Dialog } from "../components/panel";
 import { SingleChoice } from "../components/single-choice";
 import { IconButton } from "../components/icon-button";
 import {
@@ -166,7 +166,7 @@ export function DispatchSpec({
 
 export function ModelDialog() {
   return (
-    <Dialog size="s" title={modelExample.title} description={<p class="text-small leading-5 text-text-secondary">
+    <Dialog title={modelExample.title} description={<p class="text-small leading-5 text-text-secondary">
         {modelExample.description[0]}
         <br />
         {modelExample.description[1]}
@@ -187,7 +187,7 @@ export function ModelDialog() {
 
 export function ModelEffortPicker() {
   return (
-    <PanelShell width={312} class="p-4">
+    <section class="flex w-[312px] flex-col rounded-panel bg-surface-raised text-text shadow-lg p-4">
       <div class="flex items-center gap-[18px]">
         <div class="flex-1">
           <SingleChoice
@@ -211,13 +211,13 @@ export function ModelEffortPicker() {
           disabled
         />
       </div>
-    </PanelShell>
+    </section>
   );
 }
 
 export function ModelMenu() {
   return (
-    <PanelShell width={220} class="mt-4 pt-4 pb-[6px] px-4 gap-[9px]">
+    <section class="flex w-[220px] flex-col rounded-panel bg-surface-raised text-text shadow-lg mt-4 pt-4 pb-[6px] px-4 gap-[9px]">
       <h3 class="text-meta leading-4 text-text-secondary">{modelExample.menuTitle}</h3>
       <div class="flex flex-col">
         {modelOptions.map((model, i) => (
@@ -227,7 +227,7 @@ export function ModelMenu() {
           </div>
         ))}
       </div>
-    </PanelShell>
+    </section>
   );
 }
 

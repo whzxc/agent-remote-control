@@ -72,7 +72,7 @@ export function TopologyMark({
 export function ArcRecovery({ form }: { form: typeof recoveryForms[number]["form"] }) {
   const { title, reason, impact, secondary, primary } = ringCopy.recovery[form];
   return (
-    <Dialog title={title} width={380}>
+    <Dialog title={title}>
       <div class="flex flex-col gap-2">
         <p class="text-small leading-5">{reason}</p>
         {impact && <p class="text-meta leading-5 text-text-secondary">{impact}</p>}

@@ -69,7 +69,7 @@ export function CoordinationBoard({ form }: { form: BoardForm }) {
     ? boardGroups.slice(0, 2).map((g, i) => ({ ...g, rows: g.rows.slice(0, i === 0 ? 2 : 1) }))
     : boardGroups;
   return (
-    <Panel size="xl" viewportHeight={form === "current" ? 1400 : 800} title={boardCopy.title}
+    <Panel viewportHeight={form === "current" ? 1400 : 800} title={boardCopy.title}
       actions={<IconButton icon="refresh-cw" label={boardCopy.refresh} />}
       headerNavigation={<SingleChoice value={gap ? "activity" : "current"} options={boardTabs} label={boardCopy.title} tabs />}
       footer={(form === "current" || form === "empty") && <p class="text-meta leading-4 text-text-tertiary">{boardCopy.observed}</p>}>

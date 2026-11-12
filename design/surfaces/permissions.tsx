@@ -6,7 +6,7 @@ import { permissionCopy } from "../fixtures/permissions";
 
 export default () => <Frame name="readiness"  fixture="permissions-light"
   capture={{ selector: ".layer-panel", viewport: "1280x800" }}>
-  <Panel size="l" viewportHeight={800} title={permissionCopy.permissionsTitle} actions={<>
+  <Panel viewportHeight={800} title={permissionCopy.permissionsTitle} actions={<>
     <IconButton icon="refresh-cw" label={permissionCopy.permissionsRefresh} /><IconButton icon="maximize-2" label="Expand" />
   </>}><PermissionsContent /></Panel>
 </Frame>;

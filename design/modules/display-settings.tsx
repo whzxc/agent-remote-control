@@ -3,7 +3,7 @@ import { copy, samples } from '../fixtures/display-settings';
 
 import { SettingsChoices as Choices, SettingsGroup as Group } from "../components/settings-row";
 import { Frame } from "adg";
-import { Panel } from "../components/panel";
+import { Dialog } from "../components/panel";
 
 import { SettingLine } from "../components/settings-row";
 import { Switch } from "../components/switch";
@@ -94,9 +94,9 @@ export function DisplayContent() {
 
 export function Display() {
   return (
-    <Panel size="l" viewportHeight={1080} title={copy.text39}>
+    <Dialog viewportHeight={1080} title={copy.text39}>
       <DisplayContent  />
-    </Panel>
+    </Dialog>
   );
 }
 export function ThemeSwatch({ value }: { value: string }) { return (<svg width="16" height="16" viewBox="0 0 16 16">

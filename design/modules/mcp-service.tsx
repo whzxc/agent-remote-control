@@ -102,7 +102,7 @@ export function McpHub({ form, workspace = false }: { form: string; workspace?: 
   const empty = form === "empty",
     failed = form === "failed";
   return (
-    <Panel size="xl" viewportHeight={workspace ? 1200 : undefined}
+    <Panel viewportHeight={workspace ? 1200 : undefined}
         title={copy.text3}
         actions={
           empty ? (

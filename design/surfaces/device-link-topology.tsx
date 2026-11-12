@@ -63,7 +63,7 @@ export default () => [
       ],
     }}>
       {'panel' in option && option.panel && <div data-free class="absolute inset-0">
-        <div class="absolute left-[818px] top-[162px]"><DeviceNodePanel /></div>
+        <div class="absolute inset-0 flex items-center justify-end pt-(--layer-top) pb-(--layer-side-margin) px-(--layer-side-margin)"><DeviceNodePanel /></div>
       </div>}
     </TopologyScreen>
   </Frame>),

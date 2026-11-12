@@ -124,7 +124,7 @@ export function DevicePairDialog({ locale, state }: Localized & { state: PairSta
   const c = deviceCopy[locale];
   const error = state in errors ? errors[state as keyof typeof errors] : undefined;
   const waiting = state === 'waiting', success = state === 'success';
-  return <Dialog title={c.add} size="m" footer={<div class="flex justify-end gap-2">
+  return <Dialog title={c.add} footer={<div class="flex justify-end gap-2">
     <Button variant="primary" busy={waiting}>{success ? c.done : waiting ? c.waiting : c.pair}</Button>
   </div>}>
     <div class="flex flex-col gap-5">
@@ -149,7 +149,7 @@ export function DevicePairDialog({ locale, state }: Localized & { state: PairSta
 }
 export function DeviceAddressDialog({ locale }: Localized) {
   const c = deviceCopy[locale];
-  return <Dialog title={c.override} size="s" footer={<div class="flex justify-end gap-2"><Button>{c.clear}</Button><Button variant="primary">{c.save}</Button></div>}>
+  return <Dialog title={c.override} footer={<div class="flex justify-end gap-2"><Button>{c.clear}</Button><Button variant="primary">{c.save}</Button></div>}>
     <form class="flex flex-col gap-5">
       <Field label={members[0].name}><Input value={members[0].override} /></Field>
       <p class="text-small leading-5 text-text-secondary">{c.overrideHint}</p>
@@ -158,7 +158,7 @@ export function DeviceAddressDialog({ locale }: Localized) {
 }
 export function DeviceRevokeDialog({ locale, memberSide }: Localized & { memberSide: boolean }) {
   const c = deviceCopy[locale];
-  return <Dialog title={memberSide ? c.revokeMemberTitle : c.revokeTitle} size="s" footer={<div class="flex justify-end gap-2"><Button>{c.cancel}</Button><Button variant="danger">{c.revoke}</Button></div>}>
+  return <Dialog title={memberSide ? c.revokeMemberTitle : c.revokeTitle} footer={<div class="flex justify-end gap-2"><Button>{c.cancel}</Button><Button variant="danger">{c.revoke}</Button></div>}>
     <div class="flex flex-col gap-3 text-small leading-5">
       <p>{memberSide ? c.revokeMemberEffect : c.revokeEffect}</p>
       <p class="text-text-secondary">{c.localWork}</p>
@@ -211,7 +211,7 @@ export function DeviceMemberView({ locale, state }: Localized & { state: Workspa
 export function DevicesWorkspace({ locale, state, workspace = false }: Localized & { state: WorkspaceState; workspace?: boolean }) {
   const c = deviceCopy[locale], memberSide = state.startsWith('member-'), detail = state.startsWith('detail-');
   const member = members[state === 'detail-windows' ? 1 : state === 'detail-linux' ? 2 : 0];
-  return <Panel size="l" viewportHeight={workspace ? 800 : undefined}
+  return <Panel viewportHeight={workspace ? 800 : undefined}
     title={c.devices} leading={detail ? <IconButton icon="arrow-left" label={c.back} /> : undefined}
     actions={<>{!memberSide && !detail && state !== 'empty' && <Button variant="primary" icon="plus">{c.add}</Button>}
       <IconButton icon="maximize-2" label={c.expand} /></>}>

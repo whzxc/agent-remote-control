@@ -21,8 +21,7 @@ export default () =>
         ...(frame.name === "empty" ? { clicks: ["Google"] } : {}),
       }}
     >
-      <Panel
-        size="l" viewportHeight={800}
+      <Panel viewportHeight={800}
           title="Platforms"
         actions={<IconButton icon="maximize-2" label="Expand" />}
       >

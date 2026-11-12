@@ -133,7 +133,7 @@ export function OnboardingShell({ step, children }: { step: OnboardingStep; chil
       (step.body === "secure" ? onboardingCopy.secureProduct : onboardingCopy.sourceProduct) + onboardingCopy.returnSuffix
     : step.subtitle;
   return (
-    <Dialog size="m" viewportHeight={step.body === "own" ? 1000 : 800} title={step.title || onboardingCopy.title}
+    <Dialog viewportHeight={step.body === "own" ? 1000 : 800} title={step.title || onboardingCopy.title}
       headerDetail={<>
         {subtitle && <p class="text-meta leading-4 text-text-secondary">{subtitle}</p>}
         <OnboardingSteps step={step} />

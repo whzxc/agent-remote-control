@@ -13,9 +13,9 @@ import { shortAgentHistory } from "../fixtures/agent-activity";
 import { agentQuotas } from "../fixtures/quota";
 import { layerCopy, workspaceScenes, fixedAgentScene, selectedAgentNode } from "../fixtures/layers";
 
-function Workspace({ settings = false }: { settings?: boolean }) {
+function Workspace({ settings = false, portrait = false }: { settings?: boolean; portrait?: boolean }) {
   return (
-    <Panel size="l" title={settings ? layerCopy.settings : layerCopy.relay}
+    <Panel viewportHeight={800} viewportWidth={portrait ? 640 : 1280} title={settings ? layerCopy.settings : layerCopy.relay}
       actions={<IconButton icon="maximize-2" label={layerCopy.expand} />}>
       {settings ? <GeneralSettingsContent /> : <RelayHostingContent />}
     </Panel>
@@ -29,14 +29,14 @@ function WorkspaceScene({ portrait = false, dialog = false, settings = false }: 
   return (
     <TopologyScreen width={portrait ? 640 : 1280} height={800}
       scene={workspaceScenes[portrait ? "portrait" : "landscape"]} hideNodeLabels={portrait}>
-      <div class="absolute inset-0 flex items-start justify-center px-(--layer-side-margin)
+      <div class="absolute inset-0 flex items-center justify-center px-(--layer-side-margin)
         pt-(--layer-top) pb-(--layer-side-margin)">
-        <Workspace settings={settings} />
+        <Workspace settings={settings} portrait={portrait} />
       </div>
       {dialog && (
-        <div class="absolute inset-0 flex items-start justify-center bg-layer-scrim px-(--layer-side-margin)
-          pt-(--layer-dialog-top) pb-(--layer-side-margin)">
-          <Dialog size="s" title={layerCopy.confirmation} footer={
+        <div class="absolute inset-0 flex items-center justify-center bg-layer-scrim px-(--layer-side-margin)
+          pt-(--layer-top) pb-(--layer-side-margin)">
+          <Dialog viewportHeight={800} title={layerCopy.confirmation} footer={
             <div class="flex justify-end gap-3">
               <Button>{layerCopy.cancel}</Button><Button variant="danger">{layerCopy.reset}</Button>
             </div>
@@ -55,9 +55,9 @@ function NodeScene() {
       <div data-free class="absolute" style={{ left: selectedAgentNode.x, top: selectedAgentNode.y }}>
         <TopologyNode {...selectedAgentNode} hideLabel />
       </div>
-      <div class="absolute inset-0 flex items-start justify-end px-(--layer-side-margin)
+      <div class="absolute inset-0 flex items-center justify-end px-(--layer-side-margin)
         pt-(--layer-top) pb-(--layer-side-margin)">
-        <Panel size="m" title={
+        <Panel slot="right" viewportHeight={800} title={
           <span class="flex items-center gap-3"><AgentIcon brand="codex" size={44} />{layerCopy.agent}</span>
         }
           actions={<IconButton icon="maximize-2" label={layerCopy.expand} />}>
@@ -73,7 +73,7 @@ function NodeScene() {
 
 export default () => [
   <Frame name="workspace-fit" width={1280} height={800}
-    note="Proposed desktop center slot: 48px top, L width, content-fit Relay hosting empty state. Browser top line is 20px.">
+    note="Accepted center XL slot, vertically centered between the desktop top line and bottom margin. First-level layers have no scrim. Entry and exit fade only.">
     <WorkspaceScene />
   </Frame>,
   <Frame name="workspace-cap" width={1280} height={800}
@@ -81,15 +81,15 @@ export default () => [
     <WorkspaceScene settings />
   </Frame>,
   <Frame name="workspace-dialog" width={1280} height={800}
-    note="Proposed dialog slot: 12vh = 96px top, S width. Parent stays at its original bounds beneath the scrim.">
+    note="Accepted M dialog centered on its current height. Only the nested dialog adds a scrim; its parent stays stationary beneath it. Fade-only entry.">
     <WorkspaceScene settings dialog />
   </Frame>,
   <Frame name="node-panel" width={1280} height={800}
-    note="Proposed right slot: 48px top, 16px side, M width. Source-side panels mirror this slot at the left margin.">
+    note="Accepted right M slot, vertically centered between the top line and bottom margin. Source-side panels mirror it. No first-level scrim; fade-only entry.">
     <NodeScene />
   </Frame>,
   <Frame name="portrait-workspace" width={640} height={800}
-    note="Proposed collapsed slot: 48px desktop top, full available width of 608px; the same content fits its height.">
+    note="Accepted collapsed slot: full available width of 608px, vertically centered between the top line and bottom margin.">
     <WorkspaceScene portrait />
   </Frame>,
 ];

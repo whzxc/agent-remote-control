@@ -2,7 +2,7 @@ import { copy, samples } from '../fixtures/agent-settings';
 
 import { SettingsChoices as Choices, SettingsGroup as Group } from "../components/settings-row";
 import { Frame } from "adg";
-import { Panel } from "../components/panel";
+import { Panel, Dialog } from "../components/panel";
 import { Card } from "../components/card";
 import { SettingLine } from "../components/settings-row";
 import { Switch } from "../components/switch";
@@ -40,7 +40,7 @@ export function AgentDispatchSettings() {
 
 export function AgentDetail() {
   return (
-    <Panel width={720} headerless>
+    <Dialog headerless>
       <header class="flex h-[46px] items-start justify-between gap-4">
         <div class="flex items-start gap-3 pt-[3px]">
           <BrandMark brand="codex" size={40} />
@@ -57,13 +57,12 @@ export function AgentDetail() {
       <div class="pt-4">
         <AgentDispatchSettings  />
       </div>
-    </Panel>
+    </Dialog>
   );
 }
 export function Agents({ workspace = false }: { workspace?: boolean } = {}) {
   return (
-    <Panel
-      size="l" viewportHeight={workspace ? 800 : undefined}
+    <Panel viewportHeight={workspace ? 800 : undefined}
       title={copy.text12}
       actions={<IconButton icon="refresh-cw" label={copy.text13} />}
     >

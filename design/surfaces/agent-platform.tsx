@@ -12,7 +12,7 @@ function Platform({ agent, state = "ready" }: {
   state?: "ready" | "empty" | "loading";
 }) {
   return (
-    <PanelShell size="m" viewportHeight={800} class="gap-[25px] overflow-hidden pt-[13px] px-6 pb-6">
+    <PanelShell viewportHeight={800} class="gap-[25px] overflow-hidden pt-[13px] px-6 pb-6">
       <header class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2">
         <BrandMark brand={agent.brand} size={36} />
         <h2 class="flex-1 text-title font-[650]">{agent.name}</h2>
@@ -37,7 +37,7 @@ function Platform({ agent, state = "ready" }: {
 
 function NativePlatform() {
   return (
-    <PanelShell width={480} height={590} class="p-5">
+    <PanelShell class="p-5">
       <header class="flex h-9 items-center gap-4">
         <BrandMark brand="antigravity" size={36} />
         <h2 class="flex-1 text-title font-[650]">Antigravity</h2>

@@ -97,7 +97,7 @@ export function AXEntryDetail() {
 
 export function AXBoard({ form }: { form: AXForm }) {
   const closed = form === "closed";
-  return <Panel size="xl" viewportHeight={1000} retainedHeight={closed ? 602 : undefined} title={axCopy.region}
+  return <Panel viewportHeight={1000} retainedHeight={closed ? 602 : undefined} title={axCopy.region}
     headerNavigation={<SingleChoice value="ax" options={axTabs} label={axCopy.region} tabs />}
     actions={<IconButton icon="refresh-cw" label={axCopy.refresh} />}
     footer={form !== "detail" && <div class="flex w-full items-center justify-between">

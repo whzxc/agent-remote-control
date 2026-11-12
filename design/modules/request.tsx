@@ -83,7 +83,7 @@ export function QuestionCard({ sheet = false }: { sheet?: boolean } = {}) {
 
 export function RequestSheet({ question = false }: { question?: boolean }) {
   return (
-    <Dialog size={question ? "m" : "s"} title={requestCopy.title}
+    <Dialog title={requestCopy.title}
       description={<div class="text-meta leading-[18px]">{requestCopy.status}</div>}
       footer={question ? <QuestionActions sheet /> : <PermissionActions sheet />}>
       {question ? <QuestionCard sheet /> : <PermissionCard sheet />}

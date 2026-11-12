@@ -21,8 +21,7 @@ export default () => (
     capture={{ selector: ".layer-panel", viewport: "1280x800" }}
     note="Pet atlas labels are decorative image content inside aria-hidden previews."
   >
-    <Panel
-      size="l" viewportHeight={800}
+    <Panel viewportHeight={800}
       title="Pets"
       actions={<IconButton icon="maximize-2" label="Expand" />}
     >
