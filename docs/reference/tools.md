@@ -80,7 +80,7 @@ A successful nonempty import becomes `signed-in-pending` after all native cookie
 
 Queries use `read-only` retry mode. Mutations use `read-back` with no automatic retry or receipt protection. Read `src_conversations` before retrying a side effect. An outer `act.requestId` does not add replay protection.
 
-The Desktop bridge exposes `POST src-conversations/{query,open,import,clear,bind}` and `GET src-conversations/profiles`, with the same arguments. `ui/srcConversations.ts` exports `srcConversationsApi` and typed results. No remote view contains Tauri IPC or user scripts.
+The Desktop bridge exposes `POST src-conversations/{query,open,import,clear,bind}` and `GET src-conversations/profiles`, with the same arguments. `ui/srcConversations.ts` defines the typed fixture results. No remote view contains Tauri IPC or user scripts.
 
 ## Discovery and policy
 

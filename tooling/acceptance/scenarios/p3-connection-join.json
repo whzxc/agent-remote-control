@@ -1,0 +1,11 @@
+{
+  "language": "zh-CN",
+  "agents": [
+    "codex"
+  ],
+  "tasks": [],
+  "remoteLink": {},
+  "connectionSetup": {
+    "method": "join"
+  }
+}

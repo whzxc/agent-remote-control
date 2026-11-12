@@ -43,14 +43,3 @@ export function useGeometryTransition(initial: number[]) {
   useEffect(spring.start, [spring]);
   return { value: useSyncExternalStore(spring.state.subscribe, spring.state.get), to: spring.to, jump: spring.jump };
 }
-
-// Publish settled geometry atomically so SVG paint and native hit regions agree.
-export function useGeometry(initial: number[]) {
-  const geometry = useMemo(() => {
-    const state = createStore(initial);
-    return { state, set: (next: number[]) => {
-      if (!next.every((value, i) => value === state.get()[i])) state.set(next);
-    } };
-  }, []);
-  return { value: useSyncExternalStore(geometry.state.subscribe, geometry.state.get), set: geometry.set };
-}

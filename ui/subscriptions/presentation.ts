@@ -14,7 +14,6 @@ export function readingStatus(w:QuotaWindow|undefined,p:ProviderSnapshot,now=Dat
  return {alert:!!exhausted||warning,rank:exhausted?4:used===undefined?0:warning?3:used>=50?2:1,color:exhausted?usageColors.exhausted:used===undefined?usageColors.unknown:warning?usageColors.warning:used>=50?usageColors.caution:usageColors.good};
 }
 export function quotaColor(w:QuotaWindow|undefined,p:ProviderSnapshot,now=Date.now()){return readingStatus(w,p,now).color;}
-export function surfaceStatus(rows:ProviderSnapshot[],now=Date.now()){return rows.map(p=>readingStatus(p.windows.find(w=>w.id===p.displayWindowId),p,now)).reduce((a,b)=>b.rank>a.rank?b:a,{alert:false,rank:0,color:usageColors.unknown});}
 export function duration(minutes:number,showMinutes=true){const total=Math.max(0,Math.floor(minutes)),d=Math.floor(total/1440),h=Math.floor(total%1440/60),min=total%60;return [d?`${d}${t('durationDays')}`:'',h?`${h}${t('durationHours')}`:'',showMinutes&&min?`${min}${t('durationMinutes')}`:''].filter(Boolean).join(' ')||`0${t(showMinutes?'durationMinutes':'durationHours')}`;}
 export function resetText(value:string|undefined,now:number,showMinutes=false){if(!value)return '—';const minutes=Math.ceil((Date.parse(value)-now)/60000);return Number.isFinite(minutes)?duration(Math.max(0,minutes),showMinutes):'—';}
 export const preciseTime=(value?:string)=>value?new Date(value).toLocaleString(locale.get()):'';

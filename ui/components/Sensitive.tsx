@@ -39,10 +39,6 @@ export function Sensitive({ children = '', wrap = false }: { children?: string |
   </span>;
 }
 
-export function SensitiveIdentity({ email, orgName, wrap = false }: { email?: string | null; orgName?: string | null; wrap?: boolean }) {
-  return <span className="sensitive-identity">{email && <Sensitive wrap={wrap}>{email}</Sensitive>}{email && orgName && ' · '}{orgName && <Sensitive wrap={wrap}>{orgName}</Sensitive>}</span>;
-}
-
 // Editable sensitive fields are read-only while hidden. Values remain in React state.
 export function SensitiveInput({ value = '', onChange, readOnly, ...props }: Omit<InputHTMLAttributes<HTMLInputElement>, 'value'> & { value?: string }) {
   const hidden = usePrivacy(), element = useRef<HTMLInputElement>(null);

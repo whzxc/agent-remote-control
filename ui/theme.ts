@@ -90,17 +90,3 @@ export function observeNativeTheme() {
     off?.();
   };
 }
-
-// Native MCP surfaces follow their host without changing desktop preferences.
-export function applyMcpHostTheme(context: unknown) {
-  if (!context || typeof context !== 'object') return;
-  const host = context as {theme?: string; styles?: {variables?: Record<string, string>}};
-  if (host.theme === 'light' || host.theme === 'dark') {
-    document.documentElement.dataset.theme = host.theme;
-    document.documentElement.style.colorScheme = host.theme;
-  }
-  document.documentElement.dataset.surface = 'mcp';
-  for (const [key, value] of Object.entries(host.styles?.variables ?? {})) {
-    if (key.startsWith('--') && typeof value === 'string') document.documentElement.style.setProperty(key, value);
-  }
-}

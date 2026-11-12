@@ -1,0 +1,14 @@
+{
+  "language": "zh-CN",
+  "agents": [
+    "codex"
+  ],
+  "tasks": [],
+  "remoteLink": {
+    "empty": true
+  },
+  "sourceSetup": {
+    "step": "connection",
+    "source": "claude"
+  }
+}

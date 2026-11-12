@@ -2,7 +2,7 @@ import descriptor from '../native/src/ingress/config.json';
 import type { Config } from './state/types';
 import type { ConnectionForm } from './state/connectionForm';
 
-export type SecretField = Extract<keyof ConnectionForm, 'apiKey' | 'cloudflareToken' | 'ngrokAuthtoken' | 'pinggyToken' | 'localxposeAccessToken'>;
+type SecretField = Extract<keyof ConnectionForm, 'apiKey' | 'cloudflareToken' | 'ngrokAuthtoken' | 'pinggyToken' | 'localxposeAccessToken'>;
 type SavedFlag = Extract<keyof Config, `has${string}`>;
 type ModeField = 'cloudflareMode' | 'ngrokMode' | 'pinggyMode' | 'localxposeMode';
 interface Provider {
@@ -30,7 +30,4 @@ export function needsCredential(form: ConnectionForm): boolean {
 export function credentialSaved(config: Config | undefined, key: SecretField): boolean {
   const flag = secretFields.find(field => field.key === key)!.savedFlag;
   return !!config?.[flag];
-}
-export function clearCredentials(form: ConnectionForm): void {
-  for (const { key } of secretFields) form[key] = '';
 }

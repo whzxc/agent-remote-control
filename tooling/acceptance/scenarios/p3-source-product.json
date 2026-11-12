@@ -1,0 +1,14 @@
+{
+  "language": "zh-CN",
+  "agents": [
+    "codex"
+  ],
+  "tasks": [],
+  "remoteLink": {
+    "pending": false,
+    "connected": false
+  },
+  "sourceSetup": {
+    "step": "product"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "language": "zh-CN",
+  "agents": [
+    "codex"
+  ],
+  "tasks": [],
+  "remoteLink": {},
+  "connectionSetup": {
+    "method": "openai-tunnel",
+    "product": "chatgpt"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "language": "en",
+  "agents": [
+    "codex"
+  ],
+  "tasks": [],
+  "deviceLink": {
+    "state": "experiment-off",
+    "enabled": false
+  },
+  "page": "settings",
+  "viewports": [
+    {
+      "width": 1280,
+      "height": 800
+    }
+  ],
+  "settingsExperimental": true
+}

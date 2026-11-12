@@ -28,12 +28,3 @@ export function useMedia(query: string) {
   }, [query]);
   return matches;
 }
-export function useWindowSize() {
-  const [size, setSize] = useState({ width: innerWidth, height: innerHeight });
-  useEffect(() => {
-    const update = () => setSize({ width: innerWidth, height: innerHeight });
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
-  return size;
-}

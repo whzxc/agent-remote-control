@@ -8,7 +8,7 @@ import { api } from '../api';
 import { locale, t } from '../i18n';
 import { useAppNow } from '../state/appEnvironment';
 import { relativeTime } from '../lib/relativeTime';
-import { DialogClose, Button, Dialog, Disclosure, Icon, IconButton, Loading, Notice, Prompt, SearchInput, SingleChoice, Status, Switch, Tag, Tile } from '../components/ui';
+import { ConfirmDialog, Button, Dialog, Disclosure, Icon, IconButton, Loading, Notice, Prompt, SearchInput, SingleChoice, Status, Switch, Tag, Tile } from '../components/ui';
 import { failureKind, hubSummary, matchServer } from './model';
 import type { HubServer, HubSnapshot, HubTool } from './state';
 import './mcp.css';
@@ -153,11 +153,8 @@ export default function McpHub({ expanded, onToggleWidth, onClose }: { expanded:
         <section aria-label={t('mcp.addStdio')}><h3>{t('mcp.addStdio')}</h3><Prompt label={t('mcp.copyPrompt')} context={t('mcp.addStdio')} text={t('mcp.promptStdio')} /></section>
       </div>
     </Dialog>}
-    {removing && <Dialog layerId={removal.layerId} title={t('mcp.remove', { name: removing.name })} onClose={() => setRemoving(undefined)} busy={!!busy} footer={<>
-      <DialogClose asChild><Button>{t("cancel")}</Button></DialogClose>
-      <Button variant="danger" busy={!!busy} onClick={() => void act('remove', removing)}>{t('delete')}</Button>
-    </>}>
+    {removing && <ConfirmDialog layerId={removal.layerId} title={t('mcp.remove', { name: removing.name })} onClose={() => setRemoving(undefined)} busy={!!busy} confirmLabel={t('delete')} onConfirm={() => act('remove', removing)}>
       <p>{t('mcp.removeEffect', { name: removing.name })}</p>{error && <Notice>{error}</Notice>}
-    </Dialog>}
+    </ConfirmDialog>}
   </Panel>;
 }

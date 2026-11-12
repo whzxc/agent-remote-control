@@ -180,9 +180,12 @@ function respondToScenario(path: string, method: string, body?: unknown): unknow
   throw new Error(`SCENARIO_ROUTE_UNAVAILABLE: ${path}`);
 }
 export async function installScenario(name: string) {
-  const load = fixtures[`../tooling/acceptance/scenarios/${name}.json`];
+  const [scenario, fixtureTheme] = name.split('@');
+  const load = fixtures[`../tooling/acceptance/scenarios/${scenario}.json`];
   if (!load) throw new Error(`Unknown acceptance scenario: ${name}`);
-  const fixture = await load() as Fixture;
+  const data = await load() as Fixture;
+  const requestedTheme = new URLSearchParams(window.location.search).get('theme') ?? fixtureTheme ?? data.theme;
+  const fixture = { ...data, theme: requestedTheme === 'dark' ? 'dark' as const : 'light' as const };
   mcpResponse = mcpScenario(fixture.mcpHub);
   coordinationResponse = coordinationScenario(fixture.coordination);
   resetBoardObservation();

@@ -16,10 +16,10 @@ export const methods = [
 const sourceLabels = ["平台 · Claude", "连接 · My relay", "配置", "批准"];
 const connectionLabels = ["方式 · 创建我的中继", "配置", "就绪"];
 export const onboardingFrames: OnboardingStep[] = [
-  { name: "welcome", fixture: "p3-welcome-light", body: "welcome" },
+  { name: "welcome", fixture: "p3-welcome@light", body: "welcome" },
   {
     name: "source-product",
-    fixture: "p3-source-fixed-light",
+    fixture: "p3-source-fixed@light",
     title: "添加控制源",
     subtitle: "经由 My relay",
     labels: ["平台", "连接", "配置", "批准"],
@@ -29,7 +29,7 @@ export const onboardingFrames: OnboardingStep[] = [
   },
   {
     name: "source-connection",
-    fixture: "p3-source-connection-light",
+    fixture: "p3-source-connection@light",
     title: "添加 Claude",
     labels: ["平台 · Claude", "连接", "配置", "批准"],
     active: 1,
@@ -39,7 +39,7 @@ export const onboardingFrames: OnboardingStep[] = [
   },
   {
     name: "source-empty",
-    fixture: "p3-source-empty-light",
+    fixture: "p3-source-empty@light",
     title: "添加 Claude",
     labels: ["平台 · Claude", "连接", "配置", "批准"],
     active: 1,
@@ -48,7 +48,7 @@ export const onboardingFrames: OnboardingStep[] = [
   },
   {
     name: "source-local",
-    fixture: "p3-source-local-light",
+    fixture: "p3-source-local@light",
     title: "添加 Claude Code",
     labels: ["平台 · Claude Code", "连接 · Claude Code", "配置", "批准"],
     active: 2,
@@ -59,7 +59,7 @@ export const onboardingFrames: OnboardingStep[] = [
   },
   {
     name: "source-address",
-    fixture: "p3-source-address-light",
+    fixture: "p3-source-address@light",
     title: "添加 Claude",
     labels: sourceLabels,
     active: 2,
@@ -70,7 +70,7 @@ export const onboardingFrames: OnboardingStep[] = [
   },
   {
     name: "source-approval",
-    fixture: "p3-source-approval-light",
+    fixture: "p3-source-approval@light",
     title: "添加 Claude",
     labels: sourceLabels,
     active: 3,
@@ -80,7 +80,7 @@ export const onboardingFrames: OnboardingStep[] = [
   },
   {
     name: "source-success",
-    fixture: "p3-source-success-light",
+    fixture: "p3-source-success@light",
     title: "添加 Claude",
     labels: sourceLabels,
     active: 3,
@@ -90,7 +90,7 @@ export const onboardingFrames: OnboardingStep[] = [
   },
   {
     name: "method",
-    fixture: "p3-connection-method-light",
+    fixture: "p3-connection-method@light",
     labels: ["方式", "配置", "就绪"],
     active: 0,
     action: "登录 Cloudflare 并部署",
@@ -98,7 +98,7 @@ export const onboardingFrames: OnboardingStep[] = [
   },
   {
     name: "stacked-method",
-    fixture: "p3-stacked-method-light",
+    fixture: "p3-stacked-method@light",
     labels: ["方式", "配置", "就绪"],
     active: 0,
     action: "登录 Cloudflare 并部署",
@@ -106,7 +106,7 @@ export const onboardingFrames: OnboardingStep[] = [
   },
   {
     name: "stacked-relay",
-    fixture: "p3-stacked-relay-light",
+    fixture: "p3-stacked-relay@light",
     labels: connectionLabels,
     active: 1,
     back: "取消",
@@ -116,7 +116,7 @@ export const onboardingFrames: OnboardingStep[] = [
   },
   {
     name: "stacked-local",
-    fixture: "p3-stacked-local-light",
+    fixture: "p3-stacked-local@light",
     labels: ["方式 · Claude Code", "配置", "就绪"],
     active: 1,
     back: "返回",
@@ -125,7 +125,7 @@ export const onboardingFrames: OnboardingStep[] = [
   },
   {
     name: "stacked-join",
-    fixture: "p3-stacked-join-light",
+    fixture: "p3-stacked-join@light",
     labels: ["方式 · 粘贴中继链接", "配置", "就绪"],
     active: 1,
     back: "返回",
@@ -134,7 +134,7 @@ export const onboardingFrames: OnboardingStep[] = [
   },
   {
     name: "stacked-own",
-    fixture: "p3-stacked-own-light",
+    fixture: "p3-stacked-own@light",
     labels: ["方式 · 使用自有地址", "配置", "就绪"],
     active: 1,
     back: "返回",
@@ -143,7 +143,7 @@ export const onboardingFrames: OnboardingStep[] = [
   },
   {
     name: "stacked-secure",
-    fixture: "p3-stacked-secure-light",
+    fixture: "p3-stacked-secure@light",
     labels: ["方式 · OpenAI Secure Tunnel", "配置", "就绪"],
     active: 1,
     back: "返回",
@@ -152,7 +152,7 @@ export const onboardingFrames: OnboardingStep[] = [
   },
   {
     name: "stacked-ready",
-    fixture: "p3-stacked-ready-light",
+    fixture: "p3-stacked-ready@light",
     labels: connectionLabels,
     active: 2,
     done: true,

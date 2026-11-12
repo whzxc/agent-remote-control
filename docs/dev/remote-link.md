@@ -164,3 +164,13 @@ Switch expectations last 300 seconds, allow one source per target at a time, and
 Local configuration installation currently supports Claude Code and Claude Desktop. Other MCP client uses manual HTTPS configuration. The registry has no settings URL for every product, so Configure shows the generic MCP settings instruction when a product has no setup metadata.
 
 RelayProgress supports account selection when Core returns multiple Cloudflare accounts, copy-login-link fallback, cancel, and retry. Core does not expose the current signed-in account or a forced account-login change action. The reference's inline signed-in identity and Change action remain unavailable until that contract exists. Own-address forms retain provider-specific domain modes and required credentials; providers collapse to the shared dropdown when pills do not fit.
+
+## Device link
+
+The Experimental Device link switch exposes Devices in the navigation capsule.
+The center workspace supports local pairing offers, member approval, cancellable pairing attempts, paired device details, address overrides and revocation.
+A submitted pairing attempt is clean after any finished result until the user edits it again.
+A waiting attempt is running work and offers Keep open and Stop and close through the shared Dialog.
+The homepage currently uses a summary button to open this workspace.
+[Device architecture](architecture.md#device-identity-and-peer-listeners) owns transport, liveness, forwarding, task association, notifications and resumable transfer.
+[Remaining device topology](device-link-proposal.md) describes the node composition still to implement.

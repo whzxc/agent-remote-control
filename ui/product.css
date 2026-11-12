@@ -766,7 +766,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .pii { filter: blur(2.2px); opacity: .5; user-select: text; animation: privacy-in var(--motion-base) var(--ease-enter); }
 @keyframes privacy-in { from { filter: blur(0); opacity: 1; } }
 :root[data-reduced-motion="true"] { .pii { animation: none; } }
-.sensitive-identity { min-width: 0; }
 
 .account-card { min-width: 0; flex: none; gap: 12px; border: 1px solid var(--border); padding: 16px; }
 .account-heading { display: flex; align-items: center; gap: 8px; min-width: 0; }

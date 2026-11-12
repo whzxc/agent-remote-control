@@ -1,0 +1,18 @@
+{
+  "language": "zh-CN",
+  "agents": [
+    "codex"
+  ],
+  "tasks": [],
+  "remoteLink": {},
+  "connectionSetup": {
+    "forSource": true,
+    "product": "claude",
+    "method": "local-code",
+    "localTarget": "code"
+  },
+  "sourceSetup": {
+    "step": "connection",
+    "source": "claude"
+  }
+}

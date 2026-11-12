@@ -1,0 +1,10 @@
+{
+  "language": "zh-CN",
+  "agents": [
+    "codex"
+  ],
+  "tasks": [],
+  "quota": true,
+  "accountAdd": "oauth",
+  "platformAgent": "codex"
+}

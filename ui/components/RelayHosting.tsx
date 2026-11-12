@@ -13,7 +13,7 @@ import { connector, notify, refreshConnector } from "../state/connector";
 import { appNow, useAppNow } from "../state/appEnvironment";
 import { useRelays, useRelayProgress, type Relay, type RelayProgress as Progress } from "../state/relay";
 import RelayProgress from "./RelayProgress";
-import { DialogClose, Button, DataTable, Dialog, Icon, IconButton, Loading, Notice, Status } from "./ui";
+import { ConfirmDialog, Button, DataTable, Dialog, Icon, IconButton, Loading, Notice, Status } from "./ui";
 
 type Member = { id: string; name: string; isSelf: boolean; joinedAt: string; lastOnline: string | null; online: boolean };
 type Job = { action: "create" | "redeploy" | "delete"; id?: string };
@@ -108,13 +108,12 @@ function HostedRelay({ relay, version, startJob, disabled }: {
       <Button variant="danger" disabled={blocked} onClick={() => { setError(""); setConfirm("delete"); }}>{t("hosting.delete")}</Button>
     </div>
     {error && !confirm && <Notice tone="danger">{error}</Notice>}
-    {confirm && <Dialog layerId={confirmation.layerId} title={t(confirm === "reset-token" ? "hosting.resetTitle" : confirm === "delete" ? "hosting.deleteTitle" : "connect.confirm.remove")} onClose={() => setConfirm(undefined)} busy={!!busy} footer={<>
-      <DialogClose asChild><Button>{t("cancel")}</Button></DialogClose>
-      <Button variant={confirm === "reset-token" ? "primary" : "danger"} busy={!!busy} onClick={() => void action(typeof confirm === "string" ? confirm : "remove", typeof confirm === "object" ? confirm : undefined)}>{t(confirm === "reset-token" ? "hosting.reset" : confirm === "delete" ? "delete" : "hosting.remove")}</Button>
-    </>}>
+    {confirm && <ConfirmDialog layerId={confirmation.layerId} title={t(confirm === "reset-token" ? "hosting.resetTitle" : confirm === "delete" ? "hosting.deleteTitle" : "connect.confirm.remove")} onClose={() => setConfirm(undefined)} busy={!!busy} confirmLabel={t(confirm === "reset-token" ? "hosting.reset" : confirm === "delete" ? "delete" : "hosting.remove")}
+      confirmVariant={confirm === "reset-token" ? "primary" : "danger"}
+      onConfirm={() => action(typeof confirm === "string" ? confirm : "remove", typeof confirm === "object" ? confirm : undefined)}>
       <p>{t(confirm === "reset-token" ? "hosting.resetDescription" : confirm === "delete" ? "hosting.deleteDescription" : "hosting.removeDescription", { name: typeof confirm === "object" ? name(confirm) : "" })}</p>
       {error && <Notice tone="danger">{error}</Notice>}
-    </Dialog>}
+    </ConfirmDialog>}
   </article>;
 }
 

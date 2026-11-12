@@ -12,6 +12,14 @@ Before a push, UI changes MUST pass `npm test` and the `accept:ui` fixture famil
 Browser-only fixtures MAY run in an assigned lane with `--lane-fixtures` on a non-default port.
 Run the full `accept:ui` sweep before releases.
 A full sweep is not required before every push.
+Behavior fixture checks run in one theme.
+Screenshot checks and families that assert theme or color behavior run in both themes.
+Use `--theme=light`, `--theme=dark` or `--theme=both` for a scoped diagnostic override.
+Theme-only scenario pairs share one JSON fixture.
+Fixtures that differ beyond theme remain separate scenarios.
+Design captures and direct fixture URLs may select `scenario@light` or `scenario@dark`.
+Per-family interaction modules live in `tooling/acceptance/families/`.
+The runner discovers their staged checks without per-scenario branches in its main loop.
 Run the app, installs and `dev:isolated` only in the main checkout.
 
 ## Focus policy
@@ -86,7 +94,7 @@ npx playwright install chromium
 npm run accept:ui
 ```
 
-The script starts an isolated Vite page and captures widths 640 and 1280 at height 800. Stop the existing development service first if it owns port 5187. Scenario mode never connects to real Core. The script rejects all actual management API requests. For WebKit comparison:
+The script starts an isolated Vite page and captures 640×800, 1280×800 and 1920×1080 unless the fixture supplies its own viewports. Stop the existing development service first if it owns port 5187. Scenario mode never connects to real Core. The script rejects all actual management API requests. For WebKit comparison:
 
 ```sh
 npx playwright install webkit
@@ -97,7 +105,7 @@ Artifacts live in `output/acceptance/ui/<timestamp>-<browser>/`:
 
 - index.html compares current, previous, and pixel-diff images for all scenarios.
 - report.json records missing baselines, changed pixels/ratios, and render errors.
-- `<scenario>-<width>.png` / `.json` contain screenshots and live derived state.
+- `<scenario>@<theme>-<width>x<height>.png` / `.json` contain screenshots and live derived state.
 - `*-before.png` / `*-diff.png` contain the prior baseline and pixel differences.
 
 The first run creates a baseline. Later runs compare with the latest directory for the same browser. Changes require visual review and are not automatically defects. Render errors, unexpected real API requests, or missing scenario nodes cause nonzero exit. Git ignores baselines and reports.
@@ -120,7 +128,7 @@ The `arc-actions-dark` and `arc-actions-light` fixtures cover node, outer-arc an
 
 The `topology-tuning-dark` and `topology-tuning-light` fixtures enable the capsule entry for homepage topology controls. Open it to inspect parameter editing, JSON import, internal scrolling, dismissal and focus restoration while the topology remains visible. Experimental settings retain only the enable switch.
 
-The `settings-about-light` and `settings-about-dark` fixtures show the Experimental row inside About. The `experimental-settings` pair opens its switch list directly. The `relay-hosting-light` and `relay-hosting-dark` fixtures enable the cloud capsule entry and open the hosting workspace. Feature switches control UI visibility; hosting fixtures never deploy or stop real relays.
+The `settings-about-light` and `settings-about-dark` fixtures show the Experimental row inside About. The `experimental-settings` fixture opens its switch list directly. The `relay-hosting-light` and `relay-hosting-dark` fixtures enable the cloud capsule entry and open the hosting workspace. Feature switches control UI visibility; hosting fixtures never deploy or stop real relays.
 
 The `agent-list-codex-*` and `agent-list-claude-*` fixtures supply 240 paged metadata rows with confirmed and unknown outcomes. History detail routes are intentionally unavailable so background timeline prefetch fails fixture readiness.
 

@@ -55,5 +55,3 @@ export function useAccounts() {
   }, []);
   return state;
 }
-
-export function isUnidentified(account: Account) { return account.identityKey.includes(':unidentified:'); }

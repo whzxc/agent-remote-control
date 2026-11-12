@@ -11,7 +11,6 @@ const viewports = [
 ];
 const kinds: LayerKind[] = ['panel', 'dialog'];
 const sides: LayerSide[] = ['left', 'center', 'right'];
-
 test('every current height stays within the slot margins and shares the available-area center', () => {
   // Property: Every height is capped to the available interval and has its vertical center at that interval's center.
   for (const viewport of viewports) for (const kind of kinds) for (const side of sides) for (const contentHeight of [0, 120, 160, 600, 4000]) {
@@ -24,28 +23,18 @@ test('every current height stays within the slot margins and shares the availabl
   }
 });
 
-test('growing and shrinking heights move both edges symmetrically', () => {
-  // Property: The top and bottom edges move by equal opposite amounts for every change in content height.
+test('width and horizontal alignment depend only on the physical slot', () => {
+  // Property: Collapsed and expanded slots fill the available width while fixed slots retain their width and mirror alignment.
   for (const viewport of viewports) for (const kind of kinds) for (const side of sides) {
     const small = layerFrame(kind, side, viewport, tokens, 120);
     const large = layerFrame(kind, side, viewport, tokens, 600);
-    assert.equal(small.y - large.y, large.y + large.height - small.y - small.height);
-    assert.equal(small.width, large.width);
-    assert.equal(large.maxHeight, small.maxHeight);
-  }
-});
-
-test('measurements are independent of prior openings and focus origins', () => {
-  // Property: Recomputing the same slot after unrelated measurements always returns the same geometry without trigger or history input.
-  for (const viewport of viewports) for (const kind of kinds) for (const side of sides) {
-    const initial = layerFrame(kind, side, viewport, tokens, 240);
-    for (const unrelatedHeight of [10, 4000, 160]) {
-      layerFrame('panel', 'center', viewport, tokens, unrelatedHeight, true);
-      layerFrame('dialog', 'right', viewport, tokens, unrelatedHeight);
-      assert.deepEqual(layerFrame(kind, side, viewport, tokens, 240), initial);
-    }
     const collapsed = viewport.width < 760 || viewport.height > viewport.width;
-    const slotWidth = kind === 'panel' && side === 'center' ? tokens.sizes.xl : tokens.sizes.m;
-    assert.equal(initial.width, collapsed ? viewport.width - 2 * tokens.margin : Math.min(slotWidth, viewport.width - 2 * tokens.margin));
+    const width = kind === 'panel' && side === 'center' ? tokens.sizes.xl : tokens.sizes.m;
+    assert.equal(small.width, collapsed ? viewport.width - 2 * tokens.margin : Math.min(width, viewport.width - 2 * tokens.margin));
+    assert.equal(large.width, small.width);
+    const expanded = layerFrame(kind, side, viewport, tokens, 600, true);
+    assert.equal(expanded.width, viewport.width - 2 * tokens.margin);
+    const opposite = layerFrame(kind, side === 'left' ? 'right' : side === 'right' ? 'left' : 'center', viewport, tokens, 120);
+    assert.equal(small.x, viewport.width - opposite.x - opposite.width);
   }
 });

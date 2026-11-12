@@ -11,7 +11,7 @@ import { controlSource, controlSourcePlatform } from '../../controlSources';
 import { connector, refreshConnector } from '../../state/connector';
 import { sourceDate } from '../../sourcePresentation';
 import type { ControlSource } from '../../state/types';
-import { DialogClose, Button, Dialog, IconButton, Input, Notice } from '../ui';
+import { ConfirmDialog, IconButton, Input, Notice } from '../ui';
 import { Card, CardContent, CardHeader } from '../ui/card';
 import { Sensitive } from '../Sensitive';
 import SourceIcon from '../SourceIcon';
@@ -79,8 +79,8 @@ export default function ConnectorCard({ source }: { source: ControlSource }) {
       </div>
     </div></CardHeader>
     <CardContent><dl className="connector-facts">{facts.filter(group => group.length).map((group, index) => <div className="connector-fact-group" key={index}>{group.map(([name, value]) => <div className="connector-fact" key={name}><dt>{name}</dt><dd><Sensitive>{value}</Sensitive></dd></div>)}</div>)}</dl></CardContent>
-    {removing && <Dialog layerId={completion.layerId} title={t('platforms.remove', { name: source.label })} busy={busy} onClose={() => setRemoving(false)} footer={<><DialogClose asChild><Button>{t("cancel")}</Button></DialogClose><Button variant="danger" busy={busy} onClick={() => void remove()}>{t('remove')}</Button></>}>
+    {removing && <ConfirmDialog layerId={completion.layerId} title={t('platforms.remove', { name: source.label })} busy={busy} onClose={() => setRemoving(false)} confirmLabel={t('remove')} onConfirm={remove}>
       <p>{t('platforms.removeConfirm')}</p>{error && <Notice>{error}</Notice>}
-    </Dialog>}
+    </ConfirmDialog>}
   </section></Card>;
 }

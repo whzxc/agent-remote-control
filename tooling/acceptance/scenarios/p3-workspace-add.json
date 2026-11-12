@@ -1,0 +1,13 @@
+{
+  "language": "zh-CN",
+  "agents": [
+    "codex"
+  ],
+  "tasks": [],
+  "remoteLink": {
+    "pending": false,
+    "connected": false
+  },
+  "page": "overview",
+  "connectionsOpen": true
+}

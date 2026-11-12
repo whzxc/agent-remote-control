@@ -33,19 +33,21 @@ export default {
       await server.listen();
       return () => server.close();
     },
-    fixture(name) {
+    fixture(reference) {
+      const [name, runTheme] = reference.split('@');
       const scenario = prepared[name]?.scenario ?? name;
       const fixture = JSON.parse(readFileSync(new URL(`./tooling/acceptance/scenarios/${scenario}.json`, import.meta.url), 'utf8'));
       return {
-        url: `/?scenario=${encodeURIComponent(scenario)}`,
-        theme: fixture.theme === 'dark' ? 'dark' : 'light',
+        url: `/?scenario=${encodeURIComponent(scenario)}&theme=${runTheme ?? fixture.theme ?? 'light'}`,
+        theme: (runTheme ?? fixture.theme) === 'dark' ? 'dark' : 'light',
         locale: fixture.language === 'zh-CN' ? 'zh-CN' : 'en-US',
         clock: fixture.clock ?? '2026-01-01T00:00:00Z',
         ...(fixture.timezone ? { timezone: fixture.timezone } : {}),
         ...(scenario.startsWith('portrait-topology-') ? { timezone: 'Asia/Shanghai' } : {}),
       };
     },
-    async ready(page, name) {
+    async ready(page, reference) {
+      const [name] = reference.split('@');
       const preparation = prepared[name];
       const scenario = preparation?.scenario ?? name;
       if (name.startsWith('device-navigation-') || name.startsWith('device-summary-')) {

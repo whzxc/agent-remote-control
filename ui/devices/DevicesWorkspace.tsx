@@ -6,7 +6,7 @@ import { ArrowLeft, ChevronRight, Laptop, Monitor, Pencil, Plus, Server, Unlink 
 import { api } from '../api';
 import { locale, t } from '../i18n';
 import { relativeTime } from '../lib/relativeTime';
-import { DialogClose, Button, CopyField, Dialog, Field, Icon, IconButton, Input, Loading, Notice, SingleChoice, Tag, Tile } from '../components/ui';
+import { ConfirmDialog, Button, CopyField, Dialog, Field, Icon, IconButton, Input, Loading, Notice, SingleChoice, Tag, Tile } from '../components/ui';
 import { Card } from '../components/ui/card';
 import { SettingLine } from '../components/ui/Settings';
 import { cancelDevicePair, connectDevice, deviceError, deviceOffer, devicePair, deviceSnapshot, deviceView, memberOutcome, pairedDevices, refreshDevices, type Device, type Peer } from './state';
@@ -111,10 +111,10 @@ function RevokeDialog({ peer, memberSide, close }: { peer: Peer; memberSide: boo
     try { await api('device/revoke', 'POST', { deviceId: peer.deviceId }); await refreshDevices(); await completion.finish(); }
     catch (error) { setError(String(error)); } finally { setBusy(false); }
   }
-  return <Dialog layerId={completion.layerId} returnFocus={memberSide ? '[data-device-offer]' : '[data-device-add]'} title={c(memberSide ? 'revokeMemberTitle' : 'revokeTitle', { name: peer.name })} className="device-dialog" onClose={close} busy={busy}>
+  return <ConfirmDialog layerId={completion.layerId} returnFocus={memberSide ? '[data-device-offer]' : '[data-device-add]'} title={c(memberSide ? 'revokeMemberTitle' : 'revokeTitle', { name: peer.name })} className="device-dialog" onClose={close} busy={busy} actionsClassName="device-actions" confirmLabel={c('revoke')} onConfirm={revoke}>
     <div className="device-revoke-copy"><p>{c(memberSide ? 'revokeMemberEffect' : 'revokeEffect', { name: peer.name })}</p><p className="device-muted">{c('localWork')}</p></div>
-    {error && <Notice layout="inline">{error}</Notice>}<DialogActions className="device-actions"><DialogClose asChild><Button>{c('cancel')}</Button></DialogClose><Button variant="danger" busy={busy} onClick={() => void revoke()}>{c('revoke')}</Button></DialogActions>
-  </Dialog>;
+    {error && <Notice layout="inline">{error}</Notice>}
+  </ConfirmDialog>;
 }
 export default function DevicesWorkspace({ expanded, onToggleWidth, onClose }: { expanded: boolean; onToggleWidth: () => void; onClose: () => void }) {
   const snapshot = deviceSnapshot.use(), error = deviceError.use(), view = deviceView.use();

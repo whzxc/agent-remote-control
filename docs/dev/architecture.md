@@ -89,7 +89,7 @@ without changing pairings.
 The installer installs a Windows inbound TCP rule for the configured peer port
 (default 7143), limited to the Private profile. A port change requires refreshing
 that rule. The local CLI and management catalog own pairing and configuration;
-Desktop has no Device link controls. The wire contract is in
+Desktop exposes the Devices workspace through the Experimental capsule entry. The wire contract is in
 [CLI reference](../reference/cli.md#device-link).
 
 ### Device file transfer
@@ -848,3 +848,15 @@ refreshes routing before eligibility and token charging. Pending reads, progress
 inboxes project the same routing record. Native resolution closes routing without
 requiring the user to participate. The dock has no countdown animation; polite
 announcements cover state transitions and the final five-second interval.
+
+## Shared runtime invariants
+
+`turn_lifecycle` owns evidence-aware selected-turn transitions and wire adapters.
+Owner loss cannot manufacture a terminal outcome.
+Confirmed outcomes survive unavailable owners, and successors do not rewrite predecessor outcomes.
+Notification and receipt owners use resident changed-key indexes and durable derived generations.
+The front door owns ingress continuity, bounded draining and uncertain-write reconciliation while Core and detached executors retain their existing lifetimes.
+Semantic list digests use the existing result cache with 8 KiB and 20-row budgets and full-row continuation actions.
+Dispatch-derived notices and conflict projections remain advisory.
+[Dispatch policy](dispatch-policy.md) owns computed recommendations, explicit overrides, found-by review metadata and bounded later-fix correlations.
+[Coordination](coordination.md) owns the implemented journal, bulletin, messaging, AX and recovery contracts.

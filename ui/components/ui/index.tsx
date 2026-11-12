@@ -779,3 +779,5 @@ import "./SetupChoice.css";
 import "./CopyField.css";
 
 export { default as Panel } from "./Panel";
+
+export { default as ConfirmDialog } from './ConfirmDialog';

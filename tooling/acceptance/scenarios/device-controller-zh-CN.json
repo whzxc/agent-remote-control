@@ -1,0 +1,22 @@
+{
+  "language": "zh-CN",
+  "agents": [
+    "codex"
+  ],
+  "tasks": [],
+  "deviceLink": {
+    "state": "controller",
+    "enabled": true
+  },
+  "page": "devices",
+  "viewports": [
+    {
+      "width": 1280,
+      "height": 800
+    },
+    {
+      "width": 640,
+      "height": 800
+    }
+  ]
+}

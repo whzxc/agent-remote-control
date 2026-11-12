@@ -7,7 +7,7 @@ import { connectionExamples, connectionCopy } from "../fixtures/connection-manag
 export default () => (
   <Frame
     name="overview"
-    fixture="p3-workspace-add-light"
+    fixture="p3-workspace-add@light"
     capture={{ selector: ".layer-panel", viewport: "1280x800" }}
   >
     <Panel viewportHeight={800} title={connectionCopy.title}

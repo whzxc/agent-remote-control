@@ -337,8 +337,8 @@ on return. Reading does not acknowledge messages, clear blockers or resume tasks
 `taskAttention` reuses the task activity, execution and pending-input projections.
 Completion-read dismissal never resolves a failed execution. An evidenced
 successful successor removes its predecessor's attention while history remains
-retained. Native shared composition and AX references are specified in
-[the Board specification](coordination-center-spec.md).
+retained. Native AX, notification and blocker attention comes from the existing owners.
+[Remaining Board composition](coordination-center-spec.md) covers shared native task, connection and update attention.
 
 Authenticated local management exposes `coordination.events`, `coordination.board`,
 `coordination.notice_post`, `coordination.notice_update`, `coordination.notice_close`,
@@ -607,3 +607,10 @@ board reports selection counts and coverage only. Local-authority `board({id})`
 also returns `localRecoverySelection`, including unresolved evidence for mediation.
 
 Recovery mail remains pull-only in the existing message store, including when the original session has a verified route. Successor completion is checked again on message reads; obsolete advice is suppressed. Message creation and suppression emit existing coordination message events. Pending owner projections keep clearance selection retryable after a crash. Recovery advice never starts a task.
+
+## Source claims and current authority
+
+The catalog exposes source-owned intent through notice, blocker and message operations.
+`board` with `includeSessions` exposes the registered sessions alongside bounded resource-filtered records.
+There is no separate resource membership registry or publication of arbitrary observed facts.
+[Source-reported event claims](control-plane-proposal.md) remain a separate unimplemented capability.

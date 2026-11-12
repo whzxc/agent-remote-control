@@ -181,7 +181,7 @@ Existing local respond forwarding, submission locks, stable requestId, and recei
 
 ### Entry rendering
 
-User messages are right-aligned light bubbles with 14/14/4/14px corners. They default to a three-line preview. Only overflowing messages show Show more / Show less, with disclosure state retained by entry ID during timeline updates. Overflow is measured again when text or panel width changes. Text/thinking use react-markdown/remark-gfm for tables, links, tasks, and code, skipping raw HTML. Links use platform opening. No syntax-highlighting dependency is added. Existing plainMarkdown and other-page rendering remain.
+User messages are right-aligned light bubbles with 14/14/4/14px corners. They default to a three-line preview. Only overflowing messages show Show more / Show less, with disclosure state retained by entry ID during timeline updates. Overflow is measured again when text or panel width changes. Text/thinking use react-markdown/remark-gfm for tables, links, tasks, and code, skipping raw HTML. Links use platform opening. No syntax-highlighting dependency is added. Other pages retain their shared Markdown renderer.
 
 Entries group by turnId. Transcript or turn-less sessions use one stable fallback turn. Each turn shows its primary user prompt, one work block containing every other entry except the final answer, then the final answer as full Markdown. Native text phase:final_answer takes precedence. Completed turns without that marker use the last text entry after the last non-text entry. Intermediate text stays inside work as a muted expandable line. Steering user entries remain inside work rather than being dropped.
 

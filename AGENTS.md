@@ -24,6 +24,8 @@ MUST means a requirement. SHOULD means the default unless a concrete task-specif
 - UI/UX acceptance (layout, visual states, copy, themes, widths, panel interactions) MUST use browser fixtures only (`npm run accept:ui`, `dev:ui ?scenario=`): no `dev:isolated`, no packaged builds. When a state is not covered, add a fixture instead of falling back to a running app. Isolated-instance runtime acceptance is only for behavior fixtures cannot simulate: native windows and focus, replacement/update lifecycle, real Agent dispatch/resume, and notification delivery.
 - Before a push, UI changes MUST pass `npm test` and the `accept:ui` fixture families they affect.
 - Browser-only fixtures MAY run in the assigned lane with `--lane-fixtures` on a non-default port.
+- Behavior fixture checks run in one theme.
+- Screenshot checks and families that assert theme or color behavior run in both themes.
 - Run the full `accept:ui` sweep before releases.
 - A full `accept:ui` sweep is not required before every push.
 - After direct Cargo builds or tests, run `npm run cache:prune` to check the compilation-cache budget.

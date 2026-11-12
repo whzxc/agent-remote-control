@@ -54,9 +54,9 @@ export function AgentAccountAdd({
   </Dialog>;
 }
 export default () => [
-  <Frame name="oauth" fixture="codex-account-add-oauth-light" capture={{ selector: ".agent-account-add", viewport: "1280x800" }}><AgentAccountAdd /></Frame>,
-  <Frame name="import" fixture="codex-account-add-import-light" capture={{ selector: ".agent-account-add", viewport: "1280x800" }}><AgentAccountAdd method="import" /></Frame>,
-  <Frame name="external" fixture="codex-account-add-external-light" capture={{ selector: ".agent-account-add", viewport: "1280x800" }}><AgentAccountAdd method="import" owner="external" /></Frame>,
+  <Frame name="oauth" fixture="codex-account-add-oauth@light" capture={{ selector: ".agent-account-add", viewport: "1280x800" }}><AgentAccountAdd /></Frame>,
+  <Frame name="import" fixture="codex-account-add-import@light" capture={{ selector: ".agent-account-add", viewport: "1280x800" }}><AgentAccountAdd method="import" /></Frame>,
+  <Frame name="external" fixture="codex-account-add-external@light" capture={{ selector: ".agent-account-add", viewport: "1280x800" }}><AgentAccountAdd method="import" owner="external" /></Frame>,
   ...([
     ['claude-add', 'claude-add'],
     ['reauth', 'reauth'],

@@ -1,0 +1,15 @@
+{
+  "language": "en",
+  "agents": [
+    "codex"
+  ],
+  "tasks": [],
+  "remoteLink": {
+    "pending": false,
+    "connected": false
+  },
+  "sourceSetup": {
+    "step": "connection",
+    "source": "claude"
+  }
+}

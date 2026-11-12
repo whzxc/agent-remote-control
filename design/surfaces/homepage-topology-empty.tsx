@@ -7,7 +7,7 @@ const frames = [
     "name": "empty",
     "width": 1280,
     "height": 800,
-    "fixture": "connections-empty-light",
+    "fixture": "connections-empty@light",
     "capture": {
       "page": true,
       "origin": "0 0",

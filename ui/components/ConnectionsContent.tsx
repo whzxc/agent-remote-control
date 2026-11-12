@@ -14,7 +14,7 @@ import type { Ingress } from "../state/types";
 import IngressDialog from "./IngressDialog";
 import SourceIcon from "./SourceIcon";
 import { RelaySettings } from "./RelaySettings";
-import { DialogClose, Button, CopyField, Dialog, Icon, IconButton, Notice, Status, Tile } from "./ui";
+import { ConfirmDialog, Button, CopyField, Icon, IconButton, Notice, Status, Tile } from "./ui";
 import { Card, CardContent, CardHeader } from "./ui/card";
 
 export function ConnectionsPanel() {
@@ -74,9 +74,9 @@ export default function ConnectionsContent() {
       </section></Card>;
     })}
     {(error || relays.error) && <Notice>{error || t("connect.readFailed")}</Notice>}
-    {removing && <Dialog layerId={removal.layerId} title={t(joined ? "connect.confirm.leave" : "setup.removeConnection")} busy={removeBusy} onClose={() => setRemoving(undefined)} footer={<><DialogClose asChild><Button>{t("cancel")}</Button></DialogClose><Button variant="danger" busy={removeBusy} onClick={() => void removeConnection()}>{t(joined ? "connect.leave" : "remove")}</Button></>}>
+    {removing && <ConfirmDialog layerId={removal.layerId} title={t(joined ? "connect.confirm.leave" : "setup.removeConnection")} busy={removeBusy} onClose={() => setRemoving(undefined)} confirmLabel={t(joined ? "connect.leave" : "remove")} onConfirm={removeConnection}>
       <p>{t("setup.removeConfirm", { name: removing.name, names: visible.filter(s => s.ingressId === removing.id).map(s => s.label).join(", ") || t("source.unused") })}</p>{error && <Notice>{error}</Notice>}
-    </Dialog>}
+    </ConfirmDialog>}
     {editing && <IngressDialog ingress={editing} onClose={() => setEditing(undefined)} onRemoved={() => setEditing(undefined)} onSaved={entry => {
       void api(`ingress/${entry.id}/start`, "POST").then(refreshConnector).catch(e => setError(String(e)));
     }} />}

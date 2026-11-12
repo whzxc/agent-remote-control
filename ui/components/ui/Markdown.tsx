@@ -7,21 +7,6 @@ function inline(text: string): ReactNode[] {
     part.startsWith('**') && part.endsWith('**') ? <strong key={i}>{part.slice(2, -2)}</strong> :
     part.startsWith('*') && part.endsWith('*') ? <em key={i}>{part.slice(1, -1)}</em> : part);
 }
-export function plainMarkdown(text: string) {
-  const lines = text.split(/\r?\n/);
-  const paragraph: string[] = [];
-  let fenced = false;
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]!;
-    if (/^\s*(```|~~~)/.test(line)) { fenced = !fenced; continue; }
-    if (fenced) continue;
-    if (/^\s{0,3}#{1,6}(?:\s|$)/.test(line) || /^\s*(=+|-+)\s*$/.test(lines[i + 1] || "")) { if (paragraph.length) break; if (!line.trimStart().startsWith("#")) i++; continue; }
-    if (!line.trim()) { if (paragraph.length) break; continue; }
-    paragraph.push(line);
-  }
-  return paragraph.join(" ").replace(/^\s*(```|~~~)[^\n]*$/gm, '').replace(/!?(\[([^\]]+)\])\([^)]*\)/g, '$2')
-    .replace(/^\s{0,3}(#{1,6}\s+|>\s*|[-*+]\s+|\d+[.)]\s+)/gm, '').replace(/(`+)(.*?)\1/g, '$2').replace(/(\*\*|__|~~)(.*?)\1/g, '$2').replace(/(^|\s)[*_]([^*_]+)[*_](?=\s|$|[.,!?，。])/g, '$1$2').replace(/\s+/g, ' ').trim();
-}
 export function Markdown({ children }: { children: string }) {
   const lines = children.split(/\r?\n/), blocks: ReactNode[] = [];
   for (let i = 0; i < lines.length;) {
