@@ -23,7 +23,8 @@ export function DeviceNode({ state = 'lan', merged = false, expanded = false, co
   return <div aria-label={`${label} · ${status}`}
     class="flex flex-col items-center text-text" style={{ width: hideLabel ? 48 : 156 }}>
     <TopologyNode label={label} width={156} hideLabel={hideLabel}
-      taskState={state === 'offline' ? unconfirmed : deviceAggregate} graphic={
+      taskState={state === 'offline' ? unconfirmed : deviceAggregate}
+      taskPillAnchor={hideLabel ? "device-corner" : "above-center"} graphic={
       <button aria-label={`Manage ${label}`} aria-expanded={expanded}
         class="relative flex size-12 items-center justify-center text-text">
         <Icon name={controller ? 'monitor' : 'laptop'} size={32} />
@@ -91,7 +92,7 @@ export function DeviceBranch({ state = 'lan', form = 'multiple' }: { state?: Dev
   const merged = form !== 'multiple';
   const expanded = form !== 'merged-collapsed';
   const items: SceneItem[] = [
-    { x: 0, y: expanded ? 90 : 8, content: <DeviceNode state={state} merged={merged} expanded={expanded} /> },
+    { x: 0, y: expanded ? 90 : 28, content: <DeviceNode state={state} merged={merged} expanded={expanded} /> },
   ];
   const paths: ScenePath[] = [];
   const link = (d: string) => paths.push({ d, class: 'stroke-role-agent/55', 'stroke-width': '2' });
@@ -116,7 +117,7 @@ export function DeviceBranch({ state = 'lan', form = 'multiple' }: { state?: Dev
     link('M102 114H140Q152 114 152 102V76Q152 64 164 64H211 M152 114V188Q152 200 164 200H204');
   }
   return <div class={`inline-flex ${state === 'offline' ? 'opacity-40' : ''}`}>
-    <TopologyScene width={!expanded ? 156 : merged ? 300 : 422} height={!expanded ? 104 : merged ? 244 : 296}
+    <TopologyScene width={!expanded ? 156 : merged ? 300 : 422} height={!expanded ? 124 : merged ? 244 : 296}
       transparent items={items} paths={paths} />
   </div>;
 }
@@ -128,8 +129,8 @@ export function PortraitDeviceBranch({ narrow = false }: { narrow?: boolean }) {
   const groupX = narrow ? 154 : 386;
   const links = narrow
     ? ['M326 124H314V24H302 M314 124V264H302', 'M254 24H243 M254 264H218']
-    : ['M568 94H552V34H528 M552 94V254H528', 'M480 34H448 M480 254H448'];
-  return <TopologyScene width={narrow ? 390 : 640} height={310} transparent
+    : ['M568 94H556V34H528 M556 94V254H528', 'M480 34H448 M480 254H448'];
+  return <TopologyScene width={narrow ? 390 : 640} height={320} transparent
     items={[
       { ...device, content: <DeviceNode hideLabel expanded /> },
       ...agentY.map((y, i) => ({ x: agentX, y, content: <TopologyNode hideLabel

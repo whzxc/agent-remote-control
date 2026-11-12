@@ -1,6 +1,6 @@
 import { example } from "../fixtures/topology-node";
 import { Frame } from "adg";
-import { NodeTaskBadge, type NodeTaskState } from "./topology-task-state";
+import { NodeTaskPill, type NodeTaskState } from "./topology-task-state";
 import { AgentIcon, type AgentIconReading, type Brand } from "../components/agent-icon";
 
 export type TopologyNodeProps = {
@@ -13,6 +13,7 @@ export type TopologyNodeProps = {
   hideLabel?: boolean;
   graphic?: unknown;
   taskState?: NodeTaskState;
+  taskPillAnchor?: "above-end" | "above-center" | "below-label" | "rail-left" | "below-icon" | "device-corner";
 };
 export function TopologyNode({
   label,
@@ -24,6 +25,7 @@ export function TopologyNode({
   hideLabel = false,
   graphic: customGraphic,
   taskState,
+  taskPillAnchor = hideLabel ? "below-icon" : "above-end",
 }: TopologyNodeProps) {
   const horizontal = layout !== "vertical";
   const baseGraphic = customGraphic ?? (
@@ -41,9 +43,20 @@ export function TopologyNode({
       </span>
     </span>
   );
+  const anchors = {
+    "above-end": "-top-7 right-0 w-[140px]",
+    "above-center": "-top-7 left-1/2 -translate-x-1/2 w-[140px]",
+    "below-label": "top-[78px] left-1/2 -translate-x-1/2 w-[140px]",
+    "rail-left": "top-3 right-14 w-[104px]",
+    "below-icon": "top-[52px] right-0 w-[104px]",
+    "device-corner": "top-[52px] -left-30 w-[104px]",
+  };
+  const alignment = taskPillAnchor === "above-center" || taskPillAnchor === "below-label" ? "justify-center" : "justify-end";
   const graphic = taskState ? <span class="relative inline-flex shrink-0">
     {baseGraphic}
-    <span class="absolute -top-2 right-1"><NodeTaskBadge state={taskState} label={label} /></span>
+    <span class={`absolute flex ${alignment} ${anchors[taskPillAnchor]}`}>
+      <NodeTaskPill state={taskState} label={label} compact={hideLabel} />
+    </span>
   </span> : baseGraphic;
   return (
     <div

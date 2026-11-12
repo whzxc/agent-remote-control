@@ -43,7 +43,7 @@ const chrome = (width: number, height: number, attention = 2) => [
 export default () => [
   ...retainedSummary(),
   ...controllerForms.map(option => <Frame name={option.name} width={1280} height={800} locale="en"
-    note="Proposed. Static configuration geometry. Task-state badges open scoped execution; offline is unconfirmed.">
+    note="Proposed. Static configuration geometry. Task-state badges open scoped Tasks; offline is unconfirmed.">
     <TopologyScreen width={1280} height={800} scene={{
       nodes: [[132, 366, 17]], tasks: [],
       links: landscapePaths.map((path, i) => i === 3 && option.state === 'offline'
@@ -51,9 +51,9 @@ export default () => [
       mark: { x: 332, y: 300, size: 180, sourceAction: false, agentAction: false },
       chrome: chrome(1280, 800, option.state === 'offline' ? 1 : 2),
       items: [
-        { x: 660, y: 170, content: <TopologyNode label="Codex" brand="codex" taskState={localRunning} /> },
-        { x: 660, y: 280, content: <TopologyNode label="Claude Code" brand="claude-code" taskState={localAttention} /> },
-        { x: 637, y: 'form' in option && option.form === 'merged-collapsed' ? 432 : 350,
+        { x: 660, y: 170, content: <TopologyNode label="Codex" brand="codex" taskState={localRunning} taskPillAnchor="below-label" /> },
+        { x: 660, y: 280, content: <TopologyNode label="Claude Code" brand="claude-code" taskState={localAttention} taskPillAnchor="below-label" /> },
+        { x: 637, y: 'form' in option && option.form === 'merged-collapsed' ? 412 : 350,
           content: <DeviceBranch state={option.state} form={'form' in option ? option.form : undefined} /> },
         { x: 586, y: 704, content: <DeviceAddEndpoint /> },
       ],
@@ -64,15 +64,15 @@ export default () => [
     </TopologyScreen>
   </Frame>),
   ...memberForms.map(({ name, upstreams }) => <Frame name={name} width={1280} height={800} locale="en"
-    note="Proposed. Tier-1 controller source; upstream sources default off. Execution keeps controller attribution.">
+    note="Proposed. Tier-1 controller source; upstream sources default off. Tasks keeps controller attribution.">
     <TopologyScreen width={1280} height={800} scene={{
       nodes: [], tasks: [],
       links: [...memberPaths, ...(upstreams ? upstreamPaths : [])],
       mark: { x: 520, y: 280, size: 240, sourceAction: false, agentAction: false },
       chrome: chrome(1280, 800),
       items: [
-        { x: 836, y: 240, content: <TopologyNode label="Codex" brand="codex" taskState={localRunning} /> },
-        { x: 836, y: 450, content: <TopologyNode label="Claude Code" brand="claude-code" taskState={localAttention} /> },
+        { x: 836, y: 240, content: <TopologyNode label="Codex" brand="codex" taskState={localRunning} taskPillAnchor="below-label" /> },
+        { x: 836, y: 450, content: <TopologyNode label="Claude Code" brand="claude-code" taskState={localAttention} taskPillAnchor="below-label" /> },
         { x: 312, y: 240, content: <DeviceNode controller expanded /> },
         ...(upstreams ? sourceNodes.map(({ x, y, ...props }) => ({ x, y, content: <TopologyNode {...props} /> })) : []),
         { x: 244, y: 526, content: <ControllerSourcePanel upstreams={upstreams} /> },
@@ -93,7 +93,7 @@ export default () => [
         sourceAction: false, agentAction: false },
       chrome: chrome(width, height),
       items: [
-        { x: width - 72, y: 370, content: <TopologyNode hideLabel label="Codex" brand="codex" taskState={localRunning} /> },
+        { x: width - 72, y: 370, content: <TopologyNode hideLabel label="Codex" brand="codex" taskState={localRunning} taskPillAnchor="rail-left" /> },
         { x: 0, y: narrow ? 455 : 430, content: <PortraitDeviceBranch narrow={narrow} /> },
         { x: width - 54, y: narrow ? 742 : 728, content: <DeviceAddEndpoint /> },
       ],

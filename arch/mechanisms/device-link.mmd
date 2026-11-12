@@ -43,9 +43,9 @@ flowchart TB
     add --> right
   end
   geometry["Static topology geometry<br/>configuration and explicit disclosure only<br/>no task nodes, queues, task arcs or focus overlay"]
-  visibility["Execution task visibility<br/>controller sees only tasks it dispatched to this member<br/>member attributes those tasks to controller device"]
+  visibility["Tasks task visibility<br/>controller sees only tasks it dispatched to this member<br/>member attributes those tasks to controller device"]
   VIEW -.-> geometry
-  badges -.->|"activation opens scoped execution"| visibility
+  badges -.->|"activation opens scoped Tasks"| visibility
   lan -.-> VIEW
   tunnel -.-> VIEW
   offline -.->|"fade entire device branch"| right

@@ -25,18 +25,18 @@ Remote recovery retries the remote check or restarts only the affected remote co
 ### Proposed two-mode homepage
 
 **Proposed.** A shared SingleChoice below the centered Board header selects Topology
-or Execution manually. Persist the choice; task activity never switches modes. In
-Topology, the Execution option shows the needs-me count. Node task-state activation
-is explicit navigation to Execution with a highlighted, clearable node filter, scroll
+or Tasks manually. Persist the choice; task activity never switches modes. In
+Topology, the Tasks option shows the needs-me count. Node task-state activation
+is explicit navigation to Tasks with a highlighted, clearable node filter, scroll
 position and keyboard focus at its matching tasks. The filter is transient; manually
-selecting Execution opens all tasks.
+selecting Tasks opens all tasks.
 
 Topology retains the left/right wings, ARC hub and earcups. Its layout inputs are
 configuration, viewport and explicit structural disclosure. Task observations change
 badges only. Task bubbles, queues, task-only tentacles/outer arcs, task-driven layout
 and focus-to-expand task overlays are removed from the proposed homepage.
 
-Execution makes task cards primary. Compact origin icons identify source, remote
+Tasks mode makes task cards primary. Compact origin icons identify source, remote
 device when applicable, Agent and account, without wires. The controller shows only
 tasks it dispatched to a member. A controller-dispatched task on that member uses the
 controller device as its source. Needs me precedes Running and Completed unread;
@@ -44,10 +44,10 @@ Unconfirmed follows, then optional collapsed Recent completed. Offline device ta
 use unconfirmed state and last-seen metadata, without live verbs or counts.
 
 Open detail, separate mark-as-read, and within-group presentation reordering move to
-Execution. Reordering applies to Needs me and Running only. List overflow scrolls;
+Tasks. Reordering applies to Needs me and Running only. List overflow scrolls;
 long titles retain their accessible value. Portrait/mobile use a single column.
-`modules/homepage-mode.tsx`, `modules/execution.tsx` and
-`surfaces/homepage-execution.tsx` own these Proposed forms. Existing approved task
+`modules/homepage-mode.tsx`, `modules/tasks.tsx` and
+`surfaces/homepage-tasks.tsx` own these Proposed forms. Existing approved task
 presentation sources remain retained until their consumers migrate; the mapping owns
 per-part retirement scope. See `arch/mechanisms/homepage-modes.*` for the model.
 
@@ -60,8 +60,8 @@ with optional upstream sources off/on. Portrait 640×800 and mobile 390×844 fol
 accounts/profiles with TopologyGroup and retain accessible node names without visible
 labels. Device nodes retain the existing 48px graphic size. The ARC mark, earcups,
 local tier-1 Agents and shared navigation capsule remain part of the homepage.
-Task activity changes badges only. Task bubbles, queues and task arcs are absent;
-a badge opens execution mode scoped to the node. Offline badges show unconfirmed.
+Task activity changes task pills only. Task bubbles, queues and task arcs are absent;
+a task pill opens Tasks mode scoped to the node. Offline task pills show unconfirmed.
 
 These frames are Proposed. Existing approved summary and workspace sources remain
 retained until topology implementation replaces their consumers. See the mapping for

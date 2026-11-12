@@ -15,7 +15,7 @@ LAN/Tunnel path, latency, last seen and errors appear only on the device node. O
 fades its entire branch.
 
 On a member, its controller is a tier-1 control source and owns dispatch attribution.
-The optional upstream-source tier is off by default. In execution mode, a controller sees only tasks it
+The optional upstream-source tier is off by default. In Tasks mode, a controller sees only tasks it
 dispatched to that member, excluding tasks from the member's own control sources.
 
 Nesting is an acyclic device graph. Pairing rejects self-links and any edge that would
@@ -36,8 +36,8 @@ homepage projection. LAN remains preferred; a sent request never changes path.
 
 The proposed topology is static within its viewport and configuration/disclosure state.
 Only sources, connections, Agents, accounts and paired-device configuration affect its
-layout. Task activity changes node badges only: running count, needs-input/approval
-attention and completed unread. Device badges aggregate the visible task scope. Offline
+layout. Task activity changes node task pills only: running count, needs-input/approval
+attention and completed unread. Device task pills aggregate the visible task scope. Offline
 devices and their Agents show unconfirmed task state with no live counts. Task bubbles,
 queues, task tentacles/outer arcs and focus-to-expand task overlays are absent. Activating
-a task-state badge opens execution mode scoped and focused to that node's tasks.
+a task-state badge opens Tasks mode scoped and focused to that node's tasks.

@@ -1,4 +1,4 @@
-import type { ExecutionTask, OriginStep } from '../modules/execution';
+import type { TaskCardData, OriginStep } from '../modules/tasks';
 
 // Fictional task content and device identities. Native task storage stays runtime-owned.
 const studio: OriginStep = { label: 'Studio account', icon: 'user-round' };
@@ -17,7 +17,7 @@ export const origins = {
   member: [controller, codex, studio],
   offline: [controller, { label: 'Moss Server · offline', icon: 'server' }, codex, work],
 } satisfies Record<string, OriginStep[]>;
-export const tasks: ExecutionTask[] = [
+export const tasks: TaskCardData[] = [
   { id: 'window', node: 'cedar-codex', title: 'Choose the deployment window', group: 'needs-me',
     state: 'Needs input', detail: 'Staging or production?', icon: 'circle-help', origin: origins.remote },
   { id: 'approve', node: 'local-claude', title: 'Approve the migration', group: 'needs-me',
@@ -33,7 +33,7 @@ export const tasks: ExecutionTask[] = [
   { id: 'offline', node: 'moss-codex', title: 'Inspect the storage index', group: 'unconfirmed',
     state: 'Unconfirmed', detail: 'Last seen 18 min ago', icon: 'circle-help', origin: origins.offline },
 ];
-export const memberTasks: ExecutionTask[] = tasks.filter(t => t.node.startsWith('cedar-')).map(task => ({
+export const memberTasks: TaskCardData[] = tasks.filter(t => t.node.startsWith('cedar-')).map(task => ({
   ...task,
   origin: [task.origin[0], ...task.origin.slice(2)],
   detail: task.group === 'running' ? 'Diff' : task.detail,
@@ -44,7 +44,7 @@ export const groups = [
   { id: 'unread', title: 'Completed unread', paint: 'text-accent-text' },
   { id: 'unconfirmed', title: 'Unconfirmed', paint: 'text-text-secondary' },
 ] as const;
-export const executionCopy = {
+export const tasksCopy = {
   tasks: 'Tasks', empty: 'No tasks', open: 'Open task detail', markRead: 'Mark as read',
   more: 'More task actions', moveUp: 'Move up', moveDown: 'Move down',
   filter: 'Cedar Mac · Codex', clear: 'Clear node filter', filtered: 'Tasks for Cedar Mac · Codex',

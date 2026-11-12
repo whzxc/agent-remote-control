@@ -6,12 +6,12 @@ import { IconButton } from '../components/icon-button';
 import { Disclosure } from '../components/tag';
 import { Tile } from '../components/tile';
 import { TaskRow } from './task-presentation';
-import { tasks, origins, groups, executionCopy as copy } from '../fixtures/execution';
+import { tasks, origins, groups, tasksCopy as copy } from '../fixtures/tasks';
 
 export type OriginStep = { label: string; brand?: Brand; icon?: string };
-export type ExecutionGroup = 'needs-me' | 'running' | 'unread' | 'unconfirmed';
-export type ExecutionTask = {
-  id: string; node: string; title: string; group: ExecutionGroup;
+export type TaskGroup = 'needs-me' | 'running' | 'unread' | 'unconfirmed';
+export type TaskCardData = {
+  id: string; node: string; title: string; group: TaskGroup;
   state: string; detail: string; icon: string; origin: readonly OriginStep[];
 };
 
@@ -27,7 +27,7 @@ export function OriginChain({ steps }: { steps: readonly OriginStep[] }) {
   </span>;
 }
 
-export function ExecutionTaskCard({ task }: { task: ExecutionTask }) {
+export function TaskCard({ task }: { task: TaskCardData }) {
   const attention = task.group === 'needs-me', unread = task.group === 'unread';
   const tone = attention ? 'warning' : unread ? 'success' : task.group === 'unconfirmed' ? 'neutral' : 'command';
   return <article aria-label={task.title} class="min-w-0">
@@ -56,7 +56,7 @@ export function NodeTaskFilter() {
   </div>;
 }
 
-export function ExecutionTaskOverflow() {
+export function TaskOverflow() {
   return <div class="inline-flex w-[180px] flex-col items-end gap-1">
     <IconButton icon="ellipsis" label={copy.more} active compact />
     <Card class="p-2! gap-1! shadow-md">
@@ -67,8 +67,8 @@ export function ExecutionTaskOverflow() {
   </div>;
 }
 
-export function ExecutionList({ items = tasks, columns = 2, focused = false }: {
-  items?: readonly ExecutionTask[]; columns?: 1 | 2; focused?: boolean;
+export function TasksList({ items = tasks, columns = 2, focused = false }: {
+  items?: readonly TaskCardData[]; columns?: 1 | 2; focused?: boolean;
 }) {
   return <div class="mx-auto flex w-full max-w-[960px] flex-col gap-3">
     {focused && <NodeTaskFilter />}
@@ -79,7 +79,7 @@ export function ExecutionList({ items = tasks, columns = 2, focused = false }: {
           {group.title}<span class="text-meta tabular-nums text-text-tertiary">{members.length}</span>
         </h2>
         <div class={columns === 2 ? 'grid grid-cols-2 gap-2' : 'flex flex-col gap-2'}>
-          {members.map(task => <ExecutionTaskCard task={task} />)}
+          {members.map(task => <TaskCard task={task} />)}
         </div>
       </section>;
     })}
@@ -89,17 +89,17 @@ export function ExecutionList({ items = tasks, columns = 2, focused = false }: {
   </div>;
 }
 
-export function ExecutionEmpty() {
+export function TasksEmpty() {
   return <div class="flex h-full w-full flex-col items-center justify-center gap-3 text-text-secondary">
     <Tile icon="inbox" tone="neutral" /><h2 class="text-title font-semibold">{copy.empty}</h2>
   </div>;
 }
 
 export default () => [
-  ...tasks.map(task => <Frame name={`execution-task-card-${task.id}`} width={468}><ExecutionTaskCard task={task} /></Frame>),
+  ...tasks.map(task => <Frame name={`task-card-${task.id}`} width={468}><TaskCard task={task} /></Frame>),
   ...Object.entries(origins).filter(([name]) => ['local', 'remote', 'member', 'offline'].includes(name))
     .map(([name, steps]) => <Frame name={`origin-chain-${name}`}><OriginChain steps={steps} /></Frame>),
   <Frame name="node-task-filter"><NodeTaskFilter /></Frame>,
-  <Frame name="execution-task-overflow"><ExecutionTaskOverflow /></Frame>,
-  <Frame name="execution-empty" width={360} height={180}><ExecutionEmpty /></Frame>,
+  <Frame name="task-overflow"><TaskOverflow /></Frame>,
+  <Frame name="tasks-empty" width={360} height={180}><TasksEmpty /></Frame>,
 ];

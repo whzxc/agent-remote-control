@@ -3,12 +3,12 @@ import { SingleChoice } from '../components/single-choice';
 import { BoardHeader } from './board-header';
 import { modeCopy as copy, modeForms } from '../fixtures/homepage-mode';
 
-export type HomepageMode = 'topology' | 'execution';
+export type HomepageMode = 'topology' | 'tasks';
 
 export function HomepageModeSwitch({ mode, attention = 0 }: { mode: HomepageMode; attention?: number }) {
   return <SingleChoice label={copy.label} value={mode} options={[
     { value: 'topology', label: copy.topology },
-    { value: 'execution', label: copy.execution, graphic: mode === 'topology' && attention > 0
+    { value: 'tasks', label: copy.tasks, graphic: mode === 'topology' && attention > 0
       ? <span aria-label={`${attention} need me`} class="mr-1 flex h-[18px] min-w-[18px] items-center justify-center
           rounded-full bg-warning px-1 text-caption font-semibold text-canvas">{attention}</span> : undefined },
   ]} />;

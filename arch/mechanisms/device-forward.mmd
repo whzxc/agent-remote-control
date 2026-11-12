@@ -21,8 +21,8 @@ sequenceDiagram
     R->>N: Agent or host op runs natively
     R-->>C: member result
     C->>C: associate member task with controller and originating source
-    Note over C,R: Execution projection includes only tasks this controller dispatched to this member
-    Note right of R: Execution origin: controller device as source · own-source tasks stay local
+    Note over C,R: Tasks projection includes only tasks this controller dispatched to this member
+    Note right of R: Task origin: controller device as source · own-source tasks stay local
     C-->>S: member result, or uncertain with receipt read
   end
   C->>M: ordinary peer request: events cursor, wait up to 25 s
