@@ -700,11 +700,7 @@ textarea.input {
   border-radius: var(--radius-panel);
   box-shadow: var(--shadow-md);
   z-index: 100;
-  animation: dialog-in var(--duration-panel) var(--ease);
   outline: none;
-}
-.dialog-wide {
-  width: min(880px, calc(100vw - 32px));
 }
 .dialog-header {
   display: flex;
@@ -832,16 +828,6 @@ textarea.input {
   }
   to {
     opacity: 1;
-  }
-}
-@keyframes dialog-in {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -48%) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
   }
 }
 @media (max-width: 600px) {

@@ -1,3 +1,4 @@
+import { useDialogCompletion } from "./ui/Dialog";
 import { useState, useRef, useEffect, type ReactNode, type ComponentProps } from "react";
 import { ChevronLeft } from "lucide-react";
 import { api } from "../api";
@@ -35,25 +36,26 @@ export default function IngressDialog({
   initialProvider,
   focusField,
   onClose,
-  onDismiss,
   onSaved,
   onRemoved,
   embedded = false,
   onBusy,
+  onDirty,
   setupFormId,
 }: {
   initialTransport?: "https" | "openai-tunnel";
   initialProvider?: "custom";
   embedded?: boolean;
   onBusy?: (busy: boolean) => void;
+  onDirty?: (dirty: boolean) => void;
   setupFormId?: string;
   ingress?: Ingress;
   focusField?: string;
   onClose: () => void;
-  onDismiss?: () => void;
   onSaved: (ingress: Ingress) => void;
   onRemoved: () => void;
 }) {
+  const completion = useDialogCompletion(onClose);
   const { status } = connector.use();
   const ingress = status?.ingresses.find(i => i.id === initialIngress?.id) ?? initialIngress;
   const dirty = useRef(new Set<string>());
@@ -196,7 +198,9 @@ export default function IngressDialog({
         { ...metadata, transport: https ? "https" : "openai-tunnel", config },
       );
       await refreshConnector().catch(() => {});
+      dirty.current.clear(); onDirty?.(false);
       onSaved(saved);
+      if (!embedded && !setupFormId) await completion.finish();
     } catch (e) {
       setError(String(e));
     } finally {
@@ -255,6 +259,7 @@ export default function IngressDialog({
     </Field>
   );
   useEffect(() => { onBusy?.(working); return () => onBusy?.(false); }, [working, onBusy]);
+  useEffect(() => { onDirty?.(dirty.current.size > 0); }, [name, form, auth, toolPolicy, onDirty]);
   const nameField = (<Field
             id="ingress-name"
             label={t("setup.connectionName")}
@@ -275,11 +280,10 @@ export default function IngressDialog({
           </Field>);
   const Frame = setupFormId ? IngressSetupBody : embedded ? IngressEditLayer : Dialog;
   return (
-    <Frame
+    <Frame layerId={completion.layerId} size="m" dirty={dirty.current.size > 0}
       initialFocus={focusField ? `ingress-${focusField}` : undefined}
       title={t(ingress ? "source.editConnection" : "source.newConnection")}
       onClose={onClose}
-      onDismiss={onDismiss ?? onClose}
       busy={working}
       footer={
           <>
@@ -293,8 +297,8 @@ export default function IngressDialog({
               </Button>
             )}
             <span className="spacer" />
-            {embedded ? <Button disabled={working} onClick={onClose}>{t("cancel")}</Button> : <DialogClose asChild>
-              <Button disabled={working}>{t("cancel")}</Button>
+            {embedded ? <Button onClick={onClose}>{t("cancel")}</Button> : <DialogClose asChild>
+              <Button>{t("cancel")}</Button>
             </DialogClose>}
             <Button
               variant="primary"

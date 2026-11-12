@@ -98,9 +98,10 @@ function DefaultsFields({ agent, defaults, effort: withEffort, inheritLabel, row
 }
 
 /** Edit the policy defaults used when a control source omits model or effort. */
-export default function AgentDispatchDefaults({ agent }: { agent: string }) {
+export default function AgentDispatchDefaults({ agent, onBusy }: { agent: string; onBusy?: (busy: boolean) => void }) {
   const codex = agent === "codex";
-  const { defaults, error, save } = useDefaults("agents/dispatch-defaults/read", "agents/dispatch-defaults", { agent });
+  const { defaults, error, saving, save } = useDefaults("agents/dispatch-defaults/read", "agents/dispatch-defaults", { agent });
+  useEffect(() => { onBusy?.(saving); return () => onBusy?.(false); }, [saving, onBusy]);
   if (!defaults) return error ? <Notice>{error}</Notice> : null;
   return <SettingsSection title={t("dispatchDefaults.title", { agent: name(orderedAgents().find(row => row.agent === agent) ?? { agent }) })}>
     {error && <Notice>{error}</Notice>}
@@ -124,9 +125,8 @@ export function TaskSpecChoice({ agent, threadId, taskId, summary, editable }: {
 }
 
 function TaskDispatchDialog({ agent, threadId, onClose }: { agent: string; threadId: string; onClose: () => void }) {
-  const { defaults, error, save } = useDefaults("tasks/dispatch-defaults/read", "tasks/dispatch-defaults", { threadId });
-  // Autosaves belong to the record and survive dismissal; they must not consume Escape.
-  return <Dialog title={t("taskDispatch.title")} onClose={onClose} width={440} description={t("taskDispatch.hint")}>
+  const { defaults, error, saving, save } = useDefaults("tasks/dispatch-defaults/read", "tasks/dispatch-defaults", { threadId });
+  return <Dialog size="s" busy={saving} title={t("taskDispatch.title")} onClose={onClose} description={t("taskDispatch.hint")}>
     {error && <Notice>{error}</Notice>}
     {defaults && <div className="form">
       <DefaultsFields agent={agent} defaults={defaults} effort inline inheritLabel={t("taskDispatch.inherit")}

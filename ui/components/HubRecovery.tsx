@@ -1,3 +1,4 @@
+import { useDialogCompletion } from "./ui/Dialog";
 import { useState } from "react";
 import { api } from "../api";
 import { t } from "../i18n";
@@ -20,6 +21,7 @@ export default function HubRecovery({ side, onClose, openCore }: {
   const { hubHealth } = connector.use();
   const [busy, setBusy] = useState<string>();
   const [error, setError] = useState("");
+  const completion = useDialogCompletion(onClose);
   const remote = side === "remote";
   const blocked = remote && hubHealth?.core !== "ready";
   const stopped = hubHealth?.core === "stopped";
@@ -29,7 +31,7 @@ export default function HubRecovery({ side, onClose, openCore }: {
     setBusy(action);
     setError("");
     try {
-      if (await work()) onClose();
+      if (await work()) await completion.finish();
     } catch (failure) {
       setError(String(failure));
     } finally {
@@ -48,7 +50,7 @@ export default function HubRecovery({ side, onClose, openCore }: {
   const reason = remote
     ? blocked ? "hub.remoteBlocked" : hubHealth?.remoteUnavailable ? "hub.remoteCheckFailed" : "hub.remoteFailed"
     : stopped ? "hub.coreStopped" : "hub.coreFailed";
-  return <Dialog centered width={380} title={t(remote ? "hub.remoteRecoveryTitle" : "hub.coreRecoveryTitle")}
+  return <Dialog layerId={completion.layerId} size="s" title={t(remote ? "hub.remoteRecoveryTitle" : "hub.coreRecoveryTitle")}
     busy={!!busy} onClose={onClose} returnFocus={remote ? ".hub-remote-recovery, .hub-arc:not([data-paired]) .hub-connections" : ".hub-core-action"}
     footer={blocked
       ? <Button variant="primary" onClick={openCore}>{t("hub.openCoreRecovery")}</Button>

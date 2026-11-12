@@ -4,6 +4,7 @@ import { Window } from 'happy-dom';
 import { createServer } from 'vite';
 import { act, createElement as h, useLayoutEffect, useRef } from 'react';
 import { within, fireEvent } from '@testing-library/dom';
+import { assertNodeIdentity } from './helpers/dom-assert.ts';
 
 test('Board update attention opens a focused update panel and Escape returns to its row', { timeout: 10000 }, async () => {
   // Regression: coordination-problems dismissed App updates during the Board focus handoff at 1280x800.
@@ -69,13 +70,13 @@ test('Board update attention opens a focused update panel and Escape returns to 
     const link = within(board.getByRole('region', { name: t('center.attention'), exact: true })).getByRole('button', { name: linkName });
     await act(async () => { link.focus(); fireEvent.click(link); });
     await settle();
-    assert.equal(page.queryByRole('dialog', { name: t('center.title'), exact: true }), null);
+    assertNodeIdentity(page.queryByRole('dialog', { name: t('center.title'), exact: true }), null);
     const owner = page.getByRole('dialog', { name: t('appUpdates'), exact: true });
     const close = within(owner).getByRole('button', { name: t('close'), exact: true });
     assert.ok(close.matches(':focus'));
     await act(async () => { fireEvent.keyDown(close, { key: 'Escape' }); });
     await settle();
-    assert.equal(page.queryByRole('dialog', { name: t('appUpdates'), exact: true }), null);
+    assertNodeIdentity(page.queryByRole('dialog', { name: t('appUpdates'), exact: true }), null);
     const returned = within(page.getByRole('dialog', { name: t('center.title'), exact: true }));
     assert.ok(within(returned.getByRole('region', { name: t('center.attention'), exact: true })).getByRole('button', { name: linkName }).matches(':focus'));
   } finally {

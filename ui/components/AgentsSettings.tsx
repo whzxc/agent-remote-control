@@ -1,3 +1,4 @@
+import WorkspacePanel from "./WorkspacePanel";
 import { readOnlyBrowser } from "../browserMode";
 import { useReducedMotion } from "../state/appEnvironment";
 import { useState, type ReactNode } from "react";
@@ -104,13 +105,14 @@ export function AgentDetails({
   const inventory = agents.use();
   const agent = inventory.items.find((item) => item.agent === selected.agent) || selected;
   const { snapshot } = subscriptions.use();
+  const [savingDefaults, setSavingDefaults] = useState(false);
   const provider = snapshot?.settings.enabled
     ? snapshot.providers.find(
         (p) => p.agentIds.includes(agent.agent) && p.eligible,
       )
     : undefined;
   return (
-    <Dialog title={name(agent)} onClose={onClose} headerless>
+    <Dialog size="l" busy={savingDefaults} title={name(agent)} onClose={onClose} headerless>
       <div className="agent-summary">
         <BrandMark markup={icons[agent.agent]} />
         <div>
@@ -122,7 +124,7 @@ export function AgentDetails({
       {agent.discoveryError && agent.discoveryError !== "AGENT_NOT_INSTALLED" &&
         <Notice>{<>{discoveryMessage(agent)}<br /><small>{agent.discoveryError}</small></>}</Notice>}
       {provider && <QuotaBubble provider={provider} />}
-      {agent.installed && <AgentDispatchDefaults agent={agent.agent} />}
+      {agent.installed && <AgentDispatchDefaults agent={agent.agent} onBusy={setSavingDefaults} />}
     </Dialog>
   );
 }
@@ -140,10 +142,10 @@ export default function AgentsSettings({ onClose, initialAgent }: { onClose: () 
   }
   return (
     <>
-      <Dialog
+      <WorkspacePanel className="settings-dialog"
         title={t("agents")}
+        width={720}
         onClose={onClose}
-        wide
         actions={
           <>
             <IconButton
@@ -268,7 +270,7 @@ export default function AgentsSettings({ onClose, initialAgent }: { onClose: () 
         </div>
         </>}
         {error && <Notice>{error}</Notice>}
-      </Dialog>
+      </WorkspacePanel>
       {detail && (
         <AgentDetails showOfficialLink agent={detail} onClose={() => setDetail(undefined)} />
       )}{" "}

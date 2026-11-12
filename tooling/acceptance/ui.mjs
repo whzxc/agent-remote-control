@@ -529,13 +529,13 @@ try {
           const layout = await page.getByRole('dialog', { includeHidden: true }).evaluateAll(dialogs => {
             return dialogs.filter(dialog => dialog.querySelector('.setup-steps')).map(dialog => {
               const rect = dialog.getBoundingClientRect(), body = dialog.querySelector('.dialog-body');
-              const viewportMargin = Number.parseFloat(getComputedStyle(dialog).getPropertyValue('--setup-viewport-margin'));
+              const viewportMargin = Number.parseFloat(getComputedStyle(dialog).getPropertyValue('--layer-side-margin'));
               const tiles = [...dialog.querySelectorAll('.choice-tiles .choice-radio')].map(grid => [...grid.children].map(tile => {
                 const r = tile.getBoundingClientRect(); return { width: r.width, top: r.top };
               }));
-              return { recessed: dialog.hasAttribute('data-recessed'), stacked: !!dialog.querySelector('.setup-return'),
+              return { recessed: dialog.inert, stacked: !!dialog.querySelector('.setup-return'),
                 x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height,
-                growthRoom: innerHeight - viewportMargin - rect.height,
+                growthRoom: innerHeight - viewportMargin - rect.bottom,
                 scroll: body.scrollHeight - body.clientHeight, horizontalScroll: body.scrollWidth - body.clientWidth, tiles };
             });
           });
@@ -548,7 +548,8 @@ try {
             for (const tiles of dialog.tiles) {
               if (tiles.length >= 3 && (Math.abs(tiles[0].width - tiles[1].width) > 1 || Math.abs(tiles[1].width - tiles[2].width) > 1 || tiles[0].top !== tiles[2].top)) throw new Error('Platform grid is not three equal columns');
             }
-            if (dialog.stacked && !layout.some(parent => parent.recessed && parent.width > dialog.width)) throw new Error('Stacked dialog is not narrower than its parent');
+            if (dialog.stacked && !layout.some(parent => parent.recessed && Math.abs(parent.x - dialog.x) <= 1
+              && Math.abs(parent.y - dialog.y) <= 1 && Math.abs(parent.width - dialog.width) <= 1)) throw new Error('Stacked setup dialogs do not retain the same slot and size class');
           }
         }
         if (fixture.update && !fixture.coordination) {

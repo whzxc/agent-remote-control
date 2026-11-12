@@ -28,10 +28,6 @@
 .update-note-version { margin-inline-start: 8px; white-space: nowrap; font-size: var(--text-meta); color: var(--text-tertiary); }
 .update-panel-footer { display: grid; flex: none; gap: 12px; margin-top: 8px; }
 .update-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
-.dialog.elastic-panel.update-history { --panel-border: 0px; border: 0; border-radius: var(--radius-panel); background: var(--surface-raised); box-shadow: var(--shadow-lg); }
-.update-history.elastic-panel .dialog-header { min-height: 47px; padding: 13px 24px 0; }
-.update-history.elastic-panel .dialog-header h2 { font-size: var(--text-title); font-weight: 650; line-height: 24px; }
-.update-history.elastic-panel .dialog-body { padding: 25px 24px 24px; }
 .update-history-list { display: flex; flex-direction: column; gap: 12px; max-height: 360px; overflow-y: auto; }
 .update-history-link { display: flex; justify-content: flex-end; margin-top: 16px; }
 .update-history-link .button { height: 24px; }

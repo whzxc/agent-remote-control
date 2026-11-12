@@ -25,7 +25,6 @@ import {
   Progress as R,
 } from "radix-ui";
 import {
-  X,
   Bot,
   Check,
   ChevronDown,
@@ -595,17 +594,8 @@ export function SingleChoice({
     </div>
   );
 }
-export function DetailDialog({ trigger, title, children }: { trigger: ReactNode; title: ReactNode; children: ReactNode }) {
-  return <D.Root><D.Trigger asChild>{trigger}</D.Trigger><D.Portal>
-    <D.Overlay className="detail-dialog-overlay" />
-    <D.Content className="detail-dialog" aria-describedby={undefined}>
-      <header><D.Title>{title}</D.Title><D.Close asChild><IconButton icon={X} label={t("close")} /></D.Close></header>
-      <div className="detail-dialog-body"><div className="detail-dialog-content">{children}</div></div>
-    </D.Content>
-  </D.Portal></D.Root>;
-}
 export const DialogClose = D.Close;
-export { default as Dialog } from "../ElasticPanel";
+export { default as Dialog, DialogActions } from "./Dialog";
 export function Tooltip({
   text,
   children,
@@ -790,7 +780,6 @@ export function CopyField({
 }
 
 
-import "./DetailDialog.css";
 
 import "./TaskControls.css";
 import "./SetupChoice.css";

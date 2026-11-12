@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePetMotion } from '../pets/usePetMotion';
-import { panelLayers } from '../state/panels';
+import { layers as layerStore } from '../state/layers';
 
 // Share the existing event-driven native visibility and reduced-motion policy.
 export function useStudioMotion(enabled: boolean) {
-  const motion = usePetMotion(), layers = panelLayers.use();
+  const motion = usePetMotion(), layers = layerStore.use();
   const [idle, setIdle] = useState(false);
   const hovering = useRef(false);
   useEffect(() => {
@@ -21,7 +21,7 @@ export function useStudioMotion(enabled: boolean) {
       timer = setTimeout(() => {
         // A removed popup does not always dispatch pointerout to its old control.
         hovering.current = !!document.querySelector(hoverSelector);
-        if (!hovering.current && !focusOwnsAttention() && !panelLayers.get().length &&
+        if (!hovering.current && !focusOwnsAttention() && !layerStore.get().length &&
           !document.querySelector('[role="dialog"], [role="menu"], [role="listbox"], [data-radix-popper-content-wrapper]')) setIdle(true);
       }, 2400);
     };

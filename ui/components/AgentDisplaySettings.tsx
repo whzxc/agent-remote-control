@@ -30,6 +30,7 @@ export default function AgentDisplaySettings({
     layout = topologyLayout.use(), quota = quotaDisplay.use(),
     reset = resetDisplay.use(),
     max = maxVisibleAgents.use(), density = bubbleDensity.use(), width = bubbleWidth.use(), autoCompact = bubbleAutoCompact.use();
+  const [defaultsBusy, setDefaultsBusy] = useState(false);
   const [saving, setSaving] = useState(false),
     [error, setError] = useState("");
   async function save(action: () => Promise<unknown>) {
@@ -44,10 +45,10 @@ export default function AgentDisplaySettings({
     }
   }
   return (
-    <Dialog title={t("agentDisplaySettings")} onClose={onClose} busy={saving}>
+    <Dialog size="l" title={t("agentDisplaySettings")} onClose={onClose} busy={saving || defaultsBusy}>
       <div className="settings-stack display-settings">
       {error && <Notice>{error}</Notice>}
-      {agent && <AgentDispatchDefaults agent={agent} />}
+      {agent && <AgentDispatchDefaults agent={agent} onBusy={setDefaultsBusy} />}
       <Group title={t("activity.bubbleSettings")}>
         <div className="activity-preview" aria-label={t("activity.preview")}>
           <div className="activity-bubble" data-density={density} style={{ "--bubble-width": `${bubbleWidths[width]}px`, "--bubble-height": `${bubbleHeights[density]}px` } as CSSProperties}>

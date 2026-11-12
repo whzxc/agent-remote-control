@@ -1,3 +1,4 @@
+import Dialog from "./ElasticPanel";
 import { readOnlyBrowser } from "../browserMode";
 import PetPicker from '../pets/PetPicker';
 import { controlSourcePlatform } from '../controlSources';
@@ -17,7 +18,7 @@ import { compactAgentVersion, name, type Agent } from "../state/agents";
 import { connector } from "../state/connector";
 import { AgentQuotaIcon } from "../subscriptions/AgentQuotaIcon";
 import { errorLabels } from "../subscriptions/presentation";
-import { Button, Dialog, IconButton, Notice } from "./ui";
+import { Button,  IconButton, Notice } from "./ui";
 import AgentPlatformView from "./AgentPlatformView";
 import AgentConversations, { readConversationPage, type InitialAgentHistory } from "./AgentConversations";
 import { useDockOpening } from "./useDockOpening";

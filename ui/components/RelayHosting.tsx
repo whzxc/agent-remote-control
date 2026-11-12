@@ -1,3 +1,4 @@
+import { DialogActions, useDialogCompletion } from "./ui/Dialog";
 import { Sensitive } from "./Sensitive";
 import { useCallback, useEffect, useState } from "react";
 import { Cloud, RefreshCw } from "lucide-react";
@@ -33,6 +34,7 @@ function HostedRelay({ relay, version, startJob, disabled }: {
   const [members, setMembers] = useState<Member[]>([]), [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(""), [error, setError] = useState(""), [membersError, setMembersError] = useState("");
   const [confirm, setConfirm] = useState<Confirmation>();
+  const confirmation = useDialogCompletion(() => setConfirm(undefined));
   useAppNow(30_000);
   const ingress = status?.ingresses.find(value => value.id === relay.ingressId);
   const readMembers = useCallback(async () => {
@@ -53,7 +55,7 @@ function HostedRelay({ relay, version, startJob, disabled }: {
         if (name === "reset-token") notify(t("hosting.inviteReset"));
         if (name === "remove") await readMembers();
       }
-      setConfirm(undefined);
+      await confirmation.finish();
     } catch { setError(t("connect.actionFailed")); }
     finally { setBusy(""); }
   }
@@ -100,8 +102,8 @@ function HostedRelay({ relay, version, startJob, disabled }: {
       <Button variant="danger" disabled={blocked} onClick={() => { setError(""); setConfirm("delete"); }}>{t("hosting.delete")}</Button>
     </div>
     {error && !confirm && <Notice tone="danger">{error}</Notice>}
-    {confirm && <Dialog title={t(confirm === "reset-token" ? "hosting.resetTitle" : confirm === "delete" ? "hosting.deleteTitle" : "connect.confirm.remove")} width={440} onClose={() => setConfirm(undefined)} busy={!!busy} footer={<>
-      <Button disabled={!!busy} onClick={() => setConfirm(undefined)}>{t("cancel")}</Button>
+    {confirm && <Dialog layerId={confirmation.layerId} size="s" title={t(confirm === "reset-token" ? "hosting.resetTitle" : confirm === "delete" ? "hosting.deleteTitle" : "connect.confirm.remove")} onClose={() => setConfirm(undefined)} busy={!!busy} footer={<>
+      <Button onClick={() => setConfirm(undefined)}>{t("cancel")}</Button>
       <Button variant={confirm === "reset-token" ? "primary" : "danger"} busy={!!busy} onClick={() => void action(typeof confirm === "string" ? confirm : "remove", typeof confirm === "object" ? confirm : undefined)}>{t(confirm === "reset-token" ? "hosting.reset" : confirm === "delete" ? "delete" : "hosting.remove")}</Button>
     </>}>
       <p>{t(confirm === "reset-token" ? "hosting.resetDescription" : confirm === "delete" ? "hosting.deleteDescription" : "hosting.removeDescription", { name: typeof confirm === "object" ? name(confirm) : "" })}</p>
@@ -116,8 +118,9 @@ export default function RelayHosting() {
   const [job, setJob] = useState<Job>(), [deploy, setDeploy] = useState(false), [busy, setBusy] = useState(false);
   const [account, setAccount] = useState(""), [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
+  const deployment = useDialogCompletion(() => { setJob(undefined); setDeploy(false); setAccount(""); });
   const { progress, setProgress, error: progressError } = useRelayProgress(!!job, () => {
-    setJob(undefined); setDeploy(false); setAccount(""); setRevision(value => value + 1);
+    void deployment.finish(); setRevision(value => value + 1);
     void relays.refresh().catch(() => {}); void refreshConnector().catch(() => {});
   });
   useEffect(() => {
@@ -139,8 +142,8 @@ export default function RelayHosting() {
   }
   async function cancel() {
     setBusy(true); setError("");
-    try { await api("relay/cancel", "POST"); setJob(undefined); setDeploy(false); setAccount(""); await relays.refresh(); await refreshConnector(); }
-    catch { setError(t("connect.actionFailed")); }
+    try { await api("relay/cancel", "POST"); setJob(undefined); setDeploy(false); setAccount(""); await relays.refresh(); await refreshConnector(); return true; }
+    catch { setError(t("connect.actionFailed")); return false; }
     finally { setBusy(false); }
   }
   const owners = relays.relays.filter(relay => relay.owner);
@@ -152,12 +155,13 @@ export default function RelayHosting() {
     {relays.error && <Notice tone="danger" action={<Button onClick={() => void relays.refresh().catch(() => {})}>{t("retry")}</Button>}>{t("connect.readFailed")}</Notice>}
     {error && !deploy && !job && <Notice tone="danger">{error}</Notice>}
     {owners.map(relay => <HostedRelay key={`${relay.id}:${revision}`} relay={relay} version={relays.version} startJob={startJob} disabled={busy || !!job} />)}
-    {(deploy || job) && <Dialog title={t(job?.action === "delete" ? "hosting.deleteTitle" : job?.action === "redeploy" ? "connect.updateRelay" : "hosting.deploy")} width={440} busy={busy || !!job && progress.phase !== "failed"} onClose={() => { setDeploy(false); setJob(undefined); setError(""); }}>
+    {(deploy || job) && <Dialog layerId={deployment.layerId} size="m" title={t(job?.action === "delete" ? "hosting.deleteTitle" : job?.action === "redeploy" ? "connect.updateRelay" : "hosting.deploy")} busy={busy || !!job && ["login", "deploying", "connecting"].includes(progress.phase)} dirty={!!account}
+      onCancel={job ? cancel : undefined} onClose={() => { setDeploy(false); setJob(undefined); setError(""); }}>
       {error && <Notice tone="danger">{error}</Notice>}
       {progressError && job && <Notice tone="danger">{t("connect.readFailed")}</Notice>}
       {job ? <RelayProgress progress={progress} busy={busy} account={account} setAccount={setAccount} onCancel={() => void cancel()} onRetry={() => void startJob({ action: job.action === "create" && progress.relayId ? "redeploy" : job.action, id: progress.relayId ?? job.id })} /> : <form onSubmit={event => { event.preventDefault(); void startJob({ action: "create" }); }}>
         <p className="muted">{t("connect.freeAccount")}</p>
-        <div className="actions"><Button type="submit" variant="primary" busy={busy}>{t("hosting.deploy")}</Button></div>
+        <DialogActions><Button type="submit" variant="primary" busy={busy}>{t("hosting.deploy")}</Button></DialogActions>
       </form>}
     </Dialog>}
   </div>;

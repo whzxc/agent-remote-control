@@ -16,7 +16,7 @@ import { BrandMark } from '../components/ui';
 import SourceIcon from '../components/SourceIcon';
 import { icons } from '../state/agents';
 import type { ProviderSnapshot } from '../subscriptions/types';
-import { panelLayers } from '../state/panels';
+import { layers as layerStore } from '../state/layers';
 import { topologyCollapsed } from './accountState';
 import { highlightedPaths, type PathTask } from './accounts';
 import { observeTopology } from "../acceptance";
@@ -225,7 +225,7 @@ export default function Topology({ left: inputLeft, right: inputRight, accountsE
       }
     };
     const escape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || event.defaultPrevented || latest.current.panelKey || panelLayers.get().length) return;
+      if (event.key !== 'Escape' || event.defaultPrevented || latest.current.panelKey || layerStore.get().length) return;
       event.preventDefault(); foldGroup(openedGroup.id);
     };
     document.addEventListener('pointerdown', outside);

@@ -1,3 +1,4 @@
+import { DialogActions, useDialogCompletion } from "../components/ui/Dialog";
 import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowLeft, ChevronRight, Laptop, Maximize2, Minimize2, Monitor, Pencil, Plus, Server, Unlink, X } from 'lucide-react';
 import { api } from '../api';
@@ -67,7 +68,7 @@ function PairDialog({ close }: { close: () => void }) {
   useEffect(() => { if (error) input.current?.focus(); }, [pair.state, error]);
   const titles: Record<string, string> = { invalid: 'invalid', expired: 'expired', protocol: 'protocol', declined: 'declined', unreachable: 'unreachable' };
   const member = pair.memberId && pairedDevices(snapshot).find(device => device.id === pair.memberId);
-  return <Dialog title={c('add')} width={560} className="device-dialog" onClose={dismiss} returnFocus="[data-device-add]">
+  return <Dialog size="m" title={c('add')} className="device-dialog" onClose={dismiss} dirty={!!pair.input && !success} busy={waiting} returnFocus="[data-device-add]">
     <form className="device-form" onSubmit={event => { event.preventDefault(); if (!waiting && !success) void connectDevice(); }}>
       {success ? <Notice layout="inline" tone="success" title={c('paired', { name: pair.name })}>{member ? <span className="device-success-status">{`${c(member.state)} · ${c(member.path === 'lan' ? 'lan' : 'tunnelPath')}${member.latency !== null ? ` · ${member.latency} ms` : ''}`}</span> : null}</Notice> : <>
         <Field id={inputId} label={c('pairing')} error={pair.state === 'invalid' ? c('invalidHint') : undefined}>
@@ -78,36 +79,38 @@ function PairDialog({ close }: { close: () => void }) {
           : error ? <div id={`${inputId}-error`}><Notice layout="inline" title={titles[pair.state] ? c(titles[pair.state]) : undefined}><p>{titles[pair.state] ? c(`${titles[pair.state]}Hint`) : pair.error}</p>{titles[pair.state] && <code>{pair.error?.match(/DEVICE_[A-Z_]+/)?.[0]}</code>}</Notice></div>
           : <p className="device-paragraph device-muted">{c('lanOnly')}</p>}
       </>}
-      <div className="device-actions"><Button variant="primary" busy={waiting} type={success ? 'button' : 'submit'} onClick={success ? dismiss : undefined}>{success ? c('done') : waiting ? c('waiting') : c('pair')}</Button></div>
+      <DialogActions className="device-actions"><Button variant="primary" busy={waiting} type={success ? 'button' : 'submit'} onClick={success ? dismiss : undefined}>{success ? c('done') : waiting ? c('waiting') : c('pair')}</Button></DialogActions>
     </form>
   </Dialog>;
 }
 function AddressDialog({ device, close }: { device: Device; close: () => void }) {
   const [value, setValue] = useState(device.addressOverride || ''), [error, setError] = useState(''), [busy, setBusy] = useState(false);
   const id = useId(), input = useRef<HTMLInputElement>(null);
+  const completion = useDialogCompletion(close);
   async function save(address: string | null) {
     setBusy(true); setError('');
-    try { await api('device/address', 'POST', { device: device.id, address }); await refreshDevices(); close(); }
+    try { await api('device/address', 'POST', { device: device.id, address }); await refreshDevices(); await completion.finish(); }
     catch (error) { setError(String(error)); requestAnimationFrame(() => input.current?.focus()); }
     finally { setBusy(false); }
   }
-  return <Dialog title={c('override')} width={560} className="device-dialog" onClose={close} busy={busy}>
+  return <Dialog layerId={completion.layerId} size="s" title={c('override')} className="device-dialog" onClose={close} busy={busy} dirty={value !== (device.addressOverride || '')}>
     <form className="device-form" noValidate onSubmit={event => { event.preventDefault(); if (!value.trim()) { setError(c('overrideInvalid')); input.current?.focus(); return; } void save(value.trim()); }}>
       <Field id={id} label={device.name} error={error}><Input ref={input} id={id} value={value} aria-invalid={!!error || undefined} aria-describedby={error ? `${id}-error` : undefined} onChange={event => setValue(event.target.value)} /></Field>
-      <p className="device-paragraph device-muted">{c('overrideHint')}</p><div className="device-actions"><Button disabled={busy} onClick={() => void save(null)}>{c('clear')}</Button><Button variant="primary" type="submit" busy={busy}>{c('save')}</Button></div>
+      <p className="device-paragraph device-muted">{c('overrideHint')}</p><DialogActions className="device-actions"><Button disabled={busy} onClick={() => void save(null)}>{c('clear')}</Button><Button variant="primary" type="submit" busy={busy}>{c('save')}</Button></DialogActions>
     </form>
   </Dialog>;
 }
 function RevokeDialog({ peer, memberSide, close }: { peer: Peer; memberSide: boolean; close: () => void }) {
+  const completion = useDialogCompletion(() => deviceView.set({ side: memberSide ? 'member' : 'controller' }));
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   async function revoke() {
     setBusy(true); setError('');
-    try { await api('device/revoke', 'POST', { deviceId: peer.deviceId }); await refreshDevices(); deviceView.set({ side: memberSide ? 'member' : 'controller' }); requestAnimationFrame(() => document.querySelector<HTMLElement>(memberSide ? '[data-device-offer]' : '[data-device-add]')?.focus()); }
+    try { await api('device/revoke', 'POST', { deviceId: peer.deviceId }); await refreshDevices(); await completion.finish(); }
     catch (error) { setError(String(error)); } finally { setBusy(false); }
   }
-  return <Dialog title={c(memberSide ? 'revokeMemberTitle' : 'revokeTitle', { name: peer.name })} width={480} className="device-dialog" onClose={close} busy={busy}>
+  return <Dialog layerId={completion.layerId} size="s" returnFocus={memberSide ? '[data-device-offer]' : '[data-device-add]'} title={c(memberSide ? 'revokeMemberTitle' : 'revokeTitle', { name: peer.name })} className="device-dialog" onClose={close} busy={busy}>
     <div className="device-revoke-copy"><p>{c(memberSide ? 'revokeMemberEffect' : 'revokeEffect', { name: peer.name })}</p><p className="device-muted">{c('localWork')}</p></div>
-    {error && <Notice layout="inline">{error}</Notice>}<div className="device-actions"><Button disabled={busy} onClick={close}>{c('cancel')}</Button><Button variant="danger" busy={busy} onClick={() => void revoke()}>{c('revoke')}</Button></div>
+    {error && <Notice layout="inline">{error}</Notice>}<DialogActions className="device-actions"><Button onClick={close}>{c('cancel')}</Button><Button variant="danger" busy={busy} onClick={() => void revoke()}>{c('revoke')}</Button></DialogActions>
   </Dialog>;
 }
 export default function DevicesWorkspace({ expanded, onToggleWidth, onClose }: { expanded: boolean; onToggleWidth: () => void; onClose: () => void }) {

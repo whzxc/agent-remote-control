@@ -38,8 +38,7 @@ test("Agent panel keeps a nonmodal shell across task/back/peer navigation and re
     const { TooltipProvider } = await server.ssrLoadModule("/ui/components/ui/index.tsx");
     const { agentPanel, selectAgentPanel } = await server.ssrLoadModule("/ui/state/overviewPanels.ts");
     const { agentActivity } = await server.ssrLoadModule("/ui/state/activity.ts");
-    const { panelLayers } = await server.ssrLoadModule("/ui/state/panels.ts");
-    const { capturePanelOrigin } = await server.ssrLoadModule("/ui/components/panelMorph.ts");
+    const { layers: layerStore, captureLayerTrigger } = await server.ssrLoadModule("/ui/state/layers.ts");
     const session = { id: "example", source: "transcript", title: "External example", phase: "thinking", phaseSince: null, headline: "Summary", timeline: false, orderAt: 1 };
     globalThis.fetch = async (input, init) => {
       const path = String(input).replace("/api/", "");
@@ -53,9 +52,9 @@ test("Agent panel keeps a nonmodal shell across task/back/peer navigation and re
     agentActivity.set({ error: "", snapshot: { observedAt: "2026-01-01", agents: { claude: { sessions: [session] } }, activeAgents: ["claude"] } });
     function Harness() {
       const view = agentPanel.use();
-      const layers = panelLayers.use();
-      return h("div", { onClickCapture: (event: { target: EventTarget }) => capturePanelOrigin(event.target) },
-        h("main", { inert: layers.some((layer: HTMLElement) => !layer.dataset.panelDock) },
+      const layers = layerStore.use();
+      return h("div", { onClickCapture: (event: { target: EventTarget }) => captureLayerTrigger(event.target) },
+        h("main", { inert: layers.some((layer: { node: HTMLElement }) => !layer.node.dataset.panelDock) },
           ...["claude", "codex"].map(agent => h("div", { key: agent, "data-agent-node": agent },
             h("button", { className: "graph-node", "data-panel-anchor": true, onClick: () => selectAgentPanel({ type: "toggle", agent }) }, agent)))),
         view && h(AgentPanel, { agent: { agent: view.agent }, state: "connected", expanded: false, onToggleWidth() {},
@@ -157,7 +156,7 @@ test("control source dock preserves editing, field navigation and cross-side dis
     const { default: Onboarding } = await server.ssrLoadModule("/ui/components/Onboarding.tsx");
     const { connectionSetup, onboarding } = await server.ssrLoadModule("/ui/state/onboarding.ts");
     const { default: UiProvider } = await server.ssrLoadModule("/ui/components/UiProvider.tsx");
-    const { capturePanelOrigin } = await server.ssrLoadModule("/ui/components/panelMorph.ts");
+    const { captureLayerTrigger } = await server.ssrLoadModule("/ui/state/layers.ts");
     const { connector } = await server.ssrLoadModule("/ui/state/connector.ts");
     const { agentPanel, ingressPanel } = await server.ssrLoadModule("/ui/state/overviewPanels.ts");
     const { navigation } = await server.ssrLoadModule("/ui/state/navigation.ts");
@@ -210,7 +209,7 @@ test("control source dock preserves editing, field navigation and cross-side dis
     const escape = async () => { await act(() => document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }))); await flush(); };
     function OverviewFixture() {
       const connection = connectionSetup.use(), flow = onboarding.use();
-      return h("div", { onClickCapture: (e: { target: EventTarget }) => capturePanelOrigin(e.target) },
+      return h("div", { onClickCapture: (e: { target: EventTarget }) => captureLayerTrigger(e.target) },
         h(Overview),
         connection && h(AddConnection, { options: connection, onClose: () => connectionSetup.set(undefined), onAdded: () => connectionSetup.set(undefined) }),
         flow && h(Onboarding));

@@ -1,3 +1,4 @@
+import { useDialogCompletion } from "../components/ui/Dialog";
 import { useCallback, useEffect, useId, useState } from 'react';
 import { Check, Copy, Globe, Plug, Plus, RotateCw, Terminal, Trash, Maximize2, Minimize2, X } from 'lucide-react';
 import { api } from '../api';
@@ -95,6 +96,7 @@ export default function McpHub({ expanded, onToggleWidth, onClose }: { expanded:
   const now = useAppNow(30_000);
   const [snapshot, setSnapshot] = useState<HubSnapshot>(), [error, setError] = useState(''), [busy, setBusy] = useState('');
   const [removing, setRemoving] = useState<HubServer>(), [adding, setAdding] = useState(false), [query, setQuery] = useState(''), [reading, setReading] = useState(false);
+  const removal = useDialogCompletion(() => setRemoving(undefined));
   const refresh = useCallback((showProgress = true) => {
     if (showProgress) setReading(true);
     return api<HubSnapshot>('mcp-hub').then(value => { setSnapshot(value); setError(''); }, error => setError(String(error)))
@@ -111,8 +113,8 @@ export default function McpHub({ expanded, onToggleWidth, onClose }: { expanded:
     setBusy(`${action}:${server.name}`); setError('');
     try {
       const result = await api<{ error?: { message?: string } }>('mcp-hub/configure', 'POST', { action, name: server.name });
-      if (result?.error?.message) setError(result.error.message);
-      await refresh(); setRemoving(undefined);
+      if (result?.error?.message) { setError(result.error.message); return; }
+      await refresh(); if (action === "remove") await removal.finish();
     } catch (error) { setError(String(error)); }
     finally { setBusy(''); requestAnimationFrame(() => { if (document.activeElement === document.body && trigger?.isConnected) trigger.focus({ preventScroll: true }); }); }
   }
@@ -148,7 +150,7 @@ export default function McpHub({ expanded, onToggleWidth, onClose }: { expanded:
         <ImportPrompt actionBelow />
       </section>}
     </main>
-    {adding && <Dialog title={t('mcp.addTitle')} width={520} onClose={() => setAdding(false)} footer={<Button onClick={() => setAdding(false)}>{t('close')}</Button>}>
+    {adding && <Dialog size="m" title={t('mcp.addTitle')} onClose={() => setAdding(false)} footer={<Button onClick={() => setAdding(false)}>{t('close')}</Button>}>
       <div className="mcp-add">
         <p>{t('mcp.addIntro')}</p>
         <section aria-label={t('mcp.addImport')}><h3>{t('mcp.addImport')}</h3><ImportPrompt /></section>
@@ -156,11 +158,11 @@ export default function McpHub({ expanded, onToggleWidth, onClose }: { expanded:
         <section aria-label={t('mcp.addStdio')}><h3>{t('mcp.addStdio')}</h3><Prompt label={t('mcp.copyPrompt')} context={t('mcp.addStdio')} text={t('mcp.promptStdio')} /></section>
       </div>
     </Dialog>}
-    {removing && <Dialog title={t('mcp.remove', { name: removing.name })} onClose={() => setRemoving(undefined)} busy={!!busy} footer={<>
-      <Button disabled={!!busy} onClick={() => setRemoving(undefined)}>{t('cancel')}</Button>
+    {removing && <Dialog layerId={removal.layerId} size="s" title={t('mcp.remove', { name: removing.name })} onClose={() => setRemoving(undefined)} busy={!!busy} footer={<>
+      <Button onClick={() => setRemoving(undefined)}>{t("cancel")}</Button>
       <Button variant="danger" busy={!!busy} onClick={() => void act('remove', removing)}>{t('delete')}</Button>
     </>}>
-      <p>{t('mcp.removeEffect', { name: removing.name })}</p>
+      <p>{t('mcp.removeEffect', { name: removing.name })}</p>{error && <Notice>{error}</Notice>}
     </Dialog>}
   </div>;
 }

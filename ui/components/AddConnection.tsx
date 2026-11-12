@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Check, ExternalLink } from "lucide-react";
 import { api } from "../api";
 import { controlSource } from "../controlSources";
@@ -20,7 +20,8 @@ export default function AddConnection({ options, onClose, onAdded, returnFocus }
   const { status, sources } = connector.use();
   const [step, setStep] = useState<typeof steps[number]>(options.step ?? (options.method ? "address" : "method"));
   const [method, setMethod] = useState<ConnectionMethod>(options.localTarget ? `local-${options.localTarget}` : options.method ?? "create");
-  const [busy, setBusy] = useState(false), [configBusy, setConfigBusy] = useState(false), [error, setError] = useState("");
+  const initialMethod = useRef(method);
+  const [busy, setBusy] = useState(false), [configBusy, setConfigBusy] = useState(false), [configDirty, setConfigDirty] = useState(false), [error, setError] = useState("");
   const [link, setLink] = useState(""), [account, setAccount] = useState(""), [deviceName, setDeviceName] = useState(status?.deviceName ?? "");
   const protect = useSensitiveText([link]);
   const [createdId, setCreatedId] = useState<string | undefined>(options.createdId);
@@ -85,11 +86,17 @@ export default function AddConnection({ options, onClose, onAdded, returnFocus }
   const methodName = methods.find(m => m.value === method)!.label;
   const editing = step === "address" && !operation && ["https", "openai-tunnel"].includes(method);
   const waiting = !!operation && progress.phase !== "failed";
-  async function cancelRelay() { await perform(async () => { await api("relay/cancel", "POST"); setOperation(undefined); }); }
+  async function cancelRelay() {
+    setBusy(true); setError("");
+    try { await api("relay/cancel", "POST"); setOperation(undefined); return true; }
+    catch (error) { setError(String(error)); return false; }
+    finally { setBusy(false); }
+  }
   const flow = onboarding.get();
   const parentTitle = options.forSwitch ? t("switch.sourceTitle", { name: sources.find(s => s.id === connectionSwitch.get()?.sourceId)?.label ?? "" }) : flow?.source ? t("setup.addProduct", { name: flow.localTarget === "code" ? "Claude Code" : flow.localTarget === "desktop" ? t("setup.claudeDesktop") : controlSource(flow.source)?.shortName ?? t("setup.otherClient") }) : t("addControlSource");
   return <SetupDialog title={t("source.newConnection")} steps={[{ label: t("setup.method"), value: methodName }, { label: t("source.step.address") }, { label: t("setup.ready") }]}
-    active={steps.indexOf(step)} done={step === "success"} stacked={(options.forSource || options.forSwitch)} parentTitle={parentTitle} busy={busy || configBusy} onClose={onClose}
+    active={steps.indexOf(step)} done={step === "success"} stacked={(options.forSource || options.forSwitch)} parentTitle={parentTitle} busy={busy || configBusy || waiting} dirty={method !== initialMethod.current || configDirty || !!link || !!account || deviceName !== (status?.deviceName ?? "")}
+    onCancel={waiting ? cancelRelay : undefined} onClose={onClose}
     returnFocus={returnFocus} actionLayout={step === "method" || step === "success" ? "end" : "split"}
     footer={<>
       {step === "address" && !waiting && <Button disabled={busy || configBusy} variant="ghost" onClick={() => { setError(""); setStep("method"); }}>{t("back")}</Button>}
@@ -102,7 +109,7 @@ export default function AddConnection({ options, onClose, onAdded, returnFocus }
       {error && <Notice>{protect(error)}</Notice>}
       {step === "method" && <SingleChoice form="setup-row" secondaryFrom={options.forSource || options.forSwitch ? undefined : 3} label={t("connectionMethod")} value={method} onChange={value => { setMethod(value as ConnectionMethod); setError(""); }} options={methods.filter(option => !option.disabled)} />}
       {["https", "openai-tunnel"].includes(method) && <div hidden={!editing}><IngressDialog key={method} setupFormId={formId}
-        initialTransport={method === "openai-tunnel" ? "openai-tunnel" : "https"} onBusy={setConfigBusy} onClose={() => setStep("method")} onRemoved={onClose} onSaved={entry => {
+        initialTransport={method === "openai-tunnel" ? "openai-tunnel" : "https"} onBusy={setConfigBusy} onDirty={setConfigDirty} onClose={() => setStep("method")} onRemoved={onClose} onSaved={entry => {
           complete(entry.id); void perform(async () => { await api(`ingress/${entry.id}/start`, "POST"); await refreshConnector(); });
         }} /></div>}
       {step === "address" && !editing && (operation ? <>

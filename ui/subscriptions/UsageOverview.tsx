@@ -25,7 +25,7 @@ export default function UsageOverview({ onNavigate, onClose }: { onNavigate: (pa
     setRequesting(false);
   }
   return (
-    <SettingsDialog title={t("trayUsage")} onClose={onClose} width={440} actions={providers.length > 0 &&
+    <SettingsDialog size="m" busy={requesting || providers.some(provider => provider.refreshing)} title={t("trayUsage")} onClose={onClose} actions={providers.length > 0 &&
       <IconButton icon={RefreshCw} label={t("usageRefresh")} busy={requesting || providers.some(provider => provider.refreshing)} onClick={() => void refresh()} />}>
     <section className="usage-overview" aria-label={t("trayUsage")}>
       <div

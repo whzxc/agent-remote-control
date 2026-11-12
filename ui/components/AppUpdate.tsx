@@ -11,7 +11,7 @@ import {
   updates, available, updateVisible, checkUpdate, showUpdate, dismissUpdate,
   installUpdate, downloadUpdate, skipUpdate, updateActive, loadReleaseHistory,
 } from "../state/updates";
-import Dialog from "./ElasticPanel";
+import Dialog from "./ui/Dialog";
 import { Button, Notice, Progress, Icon, IconButton, Menu, Tooltip } from "./ui";
 import { SettingsSection, Setting } from "./ui/Settings";
 import { Card } from "./ui/card";
@@ -141,7 +141,7 @@ function UpdateHistory({ currentVersion, onClose }: { currentVersion?: string; o
     return () => { current = false; };
   }, [currentVersion, request]);
   const retry = () => { setFailed(false); setRequest(previous => previous + 1); };
-  return <Dialog title={t("updates.history")} width={520} centered className="update-history" onClose={onClose}>
+  return <Dialog size="m" title={t("updates.history")} className="update-history" onClose={onClose}>
     {failed ? <Notice action={<Button onClick={retry}>{t("retry")}</Button>}>{t("updates.historyFailed")}</Notice>
       : !releases ? <p role="status">{t("updates.historyLoading")}</p>
       : !releases.length ? <p>{t("updates.noNotes")}</p>

@@ -6,7 +6,7 @@ import { BoardHeader } from '../components/ui/board-header';
 import { locale, t } from '../i18n';
 import { isDesktop } from '../platform';
 import { notify } from '../state/connector';
-import { panelLayers } from '../state/panels';
+import { layers as layerStore } from '../state/layers';
 import { appEnvironment, appNow } from '../state/appEnvironment';
 import { nextClockTick, parseStudioPhase, studioToneAt, studioActivitySummary } from './model';
 import { openCenter } from '../coordination/state';
@@ -83,7 +83,7 @@ export function StudioControls({ available }: { available: boolean }) {
   const [open, setOpen] = useState(false), [fullscreen, setFullscreen] = useState(false), [busy, setBusy] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null), wasFullscreen = useRef(false), pendingFullscreen = useRef(false);
   const restoreFocus = () => {
-    if (trigger.current?.getClientRects().length && !panelLayers.get().length && !document.querySelector('[role="dialog"]')) trigger.current.focus();
+    if (trigger.current?.getClientRects().length && !layerStore.get().length && !document.querySelector('[role="dialog"]')) trigger.current.focus();
   };
   useEffect(() => { if (!available) setOpen(false); }, [available]);
   useEffect(() => {
@@ -129,7 +129,7 @@ export function StudioControls({ available }: { available: boolean }) {
       // Task queues and overlays also handle Escape on window. Let the event finish first.
       clearTimeout(escapeTimer);
       escapeTimer = setTimeout(() => {
-        if (event.defaultPrevented || panelLayers.get().length || document.querySelector('[role="dialog"], [data-radix-popper-content-wrapper]')) return;
+        if (event.defaultPrevented || layerStore.get().length || document.querySelector('[role="dialog"], [data-radix-popper-content-wrapper]')) return;
         void changeFullscreen(false);
       }, 0);
     };

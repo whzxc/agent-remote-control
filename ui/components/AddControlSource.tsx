@@ -1,5 +1,5 @@
 import { readOnlyBrowser } from "../browserMode";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Cloud, Link, Plug, ExternalLink, Plus } from "lucide-react";
 import { api } from "../api";
 import { controlSource, curatedSources, nextSourceName } from "../controlSources";
@@ -17,8 +17,10 @@ const steps: OnboardingStep[] = ["product", "connection", "address", "approval",
 const products = [...curatedSources.map(source => source.id), "grok-bot", "local-code", "local-desktop", "custom"];
 export default function AddControlSource({ returnFocus }: { returnFocus?: string }) {
   const flow = onboarding.use()!, { status, sources } = connector.use();
-  const [busy, setBusy] = useState(false), [error, setError] = useState("");
+  const [busy, setBusy] = useState(false), [approvalDirty, setApprovalDirty] = useState(false), [error, setError] = useState("");
   const [route, setRoute] = useState("");
+  const [choiceDirty, setChoiceDirty] = useState(false);
+  const initialProduct = useRef(flow.source);
   const [credentials, setCredentials] = useState<{ ingressId: string; bearerToken: string }>();
   const product = flow.source ?? "custom", info = controlSource(product), name = info?.shortName ?? t("connect.other");
   const settingsUrl = info?.setup?.url;
@@ -95,7 +97,7 @@ export default function AddControlSource({ returnFocus }: { returnFocus?: string
   return <SetupDialog title={title} steps={steps.slice(0, 4).map((value, index) => ({ label: t(`source.step.${value}`), value: index === 0 ? productName(selectedProduct || "custom") : index === 1 ? current?.name : undefined }))}
     context={flow.step === "product" && flow.fixedConnection && current ? t("setup.via", { name: current.name }) : undefined}
     actionLayout={["product", "approval", "success"].includes(flow.step) ? "end" : "split"}
-    active={steps.indexOf(flow.step)} done={flow.step === "success"} busy={busy} onClose={finishSourceSetup}
+    active={steps.indexOf(flow.step)} done={flow.step === "success"} busy={busy || flow.step === "address" && !connected} dirty={approvalDirty || choiceDirty || flow.source !== initialProduct.current} onClose={finishSourceSetup}
     initialFocus={flow.step === "product" && flow.focusGroup ? `platform-${flow.focusGroup}` : undefined}
     returnFocus={returnFocus}
     footer={footer}>
@@ -114,7 +116,7 @@ export default function AddControlSource({ returnFocus }: { returnFocus?: string
     </>}
     {flow.step === "connection" && <>
       {existing.length > 0 && <p className="muted">{t("setup.connectionPrompt", { name: productName(selectedProduct || "custom") })}</p>}
-      {visible.length > 0 && <SingleChoice form="setup-row" label={t("source.connections")} value={route} onChange={setRoute} disabled={readOnlyBrowser || busy} options={visible.map(i => {
+      {visible.length > 0 && <SingleChoice form="setup-row" label={t("source.connections")} value={route} onChange={value => { setChoiceDirty(true); setRoute(value); }} disabled={readOnlyBrowser || busy} options={visible.map(i => {
         const carried = sources.filter(s => s.ingressId === i.id && !isPendingSource(s, entries) && s.state !== "revoked");
         const reason = connectionDisabledReason(i, product, sources, flow.localTarget);
         return { value: i.id, label: i.name, disabled: !!reason,
@@ -145,7 +147,7 @@ export default function AddControlSource({ returnFocus }: { returnFocus?: string
     </> : <Notice>{t("source.connectionRemoved")}</Notice>)}
     {flow.step === "approval" && <>
       {pending.length > 1 && <SingleChoice label={t("source.pendingRequests")} value={flow.requestId ?? ""} onChange={requestId => onboarding.set(old => old && { ...old, requestId })} options={pending.map(p => ({ value: p.id, label: `${p.clientName} · ${p.pairingCode ?? p.redirectUri}` }))} />}
-      {waiting && current ? <ApprovalCard key={waiting.id} request={waiting} ingress={current} product={product} inline onBusy={setBusy} onDecided={allow => { if (!allow) retry(); }} /> : <Notice tone="warning">{t("connect.requestExpired")}</Notice>}
+      {waiting && current ? <ApprovalCard key={waiting.id} request={waiting} ingress={current} product={product} inline onBusy={setBusy} onDirty={setApprovalDirty} onDecided={allow => { if (!allow) retry(); }} /> : <Notice tone="warning">{t("connect.requestExpired")}</Notice>}
       {(!waiting || ["denied", "expired"].includes(waiting.status)) && <Button onClick={retry}>{t("retry")}</Button>}
     </>}
     {flow.step === "success" && <div className="setup-success"><div className="setup-success-heading"><Tile icon={Check} /><div><h3>{t("source.added", { name: added?.label ?? name })}</h3><p>{t("setup.via", { name: current?.name ?? t("source.connectionRemoved") })}</p></div></div>

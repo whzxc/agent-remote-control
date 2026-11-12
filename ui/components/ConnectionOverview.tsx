@@ -389,7 +389,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
         )}
       </section>
       {recovery && visible && <HubRecovery key={recovery} side={recovery} onClose={() => setRecovery(undefined)} openCore={() => setRecovery("core")} />}
-      {nav.connectionsOpen && visible && !newConnection && !flow && !switching && <ConnectionsDialog />}
+      {nav.connectionsOpen && visible && !flow && !switching && <ConnectionsDialog />}
       {!readOnlyBrowser && switching && visible && <ChangeConnection />}
       {agentsOpen && <AgentsSettings onClose={() => setAgentsOpen(false)} />}
       {displaySettingsOpen && <AgentDisplaySettings agent={displaySettingsOpen} onClose={() => setDisplaySettingsOpen(false)} />}

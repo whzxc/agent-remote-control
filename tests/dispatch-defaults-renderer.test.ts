@@ -7,7 +7,7 @@ import { act, createElement as h } from 'react';
 import { within, fireEvent, waitFor } from '@testing-library/dom';
 
 test('Agent and task defaults retain pending edits across consecutive changes and settings remounts', { timeout: 10000 }, async () => {
-  // Regression: PR #15 lost pending defaults; d82ad4e hid the model button; autosaving task defaults swallowed dialog dismissal.
+  // Regression: PR #15 lost pending defaults; d82ad4e hid the model button; autosaving task defaults lost pending edits across dialog dismissal.
   const originalFetch = globalThis.fetch;
   const window = new Window({ url: 'http://localhost' });
   const media = { matches: true, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} };
@@ -82,6 +82,8 @@ test('Agent and task defaults retain pending edits across consecutive changes an
         assertNodeIdentity(page.queryByRole('dialog', { name: t('dispatchDefaults.spec') }), null);
         assert.ok(page.getByRole('dialog', { name: t('taskDispatch.title') }));
         await act(async () => { fireEvent.keyDown(page.getByRole('button', { name: t('dispatchDefaults.spec') }), { key: 'Escape' }); });
+        await waitFor(() => assert.ok(page.getByRole('button', { name: t('layers.keepOpen') })));
+        await click(page.getByRole('button', { name: t('close'), exact: true }));
         await waitFor(() => assertNodeIdentity(page.queryByRole('dialog', { name: t('taskDispatch.title') }), null));
         await waitFor(() => assert.ok(page.getByRole('button', { name: t('taskDispatch.title') }).matches(':focus')));
         await openTask();

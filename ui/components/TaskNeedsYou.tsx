@@ -1,7 +1,8 @@
 import { readOnlyBrowser } from "../browserMode";
 import RequestRouting from "./RequestRouting";
 import { useRequestRouting } from "../state/requestRouting";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { layers } from "../state/layers";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { AgentActivitySession, AgentTimelineEntry } from "../types";
 import { t } from "../i18n";
@@ -23,12 +24,17 @@ export default function TaskNeedsYou({ agent, session, entries, source, narrow }
   const submissions = activityApprovals.use();
   const [page, setPage] = useState(0);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const layerId = useId();
+  const keepAfterWork = layers.use().find(layer => layer.id === layerId)?.keepAfterWork;
+  const held = useRef<{ identity: string; question: boolean } | undefined>(undefined);
   const [drafts, setDrafts] = useState<Record<string, Record<string, string[]>>>({});
   const native = pendingSessions(agent, session, entries, submissions);
   const count = native.length;
   const index = Math.min(page, Math.max(0, count - 1));
   const pending = native[index];
   const identity = pending && interactionKey(agent, pending);
+  if (sheetOpen && identity && !keepAfterWork) held.current = { identity, question: pending.interaction?.kind === "question" };
+  const resolved = keepAfterWork && held.current && !native.some(request => interactionKey(agent, request) === held.current!.identity);
   const routing = useRequestRouting(agent, session.id, pending?.interaction);
   const pauseOnInteraction = (event: React.SyntheticEvent<HTMLElement>) => {
     if (readOnlyBrowser) return;
@@ -38,12 +44,10 @@ export default function TaskNeedsYou({ agent, session, entries, source, narrow }
   };
   const focus = useRef<HTMLElement>(null);
   useEffect(() => { if (identity && (!narrow || sheetOpen)) focus.current?.focus({ preventScroll: true }); }, [identity, narrow, sheetOpen]);
-  useEffect(() => { if (!count || !narrow) setSheetOpen(false); }, [count, narrow]);
-  if (!count) return null;
+  useEffect(() => { if (!count && !keepAfterWork || !narrow) setSheetOpen(false); }, [count, narrow, keepAfterWork]);
   const interaction = pending?.interaction;
   const route = (mode: "passive" | "actionable") => <RequestRouting mode={mode} routing={routing.error ? undefined : routing.routing} source={source || t("routing.source")} busy={routing.busy} change={routing.change} />;
   const passive = routing.routing && !["deferred", "paused"].includes(routing.routing.state) && !routing.error ? route("passive") : undefined;
-  const actionable = routing.routing && ["deferred", "paused"].includes(routing.routing.state);
   const dock = <section ref={focus} tabIndex={-1} className="task-needs-you" onFocusCapture={pauseOnInteraction} onPointerDownCapture={pauseOnInteraction} onClickCapture={pauseOnInteraction} onKeyDownCapture={pauseOnInteraction} onChangeCapture={pauseOnInteraction} aria-label={t("detail.needsYou")}>
     {!narrow && <header><strong>{t("detail.needsYou")}</strong>{passive}</header>}
     {count > 1 && <nav className="actions" aria-label={t("detail.needsYou")}><IconButton compact icon={ChevronLeft} label={t("detail.previousRequest")} disabled={index === 0} onClick={() => setPage(index - 1)} /><span>{t("detail.pager", { current: index + 1, total: count })}</span><IconButton compact icon={ChevronRight} label={t("detail.nextRequest")} disabled={index === count - 1} onClick={() => setPage(index + 1)} /></nav>}
@@ -58,11 +62,12 @@ export default function TaskNeedsYou({ agent, session, entries, source, narrow }
       </>}
     </TaskCard>}
   </section>;
-  if (!narrow) return <footer className="dialog-footer task-detail-footer">{dock}</footer>;
-  return <><footer className="dialog-footer task-detail-footer" onFocusCapture={pauseOnInteraction} onPointerDownCapture={pauseOnInteraction} onClickCapture={pauseOnInteraction} onKeyDownCapture={pauseOnInteraction}>
+  if (!narrow) return count ? <footer className="dialog-footer task-detail-footer">{dock}</footer> : null;
+  return <>{count > 0 && <footer className="dialog-footer task-detail-footer" onFocusCapture={pauseOnInteraction} onPointerDownCapture={pauseOnInteraction} onClickCapture={pauseOnInteraction} onKeyDownCapture={pauseOnInteraction}>
     <RequestEntry title={`${t("detail.needsYou")} · ${count}`} summary={interaction?.title || interaction?.summary} action={t("detail.openRequest")} onOpen={() => { if (!readOnlyBrowser) void routing.change("pause"); setSheetOpen(true); }} />
-  </footer>
-    {sheetOpen && <Dialog sheet width={actionable ? 392 : 360} title={t("detail.needsYou")} description={passive} onClose={() => setSheetOpen(false)} returnFocus=".request-entry button"><div className="task-input-sheet">{dock}</div></Dialog>}
+  </footer>}
+    {sheetOpen && <Dialog layerId={layerId} size={(resolved ? held.current?.question : interaction?.kind === "question") ? "m" : "s"} dirty={!resolved && interaction?.kind === "question" && Object.values(drafts[identity!] ?? {}).some(values => values.some(value => value.length > 0))}
+      busy={!resolved && (!!identity && submissions[identity]?.status === "submitting" || routing.busy)} title={t("detail.needsYou")} description={!resolved ? passive : undefined} onClose={() => setSheetOpen(false)} returnFocus=".request-entry button"><div className="task-input-sheet">{resolved ? <p role="status">{t("timeline.resolved")}</p> : dock}</div></Dialog>}
   </>;
 
 }

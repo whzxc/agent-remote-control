@@ -1,3 +1,4 @@
+import { DialogActions } from "./ui/Dialog";
 import { usePrivacy } from "../state/privacy";
 import { maskSensitive } from "../privacyMask";
 import { Check, Circle, LoaderCircle } from "lucide-react";
@@ -33,6 +34,6 @@ export default function RelayProgress({ progress, busy, account, setAccount, onC
       <Tile icon={phase > index ? Check : phase === index ? LoaderCircle : Circle} className={phase > index ? "step-complete" : phase === index ? "step-running" : "step-waiting"} /><div><strong>{t(`connect.phase.${step}`)}</strong>{(step === "deploying" || phase === index) && <small>{[phase === index && t(step === "login" ? `connect.login.${loginStatus}` : "connect.inProgress"), step === "deploying" && t("connect.twentySeconds")].filter(Boolean).join(" · ")}</small>}</div>
     </li>)}</ol>}
     {progress.loginUrl && <Button variant="ghost" onClick={() => void copyText(progress.loginUrl!)}>{t("connect.copyLogin")}</Button>}
-    {!cancelInFooter && <div className="remote-progress-actions"><Button disabled={busy} onClick={onCancel}>{t("cancel")}</Button>{progress.phase !== "failed" && <Button variant="primary" busy>{t("connect.inProgress")}</Button>}</div>}
+    {!cancelInFooter && <DialogActions className="remote-progress-actions"><Button disabled={busy} onClick={onCancel}>{t("cancel")}</Button>{progress.phase !== "failed" && <Button variant="primary" busy>{t("connect.inProgress")}</Button>}</DialogActions>}
   </div>;
 }

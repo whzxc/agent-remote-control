@@ -120,13 +120,7 @@
 .task-receipt-anchor [data-verdict=bypass] { color: var(--accent); }
 .task-detail-layer.agent-panel-layer > .task-timeline { flex: 1 1 0; min-height: 0; padding: 0; }
 .task-detail-layer.agent-panel-layer > .task-detail-footer { flex: 0 1 auto; flex-wrap: nowrap; justify-content: flex-start; max-height: 60%; min-height: 0; overflow: hidden; }
-.dialog.elastic-panel[data-sheet]:has(.task-input-sheet) { --panel-border: 0px; height: auto; max-height: min(82dvh, var(--sheet-host-height)); background: var(--surface-raised); border: 0; border-radius: var(--radius-panel); box-shadow: var(--shadow-lg); }
-.dialog[data-sheet]:has(.task-input-sheet) > .elastic-panel-content { width: 100%; max-height: min(82dvh, var(--sheet-host-height)); }
-.dialog.elastic-panel:has(.task-input-sheet) .dialog-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px; padding: 16px 24px 0; cursor: default; }
-.dialog.elastic-panel:has(.task-input-sheet) .dialog-header h2 { font-size: var(--text-title); font-weight: 650; line-height: 24px; }
-.dialog.elastic-panel:has(.task-input-sheet) .dialog-description { grid-column: 1 / -1; margin: 0; color: var(--text-tertiary); font-size: var(--text-meta); line-height: 16px; }
 .dialog-description .request-routing-inline { color: inherit; }
-.dialog.elastic-panel:has(.task-input-sheet) .dialog-body { display: flex; min-height: 0; padding: 19px 24px 24px; overflow: hidden; }
 .task-input-sheet { display: flex; flex: 1; min-height: 0; min-width: 0; }
 .task-input-sheet .task-needs-you { flex: 1; }
 .task-timeline { position: relative; }

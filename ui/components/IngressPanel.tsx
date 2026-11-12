@@ -1,3 +1,4 @@
+import Dialog from "./ElasticPanel";
 import { useReducedMotion } from "../state/appEnvironment";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { motion } from "motion/react";
@@ -12,7 +13,7 @@ import IngressDialog from "./IngressDialog";
 import SourcePanel from "./SourcePanel";
 import SourcePlatformView from "./SourcePlatformView";
 import { controlSourcePlatform } from "../controlSources";
-import { Dialog, IconButton, Notice } from "./ui";
+import {  IconButton, Notice } from "./ui";
 import { useDockOpening } from "./useDockOpening";
 
 export default function IngressPanel({ onPanelFrame, width, expanded, onToggleWidth, dockRect, dockAnchorY }: {

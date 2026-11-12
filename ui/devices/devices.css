@@ -38,10 +38,6 @@
 .device-error-code { font-family:var(--font-mono); color:var(--danger); font-size:var(--text-caption); }
 .device-revoke-copy { display:flex; flex-direction:column; gap:12px; font-size:var(--text-small); line-height:20px; }
 .device-revoke-copy p { margin:0; }
-.dialog.elastic-panel.device-dialog { border:0; --panel-border:0px; }
-.device-dialog.elastic-panel .dialog-header { padding:13px 24px 0; min-height:47px; cursor:default; }
-.device-dialog.elastic-panel .dialog-header h2 { font-size:var(--text-title); font-weight:650; line-height:24px; }
-.device-dialog.elastic-panel .dialog-body { display:flex; flex-direction:column; gap:25px; padding:25px 24px 24px; }
 .topology-device-summary { position:absolute; display:flex; justify-content:center; width:240px; pointer-events:auto; }
 
 .app-scene:not(.sheet-wide):has(.devices-workspace) { --sheet-width:min(720px,calc(100vw - 2 * var(--sheet-inset))); }

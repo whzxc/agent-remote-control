@@ -1,3 +1,5 @@
+import { useDialogCompletion } from "./ui/Dialog";
+import WorkspacePanel from "./WorkspacePanel";
 import { readOnlyBrowser } from "../browserMode";
 import { Fragment, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
@@ -16,17 +18,18 @@ import { Button, CopyField, Dialog, Icon, IconButton, Notice, Status, Tile } fro
 import { Card, CardContent, CardHeader } from "./ui/card";
 
 export function ConnectionsDialog() {
-  return <Dialog centered title={t("connections.title")} width={680}
+  return <WorkspacePanel title={t("connections.title")} width={680}
     actions={<Button variant="primary" disabled={readOnlyBrowser} data-new-connection onClick={() => openConnectionSetup()}><Icon icon={Plus} />{t("source.newConnection")}</Button>}
     returnFocus=".hub-connections" onClose={() => navigation.set(old => ({ ...old, connectionsOpen: false, remoteConnectionId: undefined }))}>
     <ConnectionsContent />
-  </Dialog>;
+  </WorkspacePanel>;
 }
 
 export default function ConnectionsContent() {
   const { status, sources, error: readError } = connector.use(), relays = useRelays();
   const [editing, setEditing] = useState<Ingress>(), [error, setError] = useState("");
   const [removing, setRemoving] = useState<Ingress>(), [removeBusy, setRemoveBusy] = useState(false);
+  const removal = useDialogCompletion(() => setRemoving(undefined));
   const entries = (status?.ingresses ?? []).filter(entry => entry.id !== "local-cli" || entry.transport !== "local");
   const visible = sources.filter(s => !isLocalSource(s) && s.state !== "revoked" && !isPendingSource(s, entries));
   const removingRelay = relays.relays.find(r => r.ingressId === removing?.id);
@@ -37,7 +40,7 @@ export default function ConnectionsContent() {
     try {
       if (joined) await api("relay/leave", "POST", { id: removingRelay.id });
       else await api(`ingress/${removing.id}`, "DELETE");
-      await refreshConnector(); await relays.refresh(); setRemoving(undefined);
+      await refreshConnector(); await relays.refresh(); await removal.finish();
     } catch (e) { setError(String(e)); } finally { setRemoveBusy(false); }
   }
   return <div className="connections-content">
@@ -71,11 +74,11 @@ export default function ConnectionsContent() {
       </section></Card>;
     })}
     {(error || relays.error) && <Notice>{error || t("connect.readFailed")}</Notice>}
-    {removing && <Dialog centered title={t(joined ? "connect.confirm.leave" : "setup.removeConnection")} width={440} busy={removeBusy} onClose={() => setRemoving(undefined)} footer={<><Button disabled={removeBusy} onClick={() => setRemoving(undefined)}>{t("cancel")}</Button><Button variant="danger" busy={removeBusy} onClick={() => void removeConnection()}>{t(joined ? "connect.leave" : "remove")}</Button></>}>
+    {removing && <Dialog layerId={removal.layerId} size="s" title={t(joined ? "connect.confirm.leave" : "setup.removeConnection")} busy={removeBusy} onClose={() => setRemoving(undefined)} footer={<><Button onClick={() => setRemoving(undefined)}>{t("cancel")}</Button><Button variant="danger" busy={removeBusy} onClick={() => void removeConnection()}>{t(joined ? "connect.leave" : "remove")}</Button></>}>
       <p>{t("setup.removeConfirm", { name: removing.name, names: visible.filter(s => s.ingressId === removing.id).map(s => s.label).join(", ") || t("source.unused") })}</p>{error && <Notice>{error}</Notice>}
     </Dialog>}
     {editing && <IngressDialog ingress={editing} onClose={() => setEditing(undefined)} onRemoved={() => setEditing(undefined)} onSaved={entry => {
-      setEditing(undefined); void api(`ingress/${entry.id}/start`, "POST").then(refreshConnector).catch(e => setError(String(e)));
+      void api(`ingress/${entry.id}/start`, "POST").then(refreshConnector).catch(e => setError(String(e)));
     }} />}
   </div>;
 }

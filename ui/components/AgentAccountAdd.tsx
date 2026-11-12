@@ -1,3 +1,4 @@
+import { useDialogCompletion } from "./ui/Dialog";
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { accountsApi, api } from '../api';
 import { t } from '../i18n';
@@ -14,6 +15,7 @@ type Errors = Partial<Record<'auth' | 'program' | 'args', string>>;
 export default function AgentAccountAdd({ kind, account, onClose }: {
   kind: 'codex' | 'claude'; account?: ProviderAccount; onClose: () => void;
 }) {
+  const completion = useDialogCompletion(onClose);
   const profile = account?.agentProfiles.find(p => p.agent === kind);
   const desktop = profile?.profileId === 'codex-home';
   const importOnly = profile?.refreshOwner === 'none';
@@ -45,14 +47,14 @@ export default function AgentAccountAdd({ kind, account, onClose }: {
           const primary = result.accounts.find(row => row.agentProfiles.some(p => p.profileId === 'codex-home' && p.state === 'signed-in'));
           if (primary) {
             await refreshAccounts(true);
-            if (!stopped) { onClose(); void refreshAccountQuota(primary.id).catch(() => {}); }
+            if (!stopped) { setLogin({ ...login, state: "completed" }); void completion.finish(); void refreshAccountQuota(primary.id).catch(() => {}); }
             return;
           }
         } else if (result.login?.loginId === login.loginId) {
           if (result.login.state === 'completed') {
             await refreshAccounts(true);
             if (!stopped) {
-              onClose();
+              setLogin(result.login); void completion.finish();
               if (result.login.accountId) void refreshAccountQuota(result.login.accountId).catch(() => {});
             }
             return;
@@ -71,14 +73,16 @@ export default function AgentAccountAdd({ kind, account, onClose }: {
     timer = setTimeout(poll, 300);
     return () => { stopped = true; clearTimeout(timer); };
   }, [active, login?.loginId, desktop, account?.id, onClose]);
+  async function cancelLogin() {
+    if (!active || !login || desktop) return true;
+    try { await accountsApi.login({ loginId: login.loginId, action: 'cancel' }); setLogin(null); return true; }
+    catch (error) { setError(String(error)); return false; }
+  }
   async function close() {
     if (closing.current) return;
     closing.current = true;
-    if (active && login && !desktop) {
-      try { await accountsApi.login({ loginId: login.loginId, action: 'cancel' }); }
-      catch (e) { closing.current = false; setError(String(e)); return; }
-    }
-    onClose();
+    if (await cancelLogin()) onClose();
+    else closing.current = false;
   }
   async function submit(event: FormEvent) {
     event.preventDefault(); setError(''); setErrors({});
@@ -112,7 +116,7 @@ export default function AgentAccountAdd({ kind, account, onClose }: {
           ? await accountsApi.reauth({ id: account.id, agent: kind, browserId: browser })
           : await accountsApi.add({ kind, browserId: browser });
         if (result.state === 'completed') {
-          await refreshAccounts(true); onClose();
+          await refreshAccounts(true); await completion.finish();
           if (result.accountId) void refreshAccountQuota(result.accountId).catch(() => {});
         } else {
           setLogin(result);
@@ -120,7 +124,7 @@ export default function AgentAccountAdd({ kind, account, onClose }: {
         }
       } else {
         const result = await accountsApi.importCodex({ auth: credentials, accountId: account?.id, refreshOwner: owner, ...(owner === 'external' ? { refreshCommand: { program: program.trim(), args: arguments_ } } : {}) });
-        setAuth(''); await refreshAccounts(true); onClose();
+        setAuth(''); await refreshAccounts(true); await completion.finish();
         void refreshAccountQuota(result.accountId).catch(() => {});
       }
     } catch (e) { setError(String(e)); }
@@ -131,9 +135,11 @@ export default function AgentAccountAdd({ kind, account, onClose }: {
   const notice = error || loginError || login?.browserError;
   const waitingBrowser = login?.browserName ?? browsers.find(option => option.id === login?.browserId)?.name;
   const focusTarget = account ? `[data-account-reauth="${CSS.escape(account.id)}"], [data-add-agent-account]` : '[data-add-agent-account]';
-  return <Dialog title={title} width={account || kind === 'claude' ? 480 : 560} className="agent-account-add" busy={busy}
+  return <Dialog layerId={completion.layerId} size="m" title={title} className="agent-account-add" busy={busy || active}
+    dirty={!!auth || !!program || !!args || !!code || browser !== "default" || method !== (importOnly ? "import" : "oauth")}
+    onCancel={active && !desktop ? cancelLogin : undefined}
     onClose={close} returnFocus={focusTarget} footer={<div className="actions">
-    {!account && kind === 'codex' && <Button disabled={busy} onClick={() => void close()}>{t('cancel')}</Button>}
+    {!account && kind === 'codex' && <Button onClick={() => void close()}>{t('cancel')}</Button>}
     {active && login?.loginUrl && <Button onClick={() => void copyText(login.loginUrl!).catch(error => setError(String(error)))}>{t('accountAdd.copyLink')}</Button>}
     {codeEntry && <Button form={`${id}-form`} type="submit" variant="primary" busy={busy} disabled={!code.trim()}>{t('accountAdd.submitCode')}</Button>}
     {!active && <Button form={`${id}-form`} type="submit" variant="primary" busy={busy}>

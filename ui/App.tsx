@@ -48,10 +48,7 @@ import {
 } from "./state/updates";
 import { onboarding, connectionSetup, connectionSwitch } from "./state/onboarding";
 import { navigation, openConnections, type Page } from "./state/navigation";
-import { panelLayers, panelAnchorAt } from "./state/panels";
-import {
-  capturePanelOrigin,
-} from "./components/panelMorph";
+import { layers as layerStore, captureLayerTrigger } from "./state/layers";
 import { displayMessage } from "./messages";
 import OAuthApproval from "./components/OAuthApproval";
 import ConnectionOverview from "./components/ConnectionOverview";
@@ -111,8 +108,8 @@ export default function App() {
     backdropDown = useRef(false);
   const flow = onboarding.use(), newConnection = connectionSetup.use();
   const welcome = flow?.step === "welcome" && page === "overview";
-  const layers = panelLayers.use();
-  const modalOpen = layers.some(layer => !layer.dataset.panelDock);
+  const layers = layerStore.use();
+  const modalOpen = layers.some(layer => !layer.node?.dataset.panelDock);
   useBoardObservation(page === 'overview' && (!modalOpen || bulletinOpen));
   useEffect(() => { localStorage.setItem("arc-page", page); }, [page]);
   useLayoutEffect(() => {
@@ -138,22 +135,20 @@ export default function App() {
     return () => animation?.stop();
   }, [page]);
 
-  async function closeSheet(replacement?: HTMLElement) {
+  async function closeSheet() {
     const node = sheet.current;
     if (!node || sheetClosing.current) return;
     sheetClosing.current = true;
-    if (!reducedMotion() && !replacement)
+    if (!reducedMotion())
       await animate(node, { opacity: 0, transform: "translateY(6px)" }, { duration: 0.14 });
     sheetClosing.current = false;
     setPage("overview");
     requestAnimationFrame(() => {
       const target =
-        replacement ??
         document.querySelector<HTMLElement>(
           `[data-page="${lastPage.current}"]`,
         ) ?? document.querySelector<HTMLElement>('[data-page="settings"]');
       target?.focus({ preventScroll: true });
-      if (replacement) replacement.click();
     });
   }
 
@@ -260,7 +255,7 @@ export default function App() {
     <div role="region" aria-label="ARC homepage"
       className={`app-scene ${sheetWide ? "sheet-wide" : ""} ${isDesktop ? "desktop" : ""} ${isDesktop && navigator.platform.toLowerCase().includes("mac") ? "mac" : ""}`}
       data-display={studio ? "studio" : undefined}
-      onClickCapture={(e) => capturePanelOrigin(e.target)}
+      onClickCapture={(e) => captureLayerTrigger(e.target)}
       onKeyDown={(e) => {
         if (
           e.key === "Escape" &&
@@ -314,7 +309,7 @@ export default function App() {
               e.target === e.currentTarget &&
               !layers.length
             )
-              void closeSheet(panelAnchorAt(e.clientX, e.clientY));
+              void closeSheet();
             backdropDown.current = false;
           }}
         />

@@ -9,13 +9,15 @@ import { connectionSwitch, openConnectionSetup } from "../state/onboarding";
 import { connectionDisabledReason, connectionKind, isPendingSource } from "../sourcePresentation";
 import type { Ingress } from "../state/types";
 import SetupDialog from "./SetupDialog";
+import { useDialogCompletion } from "./ui/Dialog";
 import { ApprovalCard } from "./OAuthApproval";
 import { Button, CopyField, Field, Icon, Notice, SingleChoice, SetupAction } from "./ui";
 
 const steps = ["connection", "address", "approval"] as const;
 export default function ChangeConnection() {
+  const completion = useDialogCompletion(() => connectionSwitch.set(undefined));
   const flow = connectionSwitch.use()!, { status, sources } = connector.use();
-  const [busy, setBusy] = useState(false), [error, setError] = useState("");
+  const [busy, setBusy] = useState(false), [approvalDirty, setApprovalDirty] = useState(false), [error, setError] = useState("");
   const [credentials, setCredentials] = useState<{ ingressId: string; bearerToken: string }>();
   const source = sources.find(s => s.id === flow.sourceId);
   const entries = status?.ingresses ?? [], current = entries.find(i => i.id === source?.ingressId), target = entries.find(i => i.id === flow.ingressId);
@@ -33,7 +35,7 @@ export default function ChangeConnection() {
     if (flow.step === "address" && request?.status === "pending") connectionSwitch.set(old => old && { ...old, step: "approval", requestId: request.id });
   }, [flow.step, request?.id, request?.status]);
   useEffect(() => {
-    if (source && flow.ingressId && flow.step !== "connection" && source.ingressId === flow.ingressId && source.state === "connected") connectionSwitch.set(undefined);
+    if (source && flow.ingressId && flow.step !== "connection" && source.ingressId === flow.ingressId && source.state === "connected") void completion.finish();
   }, [source, flow.ingressId, flow.step]);
   useEffect(() => {
     setCredentials(undefined);
@@ -47,10 +49,13 @@ export default function ChangeConnection() {
     try { await action(); } catch (e) { setError(String(e)); } finally { setBusy(false); }
   }
   async function cancel(close: boolean) {
-    await perform(async () => {
+    setBusy(true); setError("");
+    try {
       await api(`source/${flow.sourceId}/switch`, "DELETE"); await refreshConnector();
       connectionSwitch.set(close ? undefined : { sourceId: flow.sourceId, step: "connection", ingressId: flow.ingressId });
-    });
+      return true;
+    } catch (error) { setError(String(error)); return false; }
+    finally { setBusy(false); }
   }
   async function begin() {
     if (!target || reason(target)) return;
@@ -61,11 +66,12 @@ export default function ChangeConnection() {
   }
   const expired = flow.step !== "connection" && ((!source?.pendingSwitch && source?.ingressId !== flow.ingressId) || request?.status === "expired" || request?.status === "denied");
   const canApprove = request?.status === "pending" && !expired;
-  return <SetupDialog title={t("switch.sourceTitle", { name: source?.label ?? flow.sourceId })} active={steps.indexOf(flow.step)} busy={busy}
+  const waiting = flow.step === "address" && !expired && source?.ingressId !== flow.ingressId;
+  return <SetupDialog layerId={completion.layerId} title={t("switch.sourceTitle", { name: source?.label ?? flow.sourceId })} active={steps.indexOf(flow.step)} busy={busy || waiting} dirty={approvalDirty || flow.step === "connection" && !!flow.ingressId}
     steps={[{ label: t("source.step.connection"), value: target?.name }, { label: t("switch.address") }, { label: t("switch.reauthorize") }]}
-    actionLayout={flow.step === "approval" && canApprove ? "end" : "split"} returnFocus="[data-change-connection]" onClose={() => cancel(true)} footer={<>
+    actionLayout={flow.step === "approval" && canApprove ? "end" : "split"} returnFocus="[data-change-connection]" onCancel={waiting ? () => cancel(true) : undefined} onClose={async () => { await cancel(true); }} footer={<>
       {flow.step === "approval" && canApprove ? <><Button form={`approval-${request.id}`} type="submit" value="deny" disabled={busy}>{t("oauthDeny")}</Button><Button form={`approval-${request.id}`} type="submit" value="allow" variant="primary" busy={busy}>{t("switch.approve")}</Button></> : <>
-        <Button variant="ghost" disabled={busy} onClick={() => void cancel(flow.step === "connection")}>{t(flow.step === "connection" ? "cancel" : "back")}</Button>
+        <Button variant="ghost" disabled={busy && flow.step !== "connection"} onClick={() => void cancel(flow.step === "connection")}>{t(flow.step === "connection" ? "cancel" : "back")}</Button>
         {flow.step === "connection" ? <Button variant="primary" busy={busy} disabled={!target || !!reason(target)} onClick={() => void begin()}>{t("source.next")}</Button> : !expired && <Button variant="primary" busy>{t(request?.status === "approved" ? "connect.returning" : "connect.waitClient", { name: productName })}</Button>}
       </>}
     </>}>
@@ -85,7 +91,7 @@ export default function ChangeConnection() {
             <p>{t(target.auth === "oauth" ? "setup.browserCode" : "source.noOAuthApproval")}</p>
             {target.state !== "ready" && <Button busy={busy} onClick={() => void perform(async () => { await api(`ingress/${target.id}/start`, "POST"); await refreshConnector(); })}>{t("retry")}</Button>}
           </>}
-          {flow.step === "approval" && request && <ApprovalCard key={request.id} request={request} ingress={target} inline onBusy={setBusy} onDecided={allow => { if (!allow) connectionSwitch.set({ sourceId: flow.sourceId, ingressId: flow.ingressId, step: "connection" }); }} />}
+          {flow.step === "approval" && request && <ApprovalCard key={request.id} request={request} ingress={target} inline onBusy={setBusy} onDirty={setApprovalDirty} onDecided={allow => { if (!allow) connectionSwitch.set({ sourceId: flow.sourceId, ingressId: flow.ingressId, step: "connection" }); }} />}
         </> : <Notice>{t("source.connectionRemoved")}</Notice>}
         {expired && <Notice tone="warning">{t("switch.expired")}</Notice>}
       </>}

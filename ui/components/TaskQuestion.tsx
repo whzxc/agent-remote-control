@@ -1,3 +1,4 @@
+import { DialogActions } from "./ui/Dialog";
 import { readOnlyBrowser } from "../browserMode";
 import { useId, type ReactNode } from "react";
 import type { AgentActivitySession } from "../types";
@@ -43,7 +44,7 @@ export default function TaskQuestion({ agent, session, answers, onAnswersChange,
     {submission?.status === "unconfirmed" && <p role="status">{t("activity.unconfirmed")}</p>}
     {submission?.status === "failed" && <p role="alert">{taskErrorText(submission.error)}</p>}
     {routing}
-    <div className="actions"><Button variant="ghost" disabled={readOnlyBrowser || !supported || locked && submission.decision !== "cancel" || submission?.status === "unconfirmed" || submission?.status === "submitted"} busy={submission?.status === "submitting" && submission.decision === "cancel"} onClick={() => send(true)}>{t("detail.skip")}</Button>
-      <Button type="submit" variant="primary" disabled={readOnlyBrowser || !inputResponse(interaction, answers) || locked && submission.decision !== "answer" || submission?.status === "unconfirmed" || submission?.status === "submitted"} busy={submission?.status === "submitting" && submission.decision === "answer"}>{t(submission?.status === "pending" || submission?.status === "failed" ? "activity.checkResult" : "detail.sendAnswer")}</Button></div>
+    <DialogActions className="actions"><Button variant="ghost" disabled={readOnlyBrowser || !supported || locked && submission.decision !== "cancel" || submission?.status === "unconfirmed" || submission?.status === "submitted"} busy={submission?.status === "submitting" && submission.decision === "cancel"} onClick={() => send(true)}>{t("detail.skip")}</Button>
+      <Button type="submit" variant="primary" disabled={readOnlyBrowser || !inputResponse(interaction, answers) || locked && submission.decision !== "answer" || submission?.status === "unconfirmed" || submission?.status === "submitted"} busy={submission?.status === "submitting" && submission.decision === "answer"}>{t(submission?.status === "pending" || submission?.status === "failed" ? "activity.checkResult" : "detail.sendAnswer")}</Button></DialogActions>
   </form>;
 }

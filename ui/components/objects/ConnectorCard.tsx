@@ -1,3 +1,4 @@
+import { useDialogCompletion } from "../ui/Dialog";
 import { readOnlyBrowser } from "../../browserMode";
 import PetPicker from '../../pets/PetPicker';
 import { useId, useRef, useState } from 'react';
@@ -35,9 +36,10 @@ export default function ConnectorCard({ source }: { source: ControlSource }) {
     catch (e) { setError(String(e)); nameInput.current?.focus(); }
     finally { setBusy(false); }
   }
+  const completion = useDialogCompletion(() => setRemoving(false));
   async function remove() {
     setBusy(true); setError('');
-    try { await api(`source/${source.id}/disconnect`, 'POST'); await refreshConnector(); setRemoving(false); }
+    try { await api(`source/${source.id}/disconnect`, 'POST'); await refreshConnector(); await completion.finish(); }
     catch (e) { setError(String(e)); }
     finally { setBusy(false); }
   }
@@ -75,7 +77,7 @@ export default function ConnectorCard({ source }: { source: ControlSource }) {
       </div>
     </div></CardHeader>
     <CardContent><dl className="connector-facts">{facts.filter(group => group.length).map((group, index) => <div className="connector-fact-group" key={index}>{group.map(([name, value]) => <div className="connector-fact" key={name}><dt>{name}</dt><dd><Sensitive>{value}</Sensitive></dd></div>)}</div>)}</dl></CardContent>
-    {removing && <Dialog centered title={t('platforms.remove', { name: source.label })} busy={busy} onClose={() => setRemoving(false)} footer={<><Button disabled={busy} onClick={() => setRemoving(false)}>{t('cancel')}</Button><Button variant="danger" busy={busy} onClick={() => void remove()}>{t('remove')}</Button></>}>
+    {removing && <Dialog layerId={completion.layerId} size="s" title={t('platforms.remove', { name: source.label })} busy={busy} onClose={() => setRemoving(false)} footer={<><Button onClick={() => setRemoving(false)}>{t("cancel")}</Button><Button variant="danger" busy={busy} onClick={() => void remove()}>{t('remove')}</Button></>}>
       <p>{t('platforms.removeConfirm')}</p>{error && <Notice>{error}</Notice>}
     </Dialog>}
   </section></Card>;

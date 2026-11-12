@@ -3,7 +3,7 @@ import { DialogClose, IconButton, Input, Switch } from "./index";
 import { X } from "lucide-react";
 import { t } from "../../i18n";
 import { Card } from "./card";
-import Dialog from "../ElasticPanel";
+import Dialog from "./Dialog";
 import "./Settings.css";
 
 /** Shared settings composition for the approved settings surface. */
@@ -39,9 +39,9 @@ export function SettingLine({ title, description, children }: { title: ReactNode
     <div>{labelled ? cloneElement(children as ReactElement<{ id?: string; "aria-describedby"?: string }>, { id, "aria-describedby": description ? `${id}-description` : undefined }) : children}</div>
   </div>;
 }
-export function SettingsDialog({ width = 720, ...props }: ComponentProps<typeof Dialog>) {
-  return <Dialog {...props} width={width} className="settings-dialog">
-    {props.headerless && <div className="settings-dialog-close"><DialogClose asChild><IconButton icon={X} label={t("close")} disabled={props.busy} /></DialogClose></div>}
+export function SettingsDialog(props: ComponentProps<typeof Dialog>) {
+  return <Dialog {...props} className="settings-dialog">
+    {props.headerless && <div className="settings-dialog-close"><DialogClose asChild><IconButton icon={X} label={t("close")} /></DialogClose></div>}
     {props.children}
   </Dialog>;
 }

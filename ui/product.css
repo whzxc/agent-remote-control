@@ -210,7 +210,6 @@
   line-height: 24px;
   outline: none;
 }
-.page-sheet[data-recessed],
 .navigation-capsule.expanded {
   visibility: hidden;
   pointer-events: none;
@@ -330,11 +329,6 @@
     padding: 0 16px;
   }
 }
-.elastic-backdrop {
-  position: fixed;
-  inset: 0;
-  background: transparent;
-}
 .dialog.elastic-panel {
   --panel-border: 1px;
   --panel-layout-width: min(var(--preferred-width), calc(100vw - 40px));
@@ -354,21 +348,12 @@
   max-height: calc(100dvh - 40px - 2 * var(--panel-border));
   min-height: 0;
 }
-.elastic-panel[data-recessed] {
-  /* Hide the whole composited surface, even if a descendant overrides visibility. */
-  opacity: 0 !important;
-  visibility: hidden;
-  pointer-events: none;
-}
 .elastic-panel .dialog-header {
   padding: 28px 28px 12px;
   border: 0;
-  cursor: grab;
+  cursor: default;
   user-select: none;
-  touch-action: none;
-}
-.elastic-panel .dialog-header:active {
-  cursor: grabbing;
+  touch-action: auto;
 }
 .elastic-panel .dialog-header h2 {
   font-size: 16px;
@@ -382,17 +367,6 @@
 .elastic-panel .dialog-footer {
   border-top: 1px solid var(--border);
   padding: 12px 28px 28px;
-}
-.elastic-panel.unframed {
-  --panel-border: 0px;
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-  border-radius: 22px;
-}
-.elastic-panel.unframed .dialog-body {
-  padding: 0;
-  overflow: auto;
 }
 @media (max-width: 600px) {
   .elastic-panel .dialog-header {
@@ -437,10 +411,10 @@
   box-shadow: var(--shadow-md);
 }
 .page-sheet,
-.elastic-panel:not(.unframed) {
+.elastic-panel {
   background: var(--surface-raised);
 }
-.dialog.elastic-panel:not(.unframed) {
+.dialog.elastic-panel {
   box-shadow: var(--shadow-lg);
 }
 
@@ -849,18 +823,7 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .hosted-relay + .hosted-relay { border-top: 1px solid var(--border); padding-top: var(--space-6); }
 
 /* Approved setup, connection and empty-hosting surfaces. */
-.dialog.elastic-panel.setup-dialog { --panel-border:0px; border:0; border-radius:var(--radius-panel); background:var(--surface-raised); }
-.dialog.elastic-panel.setup-dialog:has(.setup-steps) { --panel-layout-width:min(680px, calc(100vw - 40px)); max-height:calc(100dvh - 40px); }
-/* Keep the child narrower than its parent after the parent scales to 95%. */
-.dialog.elastic-panel.setup-dialog:has(.setup-return) { --panel-layout-width:min(calc(680px * .92), calc((100vw - 40px) * .92)); }
-.setup-dialog:has(.setup-steps) > .elastic-panel-content { height:auto; max-height:calc(100dvh - 40px); }
-.setup-dialog[data-recessed] { opacity:1 !important; visibility:visible; transform:translate(-50%, calc(-50% - 18px)) scale(.95) !important; }
-.dialog.elastic-panel.setup-dialog .dialog-header { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; padding:13px 24px 0; border:0; gap:6px 12px; cursor:default; touch-action:auto; }
-.dialog.elastic-panel.setup-dialog .dialog-header h2 { font:650 var(--text-title)/24px var(--font-ui); margin:0; }
-.dialog.elastic-panel.setup-dialog .dialog-header .icon-button { --icon-button-size:34px; }
 .setup-return, .setup-context { grid-column:1 / -1; margin:0; color:var(--text-secondary); font-size:var(--text-meta); line-height:16px; }
-.dialog.elastic-panel.setup-dialog .dialog-body { flex:0 1 auto; min-height:0; overflow:auto; padding:24px; }
-.dialog.elastic-panel.setup-dialog .dialog-footer { flex:none; padding:0 24px 24px; border:0; background:none; }
 .setup-actions { display:flex; justify-content:space-between; align-items:center; gap:16px; width:100%; }
 .setup-actions[data-layout="end"] { justify-content:flex-end; }
 .setup-steps { display:flex; flex:none; gap:12px; margin:15px 24px 0; padding:0; list-style:none; }
@@ -955,7 +918,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 
 .graph-node[data-new-source] { animation: source-grow-in 2s var(--ease); }
 :root[data-reduced-motion="true"] {
-  .dialog.elastic-panel.setup-dialog { transition: none; }
   .graph-node[data-new-source] { animation: none; box-shadow: 0 0 0 4px var(--canvas), 0 0 0 6px var(--topology-source); }
 }
 .navigation-capsule[hidden] { display: none; }

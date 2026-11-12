@@ -5,9 +5,4 @@
 .agent-account-add textarea.input { min-height: 128px; resize: vertical; font-family: var(--font-mono); font-size: var(--text-small); }
 .agent-account-add [id$="-args"] { font-family: var(--font-mono); font-size: var(--text-small); }
 .agent-account-add .dialog-footer { justify-content: flex-end; }
-.dialog.elastic-panel.agent-account-add { --panel-border: 0px; border: 0; background: var(--surface-raised); border-radius: var(--radius-panel); }
-.agent-account-add.elastic-panel .dialog-header { padding: 13px 24px 0; min-height: 45px; }
-.agent-account-add.elastic-panel .dialog-header h2 { font-size: var(--text-title); font-weight: 650; line-height: 24px; }
-.agent-account-add.elastic-panel .dialog-body { padding: 25px 24px; }
-.agent-account-add.elastic-panel .dialog-footer { border: 0; background: transparent; padding: 0 24px 24px; }
 .agent-account-add .dialog-footer .actions { gap: 12px; }

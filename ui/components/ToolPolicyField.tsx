@@ -136,8 +136,9 @@ export default function ToolPolicyField({
           </Notice>
         )}
       </Field>
-      <Dialog
+      <Dialog size="m"
         open={open}
+        dirty={mode === "custom" && JSON.stringify([...draft].sort()) !== JSON.stringify([...selected].sort())}
         onClose={() => {
           setOpen(false);
           if (catalog) setMode(identifyPolicy(value, catalog));

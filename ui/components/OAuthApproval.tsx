@@ -1,3 +1,5 @@
+import { DialogActions, useDialogCompletion } from "./ui/Dialog";
+import { layers } from "../state/layers";
 import { readOnlyBrowser } from "../browserMode";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
@@ -11,10 +13,12 @@ import type { Ingress, OAuthRequest } from "../state/types";
 import { Button, Dialog, Field, Input, Notice, SingleChoice, Tag } from "./ui";
 import { Card } from "./ui/card";
 
-export function ApprovalCard({ request, ingress, inline = false, product, onDecided, onBusy }: { request: OAuthRequest; ingress: Ingress; inline?: boolean; product?: string; onDecided?: (allow: boolean) => void; onBusy?: (busy: boolean) => void }) {
+export function ApprovalCard({ request, ingress, inline = false, product, onDecided, onBusy, onDirty }: { request: OAuthRequest; ingress: Ingress; inline?: boolean; product?: string; onDecided?: (allow: boolean) => void; onBusy?: (busy: boolean) => void; onDirty?: (dirty: boolean) => void }) {
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
   const [sourceId, setSourceId] = useState(request.switchSourceId || "new"), [label, setLabel] = useState(() => nextSourceName(product ?? request.product ?? "custom", connector.get().sources.filter(s => s.id !== request.sourceId).map(s => s.label))), [labelError, setLabelError] = useState("");
   const { status, sources } = connector.use();
+  const initialLabel = useRef(label);
+  useEffect(() => { onDirty?.(label !== initialLabel.current || sourceId !== (request.switchSourceId || "new")); }, [label, sourceId, request.switchSourceId, onDirty]);
   const fixed = sources.find(s => s.id === request.switchSourceId);
   const oldConnection = status?.ingresses.find(i => i.id === fixed?.ingressId);
   const remaining = sources.filter(s => s.ingressId === fixed?.ingressId && s.id !== fixed?.id && s.state !== "revoked" && s.connectedAt !== null);
@@ -46,7 +50,7 @@ export function ApprovalCard({ request, ingress, inline = false, product, onDeci
         <Input id={`approval-label-${request.id}`} value={label} disabled={readOnlyBrowser || busy} aria-invalid={!!labelError} aria-describedby={labelError ? `approval-label-${request.id}-error` : undefined} onChange={e => { setLabel(e.target.value); setLabelError(""); }} />
       </Field>}
       {!inline && <><p className="pairing-fact">{t("connect.client", { name: request.clientName })}</p><p className="pairing-fact">{t("connect.scope", { scope: ingress.toolPolicy === "all" ? t("connect.allPermissions") : t("connect.selectedPermissions") })}</p></>}
-      {!inline && <div className="actions"><Button disabled={readOnlyBrowser || busy} onClick={() => void decide(false)}>{t("oauthDeny")}</Button><Button variant="primary" busy={busy} disabled={readOnlyBrowser || !request.switchSourceId && sourceId !== "new" && !candidates.some(s => s.id === sourceId)} onClick={() => void decide(true)}>{t("oauthAllow")}</Button></div>}
+      {!inline && <DialogActions className="actions"><Button disabled={readOnlyBrowser || busy} onClick={() => void decide(false)}>{t("oauthDeny")}</Button><Button variant="primary" busy={busy} disabled={readOnlyBrowser || !request.switchSourceId && sourceId !== "new" && !candidates.some(s => s.id === sourceId)} onClick={() => void decide(true)}>{t("oauthAllow")}</Button></DialogActions>}
     </> : <p>{t(request.status === "approved" ? "connect.returning" : request.status === "denied" ? "oauthDenied" : "oauthFinished")}</p>}
     {error && <Notice tone="danger">{error}</Notice>}
   </form>;
@@ -55,7 +59,12 @@ export default function OAuthApproval({ requested, onClose, inlineEnabled }: { r
   const { status } = connector.use(), savedFlow = onboarding.use(), switching = connectionSwitch.use();
   const flow = inlineEnabled ? savedFlow : undefined;
   const dismissed = useRef(new Set<string>());
+  const [busy, setBusy] = useState(false), [dirty, setDirty] = useState(false);
   const [selectedId, setSelectedId] = useState<string>();
+  const [resolved, setResolved] = useState<{ ingress: Ingress; request: OAuthRequest }>();
+  const completion = useDialogCompletion(close);
+  const keepAfterWork = layers.use().find(layer => layer.id === completion.layerId)?.keepAfterWork;
+  const previousSelection = useRef<{ ingress: Ingress; request: OAuthRequest } | undefined>(undefined);
   const requests = status?.ingresses.flatMap(ingress => (ingress.oauth?.pending ?? []).map(request => ({ ingress, request }))) ?? [];
   useEffect(() => {
     if (!requested) return;
@@ -75,13 +84,17 @@ export default function OAuthApproval({ requested, onClose, inlineEnabled }: { r
     onClose();
   }, [requested, status]);
   const inFlow = (id: string) => requests.some(p => p.request.id === id && p.request.switchSourceId === switching?.sourceId && !!switching) || requests.some(p => p.request.id === id && p.ingress.id === flow?.ingressId && ["address", "approval"].includes(flow.step));
-  const selected = requested ? requests.find(p => p.request.id === requested.id) : requests.find(p => p.request.id === selectedId && p.request.status === "pending" && !inFlow(p.request.id))
+  const candidate = requested ? requests.find(p => p.request.id === requested.id) : requests.find(p => p.request.id === selectedId && p.request.status === "pending" && !inFlow(p.request.id))
     ?? requests.find(p => p.request.status === "pending" && !dismissed.current.has(p.request.id) && !inFlow(p.request.id));
-  useEffect(() => { if (selected) setSelectedId(selected.request.id); }, [selected?.request.id]);
+  const selected = keepAfterWork ? resolved ?? previousSelection.current ?? candidate : candidate;
+  useEffect(() => { if (selected) { previousSelection.current = selected; setSelectedId(selected.request.id); } }, [selected]);
   if (selected && inFlow(selected.request.id)) return null;
   if (!selected && !requested) return null;
-  function close() { if (selected) dismissed.current.add(selected.request.id); setSelectedId(undefined); onClose(); }
-  return <Dialog title={t("connect.approveTitle")} width={440} onClose={close}>
-    {selected ? <ApprovalCard key={selected.request.id} {...selected} /> : <p>{t("oauthFinished")}</p>}
+  function close() { if (selected) dismissed.current.add(selected.request.id); setSelectedId(undefined); setResolved(undefined); previousSelection.current = undefined; onClose(); }
+  return <Dialog layerId={completion.layerId} size="s" dirty={dirty} busy={busy} title={t("connect.approveTitle")} onClose={close}>
+    {selected ? <ApprovalCard key={selected.request.id} {...selected} onBusy={setBusy} onDirty={setDirty} onDecided={allow => {
+      setResolved({ ...selected, request: { ...selected.request, status: allow ? "approved" : "denied" } });
+      setDirty(false); void completion.finish();
+    }} /> : <p>{t("oauthFinished")}</p>}
   </Dialog>;
 }

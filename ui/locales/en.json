@@ -1828,5 +1828,11 @@
   "device.board": "Board",
   "device.date": "January 1 · Thu",
   "device.addConnection": "Add connection",
-  "device.minutesAgo": "{minutes} min ago"
+  "device.minutesAgo": "{minutes} min ago",
+  "layers.discard": "Discard your changes?",
+  "layers.discardAction": "Discard",
+  "layers.keepEditing": "Keep editing",
+  "layers.runningClose": "Work is running. This dialog will close when the work finishes.",
+  "layers.keepOpen": "Keep open",
+  "layers.stopClose": "Stop and close"
 }

@@ -1795,5 +1795,11 @@
   "device.board": "看板",
   "device.date": "1 月 1 日 · 周四",
   "device.addConnection": "添加连接",
-  "device.minutesAgo": "{minutes} 分钟前"
+  "device.minutesAgo": "{minutes} 分钟前",
+  "layers.discard": "放弃你的更改？",
+  "layers.discardAction": "放弃更改",
+  "layers.keepEditing": "继续编辑",
+  "layers.runningClose": "任务正在进行，完成后将关闭此对话框。",
+  "layers.keepOpen": "保持打开",
+  "layers.stopClose": "停止并关闭"
 }
