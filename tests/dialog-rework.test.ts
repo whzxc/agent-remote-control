@@ -178,3 +178,33 @@ test('a finished submitted attempt is clean until the user edits the value again
     assert.ok(page.getByRole('button', { name: t('layers.keepEditing') }));
   });
 });
+
+test('deferred close focus restoration preserves the next action trigger', async () => {
+  // Regression: studio-connections at 640px reopened Connections when deferred restoration stole the recovery trigger before Enter.
+  await withDialog(async ({ server, root, settle, focused }) => {
+    const { default: Dialog } = await server.ssrLoadModule('/ui/components/ui/Dialog.tsx');
+    const { Button } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
+    const { t } = await server.ssrLoadModule('/ui/i18n.ts');
+    const originalFrame = globalThis.requestAnimationFrame, originalCancel = globalThis.cancelAnimationFrame;
+    const frames: FrameRequestCallback[] = [];
+    globalThis.requestAnimationFrame = callback => { frames.push(callback); return frames.length; };
+    globalThis.cancelAnimationFrame = () => {};
+    try {
+      function Owner() {
+        const [open, setOpen] = useState(false);
+        return h('main', null, h(Button, { onClick: () => setOpen(true) }, 'Connections'), h(Button, null, 'Recover remote'),
+          open && h(Dialog, { size: 'm', title: 'Connections', onClose: () => setOpen(false) }, 'Connection details'));
+      }
+      const page = within(document.body);
+      await act(async () => root.render(h(Owner)));
+      await act(async () => { const trigger = page.getByRole('button', { name: 'Connections', exact: true }); trigger.focus(); fireEvent.click(trigger); });
+      await act(async () => { for (const frame of frames.splice(0)) frame(0); });
+      await act(async () => fireEvent.click(page.getByRole('button', { name: t('close'), exact: true })));
+      assert.equal(page.queryByRole('dialog', { name: 'Connections' }), null); await settle();
+      const recovery = page.getByRole('button', { name: 'Recover remote' });
+      await act(async () => recovery.focus());
+      await act(async () => { for (const frame of frames.splice(0)) frame(0); }); await settle();
+      assertNodeIdentity(focused(), recovery);
+    } finally { globalThis.requestAnimationFrame = originalFrame; globalThis.cancelAnimationFrame = originalCancel; }
+  });
+});

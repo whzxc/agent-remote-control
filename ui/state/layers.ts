@@ -122,6 +122,8 @@ export function createLayerStore() {
         const activeLayer = top();
         const active = document.activeElement;
         if (activeLayer && active instanceof Element && activeLayer.node?.contains(active) && active !== activeLayer.node) return;
+        // A subsequent user action may already have focused its trigger before this deferred restore.
+        if (active instanceof HTMLElement && active !== document.body && active.isConnected) return;
         // A handoff may focus a Radix transient outside the layer registry.
         const owner = active?.closest('[role="dialog"]');
         if (owner && active !== owner && owner.isConnected) return;
