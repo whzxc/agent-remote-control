@@ -234,6 +234,18 @@ test("timeline replaces by item id, retains unchanged entries, and orders backfi
   assert.equal(current.entries[0].text, "partial");
 });
 
+test("full timeline re-reads keep unchanged entry identity and adopt changed entries", async () => {
+  // Property: reuse never alters content; equal entries keep their object and changed entries take the new value.
+  const { reuseTimelineEntries } = await import("../ui/state/timelineModel.ts");
+  const current = timeline([entry("same", 1, "unchanged", 0), entry("edited", 2, "before", 1)]);
+  const next = timeline([entry("same", 1, "unchanged", 0), entry("edited", 3, "after", 1), entry("added", 4, "new", 2)]);
+  const reused = reuseTimelineEntries(current, next);
+  assert.deepEqual(reused.entries, next.entries);
+  assert.equal(reused.entries[0], current.entries[0]);
+  assert.equal(reused.entries[1], next.entries[1]);
+  assert.equal(reuseTimelineEntries({ ...current, sessionId: "other" }, next), next);
+});
+
 test("expired timeline cursor discards old state and retries once without after", async () => {
   // Regression: TIMELINE_CURSOR_EXPIRED requires a fresh timeline without stale entries.
   const { refreshTimeline } = await import("../ui/state/timelineModel.ts");

@@ -13,7 +13,8 @@ export const checks = [
                     const panel = page.getByRole('dialog', { name: task.title, exact: true });
                     await panel.getByRole('status').filter({ hasText: messages['detail.state.done'] }).waitFor();
                     await panel.getByText(task.entries.find(entry => entry.phase === 'final_answer').text, { exact: true }).waitFor();
-                    await panel.getByRole('button', { name: new RegExp(`^${escapeRegex(messages['detail.process'].split('{')[0])}`) }).click();
+                    const work = [messages['detail.workedFor'].split('{')[0], messages['detail.worked']].map(escapeRegex).join('|');
+                    await panel.getByRole('button', { name: new RegExp(`^(${work})`) }).click();
                     for (const entry of task.entries.filter(entry => entry.type === 'error')) {
                         await panel.getByText(entry.text, { exact: true }).waitFor();
                     }

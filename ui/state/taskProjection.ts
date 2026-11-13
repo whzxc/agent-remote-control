@@ -40,13 +40,35 @@ export function projectTurn(entries: readonly AgentTimelineEntry[], state: TaskS
   const live = state === "running" || state === "needsYou";
   const { prompt, final, work } = turnEntries(entries, live, state === "done");
   const answeredInteractions = work.filter(entry => entry.type === "interaction" && (entry.status === "completed" || !!entry.response));
-  const rows = processRows(work.filter(entry => !answeredInteractions.includes(entry)));
-  return { prompt, final, rows, answeredInteractions, plan: [...entries].reverse().find(entry => entry.type === "plan"),
-    thinking: live ? [...entries].reverse().find(entry => entry.type === "thinking" && entry.text?.trim()) : undefined,
-    updates: work.filter(entry => entry.type === "text").length,
-    answers: work.filter(entry => entry.type === "interaction" && entry.status === "completed").length,
+  // Live tools move to the activity row so the current action is never buried in a group.
+  const activity = state === "running" ? liveActivity(work) : undefined;
+  const rows = processRows(work.filter(entry => !answeredInteractions.includes(entry) && !activity?.running.includes(entry)));
+  return { prompt, final, rows, answeredInteractions, activity, plan: [...entries].reverse().find(entry => entry.type === "plan"),
     actions: work.filter(entry => ["command", "file", "tool"].includes(entry.type)).length,
+    failed: work.filter(entry => ["command", "file", "tool"].includes(entry.type) && entry.status === "failed").length,
   };
+}
+// The current action of a live turn: running tools, or the newest reasoning since the agent last spoke.
+export function liveActivity(entries: readonly AgentTimelineEntry[]) {
+  const running = entries.filter(entry => ["command", "file", "tool"].includes(entry.type) && (entry.status === "running" || entry.status === "pending"));
+  const spoken = [...entries].reverse().findIndex(entry => ["user", "text", "interaction", "error"].includes(entry.type));
+  const since = spoken < 0 ? entries : entries.slice(entries.length - spoken);
+  const reasoning = [...since].reverse().find(entry => entry.type === "thinking" && entry.text?.trim());
+  return { running, thought: reasoning?.text ? thoughtLine(reasoning.text) : undefined };
+}
+// Reasoning summaries open with a bold heading; otherwise use the first sentence as plain text.
+export function thoughtLine(markdown: string) {
+  const heading = /^\s*\*\*([^*\r\n]+)\*\*[ \t]*\r?(?:\n|$)/.exec(markdown)?.[1];
+  const text = (heading ?? markdown)
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^[ \t]*(?:#{1,6}|[-*+]|\d+\.)[ \t]+/gm, "")
+    .replace(/`+|\*\*|~~/g, "")
+    .replace(/(^|[^\w*])[*_]([^*_\n]+)[*_](?![\w*])/g, "$1$2")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (heading !== undefined) return text;
+  const end = /[.?!]["'”’)]?(?=\s|$)|[。？！]/.exec(text);
+  return end ? text.slice(0, end.index + end[0].length) : text;
 }
 export function toolCounts(entries: readonly AgentTimelineEntry[], live = true) {
   const counts = workState(entries).counts;
@@ -57,6 +79,28 @@ export function toolCounts(entries: readonly AgentTimelineEntry[], live = true) 
   return { read: counts.read + reads.size, search: actions.filter(action => action.type === "search").length,
     list: actions.filter(action => action.type === "listFiles").length,
     edit: counts.write, file: counts.file, command: commands.length - running, running, tool: counts.tool };
+}
+const summaryPriority = { edit: 0, command: 0, read: 1, search: 1, list: 1, file: 2, tool: 2 } as const;
+export type ToolSummaryKind = keyof typeof summaryPriority;
+function toolSummaryKind(entry: AgentTimelineEntry): ToolSummaryKind | undefined {
+  if (entry.type === "file") return entry.operation === "read" ? "read" : entry.operation ? "edit" : "file";
+  if (entry.type === "tool") return "tool";
+  if (entry.type !== "command") return;
+  const actions = entry.commandActions ?? [];
+  if (!actions.length || actions.some(action => !["read", "search", "listFiles"].includes(action.type))) return "command";
+  return actions[0].type === "listFiles" ? "list" : actions[0].type as "read" | "search";
+}
+// One-line group summary: up to three kinds, otherwise the two most significant plus the remainder, and failures.
+export function toolSummary(entries: readonly AgentTimelineEntry[]) {
+  const counts = toolCounts(entries, false);
+  const firstSeen = new Map<ToolSummaryKind, number>();
+  entries.forEach((entry, index) => { const kind = toolSummaryKind(entry); if (kind && !firstSeen.has(kind)) firstSeen.set(kind, index); });
+  const kinds = (Object.keys(summaryPriority) as ToolSummaryKind[]).filter(kind => counts[kind] > 0)
+    .sort((a, b) => summaryPriority[a] - summaryPriority[b] || (firstSeen.get(a) ?? Infinity) - (firstSeen.get(b) ?? Infinity));
+  const shown = kinds.length > 3 ? 2 : kinds.length;
+  const parts = kinds.slice(0, shown).sort((a, b) => (firstSeen.get(a) ?? Infinity) - (firstSeen.get(b) ?? Infinity)).map(kind => ({ kind, count: counts[kind] }));
+  return { parts, more: kinds.slice(shown).reduce((sum, kind) => sum + counts[kind], 0),
+    failed: entries.filter(entry => entry.status === "failed").length };
 }
 export function changedFiles(entries: readonly AgentTimelineEntry[]) {
   const files = new Map<string, { path: string; operation?: "create" | "edit" | "delete"; added?: number; removed?: number }>();

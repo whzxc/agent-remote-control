@@ -12,6 +12,15 @@ export function mergeTimeline(current: AgentTimeline | undefined, next: AgentTim
     ...(current.turnStatuses || next.turnStatuses ? { turnStatuses: { ...current.turnStatuses, ...next.turnStatuses } } : {}),
     entries: [...entries.values()].sort((a, b) => (a.position ?? 0) - (b.position ?? 0)) };
 }
+// Full re-reads keep unchanged entry objects so memoized settled turns skip rendering.
+export function reuseTimelineEntries(current: AgentTimeline | undefined, next: AgentTimeline): AgentTimeline {
+  if (!current || current.sessionId !== next.sessionId) return next;
+  const previous = new Map(current.entries.map(entry => [entry.id, entry]));
+  return { ...next, entries: next.entries.map(entry => {
+    const old = previous.get(entry.id);
+    return old && JSON.stringify(old) === JSON.stringify(entry) ? old : entry;
+  }) };
+}
 export async function refreshTimeline(current: AgentTimeline | undefined, read: (after?: number) => Promise<AgentTimeline>) {
   try { return mergeTimeline(current, await read(current?.cursor)); }
   catch (error) {

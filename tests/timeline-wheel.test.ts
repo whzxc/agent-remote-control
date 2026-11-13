@@ -99,7 +99,7 @@ test("nested timeline content sends vertical wheel deltas to the timeline and ke
     await verifyAxes(page.getByRole("table"));
     await verifyAxes(page.getByRole("cell", { name: "Table cell" }));
     await verifyAxes(page.getByText(code));
-    await act(() => fireEvent.click(page.getByRole("button", { name: "fixture-command" })));
+    // The running command's live row shows its output tail without a click.
     await verifyAxes(page.getByText(log));
     await act(() => fireEvent.click(page.getByRole("button", { name: "example.ts" })));
     await verifyAxes(page.getByRole("list"));

@@ -314,16 +314,20 @@ test("timeline turn disclosures preserve choices through incremental work and re
     const click = async (element: Element) => { await act(async () => { fireEvent.click(element); }); };
     const page = within(mount);
     const { t } = await server.ssrLoadModule("/ui/i18n.ts");
-    const group = () => page.getByRole("button", { name: name => name.includes(t("detail.tools.read", { count: 1 })) });
-    await render([first, second]);
-    await click(page.getByRole("button", { name: first.command }));
-    assert.ok(page.getAllByText(first.output.text).length > 0);
-    await click(group());
+    const group = () => page.getByRole("button", { name: name => name.includes(t("detail.tools.command", { count: 1 })) });
+    const done = { ...first, id: "done", status: "completed", exitCode: 0, output: { text: "finished output" } };
+    const build = { ...first, id: "build", command: "npm run build", output: { text: "build output" } };
+    await render([done, second, build]);
+    // The running command is the live row, open with its output tail; finished tools fold behind one summary.
+    assert.ok(page.getByRole("button", { name: /npm run build/ }));
+    assert.ok(page.getAllByText(build.output.text).length > 0);
     assert.equal(group().getAttribute("aria-expanded"), "false");
-    await render([first, second, { ...second, id: "third", path: "/project/src/other.ts" }]);
-    assert.equal(group().getAttribute("aria-expanded"), "false");
-    assertNodeIdentity(page.queryByText(first.output.text), null);
     await click(group());
+    await click(page.getByRole("button", { name: /^npm test/ }));
+    assert.ok(page.getAllByText(done.output.text).length > 0);
+    await render([done, second, { ...second, id: "third", path: "/project/src/other.ts" }, build]);
+    assert.equal(group().getAttribute("aria-expanded"), "true");
+    assert.ok(page.getAllByText(done.output.text).length > 0);
     await render([{ ...first, status: "failed", exitCode: 1 }, second]);
     const process = () => page.getByRole("button", { name: name => name.includes(t("detail.process.actions", { count: 2 })) });
     assert.equal(process().getAttribute("aria-expanded"), "true");

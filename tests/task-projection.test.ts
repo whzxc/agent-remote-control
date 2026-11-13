@@ -10,15 +10,61 @@ test("tool runs merge without absorbing narrative or interaction boundaries", ()
   assert.deepEqual(rows.map(row => row.kind), ["tools", "entry", "tools", "entry", "tools"]);
   assert.deepEqual(rows.flatMap(row => row.kind === "tools" ? row.entries : [row.entry]), entries);
 });
-test("only the latest plan and live thinking survive projection", () => {
-  // Property: plan replacement and thinking removal are independent of historical item count.
+test("only the latest plan survives projection and reasoning stays out of process rows", () => {
+  // Property: plan replacement and reasoning removal are independent of historical item count.
   const entries = [entry("p1", "plan"), entry("t1", "thinking", { text: "First" }), entry("p2", "plan"), entry("t2", "thinking", { text: "Latest" }), entry("answer", "text", { phase: "final_answer", text: "Result" })];
   const live = projectTurn(entries, "running");
   assert.equal(live.plan?.id, "p2");
-  assert.equal(live.thinking?.id, "t2");
+  assert.equal(live.activity?.thought, "Latest");
   assert.deepEqual(live.rows.flatMap(row => row.kind === "entry" ? [row.entry.id] : []), ["p2"]);
-  assert.equal(projectTurn(entries, "done").thinking, undefined);
+  assert.equal(projectTurn(entries, "done").activity, undefined);
   assert.equal(projectTurn(entries, "done").final?.id, "answer");
+});
+test("live turns move running tools to the activity row and keep every other entry in order", () => {
+  // Property: each work entry appears exactly once, either in chronological process rows or in the live activity.
+  const entries = [entry("prompt", "user"), entry("read", "command", { commandActions: [{ type: "read", path: "a" }] }), entry("note", "text"),
+    entry("edit", "file", { operation: "edit", path: "a" }), entry("check", "command", { status: "running" }), entry("lookup", "tool", { status: "running" })];
+  const { rows, activity } = projectTurn(entries, "running");
+  const projected = rows.flatMap(row => row.kind === "tools" ? row.entries : [row.entry]);
+  assert.deepEqual(projected.map(item => item.id), ["read", "note", "edit"]);
+  assert.deepEqual(activity?.running.map(item => item.id), ["check", "lookup"]);
+  assert.deepEqual(projectTurn(entries, "interrupted").rows.flatMap(row => row.kind === "tools" ? row.entries : [row.entry]).map(item => item.id), ["read", "note", "edit", "check", "lookup"]);
+});
+test("live reasoning comes only from thinking after the latest agent message", () => {
+  // Regression: an earlier reasoning summary was shown under a newer narrative as if it were current.
+  const stale = [entry("think", "thinking", { text: "**Fixing the port type**\n\nDetails." }), entry("note", "text", { text: "Type checks pass." })];
+  assert.equal(projectTurn(stale, "running").activity?.thought, undefined);
+  assert.equal(projectTurn([...stale, entry("next", "thinking", { text: "**Checking overrides**\n\nMore." })], "running").activity?.thought, "Checking overrides");
+});
+test("thought lines are single plain lines", async () => {
+  // Property: reasoning previews contain no Markdown markers or line breaks and prefer a leading bold heading.
+  const { thoughtLine } = await import("../ui/state/taskProjection.ts");
+  for (const text of ["**Heading** trailing\nbody", "First *sentence* with `code`. Second sentence.", "- [link](https://example.com) item\n- next", "第一句。第二句。", "   "]) {
+    const line = thoughtLine(text);
+    assert.doesNotMatch(line, /[\n*`]|\]\(/);
+    assert.equal(line, line.trim());
+  }
+  assert.equal(thoughtLine("**Inspecting config**\n\nThe loader reads files."), "Inspecting config");
+  assert.equal(thoughtLine("First *sentence* here. Second."), "First sentence here.");
+});
+test("tool summaries account for every observed action and failure", async () => {
+  // Property: shown parts plus the remainder equal the full counts, at most three parts are shown, and failures are counted once.
+  const { toolSummary, toolCounts } = await import("../ui/state/taskProjection.ts");
+  const kinds = [
+    entry("search", "command", { commandActions: [{ type: "search" }] }), entry("read", "file", { operation: "read", path: "a" }),
+    entry("list", "command", { commandActions: [{ type: "listFiles" }] }), entry("edit", "file", { operation: "edit", path: "b" }),
+    entry("run", "command", { status: "failed" }), entry("tool", "tool"),
+  ];
+  for (let size = 1; size <= kinds.length; size++) {
+    const entries = kinds.slice(0, size);
+    const { parts, more, failed } = toolSummary(entries);
+    const counts = toolCounts(entries, false);
+    const total = ["read", "search", "list", "edit", "file", "command", "tool"].reduce((sum, kind) => sum + counts[kind as keyof typeof counts], 0);
+    assert.ok(parts.length <= 3);
+    assert.equal(parts.reduce((sum, part) => sum + part.count, 0) + more, total);
+    assert.equal(failed, entries.filter(item => item.status === "failed").length);
+  }
+  assert.deepEqual(toolSummary(kinds).parts.map(part => part.kind), ["edit", "command"]);
 });
 test("terminal state and process folding preserve explicit disclosure choices", () => {
   // Regression: failed and interrupted process disclosures ignored user clicks after starting expanded.

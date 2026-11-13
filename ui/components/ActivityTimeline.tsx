@@ -17,7 +17,7 @@ import { api } from "../api";
 import { t } from "../i18n";
 import type { AgentTimeline } from "../types";
 import { activityApprovals, agentActivity, openActivitySession } from "../state/activity";
-import { followsTimeline, refreshTimeline, timelineScrollTarget } from "../state/timelineModel";
+import { followsTimeline, refreshTimeline, reuseTimelineEntries, timelineScrollTarget } from "../state/timelineModel";
 import { Button, Icon, IconButton, LoadingIndicator, Menu } from "./ui";
 import TimelineEntries, { durationText } from "./TimelineEntries";
 import { dispatchSourceLabel, SourceBadge, PhaseLabel } from "./activity";
@@ -140,7 +140,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
           : api<AgentTimeline>(`agents/timeline/${encodeURIComponent(session.id)}${recent ? "?recent=1" : after === undefined ? "" : `?after=${after}`}`);
         const next = preview
           ? await read(undefined, true)
-          : external || current?.readOnly || current?.preview ? await read() : await refreshTimeline(current, read);
+          : external || current?.readOnly || current?.preview ? reuseTimelineEntries(current, await read()) : await refreshTimeline(current, read);
         if (stopped) return;
         if (manualDisclosure.current && (next.cursor !== current?.cursor || next.status !== current?.status
           || JSON.stringify(next.entries) !== JSON.stringify(current?.entries))) {
