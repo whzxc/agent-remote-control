@@ -171,7 +171,6 @@ function RelayChanges() {
 export function RelayReply() {
   return (
     <article class="relative overflow-hidden rounded-card border border-border py-3 pl-[18px] pr-3">
-      <span class={`${edge} bg-role-agent`} />
       <header class="flex items-center gap-2">
         <RelayRoute from={agent} to={source} label={relayCopy.reply} />
         <IconButton icon="copy" label={relayCopy.copy} compact />

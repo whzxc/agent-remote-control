@@ -82,6 +82,8 @@
 .app-scene {
   --dock-left: 24px;
   --dock-bottom: 24px;
+  --homepage-bar-top: 48px;
+  --homepage-content-top: 102px;
   height: 100dvh;
   min-height: 0;
   overflow: hidden;
@@ -133,7 +135,7 @@
   border: 0;
   border-radius: 22px;
   background: var(--surface-raised);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
 }
 .navigation-capsule button {
   width: 36px;

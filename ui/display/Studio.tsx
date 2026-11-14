@@ -45,7 +45,7 @@ function useMinuteClock(enabled: boolean) {
 function HomepageBar({ now }: { now: number }) {
   const activity = trackedActivity.use(), executions = taskExecutions.use(), submissions = activityApprovals.use();
   const { snapshot, error } = agentActivity.use();
-  const mode = homepageMode.use(), tasks = useHomepageTasks(false);
+  const mode = homepageMode.use(), tasks = useHomepageTasks();
   const language = locale.use(), date = new Date(now);
   const { running, needsYou } = studioActivitySummary(activity, executions, submissions);
   const summary = error ? t('studio.activityUnavailable') : !snapshot ? t('loading') : [

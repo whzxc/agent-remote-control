@@ -39,7 +39,7 @@
 :root[data-reduced-motion="true"] .studio-motion { display: none; }
 :root[data-reduced-motion="true"] .studio-motion > div { animation: none; }
 
-.homepage-bar { position: absolute; inset: 16px 24px auto; z-index: 3; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 12px; align-items: center; color: var(--text); }
+.homepage-bar { position: absolute; inset: var(--homepage-bar-top) 24px auto; z-index: 3; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 12px; align-items: center; color: var(--text); }
 .homepage-bar-board { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .homepage-bar-board time { font-size: var(--text-title); font-weight: 650; line-height: 24px; font-variant-numeric: tabular-nums; }
 .homepage-bar-board > button { padding: 0; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; justify-content: flex-start; }

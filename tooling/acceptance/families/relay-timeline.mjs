@@ -1,7 +1,14 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-export const checks = [{ stage: 'verify', order: 105, visual: false, async run({ page, fixture, name, root, row }) {
+export const checks = [{ stage: "verify", order: 106, visual: true, async run({ page, name }) {
+  if (name !== "relay-done") return;
+  const neutral = await page.locator(".task-final").evaluateAll(cards => cards.length > 0 && cards.every(card => {
+    const style = getComputedStyle(card);
+    return style.borderLeftWidth === style.borderRightWidth && style.borderLeftColor === style.borderRightColor;
+  }));
+  if (!neutral) throw new Error("Reply or review cards retained a colored left edge.");
+} }, { stage: 'verify', order: 105, visual: false, async run({ page, fixture, name, root, row }) {
   if (!name.startsWith('relay-') || !['running', 'needs-you', 'done', 'failed'].some(state => name === `relay-${state}`)) return;
   // Regression: task detail hid reasoning and answering parties, and mixed live plans into settled work.
   const text = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));

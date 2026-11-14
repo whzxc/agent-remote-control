@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useTaskPreview } from '../../state/taskExecution';
 import { ArrowRightLeft, Check, ChevronRight, CircleHelp, Hourglass, ListChecks } from 'lucide-react';
 import { Icon, IconButton, Tile, Tooltip } from './index';
 import { taskPhaseIcons } from './NodeCapsule';
@@ -33,6 +34,7 @@ export function TaskSnapshot({ task, origins, now, path, freshness, onOpen, onRe
   task: HomepageTask; origins: TaskOrigin[]; now: number; path?: string; freshness?: string;
   onOpen?: () => void; onRead: () => void; tabbable?: boolean;
 }) {
+  useTaskPreview(task.agent, task.session.id, !task.deviceId && !!task.session.timeline);
   const offline = task.group === 'unconfirmed', waiting = task.group === 'needs-me';
   const { routing, error } = useRequestRouting(task.agent, task.session.id, !task.deviceId && waiting ? task.session.interaction : undefined);
   const source = origins[0]?.label ?? t('homepage.controller');

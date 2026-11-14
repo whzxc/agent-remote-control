@@ -1,12 +1,12 @@
 import { deviceSnapshot, pairedDevices } from '../devices/state';
 import { deviceTasks } from '../devices/tasks';
 import { homepageRemoteReads } from './homepage';
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { trackedActivity, activityBubbleSnapshot, rememberActivityRead, markActivitiesRead } from './activityBubbles';
 import { tasks as taskRecords } from './tasks';
 import { createStore } from './store';
 import { activityApprovals } from './activity';
-import { taskExecutions, refreshTaskExecution } from './taskExecution';
+import { taskExecutions } from './taskExecution';
 import { pendingSessions } from './taskInteractions';
 import { executionStatus } from './taskExecutionModel';
 import { homepageTaskGroup, projectDeviceTasks, remoteTaskReadKey, type HomepageTask } from './activityModel';
@@ -24,7 +24,7 @@ export function markHomepageTaskRead(task: HomepageTask) {
   markActivitiesRead([{ agent: task.agent, id: task.session.id }]);
   homepageReadRevision.set(value => value + 1);
 }
-export function useHomepageTasks(observe = true) {
+export function useHomepageTasks() {
   const tracked = trackedActivity.use(), executions = taskExecutions.use(), submissions = activityApprovals.use(), order = taskOrder.use();
   const records = taskRecords.use().records, readRevision = homepageReadRevision.use();
   const devices = deviceSnapshot.use(), remote = deviceTasks.use(), remoteReads = homepageRemoteReads.use();
@@ -64,19 +64,5 @@ export function useHomepageTasks(observe = true) {
     const rank = new Map((order.homepage ?? []).map((key, index) => [key, index]));
     return projected.sort((a, b) => (rank.get(a.key) ?? Infinity) - (rank.get(b.key) ?? Infinity));
   }, [tracked, executions, submissions, order, records, readRevision, devices, remote, remoteReads]);
-  const identities = JSON.stringify(tasks.filter(task => !task.deviceId && task.session.timeline).map(task => [task.agent, task.session.id]));
-  useEffect(() => {
-    if (!observe) return;
-    let stopped = false;
-    const identitiesToRead = JSON.parse(identities) as [string, string][];
-    const read = async () => {
-      for (let index = 0; index < identitiesToRead.length && !stopped; index += 4) {
-        await Promise.allSettled(identitiesToRead.slice(index, index + 4).map(([agent, id]) => refreshTaskExecution(agent, id, true)));
-      }
-    };
-    void read();
-    const timer = setInterval(() => { if (document.visibilityState === 'visible') void read(); }, 10000);
-    return () => { stopped = true; clearInterval(timer); };
-  }, [identities, observe]);
   return tasks;
 }

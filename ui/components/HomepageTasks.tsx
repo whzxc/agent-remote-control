@@ -68,7 +68,8 @@ export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
       ...(account && !task.deviceId ? [{ label: account.alias, graphic: <Icon icon={UserRound} size={14} /> }] : task.accountId ? [{ label: task.accountId, graphic: <Icon icon={UserRound} size={14} /> }] : []),
     ];
   }
-  function card(task: HomepageTask, tabbable = true) {
+  function card(task: HomepageTask, tabbable = true, detailed = true) {
+    if (!detailed) return <><TaskStatusMark task={task} now={now} /><div className="task-snapshot task-snapshot-placeholder" aria-hidden="true"><span /><span /><span /></div></>;
     const device = task.deviceId && pairedDevices(snapshot).find(device => device.id === task.deviceId);
     return <><TaskStatusMark task={task} now={now} /><TaskSnapshot task={task} origins={origins(task)} now={now}
       path={device && device.state === 'online' ? `${device.path === 'lan' ? 'LAN' : 'Tunnel'}${device.latency === null ? '' : ` · ${device.latency} ms`}` : undefined}
@@ -81,6 +82,6 @@ export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
       : layout === 'stack' ? <TaskStack tasks={filtered} render={card} onOpen={open} />
       : <div className="homepage-task-grid" role="list" aria-label={t('homepage.tasks')}>{filtered.map(task => <article key={task.key} aria-label={taskTitle(task)}
         className="homepage-task-tile" onClick={event => { if (!(event.target as HTMLElement).closest('button')) open(task); }}>{card(task)}</article>)}</div>}
-    {omitted > 0 && <p role="status" aria-label={t('homepage.partial')}>{t('homepage.omitted', { count: omitted })}</p>}
+    {omitted > 0 && <p className="homepage-task-omitted" role="status" aria-label={t('homepage.partial')}>{t('homepage.omitted', { count: omitted })}</p>}
   </main>;
 }

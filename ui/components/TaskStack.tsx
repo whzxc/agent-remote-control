@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type CSSProperties } from 'react';
 import { useReducedMotion } from '../state/appEnvironment';
 import { integrateSpring } from '../topology/spring';
 import { deckGeometry, deckRelease } from './taskDeck';
@@ -7,7 +7,7 @@ import type { HomepageTask } from '../state/activityModel';
 import { taskTitle } from './ui/TaskSnapshot';
 
 export default function TaskStack({ tasks, render, onOpen }: {
-  tasks: HomepageTask[]; render: (task: HomepageTask, tabbable: boolean) => ReactNode; onOpen: (task: HomepageTask) => void;
+  tasks: HomepageTask[]; render: (task: HomepageTask, tabbable: boolean, detailed: boolean) => ReactNode; onOpen: (task: HomepageTask) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0), [position, setPosition] = useState(0), [settling, setSettling] = useState(false);
@@ -17,6 +17,12 @@ export default function TaskStack({ tasks, render, onOpen }: {
   const stride = width < 500 ? 34 : width < 1000 ? 70 : 132;
   const cardWidth = width < 500 ? Math.min(290, width - 48) : width < 1000 ? 340 : 360;
   const active = Math.max(0, Math.min(tasks.length - 1, Math.round(position / stride)));
+  const first = Math.max(0, Math.floor(position / stride));
+  const start = Math.max(0, first - 1), end = Math.min(tasks.length, first + 8);
+  const cards = useMemo(() => tasks.slice(start, end).map((task, offset) => {
+    const index = start + offset, detailed = index >= active - 1 && index <= active + 2;
+    return { task, index, detailed, content: render(task, index === active, detailed) };
+  }).reverse(), [tasks, render, start, end, active]);
   const set = (next: number) => { value.current = next; setPosition(next); };
   const stop = () => { cancelAnimationFrame(frame.current); setSettling(false); };
   function settle(next: number, velocity = 0) {
@@ -38,14 +44,15 @@ export default function TaskStack({ tasks, render, onOpen }: {
     const observer = new ResizeObserver(() => setWidth(node.clientWidth));
     setWidth(node.clientWidth); observer.observe(node); return () => observer.disconnect();
   }, []);
-  const identities = tasks.map(task => task.key).join('\n');
-  const previous = useRef({ keys: tasks.map(task => task.key), stride });
+  const keys = useMemo(() => tasks.map(task => task.key), [tasks]);
+  const identities = useMemo(() => keys.join('\n'), [keys]);
+  const previous = useRef({ keys, stride });
   useLayoutEffect(() => {
     stop(); clearTimeout(wheelTimer.current);
     const key = previous.current.keys[Math.round(value.current / previous.current.stride)];
     const index = Math.max(0, tasks.findIndex(task => task.key === key));
     set(index * stride); target.current = index * stride;
-    previous.current = { keys: tasks.map(task => task.key), stride };
+    previous.current = { keys, stride };
   }, [identities, stride]);
   const state = useRef({ stride, count: tasks.length }); state.current = { stride, count: tasks.length };
   const controls = useRef({ settle }); controls.current = { settle };
@@ -87,17 +94,17 @@ export default function TaskStack({ tasks, render, onOpen }: {
       if (!held.moved) return;
       held.velocity = (event.clientX - held.last) / Math.max(1, now - held.at);
       held.last = event.clientX; held.at = now;
-      set(held.position + dx);
+      set(Math.max(0, Math.min((tasks.length - 1) * stride, held.position + dx)));
     }} onPointerUp={() => release()} onPointerCancel={() => release(true)} onLostPointerCapture={() => release(true)}
     onClickCapture={event => { if (suppressClick.current) { event.preventDefault(); event.stopPropagation(); suppressClick.current = false; } }}>
-    {[...tasks].map((task, index) => ({ task, index })).reverse().map(({ task, index }) => {
+    {cards.map(({ task, index, detailed, content }) => {
       const depth = index - position / stride, geometry = deckGeometry(depth, stride);
       return <article key={task.key} className="task-stack-card" aria-label={taskTitle(task)} aria-current={index === active ? 'true' : undefined}
         inert={geometry.opacity === 0} style={{ left: front - geometry.offset, width: cardWidth, zIndex: tasks.length - index,
           transform: `scale(${geometry.scale})`, opacity: geometry.opacity,
           '--task-strip': `${Math.min(cardWidth, geometry.strip)}px`, '--task-fog': geometry.fog } as CSSProperties}
-        data-labelled={geometry.strip >= 100 || undefined} onClick={event => { if (!(event.target as HTMLElement).closest('button')) onOpen(task); }}>
-        {render(task, index === active)}
+        data-labelled={geometry.strip >= 100 || undefined} onClick={event => { if (!(event.target as HTMLElement).closest('button')) { if (detailed) onOpen(task); else settle(index * stride); } }}>
+        {content}
       </article>;
     })}
   </div>;

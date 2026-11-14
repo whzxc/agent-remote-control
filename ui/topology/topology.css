@@ -1,4 +1,4 @@
-.topology-viewport { position: absolute; inset: var(--homepage-content-top, 70px) 0 calc(var(--dock-bottom) + 60px); overflow: auto; overscroll-behavior: contain; overflow-anchor: none; }
+.topology-viewport { position: absolute; inset: var(--homepage-content-top) 0 0; overflow: auto; overscroll-behavior: contain; overflow-anchor: none; }
 .topology-node .capsule-graph-node { position: absolute; left: -2px; top: -2px; width: 48px; }
 .topology-node .capsule-graph-node .graph-node-name { position: absolute; top: 60px; left: 24px; width: 110px; text-align: center; }
 .topology-node .capsule-graph-node small { display: block; color: var(--text-secondary); }

@@ -59,3 +59,14 @@ export function useTaskExecution(agent: string, id: string, turnId: string | nul
   }, [agent, id, turnId, enabled, terminal]);
   return execution;
 }
+
+/** Only mounted task snapshots request timeline previews. */
+export function useTaskPreview(agent: string, id: string, enabled: boolean) {
+  useEffect(() => {
+    if (!enabled) return;
+    const read = () => { if (document.visibilityState === "visible") void refreshTaskExecution(agent, id, true).catch(() => {}); };
+    read();
+    const timer = setInterval(read, 10000);
+    return () => clearInterval(timer);
+  }, [agent, id, enabled]);
+}

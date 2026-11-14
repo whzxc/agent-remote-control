@@ -64,7 +64,7 @@ export function TopologyScreen({
           </div>
         ))}
       </div>
-      <div class="absolute inset-x-6 top-4">
+      <div class="absolute inset-x-6 top-12">
         {scene.chrome.filter(chrome => chrome.kind === "board").map(chrome =>
           chrome.kind === "board" && <HomepageBar {...chrome} mode={chrome.mode ?? "topology"} compact={width < 1000} />)}
       </div>

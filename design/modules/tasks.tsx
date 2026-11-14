@@ -74,7 +74,7 @@ function SnapshotNote({ tone, label, text }: { tone: 'source' | 'agent' | 'reque
 
 /** Portrait snapshot of one task. It reports status faithfully and carries no request actions. */
 export function TaskSnapshot({ task, height = 340, narrow = false }: {
-  task: TaskSnapshotData; height?: number; narrow?: boolean;
+  task: TaskSnapshotData; height?: number | string; narrow?: boolean;
 }) {
   const waiting = task.group === 'needs-me', offline = task.group === 'unconfirmed', done = task.group === 'unread';
   const steps = (task.snapshot ?? task.steps ?? []).slice(narrow ? -3 : -10), route = switcherStatus[task.id];
@@ -145,9 +145,9 @@ export function TaskTiles({ items = tasks, columns, height, narrow = false }: {
 
 // Visible strip of each card behind the front one; spacing compresses with depth like a perspective deck.
 const decks = {
-  landscape: { width: 1280, card: 360, height: 520, peeks: [132, 104, 82, 64, 50, 40, 32] },
-  portrait: { width: 640, card: 340, height: 520, peeks: [70, 52, 40, 30, 24, 18, 14] },
-  mobile: { width: 390, card: 290, height: 560, peeks: [34, 24, 16, 10, 8, 6, 4] },
+  landscape: { width: 1280, card: 360, peeks: [132, 104, 82, 64, 50, 40, 32] },
+  portrait: { width: 640, card: 340, peeks: [70, 52, 40, 30, 24, 18, 14] },
+  mobile: { width: 390, card: 290, peeks: [34, 24, 16, 10, 8, 6, 4] },
 } as const;
 /** Stack: depth deck. The front card is whole; cards behind recede left, scaled, fogged and shadowed. */
 export function TaskStack({ items = tasks, form = 'landscape' }: {
@@ -157,31 +157,29 @@ export function TaskStack({ items = tasks, form = 'landscape' }: {
   const offsets = order.map((_, depth) => deck.peeks.slice(0, depth).reduce((sum, peek) => sum + peek, 0));
   const span = deck.card + offsets[order.length - 1];
   const front = Math.min(Math.round((deck.width - span) / 2), deck.width - span - 16) + offsets[order.length - 1];
-  return <div class="my-auto flex w-full flex-col gap-5">
-    <div data-free role="list" aria-label={copy.tasks} class="relative w-full overflow-hidden"
-      style={{ height: deck.height + 44 }}>
+  return <div class="flex min-h-0 flex-1 flex-col pt-4">
+    <div data-free role="list" aria-label={copy.tasks} class="relative min-h-0 w-full flex-1 overflow-hidden">
       {order.map((task, depth) => ({ task, depth })).reverse().map(({ task, depth }) => {
         const strip = depth ? deck.peeks[depth - 1] : deck.card;
-        return <div role="listitem" aria-current={depth ? undefined : 'true'} class="absolute top-0 flex flex-col gap-3"
+        return <div role="listitem" aria-current={depth ? undefined : 'true'} class="absolute inset-y-0 flex flex-col gap-3"
           style={{ left: front - offsets[depth], width: deck.card, transform: `scale(${1 - depth * 0.035})`,
             transformOrigin: 'left center' }}>
           <div class="overflow-hidden" style={{ maxWidth: strip - 4 }}>
             <TaskStatusMark task={task} labelled={strip >= 100} />
           </div>
-          <div class="relative rounded-panel"
+          <div class="relative min-h-0 flex-1 rounded-panel"
             style={{ boxShadow: '-18px 0 36px rgb(0 0 0 / 0.22), -3px 0 10px rgb(0 0 0 / 0.12)' }}>
-            <TaskSnapshot task={task} height={deck.height} />
+            {depth < 3 ? <TaskSnapshot task={task} height="100%" /> : <div class="flex h-full flex-col gap-3 overflow-hidden rounded-panel border border-border bg-surface px-4 py-6" aria-hidden="true">
+              <div class="h-3 w-2/3 rounded-field bg-surface-sunken blur-[3px]" /><div class="h-3 w-2/5 rounded-field bg-surface-sunken blur-[3px]" />
+              <div class="mt-4 min-h-0 flex-1 rounded-field bg-surface-sunken blur-[3px]" />
+            </div>}
             {depth > 0 && <span class="pointer-events-none absolute inset-0 rounded-panel bg-canvas"
               style={{ opacity: Math.min(depth * 0.09, 0.5) }} />}
           </div>
         </div>;
       })}
     </div>
-    {form === 'landscape' && <div class="flex items-center justify-center gap-2 text-meta text-text-tertiary">
-      {['←', '→'].map(key => <kbd class="grid h-5 min-w-5 place-items-center rounded-[6px] bg-surface-sunken px-1
-        font-sans text-caption text-text-secondary">{key}</kbd>)}
-      <span>{sw.browse}</span>
-    </div>}
+
   </div>;
 }
 

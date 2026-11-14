@@ -48,7 +48,7 @@ export default () => (
         { x: 16, y: 790, content: <NavCapsule /> },
       ]}
     >
-      <div class="absolute inset-x-4 top-4">
+      <div class="absolute inset-x-4 top-12">
         <HomepageBar mode="topology" compact date="January 1 · Thu" time="08:00" title={mobileCopy.text5} />
       </div>
     </TopologyScene>

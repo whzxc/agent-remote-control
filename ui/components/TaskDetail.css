@@ -194,7 +194,7 @@
 .relay-narration { font-size: var(--text-body); line-height: 24px; min-width: 0; }
 .relay-narration[data-streaming] .timeline-markdown > :last-child::after { content: ""; display: inline-block; margin-left: 2px; width: 2px; height: 15px; background: var(--role-agent); vertical-align: middle; }
 .relay-error-line { padding: 6px 12px; border-radius: var(--radius-field); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent); margin: 6px 0 0; }
-.task-final { border: 1px solid var(--border); border-left: 3px solid var(--role-agent); background: none; }
+.task-final { border: 1px solid var(--border); background: none; }
 .task-final > footer:not(:empty) { border-top: 1px solid var(--border); padding-top: 12px; }
 .relay-request { padding: 12px 16px; border-left: 3px solid var(--warning); border-radius: var(--radius-card); background: var(--surface-subtle); }
 .relay-request .task-request-card { padding: 0; background: none; }

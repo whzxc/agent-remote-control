@@ -3,7 +3,36 @@ import path from 'node:path';
 export const bothThemes = fixture => fixture.homepage?.check === 'switcher';
 export const checks = [{ stage: 'beforeNavigate', order: 1, visual: true, async run({ fixture, page }) {
   if (fixture.homepage?.motion) await page.emulateMedia({ reducedMotion: 'no-preference' });
-} }, { stage: 'verify', order: 19, visual: true, async run({ fixture, page, root, width }) {
+} }, { stage: 'verify', order: 19, visual: true, async run({ fixture, page, root, width, row }) {
+  if (fixture.homepage?.layout === 'stack') {
+    const fills = await page.locator('.task-stack').evaluate(deck => {
+      const box = deck.getBoundingClientRect(), card = deck.querySelector('article[aria-current=true] .task-snapshot').getBoundingClientRect();
+      return box.height > 0 && Math.abs(card.bottom - box.bottom) <= 2 && card.height > box.height - 80;
+    });
+    if (!fills) throw new Error('The stack snapshot did not fill the available page height.');
+  }
+  if (fixture.homepage?.check === 'switcher-window') {
+    // Regression: hundreds of hidden task cards mounted snapshots and polled timelines during every deck gesture.
+    const deck = page.getByRole('list', { name: 'Tasks', exact: true });
+    const counts = async () => ({ shells: await deck.getByRole('article', { includeHidden: true }).count(), details: await deck.locator('[data-task-snapshot]').count() });
+    const before = await counts();
+    if (before.shells > 9 || before.details > 4) throw new Error(`Unbounded initial deck: ${JSON.stringify(before)}`);
+    const current = () => deck.locator('article[aria-current=true]');
+    const firstTitle = await current().getAttribute('aria-label');
+    if (await page.evaluate(() => window.__ARC_VIEW_MODEL__().homepage.tasks.length) !== 200) throw new Error('Large fixture lost tasks.');
+    await deck.hover(); await page.mouse.wheel(-100000, 0);
+    await page.waitForFunction(title => document.querySelector('article[aria-current=true]')?.getAttribute('aria-label') !== title, firstTitle);
+    const lastTitle = await current().getAttribute('aria-label');
+    const after = await counts();
+    if (after.shells > 9 || after.details > 4) throw new Error(`Unbounded final deck: ${JSON.stringify(after)}`);
+    await current().getByRole('button', { name: `Open task detail: ${lastTitle}`, exact: true }).click();
+    await page.getByRole('dialog', { name: lastTitle, exact: true }).waitFor();
+    await page.keyboard.press('Escape'); await page.getByRole('dialog').waitFor({ state: 'hidden' });
+    await deck.hover(); await page.mouse.wheel(100000, 0);
+    await page.waitForFunction(title => document.querySelector('article[aria-current=true]')?.getAttribute('aria-label') === title, firstTitle);
+    row.deckWindow = { tasks: 200, before, after, lastTaskOpened: true };
+    return;
+  }
   if (fixture.homepage?.check !== 'switcher') return;
   // Regression: homepage cards required handling requests and had no switcher navigation or snapshot return path.
   const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
