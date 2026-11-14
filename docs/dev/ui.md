@@ -88,7 +88,7 @@ The `?scenario=topology-accounts` development fixture supplies two shared Claude
 
 ## Experimental features
 
-About contains one action named Experimental. Activating it directly opens the switch list inside the Settings workspace, with no intermediate Extras page or sub-navigation. Its header keeps width and close controls, adds a back arrow, and reads Settings / Experimental. Back or Escape returns to Settings and restores focus to the Experimental action. Content switches without morphing the workspace shell.
+About contains one action named Experimental. Activating it directly opens the switch list inside the Settings workspace, with no intermediate Extras page or sub-navigation. Its header keeps width and close controls, adds a back arrow, and reads Settings / Experimental. Back or Escape returns to Settings and restores focus to the Experimental action.
 
 Experimental rows contain enable switches only, with descriptions of their effects. Enabling a feature with configuration or interactive controls adds its entry to the shared navigation capsule; its controls live behind that entry rather than inside Experimental or a separate floating launcher.
 
@@ -130,7 +130,7 @@ Agent artwork is resolved by `ui/assets/brand-reserve/magpie/manifest.json`. Age
 
 Functional icons use shared Icon with Lucide and a 1.75px rendered stroke at every size. Icon buttons stay circular; local overrides change only `--icon-button-size`. Brands retain their assets. ui/style.css owns controls. ui/product.css owns product layout.
 
-Motion owns layer entry, exit, content crossfades and geometry transitions. Every dialog and panel enters and exits with an opacity fade. The trigger is used only for focus restoration. `layerFrame` computes the current height and y from the slot and viewport without placement history. Geometry settles instantly during the entry fade, including content arriving after the first measurement. After entry, height and y transition together over `--motion-base` with `--ease-enter`, keeping the vertical center fixed throughout growth, allowed shrink, view reset and content replacement. Retained height still applies within one panel view. Same-slot replacement keeps the shell mounted and crossfades its header and body. Cross-slot switches fade out and in concurrently. Reduced motion applies geometry and opacity changes instantly. Related tooltips remain mounted and move/resize continuously between triggers. HoverScope uses shared token-driven highlights following pointer, keyboard, and Radix state.
+Motion owns layer entry, exit, content crossfades and geometry transitions. Dialogs and panels currently enter and exit with an opacity fade. `layerFrame` computes the current height and y from the slot and viewport without placement history. Geometry settles instantly during the entry fade, including content arriving after the first measurement. After entry, height and y transition together over `--motion-base` with `--ease-enter`, keeping the vertical center fixed throughout growth, allowed shrink, view reset and content replacement. Retained height still applies within one panel view. Same-slot replacement keeps the shell mounted and crossfades its header and body. Cross-slot switches fade out and in concurrently. Reduced motion applies geometry and opacity changes instantly. Related tooltips remain mounted and move/resize continuously between triggers. HoverScope uses shared token-driven highlights following pointer, keyboard, and Radix state.
 
 ## Functional pages
 
@@ -309,12 +309,9 @@ Tray and deep-link navigation received while a dialog is open becomes actionable
 - `--motion-base` is 160ms for dialog and transient entry, content swaps, and synchronized height and y transitions.
 - `--motion-panel` is 180ms for panel opacity entry.
 - Exit durations MUST be at most their entry durations.
-- `--ease-enter` and `--ease-exit` MUST be the only easing curves outside the topology springs.
-- Every panel and dialog MUST enter and exit with an opacity fade only.
-- The trigger MUST be used only for focus restoration.
+- `--ease-enter` and `--ease-exit` MUST be the only easing curves outside the topology springs and gesture-driven motion.
 - Transient layers MUST enter with a fade.
 - Content swaps inside one layer MUST crossfade while the shell stays centered for its current height.
-- Trigger morphing, visual copies of triggers, automatic shell morphing on content change and overshoot curves MUST be removed.
 - Infinite animations MUST only indicate a running state, with at most one per element.
 - Reduced motion MUST apply geometry and opacity changes instantly.
 

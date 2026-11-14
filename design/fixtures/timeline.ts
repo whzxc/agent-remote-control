@@ -45,6 +45,7 @@ export type RelayStepKind =
 export type RelayStep = {
   kind: RelayStepKind; label?: string; target?: string; meta?: string;
   detail?: readonly string[]; added?: number; removed?: number; streaming?: boolean; expanded?: boolean;
+  by?: "Claude";
 };
 export const relayParties = {
   source: { name: "Claude", brand: "claude" },
@@ -86,7 +87,8 @@ export const relaySteps: Record<string, RelayStep> = {
   streaming: { kind: "say", streaming: true,
     label: "All checks passed. The configuration now accepts the new option, and the README example" },
   request: { kind: "request", label: "请求批准", target: "cat README.md" },
-  answered: { kind: "answered", label: "Claude 已批准", target: "cat README.md" },
+  answered: { kind: "answered", label: "已批准", by: "Claude", target: "cat README.md" },
+  answeredUnknown: { kind: "answered", label: "已批准", target: "cat README.md" },
   stopped: { kind: "failed", target: "npm run check", meta: "退出码 2",
     detail: ["ui/config.ts:31  Type 'string' is not assignable to type 'Mode'"] },
 };

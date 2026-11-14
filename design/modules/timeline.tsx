@@ -356,12 +356,13 @@ export function TimelineStep({ step }: { step: RelayStep }) {
           <div class="flex min-h-5 min-w-0 items-center gap-2 text-small leading-5">
             <span class={`flex min-w-0 flex-1 items-center gap-[6px]
               ${step.kind === "failed" ? "text-danger" : step.kind === "request" ? "text-warning" : "text-text-secondary"}`}>
-              {step.kind === "answered" && <BrandMark brand={source.brand} size={13} />}
+              {step.kind === "answered" && step.by && <BrandMark brand={source.brand} size={13} />}
               {(step.kind === "thought" || step.kind === "thinking") && (
                 <span class="shrink-0">{step.kind === "thought" ? relayCopy.thought : relayCopy.thinking} ·</span>
               )}
               {step.kind === "request" || step.kind === "answered" || step.kind === "edit"
-                ? <span class={`shrink-0 ${step.kind === "request" ? "font-semibold" : ""}`}>{step.label}</span> : null}
+                ? <span class={`shrink-0 ${step.kind === "request" ? "font-semibold" : ""}`}>
+                  {step.by ? `${step.by} ${step.label}` : step.label}</span> : null}
               {step.kind === "request" || step.kind === "answered" ? <span class="shrink-0">·</span> : null}
               {step.target ? (
                 <code class={`min-w-0 truncate font-mono text-meta ${step.kind === "failed" ? "text-danger"
@@ -634,7 +635,7 @@ export default () => [
   ...([
     ["thought", s.thought], ["thought-expanded", { ...s.thought, expanded: true }], ["thinking", s.thinking],
     ["say", s.say], ["say-streaming", s.streaming], ["tools", s.tools], ["edit", s.edit], ["failed", s.failed],
-    ["live", s.live], ["request", s.request], ["answered", s.answered],
+    ["live", s.live], ["request", s.request], ["answered", s.answered], ["answered-unknown", s.answeredUnknown],
   ] as const).map(([name, step]) => (
     <Frame name={`timeline-step-${name}`} width={512}>
       <ol class="w-full bg-surface-raised"><TimelineStep step={step} /></ol>

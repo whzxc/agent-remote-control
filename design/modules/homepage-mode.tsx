@@ -23,9 +23,25 @@ export function HomepageHeader({ mode, attention = 0, date = copy.date, time = c
   </div>;
 }
 
+/** One-row homepage bar: Board clock on the left, mode switch centered, view controls on the right. */
+export function HomepageBar({ mode, attention = 0, compact = false, children }: {
+  mode: HomepageMode; attention?: number; compact?: boolean; children?: unknown;
+}) {
+  return <div class="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-3">
+    <button aria-label={copy.openBoard} class="flex min-w-0 items-baseline gap-2 justify-self-start text-left text-text">
+      <time class="text-title leading-6 font-[650] tabular-nums">{copy.time}</time>
+      {!compact && <span class="truncate text-meta text-text-secondary">{copy.board} · {copy.date}</span>}
+    </button>
+    <HomepageModeSwitch mode={mode} attention={attention} />
+    <div class="flex min-w-0 items-center justify-end gap-2">{children}</div>
+  </div>;
+}
+
 export default () => [
   ...modeForms.map(({ name, ...props }) => <Frame name={name}><HomepageModeSwitch {...props} /></Frame>),
   ...modeForms.map(({ mode, attention }) => <Frame name={`homepage-header-${mode}`}>
     <HomepageHeader mode={mode} attention={attention} />
   </Frame>),
+  <Frame name="homepage-bar-tasks" width={760}><HomepageBar mode="tasks" /></Frame>,
+  <Frame name="homepage-bar-tasks-compact" width={358}><HomepageBar mode="tasks" compact /></Frame>,
 ];
