@@ -197,6 +197,7 @@ export function TaskFamily() {
 }
 
 export default () => [
+  <Frame name="task-family" width={1140} height={520}><TaskFamily /></Frame>,
   ...relationKinds.map((kind, i) => (
     <Frame name={`task-relation-${kind}`} width={i === 0 ? 83 : 84}>
       <div class="flex w-full bg-surface-raised text-meta leading-4"><TaskRelation kind={kind} /></div>

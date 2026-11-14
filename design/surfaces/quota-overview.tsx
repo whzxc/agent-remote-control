@@ -1,6 +1,6 @@
 import { Frame } from "adg";
 import { PanelShell, PanelHeader } from "../components/panel";
-import { BrandMark } from "../components/agent-icon";
+import { BrandMark } from "../components/brand-mark";
 import { IconButton } from "../components/icon-button";
 import { QuotaCards } from "../modules/quota";
 import { Tile } from "../components/tile";

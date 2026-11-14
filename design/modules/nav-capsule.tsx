@@ -9,12 +9,12 @@ export function NavCapsule({
   active?: string;
 }) {
   return (
-    <nav class="inline-flex items-center gap-1 px-[6px] py-1 rounded-[22px] bg-surface-raised shadow-lg">
+    <nav class="inline-flex items-center gap-1 px-[6px] py-(--dock-padding-block) rounded-[22px] bg-surface-raised shadow-lg">
       {entries.map((item) => (
         <button
           aria-label={item.label}
           class={
-            "flex items-center justify-center size-9 rounded-card " +
+            "flex items-center justify-center size-(--dock-button-size) rounded-card " +
             String(item.id === active ? "bg-surface-sunken text-text" : "text-text-secondary")
           }
         >

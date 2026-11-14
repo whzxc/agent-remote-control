@@ -34,7 +34,7 @@ const baseTasks: TaskSnapshotData[] = [
     state: 'Completed', detail: 'Unread', icon: 'check', origin: origins.remoteClaude },
   { id: 'finished', node: 'local-codex', title: 'Verify the release checklist', group: 'recent',
     state: 'Completed', detail: 'Dispatch service', icon: 'check', origin: origins.local, elapsed: '02:21',
-    dispatch: { model: 'GPT-6.1', effort: 'High', tier: 'Fast', fast: true } },
+    dispatch: { model: 'GPT-6.1', effort: 'High', position: { count: 4, index: 2 }, tier: 'Fast', fast: true } },
   { id: 'offline', node: 'moss-codex', title: 'Inspect the storage index', group: 'unconfirmed',
     state: 'Unconfirmed', detail: 'Last seen 18 min ago', icon: 'circle-help', origin: origins.offline },
 ];

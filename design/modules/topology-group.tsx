@@ -1,5 +1,5 @@
 import { Frame } from "adg";
-import { BrandMark, type Brand } from "../components/agent-icon";
+import { BrandMark, type Brand } from "../components/brand-mark";
 import { forms } from "../fixtures/topology-group";
 
 export type TopologyGroupQuota = "ok" | "low" | "out" | "unknown";

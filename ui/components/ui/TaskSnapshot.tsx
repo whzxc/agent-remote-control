@@ -10,6 +10,9 @@ import { activeHomepageTask, type HomepageTask } from '../../state/activityModel
 import { recordedTimestamp, taskState, thoughtLine, toolSummary, type TaskSnapshotRow } from '../../state/taskProjection';
 import { useRequestRouting } from '../../state/requestRouting';
 import RecordedDispatchSpec from '../composites/RecordedDispatchSpec';
+import { SourceMark } from '../activity';
+import { compactDuration } from '../../lib/duration';
+import { TaskBubble, TaskBubbleCopy } from './TaskRow';
 import { t } from '../../i18n';
 import './TaskSnapshot.css';
 
@@ -50,7 +53,7 @@ function status(task: HomepageTask) {
 }
 function TaskIdentityMark({ agent, source }: TaskIdentity) {
   return <span className="task-card-identity" role="img" aria-label={[agent.label, source?.label].filter(Boolean).join(' · ')}>
-    {agent.graphic}{source && <span className="activity-source-badge">{source.graphic}</span>}
+    {agent.graphic}{source && <SourceMark label={source.label}>{source.graphic}</SourceMark>}
   </span>;
 }
 function TaskElapsed({ task, now }: { task: HomepageTask; now: number }) {
@@ -60,9 +63,8 @@ function TaskElapsed({ task, now }: { task: HomepageTask; now: number }) {
   const end = live ? task.deviceId ? recordedTimestamp(task.observedAt) : now : recordedTimestamp(task.endedAt);
   const elapsed = (!live ? task.session.turnDurationMs : null) ?? (start !== undefined && end !== undefined ? end - start : NaN);
   if (!Number.isFinite(elapsed) || elapsed < 0) return null;
-  const seconds = Math.floor(elapsed / 1000);
-  return <time className="task-card-duration" dateTime={`PT${seconds}S`} aria-label={t('duration')}>
-    {String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')}
+  return <time className="task-card-duration" dateTime={`PT${Math.floor(elapsed / 1000)}S`} aria-label={t('duration')}>
+    {compactDuration(elapsed)}
   </time>;
 }
 export function TaskHistorySummary({ task, identity, freshness, now, onOpen }: {
@@ -72,18 +74,17 @@ export function TaskHistorySummary({ task, identity, freshness, now, onOpen }: {
   const project = task.session.projectName || task.session.project?.split(/[\\/]/).filter(Boolean).at(-1);
   const meta = task.group === 'unconfirmed' ? freshness ?? project : project;
   return <div className="task-history-summary" data-task-snapshot={task.key}>
-    <button type="button" className="activity-bubble" data-task-open
+    <TaskBubble data-task-open
       aria-label={`${t('homepage.openDetail')}: ${title}`} onClick={onOpen}>
       <TaskIdentityMark {...identity} />
-      <span className="activity-copy">
-        <span className="activity-title-row"><strong>{title}</strong></span>
+      <TaskBubbleCopy title={title}>
         <span className="activity-phase"><span>{t(`homepage.${state}`)}</span>{meta && <span className="task-history-meta">{meta}</span>}</span>
         <span className="task-card-execution">
-          <RecordedDispatchSpec summary={task.session.dispatchSummary} />
+          <RecordedDispatchSpec agent={task.deviceId ? undefined : task.agent} summary={task.session.dispatchSummary} />
           <TaskElapsed task={task} now={now} />
         </span>
-      </span>
-    </button>
+      </TaskBubbleCopy>
+    </TaskBubble>
   </div>;
 }
 export function TaskStatusMark({ task, identity, now }: { task: HomepageTask; identity: TaskIdentity; now: number }) {
@@ -119,7 +120,7 @@ export function TaskSnapshot({ task, origins, now, path, freshness, onOpen, onRe
     {onOpen ? <button type="button" data-task-open className="task-snapshot-title" title={title} aria-label={`${t('homepage.openDetail')}: ${title}`} onClick={onOpen}>{title}</button>
       : <strong className="task-snapshot-title">{title}</strong>}
     <div className="task-card-execution task-snapshot-execution">
-      <RecordedDispatchSpec summary={task.session.dispatchSummary} />
+      <RecordedDispatchSpec agent={task.deviceId ? undefined : task.agent} summary={task.session.dispatchSummary} />
       {task.session.project && <span className="task-snapshot-project" title={task.session.project}>{task.session.project}</span>}
     </div>
     <div className="task-snapshot-timeline" role="region" aria-label={t('homepage.recentSteps')}>

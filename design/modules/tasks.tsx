@@ -1,5 +1,5 @@
 import { Frame, Icon } from 'adg';
-import { BrandMark, type Brand } from '../components/agent-icon';
+import { BrandMark, type Brand } from "../components/brand-mark";
 import { IconButton } from '../components/icon-button';
 import { Tile } from '../components/tile';
 import { DispatchSpec } from './model-configuration';

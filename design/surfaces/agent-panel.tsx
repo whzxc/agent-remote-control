@@ -1,6 +1,6 @@
 import { Frame, Icon } from "adg";
 import { PanelLoading, PanelShell } from "../components/panel";
-import { AgentIcon } from "../components/agent-icon";
+import { AgentIcon } from "../modules/agent-quota-mark";
 import { IconButton } from "../components/icon-button";
 import { QuotaCards } from "../modules/quota";
 import { TaskBubble } from "../modules/task-presentation";
@@ -93,10 +93,6 @@ export default () => [
   </Frame>,
   <Frame name="loading" fixture="agent-panel-loading" capture={{ region: "Codex", viewport: "1280x800" }}>
     <AgentPanel history="loading" />
-  </Frame>,
-  <Frame name="centered-landscape" fixture="agent-panel-short"
-    capture={{ region: "Codex", viewport: "1280x800" }}>
-    <AgentPanel history="short" />
   </Frame>,
   <Frame name="centered-portrait" fixture="agent-panel-short"
     capture={{ region: "Codex", viewport: "640x800" }}>

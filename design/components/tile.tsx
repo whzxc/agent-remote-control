@@ -1,6 +1,4 @@
 import { Frame, Icon } from "adg";
-import { BrandMark, type Brand } from "./agent-icon";
-import SourceArt from "../art/source.svg";
 import { forms } from "../fixtures/tiles";
 
 export type TileTone =
@@ -9,15 +7,13 @@ export function Tile({
   icon,
   form = "card",
   tone = "command",
-  source = false,
-  sourceBrand,
+  overlay,
   size,
 }: {
   icon: string;
   form?: "card" | "phase";
   tone?: TileTone;
-  source?: boolean;
-  sourceBrand?: Brand;
+  overlay?: unknown;
   size?: 24;
 }) {
   const paint = {
@@ -39,22 +35,13 @@ export function Tile({
         class={`col-start-1 row-start-1 size-full rounded-[inherit] bg-current ${form === "phase" ? "opacity-17" : "opacity-16"}`}
       />
       <Icon name={icon} size={form === "phase" ? 16 : 18} class="col-start-1 row-start-1" />
-      {(source || sourceBrand) && (
-        <span
-          class={
-            "col-start-1 row-start-1 self-end justify-self-end -mb-px -mr-px grid size-[13px] " +
-            "place-items-center rounded-[7px] bg-surface text-role-source"
-          }
-        >
-          {sourceBrand ? <BrandMark brand={sourceBrand} size={9} /> : <SourceArt data-brand width={9} height={9} />}
-        </span>
-      )}
+      {overlay}
     </span>
   );
 }
 export default () =>
   forms.map(({ name, icon }) => (
     <Frame name={name}>
-      <Tile icon={icon} form={name} source={name === "phase"} />
+      <Tile icon={icon} form={name} />
     </Frame>
   ));

@@ -12,4 +12,3 @@ export const activitySamples: { steps: readonly TaskStep[]; plan: TaskPlan; chan
   plan: { completed: 2, total: 4, current: 'Validate queue ordering' },
   change: { kind: 'diff', summary: 'src/queue.rs', added: 18, removed: 6, output: 'Preserve pending requests while selecting the next task.' },
 };
-export const activityCopy = { recent: 'Recent steps', plan: 'Plan' };

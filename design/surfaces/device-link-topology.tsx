@@ -9,7 +9,7 @@ import { nodeCapsuleLayout } from '../modules/node-capsule';
 import { HomepageBar } from '../modules/homepage-mode';
 import { NavCapsule } from '../modules/nav-capsule';
 import { IconButton } from '../components/icon-button';
-import { TopologyScreen } from '../modules/homepage-topology';
+import { TopologyScreen } from './homepage-topology';
 
 const chrome = (width: number, height: number, attention = 2) => [
   { kind: 'board' as const, x: (width - 240) / 2, y: 27, date: copy.date, time: copy.time, title: copy.board,

@@ -2,7 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import en from '../ui/locales/en.json' with { type: 'json' };
 import zhCN from '../ui/locales/zh-CN.json' with { type: 'json' };
-import { dispatchSpecParts, effortPosition, modelLabel, reasoningLevels } from '../ui/components/composites/dispatchSpecLabel.ts';
+import { dispatchSpecParts, effortGaugePosition, effortPosition, modelLabel, reasoningLevels } from '../ui/components/composites/dispatchSpecLabel.ts';
+
+test('effort gauges position known recorded values from the available scale', () => {
+  // Regression: homepage execution specs showed raw effort text when no catalog was available.
+  assert.deepEqual(effortGaugePosition([], 'high'), { count: 8, index: 4 });
+  assert.deepEqual(effortGaugePosition(['low', 'high', 'max'], 'high'), { count: 3, index: 1 });
+  assert.deepEqual(effortGaugePosition(['quick', 'deep'], 'deep'), { count: 2, index: 1 });
+  assert.equal(effortGaugePosition(['low', 'high'], 'max'), undefined);
+  assert.equal(effortGaugePosition([], 'custom-effort'), undefined);
+});
 
 test('unknown recorded models remain visible with exact identity matching', () => {
   // Regression: Claude sessions with claude-opus-5-5 displayed only their effort when the catalog lacked that ID.

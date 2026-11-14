@@ -6,6 +6,7 @@ import { taskListForms, tasks, tasksCopy as copy } from '../fixtures/tasks';
 
 export default () => taskListForms.map(({ name, width, height }) => {
   const narrow = width < 500, pad = narrow ? 'px-4' : 'px-6';
+  const dockInset = width <= 600 ? 16 : 24;
   const today = tasks.filter(task => task.group !== 'recent' && task.group !== 'unconfirmed');
   const history = tasks.filter(task => task.group === 'recent' || task.group === 'unconfirmed');
   return <Frame name={name} width={width} height={height} locale="en" fixture="homepage-task-list"
@@ -14,7 +15,8 @@ export default () => taskListForms.map(({ name, width, height }) => {
       <div class={`shrink-0 pt-6 pb-4 ${pad}`}>
         <HomepageBar mode="tasks" compact={width < 1000} />
       </div>
-      <main aria-label={copy.tasks} class={`flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto pb-4 ${pad}`}>
+      <main aria-label={copy.tasks} class={`flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto ${pad}
+        pb-[calc(${dockInset + 8}px_+_var(--dock-button-size)_+_2_*_var(--dock-padding-block))]`}>
         <section aria-label="Today" class="shrink-0">
           <h2 class="mb-2 text-small font-semibold text-text-secondary">Today</h2>
           <TaskGrid items={today} height={narrow ? 320 : 400} narrow={narrow} />
@@ -24,7 +26,7 @@ export default () => taskListForms.map(({ name, width, height }) => {
           <TaskGrid items={history} height={400} summary />
         </section>
       </main>
-      <div data-free class="absolute bottom-6 left-6"><NavCapsule active="" /></div>
+      <div data-free class="absolute" style={{ bottom: dockInset, left: dockInset }}><NavCapsule active="" /></div>
     </div>
   </Frame>;
 });

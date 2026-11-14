@@ -17,11 +17,12 @@ import { taskState } from "../state/taskProjection";
 import { ActivityBubbleContent } from "./ActivityBubbles";
 import { Button, Empty, Loading, Notice } from "./ui";
 import { dockLoadingDelay } from "./useDockOpening";
+import { TaskBubble } from "./ui/TaskRow";
 
 const ConversationRow = memo(function ConversationRow({ agent, session, live, now, index }: {
   agent: string; session: TrackedActivity; live: boolean; now: number; index: number;
 }) {
-  return <button type="button" className={`activity-bubble agent-conversation-row ${session.interaction ? "needs-attention" : ""}`}
+  return <TaskBubble className={`agent-conversation-row ${session.interaction ? "needs-attention" : ""}`}
     data-density="standard" data-timeline-anchor
     style={{ "--row-delay": `${Math.min(index, 5) * 24}ms` } as CSSProperties}
     data-activity-session={JSON.stringify([agent, session.id])}
@@ -29,7 +30,7 @@ const ConversationRow = memo(function ConversationRow({ agent, session, live, no
     aria-description={live ? undefined : t(`detail.state.${taskState(session.status ?? undefined, false)}`)}
     onClick={() => selectAgentPanel({ type: "task", agent, session })}>
     <ActivityBubbleContent agent={agent} session={session} now={now} density="standard" historical={!live} conversationRow />
-  </button>;
+  </TaskBubble>;
 }, (previous, next) => previous.agent === next.agent && previous.live === next.live && previous.index === next.index
   && (next.live ? previous.now === next.now : new Date(previous.now).getFullYear() === new Date(next.now).getFullYear())
   && JSON.stringify(previous.session) === JSON.stringify(next.session));

@@ -9,6 +9,7 @@ import { AlertCircle, Brain, Copy, Check, ChevronRight, CircleCheck, CircleX, Sh
 import { Collapsible } from "radix-ui";
 import { AnimatePresence, motion } from "motion/react";
 import { t } from "../i18n";
+import { durationText } from "../lib/duration";
 import { useMedia } from "../state/hooks";
 import type { AgentActivitySession, AgentTimelineEntry, DispatchSummary, TurnTiming } from "../types";
 import { activityApprovals } from "../state/activity";
@@ -26,12 +27,6 @@ import FilePath from "./FilePath";
 import TimelineMarkdown, { TimelineResources } from "./TimelineMarkdown";
 
 const stepIcons = { command: Terminal, file: FileText, tool: Wrench, thinking: Brain, text: MessageSquare, user: UserRound, plan: ListChecks, interaction: ShieldAlert, error: AlertCircle, notice: MessageSquare };
-export function durationText(value: number) {
-  if (value < 1000) return t("activity.milliseconds", { count: Math.floor(value) });
-  const seconds = Math.floor(value / 1000), minutes = Math.floor(seconds / 60), hours = Math.floor(minutes / 60);
-  return t(hours ? "timeline.durationHours" : minutes ? "timeline.durationMinutes" : "activity.seconds",
-    { hours, minutes: minutes % 60, seconds: seconds % 60, count: seconds });
-}
 function Fold({ open, onChange, summary, children, className = "", expandable = true }: {
   open: boolean; onChange: (open: boolean) => void; summary: ReactNode; children: ReactNode; className?: string; expandable?: boolean;
 }) {

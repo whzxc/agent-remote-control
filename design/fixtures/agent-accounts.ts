@@ -1,4 +1,4 @@
-import type { Brand } from "../components/agent-icon";
+import type { Brand } from "../components/brand-mark";
 import type { AgentAccount } from "../modules/agent-account";
 
 type Platform = { name: string; brand: Brand; accounts: readonly AgentAccount[] };

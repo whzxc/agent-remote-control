@@ -4,7 +4,7 @@ import { SingleChoice } from "../components/single-choice";
 import { SetupChoice } from "../components/setup-choice";
 import { CopyField } from "../components/copy-field";
 import { Tile } from "../components/tile";
-import { type Brand } from "../components/agent-icon";
+import { type Brand } from "../components/brand-mark";
 import { OnboardingField, type OnboardingStep } from "./onboarding";
 import { productRows, localProductRows, sourceCopy } from "../fixtures/source-onboarding";
 import { onboardingFrames, methods, maskedAddress } from "../fixtures/onboarding";

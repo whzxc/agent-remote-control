@@ -18,12 +18,12 @@ import { useTaskExecution } from "../state/taskExecution";
 import { taskState } from "../state/taskProjection";
 import { activityApprovals } from "../state/activity";
 import { pendingSessions } from "../state/taskInteractions";
+import { compactDuration } from "../lib/duration";
+import { TaskBubble, TaskBubbleCopy } from "./ui/TaskRow";
 
-export function elapsed(since: string | null | undefined, now: number) {
-  const seconds = since ? Math.max(0, Math.floor((now - Date.parse(since)) / 1000)) : NaN;
-  if (!Number.isFinite(seconds)) return "—";
-  const minutes = Math.floor(seconds / 60), remainder = String(seconds % 60).padStart(2, "0");
-  return seconds < 3600 ? `${minutes}:${remainder}` : `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}:${remainder}`;
+function elapsed(since: string | null | undefined, now: number) {
+  const duration = since ? now - Date.parse(since) : NaN;
+  return Number.isFinite(duration) ? compactDuration(Math.max(0, duration)) : "—";
 }
 function Headline({ session }: { session: TrackedActivity }) {
   const reduced = useReducedMotion(), latest = useRef(session);
@@ -67,11 +67,10 @@ export function ActivityBubbleContent({ agent, session, now, density = "standard
   return <>
     <PhaseTile phase={phase} running={running} completed={completed} paused={paused} outcome={outcome} source={showSourceBadge ? source : undefined} />
     {historical && <span className="sr-only">{t(`detail.state.${state}`)}</span>}
-    <span className="activity-copy">
-      <span className="activity-title-row"><strong>{session.title || t("timeline.title")}</strong>
+    <TaskBubbleCopy title={session.title || t("timeline.title")} titleEnd={<>
         {unread && <span className="activity-unread" role="img" aria-label={t("activity.unread")} />}
-        {state === "needsYou" ? !conversation && <span className="activity-pending">{t("activity.pending")}</span> : !historical && state !== "unknown" && <time>{elapsed(session.turnStartedAt, session.endedAt ?? now)}</time>}
-      </span>
+        {state === "needsYou" ? !conversation && <span className="activity-pending">{t("activity.pending")}</span> : !historical && state !== "unknown" && <time>{duration}</time>}
+      </>}>
       {(!historical || !conversation) && <span className="activity-phase">
         {session.relationKind && <TaskRelation kind={session.relationKind} />}
         {historical ? createdTime : <>
@@ -82,12 +81,12 @@ export function ActivityBubbleContent({ agent, session, now, density = "standard
       {density === "detailed" && <HoverHelp text={detail}><span className="activity-detail-line">{detail || "\u00a0"}</span></HoverHelp>}
       {density !== "compact" && <span className={`activity-spec-row ${conversation ? "activity-conversation-meta" : ""}`}>
         {conversation && project && <HoverHelp text={session.project!}><span className="activity-project">{project}</span></HoverHelp>}
-        <RecordedDispatchSpec agent={agent} taskId={session.source === "arc-task" ? session.id : undefined} summary={session.dispatchSummary} />
+        <RecordedDispatchSpec agent={agent} summary={session.dispatchSummary} />
         {conversation && !!session.turnCount && <span className="activity-meta-chip">{t("timeline.turnCount", { count: session.turnCount })}</span>}
         {!conversation && project && <HoverHelp text={session.project!}><span className="activity-project">{project}</span></HoverHelp>}
         {conversation ? createdTime : <StepTrail steps={session.recentSteps} running={running} />}
       </span>}
-    </span>
+    </TaskBubbleCopy>
   </>;
 }
 export function ActivityBubble({ agent, session, now, onMove, onRead, density = "standard" }: { agent: string; session: TrackedActivity; now: number; density?: BubbleDensity; onMove?: (by: number) => void; onRead: () => void }) {
@@ -99,7 +98,7 @@ export function ActivityBubble({ agent, session, now, onMove, onRead, density = 
     if (start?.id === event.pointerId && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 6) start.moved = true;
   };
   const hint = t("timeline.open");
-  return <div className="activity-bubble-shell" role="group" aria-label={session.title || t("timeline.title")}><button type="button" className={`activity-bubble ${session.interaction ? "needs-attention" : ""} ${completed ? "completed" : ""}`}
+  return <div className="activity-bubble-shell" role="group" aria-label={session.title || t("timeline.title")}><TaskBubble className={`${session.interaction ? "needs-attention" : ""} ${completed ? "completed" : ""}`}
       data-density={density}
       data-timeline-anchor data-layer-switcher
       data-unread={unread || undefined}
@@ -112,7 +111,7 @@ export function ActivityBubble({ agent, session, now, onMove, onRead, density = 
         selectAgentPanel({ type: "task", agent, session, toggle: true });
       }}>
       <ActivityBubbleContent agent={agent} session={session} now={now} density={density} showSourceBadge={!unread} />
-    </button>
+    </TaskBubble>
     {unread && <Button variant="ghost" className="activity-mark-read" data-topology-control aria-label={t("activity.markRead")} title={t("activity.markRead")}
       onPointerDown={event => {
         event.stopPropagation();

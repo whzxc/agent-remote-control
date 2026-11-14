@@ -1,4 +1,4 @@
-import type { Scene } from "../modules/homepage-topology";
+import type { Scene } from "../surfaces/homepage-topology";
 import { scenes, nodes } from "./topology";
 import { copy } from "./general-settings";
 

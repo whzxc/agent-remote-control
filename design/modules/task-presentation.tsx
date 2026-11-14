@@ -1,6 +1,7 @@
 import { Frame, Icon } from "adg";
 import { Tile, type TileTone } from "../components/tile";
-import type { Brand } from "../components/agent-icon";
+import { BrandMark, type Brand } from "../components/brand-mark";
+import SourceArt from "../art/source.svg";
 import { Tag } from "../components/tag";
 import { DispatchSpec } from "./model-configuration";
 import {
@@ -86,7 +87,11 @@ export function TaskBubble({
       style={width ? { width } : undefined}
       class={`flex items-start rounded-card ${fill ? "w-full!" : ""} ${spacing} ${padding} ${background} ${paint[tone]}`}
     >
-      <Tile icon={icon} form="phase" tone={tone} source={source} sourceBrand={sourceBrand} />
+      <Tile icon={icon} form="phase" tone={tone} overlay={(source || sourceBrand) && (
+        <span class="col-start-1 row-start-1 self-end justify-self-end -mb-px -mr-px grid size-[13px] place-items-center rounded-[7px] bg-surface text-role-source">
+          {sourceBrand ? <BrandMark brand={sourceBrand} size={9} /> : <SourceArt data-brand width={9} height={9} />}
+        </span>
+      )} />
       <div class="flex min-w-0 flex-1 flex-col">
         <div class="flex items-center justify-between gap-2 leading-[14px]">
           <strong class="truncate text-small text-text font-[650]">

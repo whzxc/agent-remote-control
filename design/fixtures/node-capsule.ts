@@ -1,5 +1,6 @@
 import type { NodeTaskState } from '../modules/node-capsule';
-import type { Brand, AgentIconReading } from '../components/agent-icon';
+import type { Brand } from '../components/brand-mark';
+import type { AgentIconReading } from '../modules/agent-quota-mark';
 
 export const quotaReadings: readonly AgentIconReading[] = [
   { id: 'quota', label: 'Session quota', value: 72, color: 'var(--success)', elapsed: 0.4 },

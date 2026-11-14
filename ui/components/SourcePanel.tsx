@@ -1,14 +1,12 @@
-import { PanelHeader } from "./ui/Panel";
 import PetPicker from '../pets/PetPicker';
 import type { ReactNode } from 'react';
-import { X } from 'lucide-react';
-import { t } from '../i18n';
 import { controlSourcePlatform } from '../controlSources';
 import { isLocalSource } from '../sourcePresentation';
 import { navigation } from '../state/navigation';
 import { selectSourcePlatform } from '../state/overviewPanels';
 import type { ControlSource } from '../state/types';
-import { Button, DialogClose, IconButton } from './ui';
+import { Button } from './ui';
+import SourcePanelHeader from './composites/SourcePanelHeader';
 import SourceDispatches from './SourceDispatches';
 import SourceIcon from './SourceIcon';
 export default function SourcePanel({ source, widthControl }: { source: ControlSource; widthControl?: ReactNode }) {
@@ -16,11 +14,9 @@ export default function SourcePanel({ source, widthControl }: { source: ControlS
   const platform = controlSourcePlatform(source.product);
   const label = source.label;
   return <>
-    <PanelHeader><header className="dialog-header source-account-header">
-      <div className="source-account-brand"><Button variant="link" aria-label={platform.displayName} onClick={() => { selectSourcePlatform(platform.id); navigation.set(old => ({ ...old, page: 'overview', remoteSourceId: undefined })); }}><SourceIcon platform={platform.id} /></Button></div>
-      <div className="source-account-heading"><h2>{label}</h2></div>
-      <div className="actions"><PetPicker scope={`source:${source.id}`} name={label} platform={platform.id} />{widthControl}<DialogClose asChild><IconButton icon={X} label={t('close')} /></DialogClose></div>
-    </header></PanelHeader>
+    <SourcePanelHeader title={label}
+      brand={<Button variant="link" aria-label={platform.displayName} onClick={() => { selectSourcePlatform(platform.id); navigation.set(old => ({ ...old, page: 'overview', remoteSourceId: undefined })); }}><SourceIcon platform={platform.id} /></Button>}
+      actions={<><PetPicker scope={`source:${source.id}`} name={label} platform={platform.id} />{widthControl}</>} />
     <div className="agent-view-scroll"><SourceDispatches sourceId={source.id} /></div>
   </>;
 }

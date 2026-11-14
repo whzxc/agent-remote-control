@@ -1,6 +1,6 @@
 import { Frame, Icon } from "adg";
 import { PanelShell } from "../components/panel";
-import { BrandMark } from "../components/agent-icon";
+import { BrandMark } from "../components/brand-mark";
 import { IconButton } from "../components/icon-button";
 import { Button } from "../components/button";
 import { StatePill } from "./task-presentation";

@@ -1,5 +1,6 @@
 import { Frame, Icon } from 'adg';
-import { AgentIcon, BrandMark } from '../components/agent-icon';
+import { BrandMark } from "../components/brand-mark";
+import { AgentIcon } from "./agent-quota-mark";
 import { Button } from '../components/button';
 import { Card } from '../components/card';
 import { Field, Input } from '../components/field';

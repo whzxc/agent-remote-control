@@ -155,7 +155,11 @@
       "title": "Summarize the queue",
       "headline": "Queue summary is ready",
       "completed": true,
-      "originSource": true
+      "originSource": true,
+      "spec": {
+        "model": "future-model",
+        "effort": "custom-effort"
+      }
     },
     {
       "agent": "claude",

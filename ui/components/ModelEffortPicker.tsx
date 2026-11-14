@@ -4,10 +4,10 @@ import { Popover } from "radix-ui";
 import { RotateCcw } from "lucide-react";
 import { t } from "../i18n";
 import { IconButton, SingleChoice } from "./ui";
-import { effortLabel, effortPosition } from "./composites/dispatchSpecLabel";
+import { effortGaugePosition, effortLabel } from "./composites/dispatchSpecLabel";
 import DispatchSpec from "./ui/DispatchSpec";
 import EffortGauge from "./ui/EffortGauge";
-import EffortSlider from "./ui/EffortSlider";
+import SteppedSlider from "./ui/SteppedSlider";
 import ChoiceTrigger from "./ui/ChoiceTrigger";
 import "./ModelEffortPicker.css";
 
@@ -37,7 +37,7 @@ export default function ModelEffortPicker({ label, models, efforts, model, effor
   const stepLabel = (index: number) => steps[index] === INHERIT ? inheritLabel : effortLabel(steps[index], t);
   const modelName = model ? models.find(row => row.value === model)?.label ?? model : inheritLabel;
   const selectedEffort = withEffort && effort ? effortLabel(effort, t) : undefined;
-  const previewPosition = model && effortPosition(efforts, steps[preview]);
+  const previewEffort = steps[preview] !== INHERIT ? steps[preview] : undefined;
   const commit = (index: number) => {
     const value = steps[index] === INHERIT ? "" : steps[index];
     if (value !== effort) onChange({ model, effort: value });
@@ -46,7 +46,7 @@ export default function ModelEffortPicker({ label, models, efforts, model, effor
     <Popover.Trigger asChild>
       <ChoiceTrigger aria-label={label} aria-describedby={specId} disabled={disabled} data-dispatch-spec="">
         <DispatchSpec id={specId} model={model ? modelName : selectedEffort ? undefined : inheritLabel}
-          effort={selectedEffort} position={model ? effortPosition(efforts, effort) : undefined} />
+          effort={selectedEffort} position={effortGaugePosition(efforts, effort)} />
       </ChoiceTrigger>
     </Popover.Trigger>
     <Popover.Portal>
@@ -59,9 +59,9 @@ export default function ModelEffortPicker({ label, models, efforts, model, effor
             onClick={() => onChange({ model: "", effort: "" })} />
         </div>
         {withEffort && <div className="spec-picker-effort"><strong aria-live="polite">
-          {previewPosition && <EffortGauge {...previewPosition} />}{stepLabel(preview)}
+          {previewEffort && <EffortGauge {...effortGaugePosition(efforts, previewEffort)} />}{stepLabel(preview)}
         </strong>
-          <EffortSlider steps={steps} value={preview} disabled={disabled} label={t("dispatchDefaults.effort")} valueText={stepLabel(preview)} onChange={setPreview} onCommit={commit} />
+          <SteppedSlider steps={steps} value={preview} disabled={disabled} label={t("dispatchDefaults.effort")} valueText={stepLabel(preview)} onChange={setPreview} onCommit={commit} />
         </div>}
       </Popover.Content></TransientLayer>
     </Popover.Portal>

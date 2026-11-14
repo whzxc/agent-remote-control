@@ -44,6 +44,10 @@ export function effortPosition(levels: string[], value?: string) {
   return index >= 0 ? { count: levels.length, index } : undefined;
 }
 
+export function effortGaugePosition(levels: string[], value?: string) {
+  return levels.length ? effortPosition(levels, value) : effortPosition(effortOrder, value?.toLowerCase());
+}
+
 /** Native catalogs supply names, never replacements for recorded configuration. */
 export function dispatchSpecParts(summary: DispatchSummary | undefined, catalog: DispatchCatalog | undefined, translate: (key: string) => string) {
   const model = summary?.model, effort = summary?.effort?.trim(), tier = summary?.serviceTier?.trim();

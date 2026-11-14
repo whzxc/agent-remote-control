@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "mappings": [
+    {
+      "implementation": {"file": "ui/components/ui/DispatchSpec.tsx", "symbol": "DispatchSpec"},
+      "design": [{"source": "design/modules/model-configuration.tsx", "part": "DispatchSpec"}]
+    },
+    {
+      "implementation": {"file": "ui/components/ui/DispatchSpec.css"},
+      "design": [{"source": "design/modules/model-configuration.tsx", "part": "DispatchSpec"}]
+    },
+    {
+      "implementation": {"file": "ui/components/composites/RecordedDispatchSpec.tsx", "symbol": "RecordedDispatchSpec"},
+      "design": [{"source": "design/modules/model-configuration.tsx", "part": "DispatchSpec"}]
+    },
+    {
+      "implementation": {"file": "ui/components/ui/EffortGauge.tsx", "symbol": "EffortGauge"},
+      "design": [{"source": "design/modules/model-configuration.tsx", "part": "EffortGauge"}]
+    },
+    {
+      "implementation": {"file": "ui/components/ModelEffortPicker.tsx", "symbol": "ModelEffortPicker"},
+      "design": [{"source": "design/modules/model-configuration.tsx", "part": "ModelEffortPicker"}]
+    },
+    {
+      "implementation": {"file": "ui/components/ui/SteppedSlider.tsx", "symbol": "SteppedSlider"},
+      "design": [{"source": "design/components/stepped-slider.tsx", "part": "SteppedSlider"}]
+    },
+    {
+      "implementation": {"file": "ui/components/ui/SteppedSlider.css"},
+      "design": [{"source": "design/components/stepped-slider.tsx", "part": "SteppedSlider"}]
+    },
+    {
+      "implementation": {"file": "ui/components/ui/index.tsx", "symbol": "BrandMark"},
+      "design": [{"source": "design/components/brand-mark.tsx", "part": "BrandMark"}]
+    },
+    {
+      "implementation": {"file": "ui/components/ui/index.tsx", "symbol": "Tile"},
+      "design": [{"source": "design/components/tile.tsx", "part": "Tile"}]
+    },
+    {
+      "implementation": {"file": "ui/components/ui/agent-icon.tsx", "symbol": "AgentIcon"},
+      "design": [{"source": "design/modules/agent-quota-mark.tsx", "part": "AgentIcon"}]
+    },
+    {
+      "implementation": {"file": "ui/components/ui/TaskRow.tsx", "symbol": "TaskRow"},
+      "design": [{"source": "design/modules/task-presentation.tsx", "part": "TaskRow"}]
+    },
+    {
+      "implementation": {"file": "ui/components/ui/TaskRow.tsx", "symbol": "TaskBubble"},
+      "design": [{"source": "design/modules/task-presentation.tsx", "part": "TaskBubble"}]
+    },
+    {
+      "implementation": {"file": "ui/components/composites/SourcePanelHeader.tsx", "symbol": "SourcePanelHeader"},
+      "design": [{"source": "design/surfaces/source-panel.tsx", "part": "SourcePanelHeader"}]
+    }
+  ]
+}

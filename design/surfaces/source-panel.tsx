@@ -1,11 +1,24 @@
 import { SourceConnectorSummary } from "../modules/connectors";
 import { Frame } from "adg";
 import { PanelLoading, PanelShell } from "../components/panel";
-import { BrandMark } from "../components/agent-icon";
+import { BrandMark } from "../components/brand-mark";
 import { IconButton } from "../components/icon-button";
 
 import { SourceTaskGroups } from "../modules/source-activity";
 import { sourcePanelCopy } from "../fixtures/source-activity";
+
+export function SourcePanelHeader({ title }: { title: string }) {
+  return (
+    <header class="flex h-9 shrink-0 items-center gap-4">
+      <BrandMark brand="anthropic" size={36} />
+      <h2 class="flex-1 text-title font-[650]">{title}</h2>
+      <div class="flex gap-[6px]">
+        <IconButton icon="maximize-2" label="Expand" />
+        <IconButton icon="x" label="Close" />
+      </div>
+    </header>
+  );
+}
 
 function SourcePanel({
   form,
@@ -15,16 +28,7 @@ function SourcePanel({
   const platform = form === "platform";
   return (
     <PanelShell viewportHeight={800} class="gap-[25px] overflow-hidden pt-[13px] px-6 pb-6">
-      <header class="flex h-9 shrink-0 items-center gap-4">
-        <BrandMark brand="anthropic" size={36} />
-        <h2 class="flex-1 text-title font-[650]">
-          {platform || form === "loading" ? "Anthropic" : "Claude"}
-        </h2>
-        <div class="flex gap-[6px]">
-          <IconButton icon="maximize-2" label="Expand" />
-          <IconButton icon="x" label="Close" />
-        </div>
-      </header>
+      <SourcePanelHeader title={platform || form === "loading" ? "Anthropic" : "Claude"} />
       <div class="min-h-0 overflow-y-auto">
         {platform ? (
           <SourceConnectorSummary class="" />

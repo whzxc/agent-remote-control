@@ -10,7 +10,7 @@ function point(angle: number) {
 
 export type EffortPosition = { count: number; index: number };
 
-export default function EffortGauge({ count, index }: EffortPosition) {
+export default function EffortGauge({ count = 5, index = -1 }: Partial<EffortPosition>) {
   const step = count > 1 ? sweep / (count - 1) : 0;
   // Keep the dots and rounded arcs separate when a catalog has many levels.
   const scale = Math.min(1, step ? step / 43 : 1);
@@ -34,6 +34,6 @@ export default function EffortGauge({ count, index }: EffortPosition) {
       return <circle key={stop.angle} cx={cx} cy={cy} r={stop.size}
         fill={i <= index ? "var(--role-agent)" : "var(--text-tertiary)"} />;
     })}
-    <path d={needle} transform={`rotate(${stops[index].angle} ${center.x} ${center.y})`} fill="var(--text)" />
+    {stops[index] && <path d={needle} transform={`rotate(${stops[index].angle} ${center.x} ${center.y})`} fill="var(--text)" />}
   </svg>;
 }

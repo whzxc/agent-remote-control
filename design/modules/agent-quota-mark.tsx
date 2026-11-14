@@ -1,42 +1,7 @@
-import { Frame, Icon } from "adg";
-import ClaudeCodeArt from "../art/claude-code.svg";
-import CodexArt from "../art/codex.svg";
-import OpenaiArt from "../art/openai.svg";
-import AnthropicArt from "../art/anthropic.svg";
-import GoogleArt from "../art/google.svg";
-import XaiArt from "../art/xai.svg";
-import MicrosoftArt from "../art/microsoft.svg";
-import NotionArt from "../art/notion.svg";
-import SlackArt from "../art/slack.svg";
-import RaycastArt from "../art/raycast.svg";
-import CursorArt from "../art/cursor.svg";
-import OpencodeArt from "../art/opencode.svg";
-import AlibabaArt from "../art/alibaba.svg";
-import ClaudeArt from "../art/claude.svg";
-import DeepseekArt from "../art/deepseek.svg";
-import PiArt from "../art/pi.svg";
-import AntigravityArt from "../art/antigravity.svg";
+import { Frame } from "adg";
+import { BrandMark, type Brand } from "../components/brand-mark";
 import { agentIconForms, iconExampleBrand } from "../fixtures/agent-icons";
 
-const brands = {
-  antigravity: AntigravityArt,
-  claude: ClaudeArt,
-  deepseek: DeepseekArt,
-  pi: PiArt,
-  "claude-code": ClaudeCodeArt,
-  codex: CodexArt,
-  openai: OpenaiArt,
-  anthropic: AnthropicArt,
-  google: GoogleArt,
-  xai: XaiArt,
-  microsoft: MicrosoftArt,
-  notion: NotionArt,
-  slack: SlackArt,
-  raycast: RaycastArt,
-  cursor: CursorArt,
-  opencode: OpencodeArt,
-  alibaba: AlibabaArt,
-};
 const arcs = {
   1: [[0, 360]],
   2: [
@@ -49,7 +14,6 @@ const arcs = {
     [248, 352],
   ],
 };
-export type Brand = keyof typeof brands;
 export type AgentIconReading = {
   id: string;
   label: string;
@@ -57,27 +21,6 @@ export type AgentIconReading = {
   color: string;
   elapsed?: number;
 };
-export function BrandMark({
-  brand,
-  size = 40,
-}: {
-  brand?: Brand;
-  size?: number;
-}) {
-  const Artwork = brand && brands[brand];
-  return (
-    <span
-      class="inline-flex shrink-0 items-center justify-center text-text"
-      style={{ width: size, height: size }}
-    >
-      {Artwork ? (
-        <Artwork data-brand width={size} height={size} />
-      ) : (
-        <Icon name="bot" size={size} />
-      )}
-    </span>
-  );
-}
 function arcPath(start: number, end: number, radius = 21) {
   const point = (angle: number) => {
     const r = (angle * Math.PI) / 180;
@@ -168,13 +111,9 @@ export function AgentIcon({
     </span>
   );
 }
-export default () => [
-  <Frame name="brand-mark">
-    <BrandMark brand={iconExampleBrand} size={38} />
-  </Frame>,
-  ...agentIconForms.map(({ name, readings, used }) => (
+export default () =>
+  agentIconForms.map(({ name, readings, used }) => (
     <Frame name={`agent-icon-${name}`}>
       <AgentIcon brand={iconExampleBrand} readings={readings} used={used} />
     </Frame>
-  )),
-];
+  ));

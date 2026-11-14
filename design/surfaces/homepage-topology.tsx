@@ -1,10 +1,10 @@
 import { Frame } from "adg";
-import { TopologyScene, type ScenePath, type SceneItem } from "./topology-scene";
-import { TopologyNode } from "./topology-node";
-import { TopologyGroup } from "./topology-group";
-import { TopologyMark } from "./topology-mark";
-import { HomepageBar, type HomepageMode } from "./homepage-mode";
-import { NavCapsule } from "./nav-capsule";
+import { TopologyScene, type ScenePath, type SceneItem } from "../modules/topology-scene";
+import { TopologyNode } from "../modules/topology-node";
+import { TopologyGroup } from "../modules/topology-group";
+import { TopologyMark } from "../modules/topology-mark";
+import { HomepageBar, type HomepageMode } from "../modules/homepage-mode";
+import { NavCapsule } from "../modules/nav-capsule";
 import { Button } from "../components/button";
 import { IconButton } from "../components/icon-button";
 import { nodes, groups, links, scenes } from "../fixtures/topology";
@@ -69,7 +69,8 @@ export function TopologyScreen({
 }
 
 export default () => (
-  <Frame name="landscape" width={1280} height={800}>
+  <Frame name="empty" width={1280} height={800} fixture="connections-empty@light"
+    capture={{ page: true, origin: "0 0", viewport: "1280x800" }}>
     <TopologyScreen width={1280} height={800} scene={scenes["empty-empty"]} />
   </Frame>
 );

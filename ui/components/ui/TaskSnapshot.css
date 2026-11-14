@@ -14,6 +14,7 @@
 .task-card-execution { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .task-card-execution:empty { display: none; }
 .task-snapshot-execution { margin: 4px 16px 0; }
+.task-snapshot-execution .dispatch-spec { flex-shrink: 0; }
 .task-snapshot-timeline { flex: 1; position: relative; min-height: 0; overflow: clip; margin: 12px; border-radius: 16px; background: var(--surface-subtle); }
 .task-snapshot-tail { min-height: 100%; position: absolute; inset: auto 0 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; padding: 12px; }
 .task-snapshot-row { display: flex; flex: none; align-items: start; gap: 8px; font-size: var(--text-caption); line-height: 16px; color: var(--text-secondary); overflow-wrap: anywhere; }

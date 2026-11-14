@@ -7,7 +7,7 @@ import { Card } from "../components/card";
 import { SettingLine } from "../components/settings-row";
 import { Switch } from "../components/switch";
 import { IconButton } from "../components/icon-button";
-import { BrandMark } from "../components/agent-icon";
+import { BrandMark } from "../components/brand-mark";
 
 
 export function AgentInventoryCard() {

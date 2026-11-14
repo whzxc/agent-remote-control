@@ -12,7 +12,6 @@ export const effortGaugeForms = [
   { name: "five-levels", count: 5, index: 3 },
 ];
 
-export const effortSteps = ["Inherit", "Low", "Medium", "High", "Max"];
 
 export const modelExample = {
   title: "本任务模型",
@@ -28,4 +27,3 @@ export const modelExample = {
 export const followModelOptions = [{ value: "follow", label: modelExample.inherit }];
 export const pickerEffortSteps = ["inherit", "low", "medium", "high", "max"];
 export const modelOptions = [modelExample.inherit, "GPT-6.1 Sol", "GPT-5.6 Sol"];
-export const sliderExample = { value: 0, label: "Effort" };

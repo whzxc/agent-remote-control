@@ -1,5 +1,5 @@
 import { Frame, Icon } from "adg";
-import { BrandMark, type Brand } from "./agent-icon";
+import { BrandMark, type Brand } from "./brand-mark";
 import { SetupChoice } from "./setup-choice";
 import {
   themeOptions, platformChoices, tabsOptions, cardOptions, choiceExamples,

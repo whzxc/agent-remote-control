@@ -19,14 +19,25 @@ export const checks = [{ stage: 'verify', order: 19, visual: true, async run({ f
   const name = 'Verify the release checklist';
   const history = yesterday.getByRole('article', { name, exact: true });
   const preview = article => article.getByRole('region', { name: text['homepage.recentSteps'], exact: true });
-  await preview(today.getByRole('article', { name: 'Summarize the queue', exact: true })).waitFor();
+  const todayCard = today.getByRole('article', { name: 'Summarize the queue', exact: true });
+  await preview(todayCard).waitFor();
   await history.getByRole('img', { name: /Codex · / }).waitFor();
-  await history.getByRole('img', { name: /gpt-6\.1-sol/i }).waitFor();
+  // Regression: recorded efforts without usable catalog metadata appeared as text inside the execution spec.
+  const specs = [
+    [history.getByRole('img', { name: /gpt-6\.1[- ]sol .*high/i }), text['dispatchSpec.effort.high']],
+    [todayCard.getByRole('img', { name: /future-model .*custom-effort/ }), 'custom-effort'],
+  ];
+  for (const [spec, effort] of specs) {
+    if ((await spec.innerText()).toLowerCase().includes(effort.toLowerCase())) {
+      throw new Error('The recorded effort label is visible in the execution spec.');
+    }
+  }
   await history.getByText('02:21', { exact: true }).waitFor();
   if (await preview(history).count()) throw new Error('Historical summary rendered timeline content.');
   const cards = await today.getByRole('article').evaluateAll(items => items.map(item => item.getBoundingClientRect().top));
   const firstRow = cards.filter(top => top === cards[0]).length;
   if (width < 450 && firstRow !== 1 || width === 820 && firstRow !== 3) throw new Error('Task columns did not adapt to the available width.');
+  await history.evaluate(article => article.scrollIntoView({ block: 'end' }));
   await history.getByRole('button', { name: `${text['homepage.openDetail']}: ${name}`, exact: true }).click();
   const detail = page.getByRole('dialog', { name, exact: true });
   await detail.waitFor();

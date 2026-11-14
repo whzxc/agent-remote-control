@@ -5,7 +5,7 @@ import { Card } from "../components/card";
 import { Button } from "../components/button";
 import { IconButton } from "../components/icon-button";
 import { SingleChoice } from "../components/single-choice";
-import { BrandMark, type Brand } from "../components/agent-icon";
+import { BrandMark, type Brand } from "../components/brand-mark";
 import { platformChoices as platforms } from "../fixtures/choices";
 import { details, frames } from "../fixtures/connectors";
 export function ConnectorCard({ brand = "openai", title = copy.text1, state = copy.text2, facts = details }: { brand?: Brand; title?: string; state?: string; facts?: string[][][] } = {}) {

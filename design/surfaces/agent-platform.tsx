@@ -1,9 +1,8 @@
 import { Frame } from "adg";
 import { PanelLoading, PanelShell } from "../components/panel";
-import { BrandMark } from "../components/agent-icon";
+import { BrandMark } from "../components/brand-mark";
 import { Button } from "../components/button";
 import { IconButton } from "../components/icon-button";
-import { NativeAgentInfo } from "../modules/agent-settings";
 import { AccountCard } from "../modules/agent-account";
 import { platformAccounts, platformAccountCopy as copy } from "../fixtures/agent-accounts";
 
@@ -35,22 +34,6 @@ function Platform({ agent, state = "ready" }: {
   );
 }
 
-function NativePlatform() {
-  return (
-    <PanelShell class="p-5">
-      <header class="flex h-9 items-center gap-4">
-        <BrandMark brand="antigravity" size={36} />
-        <h2 class="flex-1 text-title font-[650]">Antigravity</h2>
-        <div class="flex gap-[6px]">
-          <IconButton icon="maximize-2" label="Expand" />
-          <IconButton icon="x" label="Close" />
-        </div>
-      </header>
-      <NativeAgentInfo />
-    </PanelShell>
-  );
-}
-
 export default () => [
   <Frame name="accounts" fixture="agent-platform-lifecycle"
     capture={{ selector: ".dialog:has(.agent-platform-view)", viewport: "1280x800" }}>
@@ -67,8 +50,5 @@ export default () => [
   <Frame name="loading" fixture="agent-platform-loading"
     capture={{ selector: ".dialog:has(.agent-platform-view)", viewport: "1280x800" }}>
     <Platform agent={platformAccounts.claude} state="loading" />
-  </Frame>,
-  <Frame name="native" note="Unavailable: zero-account native platforms currently open Agent history.">
-    <NativePlatform />
   </Frame>,
 ];

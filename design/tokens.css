@@ -23,6 +23,9 @@
   --radius-tile: 10px;
   --radius-card: 18px;
   --radius-panel: 24px;
+  --radius-pill: 999px;
+  --dock-button-size: 36px;
+  --dock-padding-block: 4px;
   --control-height: 34px;
   --control-height-compact: 30px;
   --control-gap: 6px;

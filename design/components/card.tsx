@@ -25,17 +25,8 @@ export function Card({
 export function CardHeader({ children }: { children?: unknown }) {
   return <div class="flex flex-col gap-2 px-4">{children}</div>;
 }
-export function CardTitle({ children }: { children?: unknown }) {
-  return <div class="font-semibold text-body">{children}</div>;
-}
-export function CardDescription({ children }: { children?: unknown }) {
-  return <div class="text-meta text-text-secondary">{children}</div>;
-}
 export function CardContent({ children }: { children?: unknown }) {
   return <div class="px-4">{children}</div>;
-}
-export function CardFooter({ children }: { children?: unknown }) {
-  return <div class="flex items-center gap-2 px-4">{children}</div>;
 }
 export default () => [
   ...cardForms.map(({ name, variant, text }) => (
@@ -49,10 +40,7 @@ export default () => [
   )),
   ...[
     { name: "card-header", Part: CardHeader },
-    { name: "card-title", Part: CardTitle },
-    { name: "card-description", Part: CardDescription },
     { name: "card-content", Part: CardContent },
-    { name: "card-footer", Part: CardFooter },
   ].map(({ name, Part }) => (
     <Frame name={name} width={560}>
       <div class="w-full bg-surface-subtle text-text"><Part>{cardForms[0].text}</Part></div>

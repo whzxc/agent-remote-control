@@ -1,7 +1,8 @@
 import { example } from "../fixtures/topology-node";
 import { Frame } from "adg";
 import { NodeCapsule, type NodeTaskState } from "./node-capsule";
-import { AgentIcon, BrandMark, type AgentIconReading, type Brand } from "../components/agent-icon";
+import { BrandMark, type Brand } from "../components/brand-mark";
+import { AgentIcon, type AgentIconReading } from "./agent-quota-mark";
 
 export type TopologyNodeProps = {
   label: string;

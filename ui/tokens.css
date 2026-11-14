@@ -11,7 +11,6 @@
   --space-3: 12px;
   --space-4: 16px;
   --space-6: 24px;
-  --radius-pill: 999px;
   --hover: color-mix(in srgb, var(--text) 6%, transparent);
   --success-soft: color-mix(in srgb, var(--success) 14%, var(--surface));
   --warning-soft: color-mix(in srgb, var(--warning) 14%, var(--surface));

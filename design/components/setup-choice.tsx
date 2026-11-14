@@ -1,5 +1,5 @@
 import { Frame, Icon } from "adg";
-import { BrandMark, type Brand } from "./agent-icon";
+import { BrandMark, type Brand } from "./brand-mark";
 import { setupChoiceForms } from "../fixtures/choices";
 
 export function SetupChoice({

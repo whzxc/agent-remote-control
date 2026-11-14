@@ -16,8 +16,7 @@ export default function DispatchSpec({ id, model, effort, position, tier, fast }
   if (!label) return null;
   return <HoverHelp text={label}><span id={id} className="dispatch-spec" role="img" aria-label={label}>
     {model && <span className="dispatch-spec-model">{model}</span>}
-    {effort && (position ? <EffortGauge {...position} />
-      : <span className="dispatch-spec-value">{effort}</span>)}
+    {effort && <EffortGauge {...position} />}
     {tier && (fast ? <span className="dispatch-spec-fast"><Icon icon={Zap} size={12} /></span>
       : <span className="dispatch-spec-value">{tier}</span>)}
   </span></HoverHelp>;

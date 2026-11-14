@@ -1,5 +1,5 @@
 import { Frame } from "adg";
-import { TopologyScreen } from "../modules/homepage-topology";
+import { TopologyScreen } from "./homepage-topology";
 import { scenes } from "../fixtures/topology";
 
 const frames = [

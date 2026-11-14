@@ -133,14 +133,15 @@ export function taskCardActivity(entries: readonly AgentTimelineEntry[]) {
   }).slice(-5);
   const snapshot = tail.flatMap<TaskSnapshotRow>(entry => {
     const kind = taskStepKind(entry);
-    const text = kind && kind !== 'thinking'
+    const role = entry.type === 'user' ? 'source' : entry.type === 'interaction' ? 'request'
+      : entry.type === 'text' ? 'agent' : kind ? 'step' : undefined;
+    if (!role) return [];
+    const text = role === 'step' && kind !== 'thinking'
       ? (entry.title === 'exec' && !entry.command && !entry.path ? entry.input?.text?.trim() : undefined) || toolTitle(entry)
       : entry.text || entry.title;
     if (!text) return [];
-    const role = entry.type === 'user' ? 'source' : entry.type === 'interaction' ? 'request'
-      : entry.type === 'text' ? 'agent' : kind ? 'step' : undefined;
     const tool = role === 'step' && kind !== 'thinking' ? entry : undefined;
-    return role ? [{ id: entry.id, turnId: entry.turnId, role, text, kind, status: entry.status, tool }] : [];
+    return [{ id: entry.id, turnId: entry.turnId, role, text, kind, status: entry.status, tool }];
   });
   return { steps, snapshot };
 }

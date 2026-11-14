@@ -133,15 +133,15 @@
   z-index: 50;
   width: max-content;
   max-width: calc(100vw - 32px);
-  padding: 4px 6px;
+  padding: var(--dock-padding-block) 6px;
   border: 0;
   border-radius: 22px;
   background: var(--surface-raised);
   box-shadow: var(--shadow-lg);
 }
 .navigation-capsule button {
-  width: 36px;
-  height: 36px;
+  width: var(--dock-button-size);
+  height: var(--dock-button-size);
   padding: 9px;
   display: grid;
   place-items: center;
@@ -201,7 +201,7 @@
 .capsule-icons button {
   position: relative;
   inset: auto;
-  flex: 0 0 36px;
+  flex: 0 0 var(--dock-button-size);
   transition: opacity var(--motion-base) var(--ease-enter);
 }
 :root[data-reduced-motion="true"] {
