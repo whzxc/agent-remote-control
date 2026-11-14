@@ -28,7 +28,7 @@ test('Desktop and connector owners dispatch FIFO and steer only a confirmed nati
     if (row.phantom) entities.placeholder = { turnId: null, status: 'inProgress', items: [] };
     const state = { id: thread, cwd: directory, rolloutPath: row.path, requests: row.requests || [], threadRuntimeStatus: { type: row.turns.at(-1)?.status === 'inProgress' ? 'active' : 'idle' }, latestModel: 'fixture-model',
       turnHistory: { kind: 'canonical', history: { isComplete: true, entitiesByKey: entities, islands: [{ newerBoundary: { status: 'exhausted' }, entries: Object.keys(entities).map(value => ({ value })) }] } } };
-    send(socket, { type: 'broadcast', method: 'thread-stream-state-changed', version: 11, sourceClientId: 'fixture-owner', params: { hostId: 'local', conversationId: thread, change: { type: 'snapshot', revision: ++revision, conversationState: state } } });
+    send(socket, { type: 'broadcast', method: 'thread-stream-state-changed', version: row.model === 'fixture-unsupported-snapshot' ? 99 : 13, sourceClientId: 'fixture-owner', params: { hostId: 'local', conversationId: thread, change: { type: 'snapshot', revision: ++revision, conversationState: state } } });
   };
   const server = createServer(socket => {
     sockets.add(socket); socket.on('close', () => sockets.delete(socket)); let buffer = Buffer.alloc(0);
@@ -71,9 +71,10 @@ test('Desktop and connector owners dispatch FIFO and steer only a confirmed nati
       const {id,method,params}=JSON.parse(line); if(id===undefined)continue;
       const data=JSON.parse(readFileSync(file,'utf8')); let row=data[params?.threadId],result={};
       if(row?.detached && ['thread/resume','turn/start','turn/steer','turn/interrupt'].includes(method)){process.stdout.write(JSON.stringify({id,error:{code:-32600,message:'thread '+params.threadId+' already has an active writer'}})+'\\n');continue;}
-      if(method==='thread/start'){const threadId=randomUUID();row=data[threadId]={id:threadId,cwd:params.cwd,turns:[]};save(data);result={thread:row};}
+      if(method==='thread/start'){const threadId=randomUUID();row=data[threadId]={id:threadId,cwd:params.cwd,model:params.model,turns:[]};save(data);result={thread:row};}
       if(method==='thread/read')result={thread:{...row,status:{type:row?.detached?'notLoaded':row?.turns.at(-1)?.status==='inProgress'?'active':'idle'}}};
       if(method==='thread/turns/list')result={data:[...row.turns].reverse().slice(0,params.limit),nextCursor:null};
+      if(method==='thread/archive' && row?.model==='fixture-unsupported-snapshot'){process.stdout.write(JSON.stringify({id,error:{code:-32600,message:'thread '+params.threadId+' already has an active writer'}})+'\\n');continue;}
       if(method==='turn/start'){const turn={id:randomUUID(),status:'inProgress',items:[],input:params.input};row.turns.push(turn);save(data);result={turn};}
       if(method==='turn/steer'){row.turns.at(-1).input.push(...params.input);save(data);result={turnId:row.turns.at(-1).id};}
       process.stdout.write(JSON.stringify({id,result})+'\\n');
@@ -91,7 +92,17 @@ test('Desktop and connector owners dispatch FIFO and steer only a confirmed nati
   try {
     const fresh = await fixture.completed('codex_create',{prompt:'Fresh Desktop turn',thread:{cwd:directory}});
     assert.equal(fresh.state,'completed',JSON.stringify(fresh));
+    assert.equal(fresh.executionOwner, 'desktop');
+    assert.ok(fresh.turnId);
     assert.equal((await fixture.call('codex_query',{method:'thread/read',params:{threadId:fresh.threadId,includeTurns:true}})).thread.turns.length,1);
+    const unsupported = await fixture.completed('codex_create', { prompt: 'Unsupported Desktop snapshot', thread: { cwd: directory, model: 'fixture-unsupported-snapshot' } });
+    assert.equal(unsupported.state, 'failed', JSON.stringify(unsupported));
+    assert.equal(unsupported.failureStage, 'turn-submitting');
+    assert.equal(unsupported.error.code, 'DESKTOP_SNAPSHOT_VERSION_UNSUPPORTED');
+    assert.equal(unsupported.error.version, 99);
+    assert.equal(unsupported.cleanup.reason, 'writer-busy');
+    assert.equal((await fixture.call('codex_read', { threadId: unsupported.threadId })).error.code, 'DESKTOP_SNAPSHOT_VERSION_UNSUPPORTED');
+    assert.deepEqual(read()[unsupported.threadId].turns, []);
     assert.equal((await fixture.completed('codex_send', {threadId:desktopThread,prompt:'Establish self-test dispatch',sendMode:'steer'})).state, 'completed');
     const queued = await fixture.completed('codex_send', { threadId: desktopThread, prompt: 'After completion', sendMode: 'next' });
     assert.equal(queued.dispatchMode, 'queued');
@@ -284,9 +295,13 @@ test('Codex activity and timelines retain the active native turn', { skip: proce
     const terminal = await fixture.api(`agents/timeline/${threadId}`);
     assert.equal(terminal.turnStatuses[turnId], 'completed');
   } finally {
-    await fixture.close(); for (const socket of sockets) socket.destroy();
-    await new Promise<void>(resolve => server.close(() => resolve()));
-    await rm(directory, { recursive: true, force: true });
+    try {
+      await fixture.close();
+    } finally {
+      for (const socket of sockets) socket.destroy();
+      await new Promise<void>(resolve => server.close(() => resolve()));
+      await rm(directory, { recursive: true, force: true });
+    }
   }
 });
 

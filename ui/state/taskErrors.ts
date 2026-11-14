@@ -11,13 +11,19 @@ export function taskErrorText(error: unknown, fallback: MessageKey = "requestFai
     }
   }
   if (value && typeof value === "object") {
-    const { code, message, guide, inputSchema } = value as { code?: unknown; message?: unknown; guide?: unknown; inputSchema?: unknown };
+    const { code, message, version, guide, inputSchema } = value as { code?: unknown; message?: unknown; version?: unknown; guide?: unknown; inputSchema?: unknown };
     if (code === "SOURCE_REVOKED") return t("detail.sourceRevoked");
+    if (code === "DESKTOP_SNAPSHOT_VERSION_UNSUPPORTED") {
+      return typeof version === "number" ? t("detail.desktopSnapshotVersion", { version }) : t("detail.desktopSnapshotUnsupported");
+    }
+    if (code === "DESKTOP_SNAPSHOT_INVALID") return t("detail.desktopSnapshotInvalid");
+    if (code === "DESKTOP_SNAPSHOT_TIMEOUT") return t("detail.desktopSnapshotTimeout");
     if (code === "INVALID_ARGUMENTS" || guide || inputSchema) return t(fallback);
     value = message || code;
   }
   const message = typeof value === "string" ? value : "";
   if (/\bSOURCE_REVOKED\b/.test(message)) return t("detail.sourceRevoked");
+  if (message === "DESKTOP_SNAPSHOT_TIMEOUT") return t("detail.desktopSnapshotTimeout");
   if (!message || /^(?:Error:\s*)?[A-Z][A-Z0-9_]+(?::.*)?$/.test(message)) return t(fallback);
   return message.replace(/^Error:\s*/, "");
 }

@@ -224,6 +224,9 @@ pub fn failure(e: &str) -> Value {
     if let Some(code) = crate::src_conversations::error_code(e) {
         return json!({"code":code,"message":e,"retryable":false});
     }
+    if e == "DESKTOP_SNAPSHOT_TIMEOUT" {
+        return json!({"code":e,"message":"Codex Desktop did not deliver a thread snapshot in time. Open this thread in Codex Desktop and inspect it before retrying."});
+    }
 
     if let Ok(value) = serde_json::from_str::<Value>(e) {
         if matches!(
@@ -266,6 +269,8 @@ pub fn failure(e: &str) -> Value {
                     | "DESKTOP_HANDOFF_UNAVAILABLE"
                     | "DESKTOP_IPC_ENDPOINT_MISSING"
                     | "DESKTOP_IPC_CONNECT_FAILED"
+                    | "DESKTOP_SNAPSHOT_VERSION_UNSUPPORTED"
+                    | "DESKTOP_SNAPSHOT_INVALID"
                     | "STALE_INTERACTION"
                     | "ACCEPTANCE_FAULT_UNAVAILABLE"
                     | "ACCEPTANCE_SELF_TEST_REQUIRED"

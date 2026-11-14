@@ -52,9 +52,10 @@ pub fn require_installation() -> Result<Installation> {
         .ok_or_else(|| "Install Codex Desktop and ensure its bundled Codex CLI is available".into())
 }
 const SNAPSHOT_TTL: Duration = Duration::from_secs(4);
+const SNAPSHOT_VERSIONS: &[u64] = &[11, 13];
 struct Snapshot {
     received: Instant,
-    value: Arc<Value>,
+    value: Result<Arc<Value>>,
     revision: u64,
     wire_bytes: usize,
 }
@@ -78,7 +79,13 @@ impl Snapshots {
             },
         )
     }
-    fn insert(&mut self, thread: String, mut value: Value, wire_bytes: usize) {
+    fn insert(
+        &mut self,
+        thread: String,
+        revision: u64,
+        value: Result<Arc<Value>>,
+        wire_bytes: usize,
+    ) {
         self.prune();
         self.rows.remove(&thread);
         let mut bytes: usize = self.rows.values().map(|s| s.wire_bytes).sum();
@@ -100,8 +107,8 @@ impl Snapshots {
             thread,
             Snapshot {
                 received: Instant::now(),
-                revision: value["revision"].as_u64().unwrap_or(0),
-                value: Arc::new(value["conversationState"].take()),
+                revision,
+                value,
                 wire_bytes,
             },
         );
@@ -264,48 +271,79 @@ impl Ipc {
                         if msg["method"] != "thread-stream-state-changed" {
                             continue;
                         }
-                        if msg["version"] != 11 {
-                            continue;
-                        }
                         let params = &msg["params"];
                         if params["hostId"] != "local" {
                             continue;
                         }
                         let thread = string(params, "conversationId").to_owned();
-                        if o.lock().await.get(&thread).map(String::as_str)
-                            != msg["sourceClientId"].as_str()
+                        let owner = string(&msg, "sourceClientId").to_owned();
+                        if thread.is_empty()
+                            || owner.is_empty()
+                            || o.lock().await.get(&thread) != Some(&owner)
                         {
                             continue;
                         }
-                        let revision = params["change"]["revision"].as_u64();
-                        let owner = string(&msg, "sourceClientId").to_owned();
-                        let snapshot_frame = params["change"]["type"] == "snapshot";
-                        let repeated = revision.is_some()
-                            && revisions.get(&thread) == Some(&(owner.clone(), revision, true));
+                        let change = &params["change"];
+                        let revision = change["revision"].as_u64();
+                        let snapshot_frame = change["type"] == "snapshot";
+                        let state = &change["conversationState"];
+                        let version = msg["version"].as_u64();
+                        // Desktop v13 still sends revision and conversationState on
+                        // snapshots. ARC reads both versions through the same decoder.
+                        let error = if !version.is_some_and(|v| SNAPSHOT_VERSIONS.contains(&v)) {
+                            Some(json!({
+                                "code":"DESKTOP_SNAPSHOT_VERSION_UNSUPPORTED",
+                                "message":format!("Codex Desktop sent snapshot protocol version {}. This ARC build supports versions 11 and 13. Update ARC to a build that supports your Codex Desktop version.", version.map_or_else(|| "unknown".into(), |v| v.to_string())),
+                                "version":version,
+                                "supportedVersions":SNAPSHOT_VERSIONS,
+                                "retryable":false
+                            }))
+                        } else if revision.is_none()
+                            || (snapshot_frame && state["id"].as_str() != Some(thread.as_str()))
+                        {
+                            Some(json!({
+                                "code":"DESKTOP_SNAPSHOT_INVALID",
+                                "message":"Codex Desktop sent an invalid thread state update. Check that ARC supports this Codex Desktop build.",
+                                "retryable":false
+                            }))
+                        } else {
+                            None
+                        };
+                        if let Some(error) = error {
+                            revisions.remove(&thread);
+                            let error = error.to_string();
+                            let wire_bytes = error.len();
+                            s.lock().await.insert(thread, 0, Err(error), wire_bytes);
+                            n.notify_waiters();
+                            changed.notify_waiters();
+                            continue;
+                        }
+                        let Some(revision) = revision else { continue };
+                        let repeated =
+                            revisions.get(&thread) == Some(&(owner.clone(), revision, true));
                         if repeated && snapshot_frame {
                             let mut snapshots = s.lock().await;
                             if let Some(snapshot) = snapshots.rows.get_mut(&thread) {
                                 snapshot.received = Instant::now();
                             } else {
                                 snapshots.insert(
-                                    thread.into(),
-                                    msg["params"]["change"].take(),
+                                    thread,
+                                    revision,
+                                    Ok(Arc::new(
+                                        msg["params"]["change"]["conversationState"].take(),
+                                    )),
                                     len as usize,
                                 );
                             }
                             n.notify_waiters();
                             continue;
                         }
-                        if params["change"]["type"] == "snapshot" {
-                            interactions::sync(
-                                &events,
-                                &params["change"]["conversationState"],
-                                &session,
-                            )
-                            .await;
+                        if snapshot_frame {
+                            interactions::sync(&events, state, &session).await;
                             s.lock().await.insert(
                                 thread.clone(),
-                                params["change"].clone(),
+                                revision,
+                                Ok(Arc::new(state.clone())),
                                 len as usize,
                             );
                         } else {
@@ -320,9 +358,7 @@ impl Ipc {
                         }
                         let previous = revisions
                             .insert(thread.to_owned(), (owner.clone(), revision, snapshot_frame));
-                        if revision.is_none()
-                            || previous.map(|r| (r.0, r.1)) != Some((owner, revision))
-                        {
+                        if previous.map(|r| (r.0, r.1)) != Some((owner, revision)) {
                             changed.notify_waiters();
                         }
                         let mut params = msg["params"].take();
@@ -554,8 +590,10 @@ impl Ipc {
                     return Err("DESKTOP_DISCONNECTED".into());
                 }
                 if let Some(s) = self.snapshots.lock().await.get(thread) {
-                    if s.received.elapsed() < SNAPSHOT_TTL && s.revision >= revision {
-                        return Ok(s.value.clone());
+                    if s.received.elapsed() < SNAPSHOT_TTL
+                        && (s.value.is_err() || s.revision >= revision)
+                    {
+                        return s.value.clone();
                     }
                 }
                 wake.await;
@@ -613,7 +651,8 @@ impl Ipc {
         snapshots.prune();
         snapshots
             .get(thread)
-            .map(|s| crate::acceptance_fault::snapshot(thread, s.value.clone()))
+            .and_then(|s| s.value.as_ref().ok())
+            .map(|s| crate::acceptance_fault::snapshot(thread, s.clone()))
     }
     pub async fn mutate(&self, method: &str, args: &Value) -> Result<Value> {
         let thread = string(args, "threadId");
@@ -622,7 +661,6 @@ impl Ipc {
             Some(owner) => owner,
             None => self.owner(thread).await?,
         };
-        let _ = self.follow_owner(thread, &owner).await;
         match method {
             "turn/start" => {
                 let mut args = args.clone();
@@ -634,8 +672,8 @@ impl Ipc {
                 }
                 // Desktop inherits collaborationMode separately from model/effort;
                 // its settings take precedence when App Server starts the turn.
+                let state = self.read_owned(thread, false, &owner).await?;
                 if args["collaborationMode"].is_null() {
-                    let state = self.read_owned(thread, false, &owner).await?;
                     let settings = &state["latestThreadSettings"];
                     if args["model"].is_null() {
                         let model = settings["model"]
@@ -717,6 +755,7 @@ impl Ipc {
                 if string(args, "turnId").is_empty() {
                     return Err("DESKTOP_TURN_ID_REQUIRED".into());
                 }
+                let _ = self.follow_owner(thread, &owner).await;
                 let r=self.request("thread-follower-interrupt-turn",json!({"conversationId":thread,"mode":"user-stop","expectedTurnId":args["turnId"]}),Some(&owner)).await?;
                 if r["result"]["ok"] != true {
                     return Err("DESKTOP_REJECTED: interrupt not accepted".into());

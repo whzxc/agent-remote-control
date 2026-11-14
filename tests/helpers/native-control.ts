@@ -123,6 +123,7 @@ export async function nativeControl(script: string, extraEnv: Record<string, str
     if (prepare) await prepare(path.join(directory, 'state'));
     runtime = await launch();
   }, async close() {
-    await stop(); await rm(directory, { recursive: true, force: true });
+    await stop();
+    await rm(directory, { recursive: true, force: true, maxRetries: 3 });
   } };
 }

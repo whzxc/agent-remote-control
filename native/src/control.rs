@@ -756,7 +756,7 @@ impl Control {
     }
     // Only an explicit write may load a persisted thread. Never retry a turn
     // submission on another owner: its acceptance may already be unknown.
-    async fn prepare_thread(&self, thread: &str) -> Result<()> {
+    async fn prepare_thread(&self, thread: &str, fresh: bool) -> Result<()> {
         #[cfg(feature = "test-fixture")]
         {
             if std::env::var_os("ARC_FIXTURE_DESKTOP").is_none() {
@@ -805,7 +805,9 @@ impl Control {
             60000,
         )
         .await?;
-        let loaded = if discovery_unanswered {
+        // A fresh seed has never been opened. Desktop may leave discovery
+        // unanswered until the deep link loads it and acquires the writer.
+        let loaded = if discovery_unanswered && !fresh {
             Err("DESKTOP_REQUEST_TIMEOUT: thread-owner-discovery".into())
         } else {
             desktop::reveal(&ipc, thread).await
@@ -869,10 +871,23 @@ impl Control {
         {
             return Ok(json!({"archived":false}));
         }
-        cleanup_result(
-            rpc.call("thread/archive", json!({"threadId":thread}), 10000)
-                .await,
-        )
+        let result = rpc
+            .call("thread/archive", json!({"threadId":thread}), 10000)
+            .await;
+        if let Err(error) = &result {
+            if error.contains("already has an active writer")
+                || error.contains("already has a live local writer")
+            {
+                let ownership = self.writer_ownership(thread).await;
+                return Ok(json!({
+                    "archived":false,
+                    "reason":"writer-busy",
+                    "error":error,
+                    "next":crate::writer::release_step(thread, &ownership)
+                }));
+            }
+        }
+        cleanup_result(result)
     }
     async fn timeline_history(&self, thread: &str) -> Result<Value> {
         // Read through the current owner. A utility app-server can mark a
@@ -1314,7 +1329,8 @@ impl Control {
         }
         #[allow(unreachable_code)]
         if method == "turn/start" || method == "thread/resume" {
-            self.prepare_thread(string(&args, "threadId")).await?;
+            self.prepare_thread(string(&args, "threadId"), false)
+                .await?;
         }
         if self.effective_background(string(&args, "threadId")).await? {
             return self.background_request(method, args, timeout).await;
@@ -1640,6 +1656,7 @@ impl Control {
                     // apparently usable empty task. Unknown submissions are retained.
                     if op == "create"
                         && receipt["threadId"].is_string()
+                        && receipt["turnId"].is_null()
                         && !receipt["cleanup"].is_object()
                         && progress::failure(&err) != progress::Failure::Unconfirmed
                     {
@@ -2329,7 +2346,7 @@ impl Control {
             r["turnBaseline"] = baseline.clone();
             r["seedTimings"]["baselineMs"] = json!(step.elapsed().as_millis());
             let step = std::time::Instant::now();
-            self.prepare_thread(thread).await?;
+            self.prepare_thread(thread, true).await?;
             r["seedTimings"]["ownerMs"] = json!(step.elapsed().as_millis());
             let background = self.effective_background(thread).await?;
             r["executionOwner"] = json!(if background { "connector" } else { "desktop" });
@@ -2347,11 +2364,14 @@ impl Control {
             let out = self
                 .request_inner("turn/start", turn, timeout, true)
                 .await?;
+            if string(&out["turn"], "id").is_empty() {
+                return Err("SUBMISSION_UNCONFIRMED: Codex returned no first turn ID. Read the original receipt and thread before retrying.".into());
+            }
+            r["turnId"] = out["turn"]["id"].clone();
             r["dispatchMode"] = json!("new-turn");
             if !background {
                 let _ = self.follow(thread).await;
             }
-            r["turnId"] = out["turn"]["id"].clone();
             crate::dispatch_policy::record(r)?;
             let notification_binding = crate::claude_notify::bind(
                 &retry_args,
@@ -2380,7 +2400,7 @@ impl Control {
                 resume["threadId"] = json!(thread);
                 self.request("thread/resume", resume, timeout).await?;
             }
-            self.prepare_thread(thread).await?;
+            self.prepare_thread(thread, false).await?;
             r["executionOwner"] = json!(if self.effective_background(thread).await? {
                 "connector"
             } else {

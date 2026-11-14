@@ -346,7 +346,7 @@ export async function installScenario(name: string) {
     }) : [];
     return [agent, [...current, ...history]];
   }));
-  const records = fixture.tasks.flatMap((task, index) => {
+  const records: import("./state/tasks").TaskRecord[] = fixture.tasks.flatMap((task, index) => {
     if (task.direct) return [];
     const session = activity.agents[task.agent].sessions.find(s => s.id === `fixture-task-${index}`)!;
     return [{ agent: task.agent, turnId: session.turnId ?? undefined, requestId: `fixture-request-${index}`, threadId: `fixture-task-${index}`, state: task.approval ? 'awaiting-approval' : 'completed', createdAt: now, updatedAt: now,
@@ -358,6 +358,7 @@ export async function installScenario(name: string) {
       task: { ...records[0].task, title: 'Earlier completed dispatch' } });
     for (const [index, state] of ['awaiting-approval', 'reserved', 'not-executed', 'unconfirmed', 'failed'].entries()) {
       records.push({ ...records[0], requestId: `fixture-submission-${index}`, turnId: undefined, state,
+        ...(state === 'failed' ? { error: { code: 'DESKTOP_SNAPSHOT_VERSION_UNSUPPORTED', version: 99 } } : {}),
         task: { ...records[0].task, title: `Submission ${state}` } });
     }
   }

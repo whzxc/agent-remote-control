@@ -14,6 +14,7 @@ import { agentActivity } from "../state/activity";
 import { selectAgentPanel } from "../state/overviewPanels";
 import { navigation } from "../state/navigation";
 import { sourceDispatches, dispatchState, dispatchTaskId } from "../state/sourceDispatch";
+import { taskErrorText } from "../state/taskErrors";
 import { PhaseTile } from "./activity";
 import { Button, Empty, Loading, Notice } from "./ui";
 import { TaskRow } from "./ui/TaskRow";
@@ -83,7 +84,9 @@ export default function SourceDispatches({ sourceId }: { sourceId: string }) {
           const title = record.task.title || live?.title || record.runtime?.title || record.task.prompt.split("\n")[0] || t("taskRequest");
           const phase = state === "needsYou" || state === "awaitingApproval" ? "interaction" : state === "running" ? live?.phase ?? "idle" : "idle";
           const canOpen = !!id && !!record.turnId;
-          const label = ["awaitingApproval", "submitting", "notExecuted", "submissionUnknown", "submissionFailed"].includes(state) ? t(`sourcePanel.${state}`) : t(`detail.state.${state}`);
+          const snapshotError = record.error?.code?.startsWith("DESKTOP_SNAPSHOT_") || record.error?.message === "DESKTOP_SNAPSHOT_TIMEOUT";
+          const label = state === "submissionFailed" && snapshotError ? taskErrorText(record.error, "sourcePanel.submissionFailed")
+            : ["awaitingApproval", "submitting", "notExecuted", "submissionUnknown", "submissionFailed"].includes(state) ? t(`sourcePanel.${state}`) : t(`detail.state.${state}`);
           const tone = state === 'needsYou' || state === 'awaitingApproval' || state === 'unknown' || state === 'submissionUnknown' ? 'warning'
             : state === 'done' ? 'success' : state === 'failed' || state === 'submissionFailed' ? 'danger'
             : state === 'running' ? ({ thinking: 'phase-thinking', command: 'phase-command', file: 'phase-file', tool: 'text-secondary', text: 'text-secondary', interaction: 'warning', idle: 'text-tertiary' }[phase]) : 'text-tertiary';

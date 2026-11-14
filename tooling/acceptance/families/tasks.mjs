@@ -65,6 +65,7 @@ export const checks = [
                         await page.getByRole('button', { name: /Current running dispatch/ }).getByText(messages['detail.state.running'], { exact: true }).waitFor();
                         await page.getByRole('button', { name: /Submission awaiting-approval/ }).getByText(messages['sourcePanel.awaitingApproval'], { exact: true }).waitFor();
                         await page.getByRole('button', { name: /Submission reserved/ }).getByText(messages['sourcePanel.submitting'], { exact: true }).waitFor();
+                        await source.getByRole('button', { name: /Submission failed.*Codex Desktop.*v99/ }).waitFor();
                         const top = await heading.boundingBox();
                         await earlier.scrollIntoViewIfNeeded();
                         const after = await heading.boundingBox();
@@ -72,7 +73,7 @@ export const checks = [
                             throw new Error('The source header moved while scrolling dispatch history.');
                         await earlier.click();
                         await page.getByRole('status').filter({ hasText: messages['detail.state.done'] }).waitFor();
-                        await page.getByText(messages['detail.selectedTurn'].replace('{count}', '1'), { exact: true }).waitFor();
+                        await page.getByRole('banner').getByText(messages['detail.selectedTurn'].replace('{count}', '1'), { exact: true }).waitFor();
                     }
                     if (screenshots)
                         await page.screenshot({ path: path.join(out, `${key}-states.png`), animations: 'disabled' });

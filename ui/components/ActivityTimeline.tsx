@@ -262,7 +262,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
         await new Promise(resolve => setTimeout(resolve, 500));
         receipt = await api("tasks/control", "POST", { op: "receipt", args: { requestId: receipt.requestId } });
       }
-      if (receipt.state !== "completed") throw new Error(receipt.error?.message || receipt.state);
+      if (receipt.state !== "completed") throw new Error(receipt.error ? JSON.stringify(receipt.error) : receipt.state);
     })().catch(error => setOpenError(String(error))).finally(() => { continuationBusy.current = false; setContinuing(false); });
   };
   // Preserve native conversation identity without borrowing another turn's configuration.
