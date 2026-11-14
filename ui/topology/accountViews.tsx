@@ -23,7 +23,7 @@ export function accountViews(views: NodeView[], side: -1 | 1, accounts: Topology
       const selected = actions.selectedPlatform === platform;
       const state = (['normal', 'connecting', 'error', 'inactive'] as const).find(state => members.some(view => view.state === state)) ?? first.state;
       const icon = <SourceIcon platform={platform} panelVisual />;
-      return [{ ...first, id: sourcePlatformNodeId(platform), platformRoot: true, label, selected, state, icon, sourceIds: members.map(view => view.id), children,
+      return [{ ...first, id: sourcePlatformNodeId(platform), platformRoot: true, label, selected, state, icon, quota: undefined, sourceIds: members.map(view => view.id), children,
         content: <GraphNode caption={<span className="graph-node-name">{label}</span>} hideLabel={selected} panelExpanded={selected} label={label} state={state} highlighted={selected} onOpen={() => actions.openPlatform?.(platform)}>{icon}</GraphNode> }];
     });
   }

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { layerFrame, type LayerTokens, type LayerSize } from '../ui/components/ui/layerFrame.ts';
 
-const tokens: LayerTokens = { sizes: { m: 560, xl: 960 }, margin: 16, desktopTop: 48, browserTop: 20 };
+const tokens: LayerTokens = { sizes: { m: 560, xl: 960 }, margin: 16, bottom: 76, desktopTop: 48, browserTop: 20 };
 const viewports = [
   { width: 390, height: 844, desktop: false },
   { width: 640, height: 800, desktop: true },
@@ -16,8 +16,8 @@ test('every current height stays within the slot margins and shares the availabl
     const frame = layerFrame(size, viewport, tokens, contentHeight);
     const top = viewport.desktop ? tokens.desktopTop : tokens.browserTop;
     assert.ok(frame.x >= tokens.margin && frame.x + frame.width <= viewport.width - tokens.margin);
-    assert.ok(frame.y >= top && frame.y + frame.height <= viewport.height - tokens.margin);
-    assert.equal(frame.y + frame.height / 2, (top + viewport.height - tokens.margin) / 2);
+    assert.ok(frame.y >= top && frame.y + frame.height <= viewport.height - tokens.bottom);
+    assert.equal(frame.y + frame.height / 2, (top + viewport.height - tokens.bottom) / 2);
     assert.equal(frame.height, Math.min(contentHeight, frame.maxHeight));
   }
 });

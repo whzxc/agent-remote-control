@@ -52,7 +52,8 @@ node, label or branch rail.
 The capsule holds 22px discs on a 28px step: the needs-me count, one phase disc per
 running task, and an overflow disc. Full capsules hold five items; compact hold two.
 Completed unread is a dot on the outline. Offline uses unconfirmed without live counts
-or phases. The logo opens its existing node panel;
+or phases. The help disc indicates unconfirmed task status. Available quota stays visible
+for Agent accounts and their linked control source nodes. The logo opens its existing node panel;
 the task area opens scoped Tasks. Narrow topology pans horizontally between reserved
 columns by explicit user input; the header/navigation stay fixed. Device management
 explicitly folds the child branch while its panel is open.

@@ -11,12 +11,14 @@ export function Tile({
   tone = "command",
   source = false,
   sourceBrand,
+  size,
 }: {
   icon: string;
   form?: "card" | "phase";
   tone?: TileTone;
   source?: boolean;
   sourceBrand?: Brand;
+  size?: 24;
 }) {
   const paint = {
     agent: "text-role-agent",
@@ -31,7 +33,7 @@ export function Tile({
   };
   return (
     <span
-      class={`grid shrink-0 place-items-center ${form === "phase" ? "size-8 rounded-tile" : "size-10 rounded-field"} ${paint[tone]}`}
+      class={`grid shrink-0 place-items-center ${size === 24 ? "size-6 rounded-[8px]" : form === "phase" ? "size-8 rounded-tile" : "size-10 rounded-field"} ${paint[tone]}`}
     >
       <span
         class={`col-start-1 row-start-1 size-full rounded-[inherit] bg-current ${form === "phase" ? "opacity-17" : "opacity-16"}`}

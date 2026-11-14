@@ -1,5 +1,6 @@
 import { Tooltip as HoverHelp } from "./index";
 import { Bot } from "lucide-react";
+import type { ReactNode } from "react";
 
 export type AgentIconReading = {
   id: string;
@@ -28,10 +29,11 @@ function arcPath(start: number, end: number, radius = 21) {
     : `M${point(start)} ${command} ${span > 180 ? 1 : 0} ${sweep} ${point(end)}`;
 }
 
-export function AgentIcon({ markup, readings = [], used = false }: {
+export function AgentIcon({ markup, readings = [], used = false, children }: {
   markup?: string;
   readings?: readonly AgentIconReading[];
   used?: boolean;
+  children?: ReactNode;
 }) {
   const count = readings.length;
   const ranges = arcs[count as keyof typeof arcs];
@@ -59,7 +61,7 @@ export function AgentIcon({ markup, readings = [], used = false }: {
         </g>;
       })}
     </svg>}
-    {markup ? <span className="agent-logo" dangerouslySetInnerHTML={{ __html: markup }} aria-hidden="true" />
-      : <Bot className="agent-logo" aria-hidden="true" />}
+    {children ?? (markup ? <span className="agent-logo" dangerouslySetInnerHTML={{ __html: markup }} aria-hidden="true" />
+      : <Bot className="agent-logo" aria-hidden="true" />)}
   </span></HoverHelp>;
 }

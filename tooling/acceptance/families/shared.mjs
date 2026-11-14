@@ -3,8 +3,9 @@ export function checkNodePanelBounds(box, viewportWidth, viewportHeight, top) {
   if (!box) throw new Error('The node panel has no visible bounds.');
   const width = viewportWidth < 760 || viewportHeight > viewportWidth ? viewportWidth - 32 : 560;
   const x = (viewportWidth - width) / 2;
-  if (Math.abs(box.x - x) > 1 || Math.abs(box.y + box.height / 2 - (top + viewportHeight - 16) / 2) > 1 || Math.abs(box.width - width) > 1
-    || box.y + box.height > viewportHeight - 15) throw new Error(`Node panel must use the centered M slot: ${JSON.stringify(box)}`);
+  const bottom = viewportHeight - 76;
+  if (Math.abs(box.x - x) > 1 || Math.abs(box.y + box.height / 2 - (top + bottom) / 2) > 1 || Math.abs(box.width - width) > 1
+    || box.y + box.height > bottom + 1) throw new Error(`Node panel must use the centered M slot: ${JSON.stringify(box)}`);
 }
 export async function checkOverviewGrowth(dialog, initial, viewportWidth, viewportHeight, top) {
   checkNodePanelBounds(initial, viewportWidth, viewportHeight, top);

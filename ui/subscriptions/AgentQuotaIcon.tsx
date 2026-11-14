@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { AgentIcon } from "../components/ui/agent-icon";
 import { locale, t } from "../i18n";
 import { icons } from "../state/agents";
@@ -19,15 +20,8 @@ export function iconWindows(provider: ProviderSnapshot, now: number, summary: bo
   return [short, middle, monthly].filter((window): window is QuotaWindow => window !== undefined);
 }
 
-export function AgentQuotaIcon({ agent, provider, summary = false }: {
-  agent: string;
-  provider?: ProviderSnapshot;
-  summary?: boolean;
-}) {
-  const now = useNow();
-  const display = quotaDisplay.use();
-  locale.use();
-  const readings = provider ? iconWindows(provider, now, summary).map(window => {
+export function quotaIconReadings(provider: ProviderSnapshot | undefined, now: number, summary: boolean) {
+  return provider ? iconWindows(provider, now, summary).map(window => {
     const elapsed = quotaElapsed(window, provider, now);
     const label = `${windowLabel(window.label)} · ${quotaLabel()} ${quotaPercent(window)}`;
     return {
@@ -38,5 +32,16 @@ export function AgentQuotaIcon({ agent, provider, summary = false }: {
       elapsed,
     };
   }) : [];
-  return <AgentIcon markup={icons[agent]} readings={readings} used={display === "used"} />;
+}
+
+export function AgentQuotaIcon({ agent, provider, summary = false, children }: {
+  agent: string;
+  provider?: ProviderSnapshot;
+  summary?: boolean;
+  children?: ReactNode;
+}) {
+  const now = useNow();
+  const display = quotaDisplay.use();
+  locale.use();
+  return <AgentIcon markup={icons[agent]} readings={quotaIconReadings(provider, now, summary)} used={display === "used"}>{children}</AgentIcon>;
 }

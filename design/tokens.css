@@ -41,6 +41,7 @@
   --layer-xl: 960px;
   --layer-scrim: rgb(0 0 0 / 24%);
   --layer-side-margin: 16px;
+  --layer-panel-bottom: 76px;
   --layer-top-desktop: 48px;
   --layer-top-browser: 20px;
   --layer-top: var(--layer-top-desktop);

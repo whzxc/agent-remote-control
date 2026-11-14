@@ -31,16 +31,23 @@ export const checks = [{ stage: 'verify', order: 18, visual: true, async run(con
   const mode = () => page.evaluate(() => window.__ARC_VIEW_MODEL__().homepage.mode);
   if (await mode() !== fixture.homepage.mode) throw new Error('Homepage mode did not restore the viewer preference.');
   // Regression: the native drag strip intercepted homepage controls and the bar overlapped traffic lights.
-  await page.evaluate(() => {
-    if (!document.querySelector('.window-drag-strip')) {
-      const strip = document.createElement('div'); strip.className = 'window-drag-strip';
-      strip.setAttribute('data-tauri-drag-region', ''); document.querySelector('.app-scene').append(strip);
+  const clickable = await page.locator('.homepage-bar button').evaluateAll(buttons => {
+    const scene = document.querySelector('.app-scene');
+    const desktop = scene.classList.contains('desktop');
+    const strip = document.createElement('div');
+    if (!desktop) {
+      strip.className = 'window-drag-strip';
+      strip.setAttribute('data-tauri-drag-region', '');
+      scene.classList.add('desktop');
+      scene.append(strip);
     }
+    const accessible = buttons.every(button => {
+      const box = button.getBoundingClientRect();
+      return box.top >= 38 && button.contains(document.elementFromPoint(box.x + box.width / 2, box.y + 2));
+    });
+    if (!desktop) { strip.remove(); scene.classList.remove('desktop'); }
+    return accessible;
   });
-  const clickable = await page.locator('.homepage-bar button').evaluateAll(buttons => buttons.every(button => {
-    const box = button.getBoundingClientRect();
-    return box.top >= 38 && button.contains(document.elementFromPoint(box.x + box.width / 2, box.y + 2));
-  }));
   if (!clickable) throw new Error('Homepage control is covered by the titlebar drag strip.');
   const check = fixture.homepage.check;
   const reveal = async name => {

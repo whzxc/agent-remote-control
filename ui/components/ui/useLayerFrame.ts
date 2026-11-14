@@ -17,7 +17,7 @@ export function useLayerFrame(content: HTMLElement | null, {
     if (!content) return;
     const update = (height: number) => {
       const desired = retainedViewHeight ?? height;
-      const next = layerFrame(size, { width: innerWidth, height: innerHeight, desktop: isDesktop }, readLayerTokens(),
+      const next = layerFrame(size, { width: innerWidth, height: innerHeight, desktop: isDesktop }, readLayerTokens(kind),
         kind === 'panel' ? Math.max(retained.current, desired) : desired, expanded);
       if (kind === 'panel') retained.current = next.height;
       setFrame(old => old && Object.keys(next).every(key => old[key as keyof typeof next] === next[key as keyof typeof next]) ? old : next);

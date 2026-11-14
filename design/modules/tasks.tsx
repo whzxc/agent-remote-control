@@ -53,8 +53,8 @@ const statusOf = (task: TaskSnapshotData) => switcherStatus[task.id]?.status ?? 
 /** The status slot above a snapshot, like an app icon above a switcher card. */
 export function TaskStatusMark({ task, labelled = true }: { task: TaskSnapshotData; labelled?: boolean }) {
   const mark = statusMark[task.group];
-  return <span class="flex h-8 min-w-0 items-center gap-2" aria-label={statusOf(task)}>
-    <Tile icon={mark.icon} form="phase" tone={mark.tone} />
+  return <span class="flex h-6 min-w-0 items-center gap-2" aria-label={statusOf(task)}>
+    <Tile icon={mark.icon} form="phase" tone={mark.tone} size={24} />
     {labelled && <span class="min-w-0 truncate text-meta leading-4 font-semibold text-text">
       {statusOf(task)}
       {task.elapsed && task.group !== 'unconfirmed' && <span class="font-normal text-text-tertiary"> · {task.elapsed}</span>}
@@ -63,9 +63,7 @@ export function TaskStatusMark({ task, labelled = true }: { task: TaskSnapshotDa
 }
 
 function SnapshotNote({ tone, label, text }: { tone: 'source' | 'agent' | 'request'; label?: string; text?: string }) {
-  const paint = { source: 'bg-role-source', agent: 'bg-role-agent', request: 'bg-role-source/45' }[tone];
-  return <div class="relative shrink-0 overflow-hidden rounded-[10px] bg-surface py-2 pl-[11px] pr-2">
-    <span class={`absolute inset-y-0 left-0 w-[3px] ${paint}`} />
+  return <div class="shrink-0 overflow-hidden rounded-[10px] bg-surface p-2">
     {label && <span class={`block text-caption font-semibold leading-4 ${tone === 'agent' ? 'text-role-agent'
       : 'text-text-secondary'}`}>{label}</span>}
     <p class={`line-clamp-2 text-caption leading-4 ${tone === 'source' ? 'text-text-secondary' : 'text-text'}`}>{text}</p>

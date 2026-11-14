@@ -188,14 +188,21 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     const selected = !!sourceSelection && !sourceSelection.closing && "ingress" in sourceSelection && sourceSelection.client?.id === source.id;
     const platform = controlSourcePlatform(source.product), platformLabel = platform.displayName;
     const nodeLabel = source.label;
+    const account = accounts.find(account => account.sources.includes(source.id));
+    const quotaAgent = account?.quotaProviderId ?? account?.agentProfiles[0]?.agent;
+    const quota = account && quotaAgent && account.quota.windows.length ? accountQuotaProvider(quotaAgent, account.quota) : undefined;
+    const sourceIcon = <SourceIcon platform={source.product} panelVisual />;
+    const icon = quota ? <AgentQuotaIcon agent={quota.agentId} provider={quota} summary={quota.agentId !== 'claude'}>
+      <SourceIcon platform={source.product} size={28} />
+    </AgentQuotaIcon> : sourceIcon;
     return [{
       id: source.id, platform: platform.id, platformLabel, label: nodeLabel,
       sourceProduct: source.product, sourceProductLabel: controlSource(source.product)?.displayName ?? source.product,
-      icon: <SourceIcon platform={source.product} panelVisual />, sourceIds: [source.id], state: wireState(state), attention: false, selected, reorderable: !readOnlyBrowser && !panelOpen,
+      icon, quota, sourceIds: [source.id], state: wireState(state), attention: false, selected, reorderable: !readOnlyBrowser && !panelOpen,
       content: <GraphNode label={`${nodeLabel}: ${t(state)}`} state={wireState(state)} highlighted={selected} hideLabel={selected} panelExpanded={selected} caption={<span className="graph-node-name">{nodeLabel}</span>} newlyAdded={source.id === newSourceId && !flow}
         onMove={readOnlyBrowser || panelOpen ? undefined : by => moveSource(source.id, by)}
         onOpen={() => selectIngressPanel(ingress, { toggle: true, client: { id: source.id, name: source.label, source: source.product } })}>
-        <SourceIcon platform={platform.id} panelVisual />
+        {icon}
       </GraphNode>,
     }];
   });

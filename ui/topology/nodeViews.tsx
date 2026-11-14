@@ -14,11 +14,8 @@ import { focusNodeTasks } from '../state/homepage';
 import { deviceLinkEnabled, deviceSnapshot, deviceView, pairedDevices } from '../devices/state';
 import { icons } from '../state/agents';
 import { useNow } from '../state/hooks';
-import { iconWindows } from '../subscriptions/AgentQuotaIcon';
-import { quotaDisplay, quotaValue } from '../subscriptions/displayPreferences';
-import { quotaElapsed } from '../subscriptions/quotaTiming';
-import { quotaColor } from '../subscriptions/presentation';
-import type { AgentIconReading } from '../components/ui/agent-icon';
+import { quotaIconReadings } from '../subscriptions/AgentQuotaIcon';
+import { quotaDisplay } from '../subscriptions/displayPreferences';
 import { nodeKey } from './animate';
 import type { NodeView } from './Topology';
 import type { Side } from './solve';
@@ -41,9 +38,7 @@ export function capsuleState(node: NodeView & { side: Side }, tasks: HomepageTas
 type PositionedNode = NodeView & { side: Side; parent?: string };
 export function CapsuleNode({ node, tasks, compact, onWidth }: { node: PositionedNode; tasks: HomepageTask[]; compact: boolean; onWidth: (key: string, width: number) => void }) {
   const now = useNow(), display = quotaDisplay.use();
-  const provider = node.quota, readings: AgentIconReading[] = provider ? iconWindows(provider, now, node.platform !== 'claude').map(window => ({
-    id: window.id, label: window.label, value: quotaValue(window)!, color: quotaColor(window, provider, now), elapsed: quotaElapsed(window, provider, now),
-  })) : [];
+  const readings = quotaIconReadings(node.quota, now, node.quota?.agentId !== 'claude');
   const key = nodeKey(node.side, node.id);
   const widthChanged = useCallback((width: number) => onWidth(key, width), [onWidth, key]);
   const state = capsuleState(node, tasks);

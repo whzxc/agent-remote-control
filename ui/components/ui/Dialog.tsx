@@ -223,7 +223,8 @@ export function LayerShell({ onContentHost, kind, size = kind === 'panel' ? 'xl'
         aria-describedby={description ? `${id}-description` : undefined}
         style={{ opacity: reduced ? 1 : 0, top: entryFrame.current?.y, height: entryFrame.current?.height, left: frame?.x, width: frame?.width ?? `var(--layer-${size})`, maxHeight: frame?.maxHeight,
           visibility: frame ? undefined : 'hidden', zIndex: kind === 'panel' ? stack.panel : stack.dialog,
-          '--layer-retained-height': `${retainedHeight}px`, '--layer-content-cap': `calc(100vh - var(--layer-${isDesktop ? 'top-desktop' : 'top-browser'}) - var(--layer-side-margin))` } as CSSProperties}
+          '--layer-retained-height': `${retainedHeight}px`,
+          '--layer-content-cap': `calc(100dvh - var(--layer-${isDesktop ? 'top-desktop' : 'top-browser'}) - var(${kind === 'panel' ? '--layer-panel-bottom' : '--layer-side-margin'}))` } as CSSProperties}
         onOpenAutoFocus={event => {
           event.preventDefault();
           const host = event.target instanceof HTMLElement ? event.target : node;

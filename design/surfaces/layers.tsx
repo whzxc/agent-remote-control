@@ -30,7 +30,7 @@ function WorkspaceScene({ portrait = false, dialog = false, settings = false }: 
     <TopologyScreen width={portrait ? 640 : 1280} height={800}
       scene={workspaceScenes[portrait ? "portrait" : "landscape"]} hideNodeLabels={portrait}>
       <div class="absolute inset-0 flex items-center justify-center px-(--layer-side-margin)
-        pt-(--layer-top) pb-(--layer-side-margin)">
+        pt-(--layer-top) pb-(--layer-panel-bottom)">
         <Workspace settings={settings} portrait={portrait} />
       </div>
       {dialog && (
@@ -56,7 +56,7 @@ function NodeScene() {
         <TopologyNode {...selectedAgentNode} hideLabel />
       </div>
       <div class="absolute inset-0 flex items-center justify-center px-(--layer-side-margin)
-        pt-(--layer-top) pb-(--layer-side-margin)">
+        pt-(--layer-top) pb-(--layer-panel-bottom)">
         <Panel size="m" viewportHeight={800} title={
           <span class="flex items-center gap-3"><AgentIcon brand="codex" size={44} />{layerCopy.agent}</span>
         }
@@ -77,7 +77,7 @@ export default () => [
     <WorkspaceScene />
   </Frame>,
   <Frame name="workspace-cap" width={1280} height={800}
-    note="Full Settings content reaches the height cap at y=784. The header stays fixed while the body scrolls.">
+    note="Full Settings content caps above the navigation capsule. The header stays fixed while the body scrolls.">
     <WorkspaceScene settings />
   </Frame>,
   <Frame name="workspace-dialog" width={1280} height={800}

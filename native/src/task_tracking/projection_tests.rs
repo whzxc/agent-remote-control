@@ -237,6 +237,23 @@ fn tool_inputs_share_native_command_paths_and_edit_excerpts() {
 }
 
 #[test]
+fn codex_recent_turn_history_keeps_native_timestamps() {
+    // Regression: Codex previews dropped the turn clock returned by thread/turns/list.
+    let mut timeline = Timeline::default();
+    timeline.backfill_codex_with_metadata(
+        &json!({"id":"thread","turns":[{"id":"turn","status":"completed",
+            "startedAt":1767225600,"completedAt":1767225660,"items":[]}]}),
+        Default::default(),
+        0,
+        0,
+        AT,
+    );
+    let response = timeline.response("thread", 0);
+    assert_eq!(response["turnTimings"]["turn"]["startedAt"], "2026-01-01T00:00:00+00:00");
+    assert_eq!(response["turnTimings"]["turn"]["endedAt"], "2026-01-01T00:01:00+00:00");
+}
+
+#[test]
 fn codex_rollout_and_items_use_the_same_normalization() {
     // Property: Codex rollout calls and app-server items expose the same tool fields and lifecycle facts.
     let mut rollout = Timeline::default();

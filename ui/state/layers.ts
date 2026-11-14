@@ -73,7 +73,7 @@ export function createLayerStore() {
     stack(id?: string) {
       const depth = current.filter(layer => layer.kind === 'dialog').findIndex(layer => layer.id === id);
       const scrim = 201 + Math.max(0, depth) * 10;
-      return { panel: 101, switcher: 110, scrim, dialog: scrim + 1, transient: depth < 0 ? 120 : scrim + 2 };
+      return { panel: 101, switcher: 100, scrim, dialog: scrim + 1, transient: depth < 0 ? 120 : scrim + 2 };
     },
     observeOutsidePointer(id: string) {
       const handle = (event: PointerEvent) => {

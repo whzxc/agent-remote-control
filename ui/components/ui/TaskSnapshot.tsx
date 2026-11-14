@@ -20,13 +20,13 @@ function status(task: HomepageTask) {
 export function TaskStatusMark({ task, now }: { task: HomepageTask; now: number }) {
   const state = status(task), offline = task.group === 'unconfirmed', waiting = task.group === 'needs-me';
   const start = recordedTimestamp(task.startedAt);
-  const end = recordedTimestamp(task.endedAt) ?? task.session.endedAt
-    ?? (task.group === 'running' || waiting ? task.deviceId ? recordedTimestamp(task.observedAt) : now : undefined);
+  const live = task.group === 'running' || waiting;
+  const end = live ? task.deviceId ? recordedTimestamp(task.observedAt) : now : recordedTimestamp(task.endedAt);
   const seconds = start !== undefined && end !== undefined && end >= start ? Math.floor((end - start) / 1000) : undefined;
   return <div className="task-status-mark" aria-label={t(`homepage.${state}`)}>
     <Tile icon={offline ? CircleHelp : waiting ? Hourglass : task.group === 'running' ? taskPhaseIcons[task.activity.steps.at(-1)?.kind ?? 'running'] : Check}
       form="phase" tone={offline ? 'neutral' : waiting ? 'warning' : task.group === 'running' ? 'command' : 'success'} />
-    <span>{t(`homepage.${state}`)}{!offline && seconds !== undefined && <time> · {String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')}</time>}</span>
+    <span>{t(`homepage.${state}`)}{!offline && seconds !== undefined && <time aria-label={t('duration')}> · {String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')}</time>}</span>
   </div>;
 }
 

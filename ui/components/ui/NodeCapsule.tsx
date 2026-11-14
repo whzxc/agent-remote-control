@@ -39,9 +39,9 @@ function CapsuleRing({ width, readings = [], used, dashed }: { width: number; re
       const reading = readings[index], time = readings.length === 1 && !used && reading.elapsed !== undefined ? 1 - reading.elapsed : reading.elapsed ?? 0;
       const [x, y, nx, ny] = ring.at(distance(start + (end - start) * time));
       return <g key={reading.id}><path d={ring.path(distance(start), distance(end))} stroke="var(--border-strong)" />
-        <path d={readings.length === 2 && !used ? ring.path(distance(end), distance(start)) : ring.path(distance(start), distance(end))}
-          pathLength={100} stroke={reading.color} strokeDasharray={`${reading.value} 100`} />
-        <path d={`M${x + nx * 2} ${y + ny * 2}L${x - nx * 2} ${y - ny * 2}`} stroke="var(--text-secondary)" strokeWidth={1.5} />
+        {reading.value > 0 && <path d={readings.length === 2 && !used ? ring.path(distance(end), distance(start)) : ring.path(distance(start), distance(end))}
+          pathLength={100} stroke={reading.color} strokeDasharray={reading.value < 100 ? `${reading.value} 100` : undefined} />}
+        {reading.elapsed !== undefined && <path d={`M${x + nx * 2} ${y + ny * 2}L${x - nx * 2} ${y - ny * 2}`} stroke="var(--text-secondary)" strokeWidth={1.5} />}
       </g>;
     })}
   </svg>;
@@ -72,13 +72,15 @@ export function NodeCapsule({ label, state, graphic, mark, neutralRing, readings
     state.running ? t('homepage.runningCount', { count: state.running }) : '', state.unread ? t('homepage.unreadCount', { count: state.unread }) : '',
     ...state.steps.map(step => t(`homepage.${step ?? 'running'}`))].filter(Boolean).join(', ');
   const mirror = wing === 'left', active = target > 48 || width > 48.1;
+  const quota = readings?.map(reading => reading.label).join(' · ') || undefined;
   return <span className="node-capsule-anchor" data-wing={wing}>
-    <span className="node-capsule" data-unconfirmed={state.unconfirmed || undefined} style={{ width, transform: mirror ? 'scaleX(-1)' : undefined }}>
-      {(active || neutralRing) && <>{active && <span className="node-capsule-fill" />}<CapsuleRing width={width} readings={state.unconfirmed ? undefined : readings} used={used} dashed={state.unconfirmed} /></>}
-      <button type="button" className="node-capsule-logo" data-panel-anchor data-layer-switcher aria-label={label} aria-expanded={expanded}
+    <span className="node-capsule" data-unconfirmed={(state.unconfirmed && !quota) || undefined} style={{ width, transform: mirror ? 'scaleX(-1)' : undefined }}>
+      {(active || neutralRing) && <>{active && <span className="node-capsule-fill" />}<CapsuleRing width={width} readings={readings} used={used} dashed={state.unconfirmed} /></>}
+      <Tooltip text={active ? quota : undefined}><button type="button" className="node-capsule-logo" data-panel-anchor data-layer-switcher aria-label={label} aria-expanded={expanded}
+        aria-description={active ? quota : undefined}
         onClick={onOpen} aria-keyshortcuts={onMove ? 'ArrowUp ArrowDown' : undefined}
-        onKeyDown={event => { if (onMove && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) { event.preventDefault(); onMove(event.key === 'ArrowUp' ? -1 : 1); } }} style={{ transform: mirror ? 'scaleX(-1)' : undefined }}>{active ? mark ?? graphic : graphic}</button>
-      {items.length > 0 && <Tooltip text={summary}><button type="button" className="node-capsule-tasks" aria-label={`${label}. ${summary}. ${t('homepage.openTasks')}`} onClick={onTasks}>
+        onKeyDown={event => { if (onMove && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) { event.preventDefault(); onMove(event.key === 'ArrowUp' ? -1 : 1); } }} style={{ transform: mirror ? 'scaleX(-1)' : undefined }}>{active ? mark ?? graphic : graphic}</button></Tooltip>
+      {items.length > 0 && <Tooltip text={state.unconfirmed && !neutralRing ? t('activity.unconfirmed') : summary}><button type="button" className="node-capsule-tasks" aria-label={`${label}. ${summary}. ${t('homepage.openTasks')}`} onClick={onTasks}>
         <span className="node-capsule-items" style={{ opacity: Math.max(0, Math.min(1, (width - 48) / Math.max(1, target - 48))) }}>
           {items.map((item, index) => <span key={index} className="node-capsule-disc" data-kind={item.kind} data-phase={item.kind === 'step' ? item.step ?? 'running' : undefined}
             style={{ left: 24 + (index + 1) * 28 - 11 - 40, transform: mirror ? 'scaleX(-1)' : undefined }}>

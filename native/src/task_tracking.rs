@@ -1237,6 +1237,23 @@ impl Timeline {
             history.turn = string(turn, "id").into();
             history.status = string(turn, "status").into();
             history.record_turn_status();
+            // App-server turn timestamps are Unix seconds. Prefer the persisted clock when available.
+            if !history.turn.is_empty() {
+                for (native, field) in [("startedAt", "startedAt"), ("completedAt", "endedAt")] {
+                    if let Some(at) = turn[native]
+                        .as_i64()
+                        .and_then(|seconds| chrono::DateTime::from_timestamp(seconds, 0))
+                    {
+                        let timing = self
+                            .turn_timings
+                            .entry(history.turn.clone())
+                            .or_insert(json!({}));
+                        if timing[field].is_null() {
+                            timing[field] = json!(at.to_rfc3339());
+                        }
+                    }
+                }
+            }
             history.partial |= !turn["items"].is_array();
             for item in turn["items"].as_array().into_iter().flatten() {
                 let status = match string(item, "status") {

@@ -62,7 +62,7 @@ export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
     const account = accounts.find(account => accountOwns(account, task.accountId));
     const agent = orderedAgents().find(agent => agent.agent === task.agent);
     return [
-      ...(task.deviceId ? [{ label: snapshot?.name ?? task.session.origin?.sourceLabel ?? '', graphic: <Icon icon={Monitor} size={14} /> }] : controllerSource && snapshot?.controller ? [{ label: snapshot.controller.name, graphic: <Icon icon={Monitor} size={14} /> }] : source ? [{ label: source.label, graphic: <SourceIcon platform={source.product} /> }] : recordedSource?.label ? [{ label: recordedSource.label, graphic: <SourceIcon platform={recordedSource.kind ?? 'custom'} /> }] : []),
+      ...(task.deviceId ? [{ label: snapshot?.name ?? task.session.origin?.sourceLabel ?? '', graphic: <Icon icon={Monitor} size={14} /> }] : controllerSource && snapshot?.controller ? [{ label: snapshot.controller.name, graphic: <Icon icon={Monitor} size={14} /> }] : source ? [{ label: source.label, graphic: <SourceIcon platform={source.product} size={14} /> }] : recordedSource?.label ? [{ label: recordedSource.label, graphic: <SourceIcon platform={recordedSource.kind ?? 'custom'} size={14} /> }] : []),
       ...(task.deviceId ? [{ label: snapshot?.members.find(device => device.deviceId === task.deviceId)?.name ?? task.deviceId, graphic: <Icon icon={Laptop} size={14} /> }] : []),
       { label: agent ? name(agent) : task.agent, graphic: <BrandMark markup={icons[task.agent]} size={14} /> },
       ...(account && !task.deviceId ? [{ label: account.alias, graphic: <Icon icon={UserRound} size={14} /> }] : task.accountId ? [{ label: task.accountId, graphic: <Icon icon={UserRound} size={14} /> }] : []),
