@@ -14,13 +14,14 @@ export default function TaskStack({ tasks, render, onOpen }: {
   const value = useRef(0), frame = useRef(0), target = useRef(0), wheelTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const drag = useRef<{ id: number; start: number; position: number; last: number; at: number; velocity: number; moved: boolean }>(undefined);
   const suppressClick = useRef(false), reduced = useReducedMotion();
-  const stride = width < 500 ? 34 : width < 1000 ? 70 : 132;
+  const peek = width < 500 ? 34 : width < 1000 ? 70 : 132;
   const cardWidth = width < 500 ? Math.min(290, width - 48) : width < 1000 ? 340 : 360;
+  const stride = cardWidth + 16;
   const active = Math.max(0, Math.min(tasks.length - 1, Math.round(position / stride)));
   const first = Math.max(0, Math.floor(position / stride));
-  const start = Math.max(0, first - 1), end = Math.min(tasks.length, first + 8);
+  const start = Math.max(0, first - Math.ceil(width / stride) - 1), end = Math.min(tasks.length, first + 8);
   const cards = useMemo(() => tasks.slice(start, end).map((task, offset) => {
-    const index = start + offset, detailed = index >= active - 1 && index <= active + 2;
+    const index = start + offset, detailed = index >= Math.max(0, active - 1) && index < Math.max(0, active - 1) + 5;
     return { task, index, detailed, content: render(task, index === active, detailed) };
   }).reverse(), [tasks, render, start, end, active]);
   const set = (next: number) => { value.current = next; setPosition(next); };
@@ -60,17 +61,18 @@ export default function TaskStack({ tasks, render, onOpen }: {
   useEffect(() => {
     const node = host.current!;
     const wheel = (event: WheelEvent) => {
-      if (Math.abs(event.deltaX) <= Math.abs(event.deltaY) || drag.current) return;
+      if (event.ctrlKey || drag.current) return;
       event.preventDefault(); stop(); clearTimeout(wheelTimer.current);
       const { stride, count } = state.current;
-      const delta = event.deltaX * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? node.clientWidth : 1);
+      const axis = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : -event.deltaY;
+      const delta = axis * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? node.clientWidth : 1);
       set(Math.max(0, Math.min((count - 1) * stride, value.current - delta)));
-      wheelTimer.current = setTimeout(() => controls.current.settle(deckRelease(value.current, 0, stride, count)), 100);
+      wheelTimer.current = setTimeout(() => controls.current.settle((delta < 0 ? Math.ceil(value.current / stride) : Math.floor(value.current / stride)) * stride), 100);
     };
     node.addEventListener('wheel', wheel, { passive: false });
     return () => { node.removeEventListener('wheel', wheel); stop(); clearTimeout(wheelTimer.current); };
   }, []);
-  const span = cardWidth + deckGeometry(Math.min(tasks.length - 1, 7), stride).offset;
+  const span = cardWidth + deckGeometry(Math.min(tasks.length - 1, 7), peek, stride).offset;
   const front = Math.min((width - span) / 2, width - span - 16) + span - cardWidth;
   function release(cancelled = false) {
     const held = drag.current; if (!held) return;
@@ -98,7 +100,7 @@ export default function TaskStack({ tasks, render, onOpen }: {
     }} onPointerUp={() => release()} onPointerCancel={() => release(true)} onLostPointerCapture={() => release(true)}
     onClickCapture={event => { if (suppressClick.current) { event.preventDefault(); event.stopPropagation(); suppressClick.current = false; } }}>
     {cards.map(({ task, index, detailed, content }) => {
-      const depth = index - position / stride, geometry = deckGeometry(depth, stride);
+      const depth = index - position / stride, geometry = deckGeometry(depth, peek, stride);
       return <article key={task.key} className="task-stack-card" aria-label={taskTitle(task)} aria-current={index === active ? 'true' : undefined}
         inert={geometry.opacity === 0} style={{ left: front - geometry.offset, width: cardWidth, zIndex: tasks.length - index,
           transform: `scale(${geometry.scale})`, opacity: geometry.opacity,

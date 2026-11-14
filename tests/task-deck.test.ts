@@ -41,3 +41,20 @@ test('snapshot retains source, request and reply in observation order with the n
   assert.deepEqual(result.snapshot.slice(-2).map(row => [row.role, row.text]), [['request', 'Choose a target'], ['agent', 'Queue ready']]);
   assert.equal(taskCardActivity([{ id: 'source', type: 'user', text: 'Inspect the queue' }]).snapshot[0].role, 'source');
 });
+
+test('passed cards retain their size and spread right without fading', () => {
+  // Regression: browsing the deck faded the previously selected card after one slot.
+  for (const depth of [-.1, -1, -2, -4]) {
+    const geometry = deckGeometry(depth, 132, 376);
+    assert.equal(geometry.opacity, 1);
+    assert.equal(geometry.scale, 1);
+    assert.equal(geometry.offset, depth * 376);
+  }
+});
+
+test('snapshot includes generic tool calls without requiring a detail projection', () => {
+  // Regression: Codex exec tools disappeared from the task-card timeline projection.
+  const projected = taskCardActivity([{ id: 'tool', type: 'tool', title: 'exec', status: 'running' }]);
+  assert.equal(projected.snapshot[0].kind, 'tool');
+  assert.equal(projected.snapshot[0].text, 'exec');
+});

@@ -737,6 +737,37 @@ fn read_tail_prefix(mut file: File, size: u64, limit: u64) -> Result<(Vec<Value>
         .collect();
     Ok((records, start > 0))
 }
+/// Read the native preview without depending on a Desktop follower snapshot.
+pub(super) fn codex_preview(external: &External) -> Result<Value> {
+    let mut limit = 128 * 1024;
+    loop {
+        let (records, partial) = read_tail(&external.path, limit)?;
+        let mut timeline = Timeline::default();
+        timeline.partial = partial;
+        timeline.backfill_codex_records(&records);
+        timeline
+            .turn_dispatch_summaries
+            .extend(external.turn_dispatch_summaries.clone());
+        let mut result = timeline.response(string(&external.session, "id"), 0);
+        let entries = result["entries"].as_array_mut().unwrap();
+        if partial && entries.len() < 80 && limit < 8 * 1024 * 1024 {
+            limit = (limit * 4).min(8 * 1024 * 1024);
+            continue;
+        }
+        let omitted = entries.len() > 80;
+        if omitted {
+            entries.drain(..entries.len() - 80);
+        }
+        if partial || omitted {
+            result["coverage"]["state"] = json!("partial");
+            result["coverage"]["reason"] = json!("native-preview");
+        }
+        result["readOnly"] = json!(true);
+        result["preview"] = json!(true);
+        return Ok(result);
+    }
+}
+
 pub(super) fn claude_timeline(path: &Path, session: &str) -> Result<Value> {
     let (records, truncated) = read_tail(path, 8 * 1024 * 1024)?;
     let mut timeline = crate::task_tracking::Timeline::default();
@@ -885,6 +916,43 @@ mod tests {
                 json!({"timestamp":at,"type":"response_item","payload":{"type":"function_call","call_id":call,"name":"exec_command","arguments":"{\"cmd\":\"cat src/example.rs\"}"}}),
             ]
         }
+    }
+
+    #[test]
+    fn codex_preview_reads_history_before_large_tool_output_without_desktop() {
+        // Regression: task cards showed only the headline until opening detail loaded Desktop history.
+        let (directory, path, _now, at) = fixture();
+        append(
+            &path,
+            &prompt("codex", "preview-turn", "Inspect the native history", &at),
+        );
+        append(&path, &tool_call("codex", "preview-command", &at));
+        append(&path, &large_tool_output("codex", "preview-command", &at));
+        append(&path, &tool_call("codex", "latest-command", &at));
+        let preview = codex_preview(&External {
+            agent: "codex".into(),
+            session: json!({"id":"preview-session"}),
+            path,
+            turn_dispatch_summaries: HashMap::new(),
+        })
+        .unwrap();
+        assert_eq!(preview["preview"], true);
+        assert_eq!(preview["readOnly"], true);
+        assert!(preview["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["type"] == "user"
+                && entry["text"]
+                    .as_str()
+                    .is_some_and(|text| text.contains("Inspect the native history"))));
+        assert!(preview["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["type"] == "command"));
+        assert!(preview["entries"].as_array().unwrap().len() <= 80);
+        drop(directory);
     }
 
     #[test]

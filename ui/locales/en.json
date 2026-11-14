@@ -1894,5 +1894,6 @@
   "homepage.filter.completed": "Completed",
   "homepage.filter.unconfirmed": "Unconfirmed",
   "homepage.controller": "Controller",
-  "homepage.requestTo": "Request → {source}"
+  "homepage.requestTo": "Request → {source}",
+  "homepage.tool": "Using tool"
 }

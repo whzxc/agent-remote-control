@@ -1,7 +1,7 @@
 export type { NodeTaskState } from '../../state/activityModel';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { integrateSpring } from '../../topology/spring';
-import { Brain, CircleHelp, Clock3, Ellipsis, FilePenLine, FileSearch, Loader, Terminal } from 'lucide-react';
+import { Brain, CircleHelp, Clock3, Ellipsis, FilePenLine, FileSearch, Loader, Terminal, Wrench } from 'lucide-react';
 import { Icon, Tooltip } from './index';
 import { useMedia } from '../../state/hooks';
 import { t } from '../../i18n';
@@ -9,7 +9,7 @@ import type { AgentIconReading } from './agent-icon';
 import { capsuleItems, type NodeTaskState } from '../../state/activityModel';
 import './NodeCapsule.css';
 
-export const taskPhaseIcons = { reading: FileSearch, editing: FilePenLine, command: Terminal, thinking: Brain, waiting: Clock3, running: Loader };
+export const taskPhaseIcons = { reading: FileSearch, editing: FilePenLine, command: Terminal, tool: Wrench, thinking: Brain, waiting: Clock3, running: Loader };
 function stadium(width: number) {
   const radius = 21, straight = width - 48, arc = Math.PI * radius, total = 2 * straight + 2 * arc;
   const at = (distance: number) => {

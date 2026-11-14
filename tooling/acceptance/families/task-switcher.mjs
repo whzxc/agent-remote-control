@@ -3,7 +3,7 @@ import path from 'node:path';
 export const bothThemes = fixture => fixture.homepage?.check === 'switcher';
 export const checks = [{ stage: 'beforeNavigate', order: 1, visual: true, async run({ fixture, page }) {
   if (fixture.homepage?.motion) await page.emulateMedia({ reducedMotion: 'no-preference' });
-} }, { stage: 'verify', order: 19, visual: true, async run({ fixture, page, root, width, row }) {
+} }, { stage: 'verify', order: 19, visual: true, async run({ fixture, page, root, width, row, screenshots, out, key }) {
   if (fixture.homepage?.layout === 'stack') {
     const fills = await page.locator('.task-stack').evaluate(deck => {
       const box = deck.getBoundingClientRect(), card = deck.querySelector('article[aria-current=true] .task-snapshot').getBoundingClientRect();
@@ -16,7 +16,7 @@ export const checks = [{ stage: 'beforeNavigate', order: 1, visual: true, async 
     const deck = page.getByRole('list', { name: 'Tasks', exact: true });
     const counts = async () => ({ shells: await deck.getByRole('article', { includeHidden: true }).count(), details: await deck.locator('[data-task-snapshot]').count() });
     const before = await counts();
-    if (before.shells > 9 || before.details > 4) throw new Error(`Unbounded initial deck: ${JSON.stringify(before)}`);
+    if (before.shells > 16 || before.details !== 5) throw new Error(`Unbounded initial deck: ${JSON.stringify(before)}`);
     const current = () => deck.locator('article[aria-current=true]');
     const firstTitle = await current().getAttribute('aria-label');
     await page.getByRole('button', { name: 'Open board', exact: true }).click();
@@ -27,13 +27,21 @@ export const checks = [{ stage: 'beforeNavigate', order: 1, visual: true, async 
     await page.waitForFunction(title => document.querySelector('article[aria-current=true]')?.getAttribute('aria-label') !== title, firstTitle);
     const lastTitle = await current().getAttribute('aria-label');
     const after = await counts();
-    if (after.shells > 9 || after.details > 4) throw new Error(`Unbounded final deck: ${JSON.stringify(after)}`);
+    if (after.shells > 16 || after.details > 5) throw new Error(`Unbounded final deck: ${JSON.stringify(after)}`);
     await current().getByRole('button', { name: `Open task detail: ${lastTitle}`, exact: true }).click();
     await page.getByRole('dialog', { name: lastTitle, exact: true }).waitFor();
     await page.keyboard.press('Escape'); await page.getByRole('dialog').waitFor({ state: 'hidden' });
     await deck.hover(); await page.mouse.wheel(100000, 0);
     await page.waitForFunction(title => document.querySelector('article[aria-current=true]')?.getAttribute('aria-label') === title, firstTitle);
     row.deckWindow = { tasks: 200, before, after, lastTaskOpened: true };
+    return;
+  }
+  if (fixture.coldTaskPreviews) {
+    // Regression: snapshot fixtures preseeded the cache and hid first-load timeline failures.
+    const snapshot = page.locator('article[aria-current=true] [data-task-snapshot]');
+    await snapshot.getByText('Cold preview ready', { exact: true }).waitFor();
+    await snapshot.getByText('Inspect the native history', { exact: true }).waitFor();
+    if (await page.getByRole('dialog').count()) throw new Error('A detail layer was required to load a preview.');
     return;
   }
   if (fixture.homepage?.check !== 'switcher') return;
@@ -106,17 +114,22 @@ export const checks = [{ stage: 'beforeNavigate', order: 1, visual: true, async 
   await page.keyboard.press('Escape'); await detail.waitFor({ state: 'hidden' });
   if (fixture.homepage.motion && !await page.evaluate(() => window.__ARC_SWITCHER_MORPH__)) throw new Error('Closing did not morph back to the snapshot.');
   await page.waitForFunction(() => !!document.activeElement?.closest('article'), undefined, { timeout: 3000 });
-  // Horizontal wheel and native touch input browse the same deck.
+  // Vertical wheel input browses horizontally; passed cards remain spread to the right.
   const beforeWheel = await current().getAttribute('aria-label');
-  await deck.hover(); await page.mouse.wheel(-180, 0);
+  await deck.hover(); await page.mouse.wheel(0, 120);
   await page.waitForFunction(title => document.querySelector('article[aria-current=true]')?.getAttribute('aria-label') !== title, beforeWheel);
   await settled();
+  const previousCard = deck.getByRole('article', { name: beforeWheel, exact: true });
+  if (!await previousCard.isVisible()) throw new Error('The previous card disappeared instead of spreading right.');
+  const currentBox = await current().boundingBox(), previousBox = await previousCard.boundingBox();
+  if (previousBox.x < currentBox.x + currentBox.width - 2) throw new Error('Passed cards did not spread side by side to the right.');
+  if (screenshots && fixture.homepage.layout === 'stack' && width >= 1000) await page.screenshot({ path: path.join(out, `${key}-spread.png`) });
   const box = await deck.boundingBox();
   const touch = await page.context().newCDPSession(page);
   const beforeTouch = await current().getAttribute('aria-label');
-  const x = box.x + box.width / 2, y = box.y + box.height / 2;
+  const x = box.x + box.width / 4, y = box.y + box.height / 2;
   await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
-  await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + 90, y }] });
+  await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + 220, y }] });
   await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await touch.detach();
   await page.waitForFunction(title => document.querySelector('article[aria-current=true]')?.getAttribute('aria-label') !== title, beforeTouch);

@@ -1,0 +1,48 @@
+{
+  "theme": "light",
+  "language": "en",
+  "agents": [
+    "codex"
+  ],
+  "coldTaskPreviews": true,
+  "clock": "2026-01-01T00:00:00Z",
+  "viewports": [
+    {
+      "width": 1280,
+      "height": 1100
+    },
+    {
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "homepage": {
+    "mode": "tasks",
+    "layout": "stack"
+  },
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Load a native task preview",
+      "headline": "exec",
+      "entries": [
+        {
+          "type": "user",
+          "status": "completed",
+          "text": "Inspect the native history"
+        },
+        {
+          "type": "command",
+          "status": "completed",
+          "command": "cat package.json"
+        },
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "Cold preview ready"
+        }
+      ]
+    }
+  ]
+}

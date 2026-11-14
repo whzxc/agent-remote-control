@@ -1864,5 +1864,6 @@
   "homepage.filter.completed": "已完成",
   "homepage.filter.unconfirmed": "未确认",
   "homepage.controller": "控制源",
-  "homepage.requestTo": "请求 → {source}"
+  "homepage.requestTo": "请求 → {source}",
+  "homepage.tool": "调用工具"
 }

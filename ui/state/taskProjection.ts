@@ -112,13 +112,14 @@ export function changedFiles(entries: readonly AgentTimelineEntry[]) {
   return [...files.values()];
 }
 
-export type TaskStepKind = 'reading' | 'editing' | 'command' | 'thinking' | 'waiting';
+export type TaskStepKind = 'reading' | 'editing' | 'command' | 'thinking' | 'waiting' | 'tool';
 export type TaskCardStep = { kind: TaskStepKind; text: string; status: AgentTimelineEntry['status']; durationMs?: number };
 export function taskStepKind(entry: AgentTimelineEntry): TaskStepKind | undefined {
   if (entry.type === 'file') return entry.operation === 'read' ? 'reading' : 'editing';
   if (entry.type === 'command') return entry.commandActions?.length && entry.commandActions.every(action => ['read', 'search', 'listFiles'].includes(action.type)) ? 'reading' : 'command';
   if (entry.type === 'thinking') return 'thinking';
   if (entry.status === 'pending' && (entry.type === 'interaction' || entry.type === 'tool')) return 'waiting';
+  if (entry.type === 'tool') return 'tool';
 }
 export function taskCardActivity(entries: readonly AgentTimelineEntry[]) {
   const tail = entries.slice(-80);

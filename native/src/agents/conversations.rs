@@ -341,6 +341,20 @@ impl AgentHost {
         let session = string(args, "id");
         uuid::Uuid::parse_str(session).map_err(|_| "INVALID_SESSION_ID")?;
         if agent == "codex" {
+            if args["recent"] == true && args["after"].is_null() {
+                let external = self.activity.lock().await.external(session);
+                if let Some(external) = external.filter(|external| external.agent == "codex") {
+                    let mut preview =
+                        tokio::task::spawn_blocking(crate::runtime_metrics::cost::blocking(
+                            move || activity::codex_preview(&external),
+                        ))
+                        .await
+                        .map_err(|error| error.to_string())??;
+                    preview["srcConversation"] =
+                        crate::src_conversations::task_ref(agent, session)?;
+                    return Ok(preview);
+                }
+            }
             let known = control.events.lock().await.timelines.contains_key(session)
                 || control
                     .task_records()
