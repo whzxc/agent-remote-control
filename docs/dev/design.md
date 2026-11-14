@@ -53,12 +53,12 @@ Pointer and touch follow 1:1; release velocity settles the position. Horizontal
 wheel and arrow keys browse; click or Enter opens. Opening and closing morph the
 snapshot to and from the centered task layer, with instant reduced-motion behavior.
 
-Snapshots contain origin, title, project/path and a bounded newest-anchored timeline.
-Routing state, plan, latest change and mark read occupy the footer. Cards report
-status without request actions or warning borders. A counted status dropdown filters
-All, Running, Waiting, Completed and Unconfirmed; mobile omits it. The Tile/Stack
-SingleChoice is icon-only. `modules/tasks.tsx`, `modules/task-activity.tsx`, and
-`surfaces/homepage-tasks.tsx` own these user-approved forms.
+Tasks shows Running and Completed sections. Waiting tasks appear in Running. Stack
+spreads the Running section when its cards fit in one row and uses a depth deck
+for completed history and running overflow. Unconfirmed history retains its status.
+Snapshots show the origin, one-line title, project/path and a scrollable native preview.
+Consecutive tools and thoughts fold between messages. Replies render in full within
+the preview. The Tile/Stack SingleChoice is icon-only.
 
 #### Recorded task fields and presentation limits
 
@@ -67,11 +67,9 @@ SingleChoice is icon-only. `modules/tasks.tsx`, `modules/task-activity.tsx`, and
 | Current activity, state and origin | `ui/types.ts`: AgentActivitySession phase, headline, recentSteps, interaction, origin, agentAccountId and dispatchSummary | Use the current observation; unconfirmed tasks show no live verbs or counters. |
 | Recent step icons and short text | AgentTimelineEntry type, status, title/text, command, operation, commandActions and excerpt fields; `ui/state/taskProjection.ts` | Reading/editing derive from file operations; waiting requires an observed pending item. Keep chronological order in the bounded tail. |
 | Elapsed time | AgentActivitySession turnStartedAt; AgentTimeline turnTimings; AgentTimelineEntry durationMs | Derive from recorded timing. Remote cards use the snapshot observation as their end time. Normalize numeric epoch seconds or milliseconds and omit unknown starts. Offline cards omit elapsed time. |
-| Plan progress | AgentTimelineEntry plan item content and status | Count completed plan items over known items. Show the current item; omit absent/empty plans. This is not an overall task completion estimate. |
-| Latest file, command and diff summary | AgentTimelineEntry path, operation, command, changes added/removed/diff, input/output and exitCode | Render recorded summaries and available counts; truncate with full accessible values. |
 | Request and response state | AgentInteraction and AgentTimelineEntry response; `ui/state/activityModel.ts` approval submissions; native receipt state/result | Snapshots report the request and its controller routing state. Task details retain request handling. Pending/unconfirmed response state follows the receipt and is never inferred from the card. |
 | Remote path and freshness | `native/src/device_link/controller.rs`: list path, latency and lastSeen; `native/src/device_link/records.rs`: device/task/source associations | Compose the origin chain with current device facts. On the member, the controller remains the source without a local-device wrapper. |
-| Partial coverage | AgentTimeline coverage and executionEvidence | Mark partial history and omit unavailable details. An activity snapshot alone does not promise timeline text. |
+| Partial coverage | AgentTimeline coverage and executionEvidence | Detail surfaces disclose partial coverage. The task preview displays the available rows. |
 
 No new canonical task field is assumed. The proposed card summary and node phase
 aggregate are new derived UI projections over these existing reads; the local cross-task

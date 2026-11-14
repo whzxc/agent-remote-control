@@ -56,7 +56,7 @@ export function useHomepageTasks() {
         group: homepageTaskGroup(session, pending.length > 0, status), sourceIds: session.origin?.sourceId || session.dispatchSummary?.controlSource?.id ? [session.origin?.sourceId ?? session.dispatchSummary!.controlSource!.id!] : [],
         controllerDeviceId: session.origin?.deviceId ?? session.dispatchSummary?.controlSource?.deviceId, upstreamSourceId: session.origin?.peerOrigin?.sourceId,
         accountId: session.agentAccountId ?? session.dispatchSummary?.agentAccountId,
-        activity: taskCardActivity(execution?.entries ?? []), partial: !execution || execution.coverage?.state === 'partial' || execution.executionEvidence !== true,
+        activity: taskCardActivity(execution?.entries ?? []),
         startedAt: timing?.startedAt ?? session.turnStartedAt, endedAt: timing?.endedAt };
     });
   });

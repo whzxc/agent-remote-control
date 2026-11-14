@@ -29,11 +29,12 @@ Controller-dispatched remote tasks show the controller device followed by its me
 On that member, the controller device is the source and there is no extra local-device
 step. The controller projection contains only tasks it dispatched to that member.
 
-Tasks retains group and observation order. A status filter selects All, Running,
-Waiting, Completed or Unconfirmed. Layout persists as Tile or Stack. Offline observations
-remain unconfirmed. The separate check action marks a completion read without opening it.
-Tile uses six columns at 1500px, five at 1000px and two below. Stack presents a continuous
-depth deck with pointer, touch, horizontal wheel and keyboard navigation. Snapshot opening
+Tasks shows Running and Completed sections. Waiting tasks remain in Running. Unconfirmed
+history appears in Completed with its original status. Layout persists as Tile or Stack.
+The separate check action marks a completion read without opening it.
+Tile uses six columns at 1500px, five at 1000px and two below. Stack spreads running cards
+when they fit and uses a depth deck for overflow and completed history. Deck navigation
+supports pointer, touch, horizontal wheel and keyboard input. Snapshot opening
 and closing morph between the card and the centered layer slot. Reduced motion is instant.
 The one-row HomepageBar reserves space for both homepage modes and retains the Board entry.
 
@@ -58,7 +59,7 @@ the task area opens scoped Tasks. Narrow topology pans horizontally between rese
 columns by explicit user input; the header/navigation stay fixed. Device management
 explicitly folds the child branch while its panel is open.
 
-Snapshots report status above each portrait card. The card contains its origin chain,
-title, project path and a bounded newest-anchored timeline miniature. Routing state,
-plan counts, the latest change and mark-read occupy the footer. Request handling remains
-with the controller. Native observations supply the derived projection.
+Snapshots show status above each portrait card. The card contains its origin chain,
+one-line title, project path and a scrollable, newest-anchored native preview. Consecutive
+thoughts and tools in the same turn fold between messages. Replies retain their content.
+Routing and last-seen information stay in the preview. Request handling remains with the controller.

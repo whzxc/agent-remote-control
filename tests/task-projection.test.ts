@@ -188,8 +188,8 @@ test("resolved and previous-turn interactions do not recreate waiting input", as
   assert.equal(pendingSessions("codex", session, [old, answered, pending])[0].turnId, "current");
 });
 
-test('homepage activity preserves chronological observations and recorded plan counts', async () => {
-  // Property: bounded card projection preserves observed step order and counts only recorded plan items.
+test('homepage activity preserves chronological work observations', async () => {
+  // Property: bounded card projection preserves observed work order and omits standalone plan rows.
   const { taskCardActivity } = await import('../ui/state/taskProjection.ts');
   const content = (text: string) => ({ state: 'available' as const, text, truncated: false, sha256: 'fixture', hashScope: 'excerpt' as const });
   const result = taskCardActivity([
@@ -199,10 +199,7 @@ test('homepage activity preserves chronological observations and recorded plan c
     entry('plan', 'plan', { plan: [{ content: content('Read'), status: 'completed' }, { content: content('Check'), status: 'in_progress' }] }),
   ]);
   assert.deepEqual(result.steps.map(step => step.kind), ['reading', 'editing', 'waiting']);
-  assert.equal(result.plan?.completed, 1);
-  assert.equal(result.plan?.total, 2);
-  assert.equal(result.change?.added, 4);
-  assert.equal(result.change?.removed, undefined);
+  assert.deepEqual(result.snapshot.map(row => row.id), ['read', 'edit', 'wait']);
 });
 
 test('homepage task groups keep missing observations unconfirmed', async () => {

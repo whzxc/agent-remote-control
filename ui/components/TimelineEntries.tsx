@@ -20,7 +20,7 @@ import RelayRoute from "./RelayRoute";
 import TaskNeedsYou from "./TaskNeedsYou";
 import { answerLabel, interactionSummary, pendingSessions } from "../state/taskInteractions";
 import { copyText } from "../platform";
-import { processOpen, projectTurn, taskState, toolSummary, thoughtLine } from "../state/taskProjection";
+import { processOpen, projectTurn, taskState, toolSummary, thoughtLine, toolTitle } from "../state/taskProjection";
 import { taskErrorText } from "../state/taskErrors";
 import FilePath from "./FilePath";
 import TimelineMarkdown, { TimelineResources } from "./TimelineMarkdown";
@@ -83,8 +83,9 @@ function UserMessage({ text, truncated, open, onChange }: { text: string; trunca
   </TaskMessage>;
 }
 function ToolTitle({ entry, project }: { entry: AgentTimelineEntry; project?: string | null }) {
-  return <HoverHelp text={entry.command || entry.path || entry.title}><span className="timeline-entry-title mono">
-    {entry.path && !entry.command ? <FilePath path={entry.path} project={project || entry.cwd} /> : entry.command || entry.title || t(entry.type === "command" ? "activity.phase.command" : entry.type === "file" ? "activity.phase.file" : "activity.phase.tool")}
+  const title = toolTitle(entry);
+  return <HoverHelp text={title}><span className="timeline-entry-title mono">
+    {entry.path && !entry.command ? <FilePath path={entry.path} project={project || entry.cwd} /> : title || t(entry.type === "command" ? "activity.phase.command" : entry.type === "file" ? "activity.phase.file" : "activity.phase.tool")}
   </span></HoverHelp>;
 }
 function ToolDetails({ entry, project }: { entry: AgentTimelineEntry; project?: string | null }) {

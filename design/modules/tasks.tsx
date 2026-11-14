@@ -3,11 +3,9 @@ import { BrandMark, type Brand } from '../components/agent-icon';
 import { IconButton } from '../components/icon-button';
 import { Tile } from '../components/tile';
 import { SingleChoice } from '../components/single-choice';
+import type { TaskStep, TaskPlan, TaskChange } from './task-activity';
 import {
-  TaskPlanProgress, TaskChangeSummary, TaskActivityIcon, type TaskStep, type TaskPlan, type TaskChange,
-} from './task-activity';
-import {
-  tasks, origins, snapshotForms, tasksCopy as copy, switcherCopy as sw, switcherStatus, switcherFilters,
+  tasks, origins, snapshotForms, tasksCopy as copy, switcherCopy as sw, switcherStatus,
 } from '../fixtures/tasks';
 
 export type OriginStep = { label: string; brand?: Brand; icon?: string };
@@ -62,11 +60,10 @@ export function TaskStatusMark({ task, labelled = true }: { task: TaskSnapshotDa
   </span>;
 }
 
-function SnapshotNote({ tone, label, text }: { tone: 'source' | 'agent' | 'request'; label?: string; text?: string }) {
+function SnapshotNote({ tone, label, text }: { tone: 'source' | 'request'; label?: string; text?: string }) {
   return <div class="shrink-0 overflow-hidden rounded-[10px] bg-surface p-2">
-    {label && <span class={`block text-caption font-semibold leading-4 ${tone === 'agent' ? 'text-role-agent'
-      : 'text-text-secondary'}`}>{label}</span>}
-    <p class={`line-clamp-2 text-caption leading-4 ${tone === 'source' ? 'text-text-secondary' : 'text-text'}`}>{text}</p>
+    {label && <span class="block text-caption font-semibold leading-4 text-text-secondary">{label}</span>}
+    <p class={`text-caption leading-4 ${tone === 'source' ? 'text-text-secondary' : 'text-text'}`}>{text}</p>
   </div>;
 }
 
@@ -82,45 +79,26 @@ export function TaskSnapshot({ task, height = 340, narrow = false }: {
     <header class={`flex items-center gap-2 pt-[14px] ${inset}`}>
       <OriginChain steps={narrow ? task.origin.filter(step => step.brand) : task.origin} />
       {task.path && !narrow && !offline && <span class="ml-auto truncate text-caption text-text-tertiary">{task.path}</span>}
+      {done && <span class="ml-auto"><IconButton icon="check" label={`${copy.markRead}: ${task.title}`} size={20} /></span>}
     </header>
-    <button aria-label={`${copy.open}: ${task.title}`} class={`line-clamp-2 pt-[10px] text-left text-body leading-5
+    <button aria-label={`${copy.open}: ${task.title}`} class={`truncate pt-[10px] text-left text-body leading-5
       font-semibold text-text ${inset}`}>{task.title}</button>
-    <div class={`relative mt-3 flex min-h-0 flex-1 flex-col justify-end gap-2 overflow-hidden rounded-[16px]
-      bg-surface-subtle ${narrow ? 'mx-2 p-2' : 'mx-3 p-3'} ${offline ? 'opacity-60' : ''}`} aria-hidden="true">
+    <div class={`relative flex min-h-0 flex-1 flex-col justify-end gap-2 overflow-hidden rounded-[16px]
+      bg-surface-subtle ${narrow ? 'm-2 p-2' : 'm-3 p-3'} ${offline ? 'opacity-60' : ''}`} aria-hidden="true">
       {task.prompt && <SnapshotNote tone="source" text={task.prompt} />}
-      {steps.length > 0 && <ol class="flex shrink-0 flex-col gap-[6px]">
-        {steps.map(step => <li class={`flex min-w-0 items-center gap-2 text-caption leading-4
-          ${step.status === 'running' ? 'text-role-agent' : 'text-text-tertiary'}`}>
-          <TaskActivityIcon kind={step.kind} size={12} />
-          <span class={`min-w-0 flex-1 truncate ${step.status === 'running' ? 'font-semibold text-text'
-            : 'text-text-secondary'}`}>{step.text}</span>
-          {step.elapsed && <span class="shrink-0 font-mono">{step.elapsed}</span>}
-        </li>)}
-      </ol>}
+      {steps.length > 0 && <div class="flex items-center gap-[6px] text-caption text-text-secondary">
+        <Icon name="wrench" size={12} />{steps.length} actions<Icon name="chevron-right" size={12} />
+      </div>}
       {waiting && <SnapshotNote tone="request" label={`${sw.request} → ${route?.route ?? ''}`} text={task.detail} />}
-      {done && <SnapshotNote tone="agent" label={sw.reply} text={task.change?.output ?? task.activity} />}
+      {done && <p class="text-caption leading-4 text-text">{task.change?.output ?? task.activity}</p>}
       {offline && <p class="shrink-0 text-caption leading-4 text-text-tertiary">{sw.lastSeen} · {task.detail}</p>}
-      <div class="pointer-events-none absolute inset-x-0 top-0 h-8 bg-linear-to-b from-surface-subtle to-transparent" />
     </div>
-    <footer class={`flex h-[52px] shrink-0 items-center gap-2 ${inset}`}>
-      {waiting ? <span class="flex min-w-0 items-center gap-2 text-meta text-text-secondary">
-        <Icon name="arrow-right-left" size={14} class="shrink-0" /><span class="truncate">{route?.routing}</span>
-      </span>
-        : offline ? <span class="truncate text-meta text-text-secondary">{task.origin[1]?.label}</span>
-        : task.plan && !narrow ? <TaskPlanProgress plan={task.plan} />
-        : task.change ? <TaskChangeSummary change={task.change} compact /> : null}
-      {done && <IconButton icon="check" label={`${copy.markRead}: ${task.title}`} compact />}
-    </footer>
   </article>;
 }
 
-/** Status filter and Tile/Stack layout, placed at the right end of the homepage bar. */
-export function TaskViewControls({ layout, filter = true }: { layout: TaskLayout; filter?: boolean }) {
+/** Tile/Stack layout choice at the right end of the homepage bar. */
+export function TaskViewControls({ layout }: { layout: TaskLayout }) {
   return <div class="flex items-center gap-2">
-    {filter && <SingleChoice label={sw.filter} value="all" dropdown options={switcherFilters.map(option => ({
-      value: option.value,
-      label: `${option.label} ${tasks.filter(t => (option.groups as readonly string[]).includes(t.group)).length}`,
-    }))} />}
     <SingleChoice label={sw.layout} value={layout} iconOnly compact class="w-[70px]" options={[
       { value: 'tile', label: sw.tile, icon: 'layout-grid' },
       { value: 'stack', label: sw.stack, icon: 'gallery-horizontal-end' },
@@ -195,5 +173,4 @@ export default () => [
     <TaskStatusMark task={tasks.find(task => task.id === id)!} />
   </Frame>),
   <Frame name="task-view-controls"><TaskViewControls layout="stack" /></Frame>,
-  <Frame name="task-view-controls-compact"><TaskViewControls layout="stack" filter={false} /></Frame>,
 ];

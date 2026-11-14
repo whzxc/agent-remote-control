@@ -1,16 +1,47 @@
-import type { ReactNode } from 'react';
+import { memo, useCallback, useLayoutEffect, useRef, type ReactNode } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useTaskPreview } from '../../state/taskExecution';
-import { ArrowRightLeft, Check, ChevronRight, CircleHelp, Hourglass, ListChecks } from 'lucide-react';
+import { ArrowRightLeft, Check, ChevronRight, CircleHelp, Hourglass } from 'lucide-react';
 import { Icon, IconButton, Tile, Tooltip } from './index';
 import { taskPhaseIcons } from './NodeCapsule';
 import type { HomepageTask } from '../../state/activityModel';
-import { recordedTimestamp } from '../../state/taskProjection';
+import { recordedTimestamp, thoughtLine, type TaskSnapshotRow } from '../../state/taskProjection';
 import { useRequestRouting } from '../../state/requestRouting';
 import { t } from '../../i18n';
 import './TaskSnapshot.css';
 
 export type TaskOrigin = { label: string; graphic: ReactNode };
 export const taskTitle = (task: HomepageTask) => task.session.title || task.session.headline || task.session.id;
+const SnapshotMarkdown = memo(function SnapshotMarkdown({ text }: { text: string }) {
+  return <div className="task-snapshot-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml disallowedElements={['img']}
+    components={{ a: ({ children }) => <span>{children}</span> }}>{text}</ReactMarkdown></div>;
+});
+
+const SnapshotRows = memo(function SnapshotRows({ rows, stopFollowing }: { rows: TaskSnapshotRow[]; stopFollowing: () => void }) {
+  const groups: TaskSnapshotRow[][] = [];
+  for (const row of rows) {
+    const group = groups.at(-1);
+    if (row.role === 'step' && group?.[0].role === 'step' && group[0].turnId === row.turnId) group.push(row);
+    else groups.push([row]);
+  }
+  return groups.map(group => {
+    const first = group[0];
+    if (first.role !== 'step') return <div key={first.id} className="task-snapshot-row" data-role={first.role}><SnapshotMarkdown text={first.text} /></div>;
+    const latest = group.at(-1)!;
+    return <details key={first.id} className="task-snapshot-work" onToggle={event => { if (event.currentTarget.open) stopFollowing(); }}>
+      <summary><Icon icon={taskPhaseIcons[latest.kind ?? 'running']} size={12} />
+        <span>{t('detail.process.actions', { count: group.length })}</span>
+        {latest.kind === 'thinking' && <span className="task-snapshot-thought">{thoughtLine(latest.text)}</span>}
+        <Icon icon={ChevronRight} size={12} />
+      </summary>
+      {group.map(row => <div key={row.id} className="task-snapshot-row" data-role="step" data-status={row.status}>
+        <Icon icon={taskPhaseIcons[row.kind ?? 'running']} size={12} />
+        {row.kind === 'thinking' ? <SnapshotMarkdown text={row.text} /> : <pre>{row.text}</pre>}
+      </div>)}
+    </details>;
+  });
+});
 function status(task: HomepageTask) {
   if (task.group === 'unconfirmed') return 'unconfirmed';
   if (task.group === 'needs-me') return task.session.interaction?.kind === 'question' ? 'needsInput' : 'approvalRequired';
@@ -40,33 +71,33 @@ export function TaskSnapshot({ task, origins, now, path, freshness, onOpen, onRe
   const source = origins[0]?.label ?? t('homepage.controller');
   const route = routing ? t(routing.state === 'deferred' ? 'routing.countdown' : routing.state === 'paused' ? 'routing.paused'
     : routing.state === 'not-routable' ? 'routing.nextCheck' : 'routing.routed', { source, seconds: Math.max(0, Math.ceil(((routing.deferUntil ?? now) - now) / 1000)) }) : undefined;
-  const { plan, change, snapshot = [] } = task.activity;
+  const { snapshot } = task.activity;
   const title = taskTitle(task);
+  const viewport = useRef<HTMLDivElement>(null), following = useRef(true);
+  const stopFollowing = useCallback(() => { following.current = false; }, []);
+  useLayoutEffect(() => {
+    if (viewport.current && following.current) viewport.current.scrollTop = viewport.current.scrollHeight;
+  }, [snapshot]);
   return <div className="task-snapshot" data-task-snapshot={task.key} data-offline={offline || undefined}>
     <header><span className="task-snapshot-origins" role="img" aria-label={origins.map(origin => origin.label).join(' → ')}>
       {origins.map((origin, index) => <span key={`${index}:${origin.label}`}>{index > 0 && <Icon icon={ChevronRight} size={10} />}<Tooltip text={origin.label}><span className="task-snapshot-origin">{origin.graphic}</span></Tooltip></span>)}
-    </span>{!offline && path && <span className="task-snapshot-path" title={path}>{path}</span>}</header>
-    {onOpen ? <button tabIndex={tabbable ? undefined : -1} className="task-snapshot-title" aria-label={`${t('homepage.openDetail')}: ${title}`} onClick={onOpen}>{title}</button>
+    </span>{!offline && path && <span className="task-snapshot-path" title={path}>{path}</span>}
+      {task.group === 'unread' && <IconButton className="task-snapshot-read" tabIndex={tabbable ? undefined : -1} compact icon={Check} label={`${t('homepage.markRead')}: ${title}`} onClick={onRead} />}
+    </header>
+    {onOpen ? <button tabIndex={tabbable ? undefined : -1} className="task-snapshot-title" title={title} aria-label={`${t('homepage.openDetail')}: ${title}`} onClick={onOpen}>{title}</button>
       : <strong className="task-snapshot-title">{title}</strong>}
     {task.session.project && <span className="task-snapshot-project" title={task.session.project}>{task.session.project}</span>}
-    <div className="task-snapshot-timeline" aria-label={t('homepage.recentSteps')}>
+    <div ref={viewport} className="task-snapshot-timeline" role="region" aria-label={t('homepage.recentSteps')} tabIndex={tabbable ? 0 : -1}
+      onScroll={event => {
+        const box = event.currentTarget;
+        following.current = !box.querySelector('details[open]') && box.scrollHeight - box.clientHeight - box.scrollTop <= 16;
+      }}>
       <div className="task-snapshot-tail">
-        {snapshot.length ? snapshot.map((row, index) => <div key={index} className="task-snapshot-row" data-role={row.role} data-status={row.status}>
-          {row.role === 'step' && <Icon icon={taskPhaseIcons[row.kind ?? 'running']} size={12} />}
-          <span>{row.text}</span>
-        </div>) : task.session.headline || task.session.fallbackHeadline ? <div className="task-snapshot-row" data-role="agent"><span>{task.session.headline || task.session.fallbackHeadline}</span></div> : null}
+        {snapshot.length ? <SnapshotRows rows={snapshot} stopFollowing={stopFollowing} /> : task.session.headline || task.session.fallbackHeadline ? <div className="task-snapshot-row" data-role="agent"><SnapshotMarkdown text={task.session.headline || task.session.fallbackHeadline || ''} /></div> : null}
         {waiting && !snapshot.some(row => row.role === 'request') && <div className="task-snapshot-row" data-role="request"><span>{task.session.interaction?.summary}</span></div>}
-        {waiting && <span className="task-snapshot-routing"><Icon icon={ArrowRightLeft} size={12} />{t('homepage.requestTo', { source })}</span>}
-        {task.partial && <span className="task-snapshot-observed">{t('homepage.partial')}</span>}
-        {offline && <span className="task-snapshot-observed">{freshness}</span>}
+        {waiting && <span className="task-snapshot-routing"><Icon icon={ArrowRightLeft} size={12} />{error || route || t('homepage.requestTo', { source })}</span>}
+        {offline && freshness && <span className="task-snapshot-observed">{freshness}</span>}
       </div>
     </div>
-    <footer>
-      {waiting ? <span title={error || route}><Icon icon={ArrowRightLeft} size={14} />{error || route || t('homepage.requestTo', { source })}</span>
-        : offline ? <span>{freshness}</span>
-        : plan ? <span><Icon icon={ListChecks} size={14} />{t('homepage.plan')} {plan.completed}/{plan.total}<span title={plan.current}>{plan.current}</span></span>
-        : change ? <span title={change.summary}>{change.summary}{change.added !== undefined && <em>+{change.added}</em>}{change.removed !== undefined && <em>−{change.removed}</em>}</span> : null}
-      {task.group === 'unread' && <IconButton tabIndex={tabbable ? undefined : -1} compact icon={Check} label={`${t('homepage.markRead')}: ${title}`} onClick={onRead} />}
-    </footer>
   </div>;
 }

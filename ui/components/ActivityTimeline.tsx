@@ -18,7 +18,7 @@ import { t } from "../i18n";
 import type { AgentTimeline } from "../types";
 import { activityApprovals, agentActivity, openActivitySession } from "../state/activity";
 import { followsTimeline, refreshTimeline, reuseTimelineEntries, timelineScrollTarget } from "../state/timelineModel";
-import { Button, Icon, IconButton, LoadingIndicator, Menu } from "./ui";
+import { Button, Icon, IconButton, LoadingIndicator, Menu, Notice } from "./ui";
 import TimelineEntries, { durationText, TimelinePlanDock } from "./TimelineEntries";
 import { PhaseLabel } from "./activity";
 import { TaskSpecChoice } from "./AgentDispatchDefaults";
@@ -65,6 +65,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   const loading = validId && session.timeline && !timeline && !error;
   const viewport = useRef<HTMLDivElement>(null), content = useRef<HTMLDivElement>(null);
   const requestEarlier = useRef<(() => void) | undefined>(undefined);
+  const retryTimeline = useRef<(() => void) | undefined>(undefined);
   const prependAnchor = useRef<{ height: number; top: number } | undefined>(undefined);
   const following = useRef(true), initial = useRef(true), previousRunning = useRef(true), previousTop = useRef(0);
   const manualDisclosure = useRef(false);
@@ -124,6 +125,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
     if (!validId || !session.timeline) return;
     let stopped = false, timer: ReturnType<typeof setTimeout>, current: AgentTimeline | undefined;
     let first = true, reading = false, fullRequested = false;
+    // Local Codex history can first render its bounded preview while earlier turns load on demand.
     requestEarlier.current = () => {
       if (!current?.preview || fullRequested) return;
       fullRequested = true;
@@ -133,10 +135,10 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
     async function read() {
       if (reading || stopped) return;
       reading = true;
-      const preview = !fullRequested && (first || current?.preview) && agent === "codex" && !external && !session.selectedTurnId;
+      const preview = !fullRequested && (first || current?.preview) && agent === "codex" && !session.selectedTurnId;
       first = false;
       try {
-        const read = (after?: number, recent = false) => session.conversation
+        const read = (after?: number, recent = false) => session.conversation || (external && agent === "codex")
           ? api<AgentTimeline>("agents/conversations/timeline", "POST", { agent, id: session.id, ...(after === undefined ? {} : { after }), ...(recent ? { recent } : {}) })
           : api<AgentTimeline>(`agents/timeline/${encodeURIComponent(session.id)}${recent ? "?recent=1" : after === undefined ? "" : `?after=${after}`}`);
         const next = preview
@@ -169,8 +171,9 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
         }
       }
     }
+    retryTimeline.current = () => { clearTimeout(timer); void read(); };
     void read();
-    return () => { stopped = true; clearTimeout(timer); requestEarlier.current = undefined; };
+    return () => { stopped = true; clearTimeout(timer); requestEarlier.current = undefined; retryTimeline.current = undefined; };
   }, [agent, session.id, session.timeline, session.conversation, session.selectedTurnId, external, validId]);
   useLayoutEffect(() => {
     const node = viewport.current;
@@ -181,13 +184,13 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
       node.scrollTop = anchor.top + Math.max(0, node.scrollHeight - anchor.height);
       previousTop.current = node.scrollTop;
     }
-    if (timeline.preview && (running || node.scrollHeight <= node.clientHeight)) requestEarlier.current?.();
+    if (timeline.preview && ((!external && running) || node.scrollHeight <= node.clientHeight)) requestEarlier.current?.();
     if (manualDisclosure.current) return;
     const target = timelineScrollTarget(following.current, running || previousRunning.current, initial.current, node.scrollHeight);
     if (target !== undefined) { node.scrollTop = target; previousTop.current = node.scrollTop; }
     if (target !== undefined) setAtLatest(true);
     initial.current = false; previousRunning.current = running;
-  }, [timeline, running]);
+  }, [timeline, running, external]);
   const groups = timelineGroups(timeline?.entries ?? []);
   const historyTurn = session.selectedTurnId || groups.at(-1)?.turnId || session.turnId;
   const nativeSession = live ?? { ...session, turnId: historyTurn, interaction: undefined,
@@ -266,8 +269,9 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
     })().catch(error => setOpenError(String(error))).finally(() => { continuationBusy.current = false; setContinuing(false); });
   };
   // Preserve native conversation identity without borrowing another turn's configuration.
-  const title = (validId && agent === "codex" && taskTitle?.id === session.id && taskTitle.title) || (agent !== "codex" && (nativeSession.title
-    || timeline?.entries.find(entry => entry.type === "user")?.text?.trim().split("\n")[0])) || t("timeline.title");
+  const title = (validId && agent === "codex" && taskTitle?.id === session.id && taskTitle.title)
+    || ((external || agent !== "codex") && (nativeSession.title || session.title
+      || timeline?.entries.find(entry => entry.type === "user")?.text?.trim().split("\n")[0])) || t("timeline.title");
   usePanelState({ busy: continuing });
   useLayerNaturalContent(content, true, { version: `${loading ? 'loading' : 'ready'}:${title}`, flexibleFooter: true, resetHeight: true });
   return <section ref={detail} className="agent-panel-layer task-detail-layer" data-related={!!relationKind || undefined} data-narrow={narrow || undefined}>
@@ -286,7 +290,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
         : <span className="task-state" role="status" data-state={state}>{t(`detail.state.${state}`)}</span>}
         {session.selectedTurnId && groups.some(group => group.turnId === session.selectedTurnId) && <span className="activity-meta-chip">{t("detail.selectedTurn", { count: groups.findIndex(group => group.turnId === session.selectedTurnId) + 1 })}</span>}
         <TaskSpecChoice agent={agent} threadId={session.id} taskId={session.source === "arc-task" ? session.id : undefined} summary={latestSummary}
-          editable={!readOnlyBrowser && agent === "codex" && validId && !timeline?.readOnly} />
+          editable={!readOnlyBrowser && !external && agent === "codex" && validId && !timeline?.readOnly} />
         <TaskOwnership ownership={timeline?.ownership} />
         {duration !== undefined && <time className="timeline-meta task-duration">{durationText(duration)}</time>}
       </div>
@@ -339,7 +343,9 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
           if ((event.target as Element).closest("button, [data-turn-collapsed]")) manualDisclosure.current = true;
         }}>
           {loading ? <LoadingIndicator label={t("timeline.loading")} /> : <>
-          {(!validId || error || openError) && <p className="timeline-error" role="alert">{!validId ? t("detail.taskUnavailable") : taskErrorText(openError || error)}</p>}
+          {!validId && <Notice>{t("detail.taskUnavailable")}</Notice>}
+          {error && <Notice layout="stacked" actionBelow action={<Button onClick={() => retryTimeline.current?.()}>{t("retry")}</Button>}>{taskErrorText(error)}</Notice>}
+          {openError && <Notice>{taskErrorText(openError)}</Notice>}
           {timeline?.coverage.state === "partial" && !timeline.preview && !timeline.coverage.truncated && <p className="timeline-meta">{t("timeline.partial")}</p>}
           {!session.timeline && <section className="activity-session-summary">
             {executionPhase(nativeSession.phase, state) && <span className="timeline-meta">{t(`activity.phase.${nativeSession.phase}`)}</span>}

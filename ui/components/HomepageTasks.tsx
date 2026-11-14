@@ -8,7 +8,7 @@ import { Inbox, Laptop, ListFilter, Monitor, UserRound, X } from 'lucide-react';
 import { BrandMark, Icon, IconButton } from './ui';
 import { TaskSnapshot, TaskStatusMark, taskTitle, type TaskOrigin } from './ui/TaskSnapshot';
 import TaskStack from './TaskStack';
-import { homepageTaskFocus, homepageTaskLayout, homepageTaskFilter, remoteTaskPanel } from '../state/homepage';
+import { homepageTaskFocus, homepageTaskLayout, remoteTaskPanel } from '../state/homepage';
 import { selectAgentPanel } from '../state/overviewPanels';
 import { markHomepageTaskRead } from '../state/homepageTasks';
 import type { HomepageTask } from '../state/activityModel';
@@ -19,6 +19,7 @@ import SourceIcon from './SourceIcon';
 import { deviceSnapshot, pairedDevices } from '../devices/state';
 import { accountOwns } from '../accountPresentation';
 import { useAppNow } from '../state/appEnvironment';
+import { useMedia } from '../state/hooks';
 import { t } from '../i18n';
 import './HomepageTasks.css';
 
@@ -26,7 +27,8 @@ export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
   const focus = homepageTaskFocus.use(), snapshot = deviceSnapshot.use(), { items: accounts } = useAccounts();
   const remote = deviceTasks.use();
   const omitted = Object.values(remote).reduce((sum, item) => sum + (item.snapshot?.omittedRecords ?? 0), 0);
-  const layout = homepageTaskLayout.use(), filter = homepageTaskFilter.use();
+  const layout = homepageTaskLayout.use();
+  const wide = useMedia('(min-width: 1500px)'), standard = useMedia('(min-width: 1000px)');
   const body = useRef<HTMLElement>(null);
   const now = useAppNow(tasks.some(task => task.group === 'running' || task.group === 'needs-me') ? 1000 : null);
   const scoped = tasks.filter(task => {
@@ -38,17 +40,18 @@ export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
   });
   useLayoutEffect(() => {
     if (!focus) return;
-    const target = body.current?.querySelector<HTMLElement>('article[aria-current="true"]') ?? body.current?.querySelector<HTMLElement>('article');
+    const section = body.current?.querySelector('section');
+    const target = section?.querySelector<HTMLElement>('article[aria-current="true"]') ?? section?.querySelector<HTMLElement>('article');
     target?.scrollIntoView({ block: 'start', behavior: 'instant' });
     (target?.querySelector<HTMLElement>('.task-snapshot-title') ?? body.current)?.focus({ preventScroll: true });
   }, [focus?.id]);
   const groups = ['needs-me', 'running', 'unread', 'unconfirmed', 'recent'];
-  const filtered = scoped.filter(task => filter === 'all' || (filter === 'waiting' ? task.group === 'needs-me'
-    : filter === 'completed' ? task.group === 'unread' || task.group === 'recent' : task.group === filter))
-    .sort((a, b) => groups.indexOf(a.group) - groups.indexOf(b.group));
+  const ordered = scoped.sort((a, b) => groups.indexOf(a.group) - groups.indexOf(b.group));
+  const running = ordered.filter(task => task.group === 'running' || task.group === 'needs-me');
+  const completed = ordered.filter(task => task.group !== 'running' && task.group !== 'needs-me');
   function open(task: HomepageTask) {
     void layers.switchPanel(() => {
-      captureLayerTrigger(taskSnapshotElement(task.key)?.querySelector('button') ?? null);
+      captureLayerTrigger(taskSnapshotElement(task.key)?.querySelector('.task-snapshot-title') ?? null);
       prepareTaskSnapshot(task.key);
       if (task.group === 'unread') markHomepageTaskRead(task);
       if (task.deviceId) remoteTaskPanel.set({ key: task.key });
@@ -76,12 +79,21 @@ export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
       freshness={task.freshness ? `${t('device.lastSeen')} ${relativeTime(task.freshness, now, locale.get(), t('device.now'))}` : undefined}
       tabbable={tabbable} onOpen={() => open(task)} onRead={() => markHomepageTaskRead(task)} /></>;
   }
+  function section(label: 'running' | 'completed', items: HomepageTask[], stack: boolean) {
+    if (!items.length) return null;
+    const title = t(label === 'running' ? 'homepage.running' : 'homepage.completed');
+    return <section className="homepage-task-section" aria-label={title} data-stack={stack || undefined}>
+      <h2>{title}</h2>
+      {stack ? <TaskStack tasks={items} label={title} render={card} onOpen={open} /> :
+        <div className="homepage-task-grid" role="list" aria-label={title}>{items.map(task => <article key={task.key} aria-label={taskTitle(task)}
+          className="homepage-task-tile" onClick={event => { if (!(event.target as HTMLElement).closest('button, .task-snapshot-timeline')) open(task); }}>{card(task)}</article>)}</div>}
+    </section>;
+  }
   return <main ref={body} className="homepage-tasks" data-layout={layout} aria-label={t('homepage.tasks')} tabIndex={-1}>
     {focus && <div className="homepage-task-filter" role="status"><Icon icon={ListFilter} size={14} />{focus.label}<IconButton compact icon={X} label={t('homepage.clearFilter')} onClick={() => homepageTaskFocus.set(undefined)} /></div>}
-    {filtered.length === 0 ? <div className="homepage-tasks-empty"><Icon icon={Inbox} size={32} /><h2>{t('homepage.empty')}</h2></div>
-      : layout === 'stack' ? <TaskStack tasks={filtered} render={card} onOpen={open} />
-      : <div className="homepage-task-grid" role="list" aria-label={t('homepage.tasks')}>{filtered.map(task => <article key={task.key} aria-label={taskTitle(task)}
-        className="homepage-task-tile" onClick={event => { if (!(event.target as HTMLElement).closest('button')) open(task); }}>{card(task)}</article>)}</div>}
+    {ordered.length === 0 ? <div className="homepage-tasks-empty"><Icon icon={Inbox} size={32} /><h2>{t('homepage.empty')}</h2></div> :
+      <>{section('running', running, layout === 'stack' && running.length > (wide ? 6 : standard ? 5 : 2))}
+        {section('completed', completed, layout === 'stack')}</>}
     {omitted > 0 && <p className="homepage-task-omitted" role="status" aria-label={t('homepage.partial')}>{t('homepage.omitted', { count: omitted })}</p>}
   </main>;
 }

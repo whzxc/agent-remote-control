@@ -115,13 +115,6 @@ export const switcherStatus: Record<string, { status: string; routing?: string; 
   window: { status: 'Waiting for input', routing: 'Handed to the controller', route: 'Controller' },
   approve: { status: 'Waiting for approval', routing: 'Hands to Claude in 18 s', route: 'Claude' },
 };
-export const switcherFilters = [
-  { value: 'all', label: 'All', groups: ['needs-me', 'running', 'unread', 'unconfirmed'] },
-  { value: 'running', label: 'Running', groups: ['running'] },
-  { value: 'waiting', label: 'Waiting', groups: ['needs-me'] },
-  { value: 'completed', label: 'Completed', groups: ['unread'] },
-  { value: 'unconfirmed', label: 'Unconfirmed', groups: ['unconfirmed'] },
-] as const;
 export const switcherForms = [
   { name: 'switcher-tile-wide', width: 1600, height: 1000, layout: 'tile' },
   { name: 'switcher-tile', width: 1280, height: 800, layout: 'tile' },

@@ -1,5 +1,5 @@
 import { deviceView } from './devices/state';
-import { homepageMode, homepageTaskFocus, homepageTaskLayout, homepageTaskFilter } from './state/homepage';
+import { homepageMode, homepageTaskFocus, homepageTaskLayout } from './state/homepage';
 import { deviceScenario, type DeviceFixture } from './devices/scenario';
 import { readOnlyBrowser } from './browserMode';
 import { mcpScenario, type McpFixture } from './mcp/scenario';
@@ -221,7 +221,6 @@ export async function installScenario(name: string) {
   }
   if (name === 'topology-accounts-dense') Object.assign(preferences, { 'arc.topology-mode': JSON.stringify('tree'), 'arc.topology-collapsed': '{}', 'arc.topology-account-order': '{}' });
   homepageTaskLayout.set(fixture.homepage?.layout ?? 'tile');
-  homepageTaskFilter.set('all');
   homepageTaskFocus.set(undefined);
   homepageMode.set(fixture.homepage?.mode ?? 'topology');
   acceptPreferences(preferences);

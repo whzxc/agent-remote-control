@@ -689,6 +689,13 @@ impl AgentHost {
         let external = self.activity.lock().await.external(session);
         if !task_path(session)?.exists() {
             if let Some(external) = external {
+                if external.agent == "codex" {
+                    return tokio::task::spawn_blocking(crate::runtime_metrics::cost::blocking(
+                        move || activity::codex_transcript_timeline(&external),
+                    ))
+                    .await
+                    .map_err(|error| error.to_string())?;
+                }
                 if external.agent == "claude" {
                     let session = session.to_owned();
                     return tokio::task::spawn_blocking(move || {

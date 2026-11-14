@@ -213,7 +213,7 @@ export type HomepageTask = {
   key: string; agent: string; session: TrackedActivity; group: HomepageTaskGroup;
   deviceId?: string; controllerDeviceId?: string; upstreamSourceId?: string; sourceIds: string[]; accountId?: string | null;
   activity: ReturnType<typeof import('./taskProjection.ts').taskCardActivity>;
-  partial: boolean; observedAt?: string; freshness?: string; startedAt?: string | null; endedAt?: string | null;
+  observedAt?: string; freshness?: string; startedAt?: string | null; endedAt?: string | null;
 };
 export function homepageTaskGroup(session: TrackedActivity, pending: boolean, status?: string): HomepageTaskGroup {
   if (session.observed !== false && session.endedAt === undefined) return pending ? 'needs-me' : 'running';
@@ -275,7 +275,7 @@ export function projectDeviceTasks(device: import('../devices/state').Device, ob
       session: current, group: unconfirmed ? 'unconfirmed' : homepageTaskGroup(current, !!current.interaction, current.status ?? undefined),
       sourceIds: session.origin?.peerOrigin?.sourceId ? [session.origin.peerOrigin.sourceId] : [],
       accountId: session.agentAccountId ?? session.dispatchSummary?.agentAccountId,
-      activity: { steps: [], plan: undefined, change: undefined, snapshot: [] }, partial: true, startedAt: unconfirmed ? undefined : session.turnStartedAt,
+      activity: { steps: [], snapshot: [] }, startedAt: unconfirmed ? undefined : session.turnStartedAt,
       observedAt: snapshot.observedAt, freshness: device.lastSeen ?? snapshot.observedAt };
   });
 }

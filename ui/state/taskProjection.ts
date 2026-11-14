@@ -114,6 +114,10 @@ export function changedFiles(entries: readonly AgentTimelineEntry[]) {
 
 export type TaskStepKind = 'reading' | 'editing' | 'command' | 'thinking' | 'waiting' | 'tool';
 export type TaskCardStep = { kind: TaskStepKind; text: string; status: AgentTimelineEntry['status']; durationMs?: number };
+export type TaskSnapshotRow = { id: string; turnId: string; role: 'source' | 'agent' | 'request' | 'step'; text: string; kind?: TaskStepKind; status: AgentTimelineEntry['status'] };
+export function toolTitle(entry: AgentTimelineEntry) {
+  return entry.command || entry.path || (entry.title === 'exec' ? entry.input?.text?.trimStart().split('\n', 1)[0] : undefined) || entry.title || entry.input?.text;
+}
 export function taskStepKind(entry: AgentTimelineEntry): TaskStepKind | undefined {
   if (entry.type === 'file') return entry.operation === 'read' ? 'reading' : 'editing';
   if (entry.type === 'command') return entry.commandActions?.length && entry.commandActions.every(action => ['read', 'search', 'listFiles'].includes(action.type)) ? 'reading' : 'command';
@@ -124,28 +128,20 @@ export function taskStepKind(entry: AgentTimelineEntry): TaskStepKind | undefine
 export function taskCardActivity(entries: readonly AgentTimelineEntry[]) {
   const tail = entries.slice(-80);
   const steps = tail.flatMap<TaskCardStep>(entry => {
-    const kind = taskStepKind(entry), text = entry.title || entry.command || entry.path || entry.text || entry.input?.text;
+    const kind = taskStepKind(entry), text = entry.type === 'thinking' ? entry.text || entry.title : toolTitle(entry);
     return kind && text ? [{ kind, text, status: entry.status, durationMs: entry.durationMs }] : [];
   }).slice(-5);
-  const planItems = [...tail].reverse().find(entry => entry.type === 'plan')?.plan;
-  const plan = planItems?.length ? { total: planItems.length, completed: planItems.filter(item => item.status === 'completed').length,
-    current: (planItems.find(item => item.status === 'in_progress' || item.status === 'running') ?? planItems.find(item => item.status !== 'completed'))?.content.text } : undefined;
-  const latest = [...tail].reverse().find(entry => entry.changes?.length || entry.path || entry.command);
-  const changes = latest?.changes;
-  const change = latest ? { kind: latest.command ? 'command' as const : changes?.length ? 'diff' as const : 'file' as const,
-    summary: latest.command || latest.path || changes?.map(change => change.path).join(', ') || '',
-    added: changes?.some(change => change.added !== undefined) ? changes.reduce((sum, change) => sum + (change.added ?? 0), 0) : undefined,
-    removed: changes?.some(change => change.removed !== undefined) ? changes.reduce((sum, change) => sum + (change.removed ?? 0), 0) : undefined,
-    output: latest.output?.text, exitCode: latest.exitCode } : undefined;
-  const snapshot = tail.flatMap(entry => {
+  const snapshot = tail.flatMap<TaskSnapshotRow>(entry => {
     const kind = taskStepKind(entry);
-    const text = entry.text || entry.title || entry.command || entry.path || entry.input?.text;
+    const text = kind && kind !== 'thinking'
+      ? (entry.title === 'exec' && !entry.command && !entry.path ? entry.input?.text?.trim() : undefined) || toolTitle(entry)
+      : entry.text || entry.title;
     if (!text) return [];
     const role = entry.type === 'user' ? 'source' : entry.type === 'interaction' ? 'request'
       : entry.type === 'text' ? 'agent' : kind ? 'step' : undefined;
-    return role ? [{ role, text, kind, status: entry.status }] : [];
+    return role ? [{ id: entry.id, turnId: entry.turnId, role, text, kind, status: entry.status }] : [];
   });
-  return { steps, plan, change, snapshot };
+  return { steps, snapshot };
 }
 
 export function recordedTimestamp(value: unknown): number | undefined {

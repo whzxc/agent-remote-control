@@ -2,12 +2,11 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, 
 import { useReducedMotion } from '../state/appEnvironment';
 import { integrateSpring } from '../topology/spring';
 import { deckGeometry, deckRelease } from './taskDeck';
-import { t } from '../i18n';
 import type { HomepageTask } from '../state/activityModel';
 import { taskTitle } from './ui/TaskSnapshot';
 
-export default function TaskStack({ tasks, render, onOpen }: {
-  tasks: HomepageTask[]; render: (task: HomepageTask, tabbable: boolean, detailed: boolean) => ReactNode; onOpen: (task: HomepageTask) => void;
+export default function TaskStack({ tasks, label, render, onOpen }: {
+  tasks: HomepageTask[]; label: string; render: (task: HomepageTask, tabbable: boolean, detailed: boolean) => ReactNode; onOpen: (task: HomepageTask) => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0), [position, setPosition] = useState(0), [settling, setSettling] = useState(false);
@@ -15,7 +14,7 @@ export default function TaskStack({ tasks, render, onOpen }: {
   const drag = useRef<{ id: number; start: number; position: number; last: number; at: number; velocity: number; moved: boolean }>(undefined);
   const suppressClick = useRef(false), reduced = useReducedMotion();
   const peek = width < 500 ? 34 : width < 1000 ? 70 : 132;
-  const cardWidth = width < 500 ? Math.min(290, width - 48) : width < 1000 ? 340 : 360;
+  const cardWidth = width < 500 ? Math.min(290, Math.max(0, width - 48)) : width < 1000 ? 340 : 360;
   const stride = cardWidth + 16;
   const active = Math.max(0, Math.min(tasks.length - 1, Math.round(position / stride)));
   const first = Math.max(0, Math.floor(position / stride));
@@ -62,11 +61,16 @@ export default function TaskStack({ tasks, render, onOpen }: {
     const node = host.current!;
     const wheel = (event: WheelEvent) => {
       if (event.ctrlKey || drag.current) return;
-      event.preventDefault(); stop(); clearTimeout(wheelTimer.current);
+      const timeline = event.target instanceof Element ? event.target.closest('.task-snapshot-timeline') : null;
+      if (timeline && Math.abs(event.deltaY) > Math.abs(event.deltaX)
+        && (event.deltaY < 0 ? timeline.scrollTop > 0 : timeline.scrollTop + timeline.clientHeight + 1 < timeline.scrollHeight)) return;
       const { stride, count } = state.current;
       const axis = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : -event.deltaY;
       const delta = axis * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? node.clientWidth : 1);
-      set(Math.max(0, Math.min((count - 1) * stride, value.current - delta)));
+      const next = Math.max(0, Math.min((count - 1) * stride, value.current - delta));
+      if (next === value.current) return;
+      event.preventDefault(); stop(); clearTimeout(wheelTimer.current);
+      set(next);
       wheelTimer.current = setTimeout(() => controls.current.settle((delta < 0 ? Math.ceil(value.current / stride) : Math.floor(value.current / stride)) * stride), 100);
     };
     node.addEventListener('wheel', wheel, { passive: false });
@@ -80,13 +84,13 @@ export default function TaskStack({ tasks, render, onOpen }: {
     const velocity = cancelled || performance.now() - held.at > 100 ? 0 : held.velocity;
     if (held.moved) { suppressClick.current = true; settle(deckRelease(value.current, velocity, stride, tasks.length), velocity); }
   }
-  return <div ref={host} className="task-stack" role="list" aria-busy={settling} aria-label={t('homepage.tasks')} tabIndex={0}
+  return <div ref={host} className="task-stack" role="list" aria-busy={settling} aria-label={label} tabIndex={0}
     aria-keyshortcuts="ArrowLeft ArrowRight Enter" onKeyDown={event => {
-      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && !(event.target as HTMLElement).closest('.task-snapshot-timeline')) {
         event.preventDefault(); settle(Math.max(0, Math.min(tasks.length - 1, Math.round(target.current / stride) + (event.key === 'ArrowRight' ? 1 : -1))) * stride);
       } else if (event.key === 'Enter' && event.target === event.currentTarget && tasks[active]) { event.preventDefault(); onOpen(tasks[active]); }
     }} onPointerDown={event => {
-      if (event.button !== 0 || (event.target as HTMLElement).closest('footer button')) return;
+      if (event.button !== 0 || (event.target as HTMLElement).closest('.task-snapshot-read, summary, .task-snapshot-work[open] > .task-snapshot-row')) return;
       stop(); clearTimeout(wheelTimer.current); suppressClick.current = false;
       drag.current = { id: event.pointerId, start: event.clientX, position: value.current, last: event.clientX, at: performance.now(), velocity: 0, moved: false };
     }} onPointerMove={event => {
@@ -105,7 +109,7 @@ export default function TaskStack({ tasks, render, onOpen }: {
         inert={geometry.opacity === 0} style={{ left: front - geometry.offset, width: cardWidth, zIndex: tasks.length - index,
           transform: `scale(${geometry.scale})`, opacity: geometry.opacity,
           '--task-strip': `${Math.min(cardWidth, geometry.strip)}px`, '--task-fog': geometry.fog } as CSSProperties}
-        data-labelled={geometry.strip >= 100 || undefined} onClick={event => { if (!(event.target as HTMLElement).closest('button')) { if (detailed) onOpen(task); else settle(index * stride); } }}>
+        data-labelled={geometry.strip >= 100 || undefined} onClick={event => { if (!(event.target as HTMLElement).closest('button, .task-snapshot-timeline')) { if (detailed) onOpen(task); else settle(index * stride); } }}>
         {content}
       </article>;
     })}

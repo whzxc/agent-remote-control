@@ -3553,8 +3553,23 @@ pub(crate) fn persisted_history(thread: &Value) -> Result<String> {
 }
 
 fn persisted_timeline(thread: &Value) -> Result<crate::task_tracking::Timeline> {
+    let mut timeline = project_codex_rollout(open_persisted_history(thread)?, string(thread, "id"))?;
+    let persisted = persisted_turns(thread);
+    timeline.turn_timings.extend(persisted.timings);
+    for (turn, configuration) in persisted.configurations {
+        if let Some(summary) = crate::egress::dispatch_summary(&configuration) {
+            timeline.turn_dispatch_summaries.insert(turn, summary);
+        }
+    }
+    Ok(timeline)
+}
+
+pub(crate) fn project_codex_rollout(
+    file: std::fs::File,
+    session: &str,
+) -> Result<crate::task_tracking::Timeline> {
     use std::io::{BufRead, BufReader};
-    let mut reader = BufReader::new(open_persisted_history(thread)?);
+    let mut reader = BufReader::new(file);
     let mut timeline = crate::task_tracking::Timeline::default();
     let mut line = Vec::new();
     let mut matched = false;
@@ -3574,7 +3589,7 @@ fn persisted_timeline(thread: &Value) -> Result<crate::task_tracking::Timeline> 
         let record: Value =
             serde_json::from_slice(&line).map_err(|e| format!("INVALID_NATIVE_HISTORY: {e}"))?;
         if !matched {
-            if record["type"] != "session_meta" || record["payload"]["id"] != thread["id"] {
+            if record["type"] != "session_meta" || record["payload"]["id"] != session {
                 return Err("NATIVE_THREAD_ID_MISMATCH".into());
             }
             matched = true;
@@ -3583,13 +3598,6 @@ fn persisted_timeline(thread: &Value) -> Result<crate::task_tracking::Timeline> 
     }
     if !matched {
         return Err("NATIVE_THREAD_ID_MISMATCH".into());
-    }
-    let persisted = persisted_turns(thread);
-    timeline.turn_timings.extend(persisted.timings);
-    for (turn, configuration) in persisted.configurations {
-        if let Some(summary) = crate::egress::dispatch_summary(&configuration) {
-            timeline.turn_dispatch_summaries.insert(turn, summary);
-        }
     }
     Ok(timeline)
 }

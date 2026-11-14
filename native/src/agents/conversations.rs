@@ -341,9 +341,15 @@ impl AgentHost {
         let session = string(args, "id");
         uuid::Uuid::parse_str(session).map_err(|_| "INVALID_SESSION_ID")?;
         if agent == "codex" {
-            if args["recent"] == true && args["after"].is_null() {
-                let external = self.activity.lock().await.external(session);
-                if let Some(external) = external.filter(|external| external.agent == "codex") {
+            let recent = args["recent"] == true && args["after"].is_null();
+            let external = self
+                .activity
+                .lock()
+                .await
+                .external(session)
+                .filter(|external| external.agent == "codex");
+            if recent {
+                if let Some(external) = external.as_ref().cloned() {
                     let mut preview =
                         tokio::task::spawn_blocking(crate::runtime_metrics::cost::blocking(
                             move || activity::codex_preview(&external),
@@ -361,7 +367,7 @@ impl AgentHost {
                     .await?
                     .iter()
                     .any(|r| r["threadId"] == session || r["task"]["threadId"] == session);
-            let preview = if args["recent"] == true && args["after"].is_null() {
+            let preview = if recent {
                 control
                     .recent_timeline(session, known)
                     .await
@@ -375,6 +381,12 @@ impl AgentHost {
                 control
                     .timeline(session, num(args, "after", 0) as u64)
                     .await?
+            } else if let Some(external) = external {
+                tokio::task::spawn_blocking(crate::runtime_metrics::cost::blocking(move || {
+                    activity::codex_transcript_timeline(&external)
+                }))
+                .await
+                .map_err(|error| error.to_string())??
             } else {
                 control.external_timeline(session).await?
             };

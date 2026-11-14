@@ -768,6 +768,18 @@ pub(super) fn codex_preview(external: &External) -> Result<Value> {
     }
 }
 
+pub(super) fn codex_transcript_timeline(external: &External) -> Result<Value> {
+    let id = string(&external.session, "id");
+    let file = crate::control::open_persisted_history(&json!({"id":id,"path":external.path}))?;
+    let mut timeline = crate::control::project_codex_rollout(file, id)?;
+    timeline
+        .turn_dispatch_summaries
+        .extend(external.turn_dispatch_summaries.clone());
+    let mut result = timeline.response(id, 0);
+    result["readOnly"] = json!(true);
+    Ok(result)
+}
+
 pub(super) fn claude_timeline(path: &Path, session: &str) -> Result<Value> {
     let (records, truncated) = read_tail(path, 8 * 1024 * 1024)?;
     let mut timeline = crate::task_tracking::Timeline::default();
@@ -953,6 +965,22 @@ mod tests {
             .any(|entry| entry["type"] == "command"));
         assert!(preview["entries"].as_array().unwrap().len() <= 80);
         drop(directory);
+    }
+
+    #[test]
+    fn discovered_codex_detail_reads_rollout_without_desktop() {
+        // Regression: a discovered Codex task showed a Desktop timeout when opened.
+        let (_directory, path, _now, at) = fixture();
+        append(&path, &[json!({"timestamp":at,"type":"session_meta","payload":{"id":"session"}})]);
+        append(&path, &prompt("codex", "turn", "Inspect the native history", &at));
+        append(&path, &[json!({"timestamp":at,"type":"response_item","payload":{
+            "type":"custom_tool_call","name":"exec","call_id":"call","input":"text(await tools.exec_command({cmd: 'pwd'}))"
+        }})]);
+        let timeline = crate::control::project_codex_rollout(File::open(path).unwrap(), "session")
+            .unwrap();
+        let detail = timeline.response("session", 0);
+        assert!(detail["entries"].as_array().unwrap().iter().any(|entry|
+            entry["input"]["text"].as_str().is_some_and(|input| input.contains("cmd: 'pwd'"))));
     }
 
     #[test]

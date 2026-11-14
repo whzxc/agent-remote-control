@@ -52,11 +52,11 @@ test('passed cards retain their size and spread right without fading', () => {
   }
 });
 
-test('snapshot includes generic tool calls without requiring a detail projection', () => {
-  // Regression: Codex exec tools disappeared from the task-card timeline projection.
-  const projected = taskCardActivity([{ id: 'tool', type: 'tool', title: 'exec', status: 'running' }]);
+test('snapshot shows the input of a Codex exec tool', () => {
+  // Regression: Codex exec rows showed only the tool name although the input was recorded.
+  const projected = taskCardActivity([{ id: 'tool', type: 'tool', title: 'exec', status: 'running', input: { text: 'const result = await tools.exec_command({ cmd: "pwd" });' } }]);
   assert.equal(projected.snapshot[0].kind, 'tool');
-  assert.equal(projected.snapshot[0].text, 'exec');
+  assert.match(projected.snapshot[0].text, /cmd: "pwd"/);
 });
 
 test('tall snapshots retain the bounded history beyond ten rows', () => {

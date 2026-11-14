@@ -1,5 +1,4 @@
 import { homepageMode, selectHomepageMode } from '../state/homepage';
-import { useHomepageTasks } from '../state/homepageTasks';
 import { TransientLayer } from "../components/ui/TransientLayer";
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Popover } from 'radix-ui';
@@ -45,7 +44,7 @@ function useMinuteClock(enabled: boolean) {
 function HomepageBar({ now }: { now: number }) {
   const activity = trackedActivity.use(), executions = taskExecutions.use(), submissions = activityApprovals.use();
   const { snapshot, error } = agentActivity.use();
-  const mode = homepageMode.use(), tasks = useHomepageTasks();
+  const mode = homepageMode.use();
   const language = locale.use(), date = new Date(now);
   const { running, needsYou } = studioActivitySummary(activity, executions, submissions);
   const summary = error ? t('studio.activityUnavailable') : !snapshot ? t('loading') : [
@@ -63,7 +62,7 @@ function HomepageBar({ now }: { now: number }) {
     </div>
     <div className="homepage-mode-switch"><SingleChoice label={t('homepage.mode')} value={mode} compact onChange={value => selectHomepageMode(value as 'topology' | 'tasks')}
       options={[{ value: 'topology', label: t('homepage.topology') }, { value: 'tasks', label: t('homepage.tasks') }]} /></div>
-    <div className="homepage-bar-controls">{mode === 'tasks' && <TaskViewControls tasks={tasks} />}</div>
+    <div className="homepage-bar-controls">{mode === 'tasks' && <TaskViewControls />}</div>
   </header>;
 }
 
