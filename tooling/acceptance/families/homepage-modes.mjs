@@ -163,9 +163,10 @@ export const checks = [{ stage: 'verify', order: 18, visual: true, async run(con
       await page.keyboard.press('Escape');
     }
     const unread = feed.getByRole('article', { name: 'Summarize the queue', exact: true });
-    await unread.getByRole('button', { name: `${text('markRead')}: Summarize the queue`, exact: true }).click();
+    await unread.getByRole('button', { name: `${text('openDetail')}: Summarize the queue`, exact: true }).click();
+    await page.getByRole('dialog', { name: 'Summarize the queue', exact: true }).waitFor();
     await page.waitForFunction(() => window.__ARC_VIEW_MODEL__().homepage.tasks.some(task => task.group === 'recent'));
-    if (await page.getByRole('dialog').count()) throw new Error('Marking a task read opened its detail.');
+    await page.keyboard.press('Escape'); await page.getByRole('dialog').waitFor({ state: 'hidden' });
     await card.getByRole('button', { name: `${text('openDetail')}: Inspect the dispatch queue`, exact: true }).click();
     await page.getByRole('dialog').waitFor();
     await page.keyboard.press('Escape');

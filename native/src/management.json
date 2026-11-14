@@ -1699,6 +1699,9 @@
                 "type": "string",
                 "maxLength": 4096
               },
+              "sort": {
+                "enum": ["created", "updated"]
+              },
               "limit": {
                 "type": "integer",
                 "minimum": 1,

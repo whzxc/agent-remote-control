@@ -13,7 +13,7 @@ export const checks = [{ stage: 'beforeNavigate', order: 1, visual: true, async 
   }
   if (fixture.homepage?.check === 'switcher-window') {
     // Regression: hundreds of hidden task cards mounted snapshots and polled timelines during every deck gesture.
-    const deck = page.getByRole('list', { name: 'Running', exact: true });
+    const deck = page.getByRole('list', { name: 'Tasks', exact: true });
     const counts = async () => ({ shells: await deck.getByRole('article', { includeHidden: true }).count(), details: await deck.locator('[data-task-snapshot]').count() });
     const before = await counts();
     if (before.shells > 16 || before.details !== 5) throw new Error(`Unbounded initial deck: ${JSON.stringify(before)}`);
@@ -41,8 +41,9 @@ export const checks = [{ stage: 'beforeNavigate', order: 1, visual: true, async 
     const snapshot = page.getByRole('article', { name: 'Load a native task preview', exact: true });
     await snapshot.getByText('Cold preview ready', { exact: true }).waitFor();
     await snapshot.getByText('Inspect the native history', { exact: true }).waitFor();
-    await snapshot.getByText('40 actions', { exact: true }).click();
-    await snapshot.getByText('Inspect preview step 1', { exact: true }).waitFor();
+    await snapshot.getByText('40 actions', { exact: true }).waitFor();
+    await snapshot.getByText('Inspect preview step 40', { exact: true }).waitFor();
+    if (await snapshot.getByText('Inspect preview step 1', { exact: true }).count()) throw new Error('A snapshot exposed individual steps.');
     if (await page.getByRole('dialog').count()) throw new Error('A detail layer was required to load a preview.');
     return;
   }
@@ -55,7 +56,6 @@ export const checks = [{ stage: 'beforeNavigate', order: 1, visual: true, async 
     || await feed.getByRole('button', { name: text('approve'), exact: true }).count()) throw new Error('Status snapshots exposed request actions.');
   if (await page.getByRole('combobox', { name: text('filter'), exact: true }).count()) throw new Error('The status dropdown is still visible.');
   const running = feed.getByRole('region', { name: text('running'), exact: true });
-  const completed = feed.getByRole('region', { name: text('completed'), exact: true });
   await running.getByRole('article', { name: 'Choose the deployment window', exact: true }).waitFor();
   await running.getByRole('article', { name: 'Inspect the dispatch queue', exact: true }).waitFor();
   const chooseLayout = async layout => {
@@ -65,13 +65,10 @@ export const checks = [{ stage: 'beforeNavigate', order: 1, visual: true, async 
   };
   await chooseLayout('stack');
   if (await page.evaluate(() => JSON.parse(localStorage.getItem('arc.homepage-task-layout'))) !== 'stack') throw new Error('Stack layout was not persisted.');
-  if (width >= 1000) {
-    const boxes = await Promise.all(['Choose the deployment window', 'Inspect the dispatch queue']
-      .map(name => running.getByRole('article', { name, exact: true }).boundingBox()));
-    if (!boxes[0] || !boxes[1] || boxes[0].x + boxes[0].width > boxes[1].x || boxes[0].y !== boxes[1].y)
-      throw new Error('Running tasks did not spread side by side.');
-  }
-  const deck = completed.getByRole('list', { name: text('completed'), exact: true });
+  const deck = feed.getByRole('list', { name: text('tasks'), exact: true });
+  await deck.getByRole('article', { name: 'Choose the deployment window', exact: true }).waitFor();
+  if (await running.count() || await feed.getByRole('region', { name: text('completed'), exact: true }).count())
+    throw new Error('Stack separated tasks by status.');
   const deckHandle = await deck.elementHandle();
   const settled = () => page.waitForFunction(element => element.getAttribute('aria-busy') === 'false', deckHandle);
   const waitForCard = (title, unchanged = false) => page.waitForFunction(([element, title, unchanged]) =>
@@ -121,9 +118,12 @@ export const checks = [{ stage: 'beforeNavigate', order: 1, visual: true, async 
   await page.keyboard.press('Escape'); await detail.waitFor({ state: 'hidden' });
   if (fixture.homepage.motion && !await page.evaluate(() => window.__ARC_SWITCHER_MORPH__)) throw new Error('Closing did not morph back to the snapshot.');
   await page.waitForFunction(() => !!document.activeElement?.closest('article'), undefined, { timeout: 3000 });
-  // Vertical wheel input browses horizontally; passed cards remain spread to the right.
+  // Horizontal input browses and keeps passed cards spread to the right.
   const beforeWheel = await current().getAttribute('aria-label');
   await deck.hover(); await page.mouse.wheel(0, 120);
+  await page.waitForFunction(element => element.getAttribute('aria-busy') === 'false', deckHandle);
+  if (await current().getAttribute('aria-label') !== beforeWheel) throw new Error('Vertical scrolling changed the selected task.');
+  await page.mouse.wheel(-120, 0);
   await waitForCard(beforeWheel);
   await settled();
   const previousCard = deck.getByRole('article', { name: beforeWheel, exact: true });

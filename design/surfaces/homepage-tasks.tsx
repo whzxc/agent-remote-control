@@ -10,9 +10,8 @@ export default () => [...switcherForms.map(option => {
   const running = tasks.filter(task => task.group === 'running' || task.group === 'needs-me');
   const completed = tasks.filter(task => task.group !== 'running' && task.group !== 'needs-me');
   const columns = option.width >= 1500 ? 6 : option.width >= 1000 ? 5 : 2;
-  const height = mobile ? 280 : portrait ? 360 : 340;
+  const height = mobile ? 320 : 400;
   const form = mobile ? 'mobile' : portrait ? 'portrait' : 'landscape';
-  const deckHeight = option.height - 110;
   return <Frame name={option.name} width={option.width} height={option.height} locale="en"
     fixture={`homepage-switcher-${option.layout}`}
     capture={{ page: true, origin: '0 0', viewport: `${option.width}x${option.height}` }}
@@ -22,17 +21,13 @@ export default () => [...switcherForms.map(option => {
       <div class={`shrink-0 pt-6 pb-4 ${pad}`}>
         <HomepageBar mode="tasks" compact={portrait}><TaskViewControls layout={option.layout} /></HomepageBar>
       </div>
-      <main aria-label={copy.tasks} class="min-h-0 flex-1 overflow-y-auto pb-4">
-        <section aria-label="Running" class={`mb-6 ${pad}`}>
-          <h2 class="mb-[10px] text-small font-semibold">Running</h2>
-          {stack && running.length > columns ? <div class="flex" style={{ height: deckHeight }}><TaskStack items={running} form={form} /></div>
-            : <TaskTiles items={running} columns={columns} height={height} narrow={mobile} />}
-        </section>
-        <section aria-label="Completed" class={pad}>
-          <h2 class="mb-[10px] text-small font-semibold">Completed</h2>
-          {stack ? <div class="flex" style={{ height: deckHeight }}><TaskStack items={completed} form={form} /></div>
-            : <TaskTiles items={completed} columns={columns} height={height} narrow={mobile} />}
-        </section>
+      <main aria-label={copy.tasks} class={`min-h-0 flex-1 overflow-y-auto pb-4 ${stack ? 'flex' : pad}`}>
+        {stack ? <TaskStack items={[...running, ...completed]} form={form}
+          spread={form === 'landscape' && option.width >= running.length * 376 + 148 ? Math.max(0, running.length - 1) : 0} />
+          : <>
+            <section aria-label="Running" class="mb-6"><TaskTiles items={running} columns={columns} height={height} narrow={mobile} /></section>
+            <section aria-label="Completed"><TaskTiles items={completed} columns={columns} height={height} narrow={mobile} /></section>
+          </>}
       </main>
       <div data-free class="absolute bottom-6 left-6"><NavCapsule active="" /></div>
     </div>

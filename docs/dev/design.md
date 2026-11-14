@@ -53,12 +53,12 @@ Pointer and touch follow 1:1; release velocity settles the position. Horizontal
 wheel and arrow keys browse; click or Enter opens. Opening and closing morph the
 snapshot to and from the centered task layer, with instant reduced-motion behavior.
 
-Tasks shows Running and Completed sections. Waiting tasks appear in Running. Stack
-spreads the Running section when its cards fit in one row and uses a depth deck
-for completed history and running overflow. Unconfirmed history retains its status.
-Snapshots show the origin, one-line title, project/path and a scrollable native preview.
-Consecutive tools and thoughts fold between messages. Replies render in full within
-the preview. The Tile/Stack SingleChoice is icon-only.
+Tile places active tasks, including waiting tasks, above completed history with spacing
+between the grids. Stack shows both in one depth deck and spreads active cards when
+they fit in one row. Unconfirmed history retains its status. Snapshots show the origin,
+one-line title, project/path and a static native preview. Consecutive tools and thoughts
+form single-line summaries between messages. Replies render inline. Card activation
+opens the detail. The Tile/Stack SingleChoice is icon-only.
 
 #### Recorded task fields and presentation limits
 
@@ -73,7 +73,8 @@ the preview. The Tile/Stack SingleChoice is icon-only.
 
 No new canonical task field is assumed. The proposed card summary and node phase
 aggregate are new derived UI projections over these existing reads; the local cross-task
-card feed is derived in `ui/state/homepageTasks.ts`. Timeline summaries retain at most
+card feed merges recent native Codex conversations, live activity and dispatch records
+in `ui/state/homepageTasks.ts`. Timeline summaries retain at most
 80 entries per task and use the existing recent-preview read. Remote cards join native controller-scoped `device/tasks` activity and up to 200
 records. Remote timeline/response forwarding and account/quota inventory remain
 management coverage gaps. The proposal assumes no ETA, live provider percentage,

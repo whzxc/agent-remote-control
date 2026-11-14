@@ -228,7 +228,8 @@ impl AgentHost {
         }
         let limit = num(args, "limit", 20).clamp(1, 50);
         if agent == "codex" {
-            let mut params = json!({"archived":false,"limit":limit,"sortKey":"created_at","sortDirection":"desc"});
+            let sort_key = if args["sort"] == "updated" { "updated_at" } else { "created_at" };
+            let mut params = json!({"archived":false,"limit":limit,"sortKey":sort_key,"sortDirection":"desc"});
             if let Some(cursor) = args.get("cursor") {
                 params["cursor"] = cursor.clone();
             }
@@ -263,7 +264,8 @@ impl AgentHost {
                 let title = crate::task_tracking::codex_title(row).unwrap_or_else(|| string(row, "preview"));
                 let mut item = json!({"id":row["id"],"title":title.chars().take(240).collect::<String>(),
                     "project":row["cwd"],"projectName":crate::projects::display_name(&projects, string(row,"cwd"), row["projectId"].as_str()),
-                    "createdAt":timestamp(&row["createdAt"]),"source":"codex-thread","agentAccountId":row["agentAccountId"]});
+                    "createdAt":timestamp(&row["createdAt"]),"updatedAt":timestamp(&row["updatedAt"]),
+                    "turnId":metadata["turnId"],"source":"codex-thread","agentAccountId":row["agentAccountId"]});
                 item["dispatchSummary"] = metadata["dispatchSummary"].clone();
                 item["turnCount"] = metadata["turnCount"].clone();
                 let native_status = row["status"].as_str().or_else(|| row["status"]["type"].as_str());

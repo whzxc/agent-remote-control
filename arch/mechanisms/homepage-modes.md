@@ -29,12 +29,13 @@ Controller-dispatched remote tasks show the controller device followed by its me
 On that member, the controller device is the source and there is no extra local-device
 step. The controller projection contains only tasks it dispatched to that member.
 
-Tasks shows Running and Completed sections. Waiting tasks remain in Running. Unconfirmed
-history appears in Completed with its original status. Layout persists as Tile or Stack.
-The separate check action marks a completion read without opening it.
-Tile uses six columns at 1500px, five at 1000px and two below. Stack spreads running cards
-when they fit and uses a depth deck for overflow and completed history. Deck navigation
-supports pointer, touch, horizontal wheel and keyboard input. Snapshot opening
+Tasks combines live activity, recent native Codex conversations and ARC dispatch records.
+Active tasks, including waiting tasks, come first, with each set ordered by recent activity.
+Unconfirmed history retains its status. Layout persists as Tile or Stack. Opening an unread
+completion marks it read. Tile uses separate status grids without visible headings, with six
+columns at 1500px, five at 1000px and two below. Stack uses one deck and gives running cards
+full width when they fit. Deck navigation supports pointer, touch, horizontal wheel and
+keyboard input. Vertical wheel input keeps its default behavior. Snapshot opening
 and closing morph between the card and the centered layer slot. Reduced motion is instant.
 The one-row HomepageBar reserves space for both homepage modes and retains the Board entry.
 
@@ -60,6 +61,7 @@ columns by explicit user input; the header/navigation stay fixed. Device managem
 explicitly folds the child branch while its panel is open.
 
 Snapshots show status above each portrait card. The card contains its origin chain,
-one-line title, project path and a scrollable, newest-anchored native preview. Consecutive
-thoughts and tools in the same turn fold between messages. Replies retain their content.
+one-line title, project path and a static, newest-anchored native preview. Consecutive
+thoughts and tools in the same turn form a single-line summary between messages. Replies
+retain their content within the preview. Card activation opens the full detail.
 Routing and last-seen information stay in the preview. Request handling remains with the controller.

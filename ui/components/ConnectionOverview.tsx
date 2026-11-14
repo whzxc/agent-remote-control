@@ -65,7 +65,7 @@ function wireState(state: string): WireState {
 export default function ConnectionOverview({ visible = true }: { visible?: boolean }) {
   const core = useRef<HTMLDivElement>(null), topology = useRef<TopologyHandle>(null);
   const panelFrame = useCallback((rect: LayerRect | null) => topology.current?.panelFrame(rect), []);
-  const homeMode = homepageMode.use(), homepageTasks = useHomepageTasks();
+  const homeMode = homepageMode.use(), homepageTasks = useHomepageTasks(homeMode === 'tasks');
   const homepageObservation = useRef({ mode: homeMode, tasks: homepageTasks });
   homepageObservation.current = { mode: homeMode, tasks: homepageTasks };
   useEffect(() => observeHomepage(() => ({ mode: homepageMode.get(), focus: homepageTaskFocus.get(), tasks: homepageObservation.current.tasks.map(task => ({ key: task.key, agent: task.agent, id: task.session.id, group: task.group, deviceId: task.deviceId, controllerDeviceId: task.controllerDeviceId, step: task.activity.steps.at(-1)?.kind })) })), []);

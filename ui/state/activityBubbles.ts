@@ -13,7 +13,7 @@ function saveReads(rows: ActivityRead[], now = Date.now()) {
   try { if (localStorage.getItem(storageKey) !== value) localStorage.setItem(storageKey, value); }
   catch { throw new Error("TASK_READ_PERSIST_FAILED: read state was not saved; free WebView storage and retry task_mark_read"); }
 }
-function loadReads(now = Date.now()): ActivityRead[] {
+export function loadReads(now = Date.now()): ActivityRead[] {
   const raw = localStorage.getItem(storageKey);
   let value: unknown;
   try { value = raw ? JSON.parse(raw) : []; } catch { value = []; }

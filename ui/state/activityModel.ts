@@ -1,4 +1,4 @@
-import type { TaskStepKind } from './taskProjection.ts';
+import { recordedTimestamp, type TaskStepKind } from './taskProjection.ts';
 import type { AgentActivitySession, AgentActivitySnapshot, AgentInteraction } from "../types.ts";
 import { taskHierarchy } from './taskHierarchy.ts';
 import { orderedSubset } from '../topology/order.ts';
@@ -213,8 +213,21 @@ export type HomepageTask = {
   key: string; agent: string; session: TrackedActivity; group: HomepageTaskGroup;
   deviceId?: string; controllerDeviceId?: string; upstreamSourceId?: string; sourceIds: string[]; accountId?: string | null;
   activity: ReturnType<typeof import('./taskProjection.ts').taskCardActivity>;
-  observedAt?: string; freshness?: string; startedAt?: string | null; endedAt?: string | null;
+  observedAt?: string; freshness?: string; startedAt?: string | null; endedAt?: string | null; updatedAt?: string | null;
 };
+export function activeHomepageTask(task: HomepageTask) {
+  return task.group === 'running' || task.group === 'needs-me';
+}
+export function recentHomepageTasks(a: HomepageTask, b: HomepageTask) {
+  const timestamp = (task: HomepageTask) => Math.max(
+    recordedTimestamp(task.updatedAt) ?? 0,
+    recordedTimestamp(task.endedAt) ?? 0,
+    recordedTimestamp(task.startedAt) ?? 0,
+    task.session.endedAt ?? 0,
+  ) || task.session.orderAt || 0;
+  return Number(activeHomepageTask(b)) - Number(activeHomepageTask(a))
+    || timestamp(b) - timestamp(a) || a.key.localeCompare(b.key);
+}
 export function homepageTaskGroup(session: TrackedActivity, pending: boolean, status?: string): HomepageTaskGroup {
   if (session.observed !== false && session.endedAt === undefined) return pending ? 'needs-me' : 'running';
   if (session.endedAt !== undefined || ['completed', 'failed', 'cancelled', 'interrupted'].includes(status ?? '')) return session.readAt === undefined ? 'unread' : 'recent';

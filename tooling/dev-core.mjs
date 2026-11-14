@@ -44,32 +44,34 @@ export async function stopCore(endpoint, owner) {
   if (clients.some(client => client.kind !== 'desktop')) {
     throw new Error('Other local CLI/MCP clients still use Core. Close those clients before starting or restarting dev.');
   }
-  // Core validates the stable isolated identity before any Desktop quit request.
-  const lease = { id: randomUUID(), kind: 'cli', pid: process.pid, ...(owner ? { isolatedOwner: owner } : {}) };
-  await coreRequest(endpoint, 'runtime/lease', 'POST', lease);
-  const heartbeat = setInterval(() => { void coreRequest(endpoint, 'runtime/lease', 'POST', lease).catch(() => {}); }, 2000);
-  let closing = false;
-  try {
-    if (clients.some(client => client.kind === 'desktop')) {
-      try { await coreRequest(endpoint, 'app/quit', 'POST', {}); }
-      catch (error) {
-        if ((await coreRequest(endpoint, 'runtime/clients')).some(client => client.kind === 'desktop')) throw error;
+  const desktop = clients.find(client => client.kind === 'desktop');
+  const quitDesktop = async () => {
+    if (!desktop) return;
+    try { await coreRequest(endpoint, 'app/quit', 'POST', {}); }
+    catch (error) { if (processAlive(desktop.pid) && processAlive(endpoint.pid)) throw error; }
+  };
+  const deadline = Date.now() + 30000;
+  if (owner) {
+    const lease = { id: randomUUID(), kind: 'cli', pid: process.pid, isolatedOwner: owner };
+    await coreRequest(endpoint, 'runtime/lease', 'POST', lease);
+    const heartbeat = setInterval(() => { void coreRequest(endpoint, 'runtime/lease', 'POST', lease).catch(() => {}); }, 2000);
+    let closing = false;
+    try {
+      await quitDesktop();
+      while ((await coreRequest(endpoint, 'runtime/clients')).some(client => client.kind === 'desktop')) {
+        if (Date.now() >= deadline) throw new Error('Desktop did not quit. Core was left running.');
+        await delay(100);
       }
+      await coreRequest(endpoint, 'runtime/shutdown', 'POST', { id: owner.id });
+      closing = true;
+    } finally {
+      clearInterval(heartbeat);
+      if (!closing) await coreRequest(endpoint, 'runtime/release', 'POST', { id: lease.id }).catch(() => {});
     }
-    const deadline = Date.now() + 30000;
-    while ((await coreRequest(endpoint, 'runtime/clients')).some(client => client.kind === 'desktop')) {
-      if (Date.now() >= deadline) throw new Error('Desktop did not quit. Core was left running.');
-      await delay(100);
-    }
-    await coreRequest(endpoint, 'runtime/shutdown', 'POST', { id: owner?.id || lease.id });
-    closing = true;
-    clearInterval(heartbeat);
-    while (processAlive(endpoint.pid)) {
-      if (Date.now() >= deadline) throw new Error('Core shutdown timed out. Wait for cleanup before starting another instance.');
-      await delay(100);
-    }
-  } finally {
-    clearInterval(heartbeat);
-    if (!closing) await coreRequest(endpoint, 'runtime/release', 'POST', { id: lease.id }).catch(() => {});
+  } else await quitDesktop();
+  // The installed Core drains and exits when its Desktop releases the last lease.
+  while (processAlive(endpoint.pid)) {
+    if (Date.now() >= deadline) throw new Error('Core shutdown timed out. Wait for cleanup before starting another instance.');
+    await delay(100);
   }
 }

@@ -1,17 +1,42 @@
 import { deviceSnapshot, pairedDevices } from '../devices/state';
 import { deviceTasks } from '../devices/tasks';
 import { homepageRemoteReads } from './homepage';
-import { useMemo } from 'react';
-import { trackedActivity, activityBubbleSnapshot, rememberActivityRead, markActivitiesRead } from './activityBubbles';
+import { useEffect, useMemo, useState } from 'react';
+import { trackedActivity, loadReads, rememberActivityRead, markActivitiesRead } from './activityBubbles';
 import { tasks as taskRecords } from './tasks';
 import { createStore } from './store';
 import { activityApprovals } from './activity';
 import { taskExecutions } from './taskExecution';
 import { pendingSessions } from './taskInteractions';
 import { executionStatus } from './taskExecutionModel';
-import { homepageTaskGroup, projectDeviceTasks, remoteTaskReadKey, type HomepageTask } from './activityModel';
+import { activityReadMatches, homepageTaskGroup, projectDeviceTasks, remoteTaskReadKey, type HomepageTask, type TrackedActivity } from './activityModel';
 import { taskCardActivity } from './taskProjection';
-import { taskOrder } from './taskOrder';
+import { api } from '../api';
+import type { AgentConversation, AgentConversationPage } from '../types';
+
+const emptyHistory: AgentConversation[] = [];
+
+function useRecentConversations(enabled: boolean) {
+  const [rows, setRows] = useState(emptyHistory);
+  useEffect(() => {
+    if (!enabled) return;
+    let stopped = false, reading = false;
+    const read = async () => {
+      if (document.hidden || reading) return;
+      reading = true;
+      try {
+        const result = await api<AgentConversationPage>("agents/conversations", "POST", { agent: 'codex', limit: 30, sort: 'updated' });
+        if (!stopped) setRows(result.data);
+      } catch { /* Keep the last native page through Core handoff. */ }
+      finally { reading = false; }
+    };
+    void read();
+    const timer = setInterval(read, 30000);
+    document.addEventListener('visibilitychange', read);
+    return () => { stopped = true; clearInterval(timer); document.removeEventListener('visibilitychange', read); };
+  }, [enabled]);
+  return enabled ? rows : emptyHistory;
+}
 
 export const homepageReadRevision = createStore(0);
 export function markHomepageTaskRead(task: HomepageTask) {
@@ -24,45 +49,71 @@ export function markHomepageTaskRead(task: HomepageTask) {
   markActivitiesRead([{ agent: task.agent, id: task.session.id }]);
   homepageReadRevision.set(value => value + 1);
 }
-export function useHomepageTasks() {
-  const tracked = trackedActivity.use(), executions = taskExecutions.use(), submissions = activityApprovals.use(), order = taskOrder.use();
+export function useHomepageTasks(showHistory: boolean) {
+  const tracked = trackedActivity.use(), executions = taskExecutions.use(), submissions = activityApprovals.use();
+  const history = useRecentConversations(showHistory);
   const records = taskRecords.use().records, readRevision = homepageReadRevision.use();
   const devices = deviceSnapshot.use(), remote = deviceTasks.use(), remoteReads = homepageRemoteReads.use();
   const tasks = useMemo(() => {
-    const combined = Object.fromEntries(Object.entries(tracked).map(([agent, sessions]) => [agent, [...sessions]]));
-    const reads = activityBubbleSnapshot();
-    for (const record of records.slice(0, 100)) {
+    const combined = Object.fromEntries(Object.entries(tracked).map(([agent, sessions]) => [agent, new Map<string, TrackedActivity>(sessions.map(session => [session.id, session]))]));
+    const updates = new Map<string, string | null | undefined>();
+    for (const record of records) {
       const agent = record.agent ?? 'codex', id = record.threadId ?? record.taskId ?? record.open?.taskId ?? record.task.threadId;
-      if (!id || combined[agent]?.some(session => session.id === id)) continue;
-      const execution = executions[JSON.stringify([agent, id])];
+      if (!id) continue;
+      const key = JSON.stringify([agent, id]);
+      if (updates.has(key)) continue;
+      updates.set(key, record.updatedAt || record.createdAt);
+      const existing = combined[agent]?.get(id);
+      if (existing) {
+        combined[agent].set(id, { ...existing, origin: existing.origin ?? record.origin ?? record.task.origin,
+          agentAccountId: existing.agentAccountId ?? record.agentAccountId });
+        continue;
+      }
+      if (updates.size > 100) continue;
+      const execution = executions[key];
       const status = executionStatus(execution, record.turnId) ?? record.runtime?.status ?? record.runtime?.runtimeStatus ?? 'unknown';
       const timing = execution?.turnTimings?.[record.turnId ?? execution.turnId ?? ''];
-      const terminal = ['completed', 'failed', 'cancelled', 'interrupted'].includes(status);
       const session = { id, source: 'arc-task' as const, title: record.runtime?.title ?? record.task.title ?? record.task.prompt,
         headline: '', phase: 'idle' as const, phaseSince: null, timeline: true, observed: false, orderAt: Date.parse(record.createdAt),
         turnId: record.turnId, startedAt: record.createdAt, status, origin: record.origin ?? record.task.origin, open: record.open,
-        ...(timing?.endedAt ? { endedAt: Date.parse(timing.endedAt) } : {}),
-        ...(terminal ? { readAt: reads.find(row => row.agent === agent && row.id === id)?.readAt ?? undefined } : {}) };
-      (combined[agent] ??= []).push(session);
+        agentAccountId: record.agentAccountId, ...(timing?.endedAt ? { endedAt: Date.parse(timing.endedAt) } : {}) };
+      (combined[agent] ??= new Map()).set(id, session);
     }
-    const projected = Object.entries(combined).flatMap(([agent, sessions]) => {
-    const ranks = new Map((order[agent] ?? []).map((id, index) => [id, index]));
-    return [...sessions].sort((a, b) => (ranks.get(a.id) ?? Infinity) - (ranks.get(b.id) ?? Infinity) || a.orderAt - b.orderAt).map<HomepageTask>(session => {
-      const execution = executions[JSON.stringify([agent, session.id])];
+    for (const row of history) {
+      const sessions = combined.codex ??= new Map();
+      const previous = sessions.get(row.id);
+      const key = JSON.stringify(['codex', row.id]);
+      if (row.updatedAt) updates.set(key, row.updatedAt);
+      if (previous?.observed) continue;
+      sessions.set(row.id, {
+        ...previous, id: row.id, source: row.source === 'native' ? 'transcript' : row.source, conversation: true,
+        title: row.title || previous?.title, status: row.status ?? previous?.status,
+        project: row.project ?? previous?.project, projectName: row.projectName ?? previous?.projectName,
+        dispatchSummary: row.dispatchSummary ?? previous?.dispatchSummary, agentAccountId: row.agentAccountId ?? previous?.agentAccountId,
+        turnId: row.turnId ?? previous?.turnId, open: row.open ?? previous?.open,
+        startedAt: row.createdAt ?? previous?.startedAt, orderAt: Date.parse(row.createdAt ?? '') || previous?.orderAt || 0,
+        observed: false, timeline: true, phase: 'idle', phaseSince: null, headline: previous?.headline ?? '',
+      });
+    }
+    const readRows = loadReads();
+    const reads = new Map(readRows.map(row => [JSON.stringify([row.agent, row.id]), row]));
+    const projected = Object.entries(combined).flatMap(([agent, sessions]) => [...sessions.values()].map<HomepageTask>(session => {
+      const key = JSON.stringify([agent, session.id]);
+      const execution = executions[key];
       const pending = pendingSessions(agent, session, execution?.interactions ?? [], submissions);
       const status = executionStatus(execution, session.turnId) ?? session.status ?? undefined;
       const timing = execution?.turnTimings?.[session.turnId ?? execution.turnId ?? ''];
-      return { key: JSON.stringify([agent, session.id]), agent, session: { ...session, interaction: pending[0]?.interaction },
-        group: homepageTaskGroup(session, pending.length > 0, status), sourceIds: session.origin?.sourceId || session.dispatchSummary?.controlSource?.id ? [session.origin?.sourceId ?? session.dispatchSummary!.controlSource!.id!] : [],
+      const read = reads.get(key);
+      const current = { ...session, status, readAt: session.readAt ?? (read && activityReadMatches(read, session) ? read.readAt : undefined), interaction: pending[0]?.interaction };
+      return { key, agent, session: current, updatedAt: updates.get(key),
+        group: homepageTaskGroup(current, pending.length > 0, status), sourceIds: session.origin?.sourceId || session.dispatchSummary?.controlSource?.id ? [session.origin?.sourceId ?? session.dispatchSummary!.controlSource!.id!] : [],
         controllerDeviceId: session.origin?.deviceId ?? session.dispatchSummary?.controlSource?.deviceId, upstreamSourceId: session.origin?.peerOrigin?.sourceId,
         accountId: session.agentAccountId ?? session.dispatchSummary?.agentAccountId,
         activity: taskCardActivity(execution?.entries ?? []),
         startedAt: timing?.startedAt ?? session.turnStartedAt, endedAt: timing?.endedAt };
-    });
-  });
+    }));
     projected.push(...pairedDevices(devices).flatMap(device => projectDeviceTasks(device, remote[device.id] ?? {}, remoteReads)));
-    const rank = new Map((order.homepage ?? []).map((key, index) => [key, index]));
-    return projected.sort((a, b) => (rank.get(a.key) ?? Infinity) - (rank.get(b.key) ?? Infinity));
-  }, [tracked, executions, submissions, order, records, readRevision, devices, remote, remoteReads]);
+    return projected;
+  }, [tracked, executions, submissions, history, records, readRevision, devices, remote, remoteReads]);
   return tasks;
 }

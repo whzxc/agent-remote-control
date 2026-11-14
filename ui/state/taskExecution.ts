@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore, type RefObject } from "react";
 import { api } from "../api";
 import type { AgentTimeline } from "../types";
 import { createStore } from "./store";
@@ -61,12 +61,17 @@ export function useTaskExecution(agent: string, id: string, turnId: string | nul
 }
 
 /** Only mounted task snapshots request timeline previews. */
-export function useTaskPreview(agent: string, id: string, enabled: boolean) {
+export function useTaskPreview(agent: string, id: string, enabled: boolean, card: RefObject<HTMLElement | null>) {
   useEffect(() => {
-    if (!enabled) return;
-    const read = () => { if (document.visibilityState === "visible") void refreshTaskExecution(agent, id, true).catch(() => {}); };
-    read();
+    if (!enabled || !card.current) return;
+    let visible = false;
+    const read = () => { if (visible && !document.hidden) void refreshTaskExecution(agent, id, true).catch(() => {}); };
+    const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; read(); });
+    observer.observe(card.current);
+    document.addEventListener("visibilitychange", read);
     const timer = setInterval(read, 10000);
-    return () => clearInterval(timer);
-  }, [agent, id, enabled]);
+    return () => {
+      observer.disconnect(); clearInterval(timer); document.removeEventListener("visibilitychange", read);
+    };
+  }, [agent, id, enabled, card]);
 }

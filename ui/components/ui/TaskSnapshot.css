@@ -10,26 +10,22 @@
 .task-snapshot-path { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-caption); color: var(--text-tertiary); }
 .task-snapshot-title { margin: 10px 16px 0; text-align: left; color: var(--text); font-size: var(--text-body); font-weight: 600; line-height: 20px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; flex: none; }
 .task-snapshot-project { margin: 4px 16px 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--text-tertiary); font-size: var(--text-caption); flex: none; }
-.task-snapshot-timeline { flex: 1; min-height: 0; overflow: auto; margin: 12px; border-radius: 16px; background: var(--surface-subtle); }
-.task-snapshot-tail { min-height: 100%; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; padding: 12px; }
+.task-snapshot-timeline { flex: 1; position: relative; min-height: 0; overflow: clip; margin: 12px; border-radius: 16px; background: var(--surface-subtle); }
+.task-snapshot-tail { min-height: 100%; position: absolute; inset: auto 0 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; padding: 12px; }
 .task-snapshot-row { display: flex; flex: none; align-items: start; gap: 8px; font-size: var(--text-caption); line-height: 16px; color: var(--text-secondary); overflow-wrap: anywhere; }
 .task-snapshot-row > svg { flex: none; }
 .task-snapshot-markdown { min-width: 0; max-width: 100%; }
 .task-snapshot-markdown :is(h1, h2, h3, h4, h5, h6) { font-size: inherit; font-weight: 650; line-height: inherit; }
 .task-snapshot-markdown :is(ol, ul) { padding-inline-start: 1.4em; }
 .task-snapshot-markdown > * + * { margin-top: 6px; }
-.task-snapshot-markdown :is(pre, table) { max-width: 100%; display: block; overflow-x: auto; }
-.task-snapshot-row > pre { min-width: 0; white-space: pre-wrap; margin: 0; font: inherit; font-family: var(--font-mono); }
+.task-snapshot-markdown :is(pre, table) { max-width: 100%; display: block; overflow: clip; }
+.task-snapshot-markdown pre { white-space: pre-wrap; }
 .task-snapshot-row[data-status=running] { color: var(--role-agent); font-weight: 600; }
 .task-snapshot-row[data-role=source], .task-snapshot-row[data-role=request] { background: var(--surface); border-radius: 10px; padding: 8px; }
 .task-snapshot-row[data-role=agent] { color: var(--text); }
-.task-snapshot-work { min-width: 0; color: var(--text-secondary); font-size: var(--text-caption); }
-.task-snapshot-work summary { display: flex; align-items: center; gap: 6px; list-style: none; cursor: pointer; }
-.task-snapshot-work summary > svg { flex: none; }
-.task-snapshot-thought { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.task-snapshot-work summary::-webkit-details-marker { display: none; }
-.task-snapshot-work[open] summary > svg:last-child { transform: rotate(90deg); }
-.task-snapshot-work[open] > .task-snapshot-row { margin: 6px 0 0 6px; }
+.task-snapshot-work { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--text-secondary); font-size: var(--text-caption); white-space: nowrap; }
+.task-snapshot-work > svg, .task-snapshot-work-count { flex: none; }
+.task-snapshot-work-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .task-snapshot-routing, .task-snapshot-observed { display: flex; align-items: center; gap: 6px; color: var(--text-tertiary); font-size: var(--text-caption); }
 .task-snapshot[data-offline] .task-snapshot-timeline { opacity: .6; }
 .task-snapshot .task-snapshot-read { --icon-button-size: 20px; margin-left: auto; }

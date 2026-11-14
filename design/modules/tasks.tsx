@@ -79,7 +79,6 @@ export function TaskSnapshot({ task, height = 340, narrow = false }: {
     <header class={`flex items-center gap-2 pt-[14px] ${inset}`}>
       <OriginChain steps={narrow ? task.origin.filter(step => step.brand) : task.origin} />
       {task.path && !narrow && !offline && <span class="ml-auto truncate text-caption text-text-tertiary">{task.path}</span>}
-      {done && <span class="ml-auto"><IconButton icon="check" label={`${copy.markRead}: ${task.title}`} size={20} /></span>}
     </header>
     <button aria-label={`${copy.open}: ${task.title}`} class={`truncate pt-[10px] text-left text-body leading-5
       font-semibold text-text ${inset}`}>{task.title}</button>
@@ -87,7 +86,8 @@ export function TaskSnapshot({ task, height = 340, narrow = false }: {
       bg-surface-subtle ${narrow ? 'm-2 p-2' : 'm-3 p-3'} ${offline ? 'opacity-60' : ''}`} aria-hidden="true">
       {task.prompt && <SnapshotNote tone="source" text={task.prompt} />}
       {steps.length > 0 && <div class="flex items-center gap-[6px] text-caption text-text-secondary">
-        <Icon name="wrench" size={12} />{steps.length} actions<Icon name="chevron-right" size={12} />
+        <Icon name="wrench" size={12} /><span class="shrink-0 whitespace-nowrap">{steps.length} actions</span>
+        <span class="min-w-0 truncate">{steps.at(-1)?.text}</span>
       </div>}
       {waiting && <SnapshotNote tone="request" label={`${sw.request} → ${route?.route ?? ''}`} text={task.detail} />}
       {done && <p class="text-caption leading-4 text-text">{task.change?.output ?? task.activity}</p>}
@@ -126,18 +126,24 @@ const decks = {
   mobile: { width: 390, card: 290, peeks: [34, 24, 16, 10, 8, 6, 4] },
 } as const;
 /** Stack: depth deck. The front card is whole; cards behind recede left, scaled, fogged and shadowed. */
-export function TaskStack({ items = tasks, form = 'landscape', active = 0 }: {
-  items?: readonly TaskSnapshotData[]; form?: keyof typeof decks; active?: number;
+export function TaskStack({ items = tasks, form = 'landscape', active = 0, spread = 0 }: {
+  items?: readonly TaskSnapshotData[]; form?: keyof typeof decks; active?: number; spread?: number;
 }) {
   const deck = decks[form], order = items.slice(0, deck.peeks.length + 1);
-  const offsets = order.map((_, index) => index < active ? (index - active) * (deck.card + 16) : deck.peeks.slice(0, index - active).reduce((sum, peek) => sum + peek, 0));
-  const span = deck.card + deck.peeks.slice(0, order.length - 1).reduce((sum, peek) => sum + peek, 0);
-  const front = Math.min(Math.round((deck.width - span) / 2), deck.width - span - 16) + span - deck.card;
+  const flat = Math.max(0, spread - active);
+  const offsets = order.map((_, index) => {
+    const depth = index - active;
+    return Math.min(depth, flat) * (deck.card + 16)
+      + deck.peeks.slice(0, Math.max(0, depth - flat)).reduce((sum, peek) => sum + peek, 0);
+  });
+  const span = deck.card + (offsets.at(-1) ?? 0);
+  const minimumSpan = deck.card + flat * (deck.card + 16) + (flat && order.length > spread + 1 ? deck.peeks[0] : 0);
+  const front = Math.min(deck.width - deck.card - 16, Math.max(minimumSpan - deck.card + 16, (deck.width + span) / 2 - deck.card));
   return <div class="flex min-h-0 flex-1 flex-col pt-4">
     <div data-free role="list" aria-label={copy.tasks} class="relative isolate min-h-0 w-full flex-1 overflow-hidden">
-      {order.map((task, index) => ({ task, index, depth: index - active })).reverse().map(({ task, index, depth }) => {
+      {order.map((task, index) => ({ task, index, depth: Math.max(0, index - active - flat) })).reverse().map(({ task, index, depth }) => {
         const strip = depth > 0 ? deck.peeks[depth - 1] : deck.card;
-        return <div role="listitem" aria-current={depth ? undefined : 'true'} class="absolute inset-y-0 flex flex-col gap-3"
+        return <div role="listitem" aria-current={index === active ? 'true' : undefined} class="absolute inset-y-0 flex flex-col gap-3"
           style={{ left: front - offsets[index], width: deck.card, transform: `scale(${1 - Math.max(0, depth) * 0.035})`,
             transformOrigin: 'left center' }}>
           <div class="overflow-hidden" style={{ maxWidth: strip - 4 }}>

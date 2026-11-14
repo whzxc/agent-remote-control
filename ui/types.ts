@@ -125,6 +125,8 @@ export interface AgentConversation {
   title?: string | null;
   project?: string | null;
   createdAt: string | null;
+  updatedAt?: string | null;
+  turnId?: string | null;
   nativeSessionId?: string | null;
   open?: AgentActivitySession["open"];
 }
