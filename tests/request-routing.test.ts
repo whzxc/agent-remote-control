@@ -44,7 +44,7 @@ test("dock interaction pauses routing and explicit controls preserve answering",
     const session = { id: "task", source: "arc-task", phase: "interaction", phaseSince: null, headline: "", timeline: true, interaction };
     const source = "Fixture source";
     const render = async (key: string, narrow: boolean) => {
-      await act(async () => root.render(h(TooltipProvider, null, h(Dock, { key, agent: "codex", session, entries: [], source, narrow }))));
+      await act(async () => root.render(h(TooltipProvider, null, h(Dock, { key, agent: "codex", session, entries: [], source: { label: source }, narrow }))));
     };
     const page = within(document.body);
     failRouting = true;

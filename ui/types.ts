@@ -133,8 +133,9 @@ export interface AgentConversationPage {
   nextCursor: string | null;
   scope: "native-unarchived" | "arc-tasks";
 }
+export interface AnsweredBy { kind: "source" | "local-ui" | "unknown"; sourceId?: string; label?: string; brand?: string; }
 export interface AgentTimelineEntry {
-  response?: { skipped?: boolean; result?: { answer?: string; answers?: Record<string, { answers: string[] }>; decision?: string }; error?: unknown; origin: { controlSource?: string; sourceLabel?: string; sourceId?: string }; resolvedAt: string };
+  response?: { answeredBy?: AnsweredBy; skipped?: boolean; result?: { answer?: string; answers?: Record<string, { answers: string[] }>; decision?: string }; error?: unknown; origin: { controlSource?: string; sourceLabel?: string; sourceId?: string }; resolvedAt: string };
   controlSource?: DispatchSummary["controlSource"];
   phase?: string;
   id: string;

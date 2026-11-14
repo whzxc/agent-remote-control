@@ -1,0 +1,34 @@
+{
+  "theme": "light",
+  "language": "zh-CN",
+  "agents": [
+    "codex",
+    "claude"
+  ],
+  "panel": {
+    "kind": "agent",
+    "id": "codex"
+  },
+  "detailTask": 0,
+  "timeline": "multi-turn",
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "idle",
+      "title": "Relay timeline fixture",
+      "headline": "npm run check",
+      "elapsedSeconds": 83,
+      "completed": true
+    }
+  ],
+  "viewports": [
+    {
+      "width": 640,
+      "height": 800
+    },
+    {
+      "width": 1280,
+      "height": 1100
+    }
+  ]
+}

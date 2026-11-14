@@ -1873,5 +1873,15 @@
   "homepage.interrupted": "Interrupted",
   "homepage.omitted": "{count} older remote records omitted",
   "homepage.remoteDetailLimit": "Core provides this remote activity snapshot. Remote timeline and response forwarding are unavailable in the current management API.",
-  "homepage.accounts": "{count} accounts"
+  "homepage.accounts": "{count} accounts",
+  "relay.controller": "Controller",
+  "relay.approvedBy": "{source} approved",
+  "relay.thought": "Thought",
+  "relay.followup": "Follow-up",
+  "relay.dispatch": "Dispatch",
+  "relay.prompt": "Prompt",
+  "relay.queued": "Queued",
+  "relay.turn": "Turn {count}",
+  "relay.reply": "Reply",
+  "relay.request": "Request approval"
 }

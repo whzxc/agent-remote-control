@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { TaskMessage } from "./ui/TaskPresentation";
+import RelayRoute from "./RelayRoute";
 import { t } from "../i18n";
 import type { useTaskQueue } from "../state/taskQueue";
 import { taskErrorText } from "../state/taskErrors";
-export default function TaskQueuedMessages({ queue }: { queue: ReturnType<typeof useTaskQueue> }) {
+export default function TaskQueuedMessages({ queue, agent }: { agent: string; queue: ReturnType<typeof useTaskQueue> }) {
   const previous = useRef(new Map<string, string>()), [announcement, setAnnouncement] = useState("");
   useEffect(() => {
     const changes = queue.items.filter(row => previous.current.get(row.queueId) !== row.state);
@@ -12,10 +12,10 @@ export default function TaskQueuedMessages({ queue }: { queue: ReturnType<typeof
   }, [queue.items]);
   return <>
     <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</span>
-    {[...queue.items].reverse().filter(row => row.state !== "sent" && row.state !== "cancelled").map(row => <TaskMessage queued key={row.queueId} aria-label={t(`detail.queueState.${row.state}`)}>
-      <p>{row.text ?? row.preview}</p><span>{t(`detail.queueState.${row.state}`)}</span>
+    {[...queue.items].reverse().filter(row => row.state !== "sent" && row.state !== "cancelled").map(row => <article className="relay-message relay-queued" data-neutral={!row.controlSource || undefined} key={row.queueId} aria-label={t(`detail.queueState.${row.state}`)}>
+      {row.controlSource ? <RelayRoute source={row.controlSource} agent={agent} label={t("relay.queued")} /> : <span className="timeline-meta">{t("relay.prompt")} · {t("relay.queued")}</span>}<p>{row.text ?? row.preview}</p><span>{t(`detail.queueState.${row.state}`)}</span>
       {!!row.error && <p role="alert">{taskErrorText(row.error, "detail.queueDeliveryFailed")}</p>}
-    </TaskMessage>)}
+    </article>)}
     {/* A revoked local panel identity is not an error in every observed task. */}
     {queue.error && !/\bSOURCE_REVOKED\b/.test(queue.error) && <p className="task-queue-error" role="alert">{taskErrorText(queue.error, "detail.queueReadFailed")}</p>}
   </>;

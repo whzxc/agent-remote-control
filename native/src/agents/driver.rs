@@ -558,7 +558,7 @@ impl AgentDriver {
                         });
                 json!({"decision":if rejected {"decline"} else {"accept"}})
             };
-            timeline.answered(&request, &json!({"result":result,"native":a,"origin":crate::kernel::origin::current_origin(),"resolvedAt":now()}));
+            timeline.answered(&request, &json!({"result":result,"native":a,"answeredBy":crate::interaction_responses::current_answered_by(),"origin":crate::kernel::origin::current_origin(),"resolvedAt":now()}));
         }
         pending.pending.remove(&key);
         let empty = pending.pending.is_empty();

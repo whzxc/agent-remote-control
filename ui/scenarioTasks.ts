@@ -88,7 +88,7 @@ export function taskScenario(timelines: Record<string, AgentTimeline>, activity:
       const entry = timeline?.entries.find(row => row.status === 'pending' && row.interaction?.respond.args?.id === args.id);
       if (!timeline || !entry) throw new Error('STALE_INTERACTION');
       const at = new Date().toISOString(); entry.status = 'completed'; entry.updatedAt = at; entry.endedAt = at; entry.cursor = ++timeline.cursor;
-      entry.response = {result:args.result,skipped:args.skipped === true || !!args.result?.answers && Object.values(args.result.answers as Record<string,{answers:string[]}>).every(answer=>!answer.answers.length),origin:{controlSource:'ARC',sourceLabel:'ARC'},resolvedAt:at};
+      entry.response = {answeredBy:{kind:'local-ui'},result:args.result,skipped:args.skipped === true || !!args.result?.answers && Object.values(args.result.answers as Record<string,{answers:string[]}>).every(answer=>!answer.answers.length),origin:{controlSource:'ARC',sourceLabel:'ARC'},resolvedAt:at};
       for (const group of Object.values(activity.agents)) for (const session of group.sessions) if (session.id === timeline.sessionId) { delete session.interaction; session.phase = 'text'; }
       result.threadId = timeline.sessionId;
     } else throw new Error(`SCENARIO_ACTION_UNAVAILABLE: ${op}`);

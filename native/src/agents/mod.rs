@@ -434,7 +434,7 @@ impl AgentHost {
                     let runtime = lifecycle::runtime(&task);
                     Ok(Some(json!({"agentAccountId":receipt["agentAccountId"],"requestId":request,"agent":receipt["agent"],"taskId":receipt["taskId"],"turnId":receipt["turnId"],
                 "origin":receipt["origin"],"state":receipt["state"],"createdAt":receipt["createdAt"],"updatedAt":receipt["updatedAt"],
-                "approval":{"decision":if Progress::read(string(&receipt, "state"), true).is(ReceiptState::AwaitingApproval) {"pending"} else {args["approval"].as_str().unwrap_or("automatic")},"source":"cloud","at":receipt["createdAt"]},
+                "approval":{"decision":if Progress::read(string(&receipt, "state"), true).is(ReceiptState::AwaitingApproval) {"pending"} else if receipt["approval"] == "approve" {"approved"} else if matches!(string(&receipt,"approval"), "reject" | "bypass") {string(&receipt,"approval")} else {args["approval"].as_str().unwrap_or("automatic")},"source":"cloud","answeredBy":receipt["answeredBy"],"at":receipt["createdAt"]},
                 "task":{"agentAccountId":receipt["agentAccountId"],"kind":if receipt["operation"] == "agent_create" {"create"}else{"send"},"origin":receipt["origin"],"title":task.get("title").unwrap_or(&args["title"]),"prompt":args["prompt"].as_str().unwrap_or(""),"input":[],"directory":task.get("cwd").unwrap_or(&args["cwd"]),"model":args["model"],"settings":{}},
                 "runtime":{"runtimeStatus":runtime,"title":task["title"],"observedAt":task["updatedAt"],"stale":receipt["backendSession"] != self.session && matches!(runtime, "active" | "waiting")},
                 "error":receipt.get("error").or_else(||receipt["result"].get("error"))})))
@@ -913,6 +913,7 @@ impl AgentHost {
                 },
             );
             r["approval"] = json!(action);
+            r["answeredBy"] = crate::interaction_responses::current_answered_by();
             r["backendSession"] = json!(self.session);
             if action != "reject" && r["operation"] != "agent_create" {
                 r["previousTurnId"] =
@@ -1141,6 +1142,9 @@ impl AgentHost {
         let mut receipt = json!({"agentAccountId":args["agentAccountId"],"agentProfileId":args["agentProfileId"],"origin":crate::kernel::origin::current_origin(),"requestId":request,"agent":agent,"taskId":task,"previousTurnId":previous_turn,"operation":name,"arguments":args,"digest":digest,"state":if needs_approval{ReceiptState::AwaitingApproval.wire()}else{ReceiptState::Reserved.wire()},"backendSession":self.session,"createdAt":now(),"nextAction":"receipt"});
         if matches!(name, "agent_create" | "agent_send") {
             crate::dispatch_caller::attach_current(&mut receipt);
+        }
+        if matches!(string(&args, "approval"), "approved" | "bypass") {
+            receipt["answeredBy"] = crate::interaction_responses::current_answered_by();
         }
         RECEIPTS.reserve(&receipt)?;
         if needs_approval {

@@ -1,11 +1,13 @@
 import { usePanelState } from "./ui/Panel";
 import { readOnlyBrowser } from "../browserMode";
+import RelayRoute from "./RelayRoute";
+import { dispatchSourceLabel, SourceBadge } from "./activity";
 import RequestRouting from "./RequestRouting";
 import { useRequestRouting } from "../state/requestRouting";
 import { useEffect, useId, useRef, useState } from "react";
 import { layers } from "../state/layers";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import type { AgentActivitySession, AgentTimelineEntry } from "../types";
+import type { AgentActivitySession, AgentTimelineEntry, DispatchSummary } from "../types";
 import { t } from "../i18n";
 import { activityApprovals } from "../state/activity";
 import { interactionKey } from "../state/activityModel";
@@ -19,8 +21,8 @@ import { TaskCard, RequestEntry } from "./ui/TaskPresentation";
 export function taskReceipts(records: TaskRecord[], agent: string, id: string) {
   return records.filter(record => (record.agent || "codex") === agent && (record.taskId || record.threadId || record.task.threadId) === id);
 }
-export default function TaskNeedsYou({ agent, session, entries, source, narrow }: {
-  agent: string; session: AgentActivitySession; entries: AgentTimelineEntry[]; source?: string; narrow: boolean;
+export default function TaskNeedsYou({ agent, session, entries, source, narrow, inline = false }: {
+  agent: string; session: AgentActivitySession; entries: AgentTimelineEntry[]; source?: DispatchSummary["controlSource"]; narrow: boolean; inline?: boolean;
 }) {
   const submissions = activityApprovals.use();
   const [page, setPage] = useState(0);
@@ -49,10 +51,10 @@ export default function TaskNeedsYou({ agent, session, entries, source, narrow }
   const interaction = pending?.interaction;
   usePanelState({ dirty: Object.values(drafts[identity ?? ""] ?? {}).some(values => values.some(value => value.length > 0)),
     busy: !!identity && submissions[identity]?.status === "submitting" || routing.busy });
-  const route = (mode: "passive" | "actionable") => <RequestRouting mode={mode} routing={routing.error ? undefined : routing.routing} source={source || t("routing.source")} busy={routing.busy} change={routing.change} />;
+  const route = (mode: "passive" | "actionable") => <RequestRouting mode={mode} routing={routing.error ? undefined : routing.routing} source={dispatchSourceLabel(source) || t("routing.source")} busy={routing.busy} change={routing.change} />;
   const passive = routing.routing && !["deferred", "paused"].includes(routing.routing.state) && !routing.error ? route("passive") : undefined;
   const dock = <section ref={focus} tabIndex={-1} className="task-needs-you" onFocusCapture={pauseOnInteraction} onPointerDownCapture={pauseOnInteraction} onClickCapture={pauseOnInteraction} onKeyDownCapture={pauseOnInteraction} onChangeCapture={pauseOnInteraction} aria-label={t("detail.needsYou")}>
-    {!narrow && <header><strong>{t("detail.needsYou")}</strong>{passive}</header>}
+    <header><RelayRoute source={source} agent={agent} reverse label={t("relay.request")} />{!narrow && passive}</header>
     {count > 1 && <nav className="actions" aria-label={t("detail.needsYou")}><IconButton compact icon={ChevronLeft} label={t("detail.previousRequest")} disabled={index === 0} onClick={() => setPage(index - 1)} /><span>{t("detail.pager", { current: index + 1, total: count })}</span><IconButton compact icon={ChevronRight} label={t("detail.nextRequest")} disabled={index === count - 1} onClick={() => setPage(index + 1)} /></nav>}
     {pending && interaction && <TaskCard className="task-request-card">
       {interaction.kind === "question" ? <TaskQuestion key={identity} agent={agent} session={pending} answers={drafts[identity!] ?? {}} onAnswersChange={answers => setDrafts(old => ({ ...old, [identity!]: answers }))} routing={route("actionable")} /> : <>
@@ -65,9 +67,10 @@ export default function TaskNeedsYou({ agent, session, entries, source, narrow }
       </>}
     </TaskCard>}
   </section>;
+  if (inline && !narrow) return count ? <div className="relay-request">{dock}</div> : null;
   if (!narrow) return count ? <footer className="dialog-footer task-detail-footer">{dock}</footer> : null;
   return <>{count > 0 && <footer className="dialog-footer task-detail-footer" onFocusCapture={pauseOnInteraction} onPointerDownCapture={pauseOnInteraction} onClickCapture={pauseOnInteraction} onKeyDownCapture={pauseOnInteraction}>
-    <RequestEntry title={`${t("detail.needsYou")} · ${count}`} summary={interaction?.title || interaction?.summary} action={t("detail.openRequest")} onOpen={() => { if (!readOnlyBrowser) void routing.change("pause"); setSheetOpen(true); }} />
+    <RelayRoute source={source} agent={agent} reverse label={t("relay.request")} /><RequestEntry title={`${t("detail.needsYou")} · ${count}`} summary={interaction?.title || interaction?.summary} action={t("detail.openRequest")} onOpen={() => { if (!readOnlyBrowser) void routing.change("pause"); setSheetOpen(true); }} />
   </footer>}
     {sheetOpen && <Dialog layerId={layerId} dirty={!resolved && interaction?.kind === "question" && Object.values(drafts[identity!] ?? {}).some(values => values.some(value => value.length > 0))}
       busy={!resolved && (!!identity && submissions[identity]?.status === "submitting" || routing.busy)} title={t("detail.needsYou")} description={!resolved ? passive : undefined} onClose={() => setSheetOpen(false)} returnFocus=".request-entry button"><div className="task-input-sheet">{resolved ? <p role="status">{t("timeline.resolved")}</p> : dock}</div></Dialog>}
@@ -79,6 +82,6 @@ export function TaskReceiptHistory({ agent, id, turnId, latest }: { agent: strin
   const { records } = tasks.use();
   const rows = taskReceipts(records, agent, id).filter(record => record.approval && ["approved", "bypass", "reject"].includes(record.approval.decision) && (record.turnId ? record.turnId === turnId : latest));
   return <>{rows.map(record => <div className="task-receipt-anchor" key={record.requestId}>
-    <strong data-verdict={record.approval.decision}>{t(record.approval.decision === "approved" ? "detail.verdict.approved" : record.approval.decision === "bypass" ? "detail.verdict.bypass" : "detail.verdict.reject")}</strong><span>{record.task.title || record.task.prompt}</span><small>{record.approval.source === "local" ? t("detail.byARC") : record.origin?.sourceLabel || record.approval.source}</small>
+    <strong data-verdict={record.approval.decision}>{record.approval.answeredBy?.kind === "source" && <SourceBadge source={{ id: record.approval.answeredBy.sourceId, label: record.approval.answeredBy.label, kind: record.approval.answeredBy.brand }} />}{record.approval.decision === "approved" && record.approval.answeredBy && record.approval.answeredBy.kind !== "unknown" ? t("relay.approvedBy", { source: record.approval.answeredBy.kind === "local-ui" ? "ARC" : record.approval.answeredBy.label || record.approval.answeredBy.sourceId || "" }) : t(record.approval.decision === "approved" ? "detail.verdict.approved" : record.approval.decision === "bypass" ? "detail.verdict.bypass" : "detail.verdict.reject")}</strong><span>{record.task.title || record.task.prompt}</span>
   </div>)}</>;
 }

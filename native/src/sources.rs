@@ -943,6 +943,18 @@ pub fn decorate_labels(value: &mut Value, rows: &[Value]) {
     fn visit(v: &mut Value, labels: &BTreeMap<&str, &Value>) {
         match v {
             Value::Object(o) => {
+                if let Some(by) = o.get_mut("answeredBy").and_then(Value::as_object_mut) {
+                    if by.get("kind").and_then(Value::as_str) == Some("source") {
+                        if let Some(source) = by
+                            .get("sourceId")
+                            .and_then(Value::as_str)
+                            .and_then(|id| labels.get(id))
+                        {
+                            by.insert("label".into(), source["label"].clone());
+                            by.insert("brand".into(), source["platform"].clone());
+                        }
+                    }
+                }
                 if let Some(source) = o
                     .get("sourceId")
                     .filter(|_| o.contains_key("authType"))
@@ -986,6 +998,23 @@ pub fn decorate_labels(value: &mut Value, rows: &[Value]) {
 mod label_tests {
     use super::*;
 
+    #[test]
+    fn answer_attribution_resolves_current_source_identity() {
+        // Property: recorded source ids resolve current labels and brands without inventing absent attribution.
+        let mut value = json!({"response":{"answeredBy":{"kind":"source","sourceId":"fixture"}},"legacy":{"result":{"decision":"accept"}},"local":{"answeredBy":{"kind":"local-ui"}}});
+        decorate_labels(
+            &mut value,
+            &[
+                json!({"id":"fixture","label":"Renamed controller","platform":"claude","state":"revoked"}),
+            ],
+        );
+        assert_eq!(
+            value["response"]["answeredBy"],
+            json!({"kind":"source","sourceId":"fixture","label":"Renamed controller","brand":"claude"})
+        );
+        assert!(value["legacy"]["answeredBy"].is_null());
+        assert_eq!(value["local"]["answeredBy"], json!({"kind":"local-ui"}));
+    }
     #[test]
     fn receipt_batch_labels_fit_one_poll_budget_without_identity_reconciliation() {
         // Regression: idle status polls resolved every source account for each of 3008 historical receipts.

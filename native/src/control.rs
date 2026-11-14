@@ -1581,6 +1581,10 @@ impl Control {
             receipt["task"]["origin"] = receipt["origin"].clone();
             receipt["arguments"] = args.clone();
             receipt["approval"] = json!({"decision":decision,"source":"cloud","at":now()});
+            if matches!(decision, "approved" | "bypass") {
+                receipt["approval"]["answeredBy"] =
+                    crate::interaction_responses::current_answered_by();
+            }
             if decision == "pending" {
                 progress::apply(&mut receipt, ProgressEvent::AwaitApproval);
                 receipt["nextAction"] = json!("receipt: approve, bypass or reject; user intent overrides the default approval mode");
@@ -1697,7 +1701,7 @@ impl Control {
         if !Progress::read(string(&r, "state"), true).is(ReceiptState::AwaitingApproval) {
             return Ok(r);
         }
-        r["approval"] = json!({"decision":if action=="approve"{"approved"}else{action},"source":source,"at":now()});
+        r["approval"] = json!({"decision":if action=="approve"{"approved"}else{action},"source":source,"answeredBy":crate::interaction_responses::current_answered_by(),"at":now()});
         r.as_object_mut().unwrap().remove("nextAction");
         progress::apply(
             &mut r,

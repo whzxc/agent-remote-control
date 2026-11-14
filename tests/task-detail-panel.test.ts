@@ -68,7 +68,7 @@ test("task detail projects native titles, compact ownership and pending input wi
       assert.ok(page.getByRole("heading", { name: nativeTitle }));
       assert.equal(page.queryByRole("heading", { name: dispatch }), null);
       assert.ok(page.getByRole("button", { name: /Finished the first turn/ }));
-      assert.ok(page.getByRole("button", { name: new RegExp(t("detail.noFinalReply")) }));
+      assert.ok(page.getByRole("button", { name: /A task-specific failure/ }));
       assert.equal(page.queryByRole("button", { name: new RegExp(dispatch) }), null);
       assert.equal(page.queryByRole("alert"), null);
       assert.equal(page.queryByRole("textbox"), null);

@@ -1843,5 +1843,15 @@
   "homepage.interrupted": "已中断",
   "homepage.omitted": "另有 {count} 条较早远端记录未载入",
   "homepage.remoteDetailLimit": "Core 已提供远端活动快照。当前管理 API 尚未提供远端时间线和响应转发。",
-  "homepage.accounts": "{count} 个账号"
+  "homepage.accounts": "{count} 个账号",
+  "relay.controller": "控制源",
+  "relay.approvedBy": "{source} 已批准",
+  "relay.thought": "思考",
+  "relay.followup": "跟进",
+  "relay.dispatch": "派发",
+  "relay.prompt": "提示词",
+  "relay.queued": "排队中",
+  "relay.turn": "第 {count} 轮",
+  "relay.reply": "回复",
+  "relay.request": "请求批准"
 }

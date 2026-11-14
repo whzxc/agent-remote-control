@@ -23,7 +23,7 @@
 .task-state[data-state=needsYou] { color: var(--warning); background: color-mix(in srgb, var(--warning) 15%, transparent); }
 .task-state[data-state=done] { color: var(--success); background: color-mix(in srgb, var(--success) 15%, transparent); }
 .task-state[data-state=failed] { color: var(--danger); background: color-mix(in srgb, var(--danger) 15%, transparent); }
-.task-detail-layer .timeline-entries { padding: 19px 20px 20px; gap: 16px; }
+.task-detail-layer .timeline-entries { padding: 19px 0 20px; gap: 16px; }
 .task-turn, .task-turn-content, .task-process-rows { min-width: 0; }
 .task-turn-content { display: flex; flex-direction: column; gap: 16px; }
 .task-turn-heading { position: relative; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; min-height: 34px; padding-right: 32px; }
@@ -67,7 +67,7 @@
 .task-live-log { margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; border-radius: var(--radius-field); background: var(--surface-sunken); color: var(--text); overflow-x: auto; font: var(--text-meta)/20px var(--font-mono); }
 .task-process-trigger.timeline-summary { width: fit-content; max-width: 100%; min-height: 34px; padding: 7px 16px; border-radius: var(--radius-control); background: var(--surface-sunken); color: var(--text-secondary); font: var(--text-meta)/20px var(--font-ui); gap: 16px; }
 .task-process-rows { display: flex; flex-direction: column; gap: 8px; }
-.task-process > [data-state=open] > .task-process-rows { padding-top: 16px; }
+.task-process > [data-state=open] > .relay-work { padding-top: 16px; }
 .task-final, .task-outcome { font-size: var(--text-body); line-height: 22px; overflow-wrap: anywhere; }
 .task-final > header { display: flex; align-items: center; gap: 8px; min-height: 16px; font-size: var(--text-meta); color: var(--success); }
 .task-final > header > .icon-button { margin-left: auto; margin-block: -7px; }
@@ -153,3 +153,69 @@
 .task-detail-chips .task-relation-separator { margin-left: 12px; color: var(--text-tertiary); }
 
 .task-detail-chips > .phase-label { display: inline-flex; align-items: center; height: 24px; font-size: var(--text-meta); color: var(--phase-color); }
+
+/* Relay timeline: directional messages around one chronological work rail. */
+.relay-route, .relay-party { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.relay-route { flex: 1; color: var(--text-secondary); font: var(--text-meta)/20px var(--font-ui); flex-wrap: wrap; }
+.relay-party { color: var(--text); }
+.relay-brand, .relay-route .activity-source-badge { display: inline-flex; flex: none; width: 14px; height: 14px; background: none; box-shadow: none; }
+.relay-brand svg { width: 100%; height: 100%; }
+.relay-route-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.relay-message { min-width: 0; padding: 12px 16px; border-radius: var(--radius-card); border-left: 3px solid var(--role-source); background: var(--surface-subtle); }
+.relay-message[data-neutral] { border-left-color: var(--border-strong); }
+.relay-message .timeline-user { width: 100%; max-width: 100%; padding: 8px 0 0; background: none; border: 0; border-radius: 0; }
+.relay-queued { border: 1px dashed var(--border-strong); border-left: 3px solid var(--role-source); }
+.task-turn { padding: 0; border: 0; background: none; }
+.task-turn[data-turn-collapsed] { border-radius: var(--radius-field); padding: 10px 12px; background: var(--surface-subtle); }
+.task-turn-heading { padding: 0; min-height: 0; }
+.task-previous-turn { display: flex; flex-wrap: nowrap; align-items: center; gap: 10px; width: 100%; }
+.task-previous-turn > .relay-route { flex: 0 0 auto; }
+.task-previous-turn > span:last-of-type { flex: 1; }
+.task-previous-turn > time { order: 2; flex: none; }
+.task-previous-turn > .timeline-chevron { position: static; order: 3; flex: none; }
+.task-turn-heading:has([aria-expanded=true]) { margin-bottom: 12px; }
+.task-process-rows { position: relative; gap: 14px; padding-left: 30px; }
+.task-process-rows::before { content: ""; position: absolute; left: 9px; top: 12px; bottom: 12px; width: 2px; background: color-mix(in srgb, var(--role-agent) 20%, transparent); }
+.task-process-rows > * { position: relative; }
+.task-process-rows > *::before { content: ""; position: absolute; left: -24px; top: 8px; width: 6px; height: 6px; border-radius: 50%; background: var(--role-agent); box-shadow: 0 0 0 5px var(--surface-raised); }
+.task-tool-groups, .task-live-row { padding-left: 0; }
+.task-tool-groups { display: block; }
+.task-tool-run > .timeline-summary, .relay-thought > .timeline-summary { min-height: 20px; padding: 0; gap: 8px; font-size: var(--text-small); }
+.relay-thought .timeline-summary > span { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.relay-thought time { flex: none; color: var(--text-tertiary); font-size: var(--text-meta); }
+.relay-thought .timeline-fold-content { color: var(--text-secondary); border-left: 2px solid var(--phase-thinking); padding-left: 12px; margin-top: 6px; }
+.relay-narration { font-size: var(--text-body); line-height: 24px; min-width: 0; }
+.relay-narration[data-streaming] .timeline-markdown > :last-child::after { content: ""; display: inline-block; margin-left: 2px; width: 2px; height: 15px; background: var(--role-agent); vertical-align: middle; }
+.relay-error-line { padding: 6px 12px; border-radius: var(--radius-field); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent); margin: 6px 0 0; }
+.task-final { border: 1px solid var(--border); border-left: 3px solid var(--role-agent); background: none; }
+.task-final > footer:not(:empty) { border-top: 1px solid var(--border); padding-top: 12px; }
+.relay-request { padding: 12px 16px; border-left: 3px solid var(--warning); border-radius: var(--radius-card); background: var(--surface-subtle); }
+.relay-request .task-request-card { padding: 0; background: none; }
+.relay-request .task-needs-you { overflow: visible; }
+.relay-request .task-request-preview, .relay-request .task-question-options { max-height: 320px; }
+.relay-plan-dock { width: 100%; min-width: 0; padding: 12px 0; border-top: 1px solid var(--border); }
+.relay-plan-dock > .timeline-summary { padding: 0; gap: 10px; width: 100%; font-size: var(--text-meta); }
+.relay-plan-current { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.relay-plan-dock progress { width: 64px; height: 4px; accent-color: var(--role-agent); flex: none; }
+.relay-plan-dock [data-state=open] { max-height: 240px; overflow-y: auto; }
+.relay-plan-dock > .timeline-summary .timeline-chevron { transform: rotate(-90deg); }
+.relay-plan-dock > .timeline-summary[data-state=open] .timeline-chevron { transform: rotate(90deg); }
+.task-interaction-anchor strong { display: inline-flex; align-items: center; gap: 6px; }
+
+.relay-work { display: flex; min-width: 0; flex-direction: column; gap: 12px; }
+.task-outcome[data-state=failed] { border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent); border-left: 3px solid var(--danger); background: none; }
+
+.relay-route .activity-source-badge, .task-interaction-anchor .activity-source-badge { position: static; inset: auto; flex: none; width: 14px; height: 14px; background: none; }
+.relay-route .activity-source-badge .source-icon, .relay-route .activity-source-badge .source-icon svg, .task-interaction-anchor .activity-source-badge .source-icon, .task-interaction-anchor .activity-source-badge .source-icon svg { width: 14px; height: 14px; }
+.task-process-rows > :not(.relay-narration, .relay-message, .timeline-error)::before { display: none; }
+.task-tool-row, .task-tool-run, .task-live-row .timeline-fold { position: relative; }
+.task-process-rows > .relay-thought > .timeline-summary > .icon:first-child,
+.task-process-rows > .task-tool-run > .timeline-summary > .icon:first-child,
+.task-process-rows > .task-tool-row > .timeline-fold > .timeline-summary > .icon:first-child,
+.task-process-rows > .task-interaction-anchor > .icon:first-child,
+.task-process-rows > .task-live-row > .timeline-fold > .timeline-summary > .icon:first-child { position: absolute; left: -30px; top: 2px; width: 20px; height: 20px; padding: 3px; border-radius: 50%; background: var(--surface-raised); }
+
+.task-turn-content > .task-detail-footer, .timeline-entries > .task-detail-footer { flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 0; }
+
+.task-receipt-anchor strong { display: inline-flex; align-items: center; gap: 6px; }
+.task-receipt-anchor .activity-source-badge { position: static; inset: auto; }

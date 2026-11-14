@@ -328,6 +328,12 @@ pub fn receipt(value: Value) -> Value {
             out[key] = value[key].clone();
         }
     }
+    if let Some(by) = value
+        .get("answeredBy")
+        .or_else(|| value["approval"].get("answeredBy"))
+    {
+        out["answeredBy"] = by.clone();
+    }
     if value["origin"].is_object() {
         let mut origin = json!({});
         // Provenance is public; credential anchors and authentication material are not.
@@ -1149,6 +1155,24 @@ pub(crate) fn next(value: &mut Value, name: &str, args: &Value, push_available: 
 mod tests {
     use super::*;
 
+    #[test]
+    fn public_receipts_preserve_recorded_answer_attribution() {
+        // Property: receipt projection preserves explicit answer attribution and never invents missing attribution.
+        let base = json!({"requestId":"fixture","state":"completed"});
+        for by in [
+            json!({"kind":"source","sourceId":"controller"}),
+            json!({"kind":"local-ui"}),
+            json!({"kind":"unknown"}),
+        ] {
+            let mut nested = base.clone();
+            nested["approval"] = json!({"decision":"approved","answeredBy":by});
+            assert_eq!(receipt(nested)["answeredBy"], by);
+            let mut direct = base.clone();
+            direct["answeredBy"] = by.clone();
+            assert_eq!(receipt(direct)["answeredBy"], by);
+        }
+        assert!(receipt(base).get("answeredBy").is_none());
+    }
     #[test]
     fn checkpoint_failure_preserves_observed_outcome_and_recovery() {
         // Regression: a receipt save error replaced the command result with bare os error 5.

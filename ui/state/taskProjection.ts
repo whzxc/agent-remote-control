@@ -16,18 +16,11 @@ export function taskState(status: string | undefined, live: boolean, pending = f
 export type ProcessRow = { kind: "tools"; id: string; entries: AgentTimelineEntry[] } | { kind: "entry"; id: string; entry: AgentTimelineEntry };
 export function processRows(entries: readonly AgentTimelineEntry[]): ProcessRow[] {
   const rows: ProcessRow[] = [];
-  const plan = [...entries].reverse().find(entry => entry.type === "plan");
-  let insertedPlan = false;
   for (const entry of entries) {
-    if (entry.type === "thinking" || entry.type === "notice") continue;
-    if (entry.type === "plan") {
-      if (!insertedPlan && plan) rows.push({ kind: "entry", id: entry.id, entry: plan });
-      insertedPlan = true;
-      continue;
-    }
+    if (entry.type === "notice" || entry.type === "plan" || entry.type === "thinking" && !(entry.text || entry.title)?.trim()) continue;
     if (["command", "file", "tool"].includes(entry.type)) {
       const last = rows.at(-1);
-      if (last?.kind === "tools") last.entries.push(entry);
+      if (last?.kind === "tools" && entry.status !== "failed" && !last.entries.some(row => row.status === "failed")) last.entries.push(entry);
       else rows.push({ kind: "tools", id: entry.id, entries: [entry] });
     } else rows.push({ kind: "entry", id: entry.id, entry });
   }
@@ -39,11 +32,10 @@ export function processOpen(state: TaskState, manual?: boolean) {
 export function projectTurn(entries: readonly AgentTimelineEntry[], state: TaskState) {
   const live = state === "running" || state === "needsYou";
   const { prompt, final, work } = turnEntries(entries, live, state === "done");
-  const answeredInteractions = work.filter(entry => entry.type === "interaction" && (entry.status === "completed" || !!entry.response));
   // Live tools move to the activity row so the current action is never buried in a group.
   const activity = state === "running" ? liveActivity(work) : undefined;
-  const rows = processRows(work.filter(entry => !answeredInteractions.includes(entry) && !activity?.running.includes(entry)));
-  return { prompt, final, rows, answeredInteractions, activity, plan: [...entries].reverse().find(entry => entry.type === "plan"),
+  const rows = processRows(work.filter(entry => !activity?.running.includes(entry)));
+  return { prompt, final, rows, activity, plan: [...entries].reverse().find(entry => entry.type === "plan"),
     actions: work.filter(entry => ["command", "file", "tool"].includes(entry.type)).length,
     failed: work.filter(entry => ["command", "file", "tool"].includes(entry.type) && entry.status === "failed").length,
   };

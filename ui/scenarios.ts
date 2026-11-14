@@ -300,6 +300,16 @@ export async function installScenario(name: string) {
       ];
       if (!task.entries && outcome === 'failed') rows.push({ type: 'error', status: 'failed', text: 'The sample verification command failed.' });
       if (!task.entries && !live && !outcome) rows.push({ type: 'text', status: 'completed', phase: 'final_answer', text: task.finalAnswer ?? 'The requested changes are complete.\n\n| Check | Result |\n| --- | --- |\n| Configuration | Updated |\n| TypeScript | Passed |\n\n- Preserved existing behavior.\n- Verified the changed files.' });
+      if (name.startsWith('relay-')) {
+        const edit = rows.find(row => row.type === 'file');
+        if (edit?.changes?.[0]) Object.assign(edit.changes[0], { added: 12, removed: 3 });
+        rows.splice(3, 0, { type: 'interaction', status: 'completed', interaction: { kind: 'permission', summary: 'Read project files', respond: {} },
+          response: { result: { decision: 'accept' }, origin: {}, answeredBy: { kind: 'source', sourceId: 'fixture-claude', label: 'Claude', brand: 'claude' }, resolvedAt: now } });
+        const narration = rows.find(row => row.type === 'text');
+        if (narration && live && !task.approval) narration.status = 'running';
+        const command = [...rows].reverse().find(row => row.type === 'command');
+        if (command) command.output = { state: 'available', text: outcome === 'failed' ? 'Type error: expected a string.\nCheck config.json.' : 'Checking configuration…\nValidating project types…', truncated: false, sha256: 'fixture', hashScope: 'excerpt' };
+      }
       for (const [index, row] of rows.entries()) {
         const at = new Date(start + index * 4000).toISOString();
         entries.push({ id: `${turnId}-entry-${index}`, turnId, cursor: entries.length + 1, position: entries.length,
@@ -308,6 +318,10 @@ export async function installScenario(name: string) {
       summaries[turnId] = turnIndex === 1 && count > 1
         ? { controlSource: { kind: 'local-cli' }, model: 'gpt-5.6-sol', effort: 'medium' }
         : session.dispatchSummary!;
+    }
+    for (const turnId of Object.keys(summaries)) {
+      const prompt = entries.find(entry => entry.turnId === turnId && entry.type === 'user');
+      if (prompt && !task.direct) prompt.controlSource = summaries[turnId]?.controlSource;
     }
     timelines[`agents/timeline/${session.id}`] = { sessionId: session.id, status: task.unconfirmed ? 'unknown' : task.outcome ?? (task.completed ? 'completed' : 'running'), entries,
       cursor: entries.length, executionEvidence: true, coverage: { state: 'complete', truncated: false },

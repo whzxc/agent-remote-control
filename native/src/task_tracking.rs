@@ -1627,6 +1627,7 @@ impl Timeline {
             result["turnTimings"] = json!(self.turn_timings);
         }
         result["snapshotHash"] = json!(hash(json!({"entries":self.entries,"status":self.status,"turnLifecycles":self.turn_lifecycles,"turnTimings":self.turn_timings,"coverage":result["coverage"]}).to_string()));
+        crate::sources::decorate(&mut result);
         result
     }
     pub fn session(&self, id: &str, info: &Value, source: &str, pending: Option<Value>) -> Value {

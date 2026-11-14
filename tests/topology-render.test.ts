@@ -360,8 +360,8 @@ test("timeline turn disclosures preserve choices through incremental work and re
     const interaction = { kind: "question", summary: "Choose an option", respond: { op: "agent_respond", args: { agent: "claude", taskId: "example", interactionId: 1 } } };
     const pending = { ...base, id: "interaction", type: "interaction", status: "pending", interaction };
     await render([pending]);
-    // Unanswered requests live in the dock; the timeline shows their resolved history.
-    assertNodeIdentity(page.queryByText(interaction.summary), null);
+    // Requests stay actionable in the timeline and keep their result after submission.
+    assert.ok(page.getByRole("region", { name: t("detail.needsYou") }));
     const key = interactionKey("claude", { ...session, phaseSince: base.startedAt, interaction });
     for (const [decision, label] of [["answer", "timeline.answered"], ["deny", "detail.verdict.reject"]]) {
       await act(() => activityApprovals.set({ [key]: { status: "submitted", decision, payload: { op: "agent_respond", args: { value: "A" } } } }));
@@ -370,8 +370,9 @@ test("timeline turn disclosures preserve choices through incremental work and re
     }
     await act(() => activityApprovals.set({}));
     await render([{ ...pending, status: "completed" }]);
+    await click(page.getByRole("button", { name: new RegExp(`^${t("detail.worked")}`) }));
     assert.ok(page.getByText(interaction.summary));
-    assert.ok(page.getByText(t("detail.resolvedElsewhere")));
+    assert.ok(page.getByText(t("timeline.resolved")));
 
   } finally {
     await act(() => root.unmount()); await server.close(); window.happyDOM.abort(); mount.remove();
@@ -429,8 +430,8 @@ test("task detail limits input to pending execution requests and consolidates he
     for (const language of ["en", "zh-CN"]) {
       await act(() => locale.set(language));
       await update();
-      assert.ok(page.getByText(t("detail.via", { source: source.label })));
-      assert.equal(page.queryAllByText(source.label, { exact: true }).length, 0);
+      assert.ok(page.getByText(source.label, { exact: true }));
+      assert.ok(page.getByRole("button", { name: t("back"), exact: true }));
       const question = { kind: "question", summary: "Question", method: "item/tool/requestUserInput", questions: [{ id: "choice", question: "Choose", options: [{ label: "A" }] }], respond: { op: "codex_respond", args: { respondToken: language } } };
       await update(question);
       assert.ok(page.getByRole("region", { name: t("detail.needsYou") }));

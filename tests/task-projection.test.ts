@@ -10,13 +10,13 @@ test("tool runs merge without absorbing narrative or interaction boundaries", ()
   assert.deepEqual(rows.map(row => row.kind), ["tools", "entry", "tools", "entry", "tools"]);
   assert.deepEqual(rows.flatMap(row => row.kind === "tools" ? row.entries : [row.entry]), entries);
 });
-test("only the latest plan survives projection and reasoning stays out of process rows", () => {
-  // Property: plan replacement and reasoning removal are independent of historical item count.
+test("the plan has one dock projection and reasoning retains transcript order", () => {
+  // Property: plans project separately while reasoning summaries retain their original order.
   const entries = [entry("p1", "plan"), entry("t1", "thinking", { text: "First" }), entry("p2", "plan"), entry("t2", "thinking", { text: "Latest" }), entry("answer", "text", { phase: "final_answer", text: "Result" })];
   const live = projectTurn(entries, "running");
   assert.equal(live.plan?.id, "p2");
   assert.equal(live.activity?.thought, "Latest");
-  assert.deepEqual(live.rows.flatMap(row => row.kind === "entry" ? [row.entry.id] : []), ["p2"]);
+  assert.deepEqual(live.rows.flatMap(row => row.kind === "entry" ? [row.entry.id] : []), ["t1", "t2"]);
   assert.equal(projectTurn(entries, "done").activity, undefined);
   assert.equal(projectTurn(entries, "done").final?.id, "answer");
 });
@@ -136,12 +136,13 @@ test("native command action metadata counts searches and reads without guessing 
 });
 
 
-test('answered questions remain available outside collapsed process rows', async () => {
-  // Regression: answered questions and selected options were hidden behind both turn and process expansion.
+test('answered questions retain their transcript position', async () => {
+  // Property: answered interactions remain in transcript order and retain their response evidence.
   const { interactionSummary }=await import('../ui/state/taskInteractions.ts');
   const interaction={kind:'question' as const,summary:'Interaction required',respond:{},questions:[{id:'q',question:'Pick one',options:[{label:'A'},{label:'B'}]}]};
   const result=projectTurn([entry('answer','interaction',{status:'completed',interaction})],'done');
-  assert.equal(result.answeredInteractions.length,1);assert.equal(result.rows.length,0);
+  assert.equal(result.rows.length,1);
+  assert.equal(result.rows[0].kind === "entry" && result.rows[0].entry.interaction, interaction);
   assert.match(interactionSummary(interaction),/Pick one.*A.*B/);
 });
 

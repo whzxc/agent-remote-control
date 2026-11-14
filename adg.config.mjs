@@ -7,7 +7,6 @@ const prepared = {
   'board-ax-detail': { scenario: 'coordination-ax-light', axClosed: true },
   'approval-permission': { scenario: 'approval', task: '阅读项目说明 · 打开执行时间线' },
   'approval-question': { scenario: 'task-states', task: 'Waiting for input · 打开执行时间线' },
-  'task-detail-failed': { scenario: 'task-states', task: 'Failed task · 打开执行时间线' },
   'agent-account-edit': { scenario: 'agent-platform-lifecycle', accountAction: 'edit' },
   'agent-account-remove': { scenario: 'agent-platform-lifecycle', accountAction: 'remove' },
   'agent-account-claude-add': { scenario: 'agent-platform-lifecycle', accountAction: 'add' },

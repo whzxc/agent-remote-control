@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import type { AgentTimelineEntry } from "../types";
+import type { AgentTimelineEntry, DispatchSummary } from "../types";
 import { locale, t } from "../i18n";
 import { copyText } from "../platform";
 import { changedFiles } from "../state/taskProjection";
@@ -7,9 +7,10 @@ import { taskErrorText } from "../state/taskErrors";
 import { Button, Icon } from "./ui";
 import { AlertCircle } from "lucide-react";
 import { TaskCard } from "./ui/TaskPresentation";
+import RelayRoute from "./RelayRoute";
 import { ChangedFiles } from "./TaskChanges";
 
-export default function TaskOutcome({ state, entries, project, onResume, onRetry, continuing, failedTools }: { failedTools?: ReactNode; state: "failed" | "interrupted"; entries: AgentTimelineEntry[]; project?: string | null; onResume?: () => void; onRetry?: () => void; continuing?: boolean }) {
+export default function TaskOutcome({ state, entries, project, onResume, onRetry, continuing, failedTools, agent, source }: { agent?: string; source?: DispatchSummary["controlSource"]; failedTools?: ReactNode; state: "failed" | "interrupted"; entries: AgentTimelineEntry[]; project?: string | null; onResume?: () => void; onRetry?: () => void; continuing?: boolean }) {
   const [diff, setDiff] = useState(false), [error, setError] = useState("");
   const failure = [...entries].reverse().find(entry => entry.type === "error" || entry.status === "failed");
   const log = [failure?.command, failure?.cwd, failure?.text, failure?.output?.text].filter(Boolean).join("\n");
@@ -19,7 +20,7 @@ export default function TaskOutcome({ state, entries, project, onResume, onRetry
   return <>
     {state === "interrupted" && <div className="task-stop-divider">{t("detail.stoppedUnknown")}{ended && ` · ${new Date(ended).toLocaleTimeString(locale.get(), { hour: "2-digit", minute: "2-digit" })}`}</div>}
     <TaskCard reply role="article" className="task-outcome" data-state={state} aria-label={t(state === "failed" ? "detail.turnFailed" : "detail.leftAsIs")}>
-      <header><strong>{state === "failed" && <Icon icon={AlertCircle} size={18} />}{t(state === "failed" ? "detail.turnFailed" : "detail.leftAsIs")}</strong>{failedTools}</header>
+      <header>{agent ? <RelayRoute source={source} agent={agent} reverse label={t(state === "failed" ? "detail.turnFailed" : "detail.leftAsIs")} /> : <strong>{state === "failed" && <Icon icon={AlertCircle} size={18} />}{t(state === "failed" ? "detail.turnFailed" : "detail.leftAsIs")}</strong>}{failedTools}</header>
       {state === "failed" && <><p>{taskErrorText(failure?.text || failure?.output?.text, "detail.failureUnknown")}</p>{(failure?.command || failure?.cwd || failure?.path) && <pre>{[failure.command, failure.cwd, failure.path].filter(Boolean).join("\n")}</pre>}</>}
       <p>{t(changes.length ? "detail.recordedChanges" : "detail.changesUnknown")}</p>
       <ChangedFiles entries={entries} project={project} />

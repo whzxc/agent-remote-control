@@ -17,7 +17,7 @@ export interface TaskRecord {
   state: string;
   createdAt: string;
   updatedAt: string;
-  approval: { decision: string; source: string; at: string };
+  approval: { answeredBy?: import("../types").AnsweredBy; decision: string; source: string; at: string };
   error?: { message?: string };
   task: {
     origin?: import("../types").AgentActivitySession["origin"];
