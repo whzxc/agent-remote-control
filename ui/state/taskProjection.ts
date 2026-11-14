@@ -144,7 +144,7 @@ export function taskCardActivity(entries: readonly AgentTimelineEntry[]) {
     const role = entry.type === 'user' ? 'source' : entry.type === 'interaction' ? 'request'
       : entry.type === 'text' ? 'agent' : kind ? 'step' : undefined;
     return role ? [{ role, text, kind, status: entry.status }] : [];
-  }).slice(-10);
+  });
   return { steps, plan, change, snapshot };
 }
 

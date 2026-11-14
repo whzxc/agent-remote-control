@@ -41,6 +41,7 @@ export const checks = [{ stage: 'beforeNavigate', order: 1, visual: true, async 
     const snapshot = page.locator('article[aria-current=true] [data-task-snapshot]');
     await snapshot.getByText('Cold preview ready', { exact: true }).waitFor();
     await snapshot.getByText('Inspect the native history', { exact: true }).waitFor();
+    if (await snapshot.locator('.task-snapshot-row').count() < 40) throw new Error('The tall preview discarded history beyond ten rows.');
     if (await page.getByRole('dialog').count()) throw new Error('A detail layer was required to load a preview.');
     return;
   }

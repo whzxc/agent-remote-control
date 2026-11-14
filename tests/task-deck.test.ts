@@ -37,7 +37,7 @@ test('snapshot retains source, request and reply in observation order with the n
     { id: 'request', type: 'interaction', status: 'pending', text: 'Choose a target' },
     { id: 'reply', type: 'text', text: 'Queue ready' },
   ]);
-  assert.ok(result.snapshot.length <= 10);
+  assert.ok(result.snapshot.length <= 80);
   assert.deepEqual(result.snapshot.slice(-2).map(row => [row.role, row.text]), [['request', 'Choose a target'], ['agent', 'Queue ready']]);
   assert.equal(taskCardActivity([{ id: 'source', type: 'user', text: 'Inspect the queue' }]).snapshot[0].role, 'source');
 });
@@ -57,4 +57,12 @@ test('snapshot includes generic tool calls without requiring a detail projection
   const projected = taskCardActivity([{ id: 'tool', type: 'tool', title: 'exec', status: 'running' }]);
   assert.equal(projected.snapshot[0].kind, 'tool');
   assert.equal(projected.snapshot[0].text, 'exec');
+});
+
+test('tall snapshots retain the bounded history beyond ten rows', () => {
+  // Regression: full-height task cards still projected only ten rows, leaving earlier content inaccessible.
+  const projected = taskCardActivity(Array.from({ length: 100 }, (_, index) => ({ id: `command-${index}`, type: 'command' as const, command: `step ${index}` })));
+  assert.equal(projected.snapshot.length, 80);
+  assert.equal(projected.snapshot[0].text, 'step 20');
+  assert.equal(projected.snapshot.at(-1)?.text, 'step 99');
 });
