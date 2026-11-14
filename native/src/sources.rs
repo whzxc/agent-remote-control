@@ -914,7 +914,7 @@ pub(crate) fn labels() -> Vec<Value> {
                 cache.current["sources"]
                     .as_array()?
                     .iter()
-                    .map(|row| json!({"id":row["id"],"label":row["label"]}))
+                    .map(|row| json!({"id":row["id"],"label":row["label"],"platform":row["platform"]}))
                     .collect(),
             )
         })
