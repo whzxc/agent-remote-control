@@ -1,7 +1,7 @@
 export type { NodeTaskState } from '../../state/activityModel';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { integrateSpring } from '../../topology/spring';
-import { Brain, CircleHelp, Clock3, Ellipsis, FilePenLine, FileSearch, Loader, Terminal, Wrench } from 'lucide-react';
+import { Brain, CircleHelp, Clock3, Ellipsis, FilePenLine, FileSearch, Loader, ShieldAlert, Terminal, Wrench } from 'lucide-react';
 import { Icon, Tooltip } from './index';
 import { useMedia } from '../../state/hooks';
 import { t } from '../../i18n';
@@ -79,13 +79,15 @@ export function NodeCapsule({ label, state, graphic, mark, neutralRing, readings
       <Tooltip text={active ? quota : undefined}><button type="button" className="node-capsule-logo" data-panel-anchor data-layer-switcher aria-label={label} aria-expanded={expanded}
         aria-description={active ? quota : undefined}
         onClick={onOpen} aria-keyshortcuts={onMove ? 'ArrowUp ArrowDown' : undefined}
-        onKeyDown={event => { if (onMove && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) { event.preventDefault(); onMove(event.key === 'ArrowUp' ? -1 : 1); } }} style={{ transform: mirror ? 'scaleX(-1)' : undefined }}>{active ? mark ?? graphic : graphic}</button></Tooltip>
+        onKeyDown={event => { if (onMove && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) { event.preventDefault(); onMove(event.key === 'ArrowUp' ? -1 : 1); } }} style={{ transform: mirror ? 'scaleX(-1)' : undefined }}>
+        {active ? <span className="node-capsule-mark">{mark ?? graphic}</span> : graphic}
+      </button></Tooltip>
       {items.length > 0 && <Tooltip text={state.unconfirmed && !neutralRing ? t('activity.unconfirmed') : summary}><button type="button" className="node-capsule-tasks" aria-label={`${label}. ${summary}. ${t('homepage.openTasks')}`} onClick={onTasks}>
         <span className="node-capsule-items" style={{ opacity: Math.max(0, Math.min(1, (width - 48) / Math.max(1, target - 48))) }}>
           {items.map((item, index) => <span key={index} className="node-capsule-disc" data-kind={item.kind} data-phase={item.kind === 'step' ? item.step ?? 'running' : undefined}
-            style={{ left: 24 + (index + 1) * 28 - 11 - 40, transform: mirror ? 'scaleX(-1)' : undefined }}>
-            {item.kind === 'attention' ? item.count > 9 ? '9+' : item.count : <Icon size={item.kind === 'unconfirmed' ? 16 : 13}
-              icon={item.kind === 'overflow' ? Ellipsis : item.kind === 'unconfirmed' ? CircleHelp : taskPhaseIcons[item.step ?? 'running']} />}
+            style={{ left: 24 + (index + 1) * 28 - 10 - 40, transform: mirror ? 'scaleX(-1)' : undefined }}>
+            <Icon size={item.kind === 'unconfirmed' || item.kind === 'overflow' ? 13 : 12}
+              icon={item.kind === 'attention' ? ShieldAlert : item.kind === 'overflow' ? Ellipsis : item.kind === 'unconfirmed' ? CircleHelp : taskPhaseIcons[item.step ?? 'running']} />
           </span>)}
         </span>
       </button></Tooltip>}

@@ -139,7 +139,7 @@ function ThoughtEntry({ entry }: { entry: AgentTimelineEntry }) {
 }
 function Prompt({ entry, agent, followup = false }: { entry: AgentTimelineEntry; agent: string; followup?: boolean }) {
   const [open, setOpen] = useState(false);
-  return <div className="relay-message" data-neutral={!entry.controlSource || undefined}>
+  return <div className="relay-message">
     {entry.controlSource ? <RelayRoute source={entry.controlSource} agent={agent} label={t(followup ? "relay.followup" : "relay.dispatch")} /> : <span className="timeline-meta">{t("relay.prompt")}</span>}
     <UserMessage text={entry.text ?? ""} truncated={entry.truncated} open={open} onChange={setOpen} />
   </div>;

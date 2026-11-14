@@ -472,6 +472,9 @@ pub(super) struct ConversationMetadata {
     row: Value,
 }
 
+const CONVERSATION_TAIL_BYTES: u64 = 128 * 1024;
+const CONVERSATION_CONTEXT_BYTES: u64 = 4 * 1024 * 1024;
+
 pub(super) fn conversation_metadata(
     thread: &Value,
     cached: &mut ConversationMetadata,
@@ -482,31 +485,66 @@ pub(super) fn conversation_metadata(
     if cached.stamp.as_ref() == Some(&stamp) {
         return Ok(cached.row.clone());
     }
-    // Listing must never replay a whole rollout or build a detail timeline.
-    // A partial tail can report explicit outcomes and the latest model, but
-    // cannot claim an exact total turn count or an earlier thread setting.
-    let offset = metadata.len().saturating_sub(128 * 1024);
-    file.seek(SeekFrom::Start(offset))
+    let row = read_conversation_metadata(&mut file, metadata.len())?;
+    cached.stamp = Some(stamp);
+    cached.row = row.clone();
+    Ok(row)
+}
+
+fn conversation_window(file: &mut File, size: u64, limit: u64) -> Result<(Vec<u8>, bool)> {
+    let start = size.saturating_sub(limit);
+    file.seek(SeekFrom::Start(start))
         .map_err(|e| e.to_string())?;
     let mut bytes = Vec::new();
-    file.take(128 * 1024)
+    file.take(size - start)
         .read_to_end(&mut bytes)
         .map_err(|e| e.to_string())?;
     crate::runtime_metrics::cost::bytes_read(bytes.len());
+    Ok((bytes, start > 0))
+}
+
+fn conversation_lines(bytes: &[u8], partial: bool) -> impl DoubleEndedIterator<Item = &[u8]> {
     let mut lines = bytes.split_inclusive(|byte| *byte == b'\n');
-    if offset > 0 {
+    if partial {
         lines.next();
     }
-    let records: Vec<Value> = lines
-        .filter(|line| line.last() == Some(&b'\n'))
+    lines.filter(|line| line.last() == Some(&b'\n'))
+}
+
+fn read_conversation_metadata(file: &mut File, size: u64) -> Result<Value> {
+    let (bytes, partial) = conversation_window(file, size, CONVERSATION_TAIL_BYTES)?;
+    let records: Vec<Value> = conversation_lines(&bytes, partial)
         .filter_map(|line| {
             crate::runtime_metrics::cost::bytes_parsed(line.len());
             serde_json::from_slice(line).ok()
         })
         .collect();
-    let row = conversation_projection(&records, offset > 0);
-    cached.stamp = Some(stamp);
-    cached.row = row.clone();
+    let mut row = conversation_projection(&records, partial);
+    if partial && row["dispatchSummary"].is_null() {
+        // Match the observed turn. Large tool outputs can put its context
+        // outside the listing tail, so scan a larger window without replaying it.
+        if let Some(turn) = row["turnId"].as_str().filter(|turn| !turn.is_empty()) {
+            let (context, partial_context) =
+                conversation_window(file, size, CONVERSATION_CONTEXT_BYTES)?;
+            let recorded = conversation_lines(&context, partial_context)
+                .rev()
+                .filter_map(|line| {
+                    let line = std::str::from_utf8(line).ok()?;
+                    if !line.contains("\"turn_context\"") || !line.contains(turn) {
+                        return None;
+                    }
+                    crate::runtime_metrics::cost::bytes_parsed(line.len());
+                    serde_json::from_str::<Value>(line).ok()
+                })
+                .find(|value| {
+                    value["type"] == "turn_context" && value["payload"]["turn_id"] == turn
+                });
+            if let Some(context) = recorded {
+                row["dispatchSummary"] =
+                    conversation_projection(&[context], true)["dispatchSummary"].clone();
+            }
+        }
+    }
     Ok(row)
 }
 
@@ -946,6 +984,45 @@ mod tests {
                 json!({"timestamp":at,"type":"response_item","payload":{"type":"function_call","call_id":call,"name":"exec_command","arguments":"{\"cmd\":\"cat src/example.rs\"}"}}),
             ]
         }
+    }
+
+    #[test]
+    fn codex_list_recovers_the_exact_turn_context_beyond_the_tail() {
+        // Regression: long Codex turns kept their elapsed time but lost the execution spec in history.
+        let (_directory, path, _now, at) = fixture();
+        append(
+            &path,
+            &[
+                json!({"timestamp":at,"type":"turn_context","payload":{"turn_id":"sample","model":"recorded-model","effort":"high","service_tier":"priority"}}),
+            ],
+        );
+        append(&path, &large_tool_output("codex", "output", &at));
+        append(
+            &path,
+            &[
+                json!({"timestamp":at,"type":"event_msg","payload":{"type":"task_complete","turn_id":"sample","duration_ms":9000}}),
+            ],
+        );
+        let read = || {
+            let mut file = File::open(&path).unwrap();
+            let size = file.metadata().unwrap().len();
+            read_conversation_metadata(&mut file, size).unwrap()
+        };
+        let row = read();
+        assert_eq!(row["turnId"], "sample");
+        assert_eq!(row["turnDurationMs"], 9000);
+        assert_eq!(
+            row["dispatchSummary"],
+            json!({"model":"recorded-model","effort":"high","serviceTier":"priority"})
+        );
+        assert!(row["turnCount"].is_null());
+        append(
+            &path,
+            &[
+                json!({"timestamp":at,"type":"event_msg","payload":{"type":"task_started","turn_id":"next"}}),
+            ],
+        );
+        assert!(read()["dispatchSummary"].is_null());
     }
 
     #[test]

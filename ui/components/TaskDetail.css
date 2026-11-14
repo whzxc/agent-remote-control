@@ -162,10 +162,9 @@
 .relay-route { flex: 1; color: var(--text-secondary); font: var(--text-meta)/20px var(--font-ui); flex-wrap: wrap; }
 .relay-party { color: var(--text); }
 .relay-route-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.relay-message { min-width: 0; padding: 12px 16px; border-radius: var(--radius-card); border-left: 3px solid var(--role-source); background: var(--surface-subtle); }
-.relay-message[data-neutral] { border-left-color: var(--border-strong); }
+.relay-message { min-width: 0; padding: 12px 16px; border-radius: var(--radius-card); background: var(--surface-subtle); }
 .relay-message .timeline-user { width: 100%; max-width: 100%; padding: 8px 0 0; background: none; border: 0; border-radius: 0; }
-.relay-queued { border: 1px dashed var(--border-strong); border-left: 3px solid var(--role-source); }
+.relay-queued { border: 1px dashed var(--border-strong); }
 .task-turn { padding: 0; border: 0; background: none; }
 .task-turn[data-turn-collapsed] { border-radius: var(--radius-field); padding: 10px 12px; background: var(--surface-subtle); }
 .task-turn-heading { padding: 0; min-height: 0; }
@@ -189,13 +188,13 @@
 .task-tool-run > .timeline-summary, .relay-thought > .timeline-summary { min-height: 20px; padding: 0; gap: 8px; font-size: var(--text-small); }
 .relay-thought .timeline-summary > span { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .relay-thought time { flex: none; color: var(--text-tertiary); font-size: var(--text-meta); }
-.relay-thought .timeline-fold-content { color: var(--text-secondary); border-left: 2px solid var(--phase-thinking); padding-left: 12px; margin-top: 6px; }
+.relay-thought .timeline-fold-content { color: var(--text-secondary); margin-top: 6px; }
 .relay-narration { font-size: var(--text-body); line-height: 24px; min-width: 0; }
 .relay-narration[data-streaming] .timeline-markdown > :last-child::after { content: ""; display: inline-block; margin-left: 2px; width: 2px; height: 15px; background: var(--role-agent); vertical-align: middle; }
 .relay-error-line { padding: 6px 12px; border-radius: var(--radius-field); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent); margin: 6px 0 0; }
 .task-final { border: 1px solid var(--border); background: none; }
 .task-final > footer:not(:empty) { border-top: 1px solid var(--border); padding-top: 12px; }
-.relay-request { padding: 12px 16px; border-left: 3px solid var(--warning); border-radius: var(--radius-card); background: var(--surface-subtle); }
+.relay-request { padding: 12px 16px; border-radius: var(--radius-card); background: var(--surface-subtle); }
 .relay-request .task-request-card { padding: 0; background: none; }
 .relay-request .task-needs-you { overflow: visible; }
 .relay-request .task-request-preview, .relay-request .task-question-options { max-height: 320px; }
@@ -209,7 +208,7 @@
 .task-interaction-anchor strong { display: inline-flex; align-items: center; gap: 6px; }
 
 .relay-work { display: flex; min-width: 0; flex-direction: column; gap: 12px; }
-.task-outcome[data-state=failed] { border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent); border-left: 3px solid var(--danger); background: none; }
+.task-outcome[data-state=failed] { border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent); background: none; }
 
 .task-turn-content > .task-detail-footer, .timeline-entries > .task-detail-footer { flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 0; }
 

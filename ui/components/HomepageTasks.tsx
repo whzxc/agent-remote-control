@@ -6,7 +6,7 @@ import { locale, t } from '../i18n';
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import { Inbox, Laptop, ListFilter, Monitor, UserRound, X } from 'lucide-react';
 import { BrandMark, Icon, IconButton } from './ui';
-import { TaskHistorySummary, TaskSnapshot, TaskStatusMark, taskTitle, type TaskOrigin, type TaskIdentity } from './ui/TaskSnapshot';
+import { TaskHistorySummary, TaskSnapshot, taskTitle, type TaskOrigin, type TaskIdentity } from './ui/TaskSnapshot';
 import { homepageTaskFocus, remoteTaskPanel } from '../state/homepage';
 import { selectAgentPanel } from '../state/overviewPanels';
 import { markHomepageTaskRead } from '../state/homepageTasks';
@@ -88,9 +88,9 @@ export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
     const party = identity(task);
     if (!preview) return <TaskHistorySummary task={task} identity={party} freshness={freshness} now={now} onOpen={() => open(task)} />;
     const device = task.deviceId && pairedDevices(snapshot).find(device => device.id === task.deviceId);
-    return <><TaskStatusMark task={task} identity={party} now={now} /><TaskSnapshot task={task} origins={origins(task, party)} now={now}
+    return <TaskSnapshot task={task} origins={origins(task, party)} now={now}
       path={device && device.state === 'online' ? `${device.path === 'lan' ? 'LAN' : 'Tunnel'}${device.latency === null ? '' : ` · ${device.latency} ms`}` : undefined}
-      freshness={freshness} onOpen={() => open(task)} /></>;
+      freshness={freshness} onOpen={() => open(task)} />;
   }
   function grid(items: HomepageTask[], preview: boolean) {
     if (!items.length) return null;

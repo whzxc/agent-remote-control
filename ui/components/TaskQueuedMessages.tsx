@@ -12,7 +12,7 @@ export default function TaskQueuedMessages({ queue, agent }: { agent: string; qu
   }, [queue.items]);
   return <>
     <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</span>
-    {[...queue.items].reverse().filter(row => row.state !== "sent" && row.state !== "cancelled").map(row => <article className="relay-message relay-queued" data-neutral={!row.controlSource || undefined} key={row.queueId} aria-label={t(`detail.queueState.${row.state}`)}>
+    {[...queue.items].reverse().filter(row => row.state !== "sent" && row.state !== "cancelled").map(row => <article className="relay-message relay-queued" key={row.queueId} aria-label={t(`detail.queueState.${row.state}`)}>
       {row.controlSource ? <RelayRoute source={row.controlSource} agent={agent} label={t("relay.queued")} /> : <span className="timeline-meta">{t("relay.prompt")} · {t("relay.queued")}</span>}<p>{row.text ?? row.preview}</p><span>{t(`detail.queueState.${row.state}`)}</span>
       {!!row.error && <p role="alert">{taskErrorText(row.error, "detail.queueDeliveryFailed")}</p>}
     </article>)}

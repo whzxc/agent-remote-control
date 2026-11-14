@@ -41,16 +41,11 @@ export function TasksEmpty() {
     <Tile icon="inbox" tone="neutral" /><h2 class="text-title font-semibold">{copy.empty}</h2>
   </div>;
 }
-const statusMark: Record<TaskGroup, { icon: string; tone: 'agent' | 'warning' | 'success' | 'neutral' }> = {
-  'needs-me': { icon: 'hourglass', tone: 'warning' }, running: { icon: 'loader-circle', tone: 'agent' },
-  unread: { icon: 'check', tone: 'success' }, recent: { icon: 'check', tone: 'success' },
-  unconfirmed: { icon: 'circle-help', tone: 'neutral' },
-};
 const statusOf = (task: TaskSnapshotData) => taskStatuses[task.id]?.status ?? task.state;
-function TaskIdentityMark({ task, size = 32 }: { task: TaskSnapshotData; size?: number }) {
+function TaskIdentityMark({ task }: { task: TaskSnapshotData }) {
   const agent = task.origin.at(-2), source = task.origin[0];
-  return <span style={{ width: size, height: size }} class="relative grid shrink-0 place-items-center rounded-field bg-surface-subtle">
-      <BrandMark brand={agent?.brand} size={size === 24 ? 16 : 20} />
+  return <span class="relative grid size-8 shrink-0 place-items-center rounded-field bg-surface-subtle">
+      <BrandMark brand={agent?.brand} size={20} />
       {source && source !== agent && <span class="absolute right-0 bottom-0 grid size-4 place-items-center rounded-full bg-surface">
         {source.brand ? <BrandMark brand={source.brand} size={11} /> : <Icon name={source.icon!} size={11} />}
       </span>}
@@ -70,15 +65,12 @@ export function TaskHistorySummary({ task }: { task: TaskSnapshotData }) {
   </div>;
 }
 
-/** The status slot above a snapshot, like an app icon above a switcher card. */
-export function TaskStatusMark({ task, labelled = true }: { task: TaskSnapshotData; labelled?: boolean }) {
-  const mark = statusMark[task.group];
-  return <span class="flex h-6 min-w-0 items-center gap-2" aria-label={statusOf(task)}>
-    {task.group === 'unread' || task.group === 'recent' ? <TaskIdentityMark task={task} size={24} /> : <Tile icon={mark.icon} form="phase" tone={mark.tone} size={24} />}
-    {labelled && <span class="min-w-0 truncate text-meta leading-4 font-semibold text-text">
-      {statusOf(task)}
-      {task.elapsed && task.group !== 'unconfirmed' && <span class="font-normal text-text-tertiary"> · {task.elapsed}</span>}
-    </span>}
+export function TaskStatusMark({ task }: { task: TaskSnapshotData }) {
+  const icon = task.group === 'needs-me' ? 'hourglass' : task.group === 'unconfirmed' ? 'circle-help' : task.group === 'running' ? task.icon : undefined;
+  return <span class="ml-auto flex max-w-full shrink-0 items-center gap-[6px] text-caption text-text-secondary">
+    {icon && <Icon name={icon} size={12} class={task.group === 'needs-me' ? 'text-warning' : task.group === 'running' ? 'text-phase-command' : 'text-text-tertiary'} />}
+    <span class="truncate font-semibold">{statusOf(task)}</span>
+    {task.elapsed && task.group !== 'unconfirmed' && <time class="shrink-0 tabular-nums text-text-tertiary">{task.elapsed}</time>}
   </span>;
 }
 
@@ -105,13 +97,16 @@ export function TaskSnapshot({ task, height = 340, narrow = false }: {
   const inset = narrow ? 'px-3' : 'px-4';
   return <article aria-label={`${task.title} · ${statusOf(task)}`} style={{ height }} class="flex w-full min-w-0 flex-col
     overflow-hidden rounded-panel border border-border bg-surface">
-    <header class={`flex items-center gap-2 pt-[14px] ${inset}`}>
+    <header class={`flex flex-wrap items-center gap-x-2 gap-y-1 pt-[14px] ${inset}`}>
       <OriginChain steps={narrow ? task.origin.filter(step => step.brand) : task.origin} />
-      {task.path && !narrow && <span class="ml-auto truncate text-caption text-text-tertiary">{task.path}</span>}
+      <TaskStatusMark task={task} />
     </header>
     <button aria-label={`${copy.open}: ${task.title}`} class={`truncate pt-[10px] text-left text-body leading-5
       font-semibold text-text ${inset}`}>{task.title}</button>
-    {task.dispatch && <div class={`mt-1 self-start ${inset}`}><DispatchSpec {...task.dispatch} /></div>}
+    {(task.dispatch || task.path) && <div class={`mt-1 flex min-w-0 items-center gap-2 ${inset}`}>
+      {task.dispatch && <DispatchSpec {...task.dispatch} />}
+      {task.path && <span class="truncate text-caption text-text-tertiary">{task.path}</span>}
+    </div>}
     <div class={`relative flex min-h-0 flex-1 flex-col justify-end gap-2 overflow-hidden rounded-[16px]
       bg-surface-subtle ${narrow ? 'm-2 p-2' : 'm-3 p-3'}`} aria-hidden="true">
       {task.prompt && <SnapshotNote tone="source" text={task.prompt} />}
@@ -132,10 +127,7 @@ export function TaskGrid({ items, height, narrow = false, summary = false }: {
 }) {
   return <div role="list" class="grid grid-cols-[repeat(auto-fill,minmax(min(100%,224px),1fr))] gap-4">
     {items.map(task => <div role="listitem" class="flex min-w-0 flex-col gap-2">
-      {summary ? <TaskHistorySummary task={task} /> : <>
-        <TaskStatusMark task={task} />
-        <TaskSnapshot task={task} height={height} narrow={narrow} />
-      </>}
+      {summary ? <TaskHistorySummary task={task} /> : <TaskSnapshot task={task} height={height} narrow={narrow} />}
     </div>)}
   </div>;
 }
@@ -152,7 +144,4 @@ export default () => [
     <TaskSnapshot task={tasks.find(task => task.id === id)!} />
   </Frame>),
   <Frame name="task-snapshot-narrow" width={171}><TaskSnapshot task={tasks[2]} height={290} narrow /></Frame>,
-  ...snapshotForms.map(({ name, id }) => <Frame name={`task-status-mark-${name}`} width={260}>
-    <TaskStatusMark task={tasks.find(task => task.id === id)!} />
-  </Frame>),
 ];

@@ -50,6 +50,12 @@ export const checks = [{ stage: 'verify', order: 18, visual: true, async run(con
   });
   if (!clickable) throw new Error('Homepage control is covered by the titlebar drag strip.');
   const check = fixture.homepage.check;
+  if (check === 'capsules') {
+    // Regression: the working capsule showed a numeric attention badge.
+    const triggers = page.getByRole('button', { name: new RegExp(`${text('openTasks')}$`) });
+    const labels = await triggers.allTextContents();
+    if (!labels.length || labels.some(label => /\d/.test(label))) throw new Error('Working capsule controls must use icons.');
+  }
   const reveal = async name => {
     for (let attempt = 0; attempt < 8; attempt++) {
       const target = page.getByRole('button', { name, exact: true });

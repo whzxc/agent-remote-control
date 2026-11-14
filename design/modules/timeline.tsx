@@ -14,7 +14,6 @@ import { taskDispatch } from "../fixtures/task-presentation";
 
 type RelayParty = { name: string; brand: "claude" | "codex" };
 const { source, agent } = relayParties;
-const edge = "absolute inset-y-0 left-0 w-[3px]";
 
 /** Directional address shared by relay messages, replies, requests and the task header. */
 export function RelayRoute({ from = source, to = agent, label, time, tone }: {
@@ -35,15 +34,14 @@ export function RelayRoute({ from = source, to = agent, label, time, tone }: {
   );
 }
 
-/** A controller instruction. Left-aligned with a source edge; never a right-aligned human bubble. */
+/** A controller instruction with a directional route. */
 export function RelayMessage({ kind = "followup", text = relayTurns.second.prompt, time = relayTurns.second.time }: {
   kind?: RelayKind; text?: string; time?: string;
 }) {
   const local = kind === "local", queued = kind === "queued";
   return (
-    <article class={`relative overflow-hidden rounded-card py-3 pl-[18px] pr-4
+    <article class={`overflow-hidden rounded-card px-4 py-3
       ${queued ? "border border-dashed border-border-strong" : "bg-surface-subtle"}`}>
-      <span class={`${edge} ${local ? "bg-border-strong" : queued ? "bg-role-source/45" : "bg-role-source"}`} />
       {local ? (
         <div class="flex items-center text-meta leading-4 text-text-secondary">
           {relayCopy.kind.local}<span class="ml-auto tabular-nums text-text-tertiary">{time}</span>
@@ -109,7 +107,7 @@ export function TimelineStep({ step }: { step: RelayStep }) {
         )}
         {step.detail && (step.kind !== "thought" || step.expanded) && (
           <div class={`mt-[6px] flex flex-col font-mono text-meta leading-5 ${step.kind === "thought"
-            ? "border-l-2 border-phase-thinking/30 pl-3 font-sans text-small text-text-tertiary"
+            ? "font-sans text-small text-text-tertiary"
             : step.kind === "failed" ? "rounded-field bg-danger/8 px-3 py-2 text-danger"
             : "rounded-field bg-surface-sunken px-3 py-2 text-text-tertiary"}`}>
             {step.detail.map((line) => <span class="truncate">{line}</span>)}
@@ -195,8 +193,7 @@ export function RelayReply() {
 /** A request travels back to the controller unless someone answers it here first. */
 export function RelayRequest() {
   return (
-    <article class="relative flex flex-col gap-3 overflow-hidden rounded-card bg-surface-subtle py-3 pl-[18px] pr-4">
-      <span class={`${edge} bg-warning`} />
+    <article class="flex flex-col gap-3 overflow-hidden rounded-card bg-surface-subtle px-4 py-3">
       <RelayRoute from={agent} to={source} label={relayCopy.request} tone="warning" />
       <PermissionCard />
       <RequestRouting inline status={relayCopy.routing} resumeLabel={relayCopy.pause}
@@ -208,8 +205,7 @@ export function RelayRequest() {
 /** Turn failure stays in the turn and keeps the failed command one click away. */
 export function RelayFailure() {
   return (
-    <article class="relative flex flex-col gap-3 overflow-hidden rounded-card border border-danger/35 py-3 pl-[18px] pr-4">
-      <span class={`${edge} bg-danger`} />
+    <article class="flex flex-col gap-3 overflow-hidden rounded-card border border-danger/35 px-4 py-3">
       <RelayRoute from={agent} to={source} label={relayCopy.failed} tone="danger" />
       <p class="text-body leading-6">{relayFailure.message}</p>
       <p class="text-small leading-5 text-text-secondary">{relayFailure.retained}</p>

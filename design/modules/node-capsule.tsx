@@ -9,14 +9,14 @@ export type NodeTaskState = {
   running?: number; attention?: number; unread?: number; unconfirmed?: boolean; steps?: readonly TaskStepKind[];
 };
 
-/** Geometry: the quota ring is the capsule outline. Every item is a 22px disc on a 28px step, so the
+/** Geometry: the quota ring is the capsule outline. Every item is a 20px disc on a 28px step, so the
  * logo is concentric with the inner cap and the last item with the outer cap. */
-const height = 48, radius = 21, step = 28, disc = 22;
+const height = 48, radius = 21, step = 28, disc = 20;
 const limits = { full: 5, compact: 2 };
 export const capsuleMaximum = { full: height + limits.full * step, compact: height + limits.compact * step };
 
-type Item = { kind: 'attention'; count: number } | { kind: 'step'; step: TaskStepKind | 'running' }
-  | { kind: 'overflow'; count: number } | { kind: 'unconfirmed' };
+type Item = { kind: 'attention' } | { kind: 'step'; step: TaskStepKind | 'running' }
+  | { kind: 'overflow' } | { kind: 'unconfirmed' };
 
 /** The reserved column width is state-independent. Only the outline and its outer port change. */
 export function nodeCapsuleLayout(state?: NodeTaskState, compact = false) {
@@ -24,14 +24,14 @@ export function nodeCapsuleLayout(state?: NodeTaskState, compact = false) {
   if (state?.unconfirmed) items.push({ kind: 'unconfirmed' });
   else {
     const limit = compact ? limits.compact : limits.full;
-    if (state?.attention) items.push({ kind: 'attention', count: state.attention });
+    if (state?.attention) items.push({ kind: 'attention' });
     const running = state?.running ?? 0;
     const steps: (TaskStepKind | 'running')[] = running
       ? Array.from({ length: running }, (_, i) => state?.steps?.[i] ?? 'running') : [];
     const room = limit - items.length;
     const shown = steps.length > room ? Math.max(0, room - 1) : steps.length;
     steps.slice(0, shown).forEach(s => items.push({ kind: 'step', step: s }));
-    if (steps.length > shown) items.push({ kind: 'overflow', count: steps.length - shown });
+    if (steps.length > shown) items.push({ kind: 'overflow' });
   }
   return { width: height + items.length * step, active: items.length > 0, items };
 }
@@ -96,16 +96,14 @@ const stepTone: Record<TaskStepKind | 'running', string> = {
 function CapsuleItem({ item }: { item: Item }) {
   const base = 'flex shrink-0 items-center justify-center rounded-full';
   const size = { width: disc, height: disc };
-  if (item.kind === 'attention') return <span style={{ minWidth: disc, height: disc }}
-    class={`${base} bg-warning px-[5px] text-caption font-semibold tabular-nums text-canvas`}>
-    {item.count > 9 ? '9+' : item.count}</span>;
+  if (item.kind === 'attention') return <span style={size} class={`${base} bg-warning text-canvas`}>
+    <Icon name="shield-alert" size={12} /></span>;
   if (item.kind === 'overflow') return <span style={size}
-    class={`${base} gap-[2px] bg-surface-sunken text-text-secondary`} aria-label={`${item.count} more running`}>
-    {[0, 1, 2].map(() => <span class="size-[3px] rounded-full bg-current" />)}</span>;
+    class={`${base} bg-surface-sunken text-text-secondary`}><Icon name="ellipsis" size={13} /></span>;
   if (item.kind === 'unconfirmed') return <span style={size} class={`${base} text-text-tertiary`}>
-    <Icon name="circle-help" size={16} /></span>;
+    <Icon name="circle-help" size={13} /></span>;
   return <span style={size} class={`${base} bg-surface-subtle ${stepTone[item.step]}`}>
-    {item.step === 'running' ? <Icon name="loader" size={13} /> : <TaskActivityIcon kind={item.step} size={13} />}
+    {item.step === 'running' ? <Icon name="loader" size={12} /> : <TaskActivityIcon kind={item.step} size={12} />}
   </span>;
 }
 
@@ -131,10 +129,10 @@ export function NodeCapsule({ state, label, graphic, mark, readings, used, neutr
         <button aria-label={`Open ${label} panel`} aria-expanded={expanded}
           class={`absolute left-0 top-0 z-10 flex size-12 items-center justify-center rounded-full
             ${state?.unconfirmed ? 'opacity-60' : ''}`}
-          style={{ transform: mirror ? 'scaleX(-1)' : undefined }}>{mark ?? graphic}</button>
+          style={{ transform: mirror ? 'scaleX(-1)' : undefined }}><span class="flex scale-[.92]">{mark ?? graphic}</span></button>
         <button aria-label={`${label}: ${summary}. Open Tasks`} title={summary}
           class="absolute top-0 z-10 h-12 rounded-r-full" style={{ left: buttonLeft, width: width - buttonLeft }}>
-          {model.items.map((item, i) => <span class="absolute flex h-[22px] items-center justify-center"
+          {model.items.map((item, i) => <span class="absolute flex size-5 items-center justify-center"
             style={{ left: 24 + (i + 1) * step - disc / 2 - buttonLeft, top: (height - disc) / 2, width: disc,
               transform: mirror ? 'scaleX(-1)' : undefined }}><CapsuleItem item={item} /></span>)}
         </button>

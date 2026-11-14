@@ -8,9 +8,7 @@ status: Approved
 ---
 The homepage has a manually selected, persisted Topology or Tasks mode. The shared
 SingleChoice sits below the centered Board header in both modes and all widths. Task
-observations never change the selected mode. The selector's Tasks option carries
-the needs-me count while Topology is selected. This is ordinary navigation, without an
-Experimental toggle or a new bottom-navigation workspace.
+observations never change the selected mode. The selector offers Topology and Tasks.
 
 Topology positions depend only on configuration, viewport and explicit structural
 disclosure. Task observations resize only the working node capsule shell and its
@@ -50,8 +48,8 @@ outgoing port share the existing 210/26 topology spring with approximately 8ms
 substeps; reduced motion sets endpoints directly. No task-state transition moves a
 node, label or branch rail.
 
-The capsule holds 22px discs on a 28px step: the needs-me count, one phase disc per
-running task, and an overflow disc. Full capsules hold five items; compact hold two.
+The capsule holds 20px discs on a 28px step: the needs-me icon, one phase disc per
+running task, and an ellipsis overflow disc. Full capsules hold five items; compact hold two.
 Completed unread is a dot on the outline. Offline uses unconfirmed without live counts
 or phases. The help disc indicates unconfirmed task status. Available quota stays visible
 for Agent accounts and their linked control source nodes. The logo opens its existing node panel;
@@ -59,8 +57,9 @@ the task area opens scoped Tasks. Narrow topology pans horizontally between rese
 columns by explicit user input; the header/navigation stay fixed. Device management
 explicitly folds the child branch while its panel is open.
 
-Portrait snapshots show status, origin, one-line title, project path and a newest-anchored
-native preview. Tool groups summarize the recorded categories and reasoning lines show
+Portrait snapshots keep status and duration inside the same card as the origin,
+one-line title, project path and newest-anchored native preview.
+Tool groups summarize the recorded categories and reasoning lines show
 their own summary. Replies stay inline. Historical bubbles show Agent and control source
 marks, title, status, recorded execution specification and duration from list metadata.
 Card activation opens the full detail and loads its timeline on demand.

@@ -258,10 +258,10 @@ export function nodeTaskState(tasks: HomepageTask[], deviceState?: 'online' | 'o
 
 export type NodeTaskState = { attention: number; running: number; unread: number; unconfirmed?: boolean; steps: (TaskStepKind | undefined)[] };
 
-type Item = { kind: 'attention'; count: number } | { kind: 'step'; step?: TaskStepKind } | { kind: 'overflow' } | { kind: 'unconfirmed' };
+type Item = { kind: 'attention' } | { kind: 'step'; step?: TaskStepKind } | { kind: 'overflow' } | { kind: 'unconfirmed' };
 export function capsuleItems(state: NodeTaskState, compact: boolean): Item[] {
   if (state.unconfirmed) return [{ kind: 'unconfirmed' }];
-  const items: Item[] = state.attention ? [{ kind: 'attention', count: state.attention }] : [];
+  const items: Item[] = state.attention ? [{ kind: 'attention' }] : [];
   const room = (compact ? 2 : 5) - items.length;
   const shown = state.running > room ? room - 1 : state.running;
   for (let index = 0; index < shown; index++) items.push({ kind: 'step', step: state.steps[index] });

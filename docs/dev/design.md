@@ -92,13 +92,13 @@ on the idle ring and in panels only. Plain devices draw a neutral track; unconfi
 draws a dashed neutral track with no quota. The capsule fills with surface and grows
 rightward on the executor wing and leftward, mirrored, on the control-source wing.
 
-Content follows one rhythm. Every item is a 22px disc centered on the capsule's
+Content follows one rhythm. Every item is a 20px disc centered on the capsule's
 midline at a 28px step. The logo is concentric with the inner cap and the last item
 with the outer cap, so width is exactly 48px plus 28px per item. Item order from the
-logo outward: the needs-me count, one disc per running task showing that task's
+logo outward: the needs-me icon, one disc per running task showing that task's
 current phase, then an overflow disc.
 
-- Needs me: a solid warning disc with the count (9+ cap), reporting node task state. It is the only number in the capsule.
+- Needs me: a shield-alert icon in the warning disc. Counts are available in the accessible summary.
 - Running: each disc is one task. Its icon is the observed phase (reading, editing,
   command, thinking, waiting) on a subtle surface, tinted with the phase tokens;
   waiting is tertiary. A running task without an observed phase shows a loader.

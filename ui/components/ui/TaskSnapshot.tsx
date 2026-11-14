@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { taskExecution, useTaskPreview } from '../../state/taskExecution';
 import { executionStatus, terminalState } from '../../state/taskExecutionModel';
 import { ArrowRightLeft, Check, ChevronRight, CircleHelp, Hourglass } from 'lucide-react';
-import { Icon, IconButton, Tile, Tooltip } from './index';
+import { Icon, IconButton, Tooltip } from './index';
 import { taskPhaseIcons } from './NodeCapsule';
 import { activeHomepageTask, type HomepageTask } from '../../state/activityModel';
 import { recordedTimestamp, taskState, thoughtLine, toolSummary, type TaskSnapshotRow } from '../../state/taskProjection';
@@ -87,13 +87,13 @@ export function TaskHistorySummary({ task, identity, freshness, now, onOpen }: {
     </TaskBubble>
   </div>;
 }
-export function TaskStatusMark({ task, identity, now }: { task: HomepageTask; identity: TaskIdentity; now: number }) {
+function TaskStatusMark({ task, now }: { task: HomepageTask; now: number }) {
   const state = status(task), offline = task.group === 'unconfirmed', waiting = task.group === 'needs-me';
-  return <div className="task-status-mark" aria-label={t(`homepage.${state}`)}>
-    {activeHomepageTask(task) || offline ? <Tile icon={offline ? CircleHelp : waiting ? Hourglass : taskPhaseIcons[task.activity.steps.at(-1)?.kind ?? 'running']}
-      form="phase" tone={offline ? 'neutral' : waiting ? 'warning' : 'command'} /> : <TaskIdentityMark {...identity} />}
+  const icon = offline ? CircleHelp : waiting ? Hourglass : activeHomepageTask(task) ? taskPhaseIcons[task.activity.steps.at(-1)?.kind ?? 'running'] : undefined;
+  return <span className="task-status-mark" data-tone={offline ? 'neutral' : waiting ? 'warning' : 'command'}>
+    {icon && <Icon icon={icon} size={12} />}
     <span className="task-status-label">{t(`homepage.${state}`)}</span><TaskElapsed task={task} now={now} />
-  </div>;
+  </span>;
 }
 
 export function TaskSnapshot({ task, origins, now, path, freshness, onOpen, onRead }: {
@@ -111,17 +111,18 @@ export function TaskSnapshot({ task, origins, now, path, freshness, onOpen, onRe
     : routing.state === 'not-routable' ? 'routing.nextCheck' : 'routing.routed', { source, seconds: Math.max(0, Math.ceil(((routing.deferUntil ?? now) - now) / 1000)) }) : undefined;
   const { snapshot } = task.activity;
   const title = taskTitle(task);
+  const location = [offline ? undefined : path, task.session.project].filter(Boolean).join(' · ');
   return <div ref={card} className="task-snapshot" data-task-snapshot={task.key} data-offline={offline || undefined}>
     <header><span className="task-snapshot-origins" role="img" aria-label={origins.map(origin => origin.label).join(' → ')}>
       {origins.map((origin, index) => <span key={`${index}:${origin.label}`}>{index > 0 && <Icon icon={ChevronRight} size={10} />}<Tooltip text={origin.label}><span className="task-snapshot-origin">{origin.graphic}</span></Tooltip></span>)}
-    </span>{!offline && path && <span className="task-snapshot-path" title={path}>{path}</span>}
+    </span><TaskStatusMark task={task} now={now} />
       {onRead && task.group === 'unread' && <IconButton className="task-snapshot-read" compact icon={Check} label={`${t('homepage.markRead')}: ${title}`} onClick={onRead} />}
     </header>
     {onOpen ? <button type="button" data-task-open className="task-snapshot-title" title={title} aria-label={`${t('homepage.openDetail')}: ${title}`} onClick={onOpen}>{title}</button>
       : <strong className="task-snapshot-title">{title}</strong>}
     <div className="task-card-execution task-snapshot-execution">
       <RecordedDispatchSpec agent={task.deviceId ? undefined : task.agent} summary={task.session.dispatchSummary} />
-      {task.session.project && <span className="task-snapshot-project" title={task.session.project}>{task.session.project}</span>}
+      {location && <span className="task-snapshot-project" title={location}>{location}</span>}
     </div>
     <div className="task-snapshot-timeline" role="region" aria-label={t('homepage.recentSteps')}>
       <div className="task-snapshot-tail">
