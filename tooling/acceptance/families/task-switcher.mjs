@@ -19,6 +19,9 @@ export const checks = [{ stage: 'beforeNavigate', order: 1, visual: true, async 
     if (before.shells > 9 || before.details > 4) throw new Error(`Unbounded initial deck: ${JSON.stringify(before)}`);
     const current = () => deck.locator('article[aria-current=true]');
     const firstTitle = await current().getAttribute('aria-label');
+    await page.getByRole('button', { name: 'Open board', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Board', exact: true }).waitFor();
+    await page.keyboard.press('Escape'); await page.getByRole('dialog').waitFor({ state: 'hidden' });
     if (await page.evaluate(() => window.__ARC_VIEW_MODEL__().homepage.tasks.length) !== 200) throw new Error('Large fixture lost tasks.');
     await deck.hover(); await page.mouse.wheel(-100000, 0);
     await page.waitForFunction(title => document.querySelector('article[aria-current=true]')?.getAttribute('aria-label') !== title, firstTitle);

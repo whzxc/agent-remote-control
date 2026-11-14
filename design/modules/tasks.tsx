@@ -158,7 +158,7 @@ export function TaskStack({ items = tasks, form = 'landscape' }: {
   const span = deck.card + offsets[order.length - 1];
   const front = Math.min(Math.round((deck.width - span) / 2), deck.width - span - 16) + offsets[order.length - 1];
   return <div class="flex min-h-0 flex-1 flex-col pt-4">
-    <div data-free role="list" aria-label={copy.tasks} class="relative min-h-0 w-full flex-1 overflow-hidden">
+    <div data-free role="list" aria-label={copy.tasks} class="relative isolate min-h-0 w-full flex-1 overflow-hidden">
       {order.map((task, depth) => ({ task, depth })).reverse().map(({ task, depth }) => {
         const strip = depth ? deck.peeks[depth - 1] : deck.card;
         return <div role="listitem" aria-current={depth ? undefined : 'true'} class="absolute inset-y-0 flex flex-col gap-3"

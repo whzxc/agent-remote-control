@@ -5,7 +5,7 @@
 .homepage-tasks-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--text-secondary); }
 .homepage-tasks[data-layout=stack] { padding-inline: 0; }
 .homepage-tasks[data-layout=stack] > .homepage-task-filter { margin-left: 24px; }
-.task-stack { position: relative; width: 100%; flex: 1; min-height: 0; overflow: hidden; touch-action: pan-y; user-select: none; outline-offset: -4px; }
+.task-stack { isolation: isolate; position: relative; width: 100%; flex: 1; min-height: 0; overflow: hidden; touch-action: pan-y; user-select: none; outline-offset: -4px; }
 .task-stack-card { position: absolute; top: 16px; bottom: 0; display: flex; flex-direction: column; gap: 12px; transform-origin: left center; cursor: pointer; }
 .task-stack-card .task-status-mark { flex: none; max-width: calc(var(--task-strip) - 4px); }
 .task-stack-card:not([data-labelled]) .task-status-mark > span:not(.tile) { display: none; }
