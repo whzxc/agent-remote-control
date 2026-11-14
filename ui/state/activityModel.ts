@@ -218,19 +218,27 @@ export type HomepageTask = {
 export function activeHomepageTask(task: HomepageTask) {
   return task.group === 'running' || task.group === 'needs-me';
 }
-export function previewHomepageTask(task: HomepageTask) {
-  return activeHomepageTask(task) || task.group === 'unread';
+export function localTaskDay(time: number) {
+  return new Date(time).setHours(0, 0, 0, 0);
 }
-export function recentHomepageTasks(a: HomepageTask, b: HomepageTask) {
-  const timestamp = (task: HomepageTask) => Math.max(
+export function homepageTaskTime(task: HomepageTask) {
+  return Math.max(
     recordedTimestamp(task.updatedAt) ?? 0,
     recordedTimestamp(task.endedAt) ?? 0,
     recordedTimestamp(task.startedAt) ?? 0,
     task.session.endedAt ?? 0,
-  ) || task.session.orderAt || 0;
+  ) || task.session.orderAt || recordedTimestamp(task.session.startedAt);
+}
+export function homepageTaskDay(task: HomepageTask) {
+  const timestamp = homepageTaskTime(task);
+  return timestamp === undefined ? undefined : localTaskDay(timestamp);
+}
+export function previewHomepageTask(task: HomepageTask, today?: number) {
+  return activeHomepageTask(task) || task.group === 'unread' || today !== undefined && homepageTaskDay(task) === today;
+}
+export function recentHomepageTasks(a: HomepageTask, b: HomepageTask) {
   return Number(activeHomepageTask(b)) - Number(activeHomepageTask(a))
-    || Number(previewHomepageTask(b)) - Number(previewHomepageTask(a))
-    || timestamp(b) - timestamp(a) || a.key.localeCompare(b.key);
+    || (homepageTaskTime(b) ?? 0) - (homepageTaskTime(a) ?? 0) || a.key.localeCompare(b.key);
 }
 export function homepageTaskGroup(session: TrackedActivity, pending: boolean, status?: string, observedCompletion = true): HomepageTaskGroup {
   if (session.observed !== false && session.endedAt === undefined) return pending ? 'needs-me' : 'running';
@@ -281,6 +289,8 @@ export function projectDeviceTasks(device: import('../devices/state').Device, ob
       project: record.task.project ?? record.task.directory, agentAccountId: record.agentAccountId,
       headline: '', phase: 'idle', phaseSince: null, timeline: false, observed: false,
       orderAt: Date.parse(record.createdAt), startedAt: record.createdAt, turnId: record.turnId,
+      dispatchSummary: { model: record.task.model ?? record.requested?.model, effort: record.task.effort ?? record.requested?.effort,
+        serviceTier: record.requested?.serviceTier },
       status: record.runtime?.status ?? record.runtime?.runtimeStatus, origin: record.origin ?? record.task.origin,
     } });
   }
@@ -293,7 +303,7 @@ export function projectDeviceTasks(device: import('../devices/state').Device, ob
       session: current, group: unconfirmed ? 'unconfirmed' : homepageTaskGroup(current, !!current.interaction, current.status ?? undefined, session.observed === true),
       sourceIds: session.origin?.peerOrigin?.sourceId ? [session.origin.peerOrigin.sourceId] : [],
       accountId: session.agentAccountId ?? session.dispatchSummary?.agentAccountId,
-      activity: { steps: [], snapshot: [] }, startedAt: unconfirmed ? undefined : session.turnStartedAt,
+      activity: { steps: [], snapshot: [] }, startedAt: unconfirmed ? undefined : session.turnStartedAt, endedAt: session.turnEndedAt,
       observedAt: snapshot.observedAt, freshness: device.lastSeen ?? snapshot.observedAt };
   });
 }

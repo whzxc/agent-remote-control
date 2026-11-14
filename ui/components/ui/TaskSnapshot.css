@@ -1,7 +1,8 @@
 .task-status-mark { display: flex; align-items: center; height: 24px; gap: 8px; min-width: 0; overflow: hidden; white-space: nowrap; }
 .task-status-mark > .tile { width: 24px; height: 24px; border-radius: 8px; }
-.task-status-mark > span { overflow: hidden; text-overflow: ellipsis; font-size: var(--text-meta); font-weight: 600; }
-.task-status-mark time { color: var(--text-tertiary); font-weight: 400; font-variant-numeric: tabular-nums; }
+.task-status-label { overflow: hidden; text-overflow: ellipsis; font-size: var(--text-meta); font-weight: 600; }
+.task-card-duration { flex: none; color: var(--text-tertiary); font-size: var(--text-caption); font-variant-numeric: tabular-nums; }
+.task-status-mark time::before { content: '·'; margin-right: 8px; }
 .task-snapshot { display: flex; flex-direction: column; height: var(--task-snapshot-height, 340px); min-width: 0; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface); box-shadow: var(--shadow-md); }
 .task-snapshot header { display: flex; align-items: center; gap: 8px; padding: 14px 16px 0; min-height: 34px; flex: none; }
 .task-snapshot-origins, .task-snapshot-origins > span { display: inline-flex; align-items: center; gap: 4px; }
@@ -9,7 +10,10 @@
 .task-snapshot-origin { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: var(--surface-sunken); }
 .task-snapshot-path { margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-caption); color: var(--text-tertiary); }
 .task-snapshot-title { margin: 10px 16px 0; text-align: left; color: var(--text); font-size: var(--text-body); font-weight: 600; line-height: 20px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; flex: none; }
-.task-snapshot-project { margin: 4px 16px 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--text-tertiary); font-size: var(--text-caption); flex: none; }
+.task-snapshot-project { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--text-tertiary); font-size: var(--text-caption); }
+.task-card-execution { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.task-card-execution:empty { display: none; }
+.task-snapshot-execution { margin: 4px 16px 0; }
 .task-snapshot-timeline { flex: 1; position: relative; min-height: 0; overflow: clip; margin: 12px; border-radius: 16px; background: var(--surface-subtle); }
 .task-snapshot-tail { min-height: 100%; position: absolute; inset: auto 0 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; padding: 12px; }
 .task-snapshot-row { display: flex; flex: none; align-items: start; gap: 8px; font-size: var(--text-caption); line-height: 16px; color: var(--text-secondary); overflow-wrap: anywhere; }
@@ -30,7 +34,12 @@
 .task-snapshot[data-offline] .task-snapshot-timeline { opacity: .6; }
 .task-snapshot .task-snapshot-read { --icon-button-size: 20px; margin-left: auto; }
 .task-history-summary { border-radius: var(--radius-card); }
-.task-history-summary > .activity-bubble { width: 100%; height: 58px; }
+.task-history-summary > .activity-bubble { align-items: flex-start; width: 100%; height: auto; min-height: 66px; padding-block: 12px; }
+.task-card-identity { position: relative; display: grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: var(--radius-tile); background: var(--surface-subtle); }
+.task-card-identity > .activity-source-badge { width: 15px; height: 15px; }
+.task-status-mark .task-card-identity { width: 24px; height: 24px; }
+.task-status-mark .task-card-identity .brand-mark { transform: scale(.8); }
+.task-status-mark .activity-source-badge { right: 0; bottom: 0; }
 .task-history-summary .activity-phase > :first-child { flex: none; }
 .task-history-meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .task-history-meta::before { content: '·'; margin-right: 6px; }
@@ -38,6 +47,7 @@
   .task-snapshot header { padding-inline: 12px; }
   .task-snapshot-path { display: none; }
   .task-snapshot-title { margin-inline: 12px; }
+  .task-snapshot-execution { margin-inline: 12px; }
   .task-snapshot-timeline { margin: 8px; }
   .task-snapshot-tail { padding: 8px; }
 }

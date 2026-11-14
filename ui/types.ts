@@ -103,6 +103,8 @@ export interface AgentActivitySession {
   recentSteps?: Exclude<AgentPhase, "idle">[];
   startedAt?: string | null;
   turnStartedAt?: string | null;
+  turnEndedAt?: string | null;
+  turnDurationMs?: number | null;
   phaseSince: string | null;
   interaction?: AgentInteraction;
   timeline: boolean;
@@ -127,6 +129,9 @@ export interface AgentConversation {
   createdAt: string | null;
   updatedAt?: string | null;
   turnId?: string | null;
+  turnStartedAt?: string | null;
+  turnEndedAt?: string | null;
+  turnDurationMs?: number | null;
   nativeSessionId?: string | null;
   open?: AgentActivitySession["open"];
 }

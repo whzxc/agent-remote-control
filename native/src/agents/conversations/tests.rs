@@ -312,12 +312,15 @@ fn conversation_metadata_uses_explicit_outcomes_and_discloses_partial_counts() {
     let records = vec![
         json!({"type":"event_msg","timestamp":"2026-01-01T00:00:00Z","payload":{"type":"task_started","turn_id":"turn-one"}}),
         json!({"type":"turn_context","payload":{"turn_id":"turn-one","model":"model-one","effort":"high"}}),
-        json!({"type":"event_msg","timestamp":"2026-01-01T00:00:01Z","payload":{"type":"task_complete"}}),
+        json!({"type":"event_msg","timestamp":"2026-01-01T00:00:01Z","payload":{"type":"task_complete","turn_id":"turn-one","duration_ms":1000}}),
     ];
     let complete = activity::conversation_projection(&records, false);
     assert_eq!(complete["status"], "completed");
     assert_eq!(complete["turnCount"], 1);
     assert_eq!(complete["dispatchSummary"]["model"], "model-one");
+    assert_eq!(complete["turnStartedAt"], "2026-01-01T00:00:00Z");
+    assert_eq!(complete["turnEndedAt"], "2026-01-01T00:00:01Z");
+    assert_eq!(activity::conversation_projection(&records[2..], true)["turnDurationMs"], 1000);
     let partial = activity::conversation_projection(&records, true);
     assert_eq!(partial["status"], "completed");
     assert!(partial["turnCount"].is_null());
@@ -328,6 +331,9 @@ fn conversation_metadata_uses_explicit_outcomes_and_discloses_partial_counts() {
     assert!(unconfirmed["status"].is_null());
     assert_eq!(unconfirmed["turnCount"], 2);
     assert_eq!(unconfirmed["dispatchSummary"]["model"], "model-two");
+    assert!(unconfirmed["turnStartedAt"].is_null());
+    assert!(unconfirmed["turnEndedAt"].is_null());
+    assert!(unconfirmed["turnDurationMs"].is_null());
     newer.push(json!({"type":"event_msg","timestamp":"2026-01-01T00:00:02Z","payload":{"type":"turn_aborted"}}));
     assert_eq!(
         activity::conversation_projection(&newer, false)["status"],

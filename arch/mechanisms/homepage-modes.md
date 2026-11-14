@@ -30,14 +30,12 @@ On that member, the controller device is the source and there is no extra local-
 step. The controller projection contains only tasks it dispatched to that member.
 
 Tasks combines live activity, recent native Codex conversations and ARC dispatch records.
-Active tasks, including waiting tasks, come first, then unread completions and historical
-summaries. Each set is ordered by recent activity. Unconfirmed history retains its status.
-Layout persists as Tile or Stack. Opening an unread completion marks it read. Tile uses
-separate preview and summary grids without visible headings, with six
-columns at 1500px, five at 1000px and two below. Stack uses one deck and gives running cards
-full width when they fit. Deck navigation supports pointer, touch, horizontal wheel and
-keyboard input. Vertical wheel input keeps its default behavior. Snapshot opening
-and closing morph between the card and the centered layer slot. Reduced motion is instant.
+Tasks are grouped by the local calendar date of their latest recorded activity. Each
+date section uses responsive columns. Active tasks, including waiting tasks, today's
+tasks and unread completions show previews. Older history shows compact summaries.
+Unconfirmed history retains its status. Opening an unread completion marks it read.
+Snapshot opening and closing morph between the card and the centered layer slot.
+Reduced motion is instant.
 The one-row HomepageBar reserves space for both homepage modes and retains the Board entry.
 
 All nodes use the neutral architecture vocabulary. The sidecar's Approved status
@@ -63,6 +61,7 @@ explicitly folds the child branch while its panel is open.
 
 Portrait snapshots show status, origin, one-line title, project path and a newest-anchored
 native preview. Tool groups summarize the recorded categories and reasoning lines show
-their own summary. Replies stay inline. Historical bubbles show title and status from
-list metadata. Card activation opens the full detail and loads its timeline on demand.
+their own summary. Replies stay inline. Historical bubbles show Agent and control source
+marks, title, status, recorded execution specification and duration from list metadata.
+Card activation opens the full detail and loads its timeline on demand.
 Routing and last-seen information stay in the preview. Request handling remains with the controller.

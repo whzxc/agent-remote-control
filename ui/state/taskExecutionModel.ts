@@ -1,7 +1,7 @@
 import type { AgentActivitySession, AgentTimeline, AgentTimelineEntry } from "../types.ts";
 import { taskState, type TaskState } from "./taskProjection.ts";
 
-export interface TaskExecution extends Pick<AgentTimeline, "status" | "turnStatuses" | "turnTimings" | "readOnly" | "coverage" | "executionEvidence"> {
+export interface TaskExecution extends Pick<AgentTimeline, "status" | "turnStatuses" | "turnTimings" | "dispatchSummary" | "turnDispatchSummaries" | "readOnly" | "coverage" | "executionEvidence"> {
   turnId?: string;
   interactions: AgentTimelineEntry[];
   entries: AgentTimelineEntry[];
@@ -9,6 +9,7 @@ export interface TaskExecution extends Pick<AgentTimeline, "status" | "turnStatu
 export function executionSnapshot(timeline: AgentTimeline): TaskExecution {
   return { status: timeline.status, turnId: timeline.entries.at(-1)?.turnId || undefined,
     turnStatuses: timeline.turnStatuses, turnTimings: timeline.turnTimings, readOnly: timeline.readOnly,
+    dispatchSummary: timeline.dispatchSummary, turnDispatchSummaries: timeline.turnDispatchSummaries,
     entries: timeline.entries.slice(-80), coverage: timeline.coverage, executionEvidence: timeline.executionEvidence,
     interactions: timeline.entries.filter(entry => entry.type === "interaction") };
 }

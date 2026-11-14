@@ -228,28 +228,27 @@ Board records may reference tasks, connections, updates or AX candidates; their 
 
 ### Homepage Tasks mode
 
-**User-approved and adopted.** HomepageBar uses one row in both modes: clock and
-Board on the left, the persisted mode selector centered, and Tasks view controls on
-the right. Compact widths omit the date. Node task-state activation selects Tasks
+**User-approved and adopted.** HomepageBar uses one row in both modes. Clock and
+Board sit on the left. The persisted mode selector stays centered. Compact widths
+omit the date. Node task-state activation selects Tasks
 with a transient clearable scope and focuses its matching tasks.
 
 | Source / part | Declared forms | Consumer / intended runtime owner | Status |
 | --- | --- | --- | --- |
 | `modules/homepage-mode.tsx` / HomepageModeSwitch | `mode-switch-topology`, `mode-switch-tasks` | `ui/display/Studio.tsx`; `ui/state/homepage.ts` | User-approved and adopted. Manual two-choice selector without a needs-me badge. |
-| `modules/homepage-mode.tsx` / HomepageBar | `homepage-bar-topology`, `homepage-bar-tasks`, `homepage-bar-tasks-compact` | `ui/display/Studio.tsx`; TopologyScreen; Tasks switcher surfaces | User-approved and adopted in both modes. One row below the native drag strip with the existing Board entry and compact date omission. The topology viewport gives the freed height to both solvers. |
+| `modules/homepage-mode.tsx` / HomepageBar | `homepage-bar-topology`, `homepage-bar-tasks`, `homepage-bar-tasks-compact` | `ui/display/Studio.tsx`; TopologyScreen; Tasks surface | User-approved and adopted in both modes. One row below the native drag strip with the existing Board entry and compact date omission. The topology viewport gives the freed height to both solvers. |
 | `modules/tasks.tsx` / OriginChain | `origin-chain-{local,remote,member,offline}` | `ui/components/ui/TaskSnapshot.tsx` | User-approved and adopted. Source → optional remote device → Agent → account. Each icon retains its full accessible identity. |
 | `modules/tasks.tsx` / NodeTaskFilter | `node-task-filter` | `ui/components/HomepageTasks.tsx` | User-approved and adopted. Clearable node scope with keyboard focus. |
 | `modules/tasks.tsx` / TasksEmpty | `tasks-empty` | `ui/components/HomepageTasks.tsx` | User-approved and adopted. Empty task or filter state. |
 | `modules/tasks.tsx` / TaskSnapshot, TaskStatusMark | `task-snapshot-{waiting-input,waiting-approval,running,unread,narrow}`, `task-status-mark-{waiting-input,waiting-approval,running,unread}` | `ui/components/ui/TaskSnapshot.tsx` | User-approved and adopted. Status mark above each portrait snapshot; no request actions or attention borders. Origin, single-line title and project/path precede a static timeline with single-line categorized tool summaries, reasoning and inline replies. Runtime rows use native observations; remote snapshots retain available metadata. |
-| `modules/tasks.tsx` / TaskHistorySummary | `task-summary-finished`, `task-summary-offline` | `ui/components/ui/TaskSnapshot.tsx#TaskHistorySummary` | Compact TaskBubble form for historical tasks. Metadata only. Opening the card loads the detail. |
-| `modules/tasks.tsx` / TaskViewControls | `task-view-controls` | `ui/components/TaskViewControls.tsx` in HomepageBar | User-approved and adopted. Icon-only Tile/Stack SingleChoice with persisted layout. |
-| `modules/tasks.tsx` / TaskTiles, TaskStack | Composed switcher forms below | `ui/components/HomepageTasks.tsx`; `ui/components/TaskStack.tsx` | User-approved and adopted. Tile uses 6/5/2 fixed columns for large previews and compact history, with spacing between grids. Stack uses one deck and spreads running cards when they fit. The deck recedes left with interpolated spacing, scale, canvas fog and left-cast shadows. A viewport-bounded moving window loads nearby full previews and shows fogged placeholders farther back. History remains compact. Navigation floats without reserving a bottom row. Status marks remain on strips, with text when space permits. Pointer/touch follows 1:1 and settles with velocity. Horizontal wheel input and arrow keys browse; passed cards spread full size to the right. The `task-stack-browsed` frame owns that state. Click/Enter opens. Snapshot morphs to the centered task layer and back to its current position; reduced motion is instant. |
-| `surfaces/homepage-tasks.tsx` / switcher | `switcher-tile-wide`, `switcher-tile`, `switcher-stack`, `switcher-tile-portrait`, `switcher-stack-portrait`, `switcher-tile-mobile`, `switcher-stack-mobile` | `ui/components/HomepageTasks.tsx`; `homepage-switcher-{tile,stack}` fixtures | User-approved and adopted. Running, waiting and unread tasks use full previews. History keeps the unconfirmed status where applicable. Each frame declares its fixture and page capture. |
+| `modules/tasks.tsx` / TaskHistorySummary | `task-summary-finished`, `task-summary-offline` | `ui/components/ui/TaskSnapshot.tsx#TaskHistorySummary` | Compact history form with an Agent mark, optional control source badge, recorded execution specification and measured time. Opening loads detail. |
+| `modules/tasks.tsx` / TaskGrid | Homepage task list forms below | `ui/components/HomepageTasks.tsx` | Local calendar date sections with columns sized by available width. Current-day, active and unread tasks show full previews. Older history uses compact summaries. |
+| `surfaces/homepage-tasks.tsx` / Task list | `wide`, `landscape`, `portrait`, `mobile` | `ui/components/HomepageTasks.tsx`; `homepage-task-list` fixture | Each frame declares its fixture and capture. Snapshot activation morphs to the centered task layer. |
 | `fixtures/tasks.ts`, `fixtures/homepage-mode.ts` | Support data | Tasks and mode parts | User-approved. Fictional identities, prompts, snapshot histories and routing copy. |
 
 Runtime mapping uses `ui/state/taskProjection.ts` for bounded timeline summaries and
 `ui/state/activityModel.ts` for groups and node aggregates. `ui/components/HomepageTasks.tsx`
-owns the switcher, transient scope, focus and existing ordering. Shared TaskSnapshot and
+owns date grouping, the responsive grid, transient scope and focus. Shared TaskSnapshot and
 NodeCapsule live in `ui/components/ui/`. The `homepage-modes-*` browser family covers
 both modes, responsive layouts, manual persistence, capsule focus, completion read
 and device management in both themes. Remote cards join the controller-scoped `device/tasks` activity and bounded records.
@@ -553,7 +552,7 @@ The shared layer shells implement one centered slot with M node size and XL work
 | Approved owner | Runtime owner | Adoption |
 | --- | --- | --- |
 | `modules/homepage-mode.tsx` | `ui/display/Studio.tsx`, `ui/state/homepage.ts` | Manual persisted mode; needs-me badge capped at 99+. |
-| `modules/tasks.tsx`, `modules/task-activity.tsx`, `surfaces/homepage-tasks.tsx` | `ui/components/ui/TaskSnapshot.tsx`, `ui/components/TaskStack.tsx`, `ui/components/HomepageTasks.tsx`, `ui/state/homepageTasks.ts`, `ui/state/taskProjection.ts`, `ui/state/activityModel.ts` | Local and controller-dispatched remote switcher, bounded newest-anchored previews, compact historical summaries, Tile/Stack layouts, detail/read actions, ordering and node scope. Remote cards use native controller-scoped activity and records. Remote timeline and response forwarding remain unavailable through management. |
+| `modules/tasks.tsx`, `modules/task-activity.tsx`, `surfaces/homepage-tasks.tsx` | `ui/components/ui/TaskSnapshot.tsx`, `ui/components/HomepageTasks.tsx`, `ui/state/homepageTasks.ts`, `ui/state/taskProjection.ts`, `ui/state/activityModel.ts` | Local and controller-dispatched remote task grids by date, bounded newest-anchored previews, compact history, detail/read actions, ordering and node scope. Remote cards use native controller-scoped activity and records. Remote timeline and response forwarding remain unavailable through management. |
 | `modules/node-capsule.tsx`, `modules/topology-node.tsx` | `ui/components/ui/NodeCapsule.tsx`, `ui/components/GraphNode.tsx`, `ui/topology/spring.ts` | Stadium quota outline, phase discs, attention, overflow, unconfirmed and mirrored wing. Shared 210/26 spring integrates width and outgoing port. |
 | `modules/device-topology.tsx`, `surfaces/device-link-topology.tsx` | `ui/topology/Topology.tsx`, `ui/devices/DeviceNodePanel.tsx`, `ui/components/SettingsPage.tsx` | One-hop paired-device nodes, management and lower-arc Device link action. Default-off controller-source disclosure. Remote inventory and single-Agent merge use `device/tasks`. Upstream disclosure uses native device configuration. Remote account/quota inventory remains unavailable. |
 

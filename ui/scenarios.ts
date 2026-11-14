@@ -1,5 +1,5 @@
 import { deviceView } from './devices/state';
-import { homepageMode, homepageTaskFocus, homepageTaskLayout } from './state/homepage';
+import { homepageMode, homepageTaskFocus } from './state/homepage';
 import { deviceScenario, type DeviceFixture } from './devices/scenario';
 import { readOnlyBrowser } from './browserMode';
 import { mcpScenario, type McpFixture } from './mcp/scenario';
@@ -41,7 +41,7 @@ import { taskPanelSnapshot } from './state/taskPanel';
 
 type TimelineRow = Pick<AgentTimelineEntry, 'type' | 'status'> & Partial<AgentTimelineEntry>;
 
-type Fixture = { coldTaskPreviews?: boolean; homepage?: { mode: 'topology' | 'tasks'; layout?: 'tile' | 'stack'; check?: string; remoteTaskCount?: number };  deviceLink?: DeviceFixture; expandedSources?: string[]; claudeQuota?: boolean; sourceProducts?: string[]; dispatchModels?: CatalogModel[]; agentInventory?: Agent[]; agentDiscoveryError?: string; platformAgent?: string; mcpHub?: McpFixture; coordination?: CoordinationFixture; ingressStates?: string[]; hubCore?: HubHealth["core"]; hubRemoteFailure?: boolean; hubRemoteCheckFailed?: boolean; statusUnavailable?: boolean; relayHosting?: boolean; topologyTuning?: boolean; settingsExperimental?: boolean; studio?: 'day' | 'night' | 'auto'; pets?: boolean; mascots?: boolean; historyRows?: number; historyDelayMs?: number; slowDock?: 'accounts' | 'dispatches'; metadataOnlyHistory?: boolean; maxVisibleAgents?: number; topologyAccounts?: boolean | 'dense' | 'device-portrait'; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: Partial<UpdateView>; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean | 'session-week-month' | 'single-ring-pace'; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { originController?: boolean; originSource?: boolean; agent: string; spec?: Pick<DispatchSummary, 'model' | 'effort' | 'serviceTier'>; parent?: number; relationKind?: AgentActivitySession["relationKind"]; direct?: boolean; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; entries?: TimelineRow[]; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { url?: string; empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
+type Fixture = { coldTaskPreviews?: boolean; homepage?: { mode: 'topology' | 'tasks'; check?: string; remoteTaskCount?: number };  deviceLink?: DeviceFixture; expandedSources?: string[]; claudeQuota?: boolean; sourceProducts?: string[]; dispatchModels?: CatalogModel[]; agentInventory?: Agent[]; agentDiscoveryError?: string; platformAgent?: string; mcpHub?: McpFixture; coordination?: CoordinationFixture; ingressStates?: string[]; hubCore?: HubHealth["core"]; hubRemoteFailure?: boolean; hubRemoteCheckFailed?: boolean; statusUnavailable?: boolean; relayHosting?: boolean; topologyTuning?: boolean; settingsExperimental?: boolean; studio?: 'day' | 'night' | 'auto'; pets?: boolean; mascots?: boolean; historyRows?: number; historyDelayMs?: number; slowDock?: 'accounts' | 'dispatches'; metadataOnlyHistory?: boolean; maxVisibleAgents?: number; topologyAccounts?: boolean | 'dense' | 'device-portrait'; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: Partial<UpdateView>; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean | 'session-week-month' | 'single-ring-pace'; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { originController?: boolean; originSource?: boolean; agent: string; spec?: Pick<DispatchSummary, 'model' | 'effort' | 'serviceTier'>; parent?: number; relationKind?: AgentActivitySession["relationKind"]; direct?: boolean; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; historyDate?: string; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; entries?: TimelineRow[]; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { url?: string; empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
 const fixtures = import.meta.glob('../tooling/acceptance/scenarios/*.json', { import: 'default' });
 let responses: Record<string, unknown> = {};
 let mcpResponse = mcpScenario();
@@ -220,7 +220,6 @@ export async function installScenario(name: string) {
       'arc.topology-collapsed': JSON.stringify(Object.fromEntries(collapsed)), 'arc.source-order': JSON.stringify(base.sources.map(source => source.id)) });
   }
   if (name === 'topology-accounts-dense') Object.assign(preferences, { 'arc.topology-mode': JSON.stringify('tree'), 'arc.topology-collapsed': '{}', 'arc.topology-account-order': '{}' });
-  homepageTaskLayout.set(fixture.homepage?.layout ?? 'tile');
   homepageTaskFocus.set(undefined);
   homepageMode.set(fixture.homepage?.mode ?? 'topology');
   acceptPreferences(preferences);
@@ -258,8 +257,9 @@ export async function installScenario(name: string) {
   const inventory: Agent[] = fixture.agentInventory ?? fixture.agents.map(agent => ({ agent, installed: true, available: true, enabled: true, status: 'ready', version: 'fixture' }));
   const activity: AgentActivitySnapshot = { observedAt: now, activeAgents: fixture.agents, agents: Object.fromEntries(fixture.agents.map(a => [a, { sessions: [] }])) };
   fixture.tasks.forEach((task, index) => {
+    const createdAt = task.historyDate ?? now;
     activity.agents[task.agent].sessions.push({ id: `fixture-task-${index}`, ...(task.parent === undefined ? {} : { parentSessionId: `fixture-task-${task.parent}`, relationKind: task.relationKind ?? "subagent" }), source: task.direct ? 'transcript' : task.agent === 'codex' ? 'codex-thread' : 'arc-task', title: task.title, headline: task.headline, phase: task.phase,
-      turnId: `fixture-turn-${index}-${(fixture.timeline || fixture.coordination && index === 1) ? 2 : 1}`, project: '/workspace/acceptance', phaseSince: now, turnStartedAt: new Date(Date.parse(now) - (task.elapsedSeconds ?? 83) * 1000).toISOString(), startedAt: now, timeline: true, ...(task.originController ? { origin: { sourceId: 'fixture-controller-source', sourceLabel: 'Anchor Mac', deviceId: 'b10c'.repeat(16), peerOrigin: { sourceId: 'fixture-upstream-source', sourceLabel: 'ChatGPT', controlSource: 'chatgpt' } } } : task.originSource ? { origin: { sourceId: sources[0]?.id } } : {}), recentSteps: ['thinking', 'command', 'file'],
+      turnId: `fixture-turn-${index}-${(fixture.timeline || fixture.coordination && index === 1) ? 2 : 1}`, project: '/workspace/acceptance', phaseSince: now, turnStartedAt: new Date(Date.parse(createdAt) - (task.elapsedSeconds ?? 83) * 1000).toISOString(), startedAt: createdAt, timeline: true, ...(task.originController ? { origin: { sourceId: 'fixture-controller-source', sourceLabel: 'Anchor Mac', deviceId: 'b10c'.repeat(16), peerOrigin: { sourceId: 'fixture-upstream-source', sourceLabel: 'ChatGPT', controlSource: 'chatgpt' } } } : task.originSource ? { origin: { sourceId: sources[0]?.id } } : {}), recentSteps: ['thinking', 'command', 'file'],
       recentContent: ['Reviewed project files', task.headline],
       dispatchSummary: { ...(!task.direct ? { controlSource: { id: 'fixture-source', label: 'Claude', kind: 'claude' } } : {}), ...(task.spec ?? { model: 'gpt-6.1-sol', effort: 'high', serviceTier: 'priority' }) },
       ...(task.approval ? { interaction: { kind: 'permission' as const, summary: 'Read README.md', command: 'cat README.md', canRespond: true, respond: { via: 'act' as const, op: 'codex_respond' as const, args: { id: `fixture-interaction-${index}`, backendSession: 'fixture' } } } } : {}),
@@ -329,8 +329,13 @@ export async function installScenario(name: string) {
       dispatchSummary: session.dispatchSummary, turnDispatchSummaries: summaries, turnStatuses, ownership: task.ownership };
   });
   conversations = Object.fromEntries(fixture.agents.map(agent => {
-    const current = activity.agents[agent].sessions.map(session => ({ id: session.id, source: session.source as AgentConversation['source'], title: session.title,
-      project: session.project, createdAt: session.startedAt ?? null }));
+    const current = activity.agents[agent].sessions.map(session => {
+      const task = fixture.tasks[Number(session.id.replace('fixture-task-', ''))];
+      return { id: session.id, source: session.source as AgentConversation['source'], title: session.title, project: session.project,
+        createdAt: session.startedAt ?? null,
+        ...(task?.historyDate ? { status: 'completed', updatedAt: task.historyDate, dispatchSummary: session.dispatchSummary,
+          turnId: session.turnId, turnStartedAt: session.turnStartedAt, turnEndedAt: task.historyDate } : {}) };
+    });
     const today = new Date(now); today.setHours(0, 0, 0, 0);
     const history: AgentConversation[] = fixture.panelHistory ? Array.from({ length: fixture.historyRows ?? 24 }, (_, index) => {
       const id = `fixture-history-${agent}-${index}`, title = `Review project change ${index + 1}`;
@@ -348,7 +353,7 @@ export async function installScenario(name: string) {
   const records: import("./state/tasks").TaskRecord[] = fixture.tasks.flatMap((task, index) => {
     if (task.direct) return [];
     const session = activity.agents[task.agent].sessions.find(s => s.id === `fixture-task-${index}`)!;
-    return [{ agent: task.agent, turnId: session.turnId ?? undefined, requestId: `fixture-request-${index}`, threadId: `fixture-task-${index}`, state: task.approval ? 'awaiting-approval' : 'completed', createdAt: now, updatedAt: now,
+    return [{ agent: task.agent, turnId: session.turnId ?? undefined, requestId: `fixture-request-${index}`, threadId: `fixture-task-${index}`, state: task.approval ? 'awaiting-approval' : 'completed', createdAt: session.startedAt ?? now, updatedAt: session.startedAt ?? now,
     origin: { ingressId: 'fixture-source', sourceId: 'fixture-source', ...(topologyAccounts.length ? session.origin : {}) },
     ...(topologyAccounts.length ? { agentAccountId: session.agentAccountId } : {}), approval: { decision: 'automatic', source: 'remote', at: now }, task: { kind: 'create', title: task.title, prompt: task.headline, input: [], directory: '/workspace/acceptance', settings: {} } }];
   });
@@ -415,7 +420,10 @@ export async function installScenario(name: string) {
     });
   }
   acceptPreferences({ 'arc.pets.show': 'false', 'arc.pets.assignments': '{}' });
-  const initialActivity = { ...activity, agents: Object.fromEntries(Object.entries(activity.agents).map(([agent, group]) => [agent, {
+  const observed = { ...activity, agents: Object.fromEntries(Object.entries(activity.agents).map(([agent, group]) => [agent, {
+    sessions: group.sessions.filter(session => !fixture.tasks[Number(session.id.replace('fixture-task-', ''))]?.historyDate),
+  }])) };
+  const initialActivity = { ...observed, agents: Object.fromEntries(Object.entries(observed.agents).map(([agent, group]) => [agent, {
     sessions: group.sessions.filter(session => { const task = fixture.tasks[Number(session.id.replace('fixture-task-', ''))]; return !task?.outcome && !task?.unconfirmed; }),
   }])) };
   responses = { dispatchModels: fixture.dispatchModels, reviewUnavailable: fixture.reviewUnavailable, ...timelines, status, source: { sources }, agents: { agents: inventory }, 'agents/activity': initialActivity, tasks: { records }, permissions: permissionData, subscriptions: subscriptionData, preferences, 'relay/list': { relays: fixture.remoteLink && !fixture.remoteLink.empty && !fixture.remoteLink.local ? [{ id: 'relay-host', ingressId: 'relay-main', name: 'My relay', url: 'https://relay.example.com', owner: !fixture.remoteLink.joined, workerVersion: 'fixture' }] : [], version: 'fixture' }, 'relay/progress': fixture.relayProgress ?? { phase: 'idle' }, 'codex/login': { state: 'authenticated' }, 'local-access/status': { codeAvailable: true, desktopAvailable: true } };
@@ -443,16 +451,16 @@ export async function installScenario(name: string) {
   agents.set({ items: inventory, loaded: true, loading: false, saving: '', error: fixture.agentDiscoveryError ?? '' });
   if (status.core.backendSession) resetActivityCore(status.core.backendSession);
   resetTaskExecutions();
-  acceptActivity(activity);
+  acceptActivity(observed);
   acceptActivity(initialActivity);
-  if (!fixture.coldTaskPreviews) for (const [agent, data] of Object.entries(activity.agents)) for (const session of data.sessions) acceptTaskExecution(agent, session.id, timelines[`agents/timeline/${session.id}`]);
+  if (!fixture.coldTaskPreviews) for (const [agent, data] of Object.entries(observed.agents)) for (const session of data.sessions) acceptTaskExecution(agent, session.id, timelines[`agents/timeline/${session.id}`]);
   tasks.set({ records: fixture.slowDock === 'dispatches' ? [] : records, loading: fixture.slowDock === 'dispatches', error: '' });
   permissions.set({ data: permissionData, loading: false, error: '' });
   subscriptions.set({ snapshot: subscriptionData, error: '' });
   return async () => {
     if (fixture.tasks.some(task => task.completed)) {
       await settledViewModel();
-      const finished = { ...activity, agents: Object.fromEntries(Object.entries(activity.agents).map(([agent, data]) => [agent, {
+      const finished = { ...observed, agents: Object.fromEntries(Object.entries(observed.agents).map(([agent, data]) => [agent, {
         sessions: data.sessions.filter(session => {
           const task = fixture.tasks[Number(session.id.replace('fixture-task-', ''))];
           return !task?.completed && !task?.outcome && !task?.unconfirmed;
@@ -460,7 +468,7 @@ export async function installScenario(name: string) {
       }])) };
       responses['agents/activity'] = finished;
       acceptActivity(finished);
-      if (!fixture.coldTaskPreviews) for (const [agent, data] of Object.entries(activity.agents)) for (const session of data.sessions) acceptTaskExecution(agent, session.id, timelines[`agents/timeline/${session.id}`]);
+      if (!fixture.coldTaskPreviews) for (const [agent, data] of Object.entries(observed.agents)) for (const session of data.sessions) acceptTaskExecution(agent, session.id, timelines[`agents/timeline/${session.id}`]);
     }
     openSnapshotPanel(fixture.panel);
     if (fixture.slowDock === 'dispatches') void refreshTasks();

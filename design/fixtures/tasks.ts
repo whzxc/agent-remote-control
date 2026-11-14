@@ -33,7 +33,8 @@ const baseTasks: TaskSnapshotData[] = [
   { id: 'remote-report', node: 'cedar-claude', title: 'Review the configuration', group: 'unread',
     state: 'Completed', detail: 'Unread', icon: 'check', origin: origins.remoteClaude },
   { id: 'finished', node: 'local-codex', title: 'Verify the release checklist', group: 'recent',
-    state: 'Completed', detail: 'Dispatch service', icon: 'check', origin: origins.local },
+    state: 'Completed', detail: 'Dispatch service', icon: 'check', origin: origins.local, elapsed: '02:21',
+    dispatch: { model: 'GPT-6.1', effort: 'High', tier: 'Fast', fast: true } },
   { id: 'offline', node: 'moss-codex', title: 'Inspect the storage index', group: 'unconfirmed',
     state: 'Unconfirmed', detail: 'Last seen 18 min ago', icon: 'circle-help', origin: origins.offline },
 ];
@@ -109,22 +110,15 @@ export const tasksCopy = {
   recent: 'Recent completed · 12', answer: 'Answer…', approve: 'Review approval…',
   activity: 'Activity', hideActivity: 'Hide activity', partial: 'Partial history',
 };
-export const switcherCopy = {
-  filter: 'Show tasks', layout: 'Task layout', tile: 'Tile', stack: 'Stack', all: 'All',
-  browse: 'Drag or use arrow keys', open: 'Open', request: 'Request', reply: 'Reply', lastSeen: 'Last observation',
-};
-export const switcherStatus: Record<string, { status: string; routing?: string; route?: string }> = {
+export const taskStatuses: Record<string, { status: string; routing?: string; route?: string }> = {
   window: { status: 'Waiting for input', routing: 'Handed to the controller', route: 'Controller' },
   approve: { status: 'Waiting for approval', routing: 'Hands to Claude in 18 s', route: 'Claude' },
 };
-export const switcherForms = [
-  { name: 'switcher-tile-wide', width: 1600, height: 1000, layout: 'tile' },
-  { name: 'switcher-tile', width: 1280, height: 800, layout: 'tile' },
-  { name: 'switcher-stack', width: 1280, height: 800, layout: 'stack' },
-  { name: 'switcher-tile-portrait', width: 640, height: 800, layout: 'tile' },
-  { name: 'switcher-stack-portrait', width: 640, height: 800, layout: 'stack' },
-  { name: 'switcher-tile-mobile', width: 390, height: 844, layout: 'tile' },
-  { name: 'switcher-stack-mobile', width: 390, height: 844, layout: 'stack' },
+export const taskListForms = [
+  { name: 'wide', width: 1600, height: 1000 },
+  { name: 'landscape', width: 1280, height: 800 },
+  { name: 'portrait', width: 640, height: 800 },
+  { name: 'mobile', width: 390, height: 844 },
 ] as const;
 export const snapshotForms = [
   { name: 'waiting-input', id: 'window' },

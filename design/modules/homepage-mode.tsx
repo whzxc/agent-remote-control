@@ -10,9 +10,9 @@ export function HomepageModeSwitch({ mode }: { mode: HomepageMode }) {
   ]} />;
 }
 
-/** One-row homepage bar: Board clock on the left, mode switch centered, view controls on the right. */
-export function HomepageBar({ mode, compact = false, date = copy.date, time = copy.time, title = copy.board, children }: {
-  mode: HomepageMode; compact?: boolean; date?: string; time?: string; title?: string; children?: unknown;
+/** One-row homepage bar: Board clock on the left, mode switch centered. */
+export function HomepageBar({ mode, compact = false, date = copy.date, time = copy.time, title = copy.board }: {
+  mode: HomepageMode; compact?: boolean; date?: string; time?: string; title?: string;
 }) {
   return <div class="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-3">
     <button aria-label={copy.openBoard} class="flex min-w-0 items-baseline gap-2 justify-self-start text-left text-text">
@@ -20,7 +20,6 @@ export function HomepageBar({ mode, compact = false, date = copy.date, time = co
       <span class="truncate text-meta text-text-secondary">{title}{!compact && ` · ${date}`}</span>
     </button>
     <HomepageModeSwitch mode={mode} />
-    <div class="flex min-w-0 items-center justify-end gap-2">{children}</div>
   </div>;
 }
 

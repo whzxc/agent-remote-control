@@ -22,7 +22,7 @@ export function deviceTaskSnapshot(value: unknown): DeviceTaskSnapshot {
     && Object.values(value.agents).every(activity => object(activity) && Array.isArray(activity.sessions)
       && activity.sessions.every(session => object(session) && typeof session.id === 'string'
         && typeof session.headline === 'string' && typeof session.phase === 'string'
-        && optionalStrings(session, ['title', 'fallbackHeadline', 'startedAt', 'turnStartedAt', 'turnId', 'agentAccountId'])
+        && optionalStrings(session, ['title', 'fallbackHeadline', 'startedAt', 'turnStartedAt', 'turnEndedAt', 'turnId', 'agentAccountId'])
         && (session.interaction == null || object(session.interaction) && typeof session.interaction.summary === 'string'
           && object(session.interaction.respond))
         && (session.origin == null || object(session.origin) && optionalStrings(session.origin, ['sourceId', 'sourceLabel', 'deviceId']))

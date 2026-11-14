@@ -1,18 +1,20 @@
 import { memo, useRef, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { useTaskPreview } from '../../state/taskExecution';
+import { taskExecution, useTaskPreview } from '../../state/taskExecution';
+import { executionStatus, terminalState } from '../../state/taskExecutionModel';
 import { ArrowRightLeft, Check, ChevronRight, CircleHelp, Hourglass } from 'lucide-react';
 import { Icon, IconButton, Tile, Tooltip } from './index';
 import { taskPhaseIcons } from './NodeCapsule';
-import type { HomepageTask } from '../../state/activityModel';
-import { recordedTimestamp, thoughtLine, toolSummary, type TaskSnapshotRow } from '../../state/taskProjection';
+import { activeHomepageTask, type HomepageTask } from '../../state/activityModel';
+import { recordedTimestamp, taskState, thoughtLine, toolSummary, type TaskSnapshotRow } from '../../state/taskProjection';
 import { useRequestRouting } from '../../state/requestRouting';
-import { PhaseTile } from '../activity';
+import RecordedDispatchSpec from '../composites/RecordedDispatchSpec';
 import { t } from '../../i18n';
 import './TaskSnapshot.css';
 
 export type TaskOrigin = { label: string; graphic: ReactNode };
+export type TaskIdentity = { agent: TaskOrigin; source?: TaskOrigin };
 export const taskTitle = (task: HomepageTask) => task.session.title || task.session.headline || task.session.id;
 const SnapshotMarkdown = memo(function SnapshotMarkdown({ text }: { text: string }) {
   return <div className="task-snapshot-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml disallowedElements={['img']}
@@ -46,43 +48,61 @@ function status(task: HomepageTask) {
   if (task.group === 'running') return task.activity.steps.at(-1)?.kind ?? 'running';
   return task.session.status === 'failed' ? 'failed' : ['cancelled', 'interrupted'].includes(task.session.status ?? '') ? 'interrupted' : 'completed';
 }
-export function TaskHistorySummary({ task, freshness, tabbable, onOpen }: {
-  task: HomepageTask; freshness?: string; tabbable: boolean; onOpen: () => void;
+function TaskIdentityMark({ agent, source }: TaskIdentity) {
+  return <span className="task-card-identity" role="img" aria-label={[agent.label, source?.label].filter(Boolean).join(' · ')}>
+    {agent.graphic}{source && <span className="activity-source-badge">{source.graphic}</span>}
+  </span>;
+}
+function TaskElapsed({ task, now }: { task: HomepageTask; now: number }) {
+  if (task.group === 'unconfirmed') return null;
+  const live = activeHomepageTask(task);
+  const start = recordedTimestamp(task.startedAt);
+  const end = live ? task.deviceId ? recordedTimestamp(task.observedAt) : now : recordedTimestamp(task.endedAt);
+  const elapsed = (!live ? task.session.turnDurationMs : null) ?? (start !== undefined && end !== undefined ? end - start : NaN);
+  if (!Number.isFinite(elapsed) || elapsed < 0) return null;
+  const seconds = Math.floor(elapsed / 1000);
+  return <time className="task-card-duration" dateTime={`PT${seconds}S`} aria-label={t('duration')}>
+    {String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')}
+  </time>;
+}
+export function TaskHistorySummary({ task, identity, freshness, now, onOpen }: {
+  task: HomepageTask; identity: TaskIdentity; freshness?: string; now: number; onOpen: () => void;
 }) {
   const state = status(task), title = taskTitle(task);
   const project = task.session.projectName || task.session.project?.split(/[\\/]/).filter(Boolean).at(-1);
   const meta = task.group === 'unconfirmed' ? freshness ?? project : project;
   return <div className="task-history-summary" data-task-snapshot={task.key}>
-    <button type="button" className="activity-bubble" data-task-open tabIndex={tabbable ? undefined : -1}
+    <button type="button" className="activity-bubble" data-task-open
       aria-label={`${t('homepage.openDetail')}: ${title}`} onClick={onOpen}>
-      <PhaseTile phase="idle" animated={false} completed={state === 'completed'} paused={state === 'interrupted'}
-        outcome={state === 'unconfirmed' ? 'unknown' : state === 'failed' ? 'failed' : undefined} />
+      <TaskIdentityMark {...identity} />
       <span className="activity-copy">
         <span className="activity-title-row"><strong>{title}</strong></span>
         <span className="activity-phase"><span>{t(`homepage.${state}`)}</span>{meta && <span className="task-history-meta">{meta}</span>}</span>
+        <span className="task-card-execution">
+          <RecordedDispatchSpec summary={task.session.dispatchSummary} />
+          <TaskElapsed task={task} now={now} />
+        </span>
       </span>
     </button>
   </div>;
 }
-export function TaskStatusMark({ task, now }: { task: HomepageTask; now: number }) {
+export function TaskStatusMark({ task, identity, now }: { task: HomepageTask; identity: TaskIdentity; now: number }) {
   const state = status(task), offline = task.group === 'unconfirmed', waiting = task.group === 'needs-me';
-  const start = recordedTimestamp(task.startedAt);
-  const live = task.group === 'running' || waiting;
-  const end = live ? task.deviceId ? recordedTimestamp(task.observedAt) : now : recordedTimestamp(task.endedAt);
-  const seconds = start !== undefined && end !== undefined && end >= start ? Math.floor((end - start) / 1000) : undefined;
   return <div className="task-status-mark" aria-label={t(`homepage.${state}`)}>
-    <Tile icon={offline ? CircleHelp : waiting ? Hourglass : task.group === 'running' ? taskPhaseIcons[task.activity.steps.at(-1)?.kind ?? 'running'] : Check}
-      form="phase" tone={offline ? 'neutral' : waiting ? 'warning' : task.group === 'running' ? 'command' : 'success'} />
-    <span>{t(`homepage.${state}`)}{!offline && seconds !== undefined && <time aria-label={t('duration')}> · {String(Math.floor(seconds / 60)).padStart(2, '0')}:{String(seconds % 60).padStart(2, '0')}</time>}</span>
+    {activeHomepageTask(task) || offline ? <Tile icon={offline ? CircleHelp : waiting ? Hourglass : taskPhaseIcons[task.activity.steps.at(-1)?.kind ?? 'running']}
+      form="phase" tone={offline ? 'neutral' : waiting ? 'warning' : 'command'} /> : <TaskIdentityMark {...identity} />}
+    <span className="task-status-label">{t(`homepage.${state}`)}</span><TaskElapsed task={task} now={now} />
   </div>;
 }
 
-export function TaskSnapshot({ task, origins, now, path, freshness, onOpen, onRead, tabbable = true }: {
+export function TaskSnapshot({ task, origins, now, path, freshness, onOpen, onRead }: {
   task: HomepageTask; origins: TaskOrigin[]; now: number; path?: string; freshness?: string;
-  onOpen?: () => void; onRead?: () => void; tabbable?: boolean;
+  onOpen?: () => void; onRead?: () => void;
 }) {
   const card = useRef<HTMLDivElement>(null);
-  useTaskPreview(task.agent, task.session.id, !task.deviceId && !!task.session.timeline, card);
+  const cachedStatus = executionStatus(taskExecution(task.agent, task.session.id), task.session.turnId);
+  const settled = !activeHomepageTask(task) && terminalState(taskState(cachedStatus, false));
+  useTaskPreview(task.agent, task.session.id, !task.deviceId && !!task.session.timeline && !settled, card);
   const offline = task.group === 'unconfirmed', waiting = task.group === 'needs-me';
   const { routing, error } = useRequestRouting(task.agent, task.session.id, !task.deviceId && waiting ? task.session.interaction : undefined);
   const source = origins[0]?.label ?? t('homepage.controller');
@@ -96,9 +116,12 @@ export function TaskSnapshot({ task, origins, now, path, freshness, onOpen, onRe
     </span>{!offline && path && <span className="task-snapshot-path" title={path}>{path}</span>}
       {onRead && task.group === 'unread' && <IconButton className="task-snapshot-read" compact icon={Check} label={`${t('homepage.markRead')}: ${title}`} onClick={onRead} />}
     </header>
-    {onOpen ? <button type="button" data-task-open tabIndex={tabbable ? undefined : -1} className="task-snapshot-title" title={title} aria-label={`${t('homepage.openDetail')}: ${title}`} onClick={onOpen}>{title}</button>
+    {onOpen ? <button type="button" data-task-open className="task-snapshot-title" title={title} aria-label={`${t('homepage.openDetail')}: ${title}`} onClick={onOpen}>{title}</button>
       : <strong className="task-snapshot-title">{title}</strong>}
-    {task.session.project && <span className="task-snapshot-project" title={task.session.project}>{task.session.project}</span>}
+    <div className="task-card-execution task-snapshot-execution">
+      <RecordedDispatchSpec summary={task.session.dispatchSummary} />
+      {task.session.project && <span className="task-snapshot-project" title={task.session.project}>{task.session.project}</span>}
+    </div>
     <div className="task-snapshot-timeline" role="region" aria-label={t('homepage.recentSteps')}>
       <div className="task-snapshot-tail">
         {snapshot.length ? <SnapshotRows rows={snapshot} /> : task.session.headline || task.session.fallbackHeadline ? <div className="task-snapshot-row" data-role="agent"><SnapshotMarkdown text={task.session.headline || task.session.fallbackHeadline || ''} /></div> : null}

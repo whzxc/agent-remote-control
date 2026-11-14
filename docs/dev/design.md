@@ -27,8 +27,8 @@ Remote recovery retries the remote check or restarts only the affected remote co
 **Tasks presentation, the device level and the working node capsule are user-approved.**
 Topology presents ARC configuration; Tasks presents task execution.
 A shared SingleChoice centered in the one-row HomepageBar selects Topology
-or Tasks manually. Clock and Board sit on the left; Tasks view controls sit on
-the right. Compact widths omit the date. Mode and layout persist; activity never
+or Tasks manually. Clock and Board sit on the left. Compact widths omit the date.
+Mode persists; activity never
 switches modes. The mode switch has no needs-me badge. Node task-state activation
 is explicit navigation to Tasks with a highlighted, clearable node filter, scroll
 position and keyboard focus at its matching tasks. The filter is transient; manually
@@ -40,21 +40,17 @@ only the node capsule shell, task content and its outgoing wire port. Logo ancho
 labels, columns and branch rails stay fixed. Task activity in Topology appears inside
 node capsules. The Tasks view owns execution previews and historical summaries.
 
-Tasks shows large previews for running, waiting and unread work. Origin icons identify
-source, optional remote device, Agent and account. The controller shows its member
-dispatches. On the member, that controller is the source. A compact history bubble
-shows the task title and status with available project or last-seen metadata.
-
-Tile uses six columns at 1500px, five at 1000px and two below. Previews appear above
-history with spacing between the grids. Stack uses one deck and spreads active cards
-when they fit. Its deeper cards recede with compressed spacing, scale, canvas fog and
-left-cast shadows. Pointer and touch follow 1:1, then settle using release velocity.
-Horizontal wheel and arrow keys browse. Clicking a card or pressing Enter opens it
-in the centered task layer. The Tile/Stack SingleChoice is icon-only.
+Tasks groups cards by the local date of their latest recorded activity. A grid adapts
+its column count to the available width. Today's tasks, active work and unread
+completions show large previews. Older history uses compact bubbles. Completed
+cards use the Agent mark with an available control source mark and display recorded
+execution settings and elapsed time. The controller shows its member dispatches.
+On the member, that controller is the source.
 
 Full previews follow the newest native rows. Consecutive tools in a turn form a
-single-line summary of recorded operations. Reasoning uses the existing icon and
-summary text. Replies render inline. History reads its timeline on detail activation.
+single-line summary of recorded operations. Reasoning uses its icon and summary.
+Replies render inline. Clicking a card or pressing Enter opens its detail in the
+centered task layer. An older summary reads its timeline when opened.
 
 #### Recorded task fields and presentation limits
 

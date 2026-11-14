@@ -166,10 +166,7 @@ export const checks = [{ stage: 'verify', order: 18, visual: true, async run(con
     await unread.getByRole('button', { name: `${text('openDetail')}: Summarize the queue`, exact: true }).click();
     await page.getByRole('dialog', { name: 'Summarize the queue', exact: true }).waitFor();
     await page.keyboard.press('Escape'); await page.getByRole('dialog').waitFor({ state: 'hidden' });
-    const summary = feed.getByRole('region', { name: text('history'), exact: true }).getByRole('article', { name: 'Summarize the queue', exact: true });
-    await summary.getByRole('button', { name: `${text('openDetail')}: Summarize the queue`, exact: true }).waitFor();
-    if (await summary.getByRole('region', { name: text('recentSteps'), exact: true }).count())
-      throw new Error('An acknowledged task kept its timeline preview.');
+    await unread.getByRole('region', { name: text('recentSteps'), exact: true }).waitFor();
     await card.getByRole('button', { name: `${text('openDetail')}: Inspect the dispatch queue`, exact: true }).click();
     await page.getByRole('dialog').waitFor();
     await page.keyboard.press('Escape');

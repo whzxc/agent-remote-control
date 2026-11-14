@@ -18,6 +18,10 @@
       "height": 800
     },
     {
+      "width": 820,
+      "height": 800
+    },
+    {
       "width": 640,
       "height": 800
     },
@@ -28,11 +32,19 @@
   ],
   "homepage": {
     "mode": "tasks",
-    "check": "switcher",
-    "remoteTaskCount": 5,
-    "layout": "stack"
+    "check": "task-list",
+    "remoteTaskCount": 5
   },
   "tasks": [
+    {
+      "agent": "codex",
+      "phase": "text",
+      "title": "Verify the release checklist",
+      "headline": "Checklist verified",
+      "completed": true,
+      "historyDate": "2025-12-31T01:00:00Z",
+      "elapsedSeconds": 141
+    },
     {
       "agent": "codex",
       "phase": "interaction",

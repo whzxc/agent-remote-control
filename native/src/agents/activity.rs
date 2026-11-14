@@ -24,6 +24,8 @@ pub(super) struct TurnClock {
     offset: u64,
     status: Option<String>,
     started_at: Value,
+    ended_at: Value,
+    duration_ms: Option<u64>,
     turn_id: String,
     turns: HashSet<String>,
     dispatch_summary: Option<Value>,
@@ -599,6 +601,8 @@ fn observe_clock(record: &Value, agent: &str, clock: &mut TurnClock) {
     if let Some((turn, start)) = projection.transcript_turn_start() {
         clock.status = None;
         clock.started_at = json!(start);
+        clock.ended_at = Value::Null;
+        clock.duration_ms = None;
         clock.turn_tier = clock.thread_tier.current.clone();
         if clock.turn_id != turn {
             clock.dispatch_summary = None;
@@ -606,6 +610,16 @@ fn observe_clock(record: &Value, agent: &str, clock: &mut TurnClock) {
         }
         clock.turn_id = turn.into();
         clock.turns.insert(turn.into());
+    }
+    if clock.turn_id.is_empty() && projection.turn_timings.contains_key(&projection.turn) {
+        clock.turn_id = projection.turn.clone();
+        clock.turns.insert(clock.turn_id.clone());
+    }
+    if let Some(timing) = projection.turn_timings.get(&clock.turn_id) {
+        if timing["endedAt"].is_string() {
+            clock.ended_at = timing["endedAt"].clone();
+            clock.duration_ms = record["payload"]["duration_ms"].as_u64();
+        }
     }
     if !projection.status.is_empty() {
         clock.status = Some(projection.status.clone());
@@ -634,6 +648,9 @@ fn observe_clock(record: &Value, agent: &str, clock: &mut TurnClock) {
     {
         if clock.turn_id != turn {
             clock.status = None;
+            clock.started_at = Value::Null;
+            clock.ended_at = Value::Null;
+            clock.duration_ms = None;
             clock.turn_tier = clock.thread_tier.current.clone();
         }
         clock.turn_id = turn.into();
@@ -666,7 +683,8 @@ pub(super) fn conversation_projection(records: &[Value], partial: bool) -> Value
     }
     json!({"dispatchSummary":clock.dispatch_summary,
         "turnCount":if partial { None } else { Some(clock.turns.len()) },
-        "turnId":clock.turn_id,"status":clock.status,"metadataPartial":partial})
+        "turnId":clock.turn_id,"turnStartedAt":clock.started_at,"turnEndedAt":clock.ended_at,"turnDurationMs":clock.duration_ms,
+        "status":clock.status,"metadataPartial":partial})
 }
 
 pub(super) fn agent_summary(state: &Value) -> Option<Value> {

@@ -11,15 +11,15 @@ flowchart TB
   ports["Incoming port / logo / label / rails stay fixed<br/>outgoing port follows actual capsule edge<br/>width + reveal + port share spring 210/26<br/>reduced motion: direct endpoint · no pulse"]
   panel["Logo activation opens node panel<br/>narrow: explicit horizontal pan · fixed header"]
   jump["User activates node task state<br/>persist Tasks mode<br/>set transient node scope and focus its tasks"]
-  tasks["TASKS MODE<br/>recent native conversations + ARC observations<br/>running and waiting, then unread completions, then history<br/>persisted Tile / Stack layout"]
-  layout["Tile: large previews above compact history<br/>Stack: one deck, active cards uncovered when they fit"]
+  tasks["TASKS MODE<br/>recent native conversations + ARC observations<br/>local calendar dates by latest activity"]
+  layout["Responsive grid within each date<br/>running, waiting, unread and today's tasks use previews"]
   chain["Card origin icon chain<br/>source → remote device only → Agent → account<br/>controller: Anchor Mac → Cedar Mac → Codex → Studio<br/>member: Anchor Mac as source → Codex → Studio"]
   offline["Offline member tasks<br/>Unconfirmed · last seen<br/>no live verbs or counts"]
   filter["Highlighted node filter chip<br/>Clear returns to all tasks"]
   details["Snapshot zooms into centered task layer<br/>close returns to current snapshot position"]
   read["Opening a completed task marks it read"]
   order["Status-only snapshots · no request actions<br/>controller owns request handling"]
-  overflow["Active and unread: live native timeline preview<br/>History: compact summary from list metadata<br/>Opening a summary loads detail"]
+  overflow["Visible preview cards read native activity<br/>History shows Agent, source, execution spec and duration<br/>Opening a summary loads detail"]
   switch -->|"persist manual selection only"| preference
   preference -->|"restore Topology"| topology
   preference -->|"restore Tasks"| tasks

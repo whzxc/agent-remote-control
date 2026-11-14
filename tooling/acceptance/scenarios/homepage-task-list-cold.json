@@ -17,8 +17,7 @@
     }
   ],
   "homepage": {
-    "mode": "tasks",
-    "layout": "stack"
+    "mode": "tasks"
   },
   "tasks": [
     {

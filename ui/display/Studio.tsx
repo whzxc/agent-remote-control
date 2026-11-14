@@ -4,7 +4,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Popover } from 'radix-ui';
 import { Expand, Minimize, Monitor, Moon, Sun, Sunrise } from 'lucide-react';
 import { Button, Icon, IconButton, SingleChoice } from '../components/ui';
-import TaskViewControls from '../components/TaskViewControls';
 import { locale, t } from '../i18n';
 import { isDesktop } from '../platform';
 import { notify } from '../state/connector';
@@ -62,7 +61,6 @@ function HomepageBar({ now }: { now: number }) {
     </div>
     <div className="homepage-mode-switch"><SingleChoice label={t('homepage.mode')} value={mode} compact onChange={value => selectHomepageMode(value as 'topology' | 'tasks')}
       options={[{ value: 'topology', label: t('homepage.topology') }, { value: 'tasks', label: t('homepage.tasks') }]} /></div>
-    <div className="homepage-bar-controls">{mode === 'tasks' && <TaskViewControls />}</div>
   </header>;
 }
 

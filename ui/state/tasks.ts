@@ -2,7 +2,7 @@ import { createStore } from "./store";
 import { api } from "../api";
 import { isDesktop, notifyNative } from "../platform";
 import { t } from "../i18n";
-import type { TaskOwnership } from "../types";
+import type { DispatchSummary, TaskOwnership } from "../types";
 export interface TaskRecord {
   agentAccountId?: string | null;
   agent?: string;
@@ -14,6 +14,7 @@ export interface TaskRecord {
   threadId?: string;
   turnId?: string;
   runtime?: TaskRuntime;
+  requested?: Pick<DispatchSummary, "model" | "effort" | "serviceTier">;
   state: string;
   createdAt: string;
   updatedAt: string;
