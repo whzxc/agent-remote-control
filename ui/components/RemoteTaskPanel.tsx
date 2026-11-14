@@ -15,7 +15,7 @@ export default function RemoteTaskPanel({ tasks }: { tasks: HomepageTask[] }) {
   const snapshot = deviceSnapshot.use();
   useEffect(() => { if (selected && !task) remoteTaskPanel.set(undefined); }, [selected, task]);
   if (!task) return null;
-  return <Panel snapshotKey={task.key} returnFocus={`[data-task-snapshot="${CSS.escape(task.key)}"] .task-snapshot-title`} size="m" title={task.session.title || task.session.id} onClose={() => remoteTaskPanel.set(undefined)}>
+  return <Panel snapshotKey={task.key} returnFocus={`[data-task-snapshot="${CSS.escape(task.key)}"] [data-task-open]`} size="m" title={task.session.title || task.session.id} onClose={() => remoteTaskPanel.set(undefined)}>
     <TaskSnapshot task={{ ...task, key: `detail:${task.key}` }} origins={[{ label: snapshot?.members.find(member => member.deviceId === task.deviceId)?.name ?? task.deviceId!, graphic: <Icon icon={Laptop} size={14} /> }, { label: task.agent, graphic: <BrandMark markup={icons[task.agent]} size={14} /> }]} now={Date.now()} freshness={task.freshness}
       onRead={() => markHomepageTaskRead(task)} />
     {task.session.interaction && <p>{task.session.interaction.summary}</p>}

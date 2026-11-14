@@ -48,8 +48,9 @@
 .task-tool-run { min-width: 0; color: var(--text-secondary); font-size: var(--text-meta); }
 .task-tool-groups { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 8px 28px; padding-left: 44px; }
 .task-tool-groups > :is(.task-tool-run, .task-tool-row):has([data-state=open]) { flex-basis: 100%; }
-.task-tool-counts { display: flex; flex-wrap: wrap; gap: 4px; }
-.task-tool-count + .task-tool-count::before, .task-process-summary > span + span::before { content: "·"; margin-right: 4px; }
+.task-tool-counts { display: flex; min-width: 0; gap: 6px; white-space: nowrap; }
+.task-tool-categories { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.task-process-summary > span + span::before { content: "·"; margin-right: 4px; }
 .task-tool-count[data-failed], .task-process-summary > [data-failed] { color: var(--danger); }
 .task-process-summary { display: flex; flex-wrap: wrap; gap: 4px; }
 .task-tool-rows { display: grid; gap: 8px; padding-block: 8px; }

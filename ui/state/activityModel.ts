@@ -218,6 +218,9 @@ export type HomepageTask = {
 export function activeHomepageTask(task: HomepageTask) {
   return task.group === 'running' || task.group === 'needs-me';
 }
+export function previewHomepageTask(task: HomepageTask) {
+  return activeHomepageTask(task) || task.group === 'unread';
+}
 export function recentHomepageTasks(a: HomepageTask, b: HomepageTask) {
   const timestamp = (task: HomepageTask) => Math.max(
     recordedTimestamp(task.updatedAt) ?? 0,
@@ -226,11 +229,13 @@ export function recentHomepageTasks(a: HomepageTask, b: HomepageTask) {
     task.session.endedAt ?? 0,
   ) || task.session.orderAt || 0;
   return Number(activeHomepageTask(b)) - Number(activeHomepageTask(a))
+    || Number(previewHomepageTask(b)) - Number(previewHomepageTask(a))
     || timestamp(b) - timestamp(a) || a.key.localeCompare(b.key);
 }
-export function homepageTaskGroup(session: TrackedActivity, pending: boolean, status?: string): HomepageTaskGroup {
+export function homepageTaskGroup(session: TrackedActivity, pending: boolean, status?: string, observedCompletion = true): HomepageTaskGroup {
   if (session.observed !== false && session.endedAt === undefined) return pending ? 'needs-me' : 'running';
-  if (session.endedAt !== undefined || ['completed', 'failed', 'cancelled', 'interrupted'].includes(status ?? '')) return session.readAt === undefined ? 'unread' : 'recent';
+  if (session.endedAt !== undefined || ['completed', 'failed', 'cancelled', 'interrupted'].includes(status ?? ''))
+    return observedCompletion && session.readAt === undefined ? 'unread' : 'recent';
   return 'unconfirmed';
 }
 
@@ -285,7 +290,7 @@ export function projectDeviceTasks(device: import('../devices/state').Device, ob
     const read = reads.includes(remoteTaskReadKey({ key, session }));
     const current = { ...session, ...(read ? { readAt: 1 } : {}), ...(unconfirmed ? { observed: false, interaction: undefined } : {}) };
     return { key, agent, deviceId: device.id, controllerDeviceId: session.origin?.deviceId ?? session.dispatchSummary?.controlSource?.deviceId,
-      session: current, group: unconfirmed ? 'unconfirmed' : homepageTaskGroup(current, !!current.interaction, current.status ?? undefined),
+      session: current, group: unconfirmed ? 'unconfirmed' : homepageTaskGroup(current, !!current.interaction, current.status ?? undefined, session.observed === true),
       sourceIds: session.origin?.peerOrigin?.sourceId ? [session.origin.peerOrigin.sourceId] : [],
       accountId: session.agentAccountId ?? session.dispatchSummary?.agentAccountId,
       activity: { steps: [], snapshot: [] }, startedAt: unconfirmed ? undefined : session.turnStartedAt,

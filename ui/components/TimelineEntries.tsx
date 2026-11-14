@@ -138,7 +138,7 @@ function PlanEntry({ entry, settled }: { entry: AgentTimelineEntry; settled: boo
 }
 function ThoughtEntry({ entry }: { entry: AgentTimelineEntry }) {
   const [open, setOpen] = useState(false);
-  return <RailStep icon={Brain} phase="thinking"><Fold className="relay-thought" open={open} onChange={setOpen} summary={<><span>{t("relay.thought")} · {thoughtLine(entry.text || entry.title || "")}</span>{entry.durationMs !== undefined && <time>{durationText(entry.durationMs)}</time>}</>}>
+  return <RailStep icon={Brain} phase="thinking"><Fold className="relay-thought" open={open} onChange={setOpen} summary={<><span>{thoughtLine(entry.text || entry.title || "")}</span>{entry.durationMs !== undefined && <time>{durationText(entry.durationMs)}</time>}</>}>
     <TimelineMarkdown text={entry.text || entry.title || ""} />
   </Fold></RailStep>;
 }
@@ -182,9 +182,10 @@ function ToolEntry({ entry, rail = false }: { entry: AgentTimelineEntry; rail?: 
 function ToolSummary({ entries }: { entries: AgentTimelineEntry[] }) {
   const { parts, more, failed } = toolSummary(entries);
   const changes = entries.flatMap(entry => entry.changes ?? []);
+  const labels = parts.map(({ kind, count }) => t(`detail.tools.${kind}`, { count }));
+  if (more) labels.push(t("detail.tools.more", { count: more }));
   return <span className="task-tool-counts">
-    {parts.map(part => <span key={part.kind} className="task-tool-count">{t(`detail.tools.${part.kind}`, { count: part.count })}</span>)}
-    {more > 0 && <span className="task-tool-count">{t("detail.tools.more", { count: more })}</span>}
+    <span className="task-tool-categories">{labels.join(" · ")}</span>
     {changes.some(change => change.added !== undefined) && <span className="task-added">+{changes.reduce((sum, change) => sum + (change.added ?? 0), 0)}</span>}
     {changes.some(change => change.removed !== undefined) && <span className="task-removed">−{changes.reduce((sum, change) => sum + (change.removed ?? 0), 0)}</span>}
     {failed > 0 && <span className="task-tool-count" data-failed>{t("detail.tools.failed", { count: failed })}</span>}
@@ -200,7 +201,7 @@ function ToolRun({ entries }: { entries: AgentTimelineEntry[] }) {
 }
 function liveToolLabel(entry: AgentTimelineEntry, project?: string | null) {
   if (entry.path && !entry.command) return <FilePath path={entry.path} project={project || entry.cwd} />;
-  return entry.command || entry.title || t(entry.type === "file" ? "activity.phase.file" : entry.type === "command" ? "activity.phase.command" : "activity.phase.tool");
+  return toolTitle(entry) || t(entry.type === "file" ? "activity.phase.file" : entry.type === "command" ? "activity.phase.command" : "activity.phase.tool");
 }
 function LiveTool({ entry, now, project }: { entry: AgentTimelineEntry; now: number; project?: string | null }) {
   const [open, setOpen] = useState(true);

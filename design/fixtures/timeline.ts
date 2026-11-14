@@ -7,7 +7,7 @@ export const relayParties = {
 } as const;
 export const relayCopy = {
   kind: { dispatch: "派发", followup: "追加", queued: "排队中 · 本轮结束后送达", local: "提示词" },
-  working: "工作中", thought: "思考", thinking: "思考中", reply: "最终回复", failed: "本轮失败", request: "请求批准",
+  working: "工作中", reply: "最终回复", failed: "本轮失败", request: "请求批准",
   routing: "18 秒后转给 Claude", pause: "暂停", handoff: "立即转给 Claude",
   worked: "用时 1 分 52 秒 · 6 项操作", failedFold: "用时 1 分 04 秒 · 5 项操作 · 1 项失败",
   turn: "第 1 轮", turnTime: "37 秒", changes: "1 个文件有改动", plan: "计划", copy: "复制",
@@ -31,7 +31,7 @@ export const relaySteps: Record<string, RelayStep> = {
     detail: ["The check command already covers the TypeScript sources.",
       "Update config.json first, then run lint and the project check."] },
   say: { kind: "say", label: "I'll update the configuration first, then run lint and the existing check." },
-  tools: { kind: "tools", label: "读取 3 个文件 · 搜索 1 次", meta: "2 秒" },
+  tools: { kind: "tools", label: "编辑 1 个文件 · 读取 3 个文件 · 运行 2 条命令", meta: "2 秒" },
   edit: { kind: "edit", label: "编辑", target: "config.json", added: 12, removed: 3 },
   failed: { kind: "failed", target: "npm run lint", meta: "退出码 1",
     detail: ["config.json:14  Unexpected token '}'"] },

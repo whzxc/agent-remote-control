@@ -3,12 +3,11 @@ import { TopologyScene, type ScenePath, type SceneItem } from "./topology-scene"
 import { TopologyNode } from "./topology-node";
 import { TopologyGroup } from "./topology-group";
 import { TopologyMark } from "./topology-mark";
-import { TaskBubble } from "../modules/task-presentation";
 import { HomepageBar, type HomepageMode } from "./homepage-mode";
 import { NavCapsule } from "./nav-capsule";
 import { Button } from "../components/button";
 import { IconButton } from "../components/icon-button";
-import { nodes, groups, tasks, links, scenes, dispatch } from "../fixtures/topology";
+import { nodes, groups, links, scenes } from "../fixtures/topology";
 
 type Placement = readonly [x: number, y: number, item: number];
 type Chrome =
@@ -20,7 +19,6 @@ export type Scene = {
   nodes: readonly Placement[];
   items?: readonly SceneItem[];
   groups?: readonly (readonly [x: number, y: number, group: number, anchor?: "right"])[];
-  tasks: readonly Placement[];
   links: readonly (number | ScenePath)[];
   mark: Parameters<typeof TopologyMark>[0] & { x: number; y: number };
   chrome: readonly Chrome[];
@@ -36,9 +34,6 @@ export function TopologyScreen({
     })),
     ...(scene.groups ?? []).map(([x, y, group, anchor]) => ({
       x, y, anchor, content: <TopologyGroup {...groups[group]} hideLabel={hideNodeLabels || groups[group].hideLabel} />,
-    })),
-    ...scene.tasks.map(([x, y, task]) => ({
-      x, y, content: <TaskBubble {...tasks[task]} dispatch={dispatch} />,
     })),
     { x: scene.mark.x, y: scene.mark.y, content: <TopologyMark {...scene.mark} /> },
   ];

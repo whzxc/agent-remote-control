@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, 
 import { useReducedMotion } from '../state/appEnvironment';
 import { integrateSpring } from '../topology/spring';
 import { deckGeometry, deckRelease } from './taskDeck';
-import type { HomepageTask } from '../state/activityModel';
+import { previewHomepageTask, type HomepageTask } from '../state/activityModel';
 import { taskTitle } from './ui/TaskSnapshot';
 
 export default function TaskStack({ tasks, activeCount, label, render, onOpen }: {
@@ -50,15 +50,18 @@ export default function TaskStack({ tasks, activeCount, label, render, onOpen }:
   }, []);
   const keys = useMemo(() => tasks.map(task => task.key), [tasks]);
   const identities = useMemo(() => keys.join('\n'), [keys]);
-  const previous = useRef({ keys, stride });
+  const frontIsPreview = tasks.length > 0 && previewHomepageTask(tasks[0]);
+  const previous = useRef({ keys, stride, frontIsPreview });
   useLayoutEffect(() => {
     stop(); clearTimeout(wheelTimer.current);
     const previousIndex = Math.round(value.current / previous.current.stride);
     const key = previous.current.keys[previousIndex];
-    const index = previousIndex === 0 ? 0 : Math.max(0, tasks.findIndex(task => task.key === key));
+    const match = tasks.findIndex(task => task.key === key);
+    const justRead = previous.current.frontIsPreview && match >= 0 && tasks[match].group === 'recent';
+    const index = previousIndex === 0 && !justRead ? 0 : Math.max(0, match);
     set(index * stride); target.current = index * stride;
-    previous.current = { keys, stride };
-  }, [identities, stride]);
+    previous.current = { keys, stride, frontIsPreview };
+  }, [identities, stride, frontIsPreview]);
   const state = useRef({ stride, count: tasks.length }); state.current = { stride, count: tasks.length };
   const controls = useRef({ settle }); controls.current = { settle };
   useEffect(() => { if (reduced) { stop(); set(target.current); } }, [reduced]);
@@ -108,7 +111,8 @@ export default function TaskStack({ tasks, activeCount, label, render, onOpen }:
     {cards.map(({ task, index, content }) => {
       const depth = index - position / stride, geometry = deckGeometry(depth, peek, stride, spread);
       return <article key={task.key} className="task-stack-card" aria-label={taskTitle(task)} aria-current={index === active ? 'true' : undefined}
-        inert={geometry.opacity === 0} style={{ left: front - geometry.offset, width: cardWidth, zIndex: tasks.length - index,
+        inert={geometry.opacity === 0} data-summary={!previewHomepageTask(task) || undefined}
+        style={{ left: front - geometry.offset, width: cardWidth, zIndex: tasks.length - index,
           transform: `scale(${geometry.scale})`, opacity: geometry.opacity,
           '--task-strip': `${Math.min(cardWidth, geometry.strip)}px`, '--task-fog': geometry.fog } as CSSProperties}
         data-labelled={geometry.strip >= 100 || undefined} onClick={event => { if (!(event.target as HTMLElement).closest('button')) onOpen(task); }}>

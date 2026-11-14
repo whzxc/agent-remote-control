@@ -32,4 +32,4 @@ export const workspaceScenes = {
 
 // The centered overlay leaves the configuration topology in place.
 export const selectedAgentNode = { x: 836, y: 280, ...nodes[5] };
-export const fixedAgentScene: Scene = { ...scenes["empty-empty"], tasks: [] };
+export const fixedAgentScene: Scene = scenes["empty-empty"];

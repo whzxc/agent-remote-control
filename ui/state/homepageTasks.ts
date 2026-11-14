@@ -9,7 +9,7 @@ import { activityApprovals } from './activity';
 import { taskExecutions } from './taskExecution';
 import { pendingSessions } from './taskInteractions';
 import { executionStatus } from './taskExecutionModel';
-import { activityReadMatches, homepageTaskGroup, projectDeviceTasks, remoteTaskReadKey, type HomepageTask, type TrackedActivity } from './activityModel';
+import { activityReadMatches, homepageTaskGroup, previewHomepageTask, projectDeviceTasks, remoteTaskReadKey, type HomepageTask, type TrackedActivity } from './activityModel';
 import { taskCardActivity } from './taskProjection';
 import { api } from '../api';
 import type { AgentConversation, AgentConversationPage } from '../types';
@@ -38,21 +38,24 @@ function useRecentConversations(enabled: boolean) {
   return enabled ? rows : emptyHistory;
 }
 
-export const homepageReadRevision = createStore(0);
+const recentlyOpened = createStore<{ agent: string; session: TrackedActivity }[]>([]);
 export function markHomepageTaskRead(task: HomepageTask) {
   if (task.group !== 'unread') return;
   if (task.deviceId) {
     homepageRemoteReads.set(old => [...old.filter(key => key !== remoteTaskReadKey(task)), remoteTaskReadKey(task)].slice(-1000));
     return;
   }
-  rememberActivityRead(task.agent, task.session, Date.now());
+  const readAt = Date.now();
+  rememberActivityRead(task.agent, task.session, readAt);
+  // Keep the summary available as soon as the completed activity bubble is dismissed.
+  recentlyOpened.set(old => [{ agent: task.agent, session: { ...task.session, observed: false, readAt } },
+    ...old.filter(row => row.agent !== task.agent || row.session.id !== task.session.id)].slice(0, 30));
   markActivitiesRead([{ agent: task.agent, id: task.session.id }]);
-  homepageReadRevision.set(value => value + 1);
 }
 export function useHomepageTasks(showHistory: boolean) {
   const tracked = trackedActivity.use(), executions = taskExecutions.use(), submissions = activityApprovals.use();
   const history = useRecentConversations(showHistory);
-  const records = taskRecords.use().records, readRevision = homepageReadRevision.use();
+  const records = taskRecords.use().records, opened = recentlyOpened.use();
   const devices = deviceSnapshot.use(), remote = deviceTasks.use(), remoteReads = homepageRemoteReads.use();
   const tasks = useMemo(() => {
     const combined = Object.fromEntries(Object.entries(tracked).map(([agent, sessions]) => [agent, new Map<string, TrackedActivity>(sessions.map(session => [session.id, session]))]));
@@ -95,6 +98,11 @@ export function useHomepageTasks(showHistory: boolean) {
         observed: false, timeline: true, phase: 'idle', phaseSince: null, headline: previous?.headline ?? '',
       });
     }
+    for (const { agent, session } of opened) {
+      const sessions = combined[agent] ??= new Map();
+      if (!sessions.has(session.id)) sessions.set(session.id, session);
+    }
+    const observed = new Set(Object.entries(tracked).flatMap(([agent, sessions]) => sessions.map(session => JSON.stringify([agent, session.id]))));
     const readRows = loadReads();
     const reads = new Map(readRows.map(row => [JSON.stringify([row.agent, row.id]), row]));
     const projected = Object.entries(combined).flatMap(([agent, sessions]) => [...sessions.values()].map<HomepageTask>(session => {
@@ -105,15 +113,18 @@ export function useHomepageTasks(showHistory: boolean) {
       const timing = execution?.turnTimings?.[session.turnId ?? execution.turnId ?? ''];
       const read = reads.get(key);
       const current = { ...session, status, readAt: session.readAt ?? (read && activityReadMatches(read, session) ? read.readAt : undefined), interaction: pending[0]?.interaction };
-      return { key, agent, session: current, updatedAt: updates.get(key),
-        group: homepageTaskGroup(current, pending.length > 0, status), sourceIds: session.origin?.sourceId || session.dispatchSummary?.controlSource?.id ? [session.origin?.sourceId ?? session.dispatchSummary!.controlSource!.id!] : [],
+      const task: HomepageTask = { key, agent, session: current, updatedAt: updates.get(key),
+        group: homepageTaskGroup(current, pending.length > 0, status, observed.has(key)),
+        sourceIds: session.origin?.sourceId || session.dispatchSummary?.controlSource?.id ? [session.origin?.sourceId ?? session.dispatchSummary!.controlSource!.id!] : [],
         controllerDeviceId: session.origin?.deviceId ?? session.dispatchSummary?.controlSource?.deviceId, upstreamSourceId: session.origin?.peerOrigin?.sourceId,
         accountId: session.agentAccountId ?? session.dispatchSummary?.agentAccountId,
-        activity: taskCardActivity(execution?.entries ?? []),
+        activity: { steps: [], snapshot: [] },
         startedAt: timing?.startedAt ?? session.turnStartedAt, endedAt: timing?.endedAt };
+      if (previewHomepageTask(task) && execution) task.activity = taskCardActivity(execution.entries);
+      return task;
     }));
     projected.push(...pairedDevices(devices).flatMap(device => projectDeviceTasks(device, remote[device.id] ?? {}, remoteReads)));
     return projected;
-  }, [tracked, executions, submissions, history, records, readRevision, devices, remote, remoteReads]);
+  }, [tracked, executions, submissions, history, records, opened, devices, remote, remoteReads]);
   return tasks;
 }

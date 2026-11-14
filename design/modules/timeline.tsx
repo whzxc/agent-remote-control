@@ -86,9 +86,6 @@ export function TimelineStep({ step }: { step: RelayStep }) {
             <span class={`flex min-w-0 flex-1 items-center gap-[6px]
               ${step.kind === "failed" ? "text-danger" : step.kind === "request" ? "text-warning" : "text-text-secondary"}`}>
               {step.kind === "answered" && step.by && <BrandMark brand={source.brand} size={13} />}
-              {(step.kind === "thought" || step.kind === "thinking") && (
-                <span class="shrink-0">{step.kind === "thought" ? relayCopy.thought : relayCopy.thinking} ·</span>
-              )}
               {step.kind === "request" || step.kind === "answered" || step.kind === "edit"
                 ? <span class={`shrink-0 ${step.kind === "request" ? "font-semibold" : ""}`}>
                   {step.by ? `${step.by} ${step.label}` : step.label}</span> : null}

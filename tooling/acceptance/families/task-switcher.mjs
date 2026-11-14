@@ -6,8 +6,8 @@ export const checks = [{ stage: 'beforeNavigate', order: 1, visual: true, async 
 } }, { stage: 'verify', order: 19, visual: true, async run({ fixture, page, root, width, row, screenshots, out, key }) {
   if (fixture.homepage?.layout === 'stack') {
     const fills = await page.locator('.task-stack').evaluateAll(decks => decks.every(deck => {
-      const box = deck.getBoundingClientRect(), card = deck.querySelector('article[aria-current=true] .task-snapshot').getBoundingClientRect();
-      return box.height > 0 && Math.abs(card.bottom - box.bottom) <= 2 && card.height > box.height - 80;
+      const box = deck.getBoundingClientRect(), card = deck.querySelector('article[aria-current=true] .task-snapshot')?.getBoundingClientRect();
+      return box.height > 0 && (!card || Math.abs(card.bottom - box.bottom) <= 2 && card.height > box.height - 80);
     }));
     if (!fills) throw new Error('The stack snapshot did not fill the available page height.');
   }
@@ -41,8 +41,7 @@ export const checks = [{ stage: 'beforeNavigate', order: 1, visual: true, async 
     const snapshot = page.getByRole('article', { name: 'Load a native task preview', exact: true });
     await snapshot.getByText('Cold preview ready', { exact: true }).waitFor();
     await snapshot.getByText('Inspect the native history', { exact: true }).waitFor();
-    await snapshot.getByText('40 actions', { exact: true }).waitFor();
-    await snapshot.getByText('Inspect preview step 40', { exact: true }).waitFor();
+    await snapshot.getByText(/Ran 40 commands.*Inspect preview step 40/).waitFor();
     if (await snapshot.getByText('Inspect preview step 1', { exact: true }).count()) throw new Error('A snapshot exposed individual steps.');
     if (await page.getByRole('dialog').count()) throw new Error('A detail layer was required to load a preview.');
     return;
@@ -55,19 +54,20 @@ export const checks = [{ stage: 'beforeNavigate', order: 1, visual: true, async 
   if (await feed.getByRole('button', { name: text('answer'), exact: true }).count()
     || await feed.getByRole('button', { name: text('approve'), exact: true }).count()) throw new Error('Status snapshots exposed request actions.');
   if (await page.getByRole('combobox', { name: text('filter'), exact: true }).count()) throw new Error('The status dropdown is still visible.');
-  const running = feed.getByRole('region', { name: text('running'), exact: true });
-  await running.getByRole('article', { name: 'Choose the deployment window', exact: true }).waitFor();
-  await running.getByRole('article', { name: 'Inspect the dispatch queue', exact: true }).waitFor();
+  const previews = feed.getByRole('region', { name: text('activeAndUnread'), exact: true });
   const chooseLayout = async layout => {
     const radio = page.getByRole('radio', { name: text(layout), exact: true });
     if (await radio.count()) await radio.click();
     else { await page.getByRole('combobox', { name: text('layout'), exact: true }).click(); await page.getByRole('option', { name: text(layout), exact: true }).click(); }
   };
+  await chooseLayout('tile');
+  await previews.getByRole('article', { name: 'Choose the deployment window', exact: true }).waitFor();
+  await previews.getByRole('article', { name: 'Inspect the dispatch queue', exact: true }).waitFor();
   await chooseLayout('stack');
   if (await page.evaluate(() => JSON.parse(localStorage.getItem('arc.homepage-task-layout'))) !== 'stack') throw new Error('Stack layout was not persisted.');
   const deck = feed.getByRole('list', { name: text('tasks'), exact: true });
   await deck.getByRole('article', { name: 'Choose the deployment window', exact: true }).waitFor();
-  if (await running.count() || await feed.getByRole('region', { name: text('completed'), exact: true }).count())
+  if (await previews.count() || await feed.getByRole('region', { name: text('history'), exact: true }).count())
     throw new Error('Stack separated tasks by status.');
   const deckHandle = await deck.elementHandle();
   const settled = () => page.waitForFunction(element => element.getAttribute('aria-busy') === 'false', deckHandle);

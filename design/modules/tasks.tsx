@@ -3,13 +3,14 @@ import { BrandMark, type Brand } from '../components/agent-icon';
 import { IconButton } from '../components/icon-button';
 import { Tile } from '../components/tile';
 import { SingleChoice } from '../components/single-choice';
+import { TaskBubble } from './task-presentation';
 import type { TaskStep, TaskPlan, TaskChange } from './task-activity';
 import {
   tasks, origins, snapshotForms, tasksCopy as copy, switcherCopy as sw, switcherStatus,
 } from '../fixtures/tasks';
 
 export type OriginStep = { label: string; brand?: Brand; icon?: string };
-export type TaskGroup = 'needs-me' | 'running' | 'unread' | 'unconfirmed';
+export type TaskGroup = 'needs-me' | 'running' | 'unread' | 'recent' | 'unconfirmed';
 export type TaskSnapshotData = {
   id: string; node: string; title: string; group: TaskGroup;
   state: string; detail: string; icon: string; origin: readonly OriginStep[];
@@ -44,9 +45,17 @@ export function TasksEmpty() {
 }
 const statusMark: Record<TaskGroup, { icon: string; tone: 'agent' | 'warning' | 'success' | 'neutral' }> = {
   'needs-me': { icon: 'hourglass', tone: 'warning' }, running: { icon: 'loader-circle', tone: 'agent' },
-  unread: { icon: 'check', tone: 'success' }, unconfirmed: { icon: 'circle-help', tone: 'neutral' },
+  unread: { icon: 'check', tone: 'success' }, recent: { icon: 'check', tone: 'success' },
+  unconfirmed: { icon: 'circle-help', tone: 'neutral' },
 };
 const statusOf = (task: TaskSnapshotData) => switcherStatus[task.id]?.status ?? task.state;
+export const summaryOnly = (task: TaskSnapshotData) => task.group === 'recent' || task.group === 'unconfirmed';
+
+export function TaskHistorySummary({ task }: { task: TaskSnapshotData }) {
+  const mark = statusMark[task.group];
+  return <TaskBubble form="compact" fill source={false} title={task.title} phase={statusOf(task)}
+    headline={task.detail} icon={mark.icon} tone={mark.tone} />;
+}
 
 /** The status slot above a snapshot, like an app icon above a switcher card. */
 export function TaskStatusMark({ task, labelled = true }: { task: TaskSnapshotData; labelled?: boolean }) {
@@ -71,27 +80,35 @@ function SnapshotNote({ tone, label, text }: { tone: 'source' | 'request'; label
 export function TaskSnapshot({ task, height = 340, narrow = false }: {
   task: TaskSnapshotData; height?: number | string; narrow?: boolean;
 }) {
-  const waiting = task.group === 'needs-me', offline = task.group === 'unconfirmed', done = task.group === 'unread';
+  const waiting = task.group === 'needs-me', done = task.group === 'unread';
   const steps = (task.snapshot ?? task.steps ?? []).slice(narrow ? -3 : -10), route = switcherStatus[task.id];
+  const categories = [
+    ['editing', 'Edited', 'file'], ['reading', 'Read', 'file'], ['command', 'Ran', 'command'],
+  ] as const;
+  const work = categories.flatMap(([kind, verb, unit]) => {
+    const count = steps.filter(step => step.kind === kind).length;
+    return count ? [`${verb} ${count} ${unit}${count === 1 ? '' : 's'}`] : [];
+  }).join(' · ');
   const inset = narrow ? 'px-3' : 'px-4';
   return <article aria-label={`${task.title} · ${statusOf(task)}`} style={{ height }} class="flex w-full min-w-0 flex-col
     overflow-hidden rounded-panel border border-border bg-surface">
     <header class={`flex items-center gap-2 pt-[14px] ${inset}`}>
       <OriginChain steps={narrow ? task.origin.filter(step => step.brand) : task.origin} />
-      {task.path && !narrow && !offline && <span class="ml-auto truncate text-caption text-text-tertiary">{task.path}</span>}
+      {task.path && !narrow && <span class="ml-auto truncate text-caption text-text-tertiary">{task.path}</span>}
     </header>
     <button aria-label={`${copy.open}: ${task.title}`} class={`truncate pt-[10px] text-left text-body leading-5
       font-semibold text-text ${inset}`}>{task.title}</button>
     <div class={`relative flex min-h-0 flex-1 flex-col justify-end gap-2 overflow-hidden rounded-[16px]
-      bg-surface-subtle ${narrow ? 'm-2 p-2' : 'm-3 p-3'} ${offline ? 'opacity-60' : ''}`} aria-hidden="true">
+      bg-surface-subtle ${narrow ? 'm-2 p-2' : 'm-3 p-3'}`} aria-hidden="true">
       {task.prompt && <SnapshotNote tone="source" text={task.prompt} />}
-      {steps.length > 0 && <div class="flex items-center gap-[6px] text-caption text-text-secondary">
-        <Icon name="wrench" size={12} /><span class="shrink-0 whitespace-nowrap">{steps.length} actions</span>
-        <span class="min-w-0 truncate">{steps.at(-1)?.text}</span>
+      {work && <div class="flex items-center gap-[6px] text-caption text-text-secondary">
+        <Icon name="wrench" size={12} /><span class="min-w-0 truncate">{work}</span>
+      </div>}
+      {steps.some(step => step.kind === 'thinking') && <div class="flex items-center gap-[6px] text-caption text-text-secondary">
+        <Icon name="brain" size={12} /><span class="min-w-0 truncate">{steps.findLast(step => step.kind === 'thinking')?.text}</span>
       </div>}
       {waiting && <SnapshotNote tone="request" label={`${sw.request} → ${route?.route ?? ''}`} text={task.detail} />}
       {done && <p class="text-caption leading-4 text-text">{task.change?.output ?? task.activity}</p>}
-      {offline && <p class="shrink-0 text-caption leading-4 text-text-tertiary">{sw.lastSeen} · {task.detail}</p>}
     </div>
   </article>;
 }
@@ -106,15 +123,17 @@ export function TaskViewControls({ layout }: { layout: TaskLayout }) {
   </div>;
 }
 
-/** Tile: every task as a status mark over a portrait snapshot. */
+/** Tile: full task previews above metadata-only history. */
 export function TaskTiles({ items = tasks, columns, height, narrow = false }: {
   items?: readonly TaskSnapshotData[]; columns: 2 | 5 | 6; height: number; narrow?: boolean;
 }) {
   const grid = { 2: 'grid-cols-2', 5: 'grid-cols-5', 6: 'grid-cols-6' }[columns];
   return <div role="list" aria-label={copy.tasks} class={`grid ${grid} ${narrow ? 'gap-x-3 gap-y-5' : 'gap-x-4 gap-y-6'}`}>
     {items.map(task => <div role="listitem" class="flex min-w-0 flex-col gap-2">
-      <TaskStatusMark task={task} />
-      <div class="rounded-panel shadow-md"><TaskSnapshot task={task} height={height} narrow={narrow} /></div>
+      {summaryOnly(task) ? <TaskHistorySummary task={task} /> : <>
+        <TaskStatusMark task={task} />
+        <div class="rounded-panel shadow-md"><TaskSnapshot task={task} height={height} narrow={narrow} /></div>
+      </>}
     </div>)}
   </div>;
 }
@@ -143,10 +162,11 @@ export function TaskStack({ items = tasks, form = 'landscape', active = 0, sprea
     <div data-free role="list" aria-label={copy.tasks} class="relative isolate min-h-0 w-full flex-1 overflow-hidden">
       {order.map((task, index) => ({ task, index, depth: Math.max(0, index - active - flat) })).reverse().map(({ task, index, depth }) => {
         const strip = depth > 0 ? deck.peeks[depth - 1] : deck.card;
-        return <div role="listitem" aria-current={index === active ? 'true' : undefined} class="absolute inset-y-0 flex flex-col gap-3"
+        return <div role="listitem" aria-current={index === active ? 'true' : undefined}
+          class={`absolute flex flex-col gap-3 ${summaryOnly(task) ? 'top-9' : 'inset-y-0'}`}
           style={{ left: front - offsets[index], width: deck.card, transform: `scale(${1 - Math.max(0, depth) * 0.035})`,
             transformOrigin: 'left center' }}>
-          <div class="overflow-hidden" style={{ maxWidth: strip - 4 }}>
+          {summaryOnly(task) ? <TaskHistorySummary task={task} /> : <><div class="overflow-hidden" style={{ maxWidth: strip - 4 }}>
             <TaskStatusMark task={task} labelled={strip >= 100} />
           </div>
           <div class="relative min-h-0 flex-1 rounded-panel"
@@ -157,7 +177,7 @@ export function TaskStack({ items = tasks, form = 'landscape', active = 0, sprea
             </div>}
             {depth > 0 && <span class="pointer-events-none absolute inset-0 rounded-panel bg-canvas"
               style={{ opacity: Math.min(depth * 0.09, 0.5) }} />}
-          </div>
+          </div></>}
         </div>;
       })}
     </div>
@@ -171,6 +191,9 @@ export default () => [
     .map(([name, steps]) => <Frame name={`origin-chain-${name}`}><OriginChain steps={steps} /></Frame>),
   <Frame name="node-task-filter"><NodeTaskFilter /></Frame>,
   <Frame name="tasks-empty" width={360} height={180}><TasksEmpty /></Frame>,
+  ...['finished', 'offline'].map(id => <Frame name={`task-summary-${id}`} width={260}>
+    <TaskHistorySummary task={tasks.find(task => task.id === id)!} />
+  </Frame>),
   ...snapshotForms.map(({ name, id }) => <Frame name={`task-snapshot-${name}`} width={260}>
     <TaskSnapshot task={tasks.find(task => task.id === id)!} />
   </Frame>),

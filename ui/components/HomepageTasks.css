@@ -8,10 +8,12 @@
 .homepage-tasks[data-layout=stack] > .homepage-task-filter { margin-left: 24px; }
 .task-stack { isolation: isolate; position: relative; width: 100%; flex: 1; min-height: calc(var(--task-snapshot-height) + 40px); overflow: hidden; touch-action: pan-y; user-select: none; outline-offset: -4px; }
 .task-stack-card { position: absolute; inset-block: 4px 0; display: flex; flex-direction: column; gap: 12px; transform-origin: left center; cursor: pointer; }
+.task-stack-card[data-summary] { top: 40px; bottom: auto; }
+.task-stack-card .task-history-summary { position: relative; }
 .task-stack-card .task-status-mark { flex: none; max-width: calc(var(--task-strip) - 4px); }
 .task-stack-card:not([data-labelled]) .task-status-mark > span:not(.tile) { display: none; }
 .task-stack-card .task-snapshot { position: relative; flex: 1; min-height: 0; height: auto; box-shadow: -18px 0 36px rgb(0 0 0 / .22), -3px 0 10px rgb(0 0 0 / .12); }
-.task-stack-card .task-snapshot::after { position: absolute; content: ''; inset: 0; pointer-events: none; background: var(--canvas); opacity: var(--task-fog); }
+.task-stack-card :is(.task-snapshot, .task-history-summary)::after { position: absolute; content: ''; inset: 0; border-radius: inherit; pointer-events: none; background: var(--canvas); opacity: var(--task-fog); }
 @media (min-width: 1000px) { .homepage-task-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 @media (min-width: 1500px) { .homepage-task-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 @media (max-width: 499px) {

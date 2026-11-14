@@ -1,6 +1,6 @@
 import { Frame } from 'adg';
 import { HomepageBar } from '../modules/homepage-mode';
-import { TaskViewControls, TaskTiles, TaskStack } from '../modules/tasks';
+import { TaskViewControls, TaskTiles, TaskStack, summaryOnly } from '../modules/tasks';
 import { NavCapsule } from '../modules/nav-capsule';
 import { switcherForms, tasks, tasksCopy as copy } from '../fixtures/tasks';
 
@@ -8,7 +8,8 @@ export default () => [...switcherForms.map(option => {
   const mobile = option.width < 500, portrait = option.width < 1000, pad = mobile ? 'px-4' : 'px-6';
   const stack = option.layout === 'stack';
   const running = tasks.filter(task => task.group === 'running' || task.group === 'needs-me');
-  const completed = tasks.filter(task => task.group !== 'running' && task.group !== 'needs-me');
+  const previews = [...running, ...tasks.filter(task => task.group === 'unread')];
+  const history = tasks.filter(summaryOnly);
   const columns = option.width >= 1500 ? 6 : option.width >= 1000 ? 5 : 2;
   const height = mobile ? 320 : 400;
   const form = mobile ? 'mobile' : portrait ? 'portrait' : 'landscape';
@@ -22,11 +23,11 @@ export default () => [...switcherForms.map(option => {
         <HomepageBar mode="tasks" compact={portrait}><TaskViewControls layout={option.layout} /></HomepageBar>
       </div>
       <main aria-label={copy.tasks} class={`min-h-0 flex-1 overflow-y-auto pb-4 ${stack ? 'flex' : pad}`}>
-        {stack ? <TaskStack items={[...running, ...completed]} form={form}
+        {stack ? <TaskStack items={[...previews, ...history]} form={form}
           spread={form === 'landscape' && option.width >= running.length * 376 + 148 ? Math.max(0, running.length - 1) : 0} />
           : <>
-            <section aria-label="Running" class="mb-6"><TaskTiles items={running} columns={columns} height={height} narrow={mobile} /></section>
-            <section aria-label="Completed"><TaskTiles items={completed} columns={columns} height={height} narrow={mobile} /></section>
+            <section aria-label="Active and unread" class="mb-6"><TaskTiles items={previews} columns={columns} height={height} narrow={mobile} /></section>
+            <section aria-label="History"><TaskTiles items={history} columns={columns} height={height} narrow={mobile} /></section>
           </>}
       </main>
       <div data-free class="absolute bottom-6 left-6"><NavCapsule active="" /></div>

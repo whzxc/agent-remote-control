@@ -21,7 +21,7 @@ export default () => [
   ...controllerForms.map(option => <Frame name={option.name} width={1280} height={800} locale="en"
     note="Proposed. Static configuration geometry. Working node capsules open scoped Tasks; offline is unconfirmed.">
     <TopologyScreen width={1280} height={800} scene={{
-      nodes: [[89, 366, 17]], tasks: [],
+      nodes: [[89, 366, 17]],
       links: landscapePaths.map((path, i) => i === 3 && option.state === 'offline'
         ? { ...path, class: 'stroke-role-agent/20' } : path),
       mark: { x: 240, y: 300, size: 180, sourceAction: false, agentAction: false },
@@ -41,7 +41,7 @@ export default () => [
   ...memberForms.map(({ name, upstreams }) => <Frame name={name} width={1280} height={800} locale="en"
     note="Proposed. Tier-1 controller source; upstream sources default off. Tasks keeps controller attribution.">
     <TopologyScreen width={1280} height={800} scene={{
-      nodes: [], tasks: [],
+      nodes: [],
       links: [...memberPaths, ...(upstreams ? [{
         d: `M${414 - nodeCapsuleLayout(deviceAggregate).width} 266H210Q194 266 194 250V190Q194 174 183 174 M194 266V302Q194 318 183 318`,
         class: 'stroke-role-source/55', 'stroke-width': '2',
@@ -63,7 +63,7 @@ export default () => [
     <div data-free class="relative overflow-hidden bg-canvas" style={{ width, height }}>
       <div class="absolute left-0 top-0" style={{ transform: `translateX(-${pan}px)` }}>
         <TopologyScreen width={rootX + 430} height={height} hideNodeLabels scene={{
-          nodes: [[width === 390 ? 16 : 24, 100, 1]], tasks: [],
+          nodes: [[width === 390 ? 16 : 24, 100, 1]],
           links: [
             { d: width === 390 ? 'M40 124V292Q40 316 64 316H126' : 'M48 124V314Q48 338 72 338H250',
               class: 'stroke-role-source/55', 'stroke-width': '2' },

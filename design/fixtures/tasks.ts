@@ -32,6 +32,8 @@ const baseTasks: TaskSnapshotData[] = [
     state: 'Completed', detail: 'Unread', icon: 'check', origin: origins.local },
   { id: 'remote-report', node: 'cedar-claude', title: 'Review the configuration', group: 'unread',
     state: 'Completed', detail: 'Unread', icon: 'check', origin: origins.remoteClaude },
+  { id: 'finished', node: 'local-codex', title: 'Verify the release checklist', group: 'recent',
+    state: 'Completed', detail: 'Dispatch service', icon: 'check', origin: origins.local },
   { id: 'offline', node: 'moss-codex', title: 'Inspect the storage index', group: 'unconfirmed',
     state: 'Unconfirmed', detail: 'Last seen 18 min ago', icon: 'circle-help', origin: origins.offline },
 ];
@@ -129,5 +131,4 @@ export const snapshotForms = [
   { name: 'waiting-approval', id: 'approve' },
   { name: 'running', id: 'queue' },
   { name: 'unread', id: 'report' },
-  { name: 'unconfirmed', id: 'offline' },
 ] as const;

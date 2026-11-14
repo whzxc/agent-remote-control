@@ -38,7 +38,7 @@ export const checks = [{ stage: "verify", order: 106, visual: true, async run({ 
     if (await plan.getAttribute('aria-expanded') !== 'true') throw new Error('Live plan did not expand.');
     await plan.click();
   }
-  const thought = panel.getByRole('button', { name: new RegExp(`^${text['relay.thought']}`) }).first();
+  const thought = panel.getByRole('button', { name: /^I will read the current configuration/ }).first();
   if (await thought.getAttribute('aria-expanded') !== 'false') throw new Error('Reasoning must start collapsed.');
   await thought.click();
   if (await thought.getAttribute('aria-expanded') !== 'true') throw new Error('Reasoning did not expand.');

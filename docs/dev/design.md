@@ -10,9 +10,9 @@ The [ADG asset rules](https://github.com/whzxc/agent-design-gallery/blob/main/do
 
 ARC uses warm neutral surfaces, restrained semantic tints, rounded shared controls and Lucide icons. `design/tokens.css` owns the palette, typography and dimensions; `ui/tokens.css` is the runtime sheet. Both themes use the same declared forms. Add a token for a value shared or semantically named across sources; keep single-use local dimensions in the owning part. Keep the homepage's ARC mark, earcup connections and topology, and the tile's neutral shell with a separate state tint. Phase labels use shared typography with semantic color on the label span.
 
-The desktop targets are macOS and Windows. Headless Linux has no product UI. Each source uses one representative language; English and Simplified Chinese content follow its mapped fixture. Frame dimensions and capture viewports are declared in TSX. Landscape homepage forms use 1280×800, portrait forms use 640×800, expanded-single-task uses 640×1000, and `homepage-topology-mobile/narrow-two-tasks` uses 390×844. Portrait forms omit visible node and group labels and retain accessible names. The outer rails leave the center for account branches and task cards. Rails reserve node and quota-ring space; the shared HomepageBar keeps the mode switch centered.
+The desktop targets are macOS and Windows. Headless Linux has no product UI. Each source uses one representative language. English and Simplified Chinese content follow its mapped fixture. Frame dimensions and capture viewports are declared in TSX. Landscape topology uses 1280×800 and portrait topology uses 640×800. Mobile forms are declared with their owning task or device surface. Rails reserve node and quota-ring space. The shared HomepageBar keeps the mode switch centered.
 
-The default exports declare presentations. Approved task-bearing homepage forms remain retained pending the two-mode migration below. Apply the toolkit's single-part and multi-part frame naming rules when the owning family is reviewed, updating all references together. Task bubbles retain compact, standard, detailed, row and row-attention; HomepageBar covers both homepage modes. Portrait topology retains expanded-empty, expanded-single-task, expanded-two-tasks, sources-compacted, sources-folded and agents-folded. The tasks-and-accounts form uses a 640×1000 frame to show task cards connected to an active account alongside folded sibling accounts. Setup retains standalone and nested flows, including distinct method and ready controls. AX Board retains open, closed and detail forms; detail replaces the list inside the same panel and can scroll beyond the viewport.
+The default exports declare presentations. Task bubbles retain compact, standard, detailed, row and row-attention forms. Homepage history uses the compact form. Setup retains standalone and nested flows, including distinct method and ready controls. AX Board retains open, closed and detail forms. Detail replaces the list inside the same panel and can scroll beyond the viewport.
 
 ### ARC health
 
@@ -37,28 +37,24 @@ selecting Tasks opens all tasks.
 Topology retains the left/right wings, ARC hub and earcups. Its layout inputs are
 configuration, viewport and explicit structural disclosure. Task observations change
 only the node capsule shell, task content and its outgoing wire port. Logo anchors,
-labels, columns and branch rails stay fixed. Task bubbles, queues, task-only tentacles
-and outer arcs, task-driven layout and focus-to-expand task overlays are removed from the proposed homepage.
+labels, columns and branch rails stay fixed. Task activity in Topology appears inside
+node capsules. The Tasks view owns execution previews and historical summaries.
 
-Tasks presents status marks above portrait snapshots. Origin icons identify source,
-optional remote device, Agent and account. The controller shows its member dispatches;
-on the member, that controller is the source. Existing group and observation order
-remains: waiting, running, completed unread, unconfirmed and recent completed.
-Offline observations retain freshness without live verbs or elapsed time.
+Tasks shows large previews for running, waiting and unread work. Origin icons identify
+source, optional remote device, Agent and account. The controller shows its member
+dispatches. On the member, that controller is the source. A compact history bubble
+shows the task title and status with available project or last-seen metadata.
 
-Tile uses six columns at 1500px, five at 1000px and two below. Mobile uses narrow
-snapshots. Stack is a depth deck with compressed spacing, scale, canvas fog and
-left-cast shadows. Status marks remain on strips, with text when space permits.
-Pointer and touch follow 1:1; release velocity settles the position. Horizontal
-wheel and arrow keys browse; click or Enter opens. Opening and closing morph the
-snapshot to and from the centered task layer, with instant reduced-motion behavior.
+Tile uses six columns at 1500px, five at 1000px and two below. Previews appear above
+history with spacing between the grids. Stack uses one deck and spreads active cards
+when they fit. Its deeper cards recede with compressed spacing, scale, canvas fog and
+left-cast shadows. Pointer and touch follow 1:1, then settle using release velocity.
+Horizontal wheel and arrow keys browse. Clicking a card or pressing Enter opens it
+in the centered task layer. The Tile/Stack SingleChoice is icon-only.
 
-Tile places active tasks, including waiting tasks, above completed history with spacing
-between the grids. Stack shows both in one depth deck and spreads active cards when
-they fit in one row. Unconfirmed history retains its status. Snapshots show the origin,
-one-line title, project/path and a static native preview. Consecutive tools and thoughts
-form single-line summaries between messages. Replies render inline. Card activation
-opens the detail. The Tile/Stack SingleChoice is icon-only.
+Full previews follow the newest native rows. Consecutive tools in a turn form a
+single-line summary of recorded operations. Reasoning uses the existing icon and
+summary text. Replies render inline. History reads its timeline on detail activation.
 
 #### Recorded task fields and presentation limits
 

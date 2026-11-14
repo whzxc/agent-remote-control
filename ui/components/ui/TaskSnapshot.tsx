@@ -6,8 +6,9 @@ import { ArrowRightLeft, Check, ChevronRight, CircleHelp, Hourglass } from 'luci
 import { Icon, IconButton, Tile, Tooltip } from './index';
 import { taskPhaseIcons } from './NodeCapsule';
 import type { HomepageTask } from '../../state/activityModel';
-import { recordedTimestamp, thoughtLine, type TaskSnapshotRow } from '../../state/taskProjection';
+import { recordedTimestamp, thoughtLine, toolSummary, type TaskSnapshotRow } from '../../state/taskProjection';
 import { useRequestRouting } from '../../state/requestRouting';
+import { PhaseTile } from '../activity';
 import { t } from '../../i18n';
 import './TaskSnapshot.css';
 
@@ -22,7 +23,7 @@ const SnapshotRows = memo(function SnapshotRows({ rows }: { rows: TaskSnapshotRo
   const groups: TaskSnapshotRow[][] = [];
   for (const row of rows) {
     const group = groups.at(-1);
-    if (row.role === 'step' && group?.[0].role === 'step' && group[0].turnId === row.turnId) group.push(row);
+    if (row.tool && group?.[0].tool && group[0].turnId === row.turnId) group.push(row);
     else groups.push([row]);
   }
   return groups.map(group => {
@@ -30,10 +31,12 @@ const SnapshotRows = memo(function SnapshotRows({ rows }: { rows: TaskSnapshotRo
     if (first.role !== 'step') return <div key={first.id} className="task-snapshot-row" data-role={first.role}><SnapshotMarkdown text={first.text} /></div>;
     const latest = group.at(-1)!;
     const text = latest.kind === 'thinking' ? thoughtLine(latest.text) : latest.text.trim().split('\n', 1)[0];
-    return <div key={first.id} className="task-snapshot-work" data-status={latest.status}>
+    const { parts, more } = toolSummary(group.flatMap(row => row.tool ? [row.tool] : []));
+    const labels = parts.map(({ kind, count }) => t(`detail.tools.${kind}`, { count }));
+    if (more) labels.push(t('detail.tools.more', { count: more }));
+    return <div key={first.id} className="task-snapshot-work">
       <Icon icon={taskPhaseIcons[latest.kind ?? 'running']} size={12} />
-      <span className="task-snapshot-work-count">{t('detail.process.actions', { count: group.length })}</span>
-      <span className="task-snapshot-work-text">{text}</span>
+      <span className="task-snapshot-work-text">{labels.length > 0 && <>{labels.join(' · ')} · </>}{text}</span>
     </div>;
   });
 });
@@ -42,6 +45,24 @@ function status(task: HomepageTask) {
   if (task.group === 'needs-me') return task.session.interaction?.kind === 'question' ? 'needsInput' : 'approvalRequired';
   if (task.group === 'running') return task.activity.steps.at(-1)?.kind ?? 'running';
   return task.session.status === 'failed' ? 'failed' : ['cancelled', 'interrupted'].includes(task.session.status ?? '') ? 'interrupted' : 'completed';
+}
+export function TaskHistorySummary({ task, freshness, tabbable, onOpen }: {
+  task: HomepageTask; freshness?: string; tabbable: boolean; onOpen: () => void;
+}) {
+  const state = status(task), title = taskTitle(task);
+  const project = task.session.projectName || task.session.project?.split(/[\\/]/).filter(Boolean).at(-1);
+  const meta = task.group === 'unconfirmed' ? freshness ?? project : project;
+  return <div className="task-history-summary" data-task-snapshot={task.key}>
+    <button type="button" className="activity-bubble" data-task-open tabIndex={tabbable ? undefined : -1}
+      aria-label={`${t('homepage.openDetail')}: ${title}`} onClick={onOpen}>
+      <PhaseTile phase="idle" animated={false} completed={state === 'completed'} paused={state === 'interrupted'}
+        outcome={state === 'unconfirmed' ? 'unknown' : state === 'failed' ? 'failed' : undefined} />
+      <span className="activity-copy">
+        <span className="activity-title-row"><strong>{title}</strong></span>
+        <span className="activity-phase"><span>{t(`homepage.${state}`)}</span>{meta && <span className="task-history-meta">{meta}</span>}</span>
+      </span>
+    </button>
+  </div>;
 }
 export function TaskStatusMark({ task, now }: { task: HomepageTask; now: number }) {
   const state = status(task), offline = task.group === 'unconfirmed', waiting = task.group === 'needs-me';
@@ -75,7 +96,7 @@ export function TaskSnapshot({ task, origins, now, path, freshness, onOpen, onRe
     </span>{!offline && path && <span className="task-snapshot-path" title={path}>{path}</span>}
       {onRead && task.group === 'unread' && <IconButton className="task-snapshot-read" compact icon={Check} label={`${t('homepage.markRead')}: ${title}`} onClick={onRead} />}
     </header>
-    {onOpen ? <button tabIndex={tabbable ? undefined : -1} className="task-snapshot-title" title={title} aria-label={`${t('homepage.openDetail')}: ${title}`} onClick={onOpen}>{title}</button>
+    {onOpen ? <button type="button" data-task-open tabIndex={tabbable ? undefined : -1} className="task-snapshot-title" title={title} aria-label={`${t('homepage.openDetail')}: ${title}`} onClick={onOpen}>{title}</button>
       : <strong className="task-snapshot-title">{title}</strong>}
     {task.session.project && <span className="task-snapshot-project" title={task.session.project}>{task.session.project}</span>}
     <div className="task-snapshot-timeline" role="region" aria-label={t('homepage.recentSteps')}>

@@ -114,7 +114,7 @@ export function changedFiles(entries: readonly AgentTimelineEntry[]) {
 
 export type TaskStepKind = 'reading' | 'editing' | 'command' | 'thinking' | 'waiting' | 'tool';
 export type TaskCardStep = { kind: TaskStepKind; text: string; status: AgentTimelineEntry['status']; durationMs?: number };
-export type TaskSnapshotRow = { id: string; turnId: string; role: 'source' | 'agent' | 'request' | 'step'; text: string; kind?: TaskStepKind; status: AgentTimelineEntry['status'] };
+export type TaskSnapshotRow = { id: string; turnId: string; role: 'source' | 'agent' | 'request' | 'step'; text: string; kind?: TaskStepKind; status: AgentTimelineEntry['status']; tool?: AgentTimelineEntry };
 export function toolTitle(entry: AgentTimelineEntry) {
   return entry.command || entry.path || (entry.title === 'exec' ? entry.input?.text?.trimStart().split('\n', 1)[0] : undefined) || entry.title || entry.input?.text;
 }
@@ -139,7 +139,8 @@ export function taskCardActivity(entries: readonly AgentTimelineEntry[]) {
     if (!text) return [];
     const role = entry.type === 'user' ? 'source' : entry.type === 'interaction' ? 'request'
       : entry.type === 'text' ? 'agent' : kind ? 'step' : undefined;
-    return role ? [{ id: entry.id, turnId: entry.turnId, role, text, kind, status: entry.status }] : [];
+    const tool = role === 'step' && kind !== 'thinking' ? entry : undefined;
+    return role ? [{ id: entry.id, turnId: entry.turnId, role, text, kind, status: entry.status, tool }] : [];
   });
   return { steps, snapshot };
 }
