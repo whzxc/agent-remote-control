@@ -10,9 +10,9 @@ The [ADG asset rules](https://github.com/whzxc/agent-design-gallery/blob/main/do
 
 ARC uses warm neutral surfaces, restrained semantic tints, rounded shared controls and Lucide icons. `design/tokens.css` owns the palette, typography and dimensions; `ui/tokens.css` is the runtime sheet. Both themes use the same declared forms. Add a token for a value shared or semantically named across sources; keep single-use local dimensions in the owning part. Keep the homepage's ARC mark, earcup connections and topology, and the tile's neutral shell with a separate state tint. Phase labels use shared typography with semantic color on the label span.
 
-The desktop targets are macOS and Windows. Headless Linux has no product UI. Each source uses one representative language; English and Simplified Chinese content follow its mapped fixture. Frame dimensions and capture viewports are declared in TSX. Landscape homepage forms use 1280×800, portrait forms use 640×800, expanded-single-task uses 640×1000, and `homepage-topology-mobile/narrow-two-tasks` uses 390×844. Portrait forms omit visible node and group labels and retain accessible names. The outer rails leave the center for account branches and task cards. Rails reserve node and quota-ring space; the date/time header stays centered.
+The desktop targets are macOS and Windows. Headless Linux has no product UI. Each source uses one representative language; English and Simplified Chinese content follow its mapped fixture. Frame dimensions and capture viewports are declared in TSX. Landscape homepage forms use 1280×800, portrait forms use 640×800, expanded-single-task uses 640×1000, and `homepage-topology-mobile/narrow-two-tasks` uses 390×844. Portrait forms omit visible node and group labels and retain accessible names. The outer rails leave the center for account branches and task cards. Rails reserve node and quota-ring space; the shared HomepageBar keeps the mode switch centered.
 
-The default exports declare presentations. Approved task-bearing homepage forms remain retained pending the two-mode migration below. Apply the toolkit's single-part and multi-part frame naming rules when the owning family is reviewed, updating all references together. Task bubbles retain compact, standard, detailed, row and row-attention; the Board header retains active and idle. Portrait topology retains expanded-empty, expanded-single-task, expanded-two-tasks, sources-compacted, sources-folded and agents-folded. The tasks-and-accounts form uses a 640×1000 frame to show task cards connected to an active account alongside folded sibling accounts. Setup retains standalone and nested flows, including distinct method and ready controls. AX Board retains open, closed and detail forms; detail replaces the list inside the same panel and can scroll beyond the viewport.
+The default exports declare presentations. Approved task-bearing homepage forms remain retained pending the two-mode migration below. Apply the toolkit's single-part and multi-part frame naming rules when the owning family is reviewed, updating all references together. Task bubbles retain compact, standard, detailed, row and row-attention; HomepageBar covers both homepage modes. Portrait topology retains expanded-empty, expanded-single-task, expanded-two-tasks, sources-compacted, sources-folded and agents-folded. The tasks-and-accounts form uses a 640×1000 frame to show task cards connected to an active account alongside folded sibling accounts. Setup retains standalone and nested flows, including distinct method and ready controls. AX Board retains open, closed and detail forms; detail replaces the list inside the same panel and can scroll beyond the viewport.
 
 ### ARC health
 
@@ -26,9 +26,10 @@ Remote recovery retries the remote check or restarts only the affected remote co
 
 **Tasks presentation, the device level and the working node capsule are user-approved.**
 Topology presents ARC configuration; Tasks presents task execution.
-A shared SingleChoice below the centered Board header selects Topology
-or Tasks manually. Persist the choice; task activity never switches modes. In
-Topology, the Tasks option shows the needs-me count. Node task-state activation
+A shared SingleChoice centered in the one-row HomepageBar selects Topology
+or Tasks manually. Clock and Board sit on the left; Tasks view controls sit on
+the right. Compact widths omit the date. Mode and layout persist; activity never
+switches modes. The mode switch has no needs-me badge. Node task-state activation
 is explicit navigation to Tasks with a highlighted, clearable node filter, scroll
 position and keyboard focus at its matching tasks. The filter is transient; manually
 selecting Tasks opens all tasks.
@@ -39,22 +40,25 @@ only the node capsule shell, task content and its outgoing wire port. Logo ancho
 labels, columns and branch rails stay fixed. Task bubbles, queues, task-only tentacles
 and outer arcs, task-driven layout and focus-to-expand task overlays are removed from the proposed homepage.
 
-Tasks mode makes task cards primary. Compact origin icons identify source, remote
-device when applicable, Agent and account, without wires. The controller shows only
-tasks it dispatched to a member. A controller-dispatched task on that member uses the
-controller device as its source. Needs me precedes Running and Completed unread;
-Unconfirmed follows, then optional collapsed Recent completed. Offline device tasks
-use unconfirmed state and last-seen metadata, without live verbs or counts.
+Tasks presents status marks above portrait snapshots. Origin icons identify source,
+optional remote device, Agent and account. The controller shows its member dispatches;
+on the member, that controller is the source. Existing group and observation order
+remains: waiting, running, completed unread, unconfirmed and recent completed.
+Offline observations retain freshness without live verbs or elapsed time.
 
-Tasks uses the full available content width. At 1500px and wider, groups can use
-three columns and show five recent steps; standard landscape uses two columns and
-three steps. Portrait/mobile use one column, with compact cards and explicit in-place
-Activity expansion showing four steps. The title opens task detail independently.
-Answer and Review approval entries preserve the existing request interaction; completed
-unread cards retain their separate check action. Only Needs me and Running reorder.
-Recent completed starts collapsed. The header remains available while groups scroll.
-`modules/tasks.tsx`, `modules/task-activity.tsx`, and `surfaces/homepage-tasks.tsx` own
-these user-approved Tasks forms. Historical task-bearing sources remain retained for history presentation. Their homepage task-layout consumers are retired.
+Tile uses six columns at 1500px, five at 1000px and two below. Mobile uses narrow
+snapshots. Stack is a depth deck with compressed spacing, scale, canvas fog and
+left-cast shadows. Status marks remain on strips, with text when space permits.
+Pointer and touch follow 1:1; release velocity settles the position. Horizontal
+wheel and arrow keys browse; click or Enter opens. Opening and closing morph the
+snapshot to and from the centered task layer, with instant reduced-motion behavior.
+
+Snapshots contain origin, title, project/path and a bounded newest-anchored timeline.
+Routing state, plan, latest change and mark read occupy the footer. Cards report
+status without request actions or warning borders. A counted status dropdown filters
+All, Running, Waiting, Completed and Unconfirmed; mobile omits it. The Tile/Stack
+SingleChoice is icon-only. `modules/tasks.tsx`, `modules/task-activity.tsx`, and
+`surfaces/homepage-tasks.tsx` own these user-approved forms.
 
 #### Recorded task fields and presentation limits
 
@@ -65,7 +69,7 @@ these user-approved Tasks forms. Historical task-bearing sources remain retained
 | Elapsed time | AgentActivitySession turnStartedAt; AgentTimeline turnTimings; AgentTimelineEntry durationMs | Derive from recorded timing. Remote cards use the snapshot observation as their end time. Normalize numeric epoch seconds or milliseconds and omit unknown starts. Offline cards omit elapsed time. |
 | Plan progress | AgentTimelineEntry plan item content and status | Count completed plan items over known items. Show the current item; omit absent/empty plans. This is not an overall task completion estimate. |
 | Latest file, command and diff summary | AgentTimelineEntry path, operation, command, changes added/removed/diff, input/output and exitCode | Render recorded summaries and available counts; truncate with full accessible values. |
-| Request and response state | AgentInteraction and AgentTimelineEntry response; `ui/state/activityModel.ts` approval submissions; native receipt state/result | The inline entry opens the existing request UI. Pending/unconfirmed response state follows the receipt and is never inferred from the card. |
+| Request and response state | AgentInteraction and AgentTimelineEntry response; `ui/state/activityModel.ts` approval submissions; native receipt state/result | Snapshots report the request and its controller routing state. Task details retain request handling. Pending/unconfirmed response state follows the receipt and is never inferred from the card. |
 | Remote path and freshness | `native/src/device_link/controller.rs`: list path, latency and lastSeen; `native/src/device_link/records.rs`: device/task/source associations | Compose the origin chain with current device facts. On the member, the controller remains the source without a local-device wrapper. |
 | Partial coverage | AgentTimeline coverage and executionEvidence | Mark partial history and omit unavailable details. An activity snapshot alone does not promise timeline text. |
 
@@ -103,8 +107,7 @@ with the outer cap, so width is exactly 48px plus 28px per item. Item order from
 logo outward: the needs-me count, one disc per running task showing that task's
 current phase, then an overflow disc.
 
-- Needs me: a solid warning disc with the count (9+ cap), matching the Tasks badge in
-  the mode switch. It is the only number in the capsule.
+- Needs me: a solid warning disc with the count (9+ cap), reporting node task state. It is the only number in the capsule.
 - Running: each disc is one task. Its icon is the observed phase (reading, editing,
   command, thinking, waiting) on a subtle surface, tinted with the phase tokens;
   waiting is tertiary. A running task without an observed phase shows a loader.
@@ -135,7 +138,7 @@ the topology spring integrator with stiffness 210, damping 26 and 8ms substeps.
 
 Portrait 640×800 and mobile 390×844 retain the portrait solver, rails, compact node presentation and configuration group planner.
 Explicit horizontal pan reveals deeper device/Agent/account columns without reflow;
-the Board header, mode switch and navigation stay fixed. The root, branch and account
+HomepageBar and navigation stay fixed. The root, branch and account
 viewport frames show this proposal. Pan never follows task activity. Remote sibling
 accounts/profiles continue to fold with TopologyGroup.
 These frames are user-approved. The separate Devices workspace, navigation entry and summary sources are retired. See the mapping for

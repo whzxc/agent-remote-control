@@ -5,7 +5,7 @@ import { TopologyScene } from "../modules/topology-scene";
 import { TopologyNode } from "../modules/topology-node";
 import { TopologyMark } from "../modules/topology-mark";
 import { TaskBubble } from "../modules/task-presentation";
-import { BoardHeader } from "../modules/board-header";
+import { HomepageBar } from "../modules/homepage-mode";
 import { NavCapsule } from "../modules/nav-capsule";
 import { nodes } from "../fixtures/topology";
 
@@ -48,8 +48,8 @@ export default () => (
         { x: 16, y: 790, content: <NavCapsule /> },
       ]}
     >
-      <div class="absolute inset-x-0 top-4 flex justify-center">
-        <BoardHeader date="January 1 · Thu" time="08:00" title={mobileCopy.text5} summary="2 running" />
+      <div class="absolute inset-x-4 top-4">
+        <HomepageBar mode="topology" compact date="January 1 · Thu" time="08:00" title={mobileCopy.text5} />
       </div>
     </TopologyScene>
   </Frame>

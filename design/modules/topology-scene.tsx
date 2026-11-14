@@ -1,6 +1,6 @@
 import { example } from "../fixtures/topology-scene";
 import { Frame } from "adg";
-import { BoardHeader } from "./board-header";
+import { HomepageBar } from "./homepage-mode";
 
 export type SceneItem = { x: number; y: number; anchor?: "right"; content: unknown };
 export type SceneLink = {
@@ -81,6 +81,6 @@ export function TopologyScene({
 }
 export default () => (
   <Frame name="default">
-    <TopologyScene width={480} height={124} items={[{ x: 120, y: 27, content: <BoardHeader {...example} /> }]} />
+    <TopologyScene width={480} height={124} items={[{ x: 24, y: 16, content: <div class="w-[432px]"><HomepageBar {...example} mode="topology" compact /></div> }]} />
   </Frame>
 );

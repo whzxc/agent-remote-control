@@ -38,3 +38,13 @@
 @media (prefers-reduced-motion: reduce) { :root:not([data-reduced-motion]) .studio-motion { display: none; } :root:not([data-reduced-motion]) .studio-motion > div { animation: none; } }
 :root[data-reduced-motion="true"] .studio-motion { display: none; }
 :root[data-reduced-motion="true"] .studio-motion > div { animation: none; }
+
+.homepage-bar { position: absolute; inset: 16px 24px auto; z-index: 3; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 12px; align-items: center; color: var(--text); }
+.homepage-bar-board { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.homepage-bar-board time { font-size: var(--text-title); font-weight: 650; line-height: 24px; font-variant-numeric: tabular-nums; }
+.homepage-bar-board > button { padding: 0; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; justify-content: flex-start; }
+.homepage-bar-date { color: var(--text-secondary); font-size: var(--text-meta); }
+.homepage-bar-controls { min-width: 0; display: flex; justify-content: flex-end; }
+.task-view-controls { display: flex; align-items: center; gap: 8px; min-width: 0; }
+@media (max-width: 999px) { .homepage-bar-date { display: none; } }
+@media (max-width: 499px) { .homepage-bar { inset-inline: 16px; gap: 6px; } .homepage-bar-board { gap: 6px; } }

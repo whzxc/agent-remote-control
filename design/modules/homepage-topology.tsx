@@ -4,8 +4,7 @@ import { TopologyNode } from "./topology-node";
 import { TopologyGroup } from "./topology-group";
 import { TopologyMark } from "./topology-mark";
 import { TaskBubble } from "../modules/task-presentation";
-import { HomepageHeader, type HomepageMode } from "./homepage-mode";
-import { BoardHeader } from "./board-header";
+import { HomepageBar, type HomepageMode } from "./homepage-mode";
 import { NavCapsule } from "./nav-capsule";
 import { Button } from "../components/button";
 import { IconButton } from "../components/icon-button";
@@ -48,11 +47,9 @@ export function TopologyScreen({
       <TopologyScene width={width} height={height} items={items}
         paths={scene.links.map((link) => typeof link === "number" ? links[link] : link)} />
       <div data-free class="absolute inset-0">
-        {scene.chrome.map((chrome) => (
+        {scene.chrome.filter(chrome => chrome.kind !== "board").map((chrome) => (
           <div class="absolute flex" style={{ left: chrome.x, top: chrome.y }}>
-            {chrome.kind === "board" ? (
-              chrome.mode ? <HomepageHeader {...chrome} mode={chrome.mode} /> : <BoardHeader {...chrome} />
-            ) : chrome.kind === "nav" ? (
+            {chrome.kind === "nav" ? (
               <NavCapsule active={chrome.active} />
             ) : chrome.kind === "button" ? (
               <Button icon={chrome.icon}>{chrome.label}</Button>
@@ -66,6 +63,10 @@ export function TopologyScreen({
             )}
           </div>
         ))}
+      </div>
+      <div class="absolute inset-x-6 top-4">
+        {scene.chrome.filter(chrome => chrome.kind === "board").map(chrome =>
+          chrome.kind === "board" && <HomepageBar {...chrome} mode={chrome.mode ?? "topology"} compact={width < 1000} />)}
       </div>
       {children}
     </div>

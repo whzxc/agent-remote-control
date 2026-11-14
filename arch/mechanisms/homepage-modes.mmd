@@ -2,7 +2,7 @@
 %% Index and code mapping: docs/dev/arch-assets.md
 flowchart TB
   preference[("Persisted homepage mode<br/>Topology or Tasks")]
-  switch["User selects SingleChoice<br/>below Board header"]
+  switch["User selects SingleChoice<br/>in one-row HomepageBar"]
   topology["TOPOLOGY MODE<br/>sources LEFT · executors RIGHT<br/>ARC hub and earcups · one device hop"]
   config["Configuration + viewport / structural disclosure<br/>sources · connections · Agents · accounts · paired devices"]
   positions["Static node / branch positions<br/>no task bubbles, queues or task arcs<br/>no task focus overlay"]
@@ -11,14 +11,14 @@ flowchart TB
   ports["Incoming port / logo / label / rails stay fixed<br/>outgoing port follows actual capsule edge<br/>width + reveal + port share spring 210/26<br/>reduced motion: direct endpoint · no pulse"]
   panel["Logo activation opens node panel<br/>narrow: explicit horizontal pan · fixed header"]
   jump["User activates node task state<br/>persist Tasks mode<br/>set transient node scope and focus its tasks"]
-  tasks["TASKS MODE<br/>responsive task cards · no wires<br/>3 / 2 / 1 columns · full content width<br/>Needs me → Running → Completed unread<br/>then Unconfirmed → collapsed recent completed"]
+  tasks["TASKS MODE<br/>responsive task cards · no wires<br/>Tile: 6 / 5 / 2 columns · Stack: continuous depth deck<br/>status filter · persisted layout<br/>existing group and observation order"]
   chain["Card origin icon chain<br/>source → remote device only → Agent → account<br/>controller: Anchor Mac → Cedar Mac → Codex → Studio<br/>member: Anchor Mac as source → Codex → Studio"]
   offline["Offline member tasks<br/>Unconfirmed · last seen<br/>no live verbs or counts"]
   filter["Highlighted node filter chip<br/>Clear returns to all tasks"]
-  details["Open task detail"]
+  details["Snapshot zooms into centered task layer<br/>close returns to current snapshot position"]
   read["Separate check action<br/>mark completed task as read without opening detail"]
-  order["Move up/down within Needs me or Running<br/>never cross groups · presentation order only"]
-  overflow["Scrollable groups · native timeline tail / plan / timing / changes<br/>wide 5 steps · standard 3 · expanded compact 4<br/>portrait/mobile cards expand in place<br/>no overflow queues or task-driven compaction"]
+  order["Status-only snapshots · no request actions<br/>controller owns request handling"]
+  overflow["Newest-anchored native timeline / plan / timing / changes<br/>pointer and touch follow 1:1 · velocity settles<br/>horizontal wheel and arrow keys browse<br/>no task-driven compaction"]
   switch -->|"persist manual selection only"| preference
   preference -->|"restore Topology"| topology
   preference -->|"restore Tasks"| tasks

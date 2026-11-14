@@ -1853,5 +1853,16 @@
   "relay.queued": "排队中",
   "relay.turn": "第 {count} 轮",
   "relay.reply": "回复",
-  "relay.request": "请求批准"
+  "relay.request": "请求批准",
+  "homepage.filter": "任务状态",
+  "homepage.layout": "任务布局",
+  "homepage.tile": "平铺",
+  "homepage.stack": "堆叠",
+  "homepage.filter.all": "全部",
+  "homepage.filter.running": "运行中",
+  "homepage.filter.waiting": "等待中",
+  "homepage.filter.completed": "已完成",
+  "homepage.filter.unconfirmed": "未确认",
+  "homepage.controller": "控制源",
+  "homepage.requestTo": "请求 → {source}"
 }

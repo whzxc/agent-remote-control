@@ -1,0 +1,402 @@
+{
+  "theme": "light",
+  "language": "en",
+  "agents": [
+    "codex",
+    "claude"
+  ],
+  "quota": "single-ring-pace",
+  "clock": "2026-01-01T00:00:00Z",
+  "timezone": "Asia/Shanghai",
+  "viewports": [
+    {
+      "width": 1280,
+      "height": 800
+    },
+    {
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "homepage": {
+    "mode": "tasks",
+    "check": "switcher",
+    "remoteTaskCount": 5,
+    "layout": "stack",
+    "motion": true
+  },
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "interaction",
+      "title": "Choose the deployment window",
+      "headline": "Waiting for your deployment choice",
+      "question": true,
+      "originSource": true
+    },
+    {
+      "agent": "claude",
+      "phase": "interaction",
+      "title": "Approve the migration",
+      "headline": "Waiting for permission to apply the migration",
+      "approval": true,
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "file",
+      "title": "Inspect the dispatch queue",
+      "headline": "Reviewing queue ordering after the edit",
+      "entries": [
+        {
+          "type": "file",
+          "status": "completed",
+          "path": "src/dispatch.rs",
+          "operation": "read",
+          "durationMs": 820
+        },
+        {
+          "type": "file",
+          "status": "completed",
+          "path": "src/dispatch.rs",
+          "operation": "edit",
+          "changes": [
+            {
+              "path": "src/dispatch.rs",
+              "added": 24,
+              "removed": 8
+            }
+          ],
+          "durationMs": 1600
+        },
+        {
+          "type": "command",
+          "status": "completed",
+          "command": "cargo check --lib",
+          "durationMs": 1700
+        },
+        {
+          "type": "thinking",
+          "status": "completed",
+          "text": "Reviewing the queue ordering"
+        },
+        {
+          "type": "plan",
+          "status": "running",
+          "plan": [
+            {
+              "content": {
+                "state": "available",
+                "text": "Read the dispatch queue",
+                "truncated": false,
+                "sha256": "fixture",
+                "hashScope": "excerpt"
+              },
+              "status": "completed"
+            },
+            {
+              "content": {
+                "state": "available",
+                "text": "Verify task ordering",
+                "truncated": false,
+                "sha256": "fixture",
+                "hashScope": "excerpt"
+              },
+              "status": "in_progress"
+            }
+          ]
+        },
+        {
+          "type": "file",
+          "status": "running",
+          "operation": "read",
+          "path": "src/dispatch.rs",
+          "title": "Read src/dispatch.rs"
+        }
+      ],
+      "originSource": true
+    },
+    {
+      "agent": "claude",
+      "phase": "thinking",
+      "title": "Review the workspace changes",
+      "headline": "Checking the file changes against the plan",
+      "entries": [
+        {
+          "type": "thinking",
+          "status": "running",
+          "text": "Review the current change"
+        }
+      ],
+      "originSource": true
+    },
+    {
+      "agent": "codex",
+      "phase": "text",
+      "title": "Summarize the queue",
+      "headline": "Queue summary is ready",
+      "completed": true,
+      "originSource": true
+    },
+    {
+      "agent": "claude",
+      "phase": "idle",
+      "title": "Inspect the storage index",
+      "headline": "Last recorded request",
+      "unconfirmed": true,
+      "originSource": true
+    }
+  ],
+  "deviceLink": {
+    "state": "controller",
+    "taskSnapshots": {
+      "c34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34d": {
+        "observedAt": "2026-01-01T00:00:00Z",
+        "activeAgents": [
+          "codex"
+        ],
+        "agents": {
+          "codex": {
+            "sessions": [
+              {
+                "id": "remote-review",
+                "source": "arc-task",
+                "title": "Review remote workspace changes",
+                "phase": "file",
+                "headline": "Inspect src/dispatch.rs",
+                "phaseSince": "2026-01-01T00:00:00Z",
+                "startedAt": "2025-12-31T23:58:00Z",
+                "turnStartedAt": "2025-12-31T23:58:00Z",
+                "turnId": "remote-review-turn",
+                "timeline": true,
+                "origin": {
+                  "deviceId": "b10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10c",
+                  "sourceId": "member-peer-source",
+                  "sourceLabel": "Anchor Mac",
+                  "authType": "peer",
+                  "peerOrigin": {
+                    "sourceId": "fixture-source",
+                    "sourceLabel": "Claude",
+                    "controlSource": "claude"
+                  }
+                },
+                "agentAccountId": "Studio",
+                "dispatchSummary": {
+                  "controlSource": {
+                    "deviceId": "b10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10c",
+                    "label": "Anchor Mac",
+                    "kind": "custom"
+                  }
+                }
+              },
+              {
+                "id": "remote-question",
+                "source": "arc-task",
+                "title": "Choose the remote deployment window",
+                "phase": "interaction",
+                "headline": "Waiting for a recorded choice",
+                "phaseSince": "2026-01-01T00:00:00Z",
+                "startedAt": "2025-12-31T23:58:00Z",
+                "turnStartedAt": "2025-12-31T23:58:00Z",
+                "turnId": "remote-question-turn",
+                "timeline": true,
+                "origin": {
+                  "deviceId": "b10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10c",
+                  "sourceId": "member-peer-source",
+                  "sourceLabel": "Anchor Mac",
+                  "authType": "peer",
+                  "peerOrigin": {
+                    "sourceId": "fixture-source",
+                    "sourceLabel": "Claude",
+                    "controlSource": "claude"
+                  }
+                },
+                "agentAccountId": "Studio",
+                "dispatchSummary": {
+                  "controlSource": {
+                    "deviceId": "b10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10c",
+                    "label": "Anchor Mac",
+                    "kind": "custom"
+                  }
+                },
+                "interaction": {
+                  "kind": "question",
+                  "summary": "Staging or production?",
+                  "canRespond": true,
+                  "respond": {
+                    "op": "codex_respond",
+                    "args": {
+                      "id": "remote-question"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "availableAgents": [
+          {
+            "agent": "codex",
+            "installed": true,
+            "available": true,
+            "enabled": true,
+            "status": "ready",
+            "version": "fixture"
+          },
+          {
+            "agent": "claude",
+            "installed": true,
+            "available": true,
+            "enabled": true,
+            "status": "ready",
+            "version": "fixture"
+          }
+        ],
+        "records": [
+          {
+            "agent": "claude",
+            "taskId": "remote-report",
+            "turnId": "remote-report-turn",
+            "requestId": "remote-report-request",
+            "state": "completed",
+            "createdAt": "2025-12-31T23:57:00Z",
+            "updatedAt": "2026-01-01T00:00:00Z",
+            "agentAccountId": "Studio",
+            "origin": {
+              "deviceId": "b10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10c",
+              "sourceLabel": "Anchor Mac",
+              "authType": "peer",
+              "peerOrigin": {
+                "sourceId": "fixture-source",
+                "sourceLabel": "Claude"
+              }
+            },
+            "runtime": {
+              "status": "completed",
+              "runtimeStatus": "completed",
+              "observedAt": "2026-01-01T00:00:00Z"
+            },
+            "approval": {
+              "decision": "automatic",
+              "source": "peer",
+              "at": "2026-01-01T00:00:00Z"
+            },
+            "task": {
+              "kind": "create",
+              "title": "Review the remote configuration",
+              "prompt": "Recorded dispatch preview"
+            }
+          }
+        ],
+        "omittedRecords": 0
+      },
+      "d45ed45ed45ed45ed45ed45ed45ed45ed45ed45ed45ed45ed45ed45ed45ed45e": {
+        "observedAt": "2026-01-01T00:00:00Z",
+        "activeAgents": [
+          "codex"
+        ],
+        "agents": {
+          "codex": {
+            "sessions": [
+              {
+                "id": "remote-build",
+                "source": "arc-task",
+                "title": "Validate the remote build configuration",
+                "phase": "command",
+                "headline": "cargo check --lib",
+                "phaseSince": "2026-01-01T00:00:00Z",
+                "startedAt": "2025-12-31T23:58:00Z",
+                "turnStartedAt": "2025-12-31T23:58:00Z",
+                "turnId": "remote-build-turn",
+                "timeline": true,
+                "origin": {
+                  "deviceId": "b10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10c",
+                  "sourceId": "member-peer-source",
+                  "sourceLabel": "Anchor Mac",
+                  "authType": "peer",
+                  "peerOrigin": {
+                    "sourceId": "fixture-source",
+                    "sourceLabel": "Claude",
+                    "controlSource": "claude"
+                  }
+                },
+                "agentAccountId": "Studio",
+                "dispatchSummary": {
+                  "controlSource": {
+                    "deviceId": "b10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10c",
+                    "label": "Anchor Mac",
+                    "kind": "custom"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "availableAgents": [
+          {
+            "agent": "codex",
+            "installed": true,
+            "available": true,
+            "enabled": true,
+            "status": "ready",
+            "version": "fixture"
+          }
+        ],
+        "records": [],
+        "omittedRecords": 3
+      },
+      "e56fe56fe56fe56fe56fe56fe56fe56fe56fe56fe56fe56fe56fe56fe56fe56f": {
+        "observedAt": "2026-01-01T00:00:00Z",
+        "activeAgents": [],
+        "agents": {},
+        "availableAgents": [
+          {
+            "agent": "codex",
+            "installed": true,
+            "available": true,
+            "enabled": true,
+            "status": "ready",
+            "version": "fixture"
+          }
+        ],
+        "records": [
+          {
+            "agent": "codex",
+            "taskId": "remote-index",
+            "turnId": "remote-index-turn",
+            "requestId": "remote-index-request",
+            "state": "completed",
+            "createdAt": "2025-12-31T23:57:00Z",
+            "updatedAt": "2026-01-01T00:00:00Z",
+            "agentAccountId": "Studio",
+            "origin": {
+              "deviceId": "b10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10c",
+              "sourceLabel": "Anchor Mac",
+              "authType": "peer",
+              "peerOrigin": {
+                "sourceId": "fixture-source",
+                "sourceLabel": "Claude"
+              }
+            },
+            "runtime": {
+              "status": "active",
+              "runtimeStatus": "active",
+              "observedAt": "2026-01-01T00:00:00Z"
+            },
+            "approval": {
+              "decision": "automatic",
+              "source": "peer",
+              "at": "2026-01-01T00:00:00Z"
+            },
+            "task": {
+              "kind": "create",
+              "title": "Inspect the remote storage index",
+              "prompt": "Recorded dispatch preview"
+            }
+          }
+        ],
+        "omittedRecords": 0
+      }
+    }
+  }
+}

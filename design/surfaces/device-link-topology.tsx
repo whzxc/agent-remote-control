@@ -6,7 +6,7 @@ import { controllerForms, memberForms, portraitForms, landscapePaths, memberPath
   sourceNodes, copy } from '../fixtures/device-topology';
 import { localRunning, localAttention, deviceAggregate, quotaReadings, overflow } from '../fixtures/node-capsule';
 import { nodeCapsuleLayout } from '../modules/node-capsule';
-import { HomepageHeader } from '../modules/homepage-mode';
+import { HomepageBar } from '../modules/homepage-mode';
 import { NavCapsule } from '../modules/nav-capsule';
 import { IconButton } from '../components/icon-button';
 import { TopologyScreen } from '../modules/homepage-topology';
@@ -80,8 +80,8 @@ export default () => [
           ],
         }} />
       </div>
-      <div class="absolute top-[27px] flex justify-center" style={{ left: (width - 240) / 2 }}>
-        <HomepageHeader mode="topology" attention={'idle' in option && option.idle || 'state' in option && option.state === 'offline' ? 0 : 'overflow' in option && option.overflow ? 336 : 1} date={copy.date} time={copy.time} title={copy.board} />
+      <div class="absolute inset-x-4 top-4">
+        <HomepageBar mode="topology" compact={width < 1000} date={copy.date} time={copy.time} title={copy.board} />
       </div>
       <div class="absolute bottom-6 left-6"><NavCapsule active="" /></div>
       <div class="absolute bottom-6 right-6 flex rounded-full bg-surface-raised p-1 shadow-sm">

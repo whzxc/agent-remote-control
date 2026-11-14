@@ -99,7 +99,7 @@ export default function Panel(props: PanelProps) {
   const latest = useRef(props); latest.current = props;
   const size = props.size ?? 'xl', slot = 'center' as const;
   const config = {
-    size, title: '', children: null, role: props.role, description: props.description ? true : undefined, closeLabel: props.role === 'region' ? t('backToHome') : undefined,
+    snapshotKey: props.snapshotKey, size, title: '', children: null, role: props.role, description: props.description ? true : undefined, closeLabel: props.role === 'region' ? t('backToHome') : undefined,
     focusTrigger: props.focusTrigger, labelledBy: props.labelledBy, headerless: props.headerless, className: props.className,
     initialFocus: props.initialFocus, returnFocus: props.returnFocus, viewKey: props.viewKey, dirty: props.dirty, busy: props.busy,
     expanded: size === 'xl' && slots ? slots.wide : props.expanded,

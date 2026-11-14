@@ -14,11 +14,11 @@ The timeline owns vertical scrolling. Tables, code blocks, file lists, diffs and
 
 ## Homepage and layout
 
-The homepage presentation follows the approved `homepage-topology-*` surfaces and the `board-header`, `topology-scene`, `topology-mark` and `topology-node` component assets. Palette preferences apply to the control-source and Agent sides.
+The homepage presentation follows the approved `homepage-topology-*` surfaces and the `homepage-mode` HomepageBar, `topology-scene`, `topology-mark` and `topology-node` component assets. Palette preferences apply to the control-source and Agent sides.
 
 `ui/topology/solve.ts` owns landscape geometry, earcup ports and mirrored node trees. `compact.ts` folds configuration subtrees under viewport pressure. Selection, explicit pins and attention protect nodes and ancestors. Task phases, running counts, task queues and activity timestamps do not determine node priority or compaction.
 
-`orientation.ts` retains automatic aspect-ratio hysteresis and defers changes during a drag. `portrait.ts` solves portrait rows, rails and inward child columns. `portraitRender.ts` paints that geometry. Header, homepage mode choice and bottom navigation reserve their own space outside the scrollable topology viewport.
+`orientation.ts` retains automatic aspect-ratio hysteresis and defers changes during a drag. `portrait.ts` solves portrait rows, rails and inward child columns. `portraitRender.ts` paints that geometry. The one-row HomepageBar and bottom navigation reserve their own space outside the scrollable topology viewport. Both solvers receive the remaining height.
 
 `render.ts` paints landscape earcups, outer arcs and primary/child connections using `arcPath`, `grownWire` and `tentacle`. `animate.ts` retains the scene clock and springs for node entry/exit, wire growth, hover, disclosure and orientation transitions. Reduced motion applies targets directly. The Home topology tuning experiment exposes its controls in the navigation capsule and persists geometry and motion overrides.
 
@@ -32,9 +32,15 @@ The bottom navigation starts with Settings, followed by Platforms and Permission
 
 Hub controls retain their endpoint activation. The lower ARC arc offers Device link beside its existing Core action. Device link opens the centered device panel with Add device and local pairing flows. The action shares hover, keyboard focus and reduced-motion behavior with the Core action. Node logos open panels. Capsule task segments explicitly select Tasks with a transient node scope. Local node ordering retains its existing keyboard actions.
 
-Tasks mode uses a full-width card feed grouped as Needs me, Running, Completed unread and Unconfirmed. Recent completed starts collapsed. At 1500px it uses three columns, standard landscape uses two and narrow windows use one. Cards expose bounded recent steps, recorded plan/timing/change summaries and origin icons. Compact Activity expands in place. Titles open details independently of request and read actions. Only Needs me and Running support presentation ordering.
+HomepageBar is shared by Topology and Tasks. Clock and the existing Board entry sit on the left, the mode switch stays centered, and Tasks view controls occupy the right. Compact widths omit the date. The mode switch carries no needs-me badge. Mode and task layout persist using the homepage preference stores.
 
-Completed unread cards expose a separate check action. Reading a completion moves it to recent history without opening details. Local details retain existing request-response interactions. Remote cards use controller-scoped device/tasks reads and show partial history when remote timelines are unavailable.
+Tasks mode presents status marks above portrait snapshots. Tile uses six columns at 1500px and above, five at 1000px and above, and two below. Mobile cards use the narrow form. A SingleChoice dropdown filters All, Running, Waiting, Completed and Unconfirmed with counts; mobile omits it. An icon-only SingleChoice selects Tile or Stack. Task ordering retains the existing group and observation order, including recent completed tasks.
+
+Stack is a depth deck with a whole front card. Cards behind it recede left with compressed spacing, smaller scale, canvas fog and left-cast shadows. Each strip retains its status mark and shows status text when it fits. Pointer and touch drag follow 1:1 with continuous geometry, then settle using release velocity. Horizontal trackpad wheel and Left/Right browse. Click or Enter opens the selected task.
+
+Snapshots show origin icons, title, project/path and a bounded native timeline miniature anchored to its newest row. The footer reports routing state, plan counts or the latest recorded change. Cards report status without Answer or Review approval buttons and without warning borders. Completed unread has a separate check action that marks read without opening details. Requests remain with their controller. Remote snapshots use available controller-scoped device/tasks metadata.
+
+Opening morphs the snapshot from its card rect into the shared centered layerFrame slot. Closing morphs to its current Tile or Stack position and restores focus to the snapshot. Reduced motion applies the transition instantly. Existing task detail interactions remain inside the task layer.
 
 Collapsed timeline turns expand from any point on the card. Expanded turns collapse only from the padded title bar. Markdown links distinguish web/app URLs, local heading anchors, and file references. File references resolve through local management against the task's native project metadata; the frontend cannot supply a project root. Images share the existing project/thread-visualization path boundary and bounded decoder. Local files reveal in the host file manager. Failed, missing, or unsupported images render an image icon. Remote images use HTTP(S) without a referrer. Raw HTML and executable URL schemes remain inactive.
 

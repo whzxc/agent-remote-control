@@ -53,7 +53,7 @@ export const checks = [{ stage: 'verify', order: 18, visual: true, async run(con
       const hub = document.querySelector('.topology-hub').getBoundingClientRect();
       const pan = document.querySelector('.topology-viewport').getBoundingClientRect();
       const protectedMark = { left: hub.left + hub.width / 4, right: hub.right - hub.width / 4, top: hub.top, bottom: hub.bottom };
-      const headerBottom = Math.max(...[...document.querySelectorAll('.board-header, .homepage-mode-switch')].map(node => node.getBoundingClientRect().bottom));
+      const headerBottom = Math.max(...[...document.querySelectorAll('.homepage-bar')].map(node => node.getBoundingClientRect().bottom));
       const overlaps = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
       const issues = [];
       for (const node of document.querySelectorAll('.node-capsule, .topology-group-capsule, .capsule-graph-node .graph-node-name')) {
@@ -101,7 +101,6 @@ export const checks = [{ stage: 'verify', order: 18, visual: true, async run(con
     if (!tasks.some(task => task.deviceId === 'd45e'.repeat(16) && task.group === 'running')
         || tasks.some(task => task.deviceId === 'c34d'.repeat(16) && task.group !== 'unconfirmed')) throw new Error('A malformed device read affected other devices or retained live claims.');
   }
-  if (check === 'overflow') await page.getByRole('img', { name: text('attentionCount').replace('{count}', '101'), exact: true }).waitFor();
   if (check === 'idle') {
     await choose('tasks'); await page.getByRole('main', { name: text('tasks'), exact: true }).waitFor();
     if (await page.evaluate(() => JSON.parse(localStorage.getItem('arc.homepage-mode'))) !== 'tasks') throw new Error('Manual mode selection was not persisted for this viewer.');
@@ -138,15 +137,10 @@ export const checks = [{ stage: 'verify', order: 18, visual: true, async run(con
     const feed = page.getByRole('main', { name: text('tasks'), exact: true });
     for (const task of fixture.tasks) await feed.getByRole('article', { name: task.title, exact: true }).waitFor();
     const card = feed.getByRole('article', { name: 'Inspect the dispatch queue', exact: true });
-    if (width < 1000) {
-      await card.getByRole('button', { name: text('activity'), exact: true }).click();
-      await card.getByRole('list', { name: text('recentSteps'), exact: true }).waitFor();
-      await card.getByRole('button', { name: text('hideActivity'), exact: true }).click();
-    }
     if (fixture.homepage.remoteTaskCount) {
       await feed.getByRole('article', { name: 'Review remote workspace changes', exact: true }).waitFor();
       await feed.getByRole('article', { name: 'Inspect the remote storage index', exact: true }).waitFor();
-      await feed.getByRole('article', { name: 'Choose the remote deployment window', exact: true }).getByRole('button', { name: text('answer'), exact: true }).click();
+      await feed.getByRole('article', { name: 'Choose the remote deployment window', exact: true }).getByRole('button', { name: `${text('openDetail')}: Choose the remote deployment window`, exact: true }).click();
       await page.getByRole('dialog', { name: 'Choose the remote deployment window', exact: true }).waitFor();
       await page.keyboard.press('Escape');
     }
@@ -170,12 +164,13 @@ export const checks = [{ stage: 'verify', order: 18, visual: true, async run(con
       await toggle.click();
     }
     await page.keyboard.press('Escape');
+    await panel.waitFor({ state: 'hidden' });
     if (check === 'member') await page.getByRole('button', { name: 'ChatGPT', exact: true }).waitFor();
     if (check === 'controller') {
       await (await reveal('Quartz PC · Codex')).waitFor();
       await (await reveal('Cedar Mac · Codex')).waitFor();
-      await page.getByRole('button', { name: new RegExp(`^Cedar Mac.*Codex\\..*${text('openTasks')}$`) }).click();
-      await page.getByRole('article', { name: 'Review remote workspace changes', exact: true }).waitFor();
+      await page.getByRole('button', { name: new RegExp(`^Cedar Mac.*Codex\\..*${text('openTasks')}$`) }).press('Enter');
+      await page.getByRole('article', { name: 'Review remote workspace changes', exact: true }).waitFor({ timeout: 5000 }).catch(async error => { throw new Error(`${error.message}\n${JSON.stringify(await page.evaluate(() => window.__ARC_VIEW_MODEL__().homepage))}`); });
       if (await page.getByRole('article', { name: 'Inspect the dispatch queue', exact: true }).count()) throw new Error('Device scope included a local task.');
       await choose('topology');
     } else {

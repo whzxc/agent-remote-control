@@ -136,7 +136,15 @@ export function taskCardActivity(entries: readonly AgentTimelineEntry[]) {
     added: changes?.some(change => change.added !== undefined) ? changes.reduce((sum, change) => sum + (change.added ?? 0), 0) : undefined,
     removed: changes?.some(change => change.removed !== undefined) ? changes.reduce((sum, change) => sum + (change.removed ?? 0), 0) : undefined,
     output: latest.output?.text, exitCode: latest.exitCode } : undefined;
-  return { steps, plan, change };
+  const snapshot = tail.flatMap(entry => {
+    const kind = taskStepKind(entry);
+    const text = entry.text || entry.title || entry.command || entry.path || entry.input?.text;
+    if (!text) return [];
+    const role = entry.type === 'user' ? 'source' : entry.type === 'interaction' ? 'request'
+      : entry.type === 'text' ? 'agent' : kind ? 'step' : undefined;
+    return role ? [{ role, text, kind, status: entry.status }] : [];
+  }).slice(-10);
+  return { steps, plan, change, snapshot };
 }
 
 export function recordedTimestamp(value: unknown): number | undefined {

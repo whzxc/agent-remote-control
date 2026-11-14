@@ -1883,5 +1883,16 @@
   "relay.queued": "Queued",
   "relay.turn": "Turn {count}",
   "relay.reply": "Reply",
-  "relay.request": "Request approval"
+  "relay.request": "Request approval",
+  "homepage.filter": "Task status",
+  "homepage.layout": "Task layout",
+  "homepage.tile": "Tile",
+  "homepage.stack": "Stack",
+  "homepage.filter.all": "All",
+  "homepage.filter.running": "Running",
+  "homepage.filter.waiting": "Waiting",
+  "homepage.filter.completed": "Completed",
+  "homepage.filter.unconfirmed": "Unconfirmed",
+  "homepage.controller": "Controller",
+  "homepage.requestTo": "Request → {source}"
 }

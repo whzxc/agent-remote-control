@@ -15,6 +15,7 @@ export function selectHomepageMode(mode: HomepageMode) {
   homepageMode.set(mode);
 }
 export function focusNodeTasks(focus: NodeTaskFocus) {
+  homepageTaskFilter.set('all');
   homepageTaskFocus.set(focus);
   homepageMode.set('tasks');
 }
@@ -26,3 +27,14 @@ function readRemoteReads(): string[] {
 }
 homepageRemoteReads.subscribe(() => { try { localStorage.setItem('arc.remote-task-reads', JSON.stringify(homepageRemoteReads.get())); } catch { /* Keep the current viewer's acknowledgements in memory. */ } });
 export const remoteTaskPanel = createStore<{ key: string } | undefined>(undefined);
+
+export type TaskLayout = 'tile' | 'stack';
+export type TaskFilter = 'all' | 'running' | 'waiting' | 'completed' | 'unconfirmed';
+function savedLayout(): TaskLayout {
+  try { return JSON.parse(localStorage.getItem('arc.homepage-task-layout') ?? 'null') === 'stack' ? 'stack' : 'tile'; }
+  catch { return 'tile'; }
+}
+export const homepageTaskLayout = createStore<TaskLayout>(savedLayout());
+homepageTaskLayout.subscribe(() => { try { localStorage.setItem('arc.homepage-task-layout', JSON.stringify(homepageTaskLayout.get())); } catch { /* Keep the current layout in memory. */ } });
+window.addEventListener('storage', event => { if (event.key === 'arc.homepage-task-layout') homepageTaskLayout.set(savedLayout()); });
+export const homepageTaskFilter = createStore<TaskFilter>('all');

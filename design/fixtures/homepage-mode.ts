@@ -3,6 +3,6 @@ export const modeCopy = {
   date: 'January 1 · Thu', time: '08:00', board: 'Board', openBoard: 'Open Board',
 };
 export const modeForms = [
-  { name: 'mode-switch-topology-attention', mode: 'topology', attention: 2 },
-  { name: 'mode-switch-tasks', mode: 'tasks', attention: 2 },
+  { name: 'mode-switch-topology', mode: 'topology' },
+  { name: 'mode-switch-tasks', mode: 'tasks' },
 ] as const;

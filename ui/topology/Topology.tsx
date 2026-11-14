@@ -248,7 +248,7 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
     const bounds = { x: size.current?.vw ?? 0, y: animator.current.values('scene')?.height ?? 0, top: Math.max(0, 40 - origin.current.y) };
     const hub = animator.current.values('hub');
     const nodeRects = new Map<string, Rect>(), nodeLabels = new Map<string, Rect[]>();
-    const chrome = [...document.querySelectorAll<HTMLElement>('.board-header, .navigation-capsule:not([hidden])')].flatMap(element => {
+    const chrome = [...document.querySelectorAll<HTMLElement>('.homepage-bar, .navigation-capsule:not([hidden])')].flatMap(element => {
       const r = element.getBoundingClientRect();
       return r.width && r.height ? [{ x: r.x - origin.current.x - 8, y: r.y - origin.current.y - 8, width: r.width + 16, height: r.height + 16 }] : [];
     });

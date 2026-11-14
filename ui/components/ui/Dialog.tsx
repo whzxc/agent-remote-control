@@ -1,3 +1,4 @@
+import { morphTaskSnapshot, taskSnapshotElement } from './taskSnapshotMotion';
 import { animate } from "motion/react";
 import { motionTransition } from "../../motion/tokens";
 import { useLayerFrame } from "./useLayerFrame";
@@ -26,6 +27,7 @@ export function useDialogCompletion(onComplete: () => void | Promise<void>) {
 }
 
 export type DialogProps = {
+  snapshotKey?: string;
   layerId?: string;
   open?: boolean;
   onClose: () => void | Promise<void>;
@@ -48,7 +50,7 @@ export type DialogProps = {
 
 export type LayerContentHost = { layerId: string; target: HTMLDivElement; render: (props: DialogProps) => ReactNode; ready: () => void };
 
-export function LayerShell({ onContentHost, kind, size = kind === 'panel' ? 'xl' : 'm', focusTrigger, onPanelFrame, labelledBy, role = 'dialog', closeLabel, expanded = false, viewKey, contentKey, headerNavigation, onEscapeKeyDown, layerId, open = true, onClose, dirty, busy, onCancel, title, description, children,
+export function LayerShell({ onContentHost, kind, size = kind === 'panel' ? 'xl' : 'm', focusTrigger, onPanelFrame, labelledBy, role = 'dialog', closeLabel, expanded = false, viewKey, contentKey, headerNavigation, onEscapeKeyDown, layerId, snapshotKey, open = true, onClose, dirty, busy, onCancel, title, description, children,
   footer, actions, leading, headerDetail, stepBar, headerless, className = '', initialFocus, returnFocus }: DialogProps & { onContentHost?: (host?: LayerContentHost) => void; kind: LayerKind; size?: LayerSize; focusTrigger?: ReturnType<typeof layerTrigger>; onPanelFrame?: (rect: LayerRect | null) => void; labelledBy?: string; role?: 'dialog' | 'region'; closeLabel?: string; expanded?: boolean; viewKey?: string; contentKey?: string; headerNavigation?: ReactNode; onEscapeKeyDown?: (event: KeyboardEvent) => void }) {
   const generatedId = useId(), id = layerId ?? generatedId, snapshot = layers.use(), reduced = useReducedMotion();
   const [headerTarget, setHeaderTarget] = useState<HTMLElement | null>(null);
@@ -66,7 +68,7 @@ export function LayerShell({ onContentHost, kind, size = kind === 'panel' ? 'xl'
   useLayoutEffect(() => {
     if (!node) return;
     setEntering(!reduced);
-    if (reduced) { node.style.opacity = '1'; return; }
+    if (reduced || taskSnapshotElement(snapshotKey)) { node.style.opacity = '1'; setEntering(false); return; }
     node.style.opacity = '0';
     const fade = animate(node, { opacity: 1 }, motionTransition(kind === 'panel' ? 'panel' : 'base'));
     void fade.then(() => setEntering(false));
@@ -107,6 +109,14 @@ export function LayerShell({ onContentHost, kind, size = kind === 'panel' ? 'xl'
     const geometry = animate(node, { top: frame.y, height: frame.height }, motionTransition());
     return () => geometry.stop();
   }, [node, frame, entering, reduced]);
+  const morphed = useRef<string | undefined>(undefined);
+  useLayoutEffect(() => {
+    if (!node || !frame || !snapshotKey || morphed.current === snapshotKey) return;
+    morphed.current = snapshotKey;
+    if (reduced) return;
+    const morph = morphTaskSnapshot(node, snapshotKey, true);
+    return () => morph?.stop();
+  }, [node, !!frame, snapshotKey, reduced]);
   const focusSource = useRef<HTMLElement | null>(null);
   const self = snapshot.find(layer => layer.id === id);
   const allowed = !open || layers.canOpen(kind, id);
@@ -132,8 +142,10 @@ export function LayerShell({ onContentHost, kind, size = kind === 'panel' ? 'xl'
   const onExit = useCallback(async () => {
     if (reduced || !node) return;
     setExiting(true);
+    const morph = snapshotKey && morphTaskSnapshot(node, snapshotKey, false);
+    if (morph) { await morph.finished; return; }
     await animate(node, { opacity: 0 }, motionTransition('fast', kind === 'dialog' ? 'exit' : 'enter'));
-  }, [node, reduced, kind]);
+  }, [node, reduced, kind, snapshotKey]);
   const latest = useRef({ onClose, dirty, busy, onCancel, onExit });
   latest.current = { onClose, dirty, busy, onCancel, onExit };
   useLayoutEffect(() => {

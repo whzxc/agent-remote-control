@@ -1,4 +1,4 @@
-import type { TaskCardData, OriginStep } from '../modules/tasks';
+import type { TaskSnapshotData, OriginStep } from '../modules/tasks';
 import type { TaskStep } from '../modules/task-activity';
 import { recentSteps, activitySamples } from './task-activity';
 
@@ -19,7 +19,7 @@ export const origins = {
   member: [controller, codex, studio],
   offline: [controller, { label: 'Moss Server · offline', icon: 'server' }, codex, work],
 } satisfies Record<string, OriginStep[]>;
-const baseTasks: TaskCardData[] = [
+const baseTasks: TaskSnapshotData[] = [
   { id: 'window', node: 'cedar-codex', title: 'Choose the deployment window', group: 'needs-me',
     state: 'Needs input', detail: 'Staging or production?', icon: 'circle-help', origin: origins.remote },
   { id: 'approve', node: 'local-claude', title: 'Approve the migration', group: 'needs-me',
@@ -35,12 +35,12 @@ const baseTasks: TaskCardData[] = [
   { id: 'offline', node: 'moss-codex', title: 'Inspect the storage index', group: 'unconfirmed',
     state: 'Unconfirmed', detail: 'Last seen 18 min ago', icon: 'circle-help', origin: origins.offline },
 ];
-const details: Record<string, Partial<TaskCardData>> = {
-  window: { elapsed: '01:48', activity: 'Waiting for your deployment choice', action: 'answer',
+const details: Record<string, Partial<TaskSnapshotData>> = {
+  window: { elapsed: '01:48', activity: 'Waiting for your deployment choice',
     steps: recentSteps.slice(0, 3), plan: { completed: 1, total: 3, current: 'Select the target environment' },
     change: { kind: 'file', summary: 'config/deploy.toml', output: 'Target environment is required before proceeding.' },
     path: 'LAN · 4 ms' },
-  approve: { elapsed: '02:16', activity: 'Waiting for permission to apply the migration', action: 'approve',
+  approve: { elapsed: '02:16', activity: 'Waiting for permission to apply the migration',
     steps: recentSteps.slice(0, 2),
     change: { kind: 'command', summary: 'db migrate --apply', output: 'Apply the prepared schema migration.' } },
   queue: { elapsed: '03:24', activity: 'Reviewing queue ordering after the edit',
@@ -87,7 +87,7 @@ const snapshots: Record<string, readonly TaskStep[]> = {
     step('editing', 'Update config/agents.toml', '4 s'), step('command', 'arc config check', '6 s')],
   offline: [step('reading', 'Read storage/index.json', '3 s'), step('command', 'index scan --verify', '41 s')],
 };
-export const tasks: TaskCardData[] = baseTasks.map(task => ({
+export const tasks: TaskSnapshotData[] = baseTasks.map(task => ({
   ...task, ...details[task.id], prompt: prompts[task.id], snapshot: snapshots[task.id],
 }));
 tasks.splice(4, 0, {
@@ -100,17 +100,6 @@ tasks.splice(4, 0, {
   steps: [...recentSteps.slice(0, 3), { kind: 'command', text: 'cargo check --lib', status: 'running' }],
   change: { kind: 'command', summary: 'cargo check --lib', output: 'Checking workspace packages…' },
 });
-export const memberTasks: TaskCardData[] = tasks.filter(t => t.node.startsWith('cedar-')).map(task => ({
-  ...task,
-  origin: [task.origin[0], ...task.origin.slice(2)],
-  detail: task.group === 'running' ? 'Diff' : task.detail, path: undefined,
-}));
-export const groups = [
-  { id: 'needs-me', title: 'Needs me', paint: 'text-warning' },
-  { id: 'running', title: 'Running', paint: 'text-text' },
-  { id: 'unread', title: 'Completed unread', paint: 'text-accent-text' },
-  { id: 'unconfirmed', title: 'Unconfirmed', paint: 'text-text-secondary' },
-] as const;
 export const tasksCopy = {
   tasks: 'Tasks', empty: 'No tasks', open: 'Open task detail', markRead: 'Mark as read',
   more: 'More task actions', moveUp: 'Move up', moveDown: 'Move down',
@@ -118,33 +107,6 @@ export const tasksCopy = {
   recent: 'Recent completed · 12', answer: 'Answer…', approve: 'Review approval…',
   activity: 'Activity', hideActivity: 'Hide activity', partial: 'Partial history',
 };
-export const screenForms = [
-  { name: 'wide-landscape', width: 1600, height: 1000, density: 'wide' },
-  { name: 'standard-landscape', width: 1280, height: 800, density: 'standard' },
-  { name: 'empty', width: 1280, height: 800, density: 'standard', empty: true },
-  { name: 'focused-node', width: 1280, height: 800, density: 'standard', focused: true },
-  { name: 'member-origin', width: 1280, height: 800, density: 'standard', member: true },
-  { name: 'portrait', width: 640, height: 800, density: 'compact' },
-  { name: 'portrait-expanded', width: 640, height: 800, density: 'compact', expanded: true },
-  { name: 'mobile', width: 390, height: 844, density: 'compact' },
-  { name: 'mobile-expanded', width: 390, height: 844, density: 'compact', expanded: true },
-] as const;
-export const cardForms = [
-  { name: 'input-wide', id: 'window', width: 500, density: 'wide' },
-  { name: 'approval-wide', id: 'approve', width: 500, density: 'wide' },
-  { name: 'local-wide', id: 'queue', width: 500, density: 'wide' },
-  { name: 'remote-lan-wide', id: 'review', width: 500, density: 'wide' },
-  { name: 'remote-tunnel-wide', id: 'tunnel', width: 500, density: 'wide' },
-  { name: 'unread-wide', id: 'report', width: 500, density: 'wide' },
-  { name: 'unconfirmed-wide', id: 'offline', width: 500, density: 'wide' },
-  { name: 'standard', id: 'queue', width: 440, density: 'standard' },
-  { name: 'portrait-collapsed', id: 'queue', width: 592, density: 'compact' },
-  { name: 'portrait-expanded', id: 'queue', width: 592, density: 'compact', expanded: true },
-  { name: 'mobile-collapsed', id: 'queue', width: 358, density: 'compact' },
-  { name: 'mobile-expanded', id: 'queue', width: 358, density: 'compact', expanded: true },
-] as const;
-
-// Proposed switcher layouts. Cards report status only; requests are routed to the controller.
 export const switcherCopy = {
   filter: 'Show tasks', layout: 'Task layout', tile: 'Tile', stack: 'Stack', all: 'All',
   browse: 'Drag or use arrow keys', open: 'Open', request: 'Request', reply: 'Reply', lastSeen: 'Last observation',

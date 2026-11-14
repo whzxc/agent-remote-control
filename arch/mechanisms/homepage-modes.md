@@ -29,15 +29,13 @@ Controller-dispatched remote tasks show the controller device followed by its me
 On that member, the controller device is the source and there is no extra local-device
 step. The controller projection contains only tasks it dispatched to that member.
 
-Groups are Needs me, Running, Completed unread, then Unconfirmed. Recent completed
-starts collapsed. Offline members' task observations are unconfirmed, with last-seen
-metadata and no live verbs or counts. They do not contribute live attention counts.
-Task detail and the existing separate check action for marking read remain distinct.
-Within Needs me and Running, Move up/down and the existing ArrowUp/Down card shortcuts
-change presentation order only; they cannot cross a group or reschedule task execution.
-Unread and Unconfirmed retain observation order. Lists scroll vertically without
-queue compaction. Long text truncates with the full accessible title retained.
-Portrait and mobile use one column and preserve the header and mode control.
+Tasks retains group and observation order. A status filter selects All, Running,
+Waiting, Completed or Unconfirmed. Layout persists as Tile or Stack. Offline observations
+remain unconfirmed. The separate check action marks a completion read without opening it.
+Tile uses six columns at 1500px, five at 1000px and two below. Stack presents a continuous
+depth deck with pointer, touch, horizontal wheel and keyboard navigation. Snapshot opening
+and closing morph between the card and the centered layer slot. Reduced motion is instant.
+The one-row HomepageBar reserves space for both homepage modes and retains the Board entry.
 
 All nodes use the neutral architecture vocabulary. The sidecar's Approved status
 covers the presentation and navigation model; it does not add an experimental flag.
@@ -59,11 +57,7 @@ the task area opens scoped Tasks. Narrow topology pans horizontally between rese
 columns by explicit user input; the header/navigation stay fixed. Device management
 explicitly folds the child branch while its panel is open.
 
-Tasks uses full-width responsive columns: up to three on wide landscape, two on
-standard landscape, one on portrait/mobile. Cards expose the current activity, a
-bounded native timeline tail (five/three rows), known plan-item counts, elapsed time,
-recorded artifact/command/diff summaries and remote path facts. Compact cards expand
-in place to four timeline rows. Answer/approval entries, detail and mark-read stay
-separate. Partial coverage is visible. No new canonical field, ETA or inferred provider
-progress is assumed; the joined card summary remains a new derived UI projection.
-The field-to-source mapping is in docs/dev/design.md.
+Snapshots report status above each portrait card. The card contains its origin chain,
+title, project path and a bounded newest-anchored timeline miniature. Routing state,
+plan counts, the latest change and mark-read occupy the footer. Request handling remains
+with the controller. Native observations supply the derived projection.

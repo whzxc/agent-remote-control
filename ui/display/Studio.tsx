@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Popover } from 'radix-ui';
 import { Expand, Minimize, Monitor, Moon, Sun, Sunrise } from 'lucide-react';
 import { Button, Icon, IconButton, SingleChoice } from '../components/ui';
-import { BoardHeader } from '../components/ui/board-header';
+import TaskViewControls from '../components/TaskViewControls';
 import { locale, t } from '../i18n';
 import { isDesktop } from '../platform';
 import { notify } from '../state/connector';
@@ -42,11 +42,10 @@ function useMinuteClock(enabled: boolean) {
   return now;
 }
 
-function HomepageBoardHeader({ now }: { now: number }) {
+function HomepageBar({ now }: { now: number }) {
   const activity = trackedActivity.use(), executions = taskExecutions.use(), submissions = activityApprovals.use();
   const { snapshot, error } = agentActivity.use();
   const mode = homepageMode.use(), tasks = useHomepageTasks(false);
-  const attention = tasks.filter(task => task.group === 'needs-me').length;
   const language = locale.use(), date = new Date(now);
   const { running, needsYou } = studioActivitySummary(activity, executions, submissions);
   const summary = error ? t('studio.activityUnavailable') : !snapshot ? t('loading') : [
@@ -56,12 +55,16 @@ function HomepageBoardHeader({ now }: { now: number }) {
   const day = new Intl.DateTimeFormat(language, { month: 'long', day: 'numeric' }).format(date);
   const weekday = new Intl.DateTimeFormat(language, { weekday: 'short' }).format(date);
   const time = new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date);
-  return <><BoardHeader date={`${day} · ${weekday}`} time={time} dateTime={date.toISOString()}
-    clockLabel={t('studio.clock')} activityLabel={t('studio.activity')} title={t('center.title')}
-    openLabel={t('center.open')} summary={summary} onOpen={() => openCenter()} />
-    <div className="homepage-mode-switch"><SingleChoice label={t('homepage.mode')} value={mode} onChange={value => selectHomepageMode(value as 'topology' | 'tasks')}
-      options={[{ value: 'topology', label: t('homepage.topology') }, { value: 'tasks', label: t('homepage.tasks'), graphic: mode === 'topology' && attention > 0 ?
-        <span className="homepage-attention-badge" role="img" aria-label={t('homepage.attentionCount', { count: attention })}>{attention > 99 ? '99+' : attention}</span> : undefined }]} /></div></>;
+  return <header className="homepage-bar">
+    <div className="homepage-bar-board">
+      <time dateTime={date.toISOString()} aria-label={t('studio.clock')}>{time}</time>
+      <Button id="board-trigger" variant="ghost" aria-label={t('center.open')} aria-description={summary || undefined}
+        aria-haspopup="dialog" onClick={() => openCenter()}>{t('center.title')}<span className="homepage-bar-date"> · {day} · {weekday}</span></Button>
+    </div>
+    <div className="homepage-mode-switch"><SingleChoice label={t('homepage.mode')} value={mode} compact onChange={value => selectHomepageMode(value as 'topology' | 'tasks')}
+      options={[{ value: 'topology', label: t('homepage.topology') }, { value: 'tasks', label: t('homepage.tasks') }]} /></div>
+    <div className="homepage-bar-controls">{mode === 'tasks' && <TaskViewControls tasks={tasks} />}</div>
+  </header>;
 }
 
 export function HomepageDisplay({ headerVisible }: { headerVisible: boolean }) {
@@ -76,7 +79,7 @@ export function HomepageDisplay({ headerVisible }: { headerVisible: boolean }) {
       <div className="studio-atmosphere" />
       <div className="studio-motion"><div className="studio-window-light" /><div className="studio-leaf-shadows" /><div className="studio-lamp-light" /><div className="studio-window-glints" /></div>
     </div>}
-    {headerVisible && <HomepageBoardHeader now={now} />}
+    {headerVisible && <HomepageBar now={now} />}
   </>;
 }
 
