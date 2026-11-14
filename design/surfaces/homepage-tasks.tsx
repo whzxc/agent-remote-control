@@ -1,10 +1,10 @@
 import { Frame } from 'adg';
 import { HomepageHeader } from '../modules/homepage-mode';
-import { TasksList, TasksEmpty } from '../modules/tasks';
+import { TasksList, TasksEmpty, TaskLayoutBar, TaskTiles, TaskStack } from '../modules/tasks';
 import { NavCapsule } from '../modules/nav-capsule';
-import { tasks, memberTasks, screenForms, tasksCopy as copy } from '../fixtures/tasks';
+import { tasks, memberTasks, screenForms, switcherForms, tasksCopy as copy } from '../fixtures/tasks';
 
-export default () => screenForms.map(option => {
+export default () => [...screenForms.map(option => {
   const focused = 'focused' in option && option.focused;
   const member = 'member' in option && option.member;
   const empty = 'empty' in option && option.empty;
@@ -25,4 +25,23 @@ export default () => screenForms.map(option => {
       <div data-free class="absolute bottom-6 left-6"><NavCapsule active="" /></div>
     </div>
   </Frame>;
-});
+}), ...switcherForms.map(option => {
+  const mobile = option.width < 500, portrait = option.width < 1000, pad = mobile ? 'px-4' : 'px-6';
+  return <Frame name={option.name} width={option.width} height={option.height} locale="en"
+    note={'Proposed. Portrait task snapshots in attention order. Tile is a grid; Stack is a one-sided deck with the first ' +
+      'task in front, browsed with arrow keys, wheel or swipe. Opening a card uses the standard centered task layer.'}>
+    <div class="relative flex flex-col bg-canvas text-text" style={{ width: option.width, height: option.height }}>
+      <div class="flex shrink-0 justify-center pb-5 pt-[27px]"><HomepageHeader mode="tasks" /></div>
+      <div class={`shrink-0 pb-4 ${pad}`}><TaskLayoutBar layout={option.layout} compact={portrait} /></div>
+      <main aria-label={copy.tasks} class={`min-h-0 flex-1 overflow-y-auto pb-4 ${pad} ${option.layout === 'stack'
+        ? 'flex flex-col' : ''}`}>
+        {option.layout === 'tile'
+          ? <TaskTiles columns={option.width >= 1500 ? 6 : option.width >= 1000 ? 5 : 2}
+            height={mobile ? 290 : portrait ? 360 : 340} narrow={mobile} />
+          : <TaskStack form={mobile ? 'mobile' : portrait ? 'portrait' : 'landscape'} />}
+      </main>
+      <div class="h-[68px] shrink-0" />
+      <div data-free class="absolute bottom-6 left-6"><NavCapsule active="" /></div>
+    </div>
+  </Frame>;
+})];

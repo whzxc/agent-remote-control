@@ -1,4 +1,5 @@
 import type { TaskCardData, OriginStep } from '../modules/tasks';
+import type { TaskStep } from '../modules/task-activity';
 import { recentSteps, activitySamples } from './task-activity';
 
 // Fictional task content and device identities. Native task storage stays runtime-owned.
@@ -54,11 +55,27 @@ const details: Record<string, Partial<TaskCardData>> = {
   offline: { activity: 'Last observation unavailable',
     change: { kind: 'command', summary: 'index scan --verify', output: 'Last recorded request; result is unconfirmed.' } },
 };
-export const tasks: TaskCardData[] = baseTasks.map(task => ({ ...task, ...details[task.id] }));
+const prompts: Record<string, string> = {
+  window: 'Prepare the deployment and ask before choosing the target environment.',
+  approve: 'Apply the prepared schema migration after review.',
+  queue: 'Inspect the dispatch queue and fix the ordering bug.',
+  review: 'Review the workspace changes against the plan.',
+  report: 'Summarize the queue behavior for the release notes.',
+  'remote-report': 'Review the agent configuration for drift.',
+  offline: 'Inspect the storage index and verify its integrity.',
+};
+const finished = recentSteps.slice(0, 4);
+const snapshots: Record<string, readonly TaskStep[]> = {
+  report: finished, 'remote-report': finished, offline: recentSteps.slice(0, 2),
+};
+export const tasks: TaskCardData[] = baseTasks.map(task => ({
+  ...task, ...details[task.id], prompt: prompts[task.id], snapshot: snapshots[task.id],
+}));
 tasks.splice(4, 0, {
   id: 'tunnel', node: 'quartz-codex', title: 'Validate the build configuration', group: 'running',
   state: 'Running command', detail: 'cargo check --lib', activity: 'Checking the build configuration',
   icon: 'terminal', elapsed: '01:08', path: 'Tunnel · 82 ms', partial: true,
+  prompt: 'Validate the build configuration on the Tunnel machine.',
   origin: [{ label: 'Anchor Mac · controller', icon: 'monitor' }, { label: 'Quartz PC · Tunnel', icon: 'monitor' },
     { label: 'Codex', brand: 'codex' }, { label: 'Work account', icon: 'user-round' }],
   steps: [...recentSteps.slice(0, 3), { kind: 'command', text: 'cargo check --lib', status: 'running' }],
@@ -106,4 +123,26 @@ export const cardForms = [
   { name: 'portrait-expanded', id: 'queue', width: 592, density: 'compact', expanded: true },
   { name: 'mobile-collapsed', id: 'queue', width: 358, density: 'compact' },
   { name: 'mobile-expanded', id: 'queue', width: 358, density: 'compact', expanded: true },
+] as const;
+
+// Proposed switcher layouts. Attention order matches the grouped list; Stack puts the first card in front.
+export const switcherCopy = {
+  filter: 'Show tasks', layout: 'Task layout', tile: 'Tile', stack: 'Stack', all: 'All',
+  browse: 'Browse', open: 'Open', answer: 'Answer…', review: 'Review…', request: 'Request', reply: 'Reply', lastSeen: 'Last observation',
+};
+export const switcherForms = [
+  { name: 'switcher-tile-wide', width: 1600, height: 1000, layout: 'tile' },
+  { name: 'switcher-tile', width: 1280, height: 800, layout: 'tile' },
+  { name: 'switcher-stack', width: 1280, height: 800, layout: 'stack' },
+  { name: 'switcher-tile-portrait', width: 640, height: 800, layout: 'tile' },
+  { name: 'switcher-stack-portrait', width: 640, height: 800, layout: 'stack' },
+  { name: 'switcher-tile-mobile', width: 390, height: 844, layout: 'tile' },
+  { name: 'switcher-stack-mobile', width: 390, height: 844, layout: 'stack' },
+] as const;
+export const snapshotForms = [
+  { name: 'input', id: 'window' },
+  { name: 'approval', id: 'approve' },
+  { name: 'running', id: 'queue' },
+  { name: 'unread', id: 'report' },
+  { name: 'unconfirmed', id: 'offline' },
 ] as const;

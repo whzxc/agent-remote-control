@@ -1,9 +1,9 @@
 import { Frame } from "adg";
-import { TaskTimeline } from "../modules/timeline";
-import { timelineForms } from "../fixtures/timeline";
+import { TaskTimeline, RelayTimeline } from "../modules/timeline";
+import { timelineForms, relayForms } from "../fixtures/timeline";
 
-export default () =>
-  timelineForms.map(({ name, fixture }) => (
+export default () => [
+  ...timelineForms.map(({ name, fixture }) => (
     <Frame
       name={name}
       fixture={fixture}
@@ -17,4 +17,14 @@ export default () =>
     >
       <TaskTimeline form={name} />
     </Frame>
-  ));
+  )),
+  ...relayForms.map(({ name, state }) => (
+    <Frame
+      name={name}
+      note={"Proposed. Relay grammar: controller messages carry a source edge and route, executor work is a flat rail, " +
+        "the reply is addressed back to the controller and the live plan is pinned to the footer."}
+    >
+      <RelayTimeline state={state} />
+    </Frame>
+  )),
+];
