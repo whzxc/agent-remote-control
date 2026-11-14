@@ -41,3 +41,6 @@
   .phase-orbit::before, .phase-tile > .icon, .phase-tile > .icon path, .phase-shimmer, .phase-shimmer > span, .step-trail i, .phase-stroke-reveal { animation: none !important; will-change: auto; }
   .phase-shimmer { display: none; }
 }
+
+.activity-source-mark { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 14px; height: 14px; }
+.activity-source-mark :is(.source-icon, svg, img) { width: 14px; height: 14px; }

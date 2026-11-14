@@ -102,7 +102,7 @@ test("nested timeline content sends vertical wheel deltas to the timeline and ke
     // The running command's live row shows its output tail without a click.
     await verifyAxes(page.getByText(log));
     await act(() => fireEvent.click(page.getByRole("button", { name: "example.ts" })));
-    await verifyAxes(page.getByRole("list"));
+    await verifyAxes(page.getByRole("list", { name: t("timeline.changes") }));
     const table = page.getByRole("table");
     viewport.scrollTop = viewport.clientHeight;
     const start = viewport.scrollTop;

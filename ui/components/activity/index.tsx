@@ -29,8 +29,8 @@ export function PhaseTile({ phase, running = false, completed = false, paused = 
 export function dispatchSourceLabel(source?: DispatchSummary["controlSource"]) {
   return source?.label || (source?.kind === "local-cli" ? t("localCli") : controlSource(source?.kind ?? "")?.displayName || source?.kind || source?.id || "");
 }
-export function SourceBadge({ source }: { source: NonNullable<DispatchSummary["controlSource"]> }) {
-  return <HoverHelp text={dispatchSourceLabel(source)}><span className="activity-source-badge" role="img" aria-label={dispatchSourceLabel(source)}>
+export function SourceBadge({ source, inline = false }: { source: NonNullable<DispatchSummary["controlSource"]>; inline?: boolean }) {
+  return <HoverHelp text={dispatchSourceLabel(source)}><span className={inline ? "activity-source-mark" : "activity-source-badge"} role="img" aria-label={dispatchSourceLabel(source)}>
     {source.kind === "local-cli" ? <Icon icon={Terminal} /> : <SourceIcon platform={source.kind ?? ""} />}
   </span></HoverHelp>;
 }

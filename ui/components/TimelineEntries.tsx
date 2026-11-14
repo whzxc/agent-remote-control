@@ -5,7 +5,7 @@ import { TaskCard, TaskMessage } from "./ui/TaskPresentation";
 import { ChangedFiles } from "./TaskChanges";
 import TaskOutcome from "./TaskOutcome";
 import { memo, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { AlertCircle, Brain, Copy, Check, ChevronRight, Circle, FileText, ListChecks, MessageSquare, ShieldAlert, Terminal, UserRound, Wrench } from "lucide-react";
+import { AlertCircle, Brain, Copy, Check, ChevronRight, CircleCheck, CircleX, ShieldCheck, Circle, FileText, ListChecks, MessageSquare, ShieldAlert, Terminal, UserRound, Wrench, type LucideIcon } from "lucide-react";
 import { Collapsible } from "radix-ui";
 import { AnimatePresence, motion } from "motion/react";
 import { t } from "../i18n";
@@ -51,6 +51,12 @@ function Fold({ open, onChange, summary, children, className = "", expandable = 
     </AnimatePresence>}
   </Collapsible.Root>;
 }
+function RailStep({ icon, phase, live, children }: { icon?: LucideIcon; phase?: string; live?: boolean; children: ReactNode }) {
+  return <li className="relay-step" data-phase={phase} data-live={live || undefined}>
+    <span className="relay-step-node" aria-hidden="true">{icon ? <Icon icon={icon} size={13} /> : <span className="relay-step-dot" />}</span>
+    <div className="relay-step-content">{children}</div>
+  </li>;
+}
 function UserMessage({ text, truncated, open, onChange }: { text: string; truncated?: boolean; open: boolean; onChange: (open: boolean) => void }) {
   const id = useId(), content = useRef<HTMLDivElement>(null);
   const [overflow, setOverflow] = useState(false);
@@ -85,7 +91,7 @@ function ToolDetails({ entry, project }: { entry: AgentTimelineEntry; project?: 
   return <div className="timeline-output">
     {entry.cwd && <section><span className="timeline-meta">{t("timeline.cwd")}</span><div className="mono">{entry.cwd}</div></section>}
     {entry.path && <section><span className="timeline-meta">{t("timeline.path")}</span><div className="mono">{filePathParts(entry.path, project || entry.cwd).fullPath}</div></section>}
-    {!!entry.changes?.length && <section><span className="timeline-meta">{t("timeline.changes")}</span><ul className="timeline-files">{entry.changes.map((change, index) => <li key={`${change.path}:${index}`}>
+    {!!entry.changes?.length && <section><span className="timeline-meta">{t("timeline.changes")}</span><ul className="timeline-files" aria-label={t("timeline.changes")}>{entry.changes.map((change, index) => <li key={`${change.path}:${index}`}>
       <FilePath path={change.path} project={project || entry.cwd} />
     </li>)}</ul></section>}
     {entry.input?.text && <section><span className="timeline-meta">{t("timeline.input")}</span><pre>{entry.input.text}</pre></section>}
@@ -113,12 +119,14 @@ function InteractionAnchor({ entry, agent, session }: { entry: AgentTimelineEntr
   const by = saved?.answeredBy;
   const source = by?.kind === "source" ? { id: by.sourceId, kind: by.brand, label: by.label } : undefined;
   const byLabel = by?.kind === "local-ui" ? "ARC" : source ? dispatchSourceLabel(source) : "";
-  return <div className="task-interaction-anchor" data-pending={!resolved || undefined}>
-    <Icon icon={resolved ? Check : ShieldAlert} /><div><strong>{source && <SourceBadge source={source} />}{resolved ? byLabel && verdict === "detail.verdict.approved" ? t("relay.approvedBy", { source: byLabel }) : t(verdict) : t("detail.needsYou")}</strong>
-      <span>{interactionSummary(entry.interaction)}</span>{answer && <span>{answer}</span>}
-
+  const target = entry.interaction?.command || entry.interaction?.path || interactionSummary(entry.interaction);
+  return <RailStep icon={resolved ? ShieldCheck : ShieldAlert} phase={resolved ? "completed" : "interaction"}>
+    <div className="task-interaction-anchor" data-pending={!resolved || undefined}>
+      <div className="task-interaction-line">{source && <SourceBadge inline source={source} />}<strong>{resolved ? byLabel && verdict === "detail.verdict.approved" ? t("relay.approvedBy", { source: byLabel }) : t(verdict) : t("detail.needsYou")}</strong>
+        <span aria-hidden="true">·</span><HoverHelp text={target}><span className="task-interaction-target mono">{target}</span></HoverHelp>
+      </div>{answer && !decision && <span>{answer}</span>}
     </div>
-  </div>;
+  </RailStep>;
 }
 function PlanEntry({ entry, settled }: { entry: AgentTimelineEntry; settled: boolean }) {
   const steps = entry.plan ?? [];
@@ -129,9 +137,9 @@ function PlanEntry({ entry, settled }: { entry: AgentTimelineEntry; settled: boo
 }
 function ThoughtEntry({ entry }: { entry: AgentTimelineEntry }) {
   const [open, setOpen] = useState(false);
-  return <Fold className="relay-thought" open={open} onChange={setOpen} summary={<><Icon icon={Brain} /><span>{t("relay.thought")} · {thoughtLine(entry.text || entry.title || "")}</span>{entry.durationMs !== undefined && <time>{durationText(entry.durationMs)}</time>}</>}>
+  return <RailStep icon={Brain} phase="thinking"><Fold className="relay-thought" open={open} onChange={setOpen} summary={<><span>{t("relay.thought")} · {thoughtLine(entry.text || entry.title || "")}</span>{entry.durationMs !== undefined && <time>{durationText(entry.durationMs)}</time>}</>}>
     <TimelineMarkdown text={entry.text || entry.title || ""} />
-  </Fold>;
+  </Fold></RailStep>;
 }
 function Prompt({ entry, agent, followup = false }: { entry: AgentTimelineEntry; agent: string; followup?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -143,10 +151,10 @@ function Prompt({ entry, agent, followup = false }: { entry: AgentTimelineEntry;
 function ProcessEntry({ entry, agent, session, streaming }: { entry: AgentTimelineEntry; agent: string; session: AgentActivitySession; streaming?: boolean }) {
   if (entry.type === "notice" || entry.type === "plan") return null;
   if (entry.type === "thinking") return <ThoughtEntry entry={entry} />;
-  if (entry.type === "text") return <article className="relay-narration" data-streaming={streaming || undefined}><TimelineMarkdown text={entry.text ?? ""} /></article>;
-  if (entry.type === "user") return <Prompt entry={entry} agent={agent} followup />;
+  if (entry.type === "text") return <RailStep><article className="relay-narration" data-streaming={streaming || undefined}><TimelineMarkdown text={entry.text ?? ""} /></article></RailStep>;
+  if (entry.type === "user") return <RailStep icon={UserRound}><Prompt entry={entry} agent={agent} followup /></RailStep>;
   if (entry.type === "interaction") return <InteractionAnchor entry={entry} agent={agent} session={session} />;
-  return <p className="timeline-error">{taskErrorText(entry.text || entry.title, "detail.failureUnknown").split("\n")[0]}</p>;
+  return <RailStep icon={CircleX} phase="failed"><p className="timeline-error">{taskErrorText(entry.text || entry.title, "detail.failureUnknown").split("\n")[0]}</p></RailStep>;
 }
 export function TimelinePlanDock({ entry }: { entry: AgentTimelineEntry }) {
   const [open, setOpen] = useState(false);
@@ -158,12 +166,12 @@ export function TimelinePlanDock({ entry }: { entry: AgentTimelineEntry }) {
       <progress aria-label={t("timeline.plan")} value={completed} max={steps.length} /><Icon icon={ChevronRight} className="timeline-chevron" /></Collapsible.Trigger>
   </Collapsible.Root>;
 }
-function ToolEntry({ entry }: { entry: AgentTimelineEntry }) {
+function ToolEntry({ entry, rail = false }: { entry: AgentTimelineEntry; rail?: boolean }) {
   const [open, setOpen] = useState(false);
   const hasDetails = !!(entry.output?.text || entry.input?.text || entry.text || entry.cwd || entry.path || entry.changes?.length || entry.truncated || entry.input?.truncated || entry.output?.truncated);
   return <div className="task-tool-row" data-failed={entry.status === "failed" || undefined}>
     <Fold className="task-tool-entry" open={open} onChange={setOpen} expandable={hasDetails}
-      summary={<><Icon icon={stepIcons[entry.type]} /><ToolTitle entry={entry} /><span className="task-added">{entry.changes?.some(c => c.added !== undefined) && `+${entry.changes.reduce((n, c) => n + (c.added ?? 0), 0)}`}</span><span className="task-removed">{entry.changes?.some(c => c.removed !== undefined) && `−${entry.changes.reduce((n, c) => n + (c.removed ?? 0), 0)}`}</span><span>{entry.exitCode !== undefined && t("timeline.exitCode", { code: entry.exitCode })}</span></>}>
+      summary={<>{!rail && <Icon icon={stepIcons[entry.type]} />}<ToolTitle entry={entry} /><span className="task-added">{entry.changes?.some(c => c.added !== undefined) && `+${entry.changes.reduce((n, c) => n + (c.added ?? 0), 0)}`}</span><span className="task-removed">{entry.changes?.some(c => c.removed !== undefined) && `−${entry.changes.reduce((n, c) => n + (c.removed ?? 0), 0)}`}</span><span>{entry.exitCode !== undefined && t("timeline.exitCode", { code: entry.exitCode })}</span></>}>
       {!!entry.changes?.length && <ChangedFiles entries={[entry]} />}
       <ToolDetails entry={entry} />
     </Fold>
@@ -184,10 +192,10 @@ function ToolSummary({ entries }: { entries: AgentTimelineEntry[] }) {
 // A lone tool is its own row; consecutive tools fold behind one summary line.
 function ToolRun({ entries }: { entries: AgentTimelineEntry[] }) {
   const [open, setOpen] = useState(false);
-  if (entries.length === 1) return <ToolEntry entry={entries[0]} />;
-  return <Fold className="task-tool-run" open={open} onChange={setOpen} summary={<><Icon icon={Wrench} /><ToolSummary entries={entries} /></>}>
+  if (entries.length === 1) return <RailStep icon={entries[0].status === "failed" ? CircleX : stepIcons[entries[0].type]} phase={entries[0].status === "failed" ? "failed" : entries[0].type}><ToolEntry entry={entries[0]} rail /></RailStep>;
+  return <RailStep icon={Wrench} phase="tool"><Fold className="task-tool-run" open={open} onChange={setOpen} summary={<ToolSummary entries={entries} />}>
     <div className="task-tool-rows">{entries.map(entry => <ToolEntry key={entry.id} entry={entry} />)}</div>
-  </Fold>;
+  </Fold></RailStep>;
 }
 function liveToolLabel(entry: AgentTimelineEntry, project?: string | null) {
   if (entry.path && !entry.command) return <FilePath path={entry.path} project={project || entry.cwd} />;
@@ -198,11 +206,11 @@ function LiveTool({ entry, now, project }: { entry: AgentTimelineEntry; now: num
   const output = (entry.output?.text || entry.text || "").split("\n").slice(-8).join("\n").trim();
   const elapsed = entryDuration(entry, now);
   const phase = entry.type as "command" | "file" | "tool";
-  return <div className="task-live-row" data-phase={phase}><Fold open={open} onChange={setOpen} expandable={!!output}
-    summary={<><Icon icon={stepIcons[phase]} /><span className="task-live-label mono"><PhaseLabel phase={phase} running>{liveToolLabel(entry, project)}</PhaseLabel></span>
+  return <RailStep icon={stepIcons[phase]} phase={phase} live><div className="task-live-row" data-phase={phase}><Fold open={open} onChange={setOpen} expandable={!!output}
+    summary={<><span className="task-live-label mono"><PhaseLabel phase={phase} running>{liveToolLabel(entry, project)}</PhaseLabel></span>
       {elapsed !== undefined && <time className="timeline-meta">{durationText(elapsed)}</time>}</>}>
     <pre className="task-live-log">{output}</pre>
-  </Fold></div>;
+  </Fold></div></RailStep>;
 }
 // The live row anchors the bottom of a running turn: what runs now, or what the agent is thinking about.
 function LiveActivity({ activity, now, project, elapsed }: { activity: NonNullable<ReturnType<typeof projectTurn>["activity"]>; now: number; project?: string | null; elapsed?: number }) {
@@ -214,8 +222,8 @@ function LiveActivity({ activity, now, project, elapsed }: { activity: NonNullab
       output: { ...last.output!, text: activity.running.map(row => row.output?.text || row.text || "").filter(Boolean).join("\n") } };
     return <LiveTool entry={entry} now={now} project={project} />;
   }
-  return <div className="task-live-row" data-phase="thinking"><div className="timeline-fold"><div className="timeline-summary"><Icon icon={Brain} />
-    <span className="task-live-label" role="status"><PhaseLabel phase="thinking" running>{activity.thought || t("activity.phase.thinking")}</PhaseLabel></span>{elapsed !== undefined && <time>{durationText(elapsed)}</time>}</div></div></div>;
+  return <RailStep icon={Brain} phase="thinking" live><div className="task-live-row" data-phase="thinking"><div className="timeline-fold"><div className="timeline-summary">
+    <span className="task-live-label" role="status"><PhaseLabel phase="thinking" running>{activity.thought || t("activity.phase.thinking")}</PhaseLabel></span>{elapsed !== undefined && <time>{durationText(elapsed)}</time>}</div></div></div></RailStep>;
 }
 function processLabel(duration?: number) {
   return duration === undefined ? t("detail.worked") : t("detail.workedFor", { duration: durationText(duration) });
@@ -254,11 +262,11 @@ const TurnCard = memo(function TurnCard({ narrow, group, index, latest, current,
     if (row.kind !== "tools") { blocks.push(<ProcessEntry key={row.id} entry={row.entry} agent={agent} session={session} streaming={live && row.entry === newestNarration && row.entry.status === "running"} />); continue; }
     blocks.push(<ToolRun key={row.id} entries={row.entries} />);
   }
-  const process = <section className="relay-work">{live && <header><RelayRoute agent={agent} label={`${t(`detail.state.${state}`)}${duration !== undefined ? ` · ${durationText(duration)}` : ""}`} /></header>}<div className="task-process-rows">{blocks}{activity && !pending && <LiveActivity activity={activity} now={now} project={session.project} elapsed={duration} />}</div></section>;
+  const process = <section className="relay-work">{live && <header><RelayRoute agent={agent} label={`${t(`detail.state.${state}`)}${duration !== undefined ? ` · ${durationText(duration)}` : ""}`} /></header>}<ol className="task-process-rows">{blocks}{activity && !pending && <LiveActivity activity={activity} now={now} project={session.project} elapsed={duration} />}</ol></section>;
   const processSummary = <span className="task-process-summary"><span>{processLabel(duration)}</span>
     <span>{t("detail.process.actions", { count: projection.actions })}</span>
     {!!projection.failed && state !== "failed" && <span data-failed>{t("detail.tools.failed", { count: projection.failed })}</span>}</span>;
-  const processTrigger = <Collapsible.Trigger className="timeline-summary task-process-trigger" type="button">{processSummary}<Icon icon={ChevronRight} className="timeline-chevron" /></Collapsible.Trigger>;
+  const processTrigger = <Collapsible.Trigger className="timeline-summary task-process-trigger" data-failed={state === "failed" || undefined} type="button"><Icon icon={state === "failed" ? CircleX : CircleCheck} size={14} />{processSummary}<Icon icon={ChevronRight} className="timeline-chevron" /></Collapsible.Trigger>;
   const hasProcess = !!visibleRows.length || !!activity;
   return <Collapsible.Root open={live || processOpen(state, expanded[workId])} onOpenChange={change(workId)} asChild><section className="task-turn" data-timeline-id={group.id} data-turn-collapsed={!turnOpen || undefined} onClick={event => {
     if (!turnOpen && !(event.target as Element).closest("button, a, input")) change("turn")(true);
@@ -267,7 +275,7 @@ const TurnCard = memo(function TurnCard({ narrow, group, index, latest, current,
       <button type="button" className="task-previous-turn" aria-expanded={turnOpen} onClick={() => change("turn")(!turnOpen)}>
         <span>{t("relay.turn", { count: index + 1 })}</span><RelayRoute source={source} agent={agent} marksOnly /><time>{duration !== undefined && durationText(duration)}</time>
         {!turnOpen && <span>{final?.text?.trim().split("\n")[0] || [...group.entries].reverse().find(entry => entry.type === "error" || entry.status === "failed")?.text?.split("\n")[0] || t(`detail.state.${state}`)}</span>}
-        <Icon icon={ChevronRight} className="timeline-chevron" />
+        <Icon icon={ChevronRight} size={12} className="timeline-chevron" />
       </button>
       {turnOpen && !!visibleRows.length && processTrigger}
     </div>}

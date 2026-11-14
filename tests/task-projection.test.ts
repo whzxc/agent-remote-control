@@ -260,3 +260,14 @@ test('online devices keep a neutral capsule for unknown task observations', asyn
   assert.deepEqual(capsuleItems(online, true), []);
   assert.equal(nodeTaskState([task], 'offline').unconfirmed, true);
 });
+
+test("failed turns retain command evidence and leave the terminal message to the outcome", () => {
+  // Regression: relay-failed repeated its terminal error in both the work rail and failure card.
+  const earlierError = entry("earlier", "error", { text: "A recovered warning" });
+  const command = entry("check", "command", { status: "failed", output: { text: "Type error: expected a string." } });
+  const terminal = entry("failure", "error", { text: "Verification failed" });
+  const { rows, failed } = projectTurn([earlierError, command, terminal], "failed");
+  assert.deepEqual(rows.flatMap(row => row.kind === "tools" ? row.entries : [row.entry]), [earlierError, command]);
+  assert.equal(failed, 1);
+  assert.deepEqual(projectTurn([command], "failed").rows, [{ kind: "tools", id: command.id, entries: [command] }]);
+});

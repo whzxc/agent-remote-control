@@ -23,6 +23,8 @@ export const checks = [{ stage: 'verify', order: 105, visual: false, async run({
   } else if (name === 'relay-failed') {
     if (await plan.count()) throw new Error('Failed plan remains in the footer.');
     await panel.getByText('Type error: expected a string.', { exact: true }).waitFor();
+    if (await panel.getByText('The sample verification command failed.', { exact: true }).count() !== 1)
+      throw new Error('The terminal failure must appear only in the failure card.');
     await panel.getByRole('button', { name: text['detail.retry'], exact: true }).waitFor();
   } else {
     await plan.click();
@@ -41,6 +43,12 @@ export const checks = [{ stage: 'verify', order: 105, visual: false, async run({
     const approve = page.getByRole('button', { name: text['detail.approve'], exact: true });
     await approve.click();
     await panel.getByText(text['relay.approvedBy'].replace('{source}', 'ARC'), { exact: true }).waitFor();
+  }
+  for (const mark of await panel.getByRole('img', { name: 'Claude', exact: true }).all()) {
+    const bounds = await mark.boundingBox();
+    const panelBounds = await panel.boundingBox();
+    if (bounds && panelBounds && bounds.x + bounds.width > panelBounds.x + panelBounds.width - 20)
+      throw new Error('A timeline source mark escaped to the panel edge.');
   }
   row.relayTimeline = { reasoningDisclosure: true, earlierTurnFold: true, answerOrigin: true, planLifecycle: true };
 } }];

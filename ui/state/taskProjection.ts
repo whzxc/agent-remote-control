@@ -34,7 +34,9 @@ export function projectTurn(entries: readonly AgentTimelineEntry[], state: TaskS
   const { prompt, final, work } = turnEntries(entries, live, state === "done");
   // Live tools move to the activity row so the current action is never buried in a group.
   const activity = state === "running" ? liveActivity(work) : undefined;
-  const rows = processRows(work.filter(entry => !activity?.running.includes(entry)));
+  // The terminal error is presented once in the outcome card; failed tools stay on the rail.
+  const outcome = state === "failed" ? [...work].reverse().find(entry => entry.type === "error" || entry.status === "failed") : undefined;
+  const rows = processRows(work.filter(entry => !activity?.running.includes(entry) && !(entry === outcome && entry.type === "error")));
   return { prompt, final, rows, activity, plan: [...entries].reverse().find(entry => entry.type === "plan"),
     actions: work.filter(entry => ["command", "file", "tool"].includes(entry.type)).length,
     failed: work.filter(entry => ["command", "file", "tool"].includes(entry.type) && entry.status === "failed").length,
