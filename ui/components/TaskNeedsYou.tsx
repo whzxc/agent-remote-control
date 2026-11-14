@@ -17,6 +17,7 @@ import ActivityInteraction from "./ActivityInteraction";
 import TaskQuestion from "./TaskQuestion";
 import { Dialog, IconButton } from "./ui";
 import { TaskCard, RequestEntry } from "./ui/TaskPresentation";
+import { FilePath } from "./ui/ProjectPath";
 
 export function taskReceipts(records: TaskRecord[], agent: string, id: string) {
   return records.filter(record => (record.agent || "codex") === agent && (record.taskId || record.threadId || record.task.threadId) === id);
@@ -49,6 +50,8 @@ export default function TaskNeedsYou({ agent, session, entries, source, narrow, 
   useEffect(() => { if (identity && (!narrow || sheetOpen)) focus.current?.focus({ preventScroll: true }); }, [identity, narrow, sheetOpen]);
   useEffect(() => { if (!count && !keepAfterWork || !narrow) setSheetOpen(false); }, [count, narrow, keepAfterWork]);
   const interaction = pending?.interaction;
+  const requestPreview = interaction?.command || interaction?.preview
+    || (interaction?.path && <FilePath path={interaction.path} cwd={interaction.cwd} full />);
   usePanelState({ dirty: Object.values(drafts[identity ?? ""] ?? {}).some(values => values.some(value => value.length > 0)),
     busy: !!identity && submissions[identity]?.status === "submitting" || routing.busy });
   const route = (mode: "passive" | "actionable") => <RequestRouting mode={mode} routing={routing.error ? undefined : routing.routing} source={dispatchSourceLabel(source) || t("routing.source")} busy={routing.busy} change={routing.change} />;
@@ -59,8 +62,8 @@ export default function TaskNeedsYou({ agent, session, entries, source, narrow, 
     {pending && interaction && <TaskCard className="task-request-card">
       {interaction.kind === "question" ? <TaskQuestion key={identity} agent={agent} session={pending} answers={drafts[identity!] ?? {}} onAnswersChange={answers => setDrafts(old => ({ ...old, [identity!]: answers }))} routing={route("actionable")} /> : <>
         <div className="task-request-preview"><header><strong>{interaction.title || interaction.summary}</strong><span>{t("timeline.allowOnce")}</span></header>
-          {(interaction.command || interaction.preview || interaction.path) && <pre>{interaction.command || interaction.preview || interaction.path}</pre>}
-          {interaction.cwd && <div className="mono">{t("timeline.cwd")} · {interaction.cwd}</div>}
+          {requestPreview && <pre>{requestPreview}</pre>}
+          {interaction.cwd && <div>{t("timeline.cwd")} · <FilePath path={interaction.cwd} full /></div>}
           {interaction.reason && <p>{interaction.reason}</p>}
         </div>
         <ActivityInteraction key={identity} agent={agent} session={pending} routing={route("actionable")} />

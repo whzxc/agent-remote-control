@@ -58,7 +58,7 @@ columns by explicit user input; the header/navigation stay fixed. Device managem
 explicitly folds the child branch while its panel is open.
 
 Portrait snapshots keep status and duration inside the same card as the origin,
-one-line title, project path and newest-anchored native preview.
+one-line title, shared project label and newest-anchored native preview.
 Tool groups summarize the recorded categories and reasoning lines show
 their own summary. Replies stay inline. Historical bubbles show Agent and control source
 marks, title, status, recorded execution specification and duration from list metadata.

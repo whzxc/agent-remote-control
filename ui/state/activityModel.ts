@@ -2,6 +2,7 @@ import { recordedTimestamp, type TaskStepKind } from './taskProjection.ts';
 import type { AgentActivitySession, AgentActivitySnapshot, AgentInteraction } from "../types.ts";
 import { taskHierarchy } from './taskHierarchy.ts';
 import { orderedSubset } from '../topology/order.ts';
+import { filePathParts } from '../lib/projectPath.ts';
 
 // Activity events describe current observations; absence is not a terminal result.
 export function mergeActivity(current: AgentActivitySnapshot | undefined, next: AgentActivitySnapshot) {
@@ -177,35 +178,11 @@ export function questionResponse(interaction: AgentInteraction, value: string, c
   return { op, args: { ...args, ...(cancelled ? { cancelled: true } : { value }) } };
 }
 
-// Lexical paths only: display never accesses the filesystem or changes native paths.
-export function filePathParts(path: string, project?: string | null) {
-  const normalize = (value: string) => {
-    const slash = value.replaceAll("\\", "/");
-    const root = slash.match(/^(?:[a-z]:\/|\/\/|\/)/i)?.[0] ?? "";
-    const parts: string[] = [];
-    for (const part of slash.slice(root.length).split("/")) {
-      if (!part || part === ".") continue;
-      if (part === ".." && parts.length && parts.at(-1) !== "..") parts.pop();
-      else if (part !== ".." || !root) parts.push(part);
-    }
-    return root + parts.join("/");
-  };
-  const base = project ? normalize(project).replace(/\/$/, "") : "";
-  const absolute = /^(?:[a-z]:[\\/]|[\\/])/i.test(path);
-  const fullPath = normalize(!absolute && project ? `${project}/${path}` : path);
-  const prefix = `${base}/`;
-  const windows = /^[a-z]:\//i.test(fullPath) || fullPath.startsWith("//");
-  const inside = !!project && (windows ? fullPath.toLowerCase().startsWith(prefix.toLowerCase()) : fullPath.startsWith(prefix));
-  const displayPath = inside ? fullPath.slice(prefix.length) : fullPath;
-  const split = displayPath.lastIndexOf("/") + 1;
-  return { fullPath, displayPath, directory: displayPath.slice(0, split), filename: displayPath.slice(split) };
-}
-
 export function activityHeadline(session: Pick<AgentActivitySession, "headline" | "phase" | "interaction" | "project" | "fallbackHeadline" | "title">, empty = "") {
   const path = session.interaction ? session.interaction.path?.trim() || undefined : session.phase === "file" ? session.headline.trim() || undefined : undefined;
   const current = path || session.headline.trim();
   const text = current || session.fallbackHeadline?.trim() || session.title?.trim() || empty;
-  return { text, path, fallback: !current, fullText: path ? filePathParts(path, session.project).fullPath : text };
+  return { text, path, fallback: !current, fullText: path ? filePathParts(path, session.project, session.interaction?.cwd).fullPath : text };
 }
 
 export type HomepageTaskGroup = 'needs-me' | 'running' | 'unread' | 'unconfirmed' | 'recent';

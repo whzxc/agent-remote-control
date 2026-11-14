@@ -667,6 +667,7 @@ textarea.input {
 .tooltip {
   min-height: 30px;
   max-width: min(300px, calc(100vw - 24px));
+  overflow-wrap: anywhere;
   display: flex;
   align-items: center;
   padding: 6px 12px;

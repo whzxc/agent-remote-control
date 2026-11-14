@@ -22,6 +22,14 @@ export const checks = [{ stage: 'verify', order: 19, visual: true, async run({ f
   const todayCard = today.getByRole('article', { name: 'Summarize the queue', exact: true });
   await preview(todayCard).waitFor();
   await history.getByRole('img', { name: /Codex · / }).waitFor();
+  // Regression: task cards used the beginning of the workspace path in place of the project name.
+  const verifyProject = async (surface, name) => {
+    const project = surface.getByRole('img', { name: `${text['project.label']} · ${name} · /workspace/acceptance`, exact: true });
+    if ((await project.innerText()).includes('/workspace/')) throw new Error('The workspace path is visible in the project label.');
+    return project;
+  };
+  const historyProject = await verifyProject(history, 'Release operations');
+  await verifyProject(todayCard, 'Dispatch service');
   // Regression: recorded efforts without usable catalog metadata appeared as text inside the execution spec.
   const specs = [
     [history.getByRole('img', { name: /gpt-6\.1[- ]sol .*high/i }), text['dispatchSpec.effort.high']],
@@ -38,9 +46,14 @@ export const checks = [{ stage: 'verify', order: 19, visual: true, async run({ f
   const firstRow = cards.filter(top => top === cards[0]).length;
   if (width < 450 && firstRow !== 1 || width === 820 && firstRow !== 3) throw new Error('Task columns did not adapt to the available width.');
   await history.evaluate(article => article.scrollIntoView({ block: 'end' }));
+  if (width === 1280 && fixture.theme === 'light') {
+    await historyProject.hover();
+    await page.getByRole('tooltip').filter({ hasText: '/workspace/acceptance' }).waitFor();
+  }
   await history.getByRole('button', { name: `${text['homepage.openDetail']}: ${name}`, exact: true }).click();
   const detail = page.getByRole('dialog', { name, exact: true });
   await detail.waitFor();
+  await verifyProject(detail, 'Release operations');
   await page.keyboard.press('Escape');
   await detail.waitFor({ state: 'hidden' });
 } }];

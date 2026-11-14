@@ -10,11 +10,11 @@
 .task-snapshot-origins { min-width: 0; overflow: hidden; flex: none; max-width: 100%; color: var(--text-secondary); }
 .task-snapshot-origin { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: var(--surface-sunken); }
 .task-snapshot-title { margin: 10px 16px 0; text-align: left; color: var(--text); font-size: var(--text-body); font-weight: 600; line-height: 20px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; flex: none; }
-.task-snapshot-project { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--text-tertiary); font-size: var(--text-caption); }
+.task-snapshot-connection { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--text-tertiary); font-size: var(--text-caption); }
 .task-card-execution { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .task-card-execution:empty { display: none; }
-.task-snapshot-execution { margin: 4px 16px 0; }
-.task-snapshot-execution .dispatch-spec { flex-shrink: 0; }
+.task-snapshot-execution { flex-wrap: wrap; gap: 4px 8px; margin: 4px 16px 0; }
+.task-snapshot-execution > .dispatch-spec { flex-shrink: 0; }
 .task-snapshot-timeline { flex: 1; position: relative; min-height: 0; overflow: clip; margin: 12px; border-radius: 16px; background: var(--surface-subtle); }
 .task-snapshot-tail { min-height: 100%; position: absolute; inset: auto 0 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; padding: 12px; }
 .task-snapshot-row { display: flex; flex: none; align-items: start; gap: 8px; font-size: var(--text-caption); line-height: 16px; color: var(--text-secondary); overflow-wrap: anywhere; }
@@ -31,6 +31,7 @@
 .task-snapshot-work { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--text-secondary); font-size: var(--text-caption); white-space: nowrap; }
 .task-snapshot-work > svg { flex: none; }
 .task-snapshot-work-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.task-snapshot-file-actions { flex: none; max-width: 50%; }
 .task-snapshot-routing, .task-snapshot-observed { display: flex; align-items: center; gap: 6px; color: var(--text-tertiary); font-size: var(--text-caption); }
 .task-snapshot[data-offline] .task-snapshot-timeline { opacity: .6; }
 .task-snapshot .task-snapshot-read { --icon-button-size: 20px; margin-left: auto; }
@@ -40,7 +41,6 @@
 .task-card-identity > .activity-source-badge { width: 15px; height: 15px; }
 .task-history-summary .activity-phase > :first-child { flex: none; }
 .task-history-meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.task-history-meta::before { content: '·'; margin-right: 6px; }
 @media (max-width: 499px) {
   .task-snapshot header { padding-inline: 12px; }
   .task-snapshot-title { margin-inline: 12px; }

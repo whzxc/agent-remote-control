@@ -1,6 +1,6 @@
 import { Frame } from "adg";
 import { Tile } from "../components/tile";
-import { Tag } from "../components/tag";
+import { ProjectLabel } from "../components/project-path";
 import { TaskRow } from "./task-presentation";
 import { agentHistory, agentRowExample } from "../fixtures/agent-activity";
 
@@ -22,7 +22,7 @@ export function AgentTaskHistory({ groups }: { groups: typeof agentHistory }) {
           <div class="flex min-w-0 flex-1 flex-col gap-[2px]">
             <strong class="text-small leading-[18px] font-[650]">{agentRowExample.titlePrefix} {n}</strong>
             <div class="flex items-center justify-between">
-              <Tag>{agentRowExample.project}</Tag>
+              <ProjectLabel label="项目" name={agentRowExample.project} />
               <span class="text-caption text-text-tertiary">{group.date}</span>
             </div>
           </div>

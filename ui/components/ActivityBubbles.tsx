@@ -11,7 +11,7 @@ import { PhaseTile, PhaseLabel, StepTrail, SourceBadge } from "./activity";
 import { selectAgentPanel } from "../state/overviewPanels";
 import { activityHeadline, type TrackedActivity, type BubbleDensity } from "../state/activityModel";
 import { useInterval } from "../state/hooks";
-import FilePath from "./FilePath";
+import { FilePath, ProjectLabel } from "./ui/ProjectPath";
 import { Button, Icon } from "./ui";
 import { activityState, executionPhase, terminalState } from "../state/taskExecutionModel";
 import { useTaskExecution } from "../state/taskExecution";
@@ -30,12 +30,13 @@ function Headline({ session }: { session: TrackedActivity }) {
   latest.current = session;
   const [display, setDisplay] = useState(session);
   useInterval(() => setDisplay(latest.current), 1000);
-  const headline = display.interaction ? { text: display.interaction.summary, path: undefined, fallback: false } : activityHeadline(display, t("timeline.title"));
+  const headline = display.interaction && !display.interaction.path ? { text: display.interaction.summary, path: undefined, fallback: false }
+    : activityHeadline(display, t("timeline.title"));
   return <span className={`activity-headline ${!headline.fallback && (display.phase === "command" || !!headline.path) ? "mono" : ""} ${headline.fallback ? "activity-headline-fallback" : ""}`}>
     <AnimatePresence initial={false}>
       <motion.span key={`${display.phase}:${headline.text}`} initial={{ opacity: reduced ? 1 : 0, y: reduced ? 0 : 5 }} animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: reduced ? 0 : -5 }} transition={{ ...motionTransition(), duration: reduced ? 0 : motionTransition().duration }}>
-        {headline.path ? <FilePath path={headline.path} project={display.project} /> : headline.text}
+        {headline.path ? <FilePath path={headline.path} project={display.project} cwd={display.interaction?.cwd} /> : headline.text}
       </motion.span>
     </AnimatePresence>
   </span>;
@@ -55,7 +56,7 @@ export function ActivityBubbleContent({ agent, session, now, density = "standard
   const phase = executionPhase(session.phase, state) ?? (state === "needsYou" ? "interaction" : "idle");
   const phaseLabel = running && phase !== "idle" ? `activity.phase.${phase}` : `detail.state.${state}`;
   const source = session.dispatchSummary?.controlSource;
-  const project = (session.projectName || session.project)?.replace(/[\\/]+$/, "").split(/[\\/]/).pop();
+  const project = <ProjectLabel name={session.projectName} path={session.project} />;
   const previous = session.recentContent?.filter(text => text !== activityHeadline(session).text).at(-1);
   const duration = elapsed(session.turnStartedAt, session.endedAt ?? now);
   const detail = session.interaction ? t("activity.pendingHint") : completed ? duration === "—" ? undefined : t("activity.totalDuration", { duration }) : previous;
@@ -80,10 +81,10 @@ export function ActivityBubbleContent({ agent, session, now, density = "standard
       </span>}
       {density === "detailed" && <HoverHelp text={detail}><span className="activity-detail-line">{detail || "\u00a0"}</span></HoverHelp>}
       {density !== "compact" && <span className={`activity-spec-row ${conversation ? "activity-conversation-meta" : ""}`}>
-        {conversation && project && <HoverHelp text={session.project!}><span className="activity-project">{project}</span></HoverHelp>}
+        {conversation && project}
         <RecordedDispatchSpec agent={agent} summary={session.dispatchSummary} />
         {conversation && !!session.turnCount && <span className="activity-meta-chip">{t("timeline.turnCount", { count: session.turnCount })}</span>}
-        {!conversation && project && <HoverHelp text={session.project!}><span className="activity-project">{project}</span></HoverHelp>}
+        {!conversation && project}
         {conversation ? createdTime : <StepTrail steps={session.recentSteps} running={running} />}
       </span>}
     </TaskBubbleCopy>

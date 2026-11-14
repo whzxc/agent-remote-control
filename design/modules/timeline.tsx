@@ -3,6 +3,7 @@ import { PanelShell } from "../components/panel";
 import { BrandMark } from "../components/brand-mark";
 import { IconButton } from "../components/icon-button";
 import { Button } from "../components/button";
+import { FilePath, ProjectLabel } from "../components/project-path";
 import { StatePill } from "./task-presentation";
 import { DispatchSpec } from "./model-configuration";
 import { PermissionCard, RequestRouting } from "./request";
@@ -156,7 +157,7 @@ function RelayChanges() {
   return (
     <div class="flex items-center gap-2 text-meta leading-4 text-text-secondary">
       <Icon name="git-compare-arrows" size={14} />
-      {relayCopy.changes} ·<code class="font-mono text-text">{relayReply.file}</code>
+      {relayCopy.changes} ·<FilePath directory="" filename={relayReply.file} fullPath={`/workspace/acceptance/${relayReply.file}`} />
       <span class="font-mono text-success">+12</span><span class="font-mono text-danger">−3</span>
     </div>
   );
@@ -279,13 +280,14 @@ export function RelayTimeline({ state }: { state: "running" | "waiting" | "done"
     <PanelShell viewportHeight={1100} class="overflow-hidden px-6 pb-5 pt-[13px]">
       <header class="flex h-[34px] shrink-0 items-center gap-2">
         <Icon name="arrow-left" size={16} />
-        <RelayRoute label={agent.workspace} />
+        <RelayRoute />
         <IconButton icon="maximize-2" label="Expand" />
       </header>
       <h2 class="mt-[10px] shrink-0 truncate text-title leading-6 font-[650]">{task.title}</h2>
       <div class="mt-[14px] flex shrink-0 items-center gap-2">
         <StatePill class="pr-[6px]" state={state}>{relayCopy.state[state]}</StatePill>
         <DispatchSpec {...taskDispatch} />
+        <ProjectLabel label="项目" name={agent.workspace} path="/workspace/acceptance" />
         <span class="text-meta text-text-tertiary">{relayCopy.duration[state]}</span>
       </div>
       <div class="mt-3 flex shrink-0 gap-1">

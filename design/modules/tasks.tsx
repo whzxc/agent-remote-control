@@ -2,6 +2,7 @@ import { Frame, Icon } from 'adg';
 import { BrandMark, type Brand } from "../components/brand-mark";
 import { IconButton } from '../components/icon-button';
 import { Tile } from '../components/tile';
+import { ProjectLabel } from '../components/project-path';
 import { DispatchSpec } from './model-configuration';
 import type { TaskStep, TaskPlan, TaskChange } from './task-activity';
 import {
@@ -14,6 +15,7 @@ export type TaskSnapshotData = {
   id: string; node: string; title: string; group: TaskGroup;
   state: string; detail: string; icon: string; origin: readonly OriginStep[];
   activity?: string; elapsed?: string; path?: string; steps?: readonly TaskStep[]; plan?: TaskPlan;
+  project?: Parameters<typeof ProjectLabel>[0];
   change?: TaskChange; partial?: boolean; prompt?: string;
   snapshot?: readonly TaskStep[]; dispatch?: Parameters<typeof DispatchSpec>[0];
 };
@@ -52,15 +54,19 @@ function TaskIdentityMark({ task }: { task: TaskSnapshotData }) {
     </span>;
 }
 export function TaskHistorySummary({ task }: { task: TaskSnapshotData }) {
-  return <div class="flex min-w-0 items-start gap-3 rounded-card bg-surface p-3 shadow-md">
+  return <div class="flex w-full min-w-0 items-start gap-3 rounded-card bg-surface p-3 shadow-md">
     <TaskIdentityMark task={task} />
     <div class="flex min-w-0 flex-1 flex-col gap-1">
       <strong class="truncate text-small leading-5 text-text">{task.title}</strong>
+      <span class="flex min-w-0 items-center gap-[6px] text-caption text-text-secondary">
+        <span class="shrink-0">{statusOf(task)}</span>
+        {task.project && <span class="min-w-0 flex-1 overflow-hidden"><ProjectLabel {...task.project} /></span>}
+        {task.group === 'unconfirmed' && <span class="truncate">{task.detail}</span>}
+      </span>
       {(task.dispatch || task.elapsed) && <div class="flex min-w-0 items-center gap-2">
         {task.dispatch && <DispatchSpec {...task.dispatch} />}
         {task.elapsed && <time class="shrink-0 text-caption tabular-nums text-text-secondary">{task.elapsed}</time>}
       </div>}
-      <span class="truncate text-caption text-text-secondary">{statusOf(task)} · {task.detail}</span>
     </div>
   </div>;
 }
@@ -103,8 +109,9 @@ export function TaskSnapshot({ task, height = 340, narrow = false }: {
     </header>
     <button aria-label={`${copy.open}: ${task.title}`} class={`truncate pt-[10px] text-left text-body leading-5
       font-semibold text-text ${inset}`}>{task.title}</button>
-    {(task.dispatch || task.path) && <div class={`mt-1 flex min-w-0 items-center gap-2 ${inset}`}>
+    {(task.dispatch || task.project || task.path) && <div class={`mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 ${inset}`}>
       {task.dispatch && <DispatchSpec {...task.dispatch} />}
+      {task.project && <ProjectLabel {...task.project} />}
       {task.path && <span class="truncate text-caption text-text-tertiary">{task.path}</span>}
     </div>}
     <div class={`relative flex min-h-0 flex-1 flex-col justify-end gap-2 overflow-hidden rounded-[16px]

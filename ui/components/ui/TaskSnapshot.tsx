@@ -13,6 +13,7 @@ import RecordedDispatchSpec from '../composites/RecordedDispatchSpec';
 import { SourceMark } from '../activity';
 import { compactDuration } from '../../lib/duration';
 import { TaskBubble, TaskBubbleCopy } from './TaskRow';
+import { FilePath, ProjectLabel } from './ProjectPath';
 import { t } from '../../i18n';
 import './TaskSnapshot.css';
 
@@ -24,7 +25,7 @@ const SnapshotMarkdown = memo(function SnapshotMarkdown({ text }: { text: string
     components={{ a: ({ children }) => <span>{children}</span> }}>{text}</ReactMarkdown></div>;
 });
 
-const SnapshotRows = memo(function SnapshotRows({ rows }: { rows: TaskSnapshotRow[] }) {
+const SnapshotRows = memo(function SnapshotRows({ rows, project }: { rows: TaskSnapshotRow[]; project?: string | null }) {
   const groups: TaskSnapshotRow[][] = [];
   for (const row of rows) {
     const group = groups.at(-1);
@@ -39,9 +40,13 @@ const SnapshotRows = memo(function SnapshotRows({ rows }: { rows: TaskSnapshotRo
     const { parts, more } = toolSummary(group.flatMap(row => row.tool ? [row.tool] : []));
     const labels = parts.map(({ kind, count }) => t(`detail.tools.${kind}`, { count }));
     if (more) labels.push(t('detail.tools.more', { count: more }));
+    const path = latest.tool?.command ? undefined : latest.tool?.path;
     return <div key={first.id} className="task-snapshot-work">
       <Icon icon={taskPhaseIcons[latest.kind ?? 'running']} size={12} />
-      <span className="task-snapshot-work-text">{labels.length > 0 && <>{labels.join(' · ')} · </>}{text}</span>
+      {path ? <>
+        {!!labels.length && <span className="task-snapshot-work-text task-snapshot-file-actions">{labels.join(' · ')} ·</span>}
+        <FilePath path={path} project={project} cwd={latest.tool?.cwd} />
+      </> : <span className="task-snapshot-work-text">{labels.length > 0 && <>{labels.join(' · ')} · </>}{text}</span>}
     </div>;
   });
 });
@@ -71,14 +76,16 @@ export function TaskHistorySummary({ task, identity, freshness, now, onOpen }: {
   task: HomepageTask; identity: TaskIdentity; freshness?: string; now: number; onOpen: () => void;
 }) {
   const state = status(task), title = taskTitle(task);
-  const project = task.session.projectName || task.session.project?.split(/[\\/]/).filter(Boolean).at(-1);
-  const meta = task.group === 'unconfirmed' ? freshness ?? project : project;
   return <div className="task-history-summary" data-task-snapshot={task.key}>
     <TaskBubble data-task-open
       aria-label={`${t('homepage.openDetail')}: ${title}`} onClick={onOpen}>
       <TaskIdentityMark {...identity} />
       <TaskBubbleCopy title={title}>
-        <span className="activity-phase"><span>{t(`homepage.${state}`)}</span>{meta && <span className="task-history-meta">{meta}</span>}</span>
+        <span className="activity-phase">
+          <span>{t(`homepage.${state}`)}</span>
+          <ProjectLabel name={task.session.projectName} path={task.session.project} />
+          {task.group === 'unconfirmed' && freshness && <span className="task-history-meta" title={freshness}>{freshness}</span>}
+        </span>
         <span className="task-card-execution">
           <RecordedDispatchSpec agent={task.deviceId ? undefined : task.agent} summary={task.session.dispatchSummary} />
           <TaskElapsed task={task} now={now} />
@@ -111,7 +118,6 @@ export function TaskSnapshot({ task, origins, now, path, freshness, onOpen, onRe
     : routing.state === 'not-routable' ? 'routing.nextCheck' : 'routing.routed', { source, seconds: Math.max(0, Math.ceil(((routing.deferUntil ?? now) - now) / 1000)) }) : undefined;
   const { snapshot } = task.activity;
   const title = taskTitle(task);
-  const location = [offline ? undefined : path, task.session.project].filter(Boolean).join(' · ');
   return <div ref={card} className="task-snapshot" data-task-snapshot={task.key} data-offline={offline || undefined}>
     <header><span className="task-snapshot-origins" role="img" aria-label={origins.map(origin => origin.label).join(' → ')}>
       {origins.map((origin, index) => <span key={`${index}:${origin.label}`}>{index > 0 && <Icon icon={ChevronRight} size={10} />}<Tooltip text={origin.label}><span className="task-snapshot-origin">{origin.graphic}</span></Tooltip></span>)}
@@ -122,11 +128,12 @@ export function TaskSnapshot({ task, origins, now, path, freshness, onOpen, onRe
       : <strong className="task-snapshot-title">{title}</strong>}
     <div className="task-card-execution task-snapshot-execution">
       <RecordedDispatchSpec agent={task.deviceId ? undefined : task.agent} summary={task.session.dispatchSummary} />
-      {location && <span className="task-snapshot-project" title={location}>{location}</span>}
+      <ProjectLabel name={task.session.projectName} path={task.session.project} />
+      {!offline && path && <span className="task-snapshot-connection" title={path}>{path}</span>}
     </div>
     <div className="task-snapshot-timeline" role="region" aria-label={t('homepage.recentSteps')}>
       <div className="task-snapshot-tail">
-        {snapshot.length ? <SnapshotRows rows={snapshot} /> : task.session.headline || task.session.fallbackHeadline ? <div className="task-snapshot-row" data-role="agent"><SnapshotMarkdown text={task.session.headline || task.session.fallbackHeadline || ''} /></div> : null}
+        {snapshot.length ? <SnapshotRows rows={snapshot} project={task.session.project} /> : task.session.headline || task.session.fallbackHeadline ? <div className="task-snapshot-row" data-role="agent"><SnapshotMarkdown text={task.session.headline || task.session.fallbackHeadline || ''} /></div> : null}
         {waiting && !snapshot.some(row => row.role === 'request') && <div className="task-snapshot-row" data-role="request"><span>{task.session.interaction?.summary}</span></div>}
         {waiting && <span className="task-snapshot-routing"><Icon icon={ArrowRightLeft} size={12} />{error || route || t('homepage.requestTo', { source })}</span>}
         {offline && freshness && <span className="task-snapshot-observed">{freshness}</span>}

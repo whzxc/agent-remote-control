@@ -7,6 +7,7 @@ import { useTaskPresence } from "../state/requestRouting";
 import { observeTaskPanel } from "../state/taskPanel";
 import { useTaskQueue } from "../state/taskQueue";
 import { TaskCard, ReviewUnavailable, TaskBackButton } from "./ui/TaskPresentation";
+import { ProjectLabel } from "./ui/ProjectPath";
 import TaskQueuedMessages from "./TaskQueuedMessages";
 import { useTaskReview } from "../state/taskReview";
 import { taskErrorText } from "../state/taskErrors";
@@ -200,8 +201,8 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   const selectedEntries = session.selectedTurnId ? groups.find(group => group.turnId === session.selectedTurnId)?.entries : undefined;
   const duration = session.selectedTurnId ? turnDuration(selectedEntries ?? [], now, running, nativeSession.turnStartedAt, timeline?.turnTimings?.[session.selectedTurnId])
     : timelineDuration(timeline?.entries ?? [], now, running, nativeSession.turnId, timeline?.turnTimings, nativeSession.turnStartedAt);
-  const project = timeline?.projectName || nativeSession.projectName || session.projectName
-    || session.project?.replace(/[\\/]+$/, "").split(/[\\/]/).pop();
+  const projectName = timeline?.projectName || nativeSession.projectName || session.projectName;
+  const projectPath = nativeSession.project || session.project;
   const latestSummary = live ? live.dispatchSummary : (historyTurn && timeline?.turnDispatchSummaries?.[historyTurn]) || (!session.selectedTurnId ? timeline?.dispatchSummary : undefined) || nativeSession.dispatchSummary;
   const source = latestSummary?.controlSource;
   const plan = running ? [...(groups.at(-1)?.entries ?? [])].reverse().find(entry => entry.type === "plan" && entry.plan?.length) : undefined;
@@ -277,7 +278,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   useLayerNaturalContent(content, true, { version: `${loading ? 'loading' : 'ready'}:${title}`, flexibleFooter: true, resetHeight: true });
   return <section ref={detail} className="agent-panel-layer task-detail-layer" data-related={!!relationKind || undefined} data-narrow={narrow || undefined}>
     <PanelHeader><header className="dialog-header task-detail-header">
-      <div className="task-detail-navigation"><TaskBackButton aria-label={t("back")} title={backLabel ?? `${agentName}${project ? ` · ${project}` : ""}`} onClick={onBack}><Icon icon={ArrowLeft} /><RelayRoute source={source} agent={agent} label={project} /></TaskBackButton>
+      <div className="task-detail-navigation"><TaskBackButton aria-label={t("back")} title={backLabel ?? agentName} onClick={onBack}><Icon icon={ArrowLeft} /><RelayRoute source={source} agent={agent} /></TaskBackButton>
         {!narrow && <div className="actions">{!readOnlyBrowser && validId && nativeSession.open && <IconButton icon={ArrowUpRight} label={t("activity.open")} onClick={() => { setOpenError(""); void openActivitySession(agent, nativeSession).catch(error => setOpenError(String(error))); }} />}
           {resizable && <IconButton icon={expanded ? Minimize2 : Maximize2} label={t(expanded ? "restorePanelWidth" : "expandPanelWidth")} aria-pressed={expanded} onClick={onToggleWidth} />}</div>}
         {narrow && (!readOnlyBrowser && validId && nativeSession.open || resizable) && <div className="task-narrow-menu"><Menu label={t("detail.taskActions")} trigger={<IconButton icon={MoreHorizontal} label={t("detail.taskActions")} />} items={[
@@ -292,6 +293,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
         {session.selectedTurnId && groups.some(group => group.turnId === session.selectedTurnId) && <span className="activity-meta-chip">{t("detail.selectedTurn", { count: groups.findIndex(group => group.turnId === session.selectedTurnId) + 1 })}</span>}
         <TaskSpecChoice agent={agent} threadId={session.id} taskId={session.source === "arc-task" ? session.id : undefined} summary={latestSummary}
           editable={!readOnlyBrowser && !external && agent === "codex" && validId && !timeline?.readOnly} />
+        <ProjectLabel name={projectName} path={projectPath} />
         <TaskOwnership ownership={timeline?.ownership} />
         {duration !== undefined && <time className="timeline-meta task-duration">{durationText(duration)}</time>}
       </div>

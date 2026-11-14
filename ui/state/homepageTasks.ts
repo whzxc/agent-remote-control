@@ -94,12 +94,18 @@ export function useHomepageTasks(showHistory: boolean) {
       const previous = sessions.get(row.id);
       const key = JSON.stringify(['codex', row.id]);
       if (row.updatedAt) updates.set(key, row.updatedAt);
-      if (previous?.observed) continue;
+      if (previous?.observed) {
+        if (!previous.projectName && row.projectName && row.project && row.project === previous.project) {
+          sessions.set(row.id, { ...previous, projectName: row.projectName });
+        }
+        continue;
+      }
       const sameTurn = !row.turnId || row.turnId === previous?.turnId;
       sessions.set(row.id, {
         ...previous, id: row.id, source: row.source === 'native' ? 'transcript' : row.source, conversation: true,
         title: row.title || previous?.title, status: row.status ?? (sameTurn ? previous?.status : undefined),
-        project: row.project ?? previous?.project, projectName: row.projectName ?? previous?.projectName,
+        project: row.project ?? previous?.project,
+        projectName: row.projectName ?? (!row.project || row.project === previous?.project ? previous?.projectName : undefined),
         dispatchSummary: sameTurn ? { ...previous?.dispatchSummary, ...row.dispatchSummary } : row.dispatchSummary ?? undefined,
         agentAccountId: row.agentAccountId ?? previous?.agentAccountId,
         turnId: row.turnId || previous?.turnId, open: row.open ?? previous?.open,

@@ -569,6 +569,7 @@
   "timeline.showMore": "Show more",
   "timeline.showLess": "Show less",
   "timeline.cwd": "Working directory",
+  "project.label": "Project",
   "timeline.path": "Path",
   "timeline.changes": "Changed files",
   "timeline.input": "Input",

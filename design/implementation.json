@@ -2,6 +2,18 @@
   "version": 1,
   "mappings": [
     {
+      "implementation": {"file": "ui/components/ui/ProjectPath.tsx", "symbol": "ProjectLabel"},
+      "design": [{"source": "design/components/project-path.tsx", "part": "ProjectLabel"}]
+    },
+    {
+      "implementation": {"file": "ui/components/ui/ProjectPath.tsx", "symbol": "FilePath"},
+      "design": [{"source": "design/components/project-path.tsx", "part": "FilePath"}]
+    },
+    {
+      "implementation": {"file": "ui/components/ui/ProjectPath.css"},
+      "design": [{"source": "design/components/project-path.tsx", "part": "ProjectLabel"}, {"source": "design/components/project-path.tsx", "part": "FilePath"}]
+    },
+    {
       "implementation": {"file": "ui/components/ui/DispatchSpec.tsx", "symbol": "DispatchSpec"},
       "design": [{"source": "design/modules/model-configuration.tsx", "part": "DispatchSpec"}]
     },

@@ -2,7 +2,7 @@ import { Frame, Icon } from "adg";
 import { Tile, type TileTone } from "../components/tile";
 import { BrandMark, type Brand } from "../components/brand-mark";
 import SourceArt from "../art/source.svg";
-import { Tag } from "../components/tag";
+import { ProjectLabel } from "../components/project-path";
 import { DispatchSpec } from "./model-configuration";
 import {
   taskDispatch, bubbleForms, stateForms, messageForms, messageExample, taskRowExample, bubbleMeta,
@@ -125,9 +125,9 @@ export function TaskBubble({
           <div
             class={`flex items-center gap-[5px] ${row ? "mt-[3px]" : "mt-0"}`}
           >
-            {row && project && <Tag>{project}</Tag>}
+            {row && project && <ProjectLabel label="项目" name={project} />}
             {dispatch && <DispatchSpec {...dispatch} />}
-            {!row && project && <Tag>{project}</Tag>}
+            {!row && project && <ProjectLabel label="项目" name={project} />}
             {row ? (
               <span class="ml-auto text-caption text-text-tertiary">
                 {date}
@@ -254,7 +254,7 @@ export default () => [
         {...props}
         form={name}
         dispatch={taskDispatch}
-        project={name.startsWith("row") ? bubbleMeta.rowProject : bubbleMeta.project}
+        project={bubbleMeta.project}
         date={bubbleMeta.date}
       />
     </Frame>

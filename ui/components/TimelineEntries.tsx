@@ -13,7 +13,7 @@ import { durationText } from "../lib/duration";
 import { useMedia } from "../state/hooks";
 import type { AgentActivitySession, AgentTimelineEntry, DispatchSummary, TurnTiming } from "../types";
 import { activityApprovals } from "../state/activity";
-import { filePathParts, interactionKey } from "../state/activityModel";
+import { interactionKey } from "../state/activityModel";
 import { entryDuration, timelineGroups, turnDuration, type TimelineGroup } from "../state/timelineGroups";
 import { Button, Icon, IconButton } from "./ui";
 import { SourceBadge, dispatchSourceLabel, PhaseLabel } from "./activity";
@@ -23,7 +23,7 @@ import { answerLabel, interactionSummary, pendingSessions } from "../state/taskI
 import { copyText } from "../platform";
 import { processOpen, projectTurn, taskState, toolSummary, thoughtLine, toolTitle } from "../state/taskProjection";
 import { taskErrorText } from "../state/taskErrors";
-import FilePath from "./FilePath";
+import { FilePath } from "./ui/ProjectPath";
 import TimelineMarkdown, { TimelineResources } from "./TimelineMarkdown";
 
 const stepIcons = { command: Terminal, file: FileText, tool: Wrench, thinking: Brain, text: MessageSquare, user: UserRound, plan: ListChecks, interaction: ShieldAlert, error: AlertCircle, notice: MessageSquare };
@@ -79,16 +79,19 @@ function UserMessage({ text, truncated, open, onChange }: { text: string; trunca
 }
 function ToolTitle({ entry, project }: { entry: AgentTimelineEntry; project?: string | null }) {
   const title = toolTitle(entry);
+  if (entry.path && !entry.command) return <span className="timeline-entry-title">
+    <FilePath path={entry.path} project={project || entry.cwd} cwd={entry.cwd} />
+  </span>;
   return <HoverHelp text={title}><span className="timeline-entry-title mono">
-    {entry.path && !entry.command ? <FilePath path={entry.path} project={project || entry.cwd} /> : title || t(entry.type === "command" ? "activity.phase.command" : entry.type === "file" ? "activity.phase.file" : "activity.phase.tool")}
+    {title || t(entry.type === "command" ? "activity.phase.command" : entry.type === "file" ? "activity.phase.file" : "activity.phase.tool")}
   </span></HoverHelp>;
 }
 function ToolDetails({ entry, project }: { entry: AgentTimelineEntry; project?: string | null }) {
   return <div className="timeline-output">
-    {entry.cwd && <section><span className="timeline-meta">{t("timeline.cwd")}</span><div className="mono">{entry.cwd}</div></section>}
-    {entry.path && <section><span className="timeline-meta">{t("timeline.path")}</span><div className="mono">{filePathParts(entry.path, project || entry.cwd).fullPath}</div></section>}
+    {entry.cwd && <section><span className="timeline-meta">{t("timeline.cwd")}</span><div><FilePath path={entry.cwd} full /></div></section>}
+    {entry.path && <section><span className="timeline-meta">{t("timeline.path")}</span><div><FilePath path={entry.path} project={project} cwd={entry.cwd} full /></div></section>}
     {!!entry.changes?.length && <section><span className="timeline-meta">{t("timeline.changes")}</span><ul className="timeline-files" aria-label={t("timeline.changes")}>{entry.changes.map((change, index) => <li key={`${change.path}:${index}`}>
-      <FilePath path={change.path} project={project || entry.cwd} />
+      <FilePath path={change.path} project={project || entry.cwd} cwd={entry.cwd} />
     </li>)}</ul></section>}
     {entry.input?.text && <section><span className="timeline-meta">{t("timeline.input")}</span><pre>{entry.input.text}</pre></section>}
     {(entry.output?.text || entry.text) && <section><span className="timeline-meta">{t("timeline.output")}</span><pre>{entry.output?.text || entry.text}</pre></section>}
@@ -162,14 +165,14 @@ export function TimelinePlanDock({ entry }: { entry: AgentTimelineEntry }) {
       <progress aria-label={t("timeline.plan")} value={completed} max={steps.length} /><Icon icon={ChevronRight} className="timeline-chevron" /></Collapsible.Trigger>
   </Collapsible.Root>;
 }
-function ToolEntry({ entry, rail = false }: { entry: AgentTimelineEntry; rail?: boolean }) {
+function ToolEntry({ entry, rail = false, project }: { entry: AgentTimelineEntry; rail?: boolean; project?: string | null }) {
   const [open, setOpen] = useState(false);
   const hasDetails = !!(entry.output?.text || entry.input?.text || entry.text || entry.cwd || entry.path || entry.changes?.length || entry.truncated || entry.input?.truncated || entry.output?.truncated);
   return <div className="task-tool-row" data-failed={entry.status === "failed" || undefined}>
     <Fold className="task-tool-entry" open={open} onChange={setOpen} expandable={hasDetails}
-      summary={<>{!rail && <Icon icon={stepIcons[entry.type]} />}<ToolTitle entry={entry} /><span className="task-added">{entry.changes?.some(c => c.added !== undefined) && `+${entry.changes.reduce((n, c) => n + (c.added ?? 0), 0)}`}</span><span className="task-removed">{entry.changes?.some(c => c.removed !== undefined) && `−${entry.changes.reduce((n, c) => n + (c.removed ?? 0), 0)}`}</span><span>{entry.exitCode !== undefined && t("timeline.exitCode", { code: entry.exitCode })}</span></>}>
-      {!!entry.changes?.length && <ChangedFiles entries={[entry]} />}
-      <ToolDetails entry={entry} />
+      summary={<>{!rail && <Icon icon={stepIcons[entry.type]} />}<ToolTitle entry={entry} project={project} /><span className="task-added">{entry.changes?.some(c => c.added !== undefined) && `+${entry.changes.reduce((n, c) => n + (c.added ?? 0), 0)}`}</span><span className="task-removed">{entry.changes?.some(c => c.removed !== undefined) && `−${entry.changes.reduce((n, c) => n + (c.removed ?? 0), 0)}`}</span><span>{entry.exitCode !== undefined && t("timeline.exitCode", { code: entry.exitCode })}</span></>}>
+      {!!entry.changes?.length && <ChangedFiles entries={[entry]} project={project || entry.cwd} cwd={entry.cwd} />}
+      <ToolDetails entry={entry} project={project} />
     </Fold>
     {entry.status === "failed" && <p className="relay-error-line">{(entry.output?.text || entry.text || entry.title || "").split("\n").find(line => line.trim())}</p>}
   </div>;
@@ -187,15 +190,15 @@ function ToolSummary({ entries }: { entries: AgentTimelineEntry[] }) {
   </span>;
 }
 // A lone tool is its own row; consecutive tools fold behind one summary line.
-function ToolRun({ entries }: { entries: AgentTimelineEntry[] }) {
+function ToolRun({ entries, project }: { entries: AgentTimelineEntry[]; project?: string | null }) {
   const [open, setOpen] = useState(false);
-  if (entries.length === 1) return <RailStep icon={entries[0].status === "failed" ? CircleX : stepIcons[entries[0].type]} phase={entries[0].status === "failed" ? "failed" : entries[0].type}><ToolEntry entry={entries[0]} rail /></RailStep>;
+  if (entries.length === 1) return <RailStep icon={entries[0].status === "failed" ? CircleX : stepIcons[entries[0].type]} phase={entries[0].status === "failed" ? "failed" : entries[0].type}><ToolEntry entry={entries[0]} project={project} rail /></RailStep>;
   return <RailStep icon={Wrench} phase="tool"><Fold className="task-tool-run" open={open} onChange={setOpen} summary={<ToolSummary entries={entries} />}>
-    <div className="task-tool-rows">{entries.map(entry => <ToolEntry key={entry.id} entry={entry} />)}</div>
+    <div className="task-tool-rows">{entries.map(entry => <ToolEntry key={entry.id} entry={entry} project={project} />)}</div>
   </Fold></RailStep>;
 }
 function liveToolLabel(entry: AgentTimelineEntry, project?: string | null) {
-  if (entry.path && !entry.command) return <FilePath path={entry.path} project={project || entry.cwd} />;
+  if (entry.path && !entry.command) return <FilePath path={entry.path} project={project || entry.cwd} cwd={entry.cwd} />;
   return toolTitle(entry) || t(entry.type === "file" ? "activity.phase.file" : entry.type === "command" ? "activity.phase.command" : "activity.phase.tool");
 }
 function LiveTool({ entry, now, project }: { entry: AgentTimelineEntry; now: number; project?: string | null }) {
@@ -257,7 +260,7 @@ const TurnCard = memo(function TurnCard({ narrow, group, index, latest, current,
   for (let i = 0; i < visibleRows.length; i++) {
     const row = visibleRows[i];
     if (row.kind !== "tools") { blocks.push(<ProcessEntry key={row.id} entry={row.entry} agent={agent} session={session} streaming={live && row.entry === newestNarration && row.entry.status === "running"} />); continue; }
-    blocks.push(<ToolRun key={row.id} entries={row.entries} />);
+    blocks.push(<ToolRun key={row.id} entries={row.entries} project={session.project} />);
   }
   const process = <section className="relay-work">{live && <header><RelayRoute agent={agent} label={`${t(`detail.state.${state}`)}${duration !== undefined ? ` · ${durationText(duration)}` : ""}`} /></header>}<ol className="task-process-rows">{blocks}{activity && !pending && <LiveActivity activity={activity} now={now} project={session.project} elapsed={duration} />}</ol></section>;
   const processSummary = <span className="task-process-summary"><span>{processLabel(duration)}</span>

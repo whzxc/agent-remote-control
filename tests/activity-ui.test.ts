@@ -287,7 +287,7 @@ function timeline(entries: import("../ui/types.ts").AgentTimelineEntry[]): impor
 
 test("file labels are relative only inside the project and keep the filename separate from the elided directory", async () => {
   // Property: file labels are relative only inside the project and keep the filename separate from the elided directory.
-  const { filePathParts } = await import("../ui/state/activityModel.ts");
+  const { filePathParts } = await import("../ui/lib/projectPath.ts");
   assert.deepEqual(filePathParts("/workspace/example/src/deep/file_name.ts", "/workspace/example"), {
     fullPath: "/workspace/example/src/deep/file_name.ts", displayPath: "src/deep/file_name.ts", directory: "src/deep/", filename: "file_name.ts",
   });
@@ -301,11 +301,25 @@ test("file labels are relative only inside the project and keep the filename sep
   const unicodePath = `/example/目录/${unicodeName}`;
   assert.equal(filePathParts(unicodePath, "/").filename, unicodeName);
   assert.equal(filePathParts("/example/very/long/directory/file.ts").filename, "file.ts");
+  assert.equal(filePathParts("file.ts", "/workspace/example", "/workspace/example/src").displayPath, "src/file.ts");
+  assert.equal(filePathParts("file.ts", "/workspace/example", "/external").displayPath, "/external/file.ts");
+  assert.equal(filePathParts("file.ts", "//Server/Share/Workspace", "\\\\server\\share\\workspace\\src").displayPath, "src/file.ts");
+  assert.equal(filePathParts("~/file.ts", "/workspace/example").fullPath, "~/file.ts");
+});
+
+test("project labels prefer the recorded name and use the directory leaf as a fallback", async () => {
+  // Regression: task cards displayed the beginning of the full workspace path as their project.
+  const { projectLabelParts } = await import("../ui/lib/projectPath.ts");
+  assert.deepEqual(projectLabelParts("Release / Dev", "/workspace/checkout"), { name: "Release / Dev", path: "/workspace/checkout" });
+  assert.deepEqual(projectLabelParts("", "D:\\Work\\Release\\"), { name: "Release", path: "D:\\Work\\Release\\" });
+  assert.equal(projectLabelParts(undefined, "/workspace/tasks/../checkout/")?.name, "checkout");
+  assert.equal(projectLabelParts(undefined, " "), undefined);
 });
 
 test("file approvals use path labels in interaction bubbles and timeline cards", async () => {
   // Property: file approvals use path labels in interaction bubbles and timeline cards.
-  const { activityHeadline, filePathParts } = await import("../ui/state/activityModel.ts");
+  const { activityHeadline } = await import("../ui/state/activityModel.ts");
+  const { filePathParts } = await import("../ui/lib/projectPath.ts");
   const project = "/workspace/example";
   const path = `${project}/nested/deep/approval-file.txt`;
   const interaction = { ...permission, path, summary: path };

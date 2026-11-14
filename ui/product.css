@@ -399,19 +399,17 @@ button.activity-bubble:active, .activity-bubble-shell:active { transform: scale(
 .activity-detail-line { min-width: 0; height: 17px; line-height: 17px; font-size: var(--text-meta); color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .activity-spec-row { display: flex; align-items: center; gap: 5px; min-width: 0; height: 20px; font-size: var(--text-caption); }
 .activity-spec-row:has(> .dispatch-spec) { height: 24px; }
-.activity-meta-chip, .activity-project, .task-state, .task-source-chip { display: inline-flex; flex: none; align-items: center; gap: 3px; height: 20px; border: 0; border-radius: 10px; padding: 0 8px; background: var(--surface-sunken); color: var(--text-secondary); font-size: var(--text-caption); line-height: 20px; white-space: nowrap; }
-.activity-project { display: block; flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.activity-meta-chip, .task-state, .task-source-chip { display: inline-flex; flex: none; align-items: center; gap: 3px; height: 20px; border: 0; border-radius: 10px; padding: 0 8px; background: var(--surface-sunken); color: var(--text-secondary); font-size: var(--text-caption); line-height: 20px; white-space: nowrap; }
 .activity-spec-row .step-trail { margin-left: auto; }
 .activity-spec-row:not(.activity-conversation-meta):has(> .dispatch-spec) {
   display: grid;
   grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto;
 }
-.activity-spec-row:not(.activity-conversation-meta):has(> .dispatch-spec) > .activity-project {
+.activity-spec-row:not(.activity-conversation-meta):has(> .dispatch-spec) > .project-label {
   grid-column: 2;
   justify-self: start;
   box-sizing: border-box;
   max-width: 100%;
-  padding-inline: min(8px, 15%);
 }
 .activity-spec-row:not(.activity-conversation-meta):has(> .dispatch-spec) > .step-trail { grid-column: 3; }
 .activity-source-badge { position: absolute; right: -0.5px; bottom: -0.5px; width: 13px; height: 13px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); color: var(--text-secondary); }
@@ -456,7 +454,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .timeline-summary[data-state=open] > .timeline-chevron { transform: rotate(90deg); }
 .timeline-fold-content { overflow: hidden; }
 .timeline-entry-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.timeline-entry-title .file-path-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .timeline-output { display: grid; gap: 8px; padding: 8px 6px 10px 23px; font-size: var(--text-meta); overflow-wrap: anywhere; }
 .timeline-output section { min-width: 0; }
 .timeline-output pre { margin: 4px 0 0; padding: 8px; background: var(--surface-subtle); border-radius: 6px; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: var(--text-meta)/1.6 var(--font-mono); }
@@ -483,11 +480,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .task-source-chip > span:not(.activity-source-badge) { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .task-source-chip .activity-source-badge { position: static; flex: none; }
 .activity-panel button:focus-visible, button.activity-bubble:focus-visible, .activity-mark-read:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
-
-/* Only the directory shrinks, so the omission sits before the filename. */
-.file-path { display: flex; min-width: 0; max-width: 100%; white-space: nowrap; }
-.file-path-directory { color: var(--text-tertiary); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.file-path-name { flex: none; }
 
 /* Optional topology controls open from the shared navigation capsule. */
 .topology-tuner { display: flex; flex-direction: column; overflow: hidden; width: min(320px, calc(100vw - 32px)); max-height: min(650px, calc(100dvh - 100px), var(--radix-popover-content-available-height, 650px)); box-sizing: border-box; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface-raised); color: var(--text); box-shadow: var(--shadow-md); font-size: var(--text-meta); }
@@ -577,7 +569,7 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .activity-bubble.agent-conversation-row:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
 .activity-created { flex: none; color: var(--text-tertiary); font: var(--text-caption)/17px var(--font-ui); white-space: nowrap; }
 .activity-conversation-meta .activity-created { margin-left: auto; }
-.activity-conversation-meta .activity-project { max-width: 25%; }
+.activity-conversation-meta > .project-label { max-width: 40%; }
 .agent-conversation-more { height: 1px; }
 @keyframes agent-task-rise { from { opacity: 0; translate: 0 5px; } to { opacity: 1; translate: 0 0; } }
 :root[data-reduced-motion="true"] {

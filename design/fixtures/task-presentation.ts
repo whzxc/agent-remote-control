@@ -67,4 +67,4 @@ export const messageExample = "Apply the changes and run the project checks.";
 
 export const taskRowExample = { title: "Review project change 1", meta: "acceptance" };
 
-export const bubbleMeta = { project: "ac…", rowProject: "acceptance", date: "1月1日" };
+export const bubbleMeta = { project: "acceptance", date: "1月1日" };
