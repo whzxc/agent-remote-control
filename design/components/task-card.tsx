@@ -128,5 +128,4 @@ export default () => [
   ...(['failed', 'interrupted'] as const).map(exception => <Frame name={`task-summary-${exception}`} width={260}>
     <TaskCard task={{ ...tasks.find(task => task.id === 'finished')!, exception }} form="summary" />
   </Frame>),
-  <Frame name="task-snapshot-narrow" width={171}><TaskCard task={tasks[2]} form="detail" /></Frame>,
 ];

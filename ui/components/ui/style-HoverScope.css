@@ -1,0 +1,10 @@
+
+.hover-highlight {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--hover);
+  transition: opacity var(--motion-fast) var(--ease-enter);
+}

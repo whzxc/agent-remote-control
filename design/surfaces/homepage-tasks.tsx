@@ -4,7 +4,7 @@ import { TaskGrid } from '../modules/tasks';
 import { NavCapsule } from '../components/nav-capsule';
 import { taskListForms, tasks, tasksCopy as copy } from '../fixtures/tasks';
 
-export default () => taskListForms.map(({ name, width, height }) => {
+export default () => taskListForms.filter(({ name }) => name === 'landscape').map(({ name, width, height }) => {
   const narrow = width < 500, pad = narrow ? 'px-4' : 'px-6';
   const dockInset = width <= 600 ? 16 : 24;
   const today = tasks.filter(task => task.group !== 'recent');

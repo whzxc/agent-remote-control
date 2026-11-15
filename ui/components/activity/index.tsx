@@ -1,4 +1,4 @@
-import { Tooltip as HoverHelp } from "../ui/index";
+import { SourceMark } from "../ui/SourceMark";
 import { useId, type CSSProperties, type ReactNode } from "react";
 import { Brain, Terminal, Pencil, Wrench, MessageSquare, ShieldAlert, CirclePause, Circle, AlertCircle, Check } from "lucide-react";
 import type { AgentPhase, DispatchSummary } from "../../types";
@@ -33,9 +33,6 @@ export function SourceBadge({ source, inline = false }: { source: NonNullable<Di
   return <SourceMark label={dispatchSourceLabel(source)} inline={inline}>
     {source.kind === "local-cli" ? <Icon icon={Terminal} /> : <SourceIcon platform={source.kind ?? ""} />}
   </SourceMark>;
-}
-export function SourceMark({ label, inline, children }: { label: string; inline?: boolean; children: ReactNode }) {
-  return <HoverHelp text={label}><span className={inline ? "activity-source-mark" : "activity-source-badge"} role="img" aria-label={label}>{children}</span></HoverHelp>;
 }
 export function PhaseLabel({ phase, running = false, completed = false, children }: {
   phase: AgentPhase; running?: boolean; completed?: boolean; children: ReactNode;

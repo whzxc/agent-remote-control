@@ -39,7 +39,6 @@ button.center-row:focus-visible { outline: 2px solid var(--accent); outline-offs
 .center-pill[data-tone="danger"] { background: var(--danger-soft); color: var(--danger); }
 .center-pill[data-tone="success"] { background: var(--success-soft); color: var(--success); }
 .center-chips { display: flex; flex-wrap: wrap; gap: var(--space-1); min-width: 0; }
-.center-chip { max-width: 100%; padding: 0 6px; border: 1px solid var(--border); border-radius: 6px; color: var(--text-secondary); font-size: 11px; line-height: 18px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 
 .center-list[data-empty] { display: grid; height: 100%; }
 

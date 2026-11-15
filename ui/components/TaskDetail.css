@@ -1,3 +1,6 @@
+@import "./ui/TaskDetail-TaskPresentation.css";
+@import "./ui/TaskDetail-Dialog.css";
+@import "./ui/TaskDetail-controls.css";
 .task-detail-layer { container-type: inline-size; }
 .task-detail-layer .timeline-error, .task-queue-error { min-width: 0; overflow-wrap: anywhere; }
 .task-queue-error { color: var(--danger); font-size: var(--text-small); }
@@ -6,7 +9,6 @@
 .task-detail-chips { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; margin-bottom: 12px; }
 .task-spec-choice { display: inline-flex; flex-shrink: 1; min-width: 0; max-width: 100%; border: 0; padding: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
 .task-spec-choice:focus-visible { border-radius: var(--radius-pill); }
-.task-source-chip .activity-source-badge { width: 12px; height: 12px; background: transparent; box-shadow: none; }
 .task-turn-progress { display: flex; gap: 4px; }
 .task-turn-progress > div { flex: 1; height: 3px; min-width: 0; overflow: hidden; border-radius: 4px; background: var(--surface-sunken); color: var(--text-tertiary); }
 .task-turn-progress > [data-state=done] { color: var(--success); }
@@ -15,12 +17,6 @@
 .task-turn-progress > [data-state=failed] { color: var(--danger); }
 .task-turn-progress > div > span { display: block; height: 100%; background: currentColor; border-radius: inherit; }
 .task-turn-progress > [data-indeterminate] > span { width: 100%; }
-.task-detail-chips > .task-state { height: 24px; gap: 4px; border-radius: 12px; font-size: var(--text-meta); font-weight: 600; }
-.task-state::before { content: ""; width: 6px; height: 6px; background: currentColor; border-radius: 50%; }
-.task-state[data-state=running] { color: var(--accent-text); background: color-mix(in srgb, var(--accent-text) 15%, transparent); }
-.task-state[data-state=needsYou] { color: var(--warning); background: color-mix(in srgb, var(--warning) 15%, transparent); }
-.task-state[data-state=done] { color: var(--success); background: color-mix(in srgb, var(--success) 15%, transparent); }
-.task-state[data-state=failed] { color: var(--danger); background: color-mix(in srgb, var(--danger) 15%, transparent); }
 .task-detail-layer .timeline-entries { padding: 19px 0 20px; gap: 16px; }
 .task-turn, .task-turn-content, .task-process-rows { min-width: 0; }
 .task-turn-content { display: flex; flex-direction: column; gap: 16px; }
@@ -61,7 +57,6 @@
 .task-live-row .timeline-summary > .icon:first-child { color: var(--phase-color); }
 .task-live-label { display: flex; flex: 1; min-width: 0; }
 .task-live-label > .phase-label { white-space: nowrap; }
-.task-live-label.mono { font-family: var(--font-mono); }
 .task-live-row time { flex: none; font-variant-numeric: tabular-nums; }
 .task-live-log { margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; border-radius: var(--radius-field); background: var(--surface-sunken); color: var(--text); overflow-x: auto; font: var(--text-meta)/20px var(--font-mono); }
 .task-process-trigger.timeline-summary { width: fit-content; max-width: 100%; min-height: 20px; padding: 0; border-radius: 0; background: none; color: var(--text-secondary); font: var(--text-meta)/20px var(--font-ui); gap: 8px; }
@@ -69,12 +64,10 @@
 .task-process > [data-state=open] > .relay-work { padding-top: 16px; }
 .task-final, .task-outcome { font-size: var(--text-body); line-height: 22px; overflow-wrap: anywhere; }
 .task-final > header { display: flex; align-items: center; gap: 8px; min-height: 16px; font-size: var(--text-meta); color: var(--success); }
-.task-final > header > .icon-button { margin-left: auto; margin-block: -7px; }
 .task-changes { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font-size: var(--text-meta); color: var(--text-secondary); }
 .task-changes[data-single] > strong::after { content: " ·"; }
 .task-change-row { display: flex; align-items: baseline; gap: 6px; min-width: 0; color: var(--text); }
 .task-changes-more { display: grid; gap: 6px; width: 100%; }
-.task-changes-summary.button { --control-height: 28px; justify-content: flex-start; padding: 0; font: inherit; }
 .task-changes-summary[aria-expanded=true] > .timeline-chevron { transform: rotate(90deg); }
 .task-file-operation { flex: none; font-size: var(--text-meta); color: var(--success); }
 .task-file-operation[data-operation=delete], .task-removed { color: var(--danger); }
@@ -126,7 +119,6 @@
 .task-receipt-anchor [data-verdict=bypass] { color: var(--accent); }
 .task-detail-layer.agent-panel-layer > .task-timeline { flex: 1 1 auto; min-height: 0; padding: 0; }
 .task-detail-layer.agent-panel-layer > .task-detail-footer { flex: 0 1 auto; flex-wrap: nowrap; justify-content: flex-start; max-height: 60%; min-height: 0; overflow: hidden; }
-.dialog-description .request-routing-inline { color: inherit; }
 .task-input-sheet { display: flex; flex: 1; min-height: 0; min-width: 0; }
 .task-input-sheet .task-needs-you { flex: 1; }
 .task-timeline { position: relative; }
@@ -136,8 +128,6 @@
 .task-review-info[data-verdict="rework"] > header { color: var(--warning); }
 .task-review-info > p { margin: 0; white-space: pre-wrap; }
 :root[data-reduced-motion="true"] .task-detail-layer * { animation: none !important; transition: none !important; }
-
-.node-panel:has(.task-detail-layer) .task-detail-header .task-detail-navigation .icon-button { --icon-button-size: var(--control-height); }
 
 .task-needs-you > header, .task-needs-you > nav, .task-request-card > :not(.task-question, .task-request-preview), .task-question > :not(.task-question-options) { flex-shrink: 0; }
 .task-question { flex: 1 1 auto; }

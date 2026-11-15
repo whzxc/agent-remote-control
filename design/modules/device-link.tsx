@@ -65,7 +65,7 @@ export function DeviceRevokeDialog({ locale, memberSide }: Localized & { memberS
     </div>
   </Dialog>;
 }
-export default () => locales.flatMap(locale => [
+export default () => (['en'] as const).flatMap(locale => [
   ...pairStates.map(state => <Frame name={`device-pair-${state}-${locale}`}
     fixture={`device-pair-${state}-${locale}@light`} capture={{ selector: ".device-dialog", viewport: "1280x800" }}>
     <DevicePairDialog locale={locale} state={state} />

@@ -3,6 +3,9 @@ import path from 'node:path';
 
 // Compare preparations use the same fixture data and public controls as accept:ui.
 const prepared = {
+  'model-dialog': { scenario: 'timeline-multi-turn', modelDialog: true },
+  'model-picker': { scenario: 'timeline-multi-turn', modelPicker: true },
+  'model-menu': { scenario: 'timeline-multi-turn', modelPicker: true, modelMenu: true },
   'board-ax-closed': { scenario: 'coordination-ax-light', axClosed: true },
   'board-ax-detail': { scenario: 'coordination-ax-light', axClosed: true },
   'approval-permission': { scenario: 'approval', task: '打开任务详情: 阅读项目说明' },
@@ -61,6 +64,14 @@ export default {
         await dialog.waitFor();
         if (!scenario.includes('-oauth-')) await dialog.getByRole('radio', { name: '导入凭据', exact: true }).click();
         if (scenario.includes('-external-')) await dialog.getByRole('radio', { name: '外部托管', exact: true }).click();
+      }
+      if (preparation?.modelPicker || preparation?.modelDialog) {
+        await page.getByRole('button', { name: '本任务模型', exact: true }).click();
+        await page.locator('.task-dispatch-fields .select-trigger').waitFor();
+        if (preparation.modelPicker) await page.locator('.task-dispatch-fields .select-trigger').click();
+        if (preparation.modelMenu) {
+          await page.getByRole('button', { name: '默认模型: 跟随任务', exact: true }).click();
+        }
       }
       if (preparation?.task) {
         // Scope panel rows so an identically named topology bubble cannot win.

@@ -19,7 +19,7 @@ import { t } from "../i18n";
 import type { AgentTimeline } from "../types";
 import { activityApprovals, agentActivity, openActivitySession } from "../state/activity";
 import { followsTimeline, refreshTimeline, reuseTimelineEntries, timelineScrollTarget } from "../state/timelineModel";
-import { Button, Icon, IconButton, LoadingIndicator, Menu, Notice } from "./ui";
+import { Button, Icon, IconButton, LoadingIndicator, Menu, Notice, Tag } from "./ui";
 import TimelineEntries, { TimelinePlanDock } from "./TimelineEntries";
 import { PhaseLabel } from "./activity";
 import { TaskSpecChoice } from "./AgentDispatchDefaults";
@@ -304,7 +304,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
       <div className="task-detail-chips"><TaskRelation kind={relationKind} />{detailPhase
         ? <PhaseLabel phase={detailPhase} running>{t(`activity.phase.${detailPhase}`)}</PhaseLabel>
         : !taskException(state) && <span className="task-state" role="status" data-state={state}>{t(`detail.state.${state}`)}</span>}
-        {session.selectedTurnId && groups.some(group => group.turnId === session.selectedTurnId) && <span className="activity-meta-chip">{t("detail.selectedTurn", { count: groups.findIndex(group => group.turnId === session.selectedTurnId) + 1 })}</span>}
+        {session.selectedTurnId && groups.some(group => group.turnId === session.selectedTurnId) && <Tag>{t("detail.selectedTurn", { count: groups.findIndex(group => group.turnId === session.selectedTurnId) + 1 })}</Tag>}
         <TaskOwnership ownership={timeline?.ownership} />
       </div>
       {parentSession && <TaskListCard task={localTaskCard(agent, parentSession)} now={now} form="summary" description={t("activity.parentThread")}

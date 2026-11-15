@@ -233,9 +233,6 @@
           "part": "Dialog"
         },
         {
-          "source": "design/surfaces/layers.tsx"
-        },
-        {
           "source": "design/components/panel.tsx",
           "part": "PanelLoading"
         }
@@ -260,9 +257,6 @@
         {
           "source": "design/components/panel.tsx",
           "part": "DialogDismissalFooter"
-        },
-        {
-          "source": "design/surfaces/layers.tsx"
         }
       ]
     },
@@ -465,9 +459,6 @@
         {
           "source": "design/components/nav-capsule.tsx",
           "part": "NavCapsule"
-        },
-        {
-          "source": "design/surfaces/layers.tsx"
         }
       ]
     },
@@ -718,10 +709,6 @@
         {
           "source": "design/modules/task-relationships.tsx",
           "part": "TaskDetailHeader"
-        },
-        {
-          "source": "design/modules/task-relationships.tsx",
-          "part": "TaskFamily"
         },
         {
           "source": "design/modules/timeline.tsx",
@@ -1003,32 +990,6 @@
         {
           "source": "design/components/topology-scene.tsx",
           "part": "TopologyScene"
-        },
-        {
-          "source": "design/modules/device-topology.tsx",
-          "part": "DeviceNode"
-        },
-        {
-          "source": "design/modules/device-topology.tsx",
-          "part": "DeviceNodePanel"
-        },
-        {
-          "source": "design/modules/device-topology.tsx",
-          "part": "ControllerSourcePanel"
-        },
-        {
-          "source": "design/modules/device-topology.tsx",
-          "part": "DeviceBranch"
-        },
-        {
-          "source": "design/modules/device-topology.tsx",
-          "part": "PortraitDeviceBranch"
-        },
-        {
-          "source": "design/surfaces/layers.tsx"
-        },
-        {
-          "source": "design/surfaces/device-link-topology.tsx"
         },
         {
           "source": "design/surfaces/homepage-topology-accounts.tsx"
@@ -1700,26 +1661,6 @@
         {
           "source": "design/modules/device-link.tsx",
           "part": "DeviceRevokeDialog"
-        },
-        {
-          "source": "design/modules/device-topology.tsx",
-          "part": "DeviceNode"
-        },
-        {
-          "source": "design/modules/device-topology.tsx",
-          "part": "DeviceNodePanel"
-        },
-        {
-          "source": "design/modules/device-topology.tsx",
-          "part": "ControllerSourcePanel"
-        },
-        {
-          "source": "design/modules/device-topology.tsx",
-          "part": "DeviceBranch"
-        },
-        {
-          "source": "design/modules/device-topology.tsx",
-          "part": "PortraitDeviceBranch"
         }
       ]
     },
@@ -1768,9 +1709,6 @@
         "file": "ui/components/ui/layerFrame.ts"
       },
       "design": [
-        {
-          "source": "design/surfaces/layers.tsx"
-        },
         {
           "source": "design/components/panel.tsx",
           "part": "Panel"
@@ -1980,32 +1918,6 @@
           "part": "TopologyScene"
         },
         {
-          "source": "design/modules/device-topology.tsx",
-          "part": "DeviceNode"
-        },
-        {
-          "source": "design/modules/device-topology.tsx",
-          "part": "DeviceNodePanel"
-        },
-        {
-          "source": "design/modules/device-topology.tsx",
-          "part": "ControllerSourcePanel"
-        },
-        {
-          "source": "design/modules/device-topology.tsx",
-          "part": "DeviceBranch"
-        },
-        {
-          "source": "design/modules/device-topology.tsx",
-          "part": "PortraitDeviceBranch"
-        },
-        {
-          "source": "design/surfaces/layers.tsx"
-        },
-        {
-          "source": "design/surfaces/device-link-topology.tsx"
-        },
-        {
           "source": "design/surfaces/homepage-topology-accounts.tsx"
         },
         {
@@ -2181,6 +2093,228 @@
         {
           "source": "design/components/topology-scene.tsx",
           "part": "TopologyScreen"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/controls.css"
+      },
+      "design": [
+        {
+          "source": "design/components/button.tsx"
+        },
+        {
+          "source": "design/components/single-choice.tsx"
+        },
+        {
+          "source": "design/components/field.tsx"
+        },
+        {
+          "source": "design/components/tag.tsx"
+        },
+        {
+          "source": "design/components/tooltip.tsx"
+        },
+        {
+          "source": "design/components/notice.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/product-controls.css"
+      },
+      "design": [
+        {
+          "source": "design/components/button.tsx"
+        },
+        {
+          "source": "design/components/single-choice.tsx"
+        },
+        {
+          "source": "design/components/field.tsx"
+        },
+        {
+          "source": "design/components/tag.tsx"
+        },
+        {
+          "source": "design/components/tooltip.tsx"
+        },
+        {
+          "source": "design/components/notice.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/style-controls.css"
+      },
+      "design": [
+        {
+          "source": "design/components/button.tsx"
+        },
+        {
+          "source": "design/components/single-choice.tsx"
+        },
+        {
+          "source": "design/components/field.tsx"
+        },
+        {
+          "source": "design/components/tag.tsx"
+        },
+        {
+          "source": "design/components/tooltip.tsx"
+        },
+        {
+          "source": "design/components/notice.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TaskDetail-controls.css"
+      },
+      "design": [
+        {
+          "source": "design/components/button.tsx"
+        },
+        {
+          "source": "design/components/single-choice.tsx"
+        },
+        {
+          "source": "design/components/field.tsx"
+        },
+        {
+          "source": "design/components/tag.tsx"
+        },
+        {
+          "source": "design/components/tooltip.tsx"
+        },
+        {
+          "source": "design/components/notice.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/style-Settings.css"
+      },
+      "design": [
+        {
+          "source": "design/components/settings-row.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/style-Dialog.css"
+      },
+      "design": [
+        {
+          "source": "design/components/panel.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/style-HoverScope.css"
+      },
+      "design": [
+        {
+          "source": "design/components/tooltip.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/product-TaskPresentation.css"
+      },
+      "design": [
+        {
+          "source": "design/components/task-presentation.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TaskDetail-TaskPresentation.css"
+      },
+      "design": [
+        {
+          "source": "design/components/task-presentation.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/product-Markdown.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/timeline.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/SourceMark.tsx"
+      },
+      "design": [
+        {
+          "source": "design/components/source-mark.tsx",
+          "part": "SourceMark"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/SourceMark.css"
+      },
+      "design": [
+        {
+          "source": "design/components/source-mark.tsx",
+          "part": "SourceMark"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/product-Dialog.css"
+      },
+      "design": [
+        {
+          "source": "design/components/panel.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/product-Settings.css"
+      },
+      "design": [
+        {
+          "source": "design/components/settings-row.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TaskDetail-Dialog.css"
+      },
+      "design": [
+        {
+          "source": "design/components/panel.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/product-HoverScope.css"
+      },
+      "design": [
+        {
+          "source": "design/components/tooltip.tsx"
         }
       ]
     }

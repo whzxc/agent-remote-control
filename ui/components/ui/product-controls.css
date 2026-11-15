@@ -1,0 +1,12 @@
+
+.graph-error .notice {
+  padding: 8px 12px;
+}
+.activity-actions .button { flex: none; }
+.timeline-user-toggle.button { --control-height:28px; margin-top:var(--space-1); padding:var(--space-1) 0; font-size:var(--text-meta); color:var(--text-secondary); }
+.timeline-user-toggle.button, .timeline-user-toggle.button:hover:not(:disabled) { background: transparent; }
+.topology-parameter .input { height: var(--control-height); min-height: 0; padding: 4px 6px; text-align: right; font-variant-numeric: tabular-nums; }
+.hosted-relay-danger > .button { margin-left: auto; }
+.account-name .button { height: 24px; max-width: 100%; }
+.account-name .button span, .account-email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hosting-empty-group > .button { --button-width: 186px; }

@@ -51,6 +51,7 @@ async function main() {
   if (extended) env.ARC_TEST_BINARY = path.resolve(process.env.CARGO_TARGET_DIR || 'target', 'debug', process.platform === 'win32' ? 'arc.exe' : 'arc');
   const run = (file, argv) => runTestCommand(file, argv, { env, timeoutMs: deadline === undefined ? undefined : deadline - performance.now() });
   await run(process.execPath, ['tooling/check-tests.mjs']);
+  await run(process.execPath, ['tooling/check-ui-styles.mjs']);
   if (extended) {
     try {
       await run('cargo', ['test', '--locked', '--manifest-path', 'native/Cargo.toml', '--lib']);

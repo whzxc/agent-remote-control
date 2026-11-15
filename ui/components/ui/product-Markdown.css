@@ -1,0 +1,6 @@
+
+.markdown { font-size: 14px; line-height: 22px; overflow-wrap: anywhere; }
+.markdown h1, .markdown h2, .markdown h3 { font-size: 16px; margin: 16px 0 8px; }
+.markdown p { margin: 8px 0; white-space: pre-wrap; }
+.markdown pre { overflow: auto; padding: 12px; background: var(--hover); border-radius: var(--radius-tile); }
+.markdown code { font-family: var(--font-mono); background: var(--hover); }

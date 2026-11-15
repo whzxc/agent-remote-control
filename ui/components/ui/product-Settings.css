@@ -1,0 +1,9 @@
+
+.setting-field:has(.setting-copy > p) { padding-block: 23px; }
+.setting-field:has(.setting-copy > p) .setting-copy > label { line-height: 16px; }
+.setting-field .setting-copy > p { margin-top: 6px; }
+
+.setting-toggle:has(.setting-copy > p) { min-height: 0; padding-block: 15px; }
+.setting-toggle:has(.setting-copy > p) .setting-copy > label { line-height: 16px; }
+.setting-toggle .setting-copy > p { margin-top: 6px; }
+.display-settings .setting-toggle:has(.setting-copy > p) { padding-top: 17px; padding-bottom: 9px; }

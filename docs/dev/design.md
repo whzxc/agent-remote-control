@@ -77,12 +77,10 @@ invented step duration, or inferred waiting phase. All rendered content is ficti
 
 ### Device level
 
-`surfaces/device-link-topology.tsx` composes the proposed paired-device level using
-`modules/device-topology.tsx`. Static landscape frames cover LAN, Tunnel, offline, merged
-single-Agent collapse/expansion, the device panel and the member controller source
-with optional upstream sources off/on. The ARC mark, earcups, local tier-1 Agents and
-shared navigation capsule remain part of the homepage. Device management temporarily
-folds its child branch while the panel is open, using explicit structural disclosure.
+The runtime topology owns one-hop device geometry and controller-source disclosure.
+Device management forms remain in `modules/device-link.tsx`. Browser scenarios own
+landscape, portrait, offline and merged-device coverage. The former hand-positioned
+device branch and viewport matrix were removed because they no longer matched the solver.
 
 #### Working node capsule
 
@@ -134,8 +132,7 @@ Explicit horizontal pan reveals deeper device/Agent/account columns without refl
 HomepageBar and navigation stay fixed. The root, branch and account
 viewport frames show this proposal. Pan never follows task activity. Remote sibling
 accounts/profiles continue to fold with TopologyGroup.
-These frames are user-approved. The separate Devices workspace, navigation entry and summary sources are retired. See the mapping for
-retirement scope and Known gaps.
+The browser scenarios retain the narrow layout coverage. The separate Devices workspace, navigation entry and summary sources are retired.
 
 ## Ownership and project configuration
 

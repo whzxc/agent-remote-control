@@ -1,0 +1,2 @@
+
+.task-state { display: inline-flex; flex: none; align-items: center; gap: 3px; height: 20px; border: 0; border-radius: 10px; padding: 0 8px; background: var(--surface-sunken); color: var(--text-secondary); font-size: var(--text-caption); line-height: 20px; white-space: nowrap; }

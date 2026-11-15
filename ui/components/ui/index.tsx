@@ -51,8 +51,11 @@ export { ErrorCallout, LoadingIndicator } from "./Feedback";
 export { DataTable, Pagination } from "./DataTable";
 export type IconSize = 10 | 12 | 13 | 14 | 16 | 18 | 20 | 24 | 26 | 28 | 32;
 /** A compact label. `spec` names a choice, `fact` states a property and `danger` flags a risk. */
-export function Tag({ children, title, id, form = "spec" }: { children: ReactNode; title?: string; id?: string; form?: "spec" | "fact" | "danger" }) {
-  return <Tooltip text={title}><span id={id} className="tag" data-form={form}>{children}</span></Tooltip>;
+export function Tag({ children, title, id, form = "spec", tone }: {
+  children: ReactNode; title?: string; id?: string; form?: "spec" | "fact" | "danger" | "resource" | "status";
+  tone?: "success" | "warning";
+}) {
+  return <Tooltip text={title}><span id={id} className="tag" data-form={form} data-tone={tone}>{children}</span></Tooltip>;
 }
 /** A fact-sized button that shows or hides related content. */
 export function Disclosure({ expanded, controls, onToggle, children }: { expanded: boolean; controls?: string; onToggle: () => void; children: ReactNode }) {

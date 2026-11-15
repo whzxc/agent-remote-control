@@ -140,7 +140,7 @@ Motion owns layer entry, exit, content crossfades and geometry transitions. Dial
 
 ## Functional pages
 
-Agent panels retain task rows and execution details. [design/surfaces/agent-panel.tsx](../../design/surfaces/agent-panel.tsx) defines the overview and empty forms, and [task presentation](../../design/components/task-presentation.tsx) defines TaskBubble and TaskRow. [Agent activity](../../design/modules/agent-activity.tsx) and [source activity](../../design/modules/source-activity.tsx) own their grouping, metadata and disclosure policy. There is no standalone Tasks page. React renders titles, code, and lists without executing raw HTML.
+Agent panels retain task rows and execution details. [design/surfaces/agent-panel.tsx](../../design/surfaces/agent-panel.tsx) defines the overview and empty forms, and [task presentation](../../design/components/task-presentation.tsx) defines StatePill and TaskMessage. [Agent activity](../../design/modules/agent-activity.tsx) and [source activity](../../design/modules/source-activity.tsx) own their grouping, metadata and disclosure policy. There is no standalone Tasks page. React renders titles, code, and lists without executing raw HTML.
 
 Request logs remain available through native management interfaces; there is no standalone Records page.
 
@@ -168,11 +168,11 @@ Check light/dark, narrow windows, long Chinese/English text, keyboard traversal,
 
 ## Execution specifications
 
-Task cards, timeline headers, and model and effort picker triggers share the [dispatch spec](../../design/modules/model-configuration.tsx). The [effort gauge](../../design/modules/model-configuration.tsx) uses the matching model's ordered levels and points to the recorded or previewed level. Unmapped effort values remain available through the execution spec label and tooltip. Fast reflects the recorded service tier. Editable defaults retain the stepped slider and preview the selected level with the same gauge.
+Task cards, timeline headers, and model and effort picker triggers share the [dispatch spec](../../design/components/dispatch-spec.tsx). The [effort gauge](../../design/components/dispatch-spec.tsx) uses the matching model's ordered levels and points to the recorded or previewed level. Unmapped effort values remain available through the execution spec label and tooltip. Fast reflects the recorded service tier. Editable defaults retain the stepped slider and preview the selected level with the same gauge.
 
 ## Task detail projection
 
-Task detail presentation composes [timeline parts](../../design/modules/timeline.tsx) in [task-detail.tsx](../../design/surfaces/task-detail.tsx); request sheets follow [request module](../../design/modules/request.tsx), and task model selection follows [model configuration](../../design/modules/model-configuration.tsx). Shared question choices, effort selection and actionable routing follow [single-choice.tsx](../../design/components/single-choice.tsx), [effort slider](../../design/modules/model-configuration.tsx) and [request routing](../../design/modules/request.tsx).
+Task detail presentation composes [timeline parts](../../design/modules/timeline.tsx) in [task-detail.tsx](../../design/surfaces/task-detail.tsx); request sheets follow [request module](../../design/modules/request.tsx), and task model selection follows [model configuration](../../design/modules/model-configuration.tsx). Shared question choices, effort selection and actionable routing follow [single-choice.tsx](../../design/components/single-choice.tsx), [effort slider](../../design/modules/model-configuration.tsx) and [request routing](../../design/components/request.tsx).
 
 Task detail uses the approved relay frames. The header reads controller → Agent · workspace. Instructions use left-aligned source-edged cards with dispatch, follow-up or queued kind. Only an ARC dispatch record attributes a prompt to a control source; unattributed prompts use a neutral Prompt card.
 

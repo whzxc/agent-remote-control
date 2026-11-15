@@ -2,8 +2,7 @@ import { Frame, Icon } from "adg";
 import type { TileTone } from "../components/tile";
 import { TaskCard, TaskCardHeader, type TaskSnapshotData } from '../components/task-card';
 import { origins } from "../fixtures/tasks";
-import { TopologyScene } from '../components/topology-scene';
-import { parentTitle, family, positions, headers, familyExample, linkRows, branchRows, relationKinds } from '../fixtures/task-relationships';
+import { parentTitle, family, headers, familyExample, relationKinds } from '../fixtures/task-relationships';
 
 export type RelationKind = "side-chat" | "subagent";
 export type RelationTask = {
@@ -68,95 +67,7 @@ export function TaskDetailHeader({
     </section>
   );
 }
-export function TaskFamily() {
-  return (
-    <TopologyScene
-      width={1140}
-      height={820}
-      links={linkRows.map((y) => ({
-        from: { x: 101, y: 230 },
-        to: { x: 160, y: y + 30 },
-        controls: [
-          { x: 130, y: 230 },
-          { x: 120, y: y + 30 },
-        ],
-      }))}
-      items={[
-        ...family.map((task, i) => ({
-          ...positions[i],
-          content: <RelationTaskCard {...task} />,
-        })),
-        {
-          x: 43,
-          y: 201,
-          content: (
-            <div class="flex flex-col items-center gap-2">
-              <div
-                class="grid size-[58px] place-items-center rounded-[29px] border-2 border-role-agent bg-surface text-role-agent"
-              >
-                <Icon name="terminal" size={24} />
-              </div>
-              <strong class="text-body text-text">{familyExample.agent}</strong>
-            </div>
-          ),
-        },
-        {
-          x: 208,
-          y: 346,
-          content: (
-            <div
-              class="flex items-center gap-[10px] w-[194px] h-9 px-3 rounded-control bg-surface-subtle text-meta text-text-secondary"
-            >
-              <Icon name="chevron-down" size={14} />
-              {familyExample.moreLabel}
-            </div>
-          ),
-        },
-        ...headers.flatMap(({ index, y, note }) => [
-          {
-            x: 676,
-            y: y * 1.45 - 29,
-            content: (
-              <span class="font-mono text-caption leading-[14px] text-text-tertiary">
-                {note}
-              </span>
-            ),
-          },
-          {
-            x: 676,
-            y: y * 1.45,
-            content: (
-              <TaskDetailHeader
-                agent={familyExample.agent}
-                {...family[index]}
-                kind={family[index].kind!}
-                parentTitle={parentTitle}
-              />
-            ),
-          },
-        ]),
-      ]}
-    >
-      <svg
-        class="absolute inset-0 pointer-events-none"
-        width={1140}
-        height={820}
-        fill="none"
-        stroke="var(--border-strong)"
-        stroke-width="1.75"
-        stroke-linecap="round"
-      >
-        <path d="M182 110V352Q182 364 194 364H208" />
-        {branchRows.map((y) => (
-          <path d={`M182 ${y}H208`} />
-        ))}
-      </svg>
-    </TopologyScene>
-  );
-}
-
 export default () => [
-  <Frame name="task-family" width={1140} height={820}><TaskFamily /></Frame>,
   ...relationKinds.map((kind, i) => (
     <Frame name={`task-relation-${kind}`} width={i === 0 ? 83 : 84}>
       <div class="flex w-full bg-surface-raised text-meta leading-4"><TaskRelation kind={kind} /></div>

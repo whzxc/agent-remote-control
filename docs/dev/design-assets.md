@@ -17,9 +17,8 @@
 
 ## Known gaps
 
-- Device topology sources require reconciliation with the current solver, controller disclosure and one-hop device implementation. Remove unreachable combinations and diagram-style frames.
-- Locale-only, width-only and redundant state combinations require frame admission cleanup.
-- `agent-platform/native` has no reachable route in current fixtures. Zero-account native Agents open history; remove this frame rather than substituting another route.
+- Device topology has no retained full-scene asset. A replacement must use current solver geometry and controller disclosure; existing browser scenarios cover the implementation.
+- Remaining combined component specimens need review for distinct-appearance coverage.
 - Remote task cards have snapshot history. Remote timeline, response forwarding, account/quota inventory and transfer controls remain unavailable.
 - Loading, failure, not-found, busy, pagination, Board detail/event rows and populated hosting forms without declared sources need coverage in their owning family.
 - Shared controls still have geometry, typography and state differences: Button wrapping, Input error spacing, CopyField masking/loading, SearchInput entered-value color, Notice spacing, CardHeader layout and settings section typography. Reconcile each with the current implementation.

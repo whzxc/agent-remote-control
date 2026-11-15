@@ -1,0 +1,6 @@
+
+.task-live-label.mono { font-family: var(--font-mono); }
+.task-final > header > .icon-button { margin-left: auto; margin-block: -7px; }
+.task-changes-summary.button { --control-height: 28px; justify-content: flex-start; padding: 0; font: inherit; }
+
+.node-panel:has(.task-detail-layer) .task-detail-header .task-detail-navigation .icon-button { --icon-button-size: var(--control-height); }

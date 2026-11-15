@@ -16,9 +16,6 @@ export function FilePath({ directory, filename, fullPath, full = false }: { dire
 
 export default () => [
   <Frame name="project"><ProjectLabel name="Acceptance" path="/workspace/acceptance" /></Frame>,
-  <Frame name="project-compact" width={88} locale="zh-CN">
-    <ProjectLabel label="项目" name="Acceptance workspace" path={"C:\\Work\\acceptance"} />
-  </Frame>,
   <Frame name="file-relative" width={200}>
     <FilePath directory="packages/connector/src/" filename="session.ts" fullPath="/workspace/acceptance/packages/connector/src/session.ts" />
   </Frame>,

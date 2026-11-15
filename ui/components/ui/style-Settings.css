@@ -1,0 +1,35 @@
+
+.settings-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  min-height: 64px;
+  padding: 14px 2px;
+  border-bottom: 1px solid var(--border);
+}
+.settings-row:last-child {
+  border-bottom: 0;
+}
+.row-copy {
+  min-width: 0;
+  flex: 1;
+}
+.row-copy > label,
+.row-copy > .row-title {
+  font-weight: 500;
+}
+.row-copy > p,
+.row-copy > .row-description {
+  color: var(--text-secondary);
+  font-size: var(--text-meta);
+  margin-top: 4px;
+}
+.settings-row.settings-row-navigation {
+  width: 100%;
+  text-align: start;
+  font: inherit;
+  border: 0;
+  flex-wrap: nowrap;
+}
+.settings-row-navigation .row-copy { min-width: 0; }

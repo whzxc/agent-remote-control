@@ -5,11 +5,18 @@ export function Tag({
   children,
   form = "spec",
   icon,
+  tone,
 }: {
   children?: unknown;
-  form?: "spec" | "meta" | "fact" | "danger" | "ownership";
+  form?: "spec" | "meta" | "fact" | "danger" | "ownership" | "resource" | "status";
+  tone?: "success" | "warning";
   icon?: string;
 }) {
+  if (form === "resource") return <span class="max-w-full overflow-hidden whitespace-nowrap text-ellipsis rounded-[6px]
+    border border-border px-[6px] text-[11px] leading-[18px] text-text-secondary">{children}</span>;
+  if (form === "status") return <span class={`inline-flex items-center gap-1 whitespace-nowrap rounded-(--radius-pill)
+    px-2 py-1 text-meta ${tone === "success" ? "text-success bg-success-soft" : tone === "warning" ? "text-warning bg-warning-soft" : "text-text-secondary bg-surface-subtle"}`}>
+    {icon && <Icon name={icon} size={tone === "success" ? 16 : 6} />}{children}</span>;
   const small = form === "meta" || form === "spec" || form === "danger";
   return (
     <span
@@ -44,9 +51,14 @@ export function Disclosure({ expanded = false, children }: { expanded?: boolean;
     </span>
   );
 }
-export default () =>
-  forms.map(({ name, text }) => (
+export default () => [
+  <Frame name="resource"><Tag form="resource">Agent</Tag></Frame>,
+  <Frame name="status-ready"><Tag form="status" tone="success" icon="check">Granted</Tag></Frame>,
+  <Frame name="status-missing"><Tag form="status" tone="warning" icon="circle">Missing</Tag></Frame>,
+  <Frame name="status-unknown"><Tag form="status" icon="circle">Unknown</Tag></Frame>,
+  ...forms.map(({ name, text }) => (
     <Frame name={name === "disclosure" ? name : `tag-${name}`}>
       {name === "disclosure" ? <Disclosure>{text}</Disclosure> : <Tag form={name}>{text}</Tag>}
     </Frame>
-  ));
+  )),
+];

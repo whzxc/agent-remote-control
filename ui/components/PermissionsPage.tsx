@@ -5,7 +5,7 @@ import { Accessibility, Bell, Check, Circle, HardDrive, LogIn, Monitor, Terminal
 import { api } from "../api";
 import { locale, t } from "../i18n";
 import { isDesktop, openUrl } from "../platform";
-import { Button, Group, Icon, Tooltip } from "./ui";
+import { Tag, Button, Group, Icon, Tooltip } from "./ui";
 import { connector } from "../state/connector";
 import { permissions, refreshPermissions, type PermissionItem } from "../state/permissions";
 
@@ -52,7 +52,7 @@ export default function PermissionsPage() {
   function badge(state: string, system: boolean) {
     const ready = state === "granted";
     const key = state === "unknown" ? "permissionState.unknown" : ready ? (system ? "permissionsGranted" : "permissionState.granted") : system ? "permissionsNotGranted" : "permissionState.missing";
-    return <span className="permission-badge" data-state={state}><Icon icon={ready ? Check : Circle} /><span>{t(key)}</span></span>;
+    return <Tag form="status" tone={ready ? "success" : state === "missing" ? "warning" : undefined}><Icon icon={ready ? Check : Circle} /><span>{t(key)}</span></Tag>;
   }
   function row(item: {id: string; state: string}) {
     const system = systemIds.includes(item.id);

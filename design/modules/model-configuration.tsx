@@ -1,4 +1,4 @@
-import { DispatchSpec, EffortGauge } from '../components/dispatch-spec';
+import { DispatchSpec } from '../components/dispatch-spec';
 import { Frame, Icon } from "adg";
 import { Dialog } from "../components/panel";
 import { SingleChoice } from "../components/single-choice";
@@ -8,20 +8,12 @@ import { dispatchExample, effortGaugeForms, modelExample, followModelOptions, pi
 
 export function ModelDialog() {
   return (
-    <Dialog title={modelExample.title} description={<p class="text-small leading-5 text-text-secondary">
-        {modelExample.description[0]}
-        <br />
-        {modelExample.description[1]}
-      </p>}>
-      <div class="flex items-center gap-4">
+    <Dialog title={modelExample.title} description={<span class="whitespace-nowrap">{modelExample.description.join("")}</span>}>
+      <div class="flex items-center gap-4 min-h-9">
         <span class="text-small leading-4 font-semibold">{modelExample.setting}</span>
-        <SingleChoice
-          value="follow"
-          options={followModelOptions}
-          label={modelExample.choiceLabel}
-          dropdown
-          class="gap-[18px]"
-        />
+        <div><span class="inline-flex items-center gap-2 rounded-control bg-surface-sunken pl-[7px] pr-3 min-h-9">
+          <DispatchSpec model={modelExample.inherit} /><Icon name="chevron-down" size={14} />
+        </span></div>
       </div>
     </Dialog>
   );
@@ -75,23 +67,20 @@ export function ModelMenu() {
 
 export function ModelEffort() {
   return (
-    <div class="w-[564px] pb-0">
-      <ModelDialog />
-      <div class="-mt-4 ml-6 flex items-start gap-2">
-        <ModelEffortPicker />
-        <ModelMenu />
-      </div>
-    </div>
+    <ModelDialog />
   );
 }
 export default () => [
+  <Frame name="picker" fixture="model-picker"
+    capture={{ selector: ".spec-picker", viewport: "1280x800" }}><ModelEffortPicker /></Frame>,
+  <Frame name="menu" fixture="model-menu"
+    capture={{ selector: "[role=menu]", viewport: "1280x800" }}><ModelMenu /></Frame>,
   <Frame
     name="model-effort"
-    fixture="timeline-multi-turn"
+    fixture="model-dialog"
     capture={{
       selector: ".dialog:has(.task-dispatch-fields)",
       viewport: "1280x800",
-      clicks: ["本任务模型", "模型与推理强度", "默认模型: 跟随任务"],
     }}
     note={
       "Explicit hidden target: the portaled picker makes the underlying dialog aria-hidden. " +

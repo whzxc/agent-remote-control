@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode 
 import { Braces, ChevronDown, ChevronRight, Inbox, RefreshCw, type LucideIcon } from 'lucide-react';
 import { api } from '../api';
 import { locale, t } from '../i18n';
-import { Button, Icon, IconButton, Notice, SingleChoice } from '../components/ui';
+import { Button, Icon, IconButton, Notice, SingleChoice, Tag } from '../components/ui';
 import { Card } from '../components/ui/card';
 import { TaskCard, localTaskCard } from '../components/ui/TaskCard';
 import { connector, refreshConnector } from '../state/connector';
@@ -168,7 +168,7 @@ export default function CoordinationCenter() {
   const sourceName = (id?: string) => connection.sources.find(source => source.id === id)?.label ?? id ?? t('center.unknown');
   const owner = (row: BoardRecord) => row.localOrigin ? t('center.local') : connection.sources.find(source => source.id === row.ownerSourceId)?.label ?? row.ownerSourceId ?? t('center.unknown');
   const kindLabel = (item: Attention) => item.kind === 'feedback' ? t('connect.actionFailed') : item.kind === 'oauth' ? t('connect.approveTitle') : item.kind === 'navigation' ? t('open') : item.kind === 'task' ? t(item.state === 'needsYou' ? 'center.waitUser' : `detail.state.${item.state}`) : t(item.kind === 'connection' && item.notification ? 'center.notification' : `center.${item.kind}`);
-  const chips = (keys: readonly string[]) => keys.length > 0 && <span className="center-chips">{keys.map(key => <span key={key} className="center-chip">{resourceLabel(key)}</span>)}</span>;
+  const chips = (keys: readonly string[]) => keys.length > 0 && <span className="center-chips">{keys.map(key => <Tag key={key} form="resource">{resourceLabel(key)}</Tag>)}</span>;
   const coverageNote = (row: BoardRecord) => row.activityCoverage !== 'observed' && <span className="center-note">{t(`center.coverage.${row.activityCoverage}`)}</span>;
   function attentionRow(item: Attention) {
     const id = `attention-${encodeURIComponent(item.id)}`;

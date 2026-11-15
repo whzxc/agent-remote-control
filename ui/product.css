@@ -1,4 +1,9 @@
-
+@import "./components/ui/product-Markdown.css";
+@import "./components/ui/product-TaskPresentation.css";
+@import "./components/ui/product-HoverScope.css";
+@import "./components/ui/product-Settings.css";
+@import "./components/ui/product-Dialog.css";
+@import "./components/ui/product-controls.css";
 .connection-core {
   --graph-bg: var(--canvas);
   background: var(--graph-bg);
@@ -156,9 +161,6 @@
 .navigation-capsule button:is(:hover, :focus-visible) {
   color: var(--text);
 }
-.capsule-icons > .hover-highlight {
-  background: var(--surface-sunken);
-}
 .navigation-capsule button svg {
   width: 18px;
   height: 18px;
@@ -218,9 +220,6 @@
   color: inherit;
   cursor: pointer;
 }
-.graph-error .notice {
-  padding: 8px 12px;
-}
 .graph-error {
   z-index: 22;
 }
@@ -269,11 +268,6 @@
 .graph-node { position: relative; }
 .graph-node-name { position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%); max-width: 112px; font-size: 12px; font-weight: 400; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .graph-node:hover > :first-child { transform: none; }
-.markdown { font-size: 14px; line-height: 22px; overflow-wrap: anywhere; }
-.markdown h1, .markdown h2, .markdown h3 { font-size: 16px; margin: 16px 0 8px; }
-.markdown p { margin: 8px 0; white-space: pre-wrap; }
-.markdown pre { overflow: auto; padding: 12px; background: var(--hover); border-radius: var(--radius-tile); }
-.markdown code { font-family: var(--font-mono); background: var(--hover); }
 @media (max-width: 600px) { .graph-node-name { max-width: 64px; } }
 
 .permissions-page { container-type: inline-size; }
@@ -285,10 +279,6 @@
 .permission-copy p { margin: var(--space-1) 0 0; font-size: var(--text-meta); color: var(--text-secondary); line-height: 1.5; }
 .permission-copy .permission-hint, .permission-hint { color: var(--text-tertiary); font-size: var(--text-meta); }
 .permission-actions { display: flex; align-items: center; gap: var(--space-3); }
-.permission-badge { display: inline-flex; gap: var(--space-1); align-items: center; white-space: nowrap; font-size: var(--text-meta); color: var(--text-secondary); padding: var(--space-1) var(--space-2); border-radius: var(--radius-pill); background: var(--surface-subtle); }
-.permission-badge[data-state="granted"] { color: var(--success); background: var(--success-soft); }
-.permission-badge[data-state="missing"] { color: var(--warning); background: var(--warning-soft); }
-.permission-badge:not([data-state="granted"]) .icon { width: 6px; height: 6px; fill: currentColor; }
 @container (max-width: 560px) {
   .permission-row { grid-template-columns: 20px minmax(0, 1fr); gap: var(--space-2) var(--space-3); }
   .permission-actions { grid-column: 2; justify-content: space-between; }
@@ -355,17 +345,12 @@
 .topology-scene [data-dragging] button { cursor: grabbing; }
 .activity-slot[inert] button { pointer-events: none; }
 :root[data-reduced-motion="true"] { .topology-wires .connecting-wire, .topology-wires .activity-flow { animation: none; } }
-.activity-meta-chip, .task-state, .task-source-chip { display: inline-flex; flex: none; align-items: center; gap: 3px; height: 20px; border: 0; border-radius: 10px; padding: 0 8px; background: var(--surface-sunken); color: var(--text-secondary); font-size: var(--text-caption); line-height: 20px; white-space: nowrap; }
-.activity-source-badge { position: absolute; right: -0.5px; bottom: -0.5px; width: 13px; height: 13px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); color: var(--text-secondary); }
-.activity-source-badge > .icon, .activity-source-badge .source-icon, .activity-source-badge .source-icon svg { width: 9px; height: 9px; }
-.activity-source-badge .source-icon > span { display: flex; }
 .activity-session-summary { overflow-wrap: anywhere; }
 .activity-edge-fade { position: fixed; inset: 0 0 0 auto; width: 32px; background: linear-gradient(to right, transparent, var(--canvas)); pointer-events: none; z-index: 4; }
 
 .activity-panel-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; font-size: 14px; line-height: 20px; font-weight: 600; }
 .activity-panel-meta { min-width: 0; color: var(--text-secondary); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .activity-task-list { display: flex; flex-direction: column; gap: 0; }
-.activity-actions .button { flex: none; }
 @keyframes activity-flow { to { stroke-dashoffset: 18; } }
 :root[data-reduced-motion="true"] {
   .activity-flow { animation: none !important; }
@@ -378,8 +363,6 @@
 .timeline-user-content { position: relative; }
 .timeline-user-preview { white-space: pre-line; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; text-overflow: ellipsis; overflow-wrap: anywhere; line-height: 22px; }
 .timeline-user-preview[data-expanded] { position: absolute; inset: 0 0 auto; visibility: hidden; pointer-events: none; }
-.timeline-user-toggle.button { --control-height:28px; margin-top:var(--space-1); padding:var(--space-1) 0; font-size:var(--text-meta); color:var(--text-secondary); }
-.timeline-user-toggle.button, .timeline-user-toggle.button:hover:not(:disabled) { background: transparent; }
 .timeline-meta { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: var(--text-meta); overflow-wrap: anywhere; }
 .timeline-summary { display: flex; align-items: center; gap: 7px; min-width: 0; min-height: 32px; width: 100%; padding: 5px 4px; box-sizing: border-box; text-align: left; color: inherit; }
 button.timeline-summary { appearance: none; background: transparent; border: 0; font: inherit; cursor: pointer; border-radius: 6px; }
@@ -413,9 +396,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 }
 
 /* Turns share the existing scroll viewport, including nested disclosures. */
-.task-source-chip { max-width: 100%; }
-.task-source-chip > span:not(.activity-source-badge) { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.task-source-chip .activity-source-badge { position: static; flex: none; }
 .activity-panel button:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
 
 /* Optional topology controls open from the shared navigation capsule. */
@@ -447,7 +427,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .topology-tuner .field { gap: 4px; margin-top: 8px; }
 .topology-tuner .field label { font-size: var(--text-meta); }
 .topology-parameter { display: grid; grid-template-columns: minmax(0, 1fr) 62px 32px; align-items: center; gap: 8px; }
-.topology-parameter .input { height: var(--control-height); min-height: 0; padding: 4px 6px; text-align: right; font-variant-numeric: tabular-nums; }
 .topology-parameter .slider { margin: 0 8px; }
 .topology-custom { color: var(--accent); }
 .topology-import form { display: grid; gap: 8px; }
@@ -492,8 +471,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 }
 .agent-task-count { position: absolute; top: -6px; right: -8px; min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box; border-radius: var(--radius-pill); background: var(--topology-agent); color: var(--surface); font: 10px/18px var(--font-ui); text-align: center; }
 .agent-task-count[data-attention] { background: var(--warning); }
-
-.dialog.agent-history-panel { background: var(--surface-raised); }
 
 /* Mirrored control-source dock uses the same fixed shell and scroll boundaries. */
 .side-panel-layer { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; }
@@ -545,7 +522,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .hosted-relay-self { flex-shrink: 0; border-radius: var(--radius-tile); padding: 0 var(--space-1); background: var(--surface-subtle); color: var(--text-secondary); font-size: var(--text-meta); white-space: nowrap; }
 .hosted-relay-danger { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: center; justify-content: space-between; border-top: 1px solid var(--border); padding-top: var(--space-4); }
 .hosted-relay-danger > div { flex: 1 1 260px; }
-.hosted-relay-danger > .button { margin-left: auto; }
 .hosted-relay + .hosted-relay { border-top: 1px solid var(--border); padding-top: var(--space-6); }
 
 /* Approved setup, connection and empty-hosting surfaces. */
@@ -684,8 +660,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .account-identity { flex: 1; min-width: 0; }
 .account-name { display: flex; align-items: center; gap: 8px; }
 .account-name h3 { min-width: 0; margin: 0; }
-.account-name .button { height: 24px; max-width: 100%; }
-.account-name .button span, .account-email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account-email, .account-status { font-size: var(--text-meta); line-height: 16px; color: var(--text-secondary); }
 .account-status { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: var(--control-height); }
 .account-status [data-signed-out] { color: var(--danger); }
@@ -807,19 +781,10 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .agents-toolbar > h3 { margin: 0 4px 0 0; font-size: var(--text-small); font-weight: 650; line-height: 16px; color: var(--text-secondary); margin-right: 13px; }
 .display-settings.settings-stack { padding-top: 8px; gap: 30px; }
 .agent-summary { display: flex; align-items: center; gap: 12px; margin-top: 5px; margin-bottom: 36px; }
-.setting-field:has(.setting-copy > p) { padding-block: 23px; }
-.setting-field:has(.setting-copy > p) .setting-copy > label { line-height: 16px; }
-.setting-field .setting-copy > p { margin-top: 6px; }
 .relay-hosting { padding-top: 6px; }
 .hosting-empty-group { display: grid; justify-items: start; gap: 20px; }
 .hosting-empty-copy { display: grid; gap: 12px; }
 .hosting-empty-copy > h2, .hosting-empty-copy > p { line-height: 16px; }
-.hosting-empty-group > .button { --button-width: 186px; }
-
-.setting-toggle:has(.setting-copy > p) { min-height: 0; padding-block: 15px; }
-.setting-toggle:has(.setting-copy > p) .setting-copy > label { line-height: 16px; }
-.setting-toggle .setting-copy > p { margin-top: 6px; }
-.display-settings .setting-toggle:has(.setting-copy > p) { padding-top: 17px; padding-bottom: 9px; }
 
 .experimental-settings { gap: 24px; padding-top: 8px; }
 

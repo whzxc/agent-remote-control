@@ -1,0 +1,7 @@
+
+.task-detail-chips > .task-state { height: 24px; gap: 4px; border-radius: 12px; font-size: var(--text-meta); font-weight: 600; }
+.task-state::before { content: ""; width: 6px; height: 6px; background: currentColor; border-radius: 50%; }
+.task-state[data-state=running] { color: var(--accent-text); background: color-mix(in srgb, var(--accent-text) 15%, transparent); }
+.task-state[data-state=needsYou] { color: var(--warning); background: color-mix(in srgb, var(--warning) 15%, transparent); }
+.task-state[data-state=done] { color: var(--success); background: color-mix(in srgb, var(--success) 15%, transparent); }
+.task-state[data-state=failed] { color: var(--danger); background: color-mix(in srgb, var(--danger) 15%, transparent); }
