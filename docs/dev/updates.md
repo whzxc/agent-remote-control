@@ -27,3 +27,7 @@ The update panel and Settings › About › Update history load the latest 50 pu
 ## Validation
 
 Run `npm test` for the direct install-button regression and frozen tool schemas. Use `npm run accept:ui` with the `updates-*` fixtures for layout and states. `npm run accept:updates` builds two signed versions with a hidden local fixture WebView with a loopback feed. That fixture imports the production frontend controller and exercises the real official plugin commands, retryable errors, cached installation with the feed offline, Core shutdown and matching Desktop/Core fingerprints after restart. A synthetic ACP task holds a tool call across installation; the runner checks the same host PID, process creation token and Agent PID after restart, then releases the fixture and requires completion. It never replaces the installed production app.
+
+## Local installation backups
+
+`npm run desktop:install` stores macOS recovery bundles in the checkout at `.local/install-backups/macos/`. Successful installation requires the restarted Core to report ready. It retains backups from the current and previous successful installation; older completed backup directories are removed. `.pending-*` directories belong to failed or interrupted installs and remain available for recovery. Runtime state stays in `~/.agent-remote-control`. The temporary `/Applications/.arc-install-*` directory is on the application volume for atomic replacement and is removed after success.

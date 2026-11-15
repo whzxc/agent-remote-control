@@ -1,6 +1,6 @@
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdtempSync, renameSync, rmSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { mkdtempSync, renameSync, rmSync, mkdirSync } from 'node:fs';
+import { backupRoot, pruneInstallBackups } from './install-backups.mjs';
 import path from 'node:path';
 import { requireMainCheckout } from './coding-lane.mjs';
 requireMainCheckout();
@@ -15,9 +15,8 @@ const cli = path.join(target, 'Contents/Resources/bin/arc');
 const read = (...args) => JSON.parse(run(cli, ['cli', ...args])).result;
 const desktop = read('app', 'status'), core = read('call', 'health');
 if (!desktop.executable.startsWith(target + '/Contents/')) throw new Error('The running Desktop must be the installed target.');
-const backup = path.join(homedir(), '.local/state/arc-maintenance');
-run('/bin/mkdir', ['-p', backup]);
-const directory = mkdtempSync(path.join(backup, 'local-install-'));
+mkdirSync(backupRoot, { recursive: true });
+const directory = mkdtempSync(path.join(backupRoot, '.pending-'));
 const archive = path.join(directory, 'previous-app.zip');
 run('/usr/bin/ditto', ['-c', '-k', '--keepParent', target, archive]);
 console.log(`Backup: ${archive}`);
@@ -64,9 +63,21 @@ try {
   catch (error) { renameSync(previous, target); throw error; }
   await release();
   run('/usr/bin/open', ['-g', target]);
+  const healthDeadline = Date.now() + 30_000;
+  while (true) {
+    let ready = false;
+    try { ready = read('call', 'health')?.state === 'ready'; } catch { /* Wait for the installed Core. */ }
+    if (ready) break;
+    if (Date.now() > healthDeadline) throw new Error('Installed Core did not become ready; retain the pending backup for recovery.');
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
   console.log(`Installed: ${target}`);
   rmSync(staging, { recursive: true });
   rmSync(previous, { recursive: true });
+  const completed = path.join(backupRoot, `installed-${Date.now()}`);
+  renameSync(directory, completed);
+  console.log(`Backup retained: ${path.join(completed, 'previous-app.zip')}`);
+  console.log(JSON.stringify(pruneInstallBackups()));
 } catch (error) {
   await release();
   // The old bundle remains runnable on prepare/replace failure. A fresh Core
