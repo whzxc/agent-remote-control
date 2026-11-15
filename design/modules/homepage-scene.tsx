@@ -1,7 +1,8 @@
+import {TopologyNode} from '../components/topology-node';
 import {IconButton} from '../components/icon-button';
 import {agentQuotas} from '../fixtures/quota';
 export function NodePanelHeading() {
-  return <div class="flex items-center gap-3 w-full"><AgentIcon brand="codex" size={44} readings={agentQuotas.map((quota,index)=>({id:String(index),label:quota.label,value:quota.value,color:`var(--${quota.tone})`,elapsed:quota.elapsed}))}/>
+  return <div class="flex items-center gap-3 w-full"><TopologyNode bare label="Codex" graphic={<AgentIcon brand="codex" size={44} readings={agentQuotas.map((quota,index)=>({id:String(index),label:quota.label,value:quota.value,color:`var(--${quota.tone})`,elapsed:quota.elapsed}))}/>}/>
     <div class="flex flex-col flex-1 gap-1"><div class="flex gap-2 h-6 items-center"><h2 class="text-title font-[650] leading-6">Codex</h2><IconButton icon="arrow-up-right" label="Open Agent"/></div>
       <p class="text-meta text-text-secondary leading-4">fixture · 0 个任务进行中</p></div>
     <div class="flex gap-1"><IconButton icon="refresh-cw" label="Refresh"/><IconButton icon="settings" label="Settings"/>
@@ -168,9 +169,9 @@ export function TopologyScene({ scene }: { scene: TopologySceneData }) {
             layout={node.group.layout as 'vertical'} />
         </div> : <>
           <div class="absolute" style={{ left: -2, top: -2, transform: `scale(${node.scale})`, 'transform-origin': '24px 24px' }}>
-            <NodeCapsule state={state} label={node.label} graphic={graphic}
-              mark={node.device ? deviceMark : <BrandMark brand={brand} size={28} />}
-              neutralRing={node.device} readings={readings} wing={node.wing as 'left' | 'right'} compact={scene.width < scene.height} />
+            <TopologyNode bare hideLabel taskState={state} label={node.label} graphic={graphic}
+              capsuleMark={node.device ? deviceMark : <BrandMark brand={brand} size={28} />}
+              capsuleNeutralRing={node.device} readings={readings} capsuleWing={node.wing as 'left' | 'right'} capsuleCompact={scene.width < scene.height} />
           </div>
           {node.labelBox && <span class={`absolute text-text text-meta leading-[14px] text-center ${node.device ? "whitespace-pre-line" : "truncate"}`}
             style={{ left: node.labelBox.x, top: node.labelBox.y, width: node.labelBox.width,

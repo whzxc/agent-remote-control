@@ -6,6 +6,7 @@ import type { AgentIconReading } from '../modules/homepage-scene';
 
 export type TopologyNodeProps = {
   label: string;
+  bare?: boolean;
   brand?: Brand;
   readings?: readonly AgentIconReading[];
   used?: boolean;
@@ -24,7 +25,7 @@ export type TopologyNodeProps = {
   hasChildren?: boolean;
 };
 export function TopologyNode({
-  label,
+  label, bare = false,
   brand,
   readings,
   used,
@@ -60,6 +61,7 @@ export function TopologyNode({
   const graphic = taskState && !hasChildren ? <NodeCapsule state={taskState} label={label} graphic={baseGraphic} mark={mark}
     readings={capsuleReadings ?? readings} used={used} neutralRing={capsuleNeutralRing}
     compact={capsuleCompact} wing={capsuleWing} expanded={panelExpanded} /> : baseGraphic;
+  if (bare) return graphic;
   return (
     <div
       aria-label={hideLabel ? label : undefined}

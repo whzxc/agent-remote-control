@@ -1,3 +1,5 @@
+import {InspectionPopover} from '../components/inspection-popover';
+import {SingleChoice} from '../components/single-choice';
 export function LibraryContent({children,class:extra=''}:{children:unknown;class?:string}){return <div class={extra}>{children}</div>}
 import { copy } from '../fixtures/pets';
 import { Frame } from "adg";
@@ -75,6 +77,7 @@ export function PetsLibrary() {
 }
 
 export default () => [
+  <Frame name="pet-chooser" width={360}><PetChooser/></Frame>,
   <Frame name="pet-import" width={912}>
     <div class="w-full bg-surface-raised"><PetImport  /></div>
   </Frame>,
@@ -88,3 +91,5 @@ export default () => [
     <div class="w-full bg-surface-raised"><PetsLibrary  /></div>
   </Frame>,
 ];
+
+export function PetChooser() {return <InspectionPopover variant="pet" class="w-[360px] rounded-card border border-border bg-surface text-text shadow-md p-3"><SingleChoice tiles iconOnly label="Choose pet" value="inherit" options={[{value:'inherit',label:'Inherit',icon:'paw-print'},...pets.map((pet,i)=>({value:String(i),label:pet.name,graphic:<img src={pet.image} width={72} height={72}/>}))]}/></InspectionPopover>;}

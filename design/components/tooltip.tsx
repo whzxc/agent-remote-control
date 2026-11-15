@@ -3,11 +3,13 @@ import { tooltipExample } from "../fixtures/feedback";
 
 export function Tooltip({
   text,
-  children,
+  children, open = false,
 }: {
   text?: unknown;
   children?: unknown;
+  open?: boolean;
 }) {
+  if (!open) return <span title={String(text ?? '')} class="contents">{children}</span>;
   return (
     <div
       role="tooltip"
@@ -19,6 +21,6 @@ export function Tooltip({
 }
 export default () => (
   <Frame name="default">
-    <Tooltip>{tooltipExample}</Tooltip>
+    <Tooltip open>{tooltipExample}</Tooltip>
   </Frame>
 );

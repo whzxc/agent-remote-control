@@ -62,6 +62,12 @@ export function SingleChoice({
   catalog = false,
   dropdownIcon = "chevron-down",
 }: SingleChoiceProps) {
+  if (tiles && iconOnly) return <div role="radiogroup" aria-label={label} class={`grid grid-cols-[repeat(auto-fill,minmax(80px,1fr))] w-full gap-2 ${extra}`}>
+    {options.map(option => <button role="radio" aria-checked={option.value === value} aria-label={option.label} disabled={disabled || option.disabled}
+      class={`grid min-h-[88px] place-items-center rounded-card p-1 ${option.value===value?'bg-surface-raised shadow-sm':'bg-surface-sunken'}`}>
+      {option.graphic ?? <Icon name={option.icon ?? 'paw-print'} size={24}/>}
+    </button>)}
+  </div>;
   if (cards || tiles || form)
     return (
       <div

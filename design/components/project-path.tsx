@@ -1,10 +1,11 @@
+import {Tooltip} from './tooltip';
 import { Frame } from "adg";
 
 export function ProjectLabel({ name, path, label = "Project" }: { name: string; path?: string; label?: string }) {
-  return <span class="inline-flex h-5 max-w-full min-w-0 items-center gap-1 overflow-hidden rounded-(--radius-pill) bg-surface-sunken px-[6px] text-caption text-text-secondary"
+  return <Tooltip text={[label,name,path].filter(Boolean).join(" · ")}><span class="inline-flex h-5 max-w-full min-w-0 items-center gap-1 overflow-hidden rounded-(--radius-pill) bg-surface-sunken px-[6px] text-caption text-text-secondary"
     title={[label, name, path].filter(Boolean).join(" · ")}>
     <strong class="truncate font-semibold text-text">{name}</strong>
-  </span>;
+  </span></Tooltip>;
 }
 
 export function FilePath({ directory, filename, fullPath, full = false }: { directory: string; filename: string; fullPath: string; full?: boolean }) {
