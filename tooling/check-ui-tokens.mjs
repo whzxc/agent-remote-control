@@ -35,7 +35,8 @@ export function inspectTokens(base = root, parts = inspectConsumers(base)) {
             for (const token of references(declaration.value)) dependencies.add(token);
             localAliases.set(declaration.prop, dependencies);
           }
-          if (file !== 'ui/tokens.css') for (const token of references(declaration.value)) {
+          if (file !== 'ui/tokens.css') for (const token of new Set(references(declaration.value))) {
+            declarationUses.set(token, (declarationUses.get(token) ?? 0) + 1);
             used.add(token);
             if (file.startsWith(shared)) sharedPaint.push({ token, selector: declaration.parent.selector ?? '' });
           }
