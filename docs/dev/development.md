@@ -113,3 +113,5 @@ cli guide embeds docs/reference/cli.md. Path changes require a Core rebuild. Doc
 ## Runtime state
 
 On macOS and Linux the default state directory is `~/.agent-remote-control`. Windows retains its local application-data directory. `ARC_STATE_DIR` selects an explicit instance. Existing installations must be stopped before moving their state to the new default; preserve credentials, configuration and task associations, and update absolute paths in owned configuration before restarting. Native Agent sessions remain in their native homes. Startup does not implicitly migrate or delete state.
+
+Development and acceptance temporary state stays under checkout `tmp/`; isolated instance state is retained there for inspection. The test runner redirects OS temporary files into `tmp/tests/` and bounds Git parent discovery to that directory. Heavy-build coordination uses the common Git directory, shared by all lanes. Native runtime data and signing credentials keep their separate locations.

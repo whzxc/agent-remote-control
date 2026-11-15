@@ -48,7 +48,7 @@ The marker belongs only to the lane checkout; keep it until the lane is removed.
 `check:native`, `desktop:check`, `test` and `desktop:build` share one machine-wide
 queue across main and all lanes. The full native-check lifecycle holds the lock.
 A waiter reports the holder's checkout and command once before waiting. The lock
-lives in the user's cache and uses Rust's native file locking; process exit releases
+lives in the repository's common Git directory under `build-tools/` and uses Rust's native file locking; process exit releases
 it, so leftover lock files do not block later commands. Nested build steps share the
 same lock. Light checks (`check`, `check:format`, `check:tests`) run without it.
 
