@@ -1,6 +1,6 @@
 # Design sources
 
-[UI conventions](ui.md) · [Asset mapping and status](design-assets.md) · [Acceptance](acceptance.md)
+[UI conventions](ui.md) · [Asset status](design-assets.md) · [Acceptance](acceptance.md)
 
 TSX sources in `design/` define ARC's visual direction. React implementations follow approved sources. [UI conventions](ui.md) owns behavior, data projection and layout logic.
 
@@ -139,26 +139,37 @@ retirement scope and Known gaps.
 
 ## Ownership and project configuration
 
-ADG discovers `components`, `modules` and `surfaces` in that order. The [mapping](design-assets.md) owns per-part feature responsibility, implementation counterparts, review/adoption status and retained exceptions. `fixtures/` owns representative data with type-only references to defining visual owners. `art/` owns artwork and content images with display dimensions and budgets in the mapping. There are no active studies or import-direction opt-outs.
+ADG discovers `components`, `modules` and `surfaces` in that order. Components mirror `ui/components/ui/`, modules map to feature components, and surfaces map to panels, workspaces, dialogs and homepage views. Modules import only components; surfaces import only modules and components. `design/implementation.json` owns every implementation counterpart. [Asset status](design-assets.md) keeps open proposals, retained exceptions and remaining gaps. `fixtures/` owns representative data with type-only references to defining visual owners. `art/` owns artwork and content images with display dimensions and budgets in the asset status document. There are no active studies or import-direction opt-outs.
 
 `surfaces/homepage-topology.tsx` owns TopologyScreen and Scene, shared by the account and portrait surfaces. Homepage node, mark, canvas, Board header and navigation parts live in their defining modules. `fixtures/topology.ts` owns scene records; `fixtures/topology-mobile.ts` owns the narrow layout. Type-only references point to the defining visual owner. All production compositions participate in default discovery.
 
 
 `design/tsconfig.json` resolves generated declarations in ignored `design/.adg/`. `adg.config.mjs` owns paths and the browser fixture adapter. Generated output belongs in ignored `output/design/`. `TopologyScene` accepts fixture coordinates inside `data-free`; runtime geometry remains owned by `ui/topology/solve.ts`, `compact.ts` and `portrait.ts`.
 
-## Review and adoption
+## Status, review and retirement
 
 Review roles do not authorize dispatch to Claude Code CLI. Launching or resuming work there requires explicit user authorization for the task or a clearly defined scope. Without it, the current authorized agent reviews the sources and renders and reports any remaining review gap.
 
+Every source asset is current or proposed, as defined by the ADG asset rules.
+A current part has an implementation binding, and its frames show states the implementation reaches.
+A current surface frame declares the `fixture` and `capture` that reach it.
+A proposed frame carries `proposed` with its review scope and is listed in [Asset status](design-assets.md) while its review is open.
+
 Layout and behavior changes MAY be implemented directly.
-The owning TSX source SHOULD be updated to match once the user accepts the result.
-New visual directions and redesigns SHOULD start in the owning TSX source.
+After the user accepts the result, the same task updates the owning TSX source.
+New visual directions and redesigns start as proposed frames in the owning TSX source.
 The user approves their renders before implementation.
-Approved frames describe the intended result.
+Implementation removes the marker and adds the binding in the same change.
+A proposal whose review closes without implementation is deleted.
 `adg compare` differences are review notes, not a gate.
 
+A frame that differs from the running implementation is drift.
+Fix the source or the implementation in the task that found it; drift is not a status.
+A change that removes or replaces an implementation deletes or rebinds its design counterpart in the same commit.
+Delete parts without a binding, frames the implementation does not reach, explanatory diagrams and width-only or locale-only duplicates when they appear.
+
 Work on one cohesive family, feature module or composed surface at a time.
-Keep current ownership, mappings, review status and known gaps in the mapping.
+Keep open proposals, retained exceptions and known gaps in [Asset status](design-assets.md).
 Keep batch history, check results and decision logs outside repository documentation.
 
 After implementation, run `adg compare` once on the affected frames as a review list.
@@ -179,7 +190,8 @@ Keep review evidence in ignored output or an external disposable directory.
 - Avoid `font-variant-numeric` and `letter-spacing` values that the source does not use, because they change text widths.
 - Panel forms have no stroke. A leftover 1px panel border shifts every text by 1px.
 - Review the overlay for shapes, fills, icons and elevation, because `compare` reads text only.
-- Delete superseded rules, classes and visual statements in [UI conventions](ui.md) in the same change.
+- Feature CSS outside `ui/components/ui/` declares layout only. Paint and typography come from shared components and runtime tokens; free-form canvas exceptions live in `tooling/ui-style-allowlist.json`.
+- Delete superseded rules, classes, visual statements in [UI conventions](ui.md) and their design counterparts in the same change.
 
 ## Migration
 

@@ -42,24 +42,31 @@ MUST means a requirement. SHOULD means the default unless a concrete task-specif
 
 ## UI design
 
-- TSX sources in `design/` are the visual source of truth. [Design sources](docs/dev/design.md) owns ARC's direction and review procedure; [Asset mapping and status](docs/dev/design-assets.md) owns per-part implementation mappings, adoption, review status, exceptions and remaining gaps.
-- Follow the [ADG asset rules](https://github.com/whzxc/agent-design-gallery/blob/main/docs/asset-rules.md) for ownership, layering, frame names, fixtures and lifecycle. They take precedence over conflicting local design guidance. The [toolkit contract](https://github.com/whzxc/agent-design-gallery/blob/main/docs/design-toolkit.md) owns source syntax and checks.
+- TSX sources in `design/` are the visual source of truth. [Design sources](docs/dev/design.md) owns ARC's direction and review procedure. `design/implementation.json` owns every implementation counterpart. [Asset status](docs/dev/design-assets.md) keeps only proposals, exceptions and remaining gaps.
+- Follow the [ADG asset rules](https://github.com/whzxc/agent-design-gallery/blob/main/docs/asset-rules.md) for ownership, layering, frame admission, fixtures and lifecycle. They take precedence over conflicting local design guidance. The [toolkit contract](https://github.com/whzxc/agent-design-gallery/blob/main/docs/design-toolkit.md) owns source syntax and checks.
+- Layers follow assembly level. `design/components/` mirrors `ui/components/ui/`: a part implemented once and reused across features has its source in components, with or without domain meaning.
+- Modules import only components. Surfaces import only modules and components. A module MUST NOT import another module, and a surface MUST NOT import another surface.
+- Every production part MUST have a binding in `design/implementation.json` unless its frames are proposed. A design surface does not keep a part alive.
+- A frame MUST show a state the implementation reaches, or be marked proposed. Delete explanatory diagrams, width-only or locale-only duplicates and frames the implementation does not reach.
+- Each frame shows one distinct appearance. Width, wrapping and locale robustness belong to `accept:ui` scenarios, not frames.
 - Layout and behavior changes MAY be implemented directly.
-- The owning TSX source SHOULD be updated to match once the user accepts the result.
-- New visual directions or redesigns SHOULD start in the owning TSX source.
-- The user approves renders of a new visual direction or redesign before implementation.
+- After the user accepts a result that changes a mapped part's appearance, the same task MUST update the owning TSX source.
+- A change that removes or replaces an implementation MUST delete or rebind its design counterpart in the same commit.
+- New visual directions or redesigns SHOULD start in the owning TSX source as proposed frames.
+- The user approves renders of a new visual direction or redesign before implementation. Approval starts implementation; the frames stay proposed until implemented and bound.
 - Use the global `adg` CLI >=0.5.0.
 - `adg check` MUST pass before committing.
 - Render new visual directions and redesigns in both themes for user review.
-- Keep current mappings and status with each owning batch.
 - `design/tokens.css` owns design tokens.
-- Approved frames describe the intended result.
 - `adg compare` differences are review notes, not a gate.
 
 ## UI implementation
 
 - Use React for rendering. Radix owns interaction foundations: focus, keyboard navigation, dismissal layers, portals and modal behavior.
 - Implement each design component once in `ui/components/ui/` and reuse it. Business pages MUST NOT restyle or reimplement shared controls.
+- Feature styles outside `ui/components/ui/` declare layout only: display, flex and grid, gaps, padding, margins, sizing, positioning, overflow and stacking. Color, background, border, radius, shadow and typography belong to shared components and runtime tokens.
+- Free-form canvas styles, such as topology geometry, are exceptions only with an exact file, selector and reason in `tooling/ui-style-allowlist.json`.
+- Before adding a visual, look up the existing component and its counterpart. A visual without a design asset is a gap: add or extend the asset first.
 - Use `SingleChoice` for every single-choice control. It shows pills for at most five options when width permits and a dropdown otherwise. Do not add standalone Select or native `select`. Preserve keyboard navigation, disabled states, and validation.
 - `ui/tokens.css` is the runtime token sheet. Migrations align it with `design/tokens.css`. Manage light/dark state in `ui/theme.ts`, following the system by default.
 - Use the shared `Icon` wrapper with Lucide. Retain brand-specific assets.
