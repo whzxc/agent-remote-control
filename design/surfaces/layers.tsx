@@ -35,7 +35,7 @@ export default () => [
   <Frame name="nested-dialog" width={1280} height={800} fixture="p3-stacked-method"
     capture={{page:true,origin:'0 0',viewport:'1280x800'}}>
     <div class="relative w-[1280px] h-[800px] bg-canvas">
-      <HomepageScene scene={topologyScenes['nested-dialog']} chrome={false} />
+      <div aria-hidden="true"><HomepageScene scene={topologyScenes['nested-dialog']} chrome={false} /></div>
       <div aria-hidden="true" inert class="absolute top-[192px] left-[360px] w-[560px] h-[420px]">
         <OnboardingShell step={onboardingFrames.find(s=>s.name==='source-connection')!}><SourceOnboarding step={onboardingFrames.find(s=>s.name==='source-connection')!}/></OnboardingShell>
       </div>

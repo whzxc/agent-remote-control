@@ -27,7 +27,7 @@ export function OnboardingSteps({ step }: { step: OnboardingStep }) {
 }
 export function OnboardingFooter({ step }: { step: OnboardingStep }) {
   const widths: Record<string, string> = {
-    "method": "min-w-[216px]",
+    "method": "",
     "relay": "min-w-[216px]",
     "ready": "min-w-[168px]",
     "local": "min-w-[120px]",
