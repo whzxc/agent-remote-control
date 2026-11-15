@@ -2639,6 +2639,100 @@
           "source": "design/components/timeline-surface.tsx"
         }
       ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/RecordDetail.tsx",
+        "symbol": "RecordSurface"
+      },
+      "design": [
+        {
+          "source": "design/components/record-detail.tsx",
+          "part": "RecordSurface"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/RecordDetail.tsx",
+        "symbol": "RecordDetail"
+      },
+      "design": [
+        {
+          "source": "design/components/record-detail.tsx",
+          "part": "RecordDetail"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/RecordDetail.tsx",
+        "symbol": "RecordListRow"
+      },
+      "design": [
+        {
+          "source": "design/components/record-detail.tsx",
+          "part": "RecordListRow"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/RecordDetail.tsx",
+        "symbol": "RecordFooter"
+      },
+      "design": [
+        {
+          "source": "design/components/record-detail.tsx",
+          "part": "RecordFooter"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/RecordDetail.tsx",
+        "symbol": "RecordEmpty"
+      },
+      "design": [
+        {
+          "source": "design/components/record-detail.tsx",
+          "part": "RecordEmpty"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/RecordDetail.tsx",
+        "symbol": "RecordDisclosure"
+      },
+      "design": [
+        {
+          "source": "design/components/record-detail.tsx",
+          "part": "RecordDisclosure"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/RecordDetail.tsx",
+        "symbol": "RecordEvent"
+      },
+      "design": [
+        {
+          "source": "design/components/record-detail.tsx",
+          "part": "RecordEvent"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/RecordDetail.css"
+      },
+      "design": [
+        {
+          "source": "design/components/record-detail.tsx"
+        }
+      ]
     }
   ]
 }

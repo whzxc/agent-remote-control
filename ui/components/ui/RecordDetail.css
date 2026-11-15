@@ -1,0 +1,63 @@
+
+.ax-row { border: 0; }
+.ax-row:hover { background: var(--hover); }
+.ax-row-title code { color: var(--text-tertiary); font: var(--text-meta)/20px var(--font-mono); }
+.ax-row-title strong { font-size: var(--text-small); line-height: 20px; font-weight: 600; }
+.ax-row-meta { color: var(--text-secondary); font-size: var(--text-meta); line-height: 16px; }
+.ax-footer { color: var(--text-tertiary); font-size: var(--text-meta); line-height: 16px; }
+.ax-facts { color: var(--text-secondary); font-size: var(--text-meta); }
+.ax-detail h3 { font-size: var(--text-title); line-height: 24px; font-weight: 600; }
+.ax-detail h4 { color: var(--text-secondary); font-size: var(--text-meta); line-height: 16px; font-weight: 600; }
+.ax-detail p { font-size: var(--text-small); line-height: 20px; }
+.ax-detail-heading > p { color: var(--text-secondary); font-size: var(--text-meta); line-height: 16px; }
+.ax-detail code { font: var(--text-meta)/20px var(--font-mono); }
+.ax-resolution h4 { color: var(--text); font-size: var(--text-small); }
+.ax-commit, .ax-document { font-size: var(--text-meta); line-height: 16px; color: var(--text-secondary); }
+.ax-commit code { color: var(--text); }
+.ax-evidence-row { font-size: var(--text-small); line-height: 20px; }
+.ax-evidence-row .icon { color: var(--text-secondary); }
+.ax-evidence-row code { color: var(--text-secondary); }
+.ax-evidence-state { font-size: var(--text-meta); color: var(--text-secondary); }
+.ax-detail .ax-history { border-top: 1px solid var(--border); }
+.ax-history-item > div { font-size: var(--text-meta); line-height: 16px; }
+.ax-history-item time, .ax-history-item .icon { color: var(--text-secondary); }
+.ax-copy-error { color: var(--danger); font-size: var(--text-meta); }
+.center-note { color: var(--text-secondary); font-size: var(--text-meta); }
+
+
+
+.center-row-go { color: var(--text-tertiary); }
+
+.center-empty > .icon { border-radius: var(--radius-field); background: color-mix(in srgb, var(--text-tertiary) 17%, transparent); }
+
+.center-technical { font-size: var(--text-meta); }
+.center-technical > summary { color: var(--text-tertiary); border-radius: 6px; }
+.center-technical > summary:hover { color: var(--text-secondary); }
+.center-content pre, .center-footer pre { font-size: var(--text-meta); background: var(--surface-subtle); border-radius: var(--radius-tile); }
+.center-event::before { background: var(--border); }
+.center-event::after { border-radius: 50%; background: var(--surface); box-shadow: inset 0 0 0 2px var(--border-strong); }
+.center-event[data-tone="warning"]::after { box-shadow: inset 0 0 0 2px var(--warning); }
+.center-event[data-tone="danger"]::after { background: var(--danger); box-shadow: none; }
+.center-event[data-tone="success"]::after { box-shadow: inset 0 0 0 2px var(--success); }
+.center-event-line > strong { font-size: var(--text-small); font-weight: 600; }
+.center-event-line > time { color: var(--text-tertiary); font-size: var(--text-meta); font-variant-numeric: tabular-nums; }
+.center-event-line > .center-raw-toggle { color: var(--text-tertiary); }
+.center-event-line > .center-raw-toggle[aria-expanded="true"] { color: var(--text); background: var(--surface-subtle); }
+.center-timeline.nested > .center-event { border-top: 1px solid var(--border); }
+.center-kind { color: var(--text-tertiary); font-size: var(--text-meta); font-weight: 500; }
+.center-detail header h2 { font-size: var(--text-body); line-height: 1.4; color: var(--text); }
+.center-detail h2:focus-visible { border-radius: 4px; }
+.center-detail dl { font-size: var(--text-small); }
+.center-detail dt { color: var(--text-secondary); }
+.center-detail code { font: var(--text-meta)/1.6 var(--font-mono); }
+.center-linked h3 { font-size: var(--text-meta); font-weight: 600; color: var(--text-secondary); }
+
+.center-footer [data-tone="warning"] { color: var(--warning); }
+@container (min-width: 680px) {
+  .center-content.has-detail > .center-detail { border-left: 1px solid var(--border); }
+}
+
+.center-footer { color: var(--text-tertiary); font-size: var(--text-meta); }
+
+.center-empty { color: var(--text-tertiary); }
+.center-empty p { font-size: var(--text-small); line-height: 20px; }

@@ -1,3 +1,5 @@
+import { RecordSurface } from '../components/ui/RecordDetail';
+import { RecordDetail, RecordDisclosure, RecordEvent, RecordFooter, RecordEmpty } from '../components/ui/RecordDetail';
 import { RecordRow, RecordHeading, RecordCard, RecordMeta } from '../components/ui/Record';
 import { layers } from "../state/layers";
 import { Tooltip as HoverHelp } from "../components/ui/index";
@@ -194,7 +196,7 @@ export default function CoordinationCenter() {
   function recordDetail(row: BoardRecord) {
     const linked = row.threadLinks ?? [], conflicts = (observed.page?.conflicts ?? []).filter(conflict => conflict.noticeId !== row.id && row.resources.includes(conflict.resource));
     const fact = (label: string, value: ReactNode) => <><dt>{label}</dt><dd>{value}</dd></>;
-    return <section id="center-record-detail" className="center-detail" aria-label={t('center.recordDetail')}>
+    return <RecordDetail id="center-record-detail" className="center-detail" aria-label={t('center.recordDetail')}>
       <header>
         <div className="center-detail-title"><span className="center-kind">{t(row.intent != null ? 'center.kind.notice' : 'center.kind.blocker')}</span><h2 id="center-record-heading" tabIndex={-1}>{row.intent ?? row.summary}</h2></div>
         <Button onClick={closeRecord}>{t('back')}</Button>
@@ -220,8 +222,8 @@ export default function CoordinationCenter() {
             : <p key={link.threadId} className="center-note">{link.threadId} · {t('center.targetUnavailable')}</p>; })}
       </div>}
       {observed.page?.conflictCoverage !== 'observed' && <p className="center-note">{t('center.conflictsUnknown')}</p>}
-      <details className="center-technical"><summary><Icon icon={ChevronDown} />{t('center.metadata')}</summary><pre>{JSON.stringify(row, null, 2)}</pre></details>
-    </section>;
+      <RecordDisclosure className="center-technical"><summary><Icon icon={ChevronDown} />{t('center.metadata')}</summary><pre>{JSON.stringify(row, null, 2)}</pre></RecordDisclosure>
+    </RecordDetail>;
   }
   function eventRow(event: JournalEvent) {
     const evidence = event.evidenceRefs?.find(ref => ['notice','blocker'].includes(ref.kind));
@@ -239,13 +241,13 @@ export default function CoordinationCenter() {
       ...(event.kind === 'notification.delivery-failed' && sourceConnection && connection.status?.ingresses.some(row => row.id === sourceConnection) ? [<Button id={`connection-${event.eventId}`} key="connection" variant="ghost" presentation="record-link" className="center-link" onClick={() => openAttention({ id: sourceConnection, kind: 'connection', connectionId: sourceConnection, title: sourceConnection }, `connection-${event.eventId}`)}>{t('connections.title')}</Button>] : []),
       ...(event.kind.startsWith('app.') ? [<Button id={`update-${event.eventId}`} key="update" variant="ghost" presentation="record-link" className="center-link" onClick={() => openAttention({ id: 'update', kind: 'update', title: 'ARC' }, `update-${event.eventId}`)}>{t('viewUpdate')}</Button>] : []),
     ];
-    return <li key={event.eventId} className="center-event" data-tone={eventTone(event)}>
+    return <RecordEvent key={event.eventId} className="center-event" data-tone={eventTone(event)}>
       <div className="center-event-line"><strong>{event.summary}</strong><HoverHelp text={date(event.observedAt)}><time dateTime={event.observedAt}>{clock(event.observedAt, language)}</time></HoverHelp>
         <IconButton icon={Braces} label={t('center.metadata')} className="center-raw-toggle" aria-expanded={rawEvent === event.eventId} aria-controls={`raw-${event.eventId}`} onClick={() => setRawEvent(rawEvent === event.eventId ? '' : event.eventId)} /></div>
       <RecordMeta as="div">{event.status && event.status !== 'active' && <Pill tone={stateTone(event.status)}>{stateName(event.status)}</Pill>}<span>{origin}</span>{chips(event.resources)}</RecordMeta>
       {links.length > 0 && <div className="center-event-links">{links}</div>}
       {rawEvent === event.eventId && <pre id={`raw-${event.eventId}`}>{JSON.stringify(event, null, 2)}</pre>}
-    </li>;
+    </RecordEvent>;
   }
   function dayLabel(value: string) {
     const key = dayKey(value);
@@ -260,17 +262,17 @@ export default function CoordinationCenter() {
       if (days.at(-1)?.label === label) days.at(-1)!.groups.push(group); else days.push({ label, groups: [group] });
     }
     return days.map(day => <section key={day.label} className="center-day" aria-label={day.label}><RecordHeading>{day.label}</RecordHeading>
-      <ol className="center-timeline">{day.groups.map(group => group.length === 1 ? eventRow(group[0]) : <li key={group[0].eventId} className="center-event" data-tone={eventTone(group[0])}>
+      <ol className="center-timeline">{day.groups.map(group => group.length === 1 ? eventRow(group[0]) : <RecordEvent key={group[0].eventId} className="center-event" data-tone={eventTone(group[0])}>
         <details className="center-group"><summary><span className="center-event-line"><strong>{group[0].summary}</strong><span className="center-count">{group.length}</span><HoverHelp text={date(group[0].observedAt)}><time dateTime={group[0].observedAt}>{clock(group[0].observedAt, language)}</time></HoverHelp></span></summary>
-          <ol className="center-timeline nested">{group.map(eventRow)}</ol></details></li>)}</ol>
+          <ol className="center-timeline nested">{group.map(eventRow)}</ol></details></RecordEvent>)}</ol>
     </section>);
   }
   const coverage = feed.page?.coverage as { state?: string } | undefined;
   const emptyCurrent = page && !boardRows.length && !activeWork.length && !ownerAttention.length && !historyError && !observed.error;
   const footer = view.view === 'activity'
-    ? feed.page && <footer className="center-footer"><span>{t('center.observedAgo', { time: ago(feed.page.observedAt) })}</span><span data-tone={coverage?.state === 'observed' ? undefined : 'warning'}>{coverageName(coverage?.state ?? 'unknown')}</span>
-      <details className="center-technical"><summary><Icon icon={ChevronDown} />{t('center.coverage')}</summary><pre>{JSON.stringify(feed.page.coverage, null, 2)}</pre></details></footer>
-    : page && <footer className="center-footer"><span>{t('center.observedAgo', { time: ago(page.observedAt) })}</span></footer>;
+    ? feed.page && <RecordFooter className="center-footer"><span>{t('center.observedAgo', { time: ago(feed.page.observedAt) })}</span><span data-tone={coverage?.state === 'observed' ? undefined : 'warning'}>{coverageName(coverage?.state ?? 'unknown')}</span>
+      <RecordDisclosure className="center-technical"><summary><Icon icon={ChevronDown} />{t('center.coverage')}</summary><pre>{JSON.stringify(feed.page.coverage, null, 2)}</pre></RecordDisclosure></RecordFooter>
+    : page && <RecordFooter className="center-footer"><span>{t('center.observedAgo', { time: ago(page.observedAt) })}</span></RecordFooter>;
   const busy = (view.view === 'ax' ? ax.loading : reading || observed.loading || loadingHistory) || !!pendingAction;
   const runAction = async (action: string, run: () => Promise<unknown>) => { setPendingAction(action); try { await run(); } finally { setPendingAction(''); } };
   return <Panel initialFocus={initialFocus} title={t('center.title')} viewKey={view.view} busy={busy} footer={view.view === "ax" ? undefined : footer}
@@ -279,7 +281,7 @@ export default function CoordinationCenter() {
       if (view.view === 'ax') { await refreshAX(); return; }
       await Promise.allSettled([refreshBoard(), selected ? readRecord(selected) : Promise.resolve(), refreshConnector(), api<AgentActivitySnapshot>('agents/activity').then(acceptActivity), view.view === 'activity' ? readEvents() : showHistory ? readHistory() : Promise.resolve()]);
     })} />}
-    onClose={() => { setSelected(undefined); axSelection.set(undefined); boardOpen.set(false); }} returnFocus="#board-trigger" onEscapeKeyDown={event => { if (view.view === 'ax' && axSelection.get()) { event.preventDefault(); axSelection.set(undefined); } else if (selected) { event.preventDefault(); closeRecord(); } }}><div className="coordination-center" aria-busy={busy}>
+    onClose={() => { setSelected(undefined); axSelection.set(undefined); boardOpen.set(false); }} returnFocus="#board-trigger" onEscapeKeyDown={event => { if (view.view === 'ax' && axSelection.get()) { event.preventDefault(); axSelection.set(undefined); } else if (selected) { event.preventDefault(); closeRecord(); } }}><RecordSurface className="coordination-center" aria-busy={busy}>
     {view.view === 'ax' ? <AXPanel /> : <>
     <div className="center-filters">
       {view.view === 'current' && <SingleChoice compact form="content-pills" disabled={busy} label={t('center.filter')} value={view.filter} onChange={value => patch({ filter: value as typeof view.filter })} options={['all', 'attention', 'input', 'history'].map(value => ({ value, label: t(`center.${value}`) }))} />}
@@ -292,7 +294,7 @@ export default function CoordinationCenter() {
         <section aria-label={t('center.activityView')}>
           {feed.error && <Notice tone="danger" title={t(feed.reset ? 'center.gap' : 'center.unavailable')} actionBelow action={<Button busy={pendingAction === 'retry'} disabled={busy} onClick={() => void runAction('retry', () => readEvents(feed.reset ? 'reset' : 'refresh'))}>{t(feed.reset ? 'center.reset' : 'retry')}</Button>}><p>{feed.error}</p></Notice>}
           {feed.gap?.resource === view.resource && !feed.reset && <Notice tone="warning">{[t('center.retainedGap'), feed.gap.observedAt ? date(feed.gap.observedAt) : ''].filter(Boolean).join(' · ')}</Notice>}
-          {!feed.rows.length && !reading && !feed.error && feed.page && <div className="center-empty" role="status"><Icon icon={Inbox} size={20} /><p>{t('center.emptyEvents')}</p></div>}
+          {!feed.rows.length && !reading && !feed.error && feed.page && <RecordEmpty className="center-empty" role="status"><Icon icon={Inbox} size={20} /><p>{t('center.emptyEvents')}</p></RecordEmpty>}
           {timeline(feed.resource === view.resource ? feed.rows : [])}
           <div className="center-more">
             {feed.page?.hasMore && <Button busy={pendingAction === 'more'} disabled={busy} onClick={() => void runAction('more', () => readEvents())}>{t('center.more')}</Button>}
@@ -310,10 +312,10 @@ export default function CoordinationCenter() {
           {notices.map(recordRow)}
         </Section>}
         {blockers.length > 0 && <Section label={t('center.blockers')} count={blockers.length}>{blockers.map(recordRow)}</Section>}
-        {emptyCurrent && <div className="center-empty" role="status"><Icon icon={Inbox} size={20} /><p>{t(view.filter === 'all' || showHistory ? 'center.emptyBoard' : 'center.noAttention')}</p></div>}
+        {emptyCurrent && <RecordEmpty className="center-empty" role="status"><Icon icon={Inbox} size={20} /><p>{t(view.filter === 'all' || showHistory ? 'center.emptyBoard' : 'center.noAttention')}</p></RecordEmpty>}
         {showHistory && history?.nextCursor && <div className="center-more"><Button busy={pendingAction === 'more'} disabled={busy} onClick={() => void runAction('more', () => readHistory(history.nextCursor!))}>{t('center.more')}</Button></div>}
       </>}
     </div></div>
     </>}
-  </div></Panel>;
+  </RecordSurface></Panel>;
 }

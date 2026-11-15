@@ -1,3 +1,5 @@
+import { RecordSurface } from '../components/ui/RecordDetail';
+import { RecordDetail, RecordEmpty, RecordListRow } from '../components/ui/RecordDetail';
 import { useLayerNaturalContent } from '../components/ui/LayerPortals';
 import { useCopyState } from "../components/ui/useCopyState";
 import { Tooltip as HoverHelp } from "../components/ui/index";
@@ -92,7 +94,7 @@ export default function AXPanel() {
   }
   function detail(entry: AXEntry) {
     const decision = axDecision(entry), result = decision?.detail;
-    return <section className="ax-detail" aria-label={t('center.recordDetail')}><div className="ax-detail-natural" ref={natural}>
+    return <RecordDetail variant="issue" className="ax-detail" aria-label={t('center.recordDetail')}><div className="ax-detail-natural" ref={natural}>
       <div className="ax-back"><Button variant="ghost" onClick={() => axSelection.set(undefined)}><Icon icon={ArrowLeft} />{t('center.ax.list')}</Button>
         <CopyValue value={entry.id} label={t('center.ax.copyId')} /></div>
       <header className="ax-detail-heading">
@@ -118,12 +120,12 @@ export default function AXPanel() {
           {item !== decision && item.detail?.reason && <p>{item.detail.reason}</p>}
         </div>)}
       </section>
-    </div></section>;
+    </div></RecordDetail>;
   }
-  return <div className="ax-panel" aria-busy={data.loading}>
+  return <RecordSurface variant="issue" className="ax-panel" aria-busy={data.loading}>
     {data.error && <Notice tone="danger" title={t('center.unavailable')} action={<Button busy={data.loading} onClick={() => void refreshAX()}>{t('retry')}</Button>}>{data.error}</Notice>}
     {data.loading && !data.observedAt && <LoadingIndicator label={t('loading')} />}
-    {selectedId ? selected ? detail(selected) : <div className="center-empty"><Button onClick={() => axSelection.set(undefined)}>{t('center.ax.list')}</Button><p role="status">{t('center.ax.notFound')}</p></div> : <>
+    {selectedId ? selected ? detail(selected) : <RecordEmpty className="center-empty"><Button onClick={() => axSelection.set(undefined)}>{t('center.ax.list')}</Button><p role="status">{t('center.ax.notFound')}</p></RecordEmpty> : <>
       <div className="ax-toolbar">
         <SingleChoice label={t('center.ax.filter')} disabled={data.loading && !data.observedAt} value={view.closed ? 'closed' : 'open'} compact onChange={value => axView.set(old => ({ ...old, closed: value === 'closed' }))}
           options={[{ value: 'open', label: t('center.ax.open', { count: data.observedAt ? data.entries.length - closedCount : '—' }) }, { value: 'closed', label: t('center.ax.closed', { count: data.observedAt ? closedCount : '—' }) }]} />
@@ -134,15 +136,15 @@ export default function AXPanel() {
           const id = `ax-row-${entry.id}`;
           return <Card asChild padded key={entry.id} className="ax-row"><button type="button" id={id} onClick={() => open(entry, id)} aria-labelledby={`${id}-title`} aria-describedby={`${id}-meta ${id}-status`}>
             <Tile icon={Lightbulb} form="phase" tone="neutral" />
-            <span className="ax-row-body"><span className="ax-row-title"><HoverHelp text={entry.id}><code>{shortId(entry.id)}</code></HoverHelp><strong id={`${id}-title`}>{entry.symptom}</strong></span>
-              <span id={`${id}-meta`} className="ax-row-meta">{[!axClosed(entry) && severity(entry), t('center.ax.occurrences', { count: entry.occurrenceCount }), source(entry.source), badgeTime(entry)].filter(Boolean).join(' · ')}</span></span>
+            <RecordListRow as="span" className="ax-row-body"><span className="ax-row-title"><HoverHelp text={entry.id}><code>{shortId(entry.id)}</code></HoverHelp><strong id={`${id}-title`}>{entry.symptom}</strong></span>
+              <span id={`${id}-meta`} className="ax-row-meta">{[!axClosed(entry) && severity(entry), t('center.ax.occurrences', { count: entry.occurrenceCount }), source(entry.source), badgeTime(entry)].filter(Boolean).join(' · ')}</span></RecordListRow>
             <span id={`${id}-status`}><Status entry={entry} /></span><Icon icon={ChevronRight} className="center-row-go" />
           </button></Card>;
         })}
-        {!rows.length && data.observedAt && <div className="center-empty" role="status"><Icon icon={Inbox} size={20} /><p>{t('center.emptyBoard')}</p></div>}
+        {!rows.length && data.observedAt && <RecordEmpty className="center-empty" role="status"><Icon icon={Inbox} size={20} /><p>{t('center.emptyBoard')}</p></RecordEmpty>}
       </div></div>
       {data.observedAt && <PanelFooter className="ax-footer"><span>{limit < rows.length ? t('center.ax.showing', { count: Math.min(limit, rows.length), total: rows.length }) : t('center.ax.updatedAt', { time: new Date(data.observedAt).toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' }) })}</span>
         {limit < rows.length && <Button variant="ghost" onClick={() => setPagination({ view, count: limit + 50 })}><Icon icon={ChevronDown} />{t('center.ax.more')}</Button>}</PanelFooter>}
     </>}
-  </div>;
+  </RecordSurface>;
 }
