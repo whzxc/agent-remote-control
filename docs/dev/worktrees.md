@@ -52,8 +52,10 @@ lives in the user's cache and uses Rust's native file locking; process exit rele
 it, so leftover lock files do not block later commands. Nested build steps share the
 same lock. Light checks (`check`, `check:format`, `check:tests`) run without it.
 
-After acceptance, run `npm run wt -- remove <name>` from main to delete the worktree,
-its private target and branch. Unmerged branches and dirty worktrees are retained
+After a successful land, retain required evidence outside the lane and run
+`npm run wt -- remove <name>` from main in the same task to delete the worktree,
+its private target and branch. Verify no active users remain; continue acceptance
+and any follow-up work through the integration workflow. Unmerged branches and dirty worktrees are retained
 unless `--force` is supplied. A failed create leaves its lane registered for repair
 or removal with the same command. Do not manually delete the worktree or its target.
 
