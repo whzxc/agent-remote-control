@@ -22,3 +22,7 @@ export function RoutingRow({ children }: { children: ReactNode }) { return <div 
 export function AgentPhaseTile({ children }: { children: ReactNode }) { return <span className="agent-phase-tile">{children}</span>; }
 
 export function TaskBackButton(props: ComponentProps<typeof Button>) { return <Button {...props} variant="ghost" className="task-back-button" />; }
+
+export function StatePill({ state, children }: { state: string; children: ReactNode }) {
+  return <span className="task-state" role="status" data-state={state}>{children}</span>;
+}

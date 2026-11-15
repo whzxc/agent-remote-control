@@ -6,7 +6,7 @@ import { pendingSessions } from "../state/taskInteractions";
 import { useTaskPresence } from "../state/requestRouting";
 import { observeTaskPanel } from "../state/taskPanel";
 import { useTaskQueue } from "../state/taskQueue";
-import { TaskContentCard, ReviewUnavailable, TaskBackButton } from "./ui/TaskPresentation";
+import { TaskContentCard, ReviewUnavailable, TaskBackButton, StatePill } from "./ui/TaskPresentation";
 import { TaskCard as TaskListCard, TaskCardHeader, localTaskCard } from "./ui/TaskCard";
 import TaskQueuedMessages from "./TaskQueuedMessages";
 import { useTaskReview } from "../state/taskReview";
@@ -303,7 +303,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
           editable={!readOnlyBrowser && !external && agent === "codex" && validId && !timeline?.readOnly} />} />
       <div className="task-detail-chips"><TaskRelation kind={relationKind} />{detailPhase
         ? <PhaseLabel phase={detailPhase} running>{t(`activity.phase.${detailPhase}`)}</PhaseLabel>
-        : !taskException(state) && <span className="task-state" role="status" data-state={state}>{t(`detail.state.${state}`)}</span>}
+        : !taskException(state) && <StatePill state={state}>{t(`detail.state.${state}`)}</StatePill>}
         {session.selectedTurnId && groups.some(group => group.turnId === session.selectedTurnId) && <Tag>{t("detail.selectedTurn", { count: groups.findIndex(group => group.turnId === session.selectedTurnId) + 1 })}</Tag>}
         <TaskOwnership ownership={timeline?.ownership} />
       </div>

@@ -992,13 +992,7 @@
           "part": "TopologyScene"
         },
         {
-          "source": "design/surfaces/homepage-topology-accounts.tsx"
-        },
-        {
           "source": "design/surfaces/homepage-topology.tsx"
-        },
-        {
-          "source": "design/surfaces/homepage-topology-portrait.tsx"
         }
       ]
     },
@@ -1918,13 +1912,7 @@
           "part": "TopologyScene"
         },
         {
-          "source": "design/surfaces/homepage-topology-accounts.tsx"
-        },
-        {
           "source": "design/surfaces/homepage-topology.tsx"
-        },
-        {
-          "source": "design/surfaces/homepage-topology-portrait.tsx"
         }
       ]
     },
@@ -2082,17 +2070,6 @@
         {
           "source": "design/components/request.tsx",
           "part": "PermissionActions"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/topology/Topology.tsx"
-      },
-      "design": [
-        {
-          "source": "design/components/topology-scene.tsx",
-          "part": "TopologyScreen"
         }
       ]
     },
@@ -2315,6 +2292,18 @@
       "design": [
         {
           "source": "design/components/tooltip.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TaskPresentation.tsx",
+        "symbol": "StatePill"
+      },
+      "design": [
+        {
+          "source": "design/components/task-presentation.tsx",
+          "part": "StatePill"
         }
       ]
     }
