@@ -58,7 +58,7 @@ export function TopologyScene({ scene }: { scene: TopologySceneData }) {
           </div>
           {node.labelBox && <span class={`absolute text-text text-meta leading-[14px] text-center ${node.device ? "whitespace-pre-line" : "truncate"}`}
             style={{ left: node.labelBox.x, top: node.labelBox.y, width: node.labelBox.width,
-              'font-size': 12 * node.scale * 44 / 42, 'line-height': `${14 * node.scale * 44 / 42}px` }}>{node.label}</span>}
+              'font-size': 12 * node.scale * 44 / 42, 'line-height': `${14 * node.scale * 44 / 42}px` }}>{node.device ? <>{node.label.split("\n")[0]}<small class="block text-[83.3333%] leading-[14px] text-text-secondary">{node.label.split("\n")[1]}</small></> : node.label}</span>}
         </>}
       </div>;
     })}

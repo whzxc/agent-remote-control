@@ -18,7 +18,7 @@ export function HomepageBar({ mode, compact = false, date = copy.date, time = co
     <div class="flex items-baseline gap-2 min-w-0 overflow-visible">
       <time class="text-title leading-6 font-[650] tabular-nums">{time}</time>
       <button class="flex items-center gap-0 min-w-0 h-9 text-small font-semibold whitespace-nowrap shrink-0">
-        {title}{!compact && <span class="text-meta text-text-secondary font-semibold whitespace-pre"> · {date.split(" · ").map((text,i)=><>{i>0 && " · "}<span>{text}</span></>)}</span>}
+        {title}{!compact && <span class="text-meta text-text-secondary font-semibold">{` · ${date}`}</span>}
       </button>
     </div>
     <div class={language === "en" ? "w-[157px]" : "w-[114px]"}><HomepageModeSwitch mode={mode} language={language} /></div>

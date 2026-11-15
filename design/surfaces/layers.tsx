@@ -23,7 +23,7 @@ export default () => [
       <div class="relative" style={{width:scene.width,height:scene.height}}>
         <HomepageScene scene={scene} chrome={node}/>
         <div data-free class="absolute inset-0 flex items-center justify-center pt-5 pb-[76px]">
-          <Panel size={node?'m':'xl'} viewportWidth={scene.width} retainedHeight={slot.height} headerHeight={slot.name==='workspace-cap'?50:node?46:undefined}
+          <Panel size={node?'m':'xl'} viewportWidth={scene.width} retainedHeight={slot.height} height={node ? slot.height : undefined} headerHeight={slot.name==='workspace-cap'?50:node?46:undefined}
             title={node?<NodePanelHeading/>:slot.name==='workspace-cap'?'Settings':'Relay hosting'}
             headerless={node} actions={node?undefined:<IconButton icon="maximize-2" label="Expand"/>}>
             {node?<><NodePanelHeading/><div class="min-h-0 overflow-y-auto"><NodePanelContent/></div></>:<WorkspaceContent settings={slot.name==='workspace-cap'}/>}
@@ -36,7 +36,7 @@ export default () => [
     capture={{page:true,origin:'0 0',viewport:'1280x800'}}>
     <div class="relative w-[1280px] h-[800px] bg-canvas">
       <HomepageScene scene={topologyScenes['nested-dialog']} chrome={false} />
-      <div class="absolute top-[192px] left-[360px] w-[560px] h-[420px]">
+      <div aria-hidden="true" inert class="absolute top-[192px] left-[360px] w-[560px] h-[420px]">
         <OnboardingShell step={onboardingFrames.find(s=>s.name==='source-connection')!}><SourceOnboarding step={onboardingFrames.find(s=>s.name==='source-connection')!}/></OnboardingShell>
       </div>
       <div class="absolute inset-0 bg-layer-scrim flex items-center justify-center pt-5 pb-4">

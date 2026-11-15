@@ -39,7 +39,7 @@ const aurora = 'border-transparent [background:linear-gradient(var(--surface),va
 
 export function TaskCardHeader({ task, heading = false }: { task: TaskSnapshotData; heading?: boolean }) {
   const timing = task.elapsed ?? task.lastSeen;
-  const title = 'w-max whitespace-nowrap text-left text-body leading-5 font-semibold text-text';
+  const title = 'block w-max whitespace-nowrap text-left text-body leading-5 font-semibold text-text';
   return <header class="flex w-full min-w-0 flex-col gap-2 px-[14px] py-3">
     <div class="flex h-5 min-w-0 items-center justify-between gap-2">
       <div class={`flex-1 ${scrollRow}`}><div class="flex w-max"><OriginChain steps={task.origin} /></div></div>
@@ -89,7 +89,7 @@ export function TaskCard({ task, form }: {
   return <article aria-label={task.title} style={{ '--aurora-tint': active ? tint : undefined }}
     class={`flex w-full min-w-0 flex-col rounded-card border ${active ? aurora : 'border-border bg-surface shadow-md'}`}>
     <TaskCardHeader task={task} />
-    {preview && <div class="mx-[10px] mb-[10px] flex min-h-10 max-h-[180px] flex-col justify-end gap-2 overflow-hidden rounded-field bg-surface-subtle px-3 py-[10px]" aria-hidden="true">
+    {preview && <div class="mx-[10px] mb-[10px] flex min-h-10 max-h-[180px] flex-col justify-end gap-2 overflow-hidden rounded-field bg-surface-subtle px-3 py-[10px]">
       {task.prompt && <SnapshotNote tone="source" text={task.prompt} />}
       {work && <div class="flex items-center gap-[6px] text-caption text-text-secondary">
         <Icon name="wrench" size={12} /><span class="min-w-0 truncate">{work}</span>
