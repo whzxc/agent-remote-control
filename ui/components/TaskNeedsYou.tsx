@@ -16,7 +16,7 @@ import { tasks, type TaskRecord } from "../state/tasks";
 import ActivityInteraction from "./ActivityInteraction";
 import TaskQuestion from "./TaskQuestion";
 import { Dialog, IconButton } from "./ui";
-import { TaskCard, RequestEntry } from "./ui/TaskPresentation";
+import { TaskContentCard, RequestEntry } from "./ui/TaskPresentation";
 import { FilePath } from "./ui/ProjectPath";
 
 export function taskReceipts(records: TaskRecord[], agent: string, id: string) {
@@ -59,7 +59,7 @@ export default function TaskNeedsYou({ agent, session, entries, source, narrow, 
   const dock = <section ref={focus} tabIndex={-1} className="task-needs-you" onFocusCapture={pauseOnInteraction} onPointerDownCapture={pauseOnInteraction} onClickCapture={pauseOnInteraction} onKeyDownCapture={pauseOnInteraction} onChangeCapture={pauseOnInteraction} aria-label={t("detail.needsYou")}>
     <header><RelayRoute source={source} agent={agent} reverse label={t("relay.request")} />{!narrow && passive}</header>
     {count > 1 && <nav className="actions" aria-label={t("detail.needsYou")}><IconButton compact icon={ChevronLeft} label={t("detail.previousRequest")} disabled={index === 0} onClick={() => setPage(index - 1)} /><span>{t("detail.pager", { current: index + 1, total: count })}</span><IconButton compact icon={ChevronRight} label={t("detail.nextRequest")} disabled={index === count - 1} onClick={() => setPage(index + 1)} /></nav>}
-    {pending && interaction && <TaskCard className="task-request-card">
+    {pending && interaction && <TaskContentCard className="task-request-card">
       {interaction.kind === "question" ? <TaskQuestion key={identity} agent={agent} session={pending} answers={drafts[identity!] ?? {}} onAnswersChange={answers => setDrafts(old => ({ ...old, [identity!]: answers }))} routing={route("actionable")} /> : <>
         <div className="task-request-preview"><header><strong>{interaction.title || interaction.summary}</strong><span>{t("timeline.allowOnce")}</span></header>
           {requestPreview && <pre>{requestPreview}</pre>}
@@ -68,7 +68,7 @@ export default function TaskNeedsYou({ agent, session, entries, source, narrow, 
         </div>
         <ActivityInteraction key={identity} agent={agent} session={pending} routing={route("actionable")} />
       </>}
-    </TaskCard>}
+    </TaskContentCard>}
   </section>;
   if (inline && !narrow) return count ? <div className="relay-request">{dock}</div> : null;
   if (!narrow) return count ? <footer className="dialog-footer task-detail-footer">{dock}</footer> : null;

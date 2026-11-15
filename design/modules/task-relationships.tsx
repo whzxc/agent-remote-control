@@ -1,5 +1,7 @@
 import { Frame, Icon } from "adg";
-import { Tile, type TileTone } from "../components/tile";
+import type { TileTone } from "../components/tile";
+import { TaskCard, TaskCardHeader, type TaskSnapshotData } from "./tasks";
+import { origins } from "../fixtures/tasks";
 import { TopologyScene } from "./topology-scene";
 import {
   parentTitle, family, positions, headers, familyExample, linkRows, branchRows, relationKinds,
@@ -24,52 +26,13 @@ export function TaskRelation({ kind }: { kind?: RelationKind }) {
     </span>
   ) : null;
 }
-export function TaskParentLink({
-  title,
-  label = "所属主线程",
-}: {
-  title: string;
-  label?: string;
-}) {
-  return (
-    <div class="flex items-center gap-[14px] h-(--control-height) rounded-field bg-surface-subtle px-3">
-      <span class="text-meta text-text-secondary">{label}</span>
-      <strong class="flex-1 text-small font-medium text-text">{title}</strong>
-      <Icon name="chevron-right" size={16} class="text-text-secondary" />
-    </div>
-  );
+function relatedTask(title: string, elapsed?: string): TaskSnapshotData {
+  return { id: title, node: 'codex', title, group: 'recent', state: '', detail: '',
+    icon: 'circle', origin: origins.local, elapsed };
 }
-export function RelationTaskCard({
-  title,
-  duration,
-  phase,
-  headline,
-  tone,
-  icon,
-  kind,
-}: RelationTask) {
-  const color =
-    tone === "thinking"
-      ? "text-phase-thinking"
-      : tone === "success"
-        ? "text-success"
-        : "text-phase-command";
-  return (
-    <div class="flex w-[400px] items-center gap-3 rounded-card bg-surface px-3 py-3 shadow-md">
-      <Tile form="phase" icon={icon} tone={tone} />
-      <div class="flex min-w-0 flex-1 flex-col gap-[9px]">
-        <div class="flex items-center justify-between text-small leading-[14px] text-text">
-          <strong class="font-[650]">{title}</strong>
-          <span class="text-caption text-text-tertiary">{duration}</span>
-        </div>
-        <div class="flex items-center gap-[10px] text-meta leading-[13px]">
-          <TaskRelation kind={kind} />
-          <span class={color}>{phase}</span>
-          <span class="text-text-secondary">{headline}</span>
-        </div>
-      </div>
-    </div>
-  );
+
+export function RelationTaskCard({ title, duration }: RelationTask) {
+  return <div class="w-[400px]"><TaskCard task={relatedTask(title, duration)} form="summary" /></div>;
 }
 export function TaskDetailHeader({
   agent,
@@ -92,9 +55,7 @@ export function TaskDetailHeader({
         <Icon name="arrow-left" size={16} />
         {agent}
       </div>
-      <h2 class="mt-[14px] px-1 text-title leading-6 font-[650] text-text">
-        {title}
-      </h2>
+      <TaskCardHeader task={relatedTask(title)} heading />
       <div class="mt-[14px] px-1 flex items-center gap-5 text-meta leading-4">
         <TaskRelation kind={kind} />
         <span
@@ -104,7 +65,7 @@ export function TaskDetailHeader({
         </span>
       </div>
       <div class="mt-4">
-        <TaskParentLink title={parentTitle} />
+        <TaskCard task={relatedTask(parentTitle)} form="summary" />
       </div>
     </section>
   );
@@ -113,7 +74,7 @@ export function TaskFamily() {
   return (
     <TopologyScene
       width={1140}
-      height={520}
+      height={820}
       links={linkRows.map((y) => ({
         from: { x: 101, y: 230 },
         to: { x: 160, y: y + 30 },
@@ -156,7 +117,7 @@ export function TaskFamily() {
         ...headers.flatMap(({ index, y, note }) => [
           {
             x: 676,
-            y: y - 29,
+            y: y * 1.45 - 29,
             content: (
               <span class="font-mono text-caption leading-[14px] text-text-tertiary">
                 {note}
@@ -165,7 +126,7 @@ export function TaskFamily() {
           },
           {
             x: 676,
-            y,
+            y: y * 1.45,
             content: (
               <TaskDetailHeader
                 agent={familyExample.agent}
@@ -181,7 +142,7 @@ export function TaskFamily() {
       <svg
         class="absolute inset-0 pointer-events-none"
         width={1140}
-        height={520}
+        height={820}
         fill="none"
         stroke="var(--border-strong)"
         stroke-width="1.75"
@@ -197,14 +158,14 @@ export function TaskFamily() {
 }
 
 export default () => [
-  <Frame name="task-family" width={1140} height={520}><TaskFamily /></Frame>,
+  <Frame name="task-family" width={1140} height={820}><TaskFamily /></Frame>,
   ...relationKinds.map((kind, i) => (
     <Frame name={`task-relation-${kind}`} width={i === 0 ? 83 : 84}>
       <div class="flex w-full bg-surface-raised text-meta leading-4"><TaskRelation kind={kind} /></div>
     </Frame>
   )),
   <Frame name="task-parent-link" width={392}>
-    <div class="w-full bg-surface-raised"><TaskParentLink title={parentTitle} /></div>
+    <div class="w-full bg-surface-raised"><TaskCard task={relatedTask(parentTitle)} form="summary" /></div>
   </Frame>,
   <Frame name="relation-task-card" width={400}>
     <RelationTaskCard {...family[0]} />

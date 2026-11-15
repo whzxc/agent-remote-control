@@ -21,8 +21,6 @@
   --brand-orange: #d97757;
   --brand-agent-start: #9c8cff;
   --brand-agent-end: #3f63ff;
-  --phase-tool: var(--text-secondary);
-  --phase-text: #4a5bbd;
   --topology-error: #d7263d;
 }
 :root[data-theme="dark"] {
@@ -32,7 +30,6 @@
   --brand-orange: #e8865e;
   --brand-agent-start: #b7aaff;
   --brand-agent-end: #5c7cff;
-  --phase-text: #9aaeff;
   --topology-error: #ff4967;
 }
 /* Host colors remain semantic; shared controls use the same Connector tokens. */

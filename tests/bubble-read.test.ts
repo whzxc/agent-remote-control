@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { Window } from "happy-dom";
 import { createServer } from "vite";
 import { act, createElement as h } from "react";
-import { within, fireEvent } from "@testing-library/dom";
 
 test("late terminal evidence preserves acknowledged completions after activity tracking resets", async () => {
   // Regression: a reloaded completion reappeared unread when terminal evidence arrived after the activity snapshot.
@@ -21,13 +20,11 @@ test("late terminal evidence preserves acknowledged completions after activity t
     const { useActivityTracking, acceptActivity, resetActivityCore } = await server.ssrLoadModule("/ui/state/activity.ts");
     const { acceptTaskExecution } = await server.ssrLoadModule("/ui/state/taskExecution.ts");
     const { controlActivityBubble } = await server.ssrLoadModule("/ui/state/activityBubbles.ts");
-    const { ActivityBubble } = await server.ssrLoadModule("/ui/components/ActivityBubbles.tsx");
-    const { t } = await server.ssrLoadModule("/ui/i18n.ts");
+    const { selectAgentPanel } = await server.ssrLoadModule("/ui/state/overviewPanels.ts");
     const session = { id: "replayed-completion", title: "Replayed completion", source: "arc-task", phase: "text", phaseSince: null, headline: "Finished", turnId: "same-turn" };
     function Harness() {
-      const { tracked, markRead } = useActivityTracking();
-      return h("div", null, (tracked.codex ?? []).map((row: any) => h(ActivityBubble, { key: row.id, agent: "codex", session: row, now: 1,
-        onRead: () => markRead("codex", row.id) })));
+      useActivityTracking();
+      return null;
     }
     await act(() => root.render(h(Harness)));
     let observed = 0;
@@ -41,10 +38,12 @@ test("late terminal evidence preserves acknowledged completions after activity t
       });
     };
     await replay("first-renderer");
-    await act(() => fireEvent.click(within(mount).getByRole("button", { name: t("activity.markRead"), exact: true })));
+    assert.equal(controlActivityBubble({ agent: "codex", id: session.id }).unread, true);
+    await act(() => selectAgentPanel({ type: "task", agent: "codex", session: { ...session, orderAt: 1 } }));
+    await act(() => selectAgentPanel({ type: "closed" }));
     const acknowledged = controlActivityBubble({ agent: "codex", id: session.id });
     await replay("fresh-renderer");
-    assert.equal(within(mount).queryByRole("button", { name: t("activity.markRead"), exact: true }), null);
-    assert.deepEqual(controlActivityBubble({ agent: "codex", id: session.id }), acknowledged);
+    assert.equal(controlActivityBubble({ agent: "codex", id: session.id }).unread, false);
+    assert.equal(controlActivityBubble({ agent: "codex", id: session.id }).readAt, acknowledged.readAt);
   } finally { await act(() => root.unmount()); await server.close(); await window.happyDOM.close(); }
 });

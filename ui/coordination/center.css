@@ -94,8 +94,6 @@ button.center-row:focus-visible { outline: 2px solid var(--accent); outline-offs
 .center-detail .notice { margin: 0; }
 .center-linked { display: grid; gap: var(--space-1); }
 .center-linked h3 { margin: 0; font-size: var(--text-meta); font-weight: 600; color: var(--text-secondary); }
-.center-linked-row { display: grid; border: 1px solid var(--border); border-radius: var(--radius-field); }
-.center-linked-meta { padding: 0 var(--space-2) var(--space-2) calc(28px + var(--space-3) + var(--space-2)); margin-top: -8px; color: var(--text-secondary); font-size: var(--text-meta); }
 
 
 .center-footer [data-tone="warning"] { color: var(--warning); }
@@ -130,3 +128,4 @@ button.center-row:focus-visible { outline: 2px solid var(--accent); outline-offs
 .coordination-center > .notice + .center-content { margin-top: 16px; }
 .coordination-center > .notice + .center-content .center-section + .center-section { margin-top: 22px; }
 .center-section-note { color: var(--text-secondary); font-weight: 400; margin-left: 4px; }
+.center-event-links > .task-card { flex: 1 0 100%; }

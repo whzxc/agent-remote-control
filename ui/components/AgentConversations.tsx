@@ -3,7 +3,7 @@ import { activityApprovals } from "../state/activity";
 import { pendingSessions } from "../state/taskInteractions";
 import { useAppNow } from "../state/appEnvironment";
 import { MessagesSquare } from "lucide-react";
-import { memo, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { locale, t } from "../i18n";
 import type { AgentActivitySession, AgentConversation, AgentConversationPage, ProviderAccount } from "../types";
@@ -11,29 +11,12 @@ import { accountOwns } from "../accountPresentation";
 import { agentActivity } from "../state/activity";
 import { trackedActivity } from "../state/activityBubbles";
 import { selectAgentPanel } from "../state/overviewPanels";
-import type { TrackedActivity } from "../state/activityModel";
+import { localTaskDay, previewHomepageTask, type TrackedActivity } from "../state/activityModel";
 import { activitySections } from "../state/activitySections";
-import { taskState } from "../state/taskProjection";
-import { ActivityBubbleContent } from "./ActivityBubbles";
+import { activityState } from "../state/taskExecutionModel";
 import { Button, Empty, Loading, Notice } from "./ui";
 import { dockLoadingDelay } from "./useDockOpening";
-import { TaskBubble } from "./ui/TaskRow";
-
-const ConversationRow = memo(function ConversationRow({ agent, session, live, now, index }: {
-  agent: string; session: TrackedActivity; live: boolean; now: number; index: number;
-}) {
-  return <TaskBubble className={`agent-conversation-row ${session.interaction ? "needs-attention" : ""}`}
-    data-density="standard" data-timeline-anchor
-    style={{ "--row-delay": `${Math.min(index, 5) * 24}ms` } as CSSProperties}
-    data-activity-session={JSON.stringify([agent, session.id])}
-    aria-label={`${session.title || t("timeline.title")} · ${t("timeline.open")}`}
-    aria-description={live ? undefined : t(`detail.state.${taskState(session.status ?? undefined, false)}`)}
-    onClick={() => selectAgentPanel({ type: "task", agent, session })}>
-    <ActivityBubbleContent agent={agent} session={session} now={now} density="standard" historical={!live} conversationRow />
-  </TaskBubble>;
-}, (previous, next) => previous.agent === next.agent && previous.live === next.live && previous.index === next.index
-  && (next.live ? previous.now === next.now : new Date(previous.now).getFullYear() === new Date(next.now).getFullYear())
-  && JSON.stringify(previous.session) === JSON.stringify(next.session));
+import { TaskCard, localTaskCard } from "./ui/TaskCard";
 
 export const readConversationPage = (agent: string, cursor?: string) => api<AgentConversationPage>("agents/conversations", "POST", { agent, limit: 20, ...(cursor ? { cursor } : {}) });
 export type InitialAgentHistory = {
@@ -105,7 +88,8 @@ export default function AgentConversations({ agent, account, accountId, active, 
   }, [active, next, loading, error]);
   const sessions = new Map<string, TrackedActivity>(rows.map(conversation => [conversation.id, {
     id: conversation.id, source: conversation.source === "native" ? "transcript" : conversation.source, status: conversation.status, title: conversation.title || undefined, phase: "idle", observed: false, phaseSince: null,
-    headline: "", startedAt: conversation.createdAt, project: conversation.project, projectName: conversation.projectName,
+    headline: "", startedAt: conversation.createdAt, turnId: conversation.turnId, turnStartedAt: conversation.turnStartedAt, turnEndedAt: conversation.turnEndedAt,
+    turnDurationMs: conversation.turnDurationMs, project: conversation.project, projectName: conversation.projectName,
     dispatchSummary: conversation.dispatchSummary ?? undefined, turnCount: conversation.turnCount ?? undefined,
     agentAccountId: conversation.agentAccountId ?? conversation.dispatchSummary?.agentAccountId,
     nativeSessionId: conversation.nativeSessionId ?? undefined, open: conversation.open,
@@ -130,6 +114,7 @@ export default function AgentConversations({ agent, account, accountId, active, 
   const visibleSessions = [...sessions.values()].filter(belongs).sort((a, b) => b.orderAt - a.orderAt || b.id.localeCompare(a.id));
   const sections = activitySections(visibleSessions, now, session => session.orderAt,
     session => live.has(session.id) ? session.interaction ? 'attention' : 'running' : unread.has(session.id) ? 'unread' : undefined);
+  const today = localTaskDay(now);
   const empty = !loading && !error && !visibleSessions.length && !next;
   const initialLoading = active && !error && ((!cursor && loading) || (!visibleSessions.length && (loading || next !== null)));
   const [showLoading, setShowLoading] = useState(!!initial?.timedOut);
@@ -145,8 +130,13 @@ export default function AgentConversations({ agent, account, accountId, active, 
         <h3 className="agent-task-section-heading" data-attention={id === "attention" || undefined}>
           {`${label} · ${entries.length}`}
         </h3>
-        <div className="agent-task-section-rows">{entries.map((session, index) => <ConversationRow key={session.id} agent={agent}
-          session={session} live={live.has(session.id)} now={now} index={index} />)}</div>
+        <div className="agent-task-section-rows">{entries.map(session => {
+          const current = live.has(session.id), state = activityState(session, taskExecution(agent, session.id), !!session.interaction, current);
+          const task = localTaskCard(agent, session, state === 'needsYou' ? 'needs-me' : state === 'running' ? 'running' : unread.has(session.id) ? 'unread' : state === 'unknown' ? 'unconfirmed' : 'recent');
+          return <TaskCard key={session.id} task={task} now={now} form={previewHomepageTask(task, today) ? 'detail' : 'summary'}
+            description={t(`detail.state.${state}`)} trigger={{ 'data-activity-session': task.key }}
+            onOpen={() => selectAgentPanel({ type: "task", agent, session })} />;
+        })}</div>
       </section>;
     })}
     {initialLoading && showLoading && <Loading />}

@@ -12,7 +12,7 @@ ARC uses warm neutral surfaces, restrained semantic tints, rounded shared contro
 
 The desktop targets are macOS and Windows. Headless Linux has no product UI. Each source uses one representative language. English and Simplified Chinese content follow its mapped fixture. Frame dimensions and capture viewports are declared in TSX. Landscape topology uses 1280×800 and portrait topology uses 640×800. Mobile forms are declared with their owning task or device surface. Rails reserve node and quota-ring space. The shared HomepageBar keeps the mode switch centered.
 
-The default exports declare presentations. Task bubbles retain compact, standard, detailed, row and row-attention forms. Homepage history uses the compact form. Setup retains standalone and nested flows, including distinct method and ready controls. AX Board retains open, closed and detail forms. Detail replaces the list inside the same panel and can scroll beyond the viewport.
+The default exports declare presentations. Task cards have summary and detail forms with an identical header. Setup retains standalone and nested flows, including distinct method and ready controls. AX Board retains open, closed and detail forms. Detail replaces the list inside the same panel and can scroll beyond the viewport.
 
 ### ARC health
 
@@ -42,9 +42,12 @@ node capsules. The Tasks view owns execution previews and historical summaries.
 
 Tasks groups cards by the local date of their latest recorded activity. A grid adapts
 its column count to the available width. Today's tasks, active work and unread
-completions show large previews. Older history uses compact bubbles. Completed
-cards use the Agent mark with an available control source mark and display recorded
-execution settings and elapsed time. The controller shows its member dispatches.
+completions show detail cards. Older history uses summary cards. Homepage, Agent,
+control-source and Board task entries use the shared card. Its three rows show
+the origin chain with time fixed at the right, the task title, then the recorded
+execution spec, project name and turn count. Each row scrolls horizontally when
+its single line exceeds the available width. Running detail cards use an Aurora
+border colored by the active phase. Reduced motion keeps the phase tint static. The controller shows its member dispatches.
 On the member, that controller is the source.
 
 Full previews follow the newest native rows. Consecutive tools in a turn form a

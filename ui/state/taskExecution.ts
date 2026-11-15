@@ -63,7 +63,7 @@ export function useTaskExecution(agent: string, id: string, turnId: string | nul
 /** Only mounted task snapshots request timeline previews. */
 export function useTaskPreview(agent: string, id: string, enabled: boolean, card: RefObject<HTMLElement | null>) {
   useEffect(() => {
-    if (!enabled || !card.current) return;
+    if (!enabled || !card.current || typeof IntersectionObserver !== 'function') return;
     let visible = false;
     const read = () => { if (visible && !document.hidden) void refreshTaskExecution(agent, id, true).catch(() => {}); };
     const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; read(); });

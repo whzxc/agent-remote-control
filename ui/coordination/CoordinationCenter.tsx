@@ -8,12 +8,13 @@ import { api } from '../api';
 import { locale, t } from '../i18n';
 import { Button, Icon, IconButton, Notice, SingleChoice } from '../components/ui';
 import { Card } from '../components/ui/card';
+import { TaskCard, localTaskCard } from '../components/ui/TaskCard';
 import { connector, refreshConnector } from '../state/connector';
 import { acceptActivity } from '../state/activity';
 import type { AgentActivitySnapshot } from '../types';
 import { trackedActivity } from '../state/activityBubbles';
 import { tasks } from '../state/tasks';
-import { agents, name as agentName } from '../state/agents';
+import { agents } from '../state/agents';
 import { taskExecutions } from '../state/taskExecution';
 import { selectAgentPanel, selectIngressPanel, panelBack } from '../state/overviewPanels';
 import { activityState } from '../state/taskExecutionModel';
@@ -22,7 +23,7 @@ import { useAppNow } from '../state/appEnvironment';
 import { createStore } from '../state/store';
 import { dayKey, relativeTime } from '../lib/relativeTime';
 import { groupEvents, liveRecord, mergeEvents, type Attention, type BoardPage, type BoardRecord, type EventPage, type JournalEvent } from './model';
-import { attentionLook, clock, duration, eventTone, recordLook, stateTone, workLook, type Tone } from './presentation';
+import { attentionLook, clock, duration, eventTone, recordLook, stateTone, type Tone } from './presentation';
 import { boardObservation, boardOpen, boardFocus, centerView, ownerResult, refreshBoard, useAttention } from './state';
 interface ResourceOption { key: string; label: string }
 import './center.css';
@@ -126,7 +127,10 @@ export default function CoordinationCenter() {
       const [agent] = JSON.parse(key) as [string, string];
       return { agent, session: { id: threadId, source: agent === 'codex' ? 'codex-thread' as const : 'arc-task' as const, phase: 'idle' as const, headline: '', phaseSince: null, timeline: true, orderAt: 0, observed: false, conversation: true, selectedTurnId: turnId } };
     }
-    return { agent: record.agent, session: { id: threadId, title: record.task.title, source: record.agent === 'codex' ? 'codex-thread' as const : 'arc-task' as const, phase: 'idle' as const, headline: '', phaseSince: null, timeline: true, orderAt: 0, observed: false, conversation: true, selectedTurnId: turnId } };
+    return { agent: record.agent, session: { id: threadId, title: record.runtime?.title ?? record.task.title, origin: record.origin ?? record.task.origin,
+      project: record.runtime?.project ?? record.task.project ?? record.task.directory, agentAccountId: record.agentAccountId,
+      dispatchSummary: { model: record.task.model ?? record.requested?.model, effort: record.task.effort ?? record.requested?.effort, serviceTier: record.requested?.serviceTier },
+      source: record.agent === 'codex' ? 'codex-thread' as const : 'arc-task' as const, phase: 'idle' as const, headline: '', phaseSince: null, timeline: true, orderAt: 0, observed: false, conversation: true, selectedTurnId: turnId } };
   }
   function openTask(threadId: string, turnId: string | undefined, focusId: string) {
     const target = taskTarget(threadId, turnId); if (!target) return;
@@ -160,7 +164,6 @@ export default function CoordinationCenter() {
   const scopedAttention = showHistory ? [] : attention.items.filter(item => (view.filter !== 'input' || item.kind === 'task' && item.state === 'needsYou') && (!view.resource || item.kind === 'blocker' && item.record.resources.includes(view.resource) || item.kind === 'task' && observed.page?.notices.some(row => row.resources.includes(view.resource) && row.threadLinks?.some(link => link.threadId === item.session.id))));
   const ownerAttention = scopedAttention.filter(item => item.kind !== 'blocker');
   const resourceLabel = (key: string) => options.find(option => option.key === key)?.label ?? key;
-  const agentLabel = (id: string) => { const item = inventory.find(item => item.agent === id); return item ? agentName(item) : id; };
   const title = (item: Attention) => item.kind === 'task' ? item.session.title ?? taskTarget(item.session.id)?.session.title ?? item.session.id : item.kind === 'blocker' ? item.record.summary : item.kind === 'ax' ? item.item.summary ?? t('center.axTriage', { count: item.item.open ?? 0 }) : item.title;
   const sourceName = (id?: string) => connection.sources.find(source => source.id === id)?.label ?? id ?? t('center.unknown');
   const owner = (row: BoardRecord) => row.localOrigin ? t('center.local') : connection.sources.find(source => source.id === row.ownerSourceId)?.label ?? row.ownerSourceId ?? t('center.unknown');
@@ -168,11 +171,17 @@ export default function CoordinationCenter() {
   const chips = (keys: readonly string[]) => keys.length > 0 && <span className="center-chips">{keys.map(key => <span key={key} className="center-chip">{resourceLabel(key)}</span>)}</span>;
   const coverageNote = (row: BoardRecord) => row.activityCoverage !== 'observed' && <span className="center-note">{t(`center.coverage.${row.activityCoverage}`)}</span>;
   function attentionRow(item: Attention) {
-    const look = attentionLook(item), meta = <span className="center-row-meta">{item.kind === 'task' && <span>{agentLabel(item.agent)}</span>}<span>{kindLabel(item)}</span></span>;
+    const id = `attention-${encodeURIComponent(item.id)}`;
+    if (item.kind === 'task') {
+      const available = !!taskTarget(item.session.id);
+      const task = localTaskCard(item.agent, { ...item.session, title: title(item) }, item.state === 'needsYou' ? 'needs-me' : 'recent');
+      return <TaskCard key={item.id} task={task} form={item.state === 'needsYou' ? 'detail' : 'summary'} now={now}
+        description={available ? kindLabel(item) : t('center.targetUnavailable')} trigger={{ id, disabled: !available }}
+        onOpen={available ? () => openAttention(item, id) : undefined} />;
+    }
+    const look = attentionLook(item), meta = <span className="center-row-meta">{kindLabel(item)}</span>;
     if (item.kind === 'feedback') return <Card key={item.id} className="center-row"><RowGlyph {...look} /><span className="center-row-body"><strong>{item.title}</strong></span></Card>;
     if (item.kind === 'ax') return <Card key={item.id} className="center-row"><RowGlyph {...look} /><span className="center-row-body"><strong>{title(item)}</strong><span className="center-row-meta"><span>{item.item.kind === 'ax-candidate' ? t('center.axCandidate', { source: sourceName(item.item.ownerSourceId) }) : t('center.axTriageWait')}</span></span></span></Card>;
-    if (item.kind === 'task' && !taskTarget(item.session.id)) return <Card key={item.id} className="center-row"><RowGlyph {...look} /><span className="center-row-body"><strong>{title(item)}</strong><span className="center-row-meta"><span>{t('center.targetUnavailable')}</span></span></span></Card>;
-    const id = `attention-${encodeURIComponent(item.id)}`;
     return <RecordRow key={item.id} id={id} onClick={() => openAttention(item, id)}><RowGlyph {...look} /><span className="center-row-body"><strong>{title(item)}</strong>{meta}</span><Icon icon={ChevronRight} className="center-row-go" /></RecordRow>;
   }
   function recordRow(row: BoardRecord) {
@@ -209,7 +218,8 @@ export default function CoordinationCenter() {
       </dl>
       {linked.length > 0 && <div className="center-linked"><h3>{t('center.linkedTasks')}</h3>
         {linked.map(link => { const target = taskTarget(link.threadId, link.observedTurnId), id = `link-${row.id}-${link.threadId}`;
-          return target ? <div key={link.threadId} className="center-linked-row"><RecordRow id={id} onClick={() => openTask(link.threadId, link.observedTurnId, id)}><RowGlyph {...workLook} /><span className="center-row-body"><strong>{taskTarget(link.threadId)?.session.title ?? link.threadId}</strong></span><Icon icon={ChevronRight} className="center-row-go" /></RecordRow><span className="center-linked-meta">{agentLabel(target.agent)}</span></div>
+          return target ? <TaskCard key={link.threadId} task={localTaskCard(target.agent, target.session)} form="summary" now={now}
+            trigger={{ id }} onOpen={() => openTask(link.threadId, link.observedTurnId, id)} />
             : <p key={link.threadId} className="center-note">{link.threadId} · {t('center.targetUnavailable')}</p>; })}
       </div>}
       {observed.page?.conflictCoverage !== 'observed' && <p className="center-note">{t('center.conflictsUnknown')}</p>}
@@ -222,7 +232,12 @@ export default function CoordinationCenter() {
     const row = evidence && [...observed.page?.notices ?? [], ...observed.page?.blockers ?? [], ...history?.notices ?? [], ...history?.blockers ?? []].find(row => row.id === evidence.id);
     const origin = event.origin?.type === 'local-authority' ? t('center.local') : connection.sources.find(source => source.id === event.origin?.sourceId)?.label ?? event.origin?.sourceId ?? event.origin?.type ?? t('center.unknown');
     const links = [
-      ...(event.threadRefs ?? []).map(ref => taskTarget(ref.threadId, ref.turnId) ? <Button id={`event-${event.eventId}-${ref.threadId}`} key={`${ref.threadId}:${ref.turnId}`} variant="ghost" className="center-link" onClick={() => openTask(ref.threadId, ref.turnId, `event-${event.eventId}-${ref.threadId}`)}>{taskTarget(ref.threadId)?.session.title ?? ref.threadId}</Button> : <span key={`${ref.threadId}:${ref.turnId}`} className="center-note">{ref.threadId} {ref.turnId} · {t('center.targetUnavailable')}</span>),
+      ...(event.threadRefs ?? []).map(ref => {
+        const target = taskTarget(ref.threadId, ref.turnId), id = `event-${event.eventId}-${ref.threadId}`;
+        return target ? <TaskCard key={`${ref.threadId}:${ref.turnId}`} task={localTaskCard(target.agent, target.session)} form="summary" now={now}
+          trigger={{ id }} onOpen={() => openTask(ref.threadId, ref.turnId, id)} />
+          : <span key={`${ref.threadId}:${ref.turnId}`} className="center-note">{ref.threadId} {ref.turnId} · {t('center.targetUnavailable')}</span>;
+      }),
       ...(evidence ? [<Button id={`record-ref-${event.eventId}`} key="record" variant="ghost" className="center-link" onClick={() => void readRecord(row ?? { id: evidence.id, resources: event.resources })}>{row ? row.intent ?? row.summary : evidence.id}</Button>] : []),
       ...(event.kind === 'notification.delivery-failed' && sourceConnection && connection.status?.ingresses.some(row => row.id === sourceConnection) ? [<Button id={`connection-${event.eventId}`} key="connection" variant="ghost" className="center-link" onClick={() => openAttention({ id: sourceConnection, kind: 'connection', connectionId: sourceConnection, title: sourceConnection }, `connection-${event.eventId}`)}>{t('connections.title')}</Button>] : []),
       ...(event.kind.startsWith('app.') ? [<Button id={`update-${event.eventId}`} key="update" variant="ghost" className="center-link" onClick={() => openAttention({ id: 'update', kind: 'update', title: 'ARC' }, `update-${event.eventId}`)}>{t('viewUpdate')}</Button>] : []),
@@ -293,7 +308,8 @@ export default function CoordinationCenter() {
           {ownerAttention.map(attentionRow)}
         </Section>}
         {(activeWork.length > 0 || notices.length > 0) && <Section label={t(showHistory ? 'center.notices' : 'center.work')} count={activeWork.length + notices.length}>
-          {activeWork.map(({ agent, session }) => <RecordRow key={`${agent}:${session.id}`} id={`work-${session.id}`} onClick={() => openTask(session.id, session.turnId ?? undefined, `work-${session.id}`)}><RowGlyph {...workLook} /><span className="center-row-body"><strong>{session.title ?? session.id}</strong><span className="center-row-meta"><span>{agentLabel(agent)}</span><span>{t('detail.state.running')}</span></span></span><Icon icon={ChevronRight} className="center-row-go" /></RecordRow>)}
+          {activeWork.map(({ agent, session }) => <TaskCard key={`${agent}:${session.id}`} task={localTaskCard(agent, session, 'running')} form="detail" now={now}
+            trigger={{ id: `work-${session.id}` }} onOpen={() => openTask(session.id, session.turnId ?? undefined, `work-${session.id}`)} />)}
           {notices.map(recordRow)}
         </Section>}
         {blockers.length > 0 && <Section label={t('center.blockers')} count={blockers.length}>{blockers.map(recordRow)}</Section>}

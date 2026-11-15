@@ -4,13 +4,15 @@ import { SingleChoice } from "../components/single-choice";
 import { Button } from "../components/button";
 import { IconButton } from "../components/icon-button";
 import { Tile, type TileTone } from "../components/tile";
+import { TaskCard, type TaskSnapshotData } from "./tasks";
 import { boardTabs, boardFilters, boardGroups, boardCopy } from "../fixtures/board";
 
 export type BoardForm = "current" | "empty" | "gap" | "unavailable";
-export type BoardRowData = { title: string; meta: readonly string[]; icon: string; tone: TileTone };
+export type BoardRowData = { title: string; meta: readonly string[]; icon: string; tone: TileTone; task?: TaskSnapshotData };
 export type BoardGroupData = { title: string; rows: BoardRowData[] };
 
 export function BoardRow({ row }: { row: BoardRowData }) {
+  if (row.task) return <TaskCard task={row.task} form={row.task.group === 'recent' ? 'summary' : 'detail'} />;
   return (
     <article class="flex items-start gap-4 rounded-card bg-surface-subtle p-4">
       <Tile form="phase" icon={row.icon} tone={row.tone} />

@@ -188,7 +188,7 @@ test("control source dock preserves editing, field navigation and cross-side dis
       else if (path === "source") value = { sources: status.ingresses.flatMap(i => i.sources) };
       else if (path.endsWith("/oauth")) value = { grants: [] };
       else if (path.startsWith("tasks/runtime/")) value = { runtimeStatus: "active", observedAt: "2026-01-01" };
-      else if (path.startsWith("agents/timeline/")) value = { sessionId: "thread", status: "running", entries: [], cursor: 0, coverage: { state: "complete" } };
+      else if (path === "agents/conversations/timeline" || path.startsWith("agents/timeline/")) value = { sessionId: "thread", status: "running", entries: [], cursor: 0, coverage: { state: "complete" } };
       else if (["ingress/one/start", "ingress/one/stop"].includes(path) && method === "POST") {
         const running = path.endsWith("/start"), ingress = status.ingresses[0];
         Object.assign(ingress, { running, state: running ? "ready" : "stopped" });

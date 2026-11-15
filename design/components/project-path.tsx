@@ -3,7 +3,7 @@ import { Frame } from "adg";
 export function ProjectLabel({ name, path, label = "Project" }: { name: string; path?: string; label?: string }) {
   return <span class="inline-flex h-5 max-w-full min-w-0 items-center gap-1 overflow-hidden rounded-(--radius-pill) bg-surface-sunken px-[6px] text-caption text-text-secondary"
     title={[label, name, path].filter(Boolean).join(" · ")}>
-    <span class="shrink-0">{label}</span><strong class="truncate font-semibold text-text">{name}</strong>
+    <strong class="truncate font-semibold text-text">{name}</strong>
   </span>;
 }
 

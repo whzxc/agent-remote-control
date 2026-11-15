@@ -3,7 +3,8 @@ import { PanelLoading, PanelShell } from "../components/panel";
 import { AgentIcon } from "../modules/agent-quota-mark";
 import { IconButton } from "../components/icon-button";
 import { QuotaCards } from "../modules/quota";
-import { TaskBubble } from "../modules/task-presentation";
+import { TaskCard } from "../modules/tasks";
+import { origins } from "../fixtures/tasks";
 import { Tile } from "../components/tile";
 import { AgentTaskHistory, AgentSectionHeading } from "../modules/agent-activity";
 import { active, agentHistory, agentHistoryLoading, agentTaskMeta, shortAgentHistory } from "../fixtures/agent-activity";
@@ -57,12 +58,13 @@ function AgentPanel({ history = "long", portrait = false }: {
             {tasks.map(({ heading, ...task }) => (
               <section class="flex flex-col gap-2">
                 <AgentSectionHeading label={heading} attention={task.tone === "warning"} />
-                <TaskBubble
-                  {...task} fill
-                  project={agentTaskMeta.project}
-                  date={agentTaskMeta.date}
-                  dispatch={taskDispatch}
-                />
+                <TaskCard form="detail" task={{
+                  id: task.title, node: 'codex', title: task.title, group: task.tone === 'warning' ? 'needs-me' : 'running',
+                  state: task.phase, detail: task.headline, icon: task.icon, origin: origins.local,
+                  project: { name: agentTaskMeta.project }, dispatch: taskDispatch, turns: 2,
+                  elapsed: 'duration' in task ? task.duration : undefined,
+                  activity: task.tone === 'warning' ? undefined : task.headline,
+                }} />
               </section>
             ))}
             <AgentTaskHistory groups={history === "short" ? shortAgentHistory : agentHistory} />

@@ -4,7 +4,7 @@ import { Button, Icon } from "./index";
 import { Card } from "./card";
 import "./TaskPresentation.css";
 
-export function TaskCard({ reply = false, className = "", ...props }: ComponentProps<"section"> & { reply?: boolean }) {
+export function TaskContentCard({ reply = false, className = "", ...props }: ComponentProps<"section"> & { reply?: boolean }) {
   return <Card asChild padded variant={reply ? "reply" : "default"}><section {...props} className={className} /></Card>;
 }
 export function TaskMessage({ queued = false, className = "", ...props }: ComponentProps<"article"> & { queued?: boolean }) {

@@ -54,12 +54,12 @@
       "design": [{"source": "design/modules/agent-quota-mark.tsx", "part": "AgentIcon"}]
     },
     {
-      "implementation": {"file": "ui/components/ui/TaskRow.tsx", "symbol": "TaskRow"},
-      "design": [{"source": "design/modules/task-presentation.tsx", "part": "TaskRow"}]
+      "implementation": {"file": "ui/components/ui/TaskCard.tsx", "symbol": "TaskCard"},
+      "design": [{"source": "design/modules/tasks.tsx", "part": "TaskCard"}]
     },
     {
-      "implementation": {"file": "ui/components/ui/TaskRow.tsx", "symbol": "TaskBubble"},
-      "design": [{"source": "design/modules/task-presentation.tsx", "part": "TaskBubble"}]
+      "implementation": {"file": "ui/components/ui/TaskCard.css"},
+      "design": [{"source": "design/modules/tasks.tsx", "part": "TaskCardHeader"}]
     },
     {
       "implementation": {"file": "ui/components/composites/SourcePanelHeader.tsx", "symbol": "SourcePanelHeader"},

@@ -10,7 +10,7 @@ export function ProjectLabel({ name, path }: { name?: string | null; path?: stri
   const label = t("project.label");
   const description = [label, project.name, project.path === project.name ? undefined : project.path].filter(Boolean).join(" · ");
   return <Tooltip text={description}><span className="project-label" role="img" aria-label={description}>
-    <span className="project-label-prefix">{label}</span><strong dir="auto">{project.name}</strong>
+    <strong dir="auto">{project.name}</strong>
   </span></Tooltip>;
 }
 

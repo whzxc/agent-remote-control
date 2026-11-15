@@ -19,11 +19,11 @@ export default () => taskListForms.map(({ name, width, height }) => {
         pb-[calc(${dockInset + 8}px_+_var(--dock-button-size)_+_2_*_var(--dock-padding-block))]`}>
         <section aria-label="Today" class="shrink-0">
           <h2 class="mb-2 text-small font-semibold text-text-secondary">Today</h2>
-          <TaskGrid items={today} height={narrow ? 320 : 400} narrow={narrow} />
+          <TaskGrid items={today} />
         </section>
         <section aria-label="Yesterday" class="shrink-0">
           <h2 class="mb-2 text-small font-semibold text-text-secondary">Yesterday</h2>
-          <TaskGrid items={history} height={400} summary />
+          <TaskGrid items={history} summary />
         </section>
       </main>
       <div data-free class="absolute" style={{ bottom: dockInset, left: dockInset }}><NavCapsule active="" /></div>

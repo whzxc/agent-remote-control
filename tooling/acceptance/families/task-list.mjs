@@ -21,11 +21,11 @@ export const checks = [{ stage: 'verify', order: 19, visual: true, async run({ f
   const preview = article => article.getByRole('region', { name: text['homepage.recentSteps'], exact: true });
   const todayCard = today.getByRole('article', { name: 'Summarize the queue', exact: true });
   await preview(todayCard).waitFor();
-  await history.getByRole('img', { name: /Codex · / }).waitFor();
+  await history.getByRole('img', { name: /→ Codex/ }).waitFor();
   // Regression: task cards used the beginning of the workspace path in place of the project name.
   const verifyProject = async (surface, name) => {
     const project = surface.getByRole('img', { name: `${text['project.label']} · ${name} · /workspace/acceptance`, exact: true });
-    if ((await project.innerText()).includes('/workspace/')) throw new Error('The workspace path is visible in the project label.');
+    if ((await project.innerText()).trim() !== name) throw new Error('The project chip shows metadata besides the project name.');
     return project;
   };
   const historyProject = await verifyProject(history, 'Release operations');
@@ -41,6 +41,8 @@ export const checks = [{ stage: 'verify', order: 19, visual: true, async run({ f
     }
   }
   await history.getByText('02:21', { exact: true }).waitFor();
+  const turns = text['timeline.turnCount'].replace('{count}', '3');
+  await history.getByText(turns, { exact: true }).waitFor();
   if (await preview(history).count()) throw new Error('Historical summary rendered timeline content.');
   const cards = await today.getByRole('article').evaluateAll(items => items.map(item => item.getBoundingClientRect().top));
   const firstRow = cards.filter(top => top === cards[0]).length;
@@ -54,6 +56,7 @@ export const checks = [{ stage: 'verify', order: 19, visual: true, async run({ f
   const detail = page.getByRole('dialog', { name, exact: true });
   await detail.waitFor();
   await verifyProject(detail, 'Release operations');
+  await detail.getByText(turns, { exact: true }).waitFor();
   await page.keyboard.press('Escape');
   await detail.waitFor({ state: 'hidden' });
 } }];

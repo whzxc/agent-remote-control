@@ -120,7 +120,7 @@ test('native history preserves confirmed, failed and unknown outcomes in its acc
     globalThis.fetch = async () => new Response(JSON.stringify({ data, nextCursor: null }));
     await act(async () => root.render(h(UiProvider, null, h(Conversations, { agent: 'claude', active: true }))));
     for (const [i, state] of ['unknown', 'failed', 'done'].entries()) {
-      assert.equal(page.getByRole('button', { name: `History ${i} · ${t('timeline.open')}` }).getAttribute('aria-description'), t(`detail.state.${state}`));
+      assert.equal(page.getByRole('button', { name: `${t('homepage.openDetail')}: History ${i}` }).getAttribute('aria-description'), t(`detail.state.${state}`));
     }
   } finally { await fixture.close(); }
 });
@@ -165,13 +165,13 @@ test('single-account Agent panels retain native history and shared quota without
       });
       if (multiple) {
         const pendingDialog = within(page.getByRole('dialog'));
-        assert.equal(pendingDialog.queryByRole('button', { name: `Unattributed native history · ${t('timeline.open')}` }), null);
-        assert.equal(pendingDialog.queryByRole('button', { name: `Other account history · ${t('timeline.open')}` }), null);
+        assert.equal(pendingDialog.queryByRole('button', { name: `${t('homepage.openDetail')}: Unattributed native history` }), null);
+        assert.equal(pendingDialog.queryByRole('button', { name: `${t('homepage.openDetail')}: Other account history` }), null);
         assert.ok(finishAccountLoad);
         await act(async () => finishAccountLoad!());
       }
       const dialog = within(page.getByRole('dialog'));
-      const row = (title: string) => dialog.queryByRole('button', { name: `${title} · ${t('timeline.open')}`, exact: true });
+      const row = (title: string) => dialog.queryByRole('button', { name: `${t('homepage.openDetail')}: ${title}`, exact: true });
       assert.ok(row('Selected account history'));
       if (multiple) {
         assert.equal(row('Unattributed native history'), null);
@@ -211,7 +211,7 @@ test('conversation pagination retains loaded rows without repeating the loading 
       return new Response(JSON.stringify({ data: [conversation('First conversation')], nextCursor: 'later' }));
     };
     await act(async () => root.render(h(UiProvider, null, h(Conversations, { agent: 'claude', active: true }))));
-    const row = (id: string) => page.getByRole('button', { name: `${id} · ${t('timeline.open')}` });
+    const row = (id: string) => page.getByRole('button', { name: `${t('homepage.openDetail')}: ${id}` });
     assert.ok(row('First conversation'));
     assert.ok(showNext);
     await act(async () => showNext!());
@@ -318,7 +318,7 @@ test('read-only Agent roots without provider accounts still expose their native 
       selectAgentPanel({ type: 'platform', agent: 'codex' });
       root.render(h(UiProvider, null, h(AgentPanel, { agent: { agent: 'codex', installed: true, enabled: true }, expanded: false, onSettings() {}, onPanelFrame() {}, onToggleWidth() {} })));
     });
-    assert.ok(within(within(document.body).getByRole('dialog')).getByRole('button', { name: `Verify remote status · ${t('timeline.open')}`, exact: true }));
+    assert.ok(within(within(document.body).getByRole('dialog')).getByRole('button', { name: `${t('homepage.openDetail')}: Verify remote status`, exact: true }));
   } finally { await fixture.close(); }
 });
 

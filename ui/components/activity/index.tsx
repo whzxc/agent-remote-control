@@ -44,10 +44,3 @@ export function PhaseLabel({ phase, running = false, completed = false, children
     {running && <span className="phase-shimmer" aria-hidden="true"><span>{children}</span></span>}
   </span>;
 }
-export function StepTrail({ steps = [], running = false }: {
-  steps?: Exclude<AgentPhase, "idle">[]; running?: boolean;
-}) {
-  return <span className="step-trail" data-running={running || undefined} aria-hidden="true">
-    {steps.slice(-5).map((phase, index) => <i key={index} data-phase={phase} />)}
-  </span>;
-}

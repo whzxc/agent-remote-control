@@ -1861,6 +1861,7 @@
   "homepage.more": "More task actions",
   "homepage.moveUp": "Move up",
   "homepage.moveDown": "Move down",
+  "homepage.taskMetadata": "Execution spec, project and turns",
   "homepage.recentSteps": "Recent activity",
   "homepage.plan": "Plan",
   "homepage.partial": "Partial history",

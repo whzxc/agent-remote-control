@@ -1,27 +1,22 @@
 import { prepareTaskSnapshot, taskSnapshotElement } from './ui/taskSnapshotMotion';
 import { layers, captureLayerTrigger } from '../state/layers';
 import { deviceTasks } from '../devices/tasks';
-import { relativeTime } from '../lib/relativeTime';
 import { locale, t } from '../i18n';
 import { useLayoutEffect, useMemo, useRef } from 'react';
-import { Inbox, Laptop, ListFilter, Monitor, UserRound, X } from 'lucide-react';
-import { BrandMark, Icon, IconButton } from './ui';
-import { TaskHistorySummary, TaskSnapshot, taskTitle, type TaskOrigin, type TaskIdentity } from './ui/TaskSnapshot';
+import { Inbox, ListFilter, X } from 'lucide-react';
+import { Icon, IconButton } from './ui';
+import { TaskCard } from './ui/TaskCard';
 import { homepageTaskFocus, remoteTaskPanel } from '../state/homepage';
 import { selectAgentPanel } from '../state/overviewPanels';
 import { markHomepageTaskRead } from '../state/homepageTasks';
 import { activeHomepageTask, homepageTaskDay, localTaskDay, previewHomepageTask, recentHomepageTasks, type HomepageTask } from '../state/activityModel';
-import { icons, name, orderedAgents } from '../state/agents';
 import { useAccounts } from '../state/accounts';
-import { orderedSources } from '../state/connector';
-import SourceIcon from './SourceIcon';
-import { deviceSnapshot, pairedDevices } from '../devices/state';
 import { accountOwns } from '../accountPresentation';
 import { useAppNow } from '../state/appEnvironment';
 import './HomepageTasks.css';
 
 export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
-  const focus = homepageTaskFocus.use(), snapshot = deviceSnapshot.use(), { items: accounts } = useAccounts();
+  const focus = homepageTaskFocus.use(), { items: accounts } = useAccounts();
   const remote = deviceTasks.use();
   const omitted = Object.values(remote).reduce((sum, item) => sum + (item.snapshot?.omittedRecords ?? 0), 0);
   const body = useRef<HTMLElement>(null);
@@ -47,7 +42,7 @@ export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
   }, [tasks, focus, accounts]);
   useLayoutEffect(() => {
     if (!focus) return;
-    const target = body.current?.querySelector<HTMLElement>('article');
+    const target = body.current?.querySelector<HTMLElement>('[data-task-snapshot]');
     target?.scrollIntoView({ block: 'start', behavior: 'instant' });
     (target?.querySelector<HTMLElement>('[data-task-open]') ?? body.current)?.focus({ preventScroll: true });
   }, [focus?.id]);
@@ -60,42 +55,10 @@ export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
       else selectAgentPanel({ type: 'task', agent: task.agent, session: task.session });
     });
   }
-  function identity(task: HomepageTask): TaskIdentity {
-    const source = orderedSources().find(source => task.sourceIds.includes(source.id));
-    const controllerSource = snapshot?.controller && (task.controllerDeviceId === snapshot.controller.deviceId || source?.ingressId === `peer:${snapshot.controller.deviceId}`);
-    const recordedSource = task.session.dispatchSummary?.controlSource;
-    const agent = orderedAgents().find(agent => agent.agent === task.agent);
-    const origin = task.session.origin;
-    const label = origin?.sourceLabel || recordedSource?.label || origin?.controlSource || recordedSource?.kind;
-    const control: TaskOrigin | undefined = task.deviceId || controllerSource ? {
-      label: task.deviceId ? snapshot?.name || label || t('homepage.controller') : snapshot!.controller!.name,
-      graphic: <Icon icon={Monitor} size={14} />,
-    } : source ? { label: source.label, graphic: <SourceIcon platform={source.product} size={14} /> }
-      : label ? { label, graphic: <SourceIcon platform={recordedSource?.kind ?? origin?.controlSource ?? 'custom'} size={14} /> } : undefined;
-    return { agent: { label: agent ? name(agent) : name({ agent: task.agent }), graphic: <BrandMark markup={icons[task.agent]} size={20} /> }, source: control };
-  }
-  function origins(task: HomepageTask, party: TaskIdentity): TaskOrigin[] {
-    const account = accounts.find(account => accountOwns(account, task.accountId));
-    return [
-      ...(party.source ? [party.source] : []),
-      ...(task.deviceId ? [{ label: snapshot?.members.find(device => device.deviceId === task.deviceId)?.name ?? task.deviceId, graphic: <Icon icon={Laptop} size={14} /> }] : []),
-      { ...party.agent, graphic: <BrandMark markup={icons[task.agent]} size={14} /> },
-      ...(account && !task.deviceId ? [{ label: account.alias, graphic: <Icon icon={UserRound} size={14} /> }] : task.accountId ? [{ label: task.accountId, graphic: <Icon icon={UserRound} size={14} /> }] : []),
-    ];
-  }
-  function card(task: HomepageTask, preview: boolean) {
-    const freshness = task.freshness ? `${t('device.lastSeen')} ${relativeTime(task.freshness, now, language, t('device.now'))}` : undefined;
-    const party = identity(task);
-    if (!preview) return <TaskHistorySummary task={task} identity={party} freshness={freshness} now={now} onOpen={() => open(task)} />;
-    const device = task.deviceId && pairedDevices(snapshot).find(device => device.id === task.deviceId);
-    return <TaskSnapshot task={task} origins={origins(task, party)} now={now}
-      path={device && device.state === 'online' ? `${device.path === 'lan' ? 'LAN' : 'Tunnel'}${device.latency === null ? '' : ` · ${device.latency} ms`}` : undefined}
-      freshness={freshness} onOpen={() => open(task)} />;
-  }
   function grid(items: HomepageTask[], preview: boolean) {
     if (!items.length) return null;
-    return <div className="homepage-task-grid" role="list">{items.map(task => <article key={task.key} aria-label={taskTitle(task)}
-      className="homepage-task-tile" onClick={event => { if (!(event.target as HTMLElement).closest('button')) open(task); }}>{card(task, preview)}</article>)}</div>;
+    return <div className="homepage-task-grid" role="list">{items.map(task => <TaskCard key={task.key} task={task}
+      form={preview ? 'detail' : 'summary'} now={now} snapshotKey={task.key} onOpen={() => open(task)} />)}</div>;
   }
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);

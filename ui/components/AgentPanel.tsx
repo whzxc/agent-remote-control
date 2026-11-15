@@ -1,3 +1,4 @@
+import { taskSnapshotElement } from './ui/taskSnapshotMotion';
 import { Tooltip as HoverHelp } from "./ui/index";
 import { layerTrigger } from "../state/layers";
 import Panel, { PanelHeader, usePanelState } from "./ui/Panel";
@@ -139,7 +140,7 @@ export default function AgentPanel({ selection: selected, active, agent, onSetti
   return <Panel snapshotKey={session ? JSON.stringify([agent.agent, session.id]) : undefined} focusTrigger={focusTrigger.current} size="m" className="activity-panel" expanded={expanded} headerless title={selected.platform ? name(agent) : account?.alias ?? name(agent)} labelledBy={session ? taskTitleId : undefined}
     viewKey={`${panelId}:${session?.id ?? "overview"}`}
     onClose={() => { panelBack.set(undefined); agentPanel.set(undefined); }}
-    returnFocus={session && document.querySelector(`[data-task-snapshot="${CSS.escape(JSON.stringify([agent.agent, session.id]))}"]`) ? `[data-task-snapshot="${CSS.escape(JSON.stringify([agent.agent, session.id]))}"] [data-task-open]` : selected.platform ? `[data-agent-platform="${CSS.escape(agent.agent)}"] button` : `[data-agent-node="${CSS.escape(agent.agent)}"]${selected.accountId ? `[data-account-id="${CSS.escape(account?.id ?? selected.accountId)}"]` : ""} button`} onPanelFrame={onPanelFrame}>
+    returnFocus={session && taskSnapshotElement(JSON.stringify([agent.agent, session.id])) ? `[data-task-snapshot="${CSS.escape(JSON.stringify([agent.agent, session.id]))}"] [data-task-open]` : selected.platform ? `[data-agent-platform="${CSS.escape(agent.agent)}"] button` : `[data-agent-node="${CSS.escape(agent.agent)}"]${selected.accountId ? `[data-account-id="${CSS.escape(account?.id ?? selected.accountId)}"]` : ""} button`} onPanelFrame={onPanelFrame}>
     {error && <span className="sr-only" role="status">{t("activity.disconnected")}</span>}
     <div ref={content} className="agent-panel-view">
       <div className="agent-panel-view dialog-swap" key={panelId} hidden={!!session}>

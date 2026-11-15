@@ -41,6 +41,7 @@
       "phase": "text",
       "title": "Verify the release checklist",
       "projectName": "Release operations",
+      "turnCount": 3,
       "headline": "Checklist verified",
       "completed": true,
       "historyDate": "2025-12-31T01:00:00Z",

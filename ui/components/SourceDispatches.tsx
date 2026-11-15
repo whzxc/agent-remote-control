@@ -15,12 +15,12 @@ import { selectAgentPanel } from "../state/overviewPanels";
 import { navigation } from "../state/navigation";
 import { sourceDispatches, dispatchState, dispatchTaskId } from "../state/sourceDispatch";
 import { taskErrorText } from "../state/taskErrors";
-import { PhaseTile } from "./activity";
 import { Button, Empty, Loading, Notice } from "./ui";
-import { TaskRow } from "./ui/TaskRow";
+import { TaskCard, localTaskCard } from "./ui/TaskCard";
+import { localTaskDay, type TrackedActivity } from "../state/activityModel";
 
 export default function SourceDispatches({ sourceId }: { sourceId: string }) {
-  const now = useAppNow(60_000), language = locale.use();
+  const language = locale.use();
   const tracked = trackedActivity.use();
   const { records, error, loading } = tasks.use(), { snapshot } = agentActivity.use();
   taskExecutions.use();
@@ -35,6 +35,8 @@ export default function SourceDispatches({ sourceId }: { sourceId: string }) {
   const unreadOf = (record: typeof records[number]) => tracked[record.agent ?? "codex"]?.find(session => session.id === dispatchTaskId(record)
     && session.endedAt !== undefined && session.readAt === undefined && !!record.turnId && session.turnId === record.turnId);
   const dispatches = sourceDispatches(records, sourceId);
+  const now = useAppNow(dispatches.some(record => !!liveOf(record)) ? 1000 : 60_000);
+  const today = localTaskDay(now);
   const sections = activitySections(dispatches, now, record => Date.parse(record.createdAt) || 0, record => {
     const state = stateOf(record);
     return state === 'needsYou' || state === 'awaitingApproval' ? 'attention' : state === 'running' ? 'running' : unreadOf(record) ? 'unread' : undefined;
@@ -82,23 +84,37 @@ export default function SourceDispatches({ sourceId }: { sourceId: string }) {
           const id = dispatchTaskId(record), agent = record.agent ?? "codex", unread = unreadOf(record), live = liveOf(record);
           const state = stateOf(record);
           const title = record.task.title || live?.title || record.runtime?.title || record.task.prompt.split("\n")[0] || t("taskRequest");
-          const phase = state === "needsYou" || state === "awaitingApproval" ? "interaction" : state === "running" ? live?.phase ?? "idle" : "idle";
           const canOpen = !!id && !!record.turnId;
           const snapshotError = record.error?.code?.startsWith("DESKTOP_SNAPSHOT_") || record.error?.message === "DESKTOP_SNAPSHOT_TIMEOUT";
+          const submission = ["awaitingApproval", "submitting", "notExecuted", "submissionUnknown", "submissionFailed"].includes(state);
           const label = state === "submissionFailed" && snapshotError ? taskErrorText(record.error, "sourcePanel.submissionFailed")
-            : ["awaitingApproval", "submitting", "notExecuted", "submissionUnknown", "submissionFailed"].includes(state) ? t(`sourcePanel.${state}`) : t(`detail.state.${state}`);
-          const tone = state === 'needsYou' || state === 'awaitingApproval' || state === 'unknown' || state === 'submissionUnknown' ? 'warning'
-            : state === 'done' ? 'success' : state === 'failed' || state === 'submissionFailed' ? 'danger'
-            : state === 'running' ? ({ thinking: 'phase-thinking', command: 'phase-command', file: 'phase-file', tool: 'text-secondary', text: 'text-secondary', interaction: 'warning', idle: 'text-tertiary' }[phase]) : 'text-tertiary';
-          return <TaskRow key={record.requestId} disabled={!canOpen} title={title} meta={<>{record.agent ?? "Codex"} · <span>{label}</span></>} tone={tone} attention={state === 'needsYou' || state === 'awaitingApproval'}
-            tile={<PhaseTile phase={phase} running={state === "running"} completed={state === "done"} paused={state === "interrupted"} outcome={state === "failed" || state === "submissionFailed" ? "failed" : state === "unknown" || state === "submissionUnknown" ? "unknown" : undefined} />} onClick={() => {
-            if (!id || !canOpen) return;
-            selectAgentPanel({ type: "task", agent, session: { ...(live ? { ...live, orderAt: Date.parse(record.createdAt) } : unread ? { ...unread, orderAt: Date.parse(record.createdAt) } : {
-              id, turnId: record.turnId, source: agent === "codex" ? "codex-thread" : "arc-task", observed: false, conversation: true, title, phase, headline: title, phaseSince: null, timeline: true,
-              project: record.task.project || record.task.directory, startedAt: record.createdAt, orderAt: Date.parse(record.createdAt),
-            }), selectedTurnId: record.turnId } });
-            navigation.set(old => ({ ...old, page: "overview" }));
-          }} />;
+            : submission ? t(`sourcePanel.${state}`) : t(`detail.state.${state}`);
+          const observed = live ?? unread;
+          const session: TrackedActivity = {
+            ...observed, id: id ?? record.requestId, turnId: record.turnId, title,
+            source: observed?.source ?? (agent === "codex" ? "codex-thread" : "arc-task"),
+            observed: !!live, conversation: true, phase: live?.phase ?? "idle", headline: observed?.headline ?? "",
+            phaseSince: live?.phaseSince ?? null, timeline: canOpen, open: observed?.open ?? record.open,
+            origin: observed?.origin ?? record.origin ?? record.task.origin,
+            project: observed?.project ?? record.runtime?.project ?? record.task.project ?? record.task.directory,
+            startedAt: observed?.startedAt ?? record.createdAt, orderAt: Date.parse(record.createdAt), selectedTurnId: record.turnId,
+            agentAccountId: observed?.agentAccountId ?? record.agentAccountId,
+            dispatchSummary: {
+              model: record.task.model ?? record.requested?.model, effort: record.task.effort ?? record.requested?.effort,
+              serviceTier: record.requested?.serviceTier, ...observed?.dispatchSummary,
+            },
+          };
+          const group = state === 'running' ? 'running' : state === 'needsYou' || state === 'awaitingApproval' ? 'needs-me'
+            : unread ? 'unread' : state === 'unknown' ? 'unconfirmed' : 'recent';
+          const task = { ...localTaskCard(agent, session, group), sourceIds: [sourceId] };
+          const preview = submission || state === 'needsYou' || state === 'running' || !!unread || localTaskDay(session.orderAt) === today;
+          return <TaskCard key={record.requestId} task={task} now={now} form={preview ? 'detail' : 'summary'}
+            description={label} trigger={{ disabled: !canOpen }}
+            notice={submission ? { text: label, danger: state === "submissionFailed" } : undefined}
+            onOpen={canOpen ? () => {
+              selectAgentPanel({ type: "task", agent, session });
+              navigation.set(old => ({ ...old, page: "overview" }));
+            } : undefined} />;
         })}</div>
       </section>;
     })}

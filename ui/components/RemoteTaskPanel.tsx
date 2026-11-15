@@ -1,24 +1,23 @@
 import { useEffect } from 'react';
-import { Laptop } from 'lucide-react';
-import { deviceSnapshot } from '../devices/state';
-import { icons } from '../state/agents';
-import { Notice, Panel, Icon, BrandMark } from './ui';
-import { TaskSnapshot } from './ui/TaskSnapshot';
+import { X } from 'lucide-react';
+import { IconButton, Notice, Panel } from './ui';
+import { PanelHeader } from './ui/Panel';
+import { TaskCard, taskTitle } from './ui/TaskCard';
+import { useAppNow } from '../state/appEnvironment';
 import { remoteTaskPanel } from '../state/homepage';
-import { markHomepageTaskRead } from '../state/homepageTasks';
 import type { HomepageTask } from '../state/activityModel';
 import { t } from '../i18n';
 
 export default function RemoteTaskPanel({ tasks }: { tasks: HomepageTask[] }) {
   const selected = remoteTaskPanel.use();
   const task = selected && tasks.find(task => task.key === selected.key);
-  const snapshot = deviceSnapshot.use();
+  const now = useAppNow(task?.group === 'running' ? 1000 : 60000);
   useEffect(() => { if (selected && !task) remoteTaskPanel.set(undefined); }, [selected, task]);
   if (!task) return null;
-  return <Panel snapshotKey={task.key} returnFocus={`[data-task-snapshot="${CSS.escape(task.key)}"] [data-task-open]`} size="m" title={task.session.title || task.session.id} onClose={() => remoteTaskPanel.set(undefined)}>
-    <TaskSnapshot task={{ ...task, key: `detail:${task.key}` }} origins={[{ label: snapshot?.members.find(member => member.deviceId === task.deviceId)?.name ?? task.deviceId!, graphic: <Icon icon={Laptop} size={14} /> }, { label: task.agent, graphic: <BrandMark markup={icons[task.agent]} size={14} /> }]} now={Date.now()} freshness={task.freshness}
-      onRead={() => markHomepageTaskRead(task)} />
-    {task.session.interaction && <p>{task.session.interaction.summary}</p>}
+  const close = () => remoteTaskPanel.set(undefined);
+  return <Panel headerless snapshotKey={task.key} returnFocus={`[data-task-snapshot="${CSS.escape(task.key)}"] [data-task-open]`} size="m" title={taskTitle(task)} onClose={close}>
+    <PanelHeader><div className="actions"><IconButton icon={X} label={t('close')} onClick={close} /></div></PanelHeader>
+    <TaskCard task={task} form="detail" now={now} />
     <Notice layout="inline">{t('homepage.remoteDetailLimit')}</Notice>
   </Panel>;
 }

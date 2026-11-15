@@ -6,8 +6,8 @@ import { pendingSessions } from "../state/taskInteractions";
 import { useTaskPresence } from "../state/requestRouting";
 import { observeTaskPanel } from "../state/taskPanel";
 import { useTaskQueue } from "../state/taskQueue";
-import { TaskCard, ReviewUnavailable, TaskBackButton } from "./ui/TaskPresentation";
-import { ProjectLabel } from "./ui/ProjectPath";
+import { TaskContentCard, ReviewUnavailable, TaskBackButton } from "./ui/TaskPresentation";
+import { TaskCard as TaskListCard, TaskCardHeader, localTaskCard } from "./ui/TaskCard";
 import TaskQueuedMessages from "./TaskQueuedMessages";
 import { useTaskReview } from "../state/taskReview";
 import { taskErrorText } from "../state/taskErrors";
@@ -21,7 +21,6 @@ import { activityApprovals, agentActivity, openActivitySession } from "../state/
 import { followsTimeline, refreshTimeline, reuseTimelineEntries, timelineScrollTarget } from "../state/timelineModel";
 import { Button, Icon, IconButton, LoadingIndicator, Menu, Notice } from "./ui";
 import TimelineEntries, { TimelinePlanDock } from "./TimelineEntries";
-import { durationText } from "../lib/duration";
 import { PhaseLabel } from "./activity";
 import { TaskSpecChoice } from "./AgentDispatchDefaults";
 import { isTaskId, taskState } from "../state/taskProjection";
@@ -34,7 +33,7 @@ import TaskOwnership from "./TaskOwnership";
 import { activityHeadline, type TrackedActivity } from "../state/activityModel";
 import { trackedActivity } from "../state/activityBubbles";
 import { selectAgentPanel } from "../state/overviewPanels";
-import { TaskRelation, TaskParentLink } from "./ui/TaskRelation";
+import { TaskRelation } from "./ui/TaskRelation";
 import type { TaskRuntime } from "../state/tasks";
 
 import { name, orderedAgents } from "../state/agents";
@@ -274,10 +273,18 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   const title = (validId && agent === "codex" && taskTitle?.id === session.id && taskTitle.title)
     || ((external || agent !== "codex") && (nativeSession.title || session.title
       || timeline?.entries.find(entry => entry.type === "user")?.text?.trim().split("\n")[0])) || t("timeline.title");
+  const card = localTaskCard(agent, { ...nativeSession, title, orderAt: session.orderAt,
+    project: projectPath, projectName, dispatchSummary: latestSummary,
+    turnCount: nativeSession.turnCount ?? session.turnCount },
+    state === 'running' ? 'running' : state === 'needsYou' ? 'needs-me' : state === 'unknown' ? 'unconfirmed' : 'recent');
+  const parentSession = parentId ? parent ?? {
+    id: parentId, nativeSessionId: parentId, source: "codex-thread" as const, title: parentTitle || undefined,
+    phase: "idle" as const, phaseSince: null, headline: "", timeline: true, orderAt: 0, observed: false,
+  } : undefined;
   usePanelState({ busy: continuing });
   useLayerNaturalContent(content, true, { version: `${loading ? 'loading' : 'ready'}:${title}`, flexibleFooter: true, resetHeight: true });
   return <section ref={detail} className="agent-panel-layer task-detail-layer" data-related={!!relationKind || undefined} data-narrow={narrow || undefined}>
-    <PanelHeader><header className="dialog-header task-detail-header">
+    <PanelHeader><div className="dialog-header task-detail-header" role="banner">
       <div className="task-detail-navigation"><TaskBackButton aria-label={t("back")} title={backLabel ?? agentName} onClick={onBack}><Icon icon={ArrowLeft} /><RelayRoute source={source} agent={agent} /></TaskBackButton>
         {!narrow && <div className="actions">{!readOnlyBrowser && validId && nativeSession.open && <IconButton icon={ArrowUpRight} label={t("activity.open")} onClick={() => { setOpenError(""); void openActivitySession(agent, nativeSession).catch(error => setOpenError(String(error))); }} />}
           {resizable && <IconButton icon={expanded ? Minimize2 : Maximize2} label={t(expanded ? "restorePanelWidth" : "expandPanelWidth")} aria-pressed={expanded} onClick={onToggleWidth} />}</div>}
@@ -286,20 +293,17 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
           ...(resizable ? [{ label: t(expanded ? "restorePanelWidth" : "expandPanelWidth"), action: onToggleWidth }] : []),
         ]} /></div>}
       </div>
-      <h2 id={titleId} className="activity-panel-title">{title}</h2>
+      <TaskCardHeader task={card} now={now} heading titleId={titleId} duration={duration}
+        spec={<TaskSpecChoice agent={agent} threadId={session.id} taskId={session.source === "arc-task" ? session.id : undefined} summary={latestSummary}
+          editable={!readOnlyBrowser && !external && agent === "codex" && validId && !timeline?.readOnly} />} />
       <div className="task-detail-chips"><TaskRelation kind={relationKind} />{detailPhase
         ? <PhaseLabel phase={detailPhase} running>{t(`activity.phase.${detailPhase}`)}</PhaseLabel>
         : <span className="task-state" role="status" data-state={state}>{t(`detail.state.${state}`)}</span>}
         {session.selectedTurnId && groups.some(group => group.turnId === session.selectedTurnId) && <span className="activity-meta-chip">{t("detail.selectedTurn", { count: groups.findIndex(group => group.turnId === session.selectedTurnId) + 1 })}</span>}
-        <TaskSpecChoice agent={agent} threadId={session.id} taskId={session.source === "arc-task" ? session.id : undefined} summary={latestSummary}
-          editable={!readOnlyBrowser && !external && agent === "codex" && validId && !timeline?.readOnly} />
-        <ProjectLabel name={projectName} path={projectPath} />
         <TaskOwnership ownership={timeline?.ownership} />
-        {duration !== undefined && <time className="timeline-meta task-duration">{durationText(duration)}</time>}
       </div>
-      {parentId && <TaskParentLink title={parent?.title || parentTitle || parentId} onClick={() => selectAgentPanel({ type: "task", agent,
-        session: parent ?? { id: parentId, nativeSessionId: parentId, source: "codex-thread", title: parentTitle || undefined,
-          phase: "idle", phaseSince: null, headline: "", timeline: true, orderAt: 0, observed: false } })} />}
+      {parentSession && <TaskListCard task={localTaskCard(agent, parentSession)} now={now} form="summary" description={t("activity.parentThread")}
+        onOpen={() => selectAgentPanel({ type: "task", agent, session: parentSession })} />}
       {!!groups.length && <div className="task-turn-progress">{groups.map((group, index) => {
         const current = index === groups.length - 1 && (!nativeSession.turnId || nativeSession.turnId === group.turnId);
         const turnState = taskState((group.turnId && timeline?.turnStatuses?.[group.turnId]) || (current ? timeline?.status : undefined), current && running, current && hasPending);
@@ -311,7 +315,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
           <span style={value === undefined ? undefined : { width: `${value}%` }} />
         </div>;
       })}</div>}
-    </header></PanelHeader>
+    </div></PanelHeader>
     <div className="task-timeline" aria-busy={loading}>
       <div className="timeline-scroll" ref={viewport} tabIndex={0} aria-label={t("timeline.title")}
         onWheel={event => {
@@ -361,14 +365,14 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
             onRetry={!readOnlyBrowser && !external && !timeline?.readOnly && state === "failed" && turnId ? () => continueTurn("retry") : undefined} continuing={continuing} />
           {hasPending && !groups.some(group => !nativeSession.turnId || !group.turnId || group.turnId === nativeSession.turnId) && <TaskNeedsYou agent={agent} session={nativeSession} entries={timeline?.entries ?? []} source={source} narrow={narrow} inline />}
           <TaskQueuedMessages queue={queue} agent={agent} />
-          {terminalState(state) && review && <TaskCard reply className="task-final task-review-info" data-verdict={review.verdict}>
+          {terminalState(state) && review && <TaskContentCard reply className="task-final task-review-info" data-verdict={review.verdict}>
             <header><Icon icon={ClipboardCheck} /><strong>{t("detail.reviewInfo")}</strong></header>
             <div className="timeline-meta"><span>{t(review.verdict === "pass" ? "detail.reviewPassed" : "detail.reviewRework")}</span>
               {review.reviewer?.controlSource && <span>{review.reviewer.controlSource}</span>}
               <time dateTime={review.reviewedAt}>{new Date(review.reviewedAt).toLocaleString()}</time>
             </div>
             {review.note && <p>{review.note}</p>}
-          </TaskCard>}
+          </TaskContentCard>}
           {terminalState(state) && reviewError && <ReviewUnavailable action={<Button variant="ghost" onClick={reloadReview}>{t("retry")}</Button>}>{t("detail.reviewUnavailable")}</ReviewUnavailable>}
 
           </>}

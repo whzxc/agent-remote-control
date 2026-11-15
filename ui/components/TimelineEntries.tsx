@@ -1,7 +1,7 @@
 import { motionTransition } from "../motion/tokens";
 import { Tooltip as HoverHelp } from "./ui/index";
 import { TaskReceiptHistory } from "./TaskNeedsYou";
-import { TaskCard, TaskMessage } from "./ui/TaskPresentation";
+import { TaskContentCard, TaskMessage } from "./ui/TaskPresentation";
 import { ChangedFiles } from "./TaskChanges";
 import TaskOutcome from "./TaskOutcome";
 import { memo, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
@@ -285,7 +285,7 @@ const TurnCard = memo(function TurnCard({ narrow, group, index, latest, current,
       {pending && <TaskNeedsYou agent={agent} session={session} entries={group.entries} source={source} narrow={!!narrow} inline />}
       {(state === "failed" || state === "interrupted") && <TaskOutcome state={state} entries={group.entries} project={session.project} onResume={latest && current ? onResume : undefined} onRetry={latest && current ? onRetry : undefined} continuing={continuing} agent={agent} source={source} />}
       <TaskReceiptHistory agent={agent} id={session.id} turnId={group.turnId} latest={latest} />
-      {final && state !== "failed" && state !== "interrupted" && <TaskCard reply className="task-final"><header><RelayRoute source={source} agent={agent} reverse label={t("relay.reply")} /><CopyReply text={final.text ?? ""} /></header><TimelineMarkdown text={final.text ?? ""} />{final.truncated && <span className="timeline-meta">{t("timeline.truncated")}</span>}<footer><ChangedFiles entries={group.entries} project={session.project} /></footer></TaskCard>}
+      {final && state !== "failed" && state !== "interrupted" && <TaskContentCard reply className="task-final"><header><RelayRoute source={source} agent={agent} reverse label={t("relay.reply")} /><CopyReply text={final.text ?? ""} /></header><TimelineMarkdown text={final.text ?? ""} />{final.truncated && <span className="timeline-meta">{t("timeline.truncated")}</span>}<footer><ChangedFiles entries={group.entries} project={session.project} /></footer></TaskContentCard>}
     </div>}
   </section></Collapsible.Root>;
 }, sameTurn);

@@ -1,4 +1,5 @@
 import type { BoardForm, BoardGroupData } from "../modules/board";
+import { origins } from "./tasks";
 
 export const boardTabs = [
   { value: "current", label: "Current" },
@@ -14,12 +15,16 @@ export const boardGroups: BoardGroupData[] = [
     rows: [
       {
         title: "Choose the verification scope",
+        task: { id: 'scope', node: 'codex', title: 'Choose the verification scope', group: 'needs-me',
+          state: 'Waiting for user input', detail: 'Choose which platforms to verify.', icon: 'circle-help', origin: origins.local },
         meta: ["Codex", "Waiting for user input"],
         icon: "message-circle-question-mark",
         tone: "warning",
       },
       {
         title: "Interrupted registered task",
+        task: { id: 'interrupted', node: 'codex', title: 'Interrupted registered task', group: 'recent',
+          state: 'Interrupted', detail: '', icon: 'circle-pause', origin: origins.local },
         meta: ["Codex", "Interrupted"],
         icon: "circle-pause",
         tone: "warning",
@@ -55,6 +60,9 @@ export const boardGroups: BoardGroupData[] = [
     rows: [
       {
         title: "Parallel registered work",
+        task: { id: 'parallel', node: 'codex', title: 'Parallel registered work', group: 'running',
+          state: 'Running', detail: '', icon: 'activity', phase: 'thinking', origin: origins.local,
+          activity: 'Reviewing the shared renderer.' },
         meta: ["Codex", "Running"],
         icon: "activity",
         tone: "accent",

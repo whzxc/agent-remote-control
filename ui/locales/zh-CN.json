@@ -1831,6 +1831,7 @@
   "homepage.more": "更多任务操作",
   "homepage.moveUp": "上移",
   "homepage.moveDown": "下移",
+  "homepage.taskMetadata": "执行规格、项目名称和轮数",
   "homepage.recentSteps": "近期活动",
   "homepage.plan": "计划",
   "homepage.partial": "部分历史",

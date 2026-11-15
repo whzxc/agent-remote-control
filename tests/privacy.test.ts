@@ -80,7 +80,7 @@ test('account privacy replaces DOM values, restores them exactly and preserves r
     const { default: SourcePlatformView } = await server.ssrLoadModule('/ui/components/SourcePlatformView.tsx');
     const { default: AgentPlatformView } = await server.ssrLoadModule('/ui/components/AgentPlatformView.tsx');
     const { default: ConnectionsContent } = await server.ssrLoadModule('/ui/components/ConnectionsContent.tsx');
-    const { ActivityBubble } = await server.ssrLoadModule('/ui/components/ActivityBubbles.tsx');
+    const { TaskCard, localTaskCard } = await server.ssrLoadModule('/ui/components/ui/TaskCard.tsx');
     const { CopyField, Dialog, TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
     const { Sensitive, SensitiveInput } = await server.ssrLoadModule('/ui/components/Sensitive.tsx');
     const { default: QuotaBubble } = await server.ssrLoadModule('/ui/subscriptions/QuotaBubble.tsx');
@@ -172,8 +172,8 @@ test('account privacy replaces DOM values, restores them exactly and preserves r
     await act(async () => setPrivacy(false));
     assert.equal(input.value, account.notifications.sessions[0].target); assert.equal(input.readOnly, false);
     await act(async () => setPrivacy(true));
-    await render(h(ActivityBubble, { agent: 'codex', session: { id: 'privacy-task', title: 'Ship the account screen', headline: '', source: 'arc-task', phase: 'idle', phaseSince: null, orderAt: 1 }, now: 1, onRead() {} }));
-    assert.ok(page.getByRole('button', { name: name => name.startsWith('Ship the account screen') }));
+    await render(h(TaskCard, { task: localTaskCard('codex', { id: 'privacy-task', title: 'Ship the account screen', headline: '', source: 'arc-task', phase: 'idle', phaseSince: null, orderAt: 1 }), form: 'summary', now: 1, onOpen() {} }));
+    assert.ok(page.getByRole('button', { name: `${t('homepage.openDetail')}: Ship the account screen` }));
     assert.ok(page.getAllByText('Ship the account screen', { exact: true }).length > 0);
     const message = `Quota for ${account.orgName} (${account.email}) unavailable`;
     await render(h(QuotaBubble, { provider: { providerId: 'example', agentId: 'claude', agentIds: ['claude'], name: 'Claude', eligible: true, state: 'ready', blockedPoolIds: [], windows: [], error: { code: 'failed', message } }, link: false }));

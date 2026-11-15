@@ -76,6 +76,8 @@
   --role-source: #d4663f;
   --role-agent: #6a5ad0;
   --phase-thinking: #7d63c9;
+  --phase-tool: var(--text-secondary);
+  --phase-text: #4a5bbd;
   --phase-command: #3e72c4;
   --phase-file: #2a816c;
   --tooltip: #2b2420;
@@ -109,6 +111,7 @@
   --role-source: #ec8459;
   --role-agent: #ab9fff;
   --phase-thinking: #b9a6ff;
+  --phase-text: #9aaeff;
   --phase-command: #8cb4ff;
   --phase-file: #6fd3b9;
   --tooltip: #f3ebe3;

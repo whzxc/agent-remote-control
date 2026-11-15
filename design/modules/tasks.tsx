@@ -6,7 +6,7 @@ import { ProjectLabel } from '../components/project-path';
 import { DispatchSpec } from './model-configuration';
 import type { TaskStep, TaskPlan, TaskChange } from './task-activity';
 import {
-  tasks, origins, snapshotForms, tasksCopy as copy, taskStatuses,
+  tasks, origins, snapshotForms, auroraForms, tasksCopy as copy, taskStatuses,
 } from '../fixtures/tasks';
 
 export type OriginStep = { label: string; brand?: Brand; icon?: string };
@@ -14,7 +14,7 @@ export type TaskGroup = 'needs-me' | 'running' | 'unread' | 'recent' | 'unconfir
 export type TaskSnapshotData = {
   id: string; node: string; title: string; group: TaskGroup;
   state: string; detail: string; icon: string; origin: readonly OriginStep[];
-  activity?: string; elapsed?: string; path?: string; steps?: readonly TaskStep[]; plan?: TaskPlan;
+  activity?: string; elapsed?: string; turns?: number; phase?: 'thinking' | 'command' | 'file' | 'tool' | 'text'; path?: string; steps?: readonly TaskStep[]; plan?: TaskPlan;
   project?: Parameters<typeof ProjectLabel>[0];
   change?: TaskChange; partial?: boolean; prompt?: string;
   snapshot?: readonly TaskStep[]; dispatch?: Parameters<typeof DispatchSpec>[0];
@@ -43,41 +43,25 @@ export function TasksEmpty() {
     <Tile icon="inbox" tone="neutral" /><h2 class="text-title font-semibold">{copy.empty}</h2>
   </div>;
 }
-const statusOf = (task: TaskSnapshotData) => taskStatuses[task.id]?.status ?? task.state;
-function TaskIdentityMark({ task }: { task: TaskSnapshotData }) {
-  const agent = task.origin.at(-2), source = task.origin[0];
-  return <span class="relative grid size-8 shrink-0 place-items-center rounded-field bg-surface-subtle">
-      <BrandMark brand={agent?.brand} size={20} />
-      {source && source !== agent && <span class="absolute right-0 bottom-0 grid size-4 place-items-center rounded-full bg-surface">
-        {source.brand ? <BrandMark brand={source.brand} size={11} /> : <Icon name={source.icon!} size={11} />}
-      </span>}
-    </span>;
-}
-export function TaskHistorySummary({ task }: { task: TaskSnapshotData }) {
-  return <div class="flex w-full min-w-0 items-start gap-3 rounded-card bg-surface p-3 shadow-md">
-    <TaskIdentityMark task={task} />
-    <div class="flex min-w-0 flex-1 flex-col gap-1">
-      <strong class="truncate text-small leading-5 text-text">{task.title}</strong>
-      <span class="flex min-w-0 items-center gap-[6px] text-caption text-text-secondary">
-        <span class="shrink-0">{statusOf(task)}</span>
-        {task.project && <span class="min-w-0 flex-1 overflow-hidden"><ProjectLabel {...task.project} /></span>}
-        {task.group === 'unconfirmed' && <span class="truncate">{task.detail}</span>}
-      </span>
-      {(task.dispatch || task.elapsed) && <div class="flex min-w-0 items-center gap-2">
-        {task.dispatch && <DispatchSpec {...task.dispatch} />}
-        {task.elapsed && <time class="shrink-0 text-caption tabular-nums text-text-secondary">{task.elapsed}</time>}
-      </div>}
-    </div>
-  </div>;
-}
+const scrollRow = 'min-w-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden';
+const aurora = 'border-transparent [background:linear-gradient(var(--surface),var(--surface))_padding-box,conic-gradient(from_24deg,var(--border)_0deg,var(--border)_25deg,var(--aurora-tint)_75deg,var(--border)_142deg,var(--border)_215deg,var(--aurora-tint)_275deg,var(--border)_360deg)_border-box] [box-shadow:var(--shadow-md),0_0_15px_color-mix(in_srgb,var(--aurora-tint)_24%,transparent)]';
 
-export function TaskStatusMark({ task }: { task: TaskSnapshotData }) {
-  const icon = task.group === 'needs-me' ? 'hourglass' : task.group === 'unconfirmed' ? 'circle-help' : task.group === 'running' ? task.icon : undefined;
-  return <span class="ml-auto flex max-w-full shrink-0 items-center gap-[6px] text-caption text-text-secondary">
-    {icon && <Icon name={icon} size={12} class={task.group === 'needs-me' ? 'text-warning' : task.group === 'running' ? 'text-phase-command' : 'text-text-tertiary'} />}
-    <span class="truncate font-semibold">{statusOf(task)}</span>
-    {task.elapsed && task.group !== 'unconfirmed' && <time class="shrink-0 tabular-nums text-text-tertiary">{task.elapsed}</time>}
-  </span>;
+export function TaskCardHeader({ task, heading = false }: { task: TaskSnapshotData; heading?: boolean }) {
+  const timing = task.group === 'unconfirmed' ? task.detail : task.elapsed;
+  const title = 'w-max whitespace-nowrap text-left text-body leading-5 font-semibold text-text';
+  return <header class="flex w-full min-w-0 flex-col gap-2 px-[14px] py-3">
+    <div class="flex h-5 min-w-0 items-center justify-between gap-2">
+      <div class={`flex-1 ${scrollRow}`}><div class="flex w-max"><OriginChain steps={task.origin} /></div></div>
+      {timing && <time class="shrink-0 whitespace-nowrap text-caption tabular-nums text-text-tertiary">{timing}</time>}
+    </div>
+    <div class={scrollRow}>{heading ? <h2 class={title}>{task.title}</h2>
+      : <button aria-label={`${copy.open}: ${task.title}`} class={title}>{task.title}</button>}</div>
+    <div class={scrollRow}><div class="flex h-6 w-max items-center gap-[6px] whitespace-nowrap">
+      {task.dispatch && <DispatchSpec {...task.dispatch} />}
+      {task.project && <ProjectLabel {...task.project} />}
+      {task.turns !== undefined && <span class="text-caption tabular-nums text-text-tertiary">{task.turns} {task.turns === 1 ? 'turn' : 'turns'}</span>}
+    </div></div>
+  </header>;
 }
 
 function SnapshotNote({ tone, label, text }: { tone: 'source' | 'request'; label?: string; text?: string }) {
@@ -88,11 +72,15 @@ function SnapshotNote({ tone, label, text }: { tone: 'source' | 'request'; label
 }
 
 /** Portrait snapshot of one task. It reports status faithfully and carries no request actions. */
-export function TaskSnapshot({ task, height = 340, narrow = false }: {
-  task: TaskSnapshotData; height?: number | string; narrow?: boolean;
+export function TaskCard({ task, form }: {
+  task: TaskSnapshotData; form: 'summary' | 'detail';
 }) {
+  const preview = form === 'detail';
+  const phase = task.phase ?? (task.icon === 'brain' ? 'thinking' : task.icon === 'terminal' ? 'command' : undefined);
+  const active = preview && task.group === 'running';
+  const tint = phase ? `var(--phase-${phase})` : 'var(--role-agent)';
   const waiting = task.group === 'needs-me', done = task.group === 'unread';
-  const steps = (task.snapshot ?? task.steps ?? []).slice(narrow ? -3 : -10), route = taskStatuses[task.id];
+  const steps = (task.snapshot ?? task.steps ?? []).slice(-10), route = taskStatuses[task.id];
   const categories = [
     ['editing', 'Edited', 'file'], ['reading', 'Read', 'file'], ['command', 'Ran', 'command'],
   ] as const;
@@ -100,22 +88,10 @@ export function TaskSnapshot({ task, height = 340, narrow = false }: {
     const count = steps.filter(step => step.kind === kind).length;
     return count ? [`${verb} ${count} ${unit}${count === 1 ? '' : 's'}`] : [];
   }).join(' · ');
-  const inset = narrow ? 'px-3' : 'px-4';
-  return <article aria-label={`${task.title} · ${statusOf(task)}`} style={{ height }} class="flex w-full min-w-0 flex-col
-    overflow-hidden rounded-panel border border-border bg-surface">
-    <header class={`flex flex-wrap items-center gap-x-2 gap-y-1 pt-[14px] ${inset}`}>
-      <OriginChain steps={narrow ? task.origin.filter(step => step.brand) : task.origin} />
-      <TaskStatusMark task={task} />
-    </header>
-    <button aria-label={`${copy.open}: ${task.title}`} class={`truncate pt-[10px] text-left text-body leading-5
-      font-semibold text-text ${inset}`}>{task.title}</button>
-    {(task.dispatch || task.project || task.path) && <div class={`mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 ${inset}`}>
-      {task.dispatch && <DispatchSpec {...task.dispatch} />}
-      {task.project && <ProjectLabel {...task.project} />}
-      {task.path && <span class="truncate text-caption text-text-tertiary">{task.path}</span>}
-    </div>}
-    <div class={`relative flex min-h-0 flex-1 flex-col justify-end gap-2 overflow-hidden rounded-[16px]
-      bg-surface-subtle ${narrow ? 'm-2 p-2' : 'm-3 p-3'}`} aria-hidden="true">
+  return <article aria-label={task.title} style={{ '--aurora-tint': active ? tint : undefined }}
+    class={`flex w-full min-w-0 flex-col rounded-card border ${active ? aurora : 'border-border bg-surface shadow-md'}`}>
+    <TaskCardHeader task={task} />
+    {preview && <div class="mx-[10px] mb-[10px] flex min-h-10 max-h-[180px] flex-col justify-end gap-2 overflow-hidden rounded-field bg-surface-subtle px-3 py-[10px]" aria-hidden="true">
       {task.prompt && <SnapshotNote tone="source" text={task.prompt} />}
       {work && <div class="flex items-center gap-[6px] text-caption text-text-secondary">
         <Icon name="wrench" size={12} /><span class="min-w-0 truncate">{work}</span>
@@ -124,31 +100,44 @@ export function TaskSnapshot({ task, height = 340, narrow = false }: {
         <Icon name="brain" size={12} /><span class="min-w-0 truncate">{steps.findLast(step => step.kind === 'thinking')?.text}</span>
       </div>}
       {waiting && <SnapshotNote tone="request" label={`Request → ${route?.route ?? ''}`} text={task.detail} />}
-      {done && <p class="text-caption leading-4 text-text">{task.change?.output ?? task.activity}</p>}
-    </div>
+      {(done || task.activity) && <p class="text-caption leading-4 text-text">{task.change?.output ?? task.activity}</p>}
+    </div>}
   </article>;
 }
 
-export function TaskGrid({ items, height, narrow = false, summary = false }: {
-  items: readonly TaskSnapshotData[]; height: number; narrow?: boolean; summary?: boolean;
+export function TaskGrid({ items, summary = false }: {
+  items: readonly TaskSnapshotData[]; summary?: boolean;
 }) {
-  return <div role="list" class="grid grid-cols-[repeat(auto-fill,minmax(min(100%,224px),1fr))] gap-4">
+  return <div role="list" class="grid grid-cols-[repeat(auto-fill,minmax(min(100%,224px),1fr))] items-start gap-4">
     {items.map(task => <div role="listitem" class="flex min-w-0 flex-col gap-2">
-      {summary ? <TaskHistorySummary task={task} /> : <TaskSnapshot task={task} height={height} narrow={narrow} />}
+      <TaskCard task={task} form={summary ? "summary" : "detail"} />
     </div>)}
   </div>;
 }
 
 export default () => [
+  <Frame name="shared-task-card-forms" width={720}>
+    <div class="grid w-full grid-cols-2 items-start gap-4 bg-canvas p-6">
+      {(['summary', 'detail'] as const).map(form => <TaskCard task={tasks.find(task => task.id === 'finished')!} form={form} />)}
+    </div>
+  </Frame>,
+  <Frame name="task-card-aurora" width={864}>
+    <div class="grid w-full grid-cols-3 gap-4 bg-canvas p-6">
+      {auroraForms.map(({ phase, name, activity }) => <section class="flex min-w-0 flex-col gap-2">
+        <h2 class="text-small text-text-secondary">{name}</h2>
+        <TaskCard task={{ ...tasks[2], phase, activity, snapshot: [], steps: [], prompt: undefined, change: undefined }} form="detail" />
+      </section>)}
+    </div>
+  </Frame>,
   ...Object.entries(origins).filter(([name]) => ['local', 'remote', 'member', 'offline'].includes(name))
     .map(([name, steps]) => <Frame name={`origin-chain-${name}`}><OriginChain steps={steps} /></Frame>),
   <Frame name="node-task-filter"><NodeTaskFilter /></Frame>,
   <Frame name="tasks-empty" width={360} height={180}><TasksEmpty /></Frame>,
   ...['finished', 'offline'].map(id => <Frame name={`task-summary-${id}`} width={260}>
-    <TaskHistorySummary task={tasks.find(task => task.id === id)!} />
+    <TaskCard task={tasks.find(task => task.id === id)!} form="summary" />
   </Frame>),
   ...snapshotForms.map(({ name, id }) => <Frame name={`task-snapshot-${name}`} width={260}>
-    <TaskSnapshot task={tasks.find(task => task.id === id)!} />
+    <TaskCard task={tasks.find(task => task.id === id)!} form="detail" />
   </Frame>),
-  <Frame name="task-snapshot-narrow" width={171}><TaskSnapshot task={tasks[2]} height={290} narrow /></Frame>,
+  <Frame name="task-snapshot-narrow" width={171}><TaskCard task={tasks[2]} form="detail" /></Frame>,
 ];

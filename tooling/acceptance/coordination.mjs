@@ -143,7 +143,7 @@ export async function verifyCoordination(page, fixture, messages, out, key, scre
   await board().getByRole('button', { name: /^Review the shared renderer/ }).click();
   await board().getByRole('heading', { name: 'Review the shared renderer and registered worktree', exact: true }).waitFor();
   await snapshot('detail');
-  await board().getByRole('region', { name: m('recordDetail'), exact: true }).getByRole('button', { name: fixture.tasks[0].title, exact: true }).click();
+  await board().getByRole('region', { name: m('recordDetail'), exact: true }).getByRole('button', { name: `${messages['homepage.openDetail']}: ${fixture.tasks[0].title}`, exact: true }).click();
   await page.getByRole('dialog', { name: fixture.tasks[0].title, exact: true }).waitFor();
   await page.getByRole('dialog', { name: fixture.tasks[0].title, exact: true }).getByRole('button', { name: messages.back, exact: true }).click(); await board().waitFor();
   await page.waitForFunction(() => document.activeElement?.id === 'link-notice-a-fixture-task-0');
@@ -155,7 +155,7 @@ export async function verifyCoordination(page, fixture, messages, out, key, scre
   await board().getByRole('button', { name: /^Previous maintenance scope/ }).waitFor();
   await count(5);
   await choose(m('filter'), m('input'));
-  await board().getByRole('region', { name: m('attention'), exact: true }).getByRole('button', { name: new RegExp(`^${fixture.tasks[0].title}`) }).click();
+  await board().getByRole('region', { name: m('attention'), exact: true }).getByRole('button', { name: `${messages['homepage.openDetail']}: ${fixture.tasks[0].title}`, exact: true }).click();
   await page.getByRole('dialog', { name: fixture.tasks[0].title, exact: true }).waitFor();
   await page.getByRole('dialog', { name: fixture.tasks[0].title, exact: true }).getByRole('button', { name: messages.back, exact: true }).click(); await board().waitFor(); await count(5);
   assert.equal(await chosen(m('filter'), m('input')), true);
@@ -169,7 +169,7 @@ export async function verifyCoordination(page, fixture, messages, out, key, scre
   await board().getByText('ARC restarted', { exact: true }).waitFor();
   await snapshot('activity');
   // Regression: a failed historical turn must retain its identity while current attention stays unchanged.
-  await board().getByRole('button', { name: fixture.tasks[1].title, exact: true }).last().click();
+  await board().getByRole('button', { name: `${messages['homepage.openDetail']}: ${fixture.tasks[1].title}`, exact: true }).last().click();
   await page.getByRole('dialog', { name: fixture.tasks[1].title, exact: true }).waitFor();
   await page.waitForFunction(() => window.__ARC_VIEW_MODEL__().taskDetail?.timeline);
   const original = await page.evaluate(() => window.__ARC_VIEW_MODEL__());

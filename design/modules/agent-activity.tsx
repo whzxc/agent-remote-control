@@ -1,7 +1,7 @@
 import { Frame } from "adg";
-import { Tile } from "../components/tile";
-import { ProjectLabel } from "../components/project-path";
-import { TaskRow } from "./task-presentation";
+import { TaskCard } from "./tasks";
+import { origins } from "../fixtures/tasks";
+import { taskDispatch } from "../fixtures/task-presentation";
 import { agentHistory, agentRowExample } from "../fixtures/agent-activity";
 
 export function AgentSectionHeading({ label, attention = false }: { label: string; attention?: boolean }) {
@@ -13,20 +13,11 @@ export function AgentTaskHistory({ groups }: { groups: typeof agentHistory }) {
     <section class="flex flex-col gap-2">
       <AgentSectionHeading label={group.heading} />
       {group.tasks.map((n) => (
-        <TaskRow
-          title={`${agentRowExample.titlePrefix} ${n}`}
-          compact
-          tile={<Tile icon="circle" form="phase" tone="neutral" />}
-          trailing={null}
-        >
-          <div class="flex min-w-0 flex-1 flex-col gap-[2px]">
-            <strong class="text-small leading-[18px] font-[650]">{agentRowExample.titlePrefix} {n}</strong>
-            <div class="flex items-center justify-between">
-              <ProjectLabel label="项目" name={agentRowExample.project} />
-              <span class="text-caption text-text-tertiary">{group.date}</span>
-            </div>
-          </div>
-        </TaskRow>
+        <TaskCard form={group.date === agentHistory[0].date ? "detail" : "summary"} task={{
+          id: String(n), node: 'codex', title: `${agentRowExample.titlePrefix} ${n}`, group: 'recent',
+          state: 'Completed', detail: '', icon: 'check', origin: origins.local, project: { name: agentRowExample.project },
+          dispatch: taskDispatch, turns: 2,
+        }} />
       ))}
     </section>
   ));

@@ -51,21 +51,24 @@ export const checks = [
                         const panel = page.getByRole('dialog', { name: 'Codex', exact: true });
                         const expected = ['running', 'needsYou', 'done', 'failed', 'interrupted', 'unknown'];
                         for (const [index, state] of expected.entries()) {
-                            const button = panel.getByRole('button', { name: new RegExp(`^${fixture.tasks[index].title} ·`) });
+                            const button = panel.getByRole('button', { name: `${messages['homepage.openDetail']}: ${fixture.tasks[index].title}`, exact: true });
                             await button.waitFor();
-                            if (!await button.getByText(messages[`detail.state.${state}`], { exact: true }).count() && state !== 'running')
-                                throw new Error(`Missing ${state} execution state`);
+                            const description = await button.getAttribute('aria-description');
+                            if (description !== messages[`detail.state.${state}`]) throw new Error(`Missing ${state} execution description`);
                         }
                     }
                     if (name === 'dispatch-states') {
                         const source = page.getByRole('dialog', { name: 'Claude', exact: true });
                         const heading = source.getByRole('banner').getByRole('heading', { name: 'Claude', exact: true });
                         const earlier = source.getByRole('button', { name: /Earlier completed dispatch/ });
-                        await earlier.getByText(messages['detail.state.done'], { exact: true }).waitFor();
-                        await page.getByRole('button', { name: /Current running dispatch/ }).getByText(messages['detail.state.running'], { exact: true }).waitFor();
-                        await page.getByRole('button', { name: /Submission awaiting-approval/ }).getByText(messages['sourcePanel.awaitingApproval'], { exact: true }).waitFor();
-                        await page.getByRole('button', { name: /Submission reserved/ }).getByText(messages['sourcePanel.submitting'], { exact: true }).waitFor();
-                        await source.getByRole('button', { name: /Submission failed.*Codex Desktop.*v99/ }).waitFor();
+                        await earlier.waitFor();
+                        if (await earlier.getAttribute('aria-description') !== messages['detail.state.done'])
+                            throw new Error('Earlier dispatch inherited the state of a later turn');
+                        const running = source.getByRole('article', { name: 'Current running dispatch', exact: true });
+                        await running.getByRole('region', { name: messages['homepage.recentSteps'] }).waitFor();
+                        await source.getByRole('article', { name: 'Submission awaiting-approval', exact: true }).getByRole('status').filter({ hasText: messages['sourcePanel.awaitingApproval'] }).waitFor();
+                        await source.getByRole('article', { name: 'Submission reserved', exact: true }).getByRole('status').filter({ hasText: messages['sourcePanel.submitting'] }).waitFor();
+                        await source.getByRole('article', { name: 'Submission failed', exact: true }).getByRole('alert').filter({ hasText: /Codex Desktop.*v99/ }).waitFor();
                         const top = await heading.boundingBox();
                         await earlier.scrollIntoViewIfNeeded();
                         const after = await heading.boundingBox();
@@ -90,13 +93,14 @@ export const checks = [
                 if (fixture.metadataOnlyHistory) {
                     // Regression: opening and paging history prefetched one full timeline per row and stalled list rendering.
                     const started = performance.now();
+                    const localeMessage = JSON.parse(await readFile(path.join(context.root, 'ui/locales', `${fixture.language}.json`), 'utf8'))['homepage.openDetail'];
                     for (const count of [20, 40, 60]) {
-                        const row = page.getByRole('button', { name: new RegExp(`^Review project change ${count} ·`) });
+                        const row = page.getByRole('button', { name: `${localeMessage}: Review project change ${count}`, exact: true });
                         await row.waitFor();
                         await row.scrollIntoViewIfNeeded();
                     }
                     row.historyPaginationMs = Math.round(performance.now() - started);
-                    await page.getByRole('button', { name: /^Review project change 1 ·/ }).scrollIntoViewIfNeeded();
+                    await page.getByRole('button', { name: `${localeMessage}: Review project change 1`, exact: true }).scrollIntoViewIfNeeded();
                 }
             }
             finally {
@@ -185,7 +189,7 @@ export const checks = [
                         if (await page.locator('.activity-slot').getByRole('button').count())
                             throw new Error('The replaced task queue remains accessible behind the detail panel');
                         const parent = fixture.tasks[task.parent];
-                        await detail.getByRole('button', { name: `${messages['activity.parentThread']} ${parent.title}`, exact: true }).click();
+                        await detail.getByRole('button', { name: `${messages['homepage.openDetail']}: ${parent.title}`, exact: true }).click();
                         await page.getByRole('dialog', { name: parent.title, exact: true }).waitFor();
                         await page.keyboard.press('Escape');
                         await page.getByRole('dialog').waitFor({ state: 'hidden' });

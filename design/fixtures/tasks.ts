@@ -55,6 +55,7 @@ const details: Record<string, Partial<TaskSnapshotData>> = {
     change: { kind: 'diff', summary: 'src/dispatch.rs', added: 24, removed: 8 }, path: 'LAN · 4 ms' },
   report: { elapsed: '02:36', activity: 'Queue summary is ready',
     change: { kind: 'file', summary: 'queue-summary.md', output: 'Recorded the ordering rules and pending request handling.' } },
+  finished: { activity: 'The release checklist is complete. The build and upgrade checks passed.' },
   'remote-report': { elapsed: '01:52', activity: 'Configuration review is ready', path: 'LAN · 4 ms',
     change: { kind: 'diff', summary: 'config/agents.toml', added: 6, removed: 2 } },
   offline: { activity: 'Last observation unavailable',
@@ -93,7 +94,7 @@ const snapshots: Record<string, readonly TaskStep[]> = {
   offline: [step('reading', 'Read storage/index.json', '3 s'), step('command', 'index scan --verify', '41 s')],
 };
 export const tasks: TaskSnapshotData[] = baseTasks.map(task => ({
-  ...task, ...details[task.id], prompt: prompts[task.id], snapshot: snapshots[task.id],
+  ...task, ...details[task.id], turns: task.group === 'unconfirmed' ? undefined : 3, prompt: prompts[task.id], snapshot: snapshots[task.id],
 }));
 tasks.splice(4, 0, {
   id: 'tunnel', node: 'quartz-codex', title: 'Validate the build configuration', group: 'running',
@@ -127,4 +128,10 @@ export const snapshotForms = [
   { name: 'waiting-approval', id: 'approve' },
   { name: 'running', id: 'queue' },
   { name: 'unread', id: 'report' },
+] as const;
+
+export const auroraForms = [
+  { phase: 'thinking', name: 'Thinking', activity: 'Checking retry intervals' },
+  { phase: 'tool', name: 'Tool calls', activity: 'Read 4 files · Ran 1 command' },
+  { phase: 'text', name: 'Text output', activity: 'The retry order is confirmed.' },
 ] as const;

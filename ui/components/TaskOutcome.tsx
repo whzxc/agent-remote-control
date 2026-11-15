@@ -6,7 +6,7 @@ import { changedFiles } from "../state/taskProjection";
 import { taskErrorText } from "../state/taskErrors";
 import { Button, Icon } from "./ui";
 import { AlertCircle } from "lucide-react";
-import { TaskCard } from "./ui/TaskPresentation";
+import { TaskContentCard } from "./ui/TaskPresentation";
 import RelayRoute from "./RelayRoute";
 import { ChangedFiles } from "./TaskChanges";
 
@@ -19,7 +19,7 @@ export default function TaskOutcome({ state, entries, project, onResume, onRetry
   const ended = [...entries].reverse().find(entry => entry.endedAt)?.endedAt;
   return <>
     {state === "interrupted" && <div className="task-stop-divider">{t("detail.stoppedUnknown")}{ended && ` · ${new Date(ended).toLocaleTimeString(locale.get(), { hour: "2-digit", minute: "2-digit" })}`}</div>}
-    <TaskCard reply role="article" className="task-outcome" data-state={state} aria-label={t(state === "failed" ? "detail.turnFailed" : "detail.leftAsIs")}>
+    <TaskContentCard reply role="article" className="task-outcome" data-state={state} aria-label={t(state === "failed" ? "detail.turnFailed" : "detail.leftAsIs")}>
       <header>{agent ? <RelayRoute source={source} agent={agent} reverse label={t(state === "failed" ? "detail.turnFailed" : "detail.leftAsIs")} /> : <strong>{state === "failed" && <Icon icon={AlertCircle} size={18} />}{t(state === "failed" ? "detail.turnFailed" : "detail.leftAsIs")}</strong>}{failedTools}</header>
       {state === "failed" && <><p>{taskErrorText(failure?.text || failure?.output?.text, "detail.failureUnknown")}</p>{(failure?.command || failure?.cwd || failure?.path) && <pre>{[failure.command, failure.cwd, failure.path].filter(Boolean).join("\n")}</pre>}</>}
       <p>{t(changes.length ? "detail.recordedChanges" : "detail.changesUnknown")}</p>
@@ -31,6 +31,6 @@ export default function TaskOutcome({ state, entries, project, onResume, onRetry
         : <Button variant="secondary" disabled={continuing || !diffs.length} aria-expanded={diff} onClick={() => setDiff(!diff)}>{t("detail.viewDiff")}</Button>}</div>
       {diff && diffs.map((change, index) => <section key={index}><strong>{change.path}</strong><pre>{change.diff?.text}</pre>{change.diff?.truncated && <small>{t("timeline.truncated")}</small>}</section>)}
       {error && <p role="alert">{error}</p>}
-    </TaskCard>
+    </TaskContentCard>
   </>;
 }

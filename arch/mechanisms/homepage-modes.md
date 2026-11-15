@@ -3,7 +3,7 @@ owners:
   - ui/App.tsx
   - ui/topology/**
   - ui/components/ConnectionOverview.tsx
-  - ui/components/ActivityBubbles.tsx
+  - ui/components/ui/TaskCard.tsx
 status: Approved
 ---
 The homepage has a manually selected, persisted Topology or Tasks mode. The shared
@@ -31,7 +31,8 @@ Tasks combines live activity, recent native Codex conversations and ARC dispatch
 Tasks are grouped by the local calendar date of their latest recorded activity. Each
 date section uses responsive columns. Active tasks, including waiting tasks, today's
 tasks and unread completions show previews. Older history shows compact summaries.
-Unconfirmed history retains its status. Opening an unread completion marks it read.
+Unconfirmed history uses the last recorded observation when available. Opening an
+unread completion marks it read.
 Snapshot opening and closing morph between the card and the centered layer slot.
 Reduced motion is instant.
 The one-row HomepageBar reserves space for both homepage modes and retains the Board entry.
@@ -57,10 +58,11 @@ the task area opens scoped Tasks. Narrow topology pans horizontally between rese
 columns by explicit user input; the header/navigation stay fixed. Device management
 explicitly folds the child branch while its panel is open.
 
-Portrait snapshots keep status and duration inside the same card as the origin,
-one-line title, shared project label and newest-anchored native preview.
-Tool groups summarize the recorded categories and reasoning lines show
-their own summary. Replies stay inline. Historical bubbles show Agent and control source
-marks, title, status, recorded execution specification and duration from list metadata.
-Card activation opens the full detail and loads its timeline on demand.
-Routing and last-seen information stay in the preview. Request handling remains with the controller.
+The homepage, Agent and control-source task lists share one task card. A summary
+renders the same three-row header as a detail preview: origin chain and time,
+title, then recorded execution specification, project and turn count. Each row
+stays on one line and scrolls horizontally when constrained. Running previews
+use an Aurora border that follows the observed phase. Tool groups summarize
+recorded categories. Reasoning uses its own summary and replies stay inline.
+Card activation opens the full detail. Routing and request handling remain
+with the controller.

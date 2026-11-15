@@ -355,73 +355,10 @@
 .topology-scene [data-dragging] button { cursor: grabbing; }
 .activity-slot[inert] button { pointer-events: none; }
 :root[data-reduced-motion="true"] { .topology-wires .connecting-wire, .topology-wires .activity-flow { animation: none; } }
-.activity-bubble { display: flex; align-items: center; gap: 10px; position: relative; box-sizing: border-box; width: var(--bubble-width, 264px); height: var(--bubble-height, 76px); pointer-events: auto; border: 0; border-radius: var(--radius-card); background: var(--surface); color: var(--text); padding: 0 12px 0 11px; min-width: 0; text-align: left; font-weight: 400; box-shadow: var(--shadow-md); }
-.activity-bubble:hover { background: var(--surface-subtle); }
-.activity-bubble.needs-attention { background: var(--warning-soft); box-shadow: inset 0 0 0 1.5px var(--warning), var(--shadow-md); }
-.activity-bubble[aria-disabled="true"] { cursor: default; }
-.activity-phase { display: flex; align-items: center; gap: 4px; height: 17px; line-height: 17px; font-size: 12px; font-weight: 500; color: var(--text-secondary); white-space: nowrap; }
-.activity-copy { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
-.activity-bubble.completed { opacity: 0.72; }
-.activity-headline.mono { font-family: var(--font-mono); }
-.activity-phase time { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; font-family: var(--font-mono); flex: none; color: var(--text-tertiary); font-size: 11.5px; font-weight: 400; font-variant-numeric: tabular-nums; }
-.activity-phase > .activity-unread { width: 6px; height: 6px; flex: none; border-radius: 50%; background: var(--accent); }
-.activity-headline { display: grid; height: 19px; line-height: 19px; font-size: 13px; color: var(--text); }
-.activity-headline > span { grid-area: 1 / 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.activity-headline-fallback { color: var(--text-tertiary); }
-.activity-slot > .activity-bubble { width: 100%; height: 100%; }
-.activity-bubble-shell { position: relative; width: 100%; height: 100%; pointer-events: auto; }
-.activity-bubble-shell > .activity-bubble { width: 100%; height: 100%; }
-.activity-bubble-shell > .activity-mark-read { background: var(--success); color: var(--on-success); position: absolute; left: 11px; top: calc(50% - 16px); width: 32px; height: 32px; min-height: 0; padding: 0; border: 0; border-radius: var(--radius-tile); cursor: pointer; touch-action: none; transition: transform var(--motion-base) var(--ease-enter), filter var(--motion-base); }
-.activity-mark-read > .activity-source-badge { z-index: 1; pointer-events: none; }
-.activity-mark-read::before, .activity-mark-read::after { content: ""; position: absolute; inset: 0; border: 1.5px solid color-mix(in srgb, var(--success) 30%, transparent); border-radius: inherit; pointer-events: none; opacity: 0; animation: none; }
-.activity-mark-read::before { display: none; }
-.activity-bubble-shell > .activity-mark-read:hover:not(:disabled) { background: var(--success); filter: brightness(1.08); transform: scale(1.1); }
-.activity-bubble-shell > .activity-mark-read:active:not(:disabled) { transform: scale(.92); filter: brightness(.94); }
-@keyframes activity-read-ring { 0% { transform: scale(1); opacity: 0; } 25% { opacity: .8; } 100% { transform: scale(1.6); opacity: 0; } }
-:root[data-reduced-motion="true"] {
-  .activity-mark-read::before { display: none; }
-  .activity-mark-read::after { animation: none; inset: -3px; border-color: var(--success); border-radius: 12px; opacity: .55; }
-  .activity-bubble-shell > .activity-mark-read { transition: none; }
-  .activity-bubble-shell > .activity-mark-read:hover:not(:disabled), .activity-bubble-shell > .activity-mark-read:active:not(:disabled) { transform: none; }
-}
-button.activity-bubble, .activity-bubble-shell { transition: transform var(--motion-base) var(--ease-enter), background var(--motion-base); }
-button.activity-bubble:hover, .activity-bubble-shell:hover { transform: translateY(-2px) scale(1.015); }
-button.activity-bubble:active, .activity-bubble-shell:active { transform: scale(.97); }
-.activity-bubble-shell > button.activity-bubble { transform: none; }
-.activity-title-row { display: flex; align-items: center; gap: 5px; height: 17px; min-width: 0; }
-.activity-title-row strong { flex: 1; min-width: 0; font-size: var(--text-small); font-weight: 650; line-height: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.activity-title-row time { flex: none; font: 11px/17px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text-tertiary); }
-.activity-title-row .activity-unread { width: 5px; height: 5px; flex: none; background: var(--accent); border-radius: 50%; }
-.activity-pending { flex: none; font-size: 10px; line-height: 17px; padding-inline: 6px; border-radius: var(--radius-pill); color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, transparent); }
-.activity-bubble .activity-phase { gap: 6px; }
-.activity-bubble .activity-phase > .phase-label { flex: none; max-width: 45%; color: var(--phase-color); font-size: var(--text-meta); font-weight: 500; }
-.activity-bubble .activity-phase > .activity-headline { flex: 1; min-width: 0; height: 17px; line-height: 17px; font-size: var(--text-meta); }
-.activity-detail-line { min-width: 0; height: 17px; line-height: 17px; font-size: var(--text-meta); color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.activity-spec-row { display: flex; align-items: center; gap: 5px; min-width: 0; height: 20px; font-size: var(--text-caption); }
-.activity-spec-row:has(> .dispatch-spec) { height: 24px; }
 .activity-meta-chip, .task-state, .task-source-chip { display: inline-flex; flex: none; align-items: center; gap: 3px; height: 20px; border: 0; border-radius: 10px; padding: 0 8px; background: var(--surface-sunken); color: var(--text-secondary); font-size: var(--text-caption); line-height: 20px; white-space: nowrap; }
-.activity-spec-row .step-trail { margin-left: auto; }
-.activity-spec-row:not(.activity-conversation-meta):has(> .dispatch-spec) {
-  display: grid;
-  grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto;
-}
-.activity-spec-row:not(.activity-conversation-meta):has(> .dispatch-spec) > .project-label {
-  grid-column: 2;
-  justify-self: start;
-  box-sizing: border-box;
-  max-width: 100%;
-}
-.activity-spec-row:not(.activity-conversation-meta):has(> .dispatch-spec) > .step-trail { grid-column: 3; }
 .activity-source-badge { position: absolute; right: -0.5px; bottom: -0.5px; width: 13px; height: 13px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); color: var(--text-secondary); }
 .activity-source-badge > .icon, .activity-source-badge .source-icon, .activity-source-badge .source-icon svg { width: 9px; height: 9px; }
 .activity-source-badge .source-icon > span { display: flex; }
-.activity-preview { display: grid; align-items: center; justify-items: start; min-width: 0; }
-.activity-preview .activity-bubble { max-width: 100%; transition: width var(--motion-base) var(--ease-enter), height var(--motion-base) var(--ease-enter); }
-.agent-auto-compact { position: absolute; left: 50%; top: calc(100% + 22px); transform: translateX(-50%); padding: 1px 5px; border-radius: var(--radius-pill); background: var(--surface-subtle); color: var(--text-tertiary); font-size: 9px; line-height: 13px; white-space: nowrap; }
-:root[data-reduced-motion="true"] {
-  button.activity-bubble, .activity-bubble-shell, .activity-preview .activity-bubble { transition: none; }
-  button.activity-bubble:hover, button.activity-bubble:active, .activity-bubble-shell:hover, .activity-bubble-shell:active { transform: none; }
-}
 .activity-session-summary { overflow-wrap: anywhere; }
 .activity-edge-fade { position: fixed; inset: 0 0 0 auto; width: 32px; background: linear-gradient(to right, transparent, var(--canvas)); pointer-events: none; z-index: 4; }
 
@@ -479,7 +416,7 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .task-source-chip { max-width: 100%; }
 .task-source-chip > span:not(.activity-source-badge) { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .task-source-chip .activity-source-badge { position: static; flex: none; }
-.activity-panel button:focus-visible, button.activity-bubble:focus-visible, .activity-mark-read:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+.activity-panel button:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
 
 /* Optional topology controls open from the shared navigation capsule. */
 .topology-tuner { display: flex; flex-direction: column; overflow: hidden; width: min(320px, calc(100vw - 32px)); max-height: min(650px, calc(100dvh - 100px), var(--radix-popover-content-available-height, 650px)); box-sizing: border-box; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface-raised); color: var(--text); box-shadow: var(--shadow-md); font-size: var(--text-meta); }
@@ -524,18 +461,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .topology-guides .guide-right { stroke: var(--topology-agent); }
 .topology-guides text { stroke: var(--canvas); stroke-width: 3px; paint-order: stroke; fill: var(--text-secondary); font: 11px var(--font-mono); }
 
-/* A fixed outer halo animates on the compositor without resizing the bubble. */
-.activity-bubble.needs-attention::after {
-  content: ""; position: absolute; inset: -6px; border: 6px solid color-mix(in srgb, var(--warning) 16%, transparent);
-  border-radius: 19px; pointer-events: none; animation: activity-attention var(--motion-running) var(--ease-enter) infinite;
-}
-@keyframes activity-attention {
-  0%, 100% { transform: scale(0.95, 0.82); opacity: 0; }
-  50% { transform: scale(1); opacity: 1; }
-}
-:root[data-reduced-motion="true"] {
-  .activity-bubble::after { animation: none !important; opacity: 0; }
-}
 .agent-panel-view, .agent-panel-layer { width: 100%; min-height: 0; display: flex; flex-direction: column; }
 .agent-panel-layer > .dialog-header { flex: none; }
 .agent-view-scroll { flex: 0 1 auto; min-height: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
@@ -559,21 +484,11 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .agent-task-section-heading[data-attention] { color: var(--warning); }
 .agent-section-count { color: var(--text-tertiary); font-weight: 400; }
 .agent-task-section-rows { display: flex; flex-direction: column; gap: 8px; }
-.activity-bubble.agent-conversation-row { width: 100%; height: auto; min-height: 0; padding: 12px; align-items: flex-start; gap: 12px; border-radius: var(--radius-card); background: var(--surface-subtle); box-shadow: none; animation: agent-task-rise var(--motion-base) var(--ease-enter) var(--row-delay, 0s) backwards; }
-.activity-bubble.agent-conversation-row:hover { background: var(--hover); }
-.activity-bubble.agent-conversation-row.needs-attention { background: color-mix(in srgb, var(--warning) 10%, transparent); box-shadow: none; }
-.activity-bubble.agent-conversation-row.needs-attention::after { content: none; }
-.agent-conversation-row .activity-copy { gap: 1px; }
-.agent-conversation-row .activity-title-row, .agent-conversation-row .activity-title-row strong, .agent-conversation-row .activity-title-row time, .agent-conversation-row .activity-phase, .agent-conversation-row .activity-phase > .activity-headline { height: 18px; line-height: 18px; }
-.agent-conversation-row .activity-copy > .activity-spec-row:nth-child(2) { margin-top: 1px; }
-.activity-bubble.agent-conversation-row:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
 .activity-created { flex: none; color: var(--text-tertiary); font: var(--text-caption)/17px var(--font-ui); white-space: nowrap; }
 .activity-conversation-meta .activity-created { margin-left: auto; }
 .activity-conversation-meta > .project-label { max-width: 40%; }
 .agent-conversation-more { height: 1px; }
-@keyframes agent-task-rise { from { opacity: 0; translate: 0 5px; } to { opacity: 1; translate: 0 0; } }
 :root[data-reduced-motion="true"] {
-  .activity-bubble.agent-conversation-row { animation: none; }
 }
 .agent-task-count { position: absolute; top: -6px; right: -8px; min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box; border-radius: var(--radius-pill); background: var(--topology-agent); color: var(--surface); font: 10px/18px var(--font-ui); text-align: center; }
 .agent-task-count[data-attention] { background: var(--warning); }
@@ -787,7 +702,7 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .hub-agent { --hub-color: var(--topology-agent); --hub-dot-scale: var(--agent-dot-scale, 1); left: var(--agent-dot-x, calc(78 / 92 * 100%)); top: var(--agent-dot-y, 50%); }
 .topology-scene[data-orientation="portrait"] .topology-node .graph-node,
 .topology-scene[data-orientation="portrait"] .topology-node .graph-node:hover { background: var(--canvas); border-radius: 50%; }
-.topology-scene[data-orientation="portrait"] :is(.graph-node-name, .agent-auto-compact) { display: none; }
+.topology-scene[data-orientation="portrait"] .graph-node-name { display: none; }
 .portrait-wires .portrait-rail { fill: none; stroke: var(--wire-color); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .portrait-wires .portrait-task { --task-color: var(--topology-agent); fill: none; stroke: var(--task-color); stroke-width: 2; stroke-linecap: round; }
 .portrait-wires .portrait-task[data-state="done"] { --task-color: var(--success); }
@@ -891,7 +806,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .agents-toolbar { display: flex; align-items: center; margin-bottom: 11px; min-height: 33px; margin-top: 0; gap: 6px; }
 .agents-toolbar > h3 { margin: 0 4px 0 0; font-size: var(--text-small); font-weight: 650; line-height: 16px; color: var(--text-secondary); margin-right: 13px; }
 .display-settings.settings-stack { padding-top: 8px; gap: 30px; }
-.display-settings .activity-preview { justify-items: center; height: 124px; align-items: start; padding: 20px 36px 0 0; }
 .agent-summary { display: flex; align-items: center; gap: 12px; margin-top: 5px; margin-bottom: 36px; }
 .setting-field:has(.setting-copy > p) { padding-block: 23px; }
 .setting-field:has(.setting-copy > p) .setting-copy > label { line-height: 16px; }
@@ -906,17 +820,8 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .setting-toggle:has(.setting-copy > p) .setting-copy > label { line-height: 16px; }
 .setting-toggle .setting-copy > p { margin-top: 6px; }
 .display-settings .setting-toggle:has(.setting-copy > p) { padding-top: 17px; padding-bottom: 9px; }
-.display-settings .activity-bubble .activity-phase > .phase-label { max-width: none; }
 
 .experimental-settings { gap: 24px; padding-top: 8px; }
-.display-settings .activity-bubble[data-density="standard"] { align-items: flex-start; padding: 12px 11px 7px; }
-.display-settings .activity-bubble[data-density="standard"] .activity-copy { gap: 0; }
-.display-settings .activity-bubble[data-density="standard"] .activity-title-row,
-.display-settings .activity-bubble[data-density="standard"] .activity-title-row strong,
-.display-settings .activity-bubble[data-density="standard"] .activity-title-row time { height: 14px; line-height: 14px; }
-.display-settings .activity-bubble[data-density="standard"] .activity-phase { height: 14px; line-height: 14px; margin-top: 5px; gap: 8px; }
-.display-settings .activity-bubble[data-density="standard"] .activity-headline { flex: none; overflow: visible; height: 14px; line-height: 14px; }
-.display-settings .activity-bubble[data-density="standard"] .activity-spec-row { margin-top: 0; }
 
 .app-feedback { top: var(--layer-top-browser); }
 .desktop .app-feedback { top: var(--layer-top-desktop); }

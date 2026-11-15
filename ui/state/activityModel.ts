@@ -192,13 +192,13 @@ export type HomepageTask = {
   activity: ReturnType<typeof import('./taskProjection.ts').taskCardActivity>;
   observedAt?: string; freshness?: string; startedAt?: string | null; endedAt?: string | null; updatedAt?: string | null;
 };
-export function activeHomepageTask(task: HomepageTask) {
+export function activeHomepageTask(task: Pick<HomepageTask, 'group'>) {
   return task.group === 'running' || task.group === 'needs-me';
 }
 export function localTaskDay(time: number) {
   return new Date(time).setHours(0, 0, 0, 0);
 }
-export function homepageTaskTime(task: HomepageTask) {
+export function homepageTaskTime(task: Pick<HomepageTask, 'session' | 'startedAt' | 'endedAt' | 'updatedAt'>) {
   return Math.max(
     recordedTimestamp(task.updatedAt) ?? 0,
     recordedTimestamp(task.endedAt) ?? 0,
@@ -206,11 +206,11 @@ export function homepageTaskTime(task: HomepageTask) {
     task.session.endedAt ?? 0,
   ) || task.session.orderAt || recordedTimestamp(task.session.startedAt);
 }
-export function homepageTaskDay(task: HomepageTask) {
+export function homepageTaskDay(task: Parameters<typeof homepageTaskTime>[0]) {
   const timestamp = homepageTaskTime(task);
   return timestamp === undefined ? undefined : localTaskDay(timestamp);
 }
-export function previewHomepageTask(task: HomepageTask, today?: number) {
+export function previewHomepageTask(task: Pick<HomepageTask, 'group' | 'session' | 'startedAt' | 'endedAt' | 'updatedAt'>, today?: number) {
   return activeHomepageTask(task) || task.group === 'unread' || today !== undefined && homepageTaskDay(task) === today;
 }
 export function recentHomepageTasks(a: HomepageTask, b: HomepageTask) {

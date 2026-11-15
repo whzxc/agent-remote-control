@@ -2,7 +2,7 @@ import { animate } from 'motion/react';
 import { motionTransition } from '../../motion/tokens';
 
 export function taskSnapshotElement(key?: string) {
-  return key ? document.querySelector<HTMLElement>(`[data-task-snapshot="${CSS.escape(key)}"]`) : null;
+  return key ? Array.from(document.querySelectorAll<HTMLElement>('[data-task-snapshot]')).find(node => node.dataset.taskSnapshot === key) ?? null : null;
 }
 let pending: { key: string; rect: DOMRect; clone: HTMLElement } | undefined;
 export function prepareTaskSnapshot(key: string) {

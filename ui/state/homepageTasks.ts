@@ -95,15 +95,15 @@ export function useHomepageTasks(showHistory: boolean) {
       const key = JSON.stringify(['codex', row.id]);
       if (row.updatedAt) updates.set(key, row.updatedAt);
       if (previous?.observed) {
-        if (!previous.projectName && row.projectName && row.project && row.project === previous.project) {
-          sessions.set(row.id, { ...previous, projectName: row.projectName });
-        }
+        const projectName = previous.projectName ?? (row.project && row.project === previous.project ? row.projectName : undefined);
+        const turnCount = previous.turnCount ?? row.turnCount ?? undefined;
+        if (projectName !== previous.projectName || turnCount !== previous.turnCount) sessions.set(row.id, { ...previous, projectName, turnCount });
         continue;
       }
       const sameTurn = !row.turnId || row.turnId === previous?.turnId;
       sessions.set(row.id, {
         ...previous, id: row.id, source: row.source === 'native' ? 'transcript' : row.source, conversation: true,
-        title: row.title || previous?.title, status: row.status ?? (sameTurn ? previous?.status : undefined),
+        title: row.title || previous?.title, turnCount: row.turnCount ?? previous?.turnCount, status: row.status ?? (sameTurn ? previous?.status : undefined),
         project: row.project ?? previous?.project,
         projectName: row.projectName ?? (!row.project || row.project === previous?.project ? previous?.projectName : undefined),
         dispatchSummary: sameTurn ? { ...previous?.dispatchSummary, ...row.dispatchSummary } : row.dispatchSummary ?? undefined,
