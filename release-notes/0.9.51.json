@@ -16,6 +16,11 @@
   },
   {
     "section": "fixes",
+    "en": "Connection and Core controls remain accessible when topology actions overlap them.",
+    "zh-CN": "拓扑操作与中心控件重叠时，仍可操作连接和核心控制。"
+  },
+  {
+    "section": "fixes",
     "en": "Retired MCP Events announcements no longer repeat in new releases.",
     "zh-CN": "新版本的公告不再重复显示旧的 MCP Events 升级提示。"
   }
