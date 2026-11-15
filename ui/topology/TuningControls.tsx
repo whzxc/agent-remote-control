@@ -1,3 +1,4 @@
+import {InspectionPopover} from '../components/ui/InspectionPopover';
 import { Tooltip as HoverHelp } from "../components/ui/index";
 import { TransientLayer } from "../components/ui/TransientLayer";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -65,7 +66,7 @@ export default function TuningControls({ available }: { available: boolean }) {
   if (!enabled) return null;
   return <Popover.Root open={open} onOpenChange={changeOpen}>
     <Popover.Trigger asChild><IconButton icon={SlidersHorizontal} size={20} label={t("topology.tuning")} data-hover-target="topology" /></Popover.Trigger>
-    <Popover.Portal><TransientLayer><Popover.Content ref={element} className="topology-tuner" side="top" align="start" sideOffset={12} collisionPadding={16}
+    <Popover.Portal><TransientLayer><InspectionPopover ref={element} variant="tuning" side="top" align="start" sideOffset={12} collisionPadding={16}
       aria-label={t("topology.tuning")} onEscapeKeyDown={event => event.stopPropagation()}
       onInteractOutside={() => {
         const active = document.activeElement;
@@ -105,6 +106,6 @@ export default function TuningControls({ available }: { available: boolean }) {
           </TuningSection>)}
         </Accordion.Root>
       </div>
-    </Popover.Content></TransientLayer></Popover.Portal>
+    </InspectionPopover></TransientLayer></Popover.Portal>
   </Popover.Root>;
 }

@@ -1261,28 +1261,6 @@
     },
     {
       "implementation": {
-        "file": "ui/pets/PetsPage.tsx"
-      },
-      "design": [
-        {
-          "source": "design/modules/pets.tsx",
-          "part": "PetImport"
-        },
-        {
-          "source": "design/modules/pets.tsx",
-          "part": "PetCard"
-        },
-        {
-          "source": "design/modules/pets.tsx",
-          "part": "PetsLibrary"
-        },
-        {
-          "source": "design/surfaces/pets-settings.tsx"
-        }
-      ]
-    },
-    {
-      "implementation": {
         "file": "ui/components/SourcePlatformView.tsx"
       },
       "design": [
@@ -1364,21 +1342,6 @@
     },
     {
       "implementation": {
-        "file": "ui/display/Studio.tsx"
-      },
-      "design": [
-        {
-          "source": "design/components/homepage-mode.tsx",
-          "part": "HomepageModeSwitch"
-        },
-        {
-          "source": "design/components/homepage-mode.tsx",
-          "part": "HomepageBar"
-        }
-      ]
-    },
-    {
-      "implementation": {
         "file": "ui/state/homepage.ts"
       },
       "design": [
@@ -1389,24 +1352,6 @@
         {
           "source": "design/components/homepage-mode.tsx",
           "part": "HomepageBar"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/PermissionsPage.tsx"
-      },
-      "design": [
-        {
-          "source": "design/modules/permissions.tsx",
-          "part": "PermissionRow"
-        },
-        {
-          "source": "design/modules/permissions.tsx",
-          "part": "PermissionsContent"
-        },
-        {
-          "source": "design/surfaces/permissions.tsx"
         }
       ]
     },
@@ -2903,6 +2848,130 @@
         {
           "source": "design/components/setup-flow.tsx",
           "part": "SetupImpact"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/pets/PetsPage.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/pets.tsx",
+          "part": "PetImport"
+        },
+        {
+          "source": "design/modules/pets.tsx",
+          "part": "PetCard"
+        },
+        {
+          "source": "design/modules/pets.tsx",
+          "part": "PetsLibrary"
+        },
+        {
+          "source": "design/surfaces/pets-settings.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/display/Studio.tsx"
+      },
+      "design": [
+        {
+          "source": "design/components/homepage-mode.tsx",
+          "part": "HomepageModeSwitch"
+        },
+        {
+          "source": "design/components/homepage-mode.tsx",
+          "part": "HomepageBar"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/PermissionsPage.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/permissions.tsx",
+          "part": "PermissionRow"
+        },
+        {
+          "source": "design/modules/permissions.tsx",
+          "part": "PermissionsContent"
+        },
+        {
+          "source": "design/surfaces/permissions.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/PermissionRow.tsx",
+        "symbol": "PermissionRow"
+      },
+      "design": [
+        {
+          "source": "design/components/permission-row.tsx",
+          "part": "PermissionRow"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/PermissionRow.css"
+      },
+      "design": [
+        {
+          "source": "design/components/permission-row.tsx",
+          "part": "PermissionRow"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/InspectionPopover.tsx",
+        "symbol": "InspectionPopover"
+      },
+      "design": [
+        {
+          "source": "design/components/inspection-popover.tsx",
+          "part": "InspectionPopover"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/InspectionPopover.css"
+      },
+      "design": [
+        {
+          "source": "design/components/inspection-popover.tsx",
+          "part": "InspectionPopover"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/LibraryContent.tsx",
+        "symbol": "LibraryContent"
+      },
+      "design": [
+        {
+          "source": "design/components/library-content.tsx",
+          "part": "LibraryContent"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/LibraryContent.css"
+      },
+      "design": [
+        {
+          "source": "design/components/library-content.tsx",
+          "part": "LibraryContent"
         }
       ]
     }

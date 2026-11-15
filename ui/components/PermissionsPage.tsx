@@ -1,3 +1,4 @@
+import { PermissionRow } from './ui/PermissionRow';
 import { useDialogFeedback } from "./ui/Dialog";
 import { usePanelState } from "./ui/Panel";
 import { useEffect, useState } from "react";
@@ -57,7 +58,7 @@ export default function PermissionsPage() {
   function row(item: {id: string; state: string}) {
     const system = systemIds.includes(item.id);
     const authorization = system && item.id !== "login-start";
-    return <div className="permission-row" key={item.id}>
+    return <PermissionRow className="permission-row" key={item.id}>
       <Tooltip text={t("permissionTools." + item.id)}><span className="permission-symbol" tabIndex={0}><Icon icon={icons[item.id]} size={20} /></span></Tooltip>
       <div className="permission-copy">
         <h3>{t("permission." + item.id)}</h3>
@@ -70,7 +71,7 @@ export default function PermissionsPage() {
           {t(system ? item.id === "login-start" ? "permissionsEnable" : "permissionsGrant" : "permissionsInstructions")}
         </Button>}
       </div>
-    </div>;
+    </PermissionRow>;
   }
   return <div className="permissions-page">
     {data && <>

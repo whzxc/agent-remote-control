@@ -1,0 +1,6 @@
+
+.permission-row + .permission-row { border-top: 1px solid var(--border); }
+.permission-symbol { color: var(--text-secondary); }
+.permission-copy h3 { font-size: var(--text-small); font-weight: 600; }
+.permission-copy p { font-size: var(--text-meta); color: var(--text-secondary); line-height: 1.5; }
+.permission-copy .permission-hint, .permission-hint { color: var(--text-tertiary); font-size: var(--text-meta); }

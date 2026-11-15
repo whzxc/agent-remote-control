@@ -1,3 +1,4 @@
+import { LibraryContent } from '../components/ui/LibraryContent';
 import { Tooltip as HoverHelp } from "../components/ui/index";
 import { useSubmittedDirty } from "../components/ui/useSubmittedDirty";
 import { usePanelState } from "../components/ui/Panel";
@@ -36,8 +37,8 @@ export default function PetsPage() {
   function visit(event: MouseEvent<HTMLAnchorElement>) {
     event.preventDefault(); void openUrl(event.currentTarget.href).catch(error => setError(String(error)));
   }
-  return <div className="pets-page">
-    <Card asChild><section className="pet-import">
+  return <LibraryContent variant="page" className="pets-page">
+    <Card asChild><LibraryContent variant="import" as="section" className="pet-import">
       <nav className="pet-actions" aria-label={t('pets.community')}>{['codex-pets.net', 'codexpet.top', 'openpets.dev'].map(site => <a onClick={visit} key={site} href={`https://${site}`} target="_blank" rel="noreferrer">{site}</a>)}</nav>
       <form onSubmit={e => { e.preventDefault(); void install({ url }); }}>
         <Field id="pet-link" label={t('pets.link')}><Input id="pet-link" placeholder={t('pets.linkPlaceholder')} value={url} onChange={e => setUrl(e.target.value)} readOnly={!!busy} type="url" required aria-invalid={!!error} aria-describedby={error ? 'pets-import-error' : undefined} /></Field>
@@ -45,10 +46,10 @@ export default function PetsPage() {
         <input hidden ref={file} type="file" accept=".zip,application/zip" onChange={e => { const selected = e.target.files?.[0]; if (selected) void install(selected); }} />
       </form>
       {error && <div id="pets-import-error" role="alert"><Notice tone="danger">{error}</Notice></div>}
-    </section></Card>
+    </LibraryContent></Card>
     {library.error && <Notice tone="danger">{library.error}<Button onClick={() => void refreshPets()}>{t('retry')}</Button></Notice>}
-    <section className="pet-group"><h2>{t('pets.installed')}</h2>{!library.packages.length && <p>{t(library.loading ? 'pets.loading' : 'pets.empty')}</p>}
-      <div className="pet-catalog">{library.packages.map(p => <Card asChild key={p.key}><article className="pet-package">
+    <LibraryContent variant="group" as="section" className="pet-group"><h2>{t('pets.installed')}</h2>{!library.packages.length && <p>{t(library.loading ? 'pets.loading' : 'pets.empty')}</p>}
+      <div className="pet-catalog">{library.packages.map(p => <Card asChild key={p.key}><LibraryContent variant="package" as="article" className="pet-package">
         <PetPreview pet={p} />
         <div className="pet-package-content">
           <HoverHelp text={p.name}><h3>{p.name}</h3></HoverHelp>
@@ -61,9 +62,9 @@ export default function PetsPage() {
             {p.origin === 'arc' && <Button variant="danger" busy={busy === p.key} disabled={!!busy} aria-label={t('pets.remove', { name: p.name })} onClick={() => void remove(p.key)}>{t('remove')}</Button>}
           </div>
         </div>
-      </article></Card>)}</div>
+      </LibraryContent></Card>)}</div>
       {library.errors.map(e => <Notice key={e.key} tone="danger">{e.error}</Notice>)}
-    </section>
+    </LibraryContent>
     <footer>{t('pets.rights')}</footer>
-  </div>;
+  </LibraryContent>;
 }

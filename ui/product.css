@@ -1,3 +1,5 @@
+@import "./components/ui/InspectionPopover.css";
+@import "./components/ui/PermissionRow.css";
 @import "./components/ui/SetupFlow.css";
 @import "./components/ui/ServiceInventory.css";
 @import "./components/ui/controls.css";
@@ -222,12 +224,10 @@
 
 .permissions-page { container-type: inline-size; }
 .permission-row { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: var(--space-3); align-items: center; padding: var(--space-3) 0; }
-.permission-row + .permission-row { border-top: 1px solid var(--border); }
-.permission-symbol { display: flex; color: var(--text-secondary); }
+.permission-symbol { display: flex; }
 .permission-symbol .source-icon, .permission-symbol .source-icon > span, .permission-symbol svg { width: 20px; height: 20px; }
-.permission-copy h3 { margin: 0; font-size: var(--text-small); font-weight: 600; }
-.permission-copy p { margin: var(--space-1) 0 0; font-size: var(--text-meta); color: var(--text-secondary); line-height: 1.5; }
-.permission-copy .permission-hint, .permission-hint { color: var(--text-tertiary); font-size: var(--text-meta); }
+.permission-copy h3 { margin: 0; }
+.permission-copy p { margin: var(--space-1) 0 0; }
 .permission-actions { display: flex; align-items: center; gap: var(--space-3); }
 @container (max-width: 560px) {
   .permission-row { grid-template-columns: 20px minmax(0, 1fr); gap: var(--space-2) var(--space-3); }
@@ -332,19 +332,18 @@ button.timeline-summary { appearance: none; cursor: pointer; }
 /* Turns share the existing scroll viewport, including nested disclosures. */
 
 /* Optional topology controls open from the shared navigation capsule. */
-.topology-tuner { display: flex; flex-direction: column; overflow: hidden; width: min(320px, calc(100vw - 32px)); max-height: min(650px, calc(100dvh - 100px), var(--radix-popover-content-available-height, 650px)); box-sizing: border-box; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface-raised); color: var(--text); box-shadow: var(--shadow-md); font-size: var(--text-meta); }
+.topology-tuner { display: flex; flex-direction: column; overflow: hidden; width: min(320px, calc(100vw - 32px)); max-height: min(650px, calc(100dvh - 100px), var(--radix-popover-content-available-height, 650px)); box-sizing: border-box; }
 .topology-tuner > header { display: flex; flex: none; align-items: center; gap: 8px; padding: 10px 12px; }
-.topology-tuner > header strong { flex: 1; font-size: var(--text-meta); }
+.topology-tuner > header strong { flex: 1; }
 .topology-tuner-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 12px 12px; }
-.topology-tuner-hint { margin: 4px 0 12px; color: var(--text-secondary); line-height: 1.5; }
+.topology-tuner-hint { margin: 4px 0 12px; }
 .topology-tuner-option { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0; }
 .topology-tuner-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-.topology-tuner-status { color: var(--text-secondary); line-height: 1.5; overflow-wrap: anywhere; }
+.topology-tuner-status { overflow-wrap: anywhere; }
 .topology-tuner-status:not(:empty) { margin-top: 8px; }
-.topology-parameter-group, .topology-import { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px; }
-.topology-section-heading { margin: 0; font-size: inherit; }
-.topology-section-trigger { display: flex; justify-content: space-between; gap: 8px; width: 100%; min-height: 0; padding: 4px 0; border: 0; font-size: inherit; font-weight: 500; text-align: left; }
-.topology-tuner .topology-section-trigger:hover:not(:disabled) { background: transparent; }
+.topology-parameter-group, .topology-import { margin-top: 12px; padding-top: 8px; }
+.topology-section-heading { margin: 0; }
+.topology-section-trigger { display: flex; justify-content: space-between; gap: 8px; width: 100%; min-height: 0; padding: 4px 0; text-align: left; }
 .topology-section-trigger > .icon { transition: transform var(--motion-base) var(--ease-enter); }
 .topology-section-trigger[data-state="open"] > .icon { transform: rotate(180deg); }
 .topology-section-content { overflow: hidden; }
@@ -360,9 +359,7 @@ button.timeline-summary { appearance: none; cursor: pointer; }
 .topology-tuner .field { gap: 4px; margin-top: 8px; }
 .topology-parameter { display: grid; grid-template-columns: minmax(0, 1fr) 62px 32px; align-items: center; gap: 8px; }
 .topology-parameter .slider { margin: 0 8px; }
-.topology-custom { color: var(--accent); }
 .topology-import form { display: grid; gap: 8px; }
-.topology-import textarea { font-family: var(--font-mono); font-size: var(--text-meta); }
 .topology-guides { stroke: var(--text-tertiary); stroke-width: 1; fill: none; }
 .topology-guides circle { fill: var(--surface); stroke: var(--accent); }
 .topology-guides .guide-tangent { stroke: var(--accent); opacity: 0.65; }
