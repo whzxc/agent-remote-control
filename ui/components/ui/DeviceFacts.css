@@ -5,9 +5,6 @@
 .device-status { font-size:var(--text-meta); color:var(--text-secondary); }
 .device-status[data-state="online"] { color:var(--success); }
 .device-status > span { border-radius:50%; background:currentColor; }
-.device-command { color:var(--phase-command); }
-.device-neutral { color:var(--text-tertiary); }
-.device-warning { color:var(--warning); }
 .device-fingerprint { font-size:var(--text-small); }
 .device-fingerprint > span { font-weight:600; }
 .device-fingerprint code { font-family:var(--font-mono); font-size:var(--text-meta); line-height:20px; color:var(--text-secondary); }
