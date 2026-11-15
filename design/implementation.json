@@ -544,7 +544,7 @@
       },
       "design": [
         {
-          "source": "design/components/prompt.tsx",
+          "source": "design/modules/mcp-service.tsx",
           "part": "Prompt"
         }
       ]
@@ -931,11 +931,11 @@
       },
       "design": [
         {
-          "source": "design/components/topology-mark.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "TopologyMark"
         },
         {
-          "source": "design/components/topology-mark.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "ArcRecovery"
         }
       ]
@@ -972,7 +972,7 @@
           "part": "TopologyGroup"
         },
         {
-          "source": "design/components/topology-node.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "TopologyNode"
         }
       ]
@@ -1370,7 +1370,7 @@
           "part": "Experimental"
         },
         {
-          "source": "design/components/device-experiment.tsx",
+          "source": "design/modules/experimental.tsx",
           "part": "DeviceExperiment"
         },
         {
@@ -1531,15 +1531,15 @@
       },
       "design": [
         {
-          "source": "design/components/node-capsule.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "nodeCapsuleLayout"
         },
         {
-          "source": "design/components/node-capsule.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "NodeCapsule"
         },
         {
-          "source": "design/components/task-activity.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "TaskActivityIcon"
         }
       ]
@@ -1550,11 +1550,11 @@
       },
       "design": [
         {
-          "source": "design/components/node-capsule.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "nodeCapsuleLayout"
         },
         {
-          "source": "design/components/node-capsule.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "NodeCapsule"
         }
       ]
@@ -1595,7 +1595,7 @@
       },
       "design": [
         {
-          "source": "design/components/device-experiment.tsx",
+          "source": "design/modules/experimental.tsx",
           "part": "DeviceExperiment"
         },
         {
@@ -1862,7 +1862,7 @@
           "part": "TopologyGroup"
         },
         {
-          "source": "design/components/topology-node.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "TopologyNode"
         }
       ]
@@ -1954,7 +1954,7 @@
       },
       "design": [
         {
-          "source": "design/components/node-capsule.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "NodeCapsule"
         }
       ]
@@ -1965,7 +1965,7 @@
       },
       "design": [
         {
-          "source": "design/components/node-capsule.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "NodeCapsule"
         }
       ]
@@ -1976,7 +1976,7 @@
       },
       "design": [
         {
-          "source": "design/components/node-capsule.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "NodeCapsule"
         }
       ]
@@ -2337,7 +2337,7 @@
       },
       "design": [
         {
-          "source": "design/components/task-activity.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "PhaseLabel"
         }
       ]
@@ -2359,7 +2359,7 @@
       },
       "design": [
         {
-          "source": "design/components/task-activity.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "PhaseLabel"
         }
       ]
@@ -3072,7 +3072,7 @@
           "part": "HubEntry"
         },
         {
-          "source": "design/components/topology-node.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "TopologyNode"
         }
       ]
@@ -3144,7 +3144,7 @@
       },
       "design": [
         {
-          "source": "design/components/topology-node.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "TopologyNode"
         }
       ]

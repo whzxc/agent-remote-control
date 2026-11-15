@@ -1,20 +1,21 @@
+import { copy, services, tools, agents } from '../fixtures/mcp-service';
+import { Frame, Icon } from 'adg';
+import { Panel } from '../components/panel';
+import { Button } from '../components/button';
+import { IconButton } from '../components/icon-button';
+import { SearchInput } from '../components/search';
+import { Tile } from '../components/tile';
+import { Switch } from '../components/switch';
+import { SingleChoice } from '../components/single-choice';
+import { Tag, Disclosure } from '../components/tag';
+import { Notice } from '../components/notice';
+import { promptExample } from '../fixtures/feedback';
+
 export function ServiceInventory({ children, variant = 'server', class: extra }: { children: unknown; variant?: 'server' | 'tool' | 'import'; class?: string }) {
   const defaults = { server: 'rounded-card bg-surface-subtle p-4 text-text', tool: 'text-meta leading-[14px] text-text-secondary', import: 'text-small text-text-secondary' };
   return <div class={extra ?? defaults[variant]}>{children}</div>;
 }
-import { copy } from '../fixtures/mcp-service';
-import { Frame, Icon } from "adg";
-import { Panel } from "../components/panel";
-import { Button } from "../components/button";
-import { IconButton } from "../components/icon-button";
-import { SearchInput } from "../components/search";
-import { Tile } from "../components/tile";
-import { Switch } from "../components/switch";
-import { SingleChoice } from "../components/single-choice";
-import { Tag, Disclosure } from "../components/tag";
-import { services, tools, agents } from "../fixtures/mcp-service";
-import { Notice } from "../components/notice";
-import { Prompt } from "../components/prompt";
+
 export function McpService({
   service,
   failed,
@@ -102,6 +103,7 @@ export function McpService({
     </ServiceInventory>
   );
 }
+
 export function McpHub({ form, workspace = false }: { form: string; workspace?: boolean }) {
   const empty = form === "empty",
     failed = form === "failed";
@@ -184,7 +186,8 @@ export function McpFailure({ error }: { error: { title: string; detail: string; 
 export function McpImportPrompt({ class: extra = "" }: { class?: string }) {
   return <Prompt layout="stacked" class={extra} label={copy.text17} text={`${copy.text18}${copy.text19}`} />;
 }
-export default () => [
+
+const mcp_serviceFrames = () => [
   <Frame name="mcp-service-expanded" width={912}>
     <div class="w-full bg-surface-raised"><McpService service={services.docs} failed={false} expanded /></div>
   </Frame>,
@@ -201,3 +204,43 @@ export default () => [
     <div class="w-full bg-surface-raised"><McpImportPrompt /></div>
   </Frame>,
 ];
+
+
+export function Prompt({
+  text,
+  label,
+  context,
+  actionBelow = false,
+  layout = "inline",
+  class: extra = "",
+}: {
+  text: unknown;
+  label: string;
+  context?: string;
+  actionBelow?: boolean;
+  layout?: "inline" | "stacked";
+  class?: string;
+}) {
+  if (layout === "stacked") {
+    return <div class={`flex flex-col gap-4 rounded-card bg-surface-subtle p-4 ${extra}`}>
+      <p class="text-small leading-5">{text}</p>
+      <div><Button icon="copy">{label}</Button></div>
+    </div>;
+  }
+  return (
+    <div
+      class={`flex w-full gap-3 rounded-card bg-surface-subtle px-4 py-[14px] ${actionBelow ? "flex-col items-start" : "items-center"}`}
+    >
+      <p class="min-w-0 flex-1 text-small leading-5 text-text">{text}</p>
+      <Button icon="copy">{label}</Button>
+    </div>
+  );
+}
+
+const promptFrames = () => (
+  <Frame name="prompt-default" width={520}>
+    <Prompt {...promptExample} />
+  </Frame>
+);
+
+export default () => [...[mcp_serviceFrames()].flat(), ...[promptFrames()].flat()];

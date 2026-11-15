@@ -2,7 +2,7 @@ import { Frame, Icon } from 'adg';
 import { BrandMark, type Brand } from './brand-mark';
 import { ProjectLabel } from './project-path';
 import { DispatchSpec } from './dispatch-spec';
-import type { TaskStep, TaskPlan, TaskChange } from './task-activity';
+import type { TaskStep, TaskPlan, TaskChange } from '../modules/homepage-scene';
 import { tasks, origins, snapshotForms, auroraForms, tasksCopy as copy, taskStatuses } from '../fixtures/tasks';
 
 

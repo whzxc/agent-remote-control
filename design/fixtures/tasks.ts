@@ -1,5 +1,5 @@
 import type { TaskSnapshotData, OriginStep } from '../components/task-card';
-import type { TaskStep } from '../components/task-activity';
+import type { TaskStep } from '../modules/homepage-scene';
 import { recentSteps, activitySamples } from './task-activity';
 
 // Fictional task content and device identities. Native task storage stays runtime-owned.

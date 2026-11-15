@@ -1,4 +1,4 @@
-import type { NodeTaskState } from '../components/node-capsule';
+import type { NodeTaskState } from '../modules/homepage-scene';
 import type { Brand } from '../components/brand-mark';
 import type { AgentIconReading } from '../modules/homepage-scene';
 

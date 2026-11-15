@@ -7,7 +7,7 @@ import { IconButton } from '../components/icon-button';
 import { Tile } from '../components/tile';
 import { ProjectLabel } from '../components/project-path';
 import { DispatchSpec } from '../components/dispatch-spec';
-import type { TaskStep, TaskPlan, TaskChange } from '../components/task-activity';
+import type { TaskStep, TaskPlan, TaskChange } from '../modules/homepage-scene';
 import { tasks, origins, snapshotForms, auroraForms, tasksCopy as copy, taskStatuses } from '../fixtures/tasks';
 
 export function NodeTaskFilter({ label = copy.filter }: { label?: string }) {

@@ -23,7 +23,7 @@ const prepared = {
 };
 
 export default {
-  requires: '>=0.12.0',
+  requires: '>=0.12.1',
   design: 'design',
   check: { strictLayers: true, lifecycle: true },
   output: 'output/design',
