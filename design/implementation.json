@@ -2801,6 +2801,28 @@
           "source": "design/components/service-inventory.tsx"
         }
       ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/DeviceFacts.tsx",
+        "symbol": "DeviceFacts"
+      },
+      "design": [
+        {
+          "source": "design/components/device-facts.tsx",
+          "part": "DeviceFacts"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/DeviceFacts.css"
+      },
+      "design": [
+        {
+          "source": "design/components/device-facts.tsx"
+        }
+      ]
     }
   ]
 }
