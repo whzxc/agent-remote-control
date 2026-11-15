@@ -13,7 +13,7 @@ Use your own shell, files and Git for host work.
 
 Dispatch to Claude Code CLI only with the user's explicit authorization for the task or a clearly defined scope.
 This includes direct CLI invocation, ARC, indirect delegation, new tasks, follow-up prompts, reviews and resuming paused work.
-A general task request, agent-use permission, a Claude reviewer role, a skill or MAP workflow, dispatch criteria and risk-based review exceptions do not provide this authorization.
+A general task request, agent-use permission, a Claude reviewer role, a skill or knowledge-service workflow, dispatch criteria and risk-based review exceptions do not provide this authorization.
 Without it, continue with the current authorized agent and report any review gap instead of launching Claude Code CLI.
 
 ## Discover and select

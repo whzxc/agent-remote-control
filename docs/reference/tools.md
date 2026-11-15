@@ -267,7 +267,7 @@ An optional context provider supplies standard practices for the user's environm
 }
 ```
 
-`command` is required; `args`, `env` and `cwd` are optional. Use an executable accessible to the Core, preferably an absolute path. Environment overrides extend the Core process environment. ARC reads the file on each call; no restart is needed. Remove the file or set its JSON value to `null` to disable the integration. ARC does not create this configuration automatically. Keep private configuration outside the repository.
+`command` is required; `args`, `env` and `cwd` are optional. Use an executable accessible to the Core, preferably an absolute path. Environment overrides extend the Core process environment. ARC reads the file on each call; no restart is needed. Remove the file or set its JSON value to `null` to disable the integration. ARC does not create this configuration automatically. Keep private configuration outside the repository. The knowledge content and provider implementation may share the user's workspace repository; ARC does not require a separate knowledge repository.
 
 Each call starts a process, performs MCP initialization, invokes one tool, and terminates the process. `resolve` calls for dispatch injection have a three-second timeout. Proxy ops `context_resolve`, `context_search` and `context_read` allow 10 seconds; `context_amend` and `context_check` allow 120 seconds. ARC's stdio MCP forwarder allows 150 seconds for these two long ops so it can receive the provider result or timeout. External MCP clients should also allow at least 150 seconds; provider ops have no `waitMs` override. Results use MCP `structuredContent` when present, otherwise JSON decoded from text content. There is no cache or automatic retry.
 
