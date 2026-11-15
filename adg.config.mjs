@@ -46,7 +46,6 @@ export default {
         locale: fixture.language === 'zh-CN' ? 'zh-CN' : 'en-US',
         clock: fixture.clock ?? '2026-01-01T00:00:00Z',
         timezone: fixture.timezone ?? 'Asia/Shanghai',
-        ...(scenario.startsWith('portrait-topology-') ? { timezone: 'Asia/Shanghai' } : {}),
       };
     },
     async ready(page, reference) {
