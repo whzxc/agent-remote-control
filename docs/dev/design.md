@@ -188,7 +188,7 @@ Keep review evidence in ignored output or an external disposable directory.
 - Avoid `font-variant-numeric` and `letter-spacing` values that the source does not use, because they change text widths.
 - Panel forms have no stroke. A leftover 1px panel border shifts every text by 1px.
 - Review the overlay for shapes, fills, icons and elevation, because `compare` reads text only.
-- Feature CSS outside `ui/components/ui/` declares layout only. Paint and typography come from shared components and runtime tokens; free-form canvas exceptions live in `tooling/ui-style-allowlist.json`.
+- Feature CSS outside `ui/components/ui/` adds the feature's own layout and token-only presentation and never redraws a shared visual. A shared part with a single consumer moves back to its feature; literal-value exceptions live in `tooling/ui-style-allowlist.json`.
 - Delete superseded rules, classes, visual statements in [UI conventions](ui.md) and their design counterparts in the same change.
 
 ## Migration

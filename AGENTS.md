@@ -64,8 +64,9 @@ MUST means a requirement. SHOULD means the default unless a concrete task-specif
 
 - Use React for rendering. Radix owns interaction foundations: focus, keyboard navigation, dismissal layers, portals and modal behavior.
 - Implement each design component once in `ui/components/ui/` and reuse it. Business pages MUST NOT restyle or reimplement shared controls.
-- Feature styles outside `ui/components/ui/` declare layout only: display, flex and grid, gaps, padding, margins, sizing, positioning, overflow and stacking. Color, background, border, radius, shadow and typography belong to shared components and runtime tokens.
-- Free-form canvas styles, such as topology geometry, are exceptions only with an exact file, selector and reason in `tooling/ui-style-allowlist.json`.
+- Feature styles outside `ui/components/ui/` may add the feature's own layout and presentation. Their paint MUST use runtime tokens only (no literal colors, radii, shadows or font sizes), and they MUST NOT redraw a visual that a shared component defines.
+- A part enters `ui/components/ui/` and `design/components/` only when a second feature uses it. A shared part with a single consumer moves back to its feature.
+- Literal-value exceptions, such as topology canvas geometry, need an exact file, selector and reason in `tooling/ui-style-allowlist.json`.
 - Before adding a visual, look up the existing component and its counterpart. A visual without a design asset is a gap: add or extend the asset first.
 - Use `SingleChoice` for every single-choice control. It shows pills for at most five options when width permits and a dropdown otherwise. Do not add standalone Select or native `select`. Preserve keyboard navigation, disabled states, and validation.
 - `ui/tokens.css` is the runtime token sheet. Migrations align it with `design/tokens.css`. Manage light/dark state in `ui/theme.ts`, following the system by default.
