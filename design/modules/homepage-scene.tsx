@@ -369,7 +369,7 @@ export function TaskActivityIcon({ kind, size = 14 }: { kind: TaskStepKind; size
 }
 
 export function PhaseLabel({ children, phase = 'thinking', running = false }: { children: unknown; phase?: string; running?: boolean }) {
-  return <span data-free class="relative min-w-0 overflow-hidden text-ellipsis" style={{ color: `var(--${phase === "thinking" ? "role-agent" : "phase-" + phase})` }}>
+  return <span data-free class="relative min-w-0 overflow-hidden text-ellipsis" style={{ color: `var(--phase-${phase})` }}>
     {children}{running && <span class="absolute inset-0 opacity-15" aria-hidden="true">{children}</span>}
   </span>;
 }
@@ -462,7 +462,7 @@ function CapsuleRing({ width, readings = [], used = false }: {
 
 const stepTone: Record<TaskStepKind | 'running', string> = {
   reading: 'text-phase-file', editing: 'text-phase-file', command: 'text-phase-command',
-  thinking: 'text-role-agent', waiting: 'text-text-tertiary', running: 'text-role-agent',
+  thinking: 'text-phase-thinking', waiting: 'text-text-tertiary', running: 'text-role-agent',
 };
 
 function CapsuleItem({ item }: { item: Item }) {

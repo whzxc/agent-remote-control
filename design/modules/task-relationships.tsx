@@ -56,7 +56,7 @@ export function TaskDetailHeader({
       <div class="mt-[14px] px-1 flex items-center gap-5 text-meta leading-4">
         <TaskRelation kind={kind} />
         <span
-          class={tone === "thinking" ? "text-role-agent" : "text-success"}
+          class={tone === "thinking" ? "text-phase-thinking" : "text-success"}
         >
           {phase}
         </span>

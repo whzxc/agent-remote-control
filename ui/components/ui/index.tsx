@@ -42,7 +42,7 @@ export function Icon({
 export function Tile({ icon, className = "", form = 'card', tone }: {
   icon: LucideIcon; className?: string; form?: 'card' | 'phase'; tone?: 'warning' | 'success' | 'neutral' | 'command' | 'file' | 'thinking' | 'danger' | 'accent';
 }) {
-  const colors = { danger: 'var(--danger)', accent: 'var(--accent)', warning: 'var(--warning)', success: 'var(--success)', neutral: 'var(--text-tertiary)', command: 'var(--phase-command)', file: 'var(--phase-file)', thinking: 'var(--role-agent)' };
+  const colors = { danger: 'var(--danger)', accent: 'var(--accent)', warning: 'var(--warning)', success: 'var(--success)', neutral: 'var(--text-tertiary)', command: 'var(--phase-command)', file: 'var(--phase-file)', thinking: 'var(--phase-thinking)' };
   return <span className={`tile ${form === 'phase' ? 'tile-phase' : ''} ${className}`} style={tone ? { color: colors[tone] } : undefined} aria-hidden="true"><Icon icon={icon} size={form === 'phase' ? 16 : 18} /></span>;
 }
 /** Bundled brand artwork with no control or quota decoration. */

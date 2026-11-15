@@ -50,7 +50,7 @@ export function inspectTokens(base = root, parts = inspectConsumers(base)) {
         }
       });
     } else {
-      for (const token of references(text)) { used.add(token); paintTokens.add(token); }
+      for (const token of references(text)) { used.add(token); paintTokens.add(token); declarationUses.set(token, (declarationUses.get(token) ?? 0) + 1); }
     }
     usages.set(file, used);
   }
