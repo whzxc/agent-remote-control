@@ -12,6 +12,7 @@
     "brand": "node tooling/brand.mjs",
     "check": "tsc --noEmit -p ui/tsconfig.json",
     "build": "vite build --config vite.config.ts && node tooling/build-native.mjs",
+    "artifacts:prune": "node tooling/retain-build-artifacts.mjs",
     "cache:prune": "node tooling/prune-build-cache.mjs",
     "test": "node tooling/test.mjs",
     "test:extended": "node tooling/test.mjs --extended",

@@ -11,6 +11,7 @@ import { testEnvironment } from './test-environment.mjs';
 import { buildVersion, stableVersion } from './version.mjs';
 import { readReleaseNotes } from './release-notes.mjs';
 import { releaseSigningEnv } from './release-signing.mjs';
+import { retainBuildArtifacts } from './retain-build-artifacts.mjs';
 import { macosSigningIdentity, verifyMacosReleaseSignature } from './macos-signing.mjs';
 import { gh, ghTransfer, releaseByTag, releaseById, requireDraftRelease, uploadReleaseAsset, publishedTags, fileDigest, publicationStages,
   validateResume, validateRemoteAssets, validateArtifactInventory, platformAssetNames, retry, boundedMap, stageTimer, parallelPlatforms, releasePlatforms } from './release-support.mjs';
@@ -286,6 +287,7 @@ if (mode === 'release') {
         state.complete = true;
         await saveState();
       });
+      await retainBuildArtifacts(process.cwd(), true);
     } else for (const name of ['tag/source push', 'upload', 'remote verification', 'publish', 'readback']) timer.skip(name);
   } catch (error) {
     if (state?.verified && output) console.error(`Resume after resolving the failure: npm run release -- --resume ${JSON.stringify(path.resolve(output))}`);

@@ -109,3 +109,7 @@ Prefer archives for old macOS App backups to avoid discoverable duplicate .app i
 ## Readback
 
 Verify tag/source SHA, workflows, public assets, checksums, updater signatures, latest.json, and embedded versions. Within authorization, verify installed startup, connections, real client tools, and tasks. Source builds, public artifacts, and installed apps are separate evidence layers. State untested layers explicitly. Keep personal paths, accounts, secrets, Tunnel identities, real tasks, and acceptance records outside the repository.
+
+## Local artifact retention
+
+Successful desktop builds retain the two newest DMGs per build profile. Completed formal releases retain payloads from the two newest releases for each selected platform; failed or pending releases keep their payloads. Release metadata, receipts, timings and acceptance evidence remain. `npm run artifacts:prune` previews expired payloads; use `-- --apply` to remove them.

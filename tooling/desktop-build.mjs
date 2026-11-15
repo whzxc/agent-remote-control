@@ -10,6 +10,7 @@ import { macosSigningIdentity } from './macos-signing.mjs';
 import { compileIcon, requireXcode } from './macos-icons.mjs';
 import { stageTimer } from './release-support.mjs';
 import { buildNative } from './build-native.mjs';
+import { retainBuildArtifacts } from './retain-build-artifacts.mjs';
 const root = new URL('../', import.meta.url);
 const args = [fileURLToPath(new URL('node_modules/@tauri-apps/cli/tauri.js', root)), 'build'];
 if (process.platform === 'win32') args.push('--config', 'tauri.windows.conf.json');
@@ -80,3 +81,4 @@ const packageDesktop = async () => {
 };
 if (process.env.ARC_RELEASE_TIMINGS_FILE) await stageTimer().run('Rust Desktop build/sign', packageDesktop);
 else await packageDesktop();
+await retainBuildArtifacts(fileURLToPath(root), true);
