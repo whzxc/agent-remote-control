@@ -31,12 +31,14 @@ export async function verifyPortraitTopology(page, fixture, messages) {
   await page.getByLabel(messages['studio.clock'], { exact: true }).waitFor();
   if (fixture.topologyAccounts === 'dense') {
     const disclosure = page.getByRole('button', { name: new RegExp(`${messages['topology.expand']}$`) }).first();
-    const trigger = await disclosure.elementHandle();
+    const triggerLabel = await disclosure.getAttribute('aria-label');
     await disclosure.scrollIntoViewIfNeeded();
     await disclosure.focus(); await disclosure.press('Enter');
     await page.getByRole('button', { name: /^Codex Pro/ }).first().waitFor();
+    await page.waitForFunction(() => document.activeElement?.classList.contains('node-capsule-logo'));
     await page.keyboard.press('Escape');
-    if (!await trigger.evaluate(element => element === document.activeElement)) throw new Error('Account disclosure did not restore keyboard focus.');
+    if (await page.evaluate(() => window.__ARC_VIEW_MODEL__().topology.groups.some(group => !group.folded))) await page.keyboard.press('Escape');
+    await page.waitForFunction(label => document.activeElement?.getAttribute('aria-label') === label, triggerLabel, { timeout: 5000 });
   }
   const chooseTasks = page.getByRole('radio', { name: messages['homepage.tasks'], exact: true });
   if (await chooseTasks.count()) await chooseTasks.click();

@@ -220,9 +220,9 @@
 .connection-graph.topology-scene { color: var(--text); position: relative; display: block; width: 100%; max-width: none; margin: 0; }
 :root[data-theme-color="arc"] .topology-scene { --topology-source: var(--role-source); --topology-agent: var(--role-agent); }
 .topology-wires { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 1; }
-.topology-hub { position: absolute; left: 0; top: 0; z-index: 2; }
+.topology-hub { position: absolute; left: 0; top: 0; z-index: 6; pointer-events: none; }
 
-.hub-entry { position: absolute; top: 50%; width: calc(var(--hub-dot-size) + 8px); height: calc(var(--hub-dot-size) + 8px); min-width: 28px; min-height: 28px; padding: 4px; transform: translate(-50%, -50%); cursor: pointer; display: grid; place-items: center; }
+.hub-entry { position: absolute; top: 50%; width: calc(var(--hub-dot-size) + 8px); height: calc(var(--hub-dot-size) + 8px); min-width: 28px; min-height: 28px; padding: 4px; transform: translate(-50%, -50%); cursor: pointer; display: grid; place-items: center; pointer-events: auto; }
 .hub-dot { position: relative; display: block; width: var(--hub-dot-size); height: var(--hub-dot-size); transform: scale(var(--hub-dot-scale, 1)); transition: box-shadow var(--motion-base) var(--ease-enter); pointer-events: none; }
 .hub-dot > svg { display: block; width: 100%; height: 100%; }
 .hub-plus { stroke-width: 5.865; }

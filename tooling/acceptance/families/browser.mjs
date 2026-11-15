@@ -38,7 +38,8 @@ export const checks = [
                     const task = page.getByRole('dialog').getByRole('button', { name: new RegExp(escapeRegex(fixture.tasks[0].title)) }).first();
                     await task.click();
                     await page.getByRole('dialog').waitFor();
-                    await page.getByRole('dialog').getByText('npm run check', { exact: true }).waitFor();
+                    const liveCommand = page.getByRole('dialog').locator('.task-live-label').filter({ hasText: 'npm run check' });
+                    await liveCommand.waitFor();
                     for (const input of await page.getByRole('dialog').getByRole('textbox').all())
                         if (await input.isEnabled())
                             throw new Error('Browser exposed a task composer');

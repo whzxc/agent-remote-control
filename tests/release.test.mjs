@@ -54,7 +54,13 @@ test('Linux receipts bind source version architecture bytes and native runtime c
 test('test execution has the same version-independent environment inside and outside release', () => {
   // Property: packaging overrides cannot contaminate the source-tree test cache or mutate its caller.
   const env = { ARC_BUILD_VERSION: '1.2.3', TAURI_CONFIG: '{}', ARC_RELEASE_TIMINGS_FILE: 'timings', ARC_RELEASE_PLATFORM: 'mac', RUSTFLAGS: '-C opt-level=1', PATH: '/tools' };
-  assert.deepEqual(testEnvironment(env), { ARC_BUILD_VERSION: '0.0.0', RUSTFLAGS: '-C opt-level=1', PATH: '/tools' });
+  const result = testEnvironment(env);
+  assert.equal(result.ARC_BUILD_VERSION, '0.0.0');
+  assert.equal(result.RUSTFLAGS, env.RUSTFLAGS);
+  assert.equal(result.PATH, env.PATH);
+  for (const key of ['TAURI_CONFIG', 'ARC_RELEASE_TIMINGS_FILE', 'ARC_RELEASE_PLATFORM']) assert.equal(result[key], undefined);
+  assert.ok(path.isAbsolute(result.TMPDIR));
+  for (const key of ['TMP', 'TEMP', 'GIT_CEILING_DIRECTORIES']) assert.equal(result[key], result.TMPDIR);
   assert.equal(env.ARC_BUILD_VERSION, '1.2.3');
 });
 

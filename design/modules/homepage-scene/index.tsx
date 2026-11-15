@@ -26,7 +26,7 @@ export { TopologyMark, ArcRecovery } from './topology-mark';
 const homepageSpecimen = () => <Frame name="idle" width={1280} height={800} fixture="portrait-topology-0"
   capture={{ page: true, origin: '0 0', viewport: '1280x800' }}><HomepageScene scene={topologyScenes.idle} /></Frame>;
 
-export const capsuleSpecimens = () => [
+const capsuleSpecimens = () => [
   ...capsuleForms.filter(form => !['unread', 'compact'].includes(form.name)).map(({ name, state, compact, wing, brand = 'codex', label = 'Codex' }) => {
     const model = nodeCapsuleLayout(state, compact);
     return <Frame name={`capsule-${name}`} width={model.width} height={48}

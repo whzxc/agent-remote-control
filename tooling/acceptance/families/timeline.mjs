@@ -33,12 +33,12 @@ export const checks = [{ stage: 'beforeNavigate', order: -1, visual: false, asyn
     scenarioResponse('tasks/control', 'POST', { op: 'codex_send', args: { threadId: 'fixture-task-0', sendMode: 'steer', prompt: text } });
   }, text);
   await append('New update while reading earlier history');
-  await page.getByText('New update while reading earlier history', { exact: true }).waitFor({ state: 'attached' });
+  await timeline.getByText('New update while reading earlier history', { exact: true }).waitFor({ state: 'attached' });
   if (await timeline.evaluate(element => element.scrollTop) > 2) throw new Error('Appended content moved the historical reading position.');
   await timeline.press('End');
   await bottom();
   await append('New update while following the latest entry');
-  await page.getByText('New update while following the latest entry', { exact: true }).waitFor({ state: 'attached' });
+  await timeline.getByText('New update while following the latest entry', { exact: true }).waitFor({ state: 'attached' });
   await bottom();
   row.timelineScroll = { openedAtBottom: true, historyPositionHeld: true, followingResumed: true };
 } }];

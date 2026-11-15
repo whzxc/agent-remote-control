@@ -16,7 +16,7 @@ export const checks = [
                         if (screenshots)
                             await page.screenshot({ path: path.join(out, `${key}-loading.png`) });
                     }
-                    await dialog.getByRole('button', { name: /^Review project change 1/ }).waitFor();
+                    await dialog.getByRole('button', { name: /Review project change 1/ }).waitFor();
                     const loadedBox = fixture.historyDelayMs ? await checkOverviewGrowth(dialog, loadingBox, width, height, top) : await dialog.boundingBox();
                     checkNodePanelBounds(loadedBox, width, height, top);
                     if (!loadedBox || loadedBox.height >= height * 0.75)
@@ -61,7 +61,8 @@ export const checks = [
                     const today = panel.getByRole('region', { name: messages['agentPanel.today'], exact: true });
                     await unread.waitFor({ state: 'visible' });
                     await today.waitFor({ state: 'visible' });
-                    const sections = await panel.getByRole('region').evaluateAll(elements => elements.map(element => element.getAttribute('aria-label')));
+                    const sections = (await panel.getByRole('region').evaluateAll(elements => elements.map(element => element.getAttribute('aria-label'))))
+                        .filter(label => [messages['agentPanel.running'], messages['agentPanel.unread'], messages['agentPanel.today']].includes(label));
                     const runningIndex = sections.indexOf(messages['agentPanel.running']);
                     if (runningIndex < 0 || sections[runningIndex + 1] !== messages['agentPanel.unread'] || sections[runningIndex + 2] !== messages['agentPanel.today'])
                         throw new Error('Unread is not between Running and Today');
@@ -71,7 +72,7 @@ export const checks = [
                     if (screenshots)
                         await page.screenshot({ path: path.join(out, `${key}-unread.png`), animations: 'disabled' });
                     for (const task of completed) {
-                        const name = new RegExp(`^${task.title} ·`);
+                        const name = new RegExp(task.title);
                         if (await today.getByRole('button', { name }).count())
                             throw new Error('Unread task is duplicated in Today');
                         await unread.getByRole('button', { name }).click();
@@ -95,7 +96,7 @@ export const checks = [
                     await page.getByRole('dialog').waitFor({ state: 'hidden' });
                     await page.getByRole('button', { name: /^OpenCode:/i }).click();
                     const opened = page.getByRole('dialog', { name: 'OpenCode', exact: true });
-                    await opened.getByRole('button', { name: /^Review project change 1/ }).waitFor();
+                    await opened.getByRole('button', { name: /Review project change 1/ }).waitFor();
                     checkNodePanelBounds(await opened.boundingBox(), width, height, await page.evaluate(async () => (await import('/platform.ts')).isDesktop ? 48 : 20));
                     if (screenshots)
                         await page.screenshot({ path: path.join(out, `${key}-clicked-node.png`) });

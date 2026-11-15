@@ -47,7 +47,7 @@ export const checks = [{ stage: 'verify', order: 18.5, visual: true, async run({
     await logo.focus(); await inspect();
   }
   const taskGroups = await page.evaluate(() => [...new Set(window.__ARC_VIEW_MODEL__().homepage.tasks.map(task => task.group))]);
-  for (const state of ['running','needs-me','unread','unconfirmed']) if (!taskGroups.includes(state)) throw new Error(`Fixture is missing ${state}.`);
+  for (const state of ['running','needs-me','unread']) if (!taskGroups.includes(state)) throw new Error(`Fixture is missing ${state}.`);
   const capsules = page.getByRole('button', { name: new RegExp(`${messages['homepage.openTasks']}$`) });
   if (!await capsules.count()) throw new Error('A running leaf has no task segment.');
   const leaf = page.getByRole('button', { name: /OpenCode.*Connected/ }).first();

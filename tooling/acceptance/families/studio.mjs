@@ -88,7 +88,9 @@ export const checks = [
                         await page.mouse.move(connectionsCenter.x, connectionsCenter.y, { steps: 8 });
                         if (screenshots)
                             await page.screenshot({ path: path.join(out, `${key}-remote-actions.png`) });
-                        await page.mouse.click(connectionsCenter.x, connectionsCenter.y);
+                        await page.mouse.move(remotePoint.x, remotePoint.y - 80);
+                        await page.mouse.move(remotePoint.x, remotePoint.y);
+                        await button('hub.viewConnections').click();
                         await dialog('connections.title').getByRole('button', { name: messages['source.newConnection'] }).waitFor();
                         await page.keyboard.press('Escape');
                         await dialog('connections.title').waitFor({ state: 'hidden' });
@@ -113,7 +115,9 @@ export const checks = [
                         await page.mouse.move(stopBounds.x + stopBounds.width / 2, stopBounds.y + stopBounds.height / 2, { steps: 8 });
                         if (screenshots)
                             await page.screenshot({ path: path.join(out, `${key}-core-hover.png`) });
-                        await page.mouse.click(stopBounds.x + stopBounds.width / 2, stopBounds.y + stopBounds.height / 2);
+                        await page.mouse.move(corePoint.x, corePoint.y + 80);
+                        await page.mouse.move(corePoint.x, corePoint.y);
+                        await button('hub.stopCore').click();
                         await arc('hub.coreStopped').waitFor();
                         await arc('hub.remoteUnavailable').waitFor();
                         await button('hub.remoteRecovery').press('Enter');

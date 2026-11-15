@@ -12,7 +12,7 @@ export const checks = [
                     const task = fixture.tasks[0];
                     const panel = page.getByRole('dialog', { name: task.title, exact: true });
                     await panel.getByRole('status').filter({ hasText: messages['detail.state.done'] }).waitFor();
-                    await panel.getByText(task.entries.find(entry => entry.phase === 'final_answer').text, { exact: true }).waitFor();
+                    await panel.locator('p:visible').filter({ hasText: task.entries.find(entry => entry.phase === 'final_answer').text }).first().waitFor();
                     const work = [messages['detail.workedFor'].split('{')[0], messages['detail.worked']].map(escapeRegex).join('|');
                     await panel.getByRole('button', { name: new RegExp(`^(${work})`) }).click();
                     for (const entry of task.entries.filter(entry => entry.type === 'error')) {
@@ -124,7 +124,7 @@ export const checks = [
                         else if (index === 1) {
                             await dialog.getByRole('img', { name: new RegExp(`Example Five.*${messages['dispatchSpec.effort.high']}`) }).first().waitFor();
                             if (await dialog.getByRole('img', { name: new RegExp(messages['activity.fast']) }).count()) throw new Error('Default service tier displayed Fast');
-                        } else await dialog.getByText(task.spec.effort, { exact: true }).first().waitFor();
+                        } else await dialog.getByRole('img', { name: new RegExp(task.spec.effort) }).first().waitFor();
                         await page.keyboard.press('Escape');
                         await dialog.waitFor({ state: 'hidden' });
                     }

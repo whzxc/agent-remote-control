@@ -68,4 +68,4 @@ export default () => [
   </Frame>,
 ];
 
-export function StudioSettings() {return <InspectionPopover variant="studio" class="grid gap-4 w-[316px] p-[18px] border border-border rounded-panel bg-surface text-text shadow-md"><SingleChoice label="Lighting" value="day" options={[{value:'day',label:'Day',icon:'sun'},{value:'night',label:'Night',icon:'moon'}]}/><Button icon="expand">Fullscreen</Button></InspectionPopover>;}
+function StudioSettings() {return <InspectionPopover variant="studio" class="grid gap-4 w-[316px] p-[18px] border border-border rounded-panel bg-surface text-text shadow-md"><SingleChoice label="Lighting" value="day" options={[{value:'day',label:'Day',icon:'sun'},{value:'night',label:'Night',icon:'moon'}]}/><Button icon="expand">Fullscreen</Button></InspectionPopover>;}
