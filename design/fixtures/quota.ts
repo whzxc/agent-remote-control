@@ -1,4 +1,4 @@
-import type { QuotaWindow } from "../modules/quota";
+import type { QuotaWindow } from '../components/quota';
 
 export const agentQuotas = [
   { label: "5 小时额度", value: 27, mode: "剩余", reset: "2 小时后重置", detail: "≈ 1h 7m", elapsed: 0.6, tone: "warning" },

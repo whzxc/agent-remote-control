@@ -1,4 +1,4 @@
-import { ThemeSwatch } from "./display-settings";
+import { ThemeSwatch } from '../components/theme-swatch';
 import { copy, samples } from '../fixtures/general-settings';
 import { Frame } from "adg";
 import { Panel } from "../components/panel";
@@ -8,7 +8,7 @@ import { SingleChoice } from "../components/single-choice";
 import { Switch } from "../components/switch";
 import { Input } from "../components/field";
 import { IconButton } from "../components/icon-button";
-import { UpdateAboutContent } from "./updates";
+import { UpdateAboutContent } from '../components/update-about';
 
 
 import { SettingsChoices as Choices, SettingsGroup as Group, SettingsToggleRows as ToggleRows } from "../components/settings-row";

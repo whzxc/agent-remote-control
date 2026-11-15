@@ -1,4 +1,4 @@
-import { items } from "../fixtures/nav-capsule";
+import { items } from '../fixtures/nav-capsule';
 import { Frame, Icon } from "adg";
 
 export function NavCapsule({

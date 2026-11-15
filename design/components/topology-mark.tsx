@@ -1,9 +1,9 @@
 import { Frame } from "adg";
 import ArcMarkArt from "../art/arc-mark.svg";
-import { Button } from "../components/button";
-import { IconButton } from "../components/icon-button";
-import { Dialog } from "../components/panel";
-import { markForms, recoveryForms, ringCopy } from "../fixtures/topology-mark";
+import { Button } from '../components/button';
+import { IconButton } from '../components/icon-button';
+import { Dialog } from '../components/panel';
+import { markForms, recoveryForms, ringCopy } from '../fixtures/topology-mark';
 
 type ArcHealth = "healthy" | "unhealthy";
 type ArcSide = "remote" | "core";

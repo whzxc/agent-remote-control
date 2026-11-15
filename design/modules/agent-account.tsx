@@ -6,7 +6,7 @@ import { IconButton } from "../components/icon-button";
 import { Dialog } from "../components/panel";
 import { Tag } from "../components/tag";
 import { platformAccountCopy as copy, platformAccounts } from "../fixtures/agent-accounts";
-import { QuotaCards, type QuotaWindow } from "./quota";
+import { QuotaCards, type QuotaWindow } from '../components/quota';
 
 export type AgentAccount = { alias: string; email?: string; default?: boolean; removable?: boolean } & (
   | { state: "signed-in"; windows: readonly QuotaWindow[] }

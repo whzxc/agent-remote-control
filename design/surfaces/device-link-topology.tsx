@@ -1,15 +1,15 @@
 import { Frame } from 'adg';
-import { TopologyNode } from '../modules/topology-node';
+import { TopologyNode } from '../components/topology-node';
 import { DeviceNode, DeviceBranch, DeviceNodePanel, ControllerSourcePanel,
   PortraitDeviceBranch } from '../modules/device-topology';
 import { controllerForms, memberForms, portraitForms, landscapePaths, memberPaths,
   sourceNodes, copy } from '../fixtures/device-topology';
 import { localRunning, localAttention, deviceAggregate, quotaReadings, overflow } from '../fixtures/node-capsule';
-import { nodeCapsuleLayout } from '../modules/node-capsule';
-import { HomepageBar } from '../modules/homepage-mode';
-import { NavCapsule } from '../modules/nav-capsule';
+import { nodeCapsuleLayout } from '../components/node-capsule';
+import { HomepageBar } from '../components/homepage-mode';
+import { NavCapsule } from '../components/nav-capsule';
 import { IconButton } from '../components/icon-button';
-import { TopologyScreen } from './homepage-topology';
+import { TopologyScreen } from '../components/topology-scene';
 
 const chrome = (width: number, height: number, attention = 2) => [
   { kind: 'board' as const, x: (width - 240) / 2, y: 27, date: copy.date, time: copy.time, title: copy.board,

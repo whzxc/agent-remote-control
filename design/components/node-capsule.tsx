@@ -1,6 +1,6 @@
 import { Frame, Icon } from 'adg';
-import { BrandMark } from "../components/brand-mark";
-import { AgentIcon, type AgentIconReading } from "./agent-quota-mark";
+import { BrandMark } from './brand-mark';
+import { AgentIcon, type AgentIconReading } from './agent-quota-mark';
 import { TaskActivityIcon, type TaskStepKind } from './task-activity';
 import { TopologyGroup } from './topology-group';
 import { capsuleForms, quotaReadings, stepCopy, accountContrast } from '../fixtures/node-capsule';

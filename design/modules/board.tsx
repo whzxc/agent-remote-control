@@ -4,7 +4,7 @@ import { SingleChoice } from "../components/single-choice";
 import { Button } from "../components/button";
 import { IconButton } from "../components/icon-button";
 import { Tile, type TileTone } from "../components/tile";
-import { TaskCard, type TaskSnapshotData } from "./tasks";
+import { TaskCard, type TaskSnapshotData } from '../components/task-card';
 import { boardTabs, boardFilters, boardGroups, boardCopy } from "../fixtures/board";
 
 export type BoardForm = "current" | "empty" | "gap" | "unavailable";

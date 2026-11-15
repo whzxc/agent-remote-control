@@ -2,7 +2,7 @@ import { Frame } from "adg";
 import { PanelShell, PanelHeader } from "../components/panel";
 import { BrandMark } from "../components/brand-mark";
 import { IconButton } from "../components/icon-button";
-import { QuotaCards } from "../modules/quota";
+import { QuotaCards } from '../components/quota';
 import { Tile } from "../components/tile";
 import { Button } from "../components/button";
 import { agentQuotas, overviewProvider } from "../fixtures/quota";

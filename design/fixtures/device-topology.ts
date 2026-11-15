@@ -1,5 +1,5 @@
 import type { DeviceTopologyState, DeviceBranchForm } from '../modules/device-topology';
-import type { ScenePath } from '../modules/topology-scene';
+import type { ScenePath } from '../components/topology-scene';
 
 // Fictional names and inert example endpoints; never read native device state.
 export const copy = {

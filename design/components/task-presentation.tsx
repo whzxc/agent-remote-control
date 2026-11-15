@@ -1,5 +1,5 @@
 import { Frame } from "adg";
-import { stateForms, messageForms, messageExample } from "../fixtures/task-presentation";
+import { stateForms, messageForms, messageExample } from '../fixtures/task-presentation';
 
 export type TaskState = "running" | "waiting" | "done" | "failed" | "stopped";
 export function StatePill({

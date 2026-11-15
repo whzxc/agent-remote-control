@@ -1,7 +1,7 @@
 import { Frame } from 'adg';
-import { HomepageBar } from '../modules/homepage-mode';
+import { HomepageBar } from '../components/homepage-mode';
 import { TaskGrid } from '../modules/tasks';
-import { NavCapsule } from '../modules/nav-capsule';
+import { NavCapsule } from '../components/nav-capsule';
 import { taskListForms, tasks, tasksCopy as copy } from '../fixtures/tasks';
 
 export default () => taskListForms.map(({ name, width, height }) => {

@@ -1,4 +1,4 @@
-import type { TopologyGroupMember, TopologyGroupProps } from "../modules/topology-group";
+import type { TopologyGroupMember, TopologyGroupProps } from '../components/topology-group';
 
 export const idleCodexAccounts: readonly TopologyGroupMember[] = [
   { brand: "codex", quota: "ok" },

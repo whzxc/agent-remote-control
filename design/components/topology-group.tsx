@@ -1,6 +1,6 @@
 import { Frame } from "adg";
-import { BrandMark, type Brand } from "../components/brand-mark";
-import { forms } from "../fixtures/topology-group";
+import { BrandMark, type Brand } from './brand-mark';
+import { forms } from '../fixtures/topology-group';
 
 export type TopologyGroupQuota = "ok" | "low" | "out" | "unknown";
 export type TopologyGroupMember = { brand: Brand; quota?: TopologyGroupQuota };

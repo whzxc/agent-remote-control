@@ -1,6 +1,6 @@
 import { Frame } from "adg";
-import { Card } from "../components/card";
-import { quotaSpecimens } from "../fixtures/quota";
+import { Card } from './card';
+import { quotaSpecimens } from '../fixtures/quota';
 
 export type QuotaWindow = {
   label: string;

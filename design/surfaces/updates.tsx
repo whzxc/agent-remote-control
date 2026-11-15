@@ -1,7 +1,8 @@
 import { Frame } from "adg";
 import { Dialog, PanelHeader, PanelShell } from "../components/panel";
 import { copy, frames, releases } from "../fixtures/updates";
-import { UpdateAboutContent, UpdateContent, UpdateHistoryContent } from "../modules/updates";
+import { UpdateAboutContent } from '../components/update-about';
+import { UpdateContent, UpdateHistoryContent } from '../modules/updates';
 
 export default () => [
   ...frames.map(({ name, fixture }) => (

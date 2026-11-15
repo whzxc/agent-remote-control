@@ -1,3 +1,4 @@
+
 import { Frame } from 'adg';
 import { Button } from '../components/button';
 import { Card } from '../components/card';
@@ -6,19 +7,10 @@ import { Notice } from '../components/notice';
 import { Dialog } from '../components/panel';
 import { SettingLine } from '../components/settings-row';
 import { Switch } from '../components/switch';
-import {
-  controller, deviceCopy, errors, locales, member, pairStates, pairingString, invalidPairingString, type DeviceLocale,
-} from '../fixtures/device-link';
+import { controller, deviceCopy, errors, locales, member, pairStates, pairingString, invalidPairingString, type DeviceLocale } from '../fixtures/device-link';
 
 export type PairState = 'input' | 'waiting' | 'success' | 'invalid' | 'expired' | 'protocol' | 'declined' | 'unreachable';
 type Localized = { locale: DeviceLocale };
-
-export function DeviceExperiment({ locale, enabled }: Localized & { enabled: boolean }) {
-  const c = deviceCopy[locale];
-  return <Card class="py-0! gap-0!">
-    <SettingLine title={c.deviceLink}><Switch checked={enabled} label={c.deviceLink} /></SettingLine>
-  </Card>;
-}
 export function DeviceFingerprint({ locale, value, controller: isController = false }: Localized & {
   value: string; controller?: boolean;
 }) {
@@ -74,11 +66,6 @@ export function DeviceRevokeDialog({ locale, memberSide }: Localized & { memberS
   </Dialog>;
 }
 export default () => locales.flatMap(locale => [
-  ...[false, true].map(enabled => <Frame name={`device-experiment-${enabled ? 'on' : 'off'}-${locale}`} width={672}
-    fixture={`device-experiment-${enabled ? 'on' : 'off'}-${locale}@light`}
-    capture={{ selector: ".device-experiment", viewport: "1280x800" }}>
-    <DeviceExperiment locale={locale} enabled={enabled} />
-  </Frame>),
   ...pairStates.map(state => <Frame name={`device-pair-${state}-${locale}`}
     fixture={`device-pair-${state}-${locale}@light`} capture={{ selector: ".device-dialog", viewport: "1280x800" }}>
     <DevicePairDialog locale={locale} state={state} />

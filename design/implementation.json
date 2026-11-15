@@ -47,7 +47,7 @@
       },
       "design": [
         {
-          "source": "design/modules/model-configuration.tsx",
+          "source": "design/components/dispatch-spec.tsx",
           "part": "DispatchSpec"
         }
       ]
@@ -58,7 +58,7 @@
       },
       "design": [
         {
-          "source": "design/modules/model-configuration.tsx",
+          "source": "design/components/dispatch-spec.tsx",
           "part": "DispatchSpec"
         }
       ]
@@ -70,7 +70,7 @@
       },
       "design": [
         {
-          "source": "design/modules/model-configuration.tsx",
+          "source": "design/components/dispatch-spec.tsx",
           "part": "DispatchSpec"
         }
       ]
@@ -82,7 +82,7 @@
       },
       "design": [
         {
-          "source": "design/modules/model-configuration.tsx",
+          "source": "design/components/dispatch-spec.tsx",
           "part": "EffortGauge"
         }
       ]
@@ -153,7 +153,7 @@
       },
       "design": [
         {
-          "source": "design/modules/agent-quota-mark.tsx",
+          "source": "design/components/agent-quota-mark.tsx",
           "part": "AgentIcon"
         }
       ]
@@ -165,7 +165,7 @@
       },
       "design": [
         {
-          "source": "design/modules/tasks.tsx",
+          "source": "design/components/task-card.tsx",
           "part": "TaskCard"
         }
       ]
@@ -176,11 +176,11 @@
       },
       "design": [
         {
-          "source": "design/modules/tasks.tsx",
+          "source": "design/components/task-card.tsx",
           "part": "TaskCardHeader"
         },
         {
-          "source": "design/modules/tasks.tsx",
+          "source": "design/components/task-card.tsx",
           "part": "TaskCard"
         },
         {
@@ -188,7 +188,7 @@
           "part": "RelationTaskCard"
         },
         {
-          "source": "design/modules/tasks.tsx",
+          "source": "design/components/task-card.tsx",
           "part": "OriginChain"
         }
       ]
@@ -338,7 +338,7 @@
       },
       "design": [
         {
-          "source": "design/modules/request.tsx",
+          "source": "design/components/request.tsx",
           "part": "PermissionCard"
         },
         {
@@ -361,7 +361,7 @@
       },
       "design": [
         {
-          "source": "design/modules/request.tsx",
+          "source": "design/components/request.tsx",
           "part": "PermissionCard"
         }
       ]
@@ -463,7 +463,7 @@
       },
       "design": [
         {
-          "source": "design/modules/nav-capsule.tsx",
+          "source": "design/components/nav-capsule.tsx",
           "part": "NavCapsule"
         },
         {
@@ -564,11 +564,11 @@
       },
       "design": [
         {
-          "source": "design/modules/quota.tsx",
+          "source": "design/components/quota.tsx",
           "part": "QuotaCard"
         },
         {
-          "source": "design/modules/quota.tsx",
+          "source": "design/components/quota.tsx",
           "part": "QuotaCards"
         }
       ]
@@ -579,11 +579,11 @@
       },
       "design": [
         {
-          "source": "design/modules/quota.tsx",
+          "source": "design/components/quota.tsx",
           "part": "QuotaCard"
         },
         {
-          "source": "design/modules/quota.tsx",
+          "source": "design/components/quota.tsx",
           "part": "QuotaCards"
         }
       ]
@@ -594,11 +594,11 @@
       },
       "design": [
         {
-          "source": "design/modules/quota.tsx",
+          "source": "design/components/quota.tsx",
           "part": "QuotaCard"
         },
         {
-          "source": "design/modules/quota.tsx",
+          "source": "design/components/quota.tsx",
           "part": "QuotaCards"
         }
       ]
@@ -610,7 +610,7 @@
       },
       "design": [
         {
-          "source": "design/modules/request.tsx",
+          "source": "design/components/request.tsx",
           "part": "RoutingRow"
         }
       ]
@@ -621,7 +621,7 @@
       },
       "design": [
         {
-          "source": "design/modules/request.tsx",
+          "source": "design/components/request.tsx",
           "part": "RequestRouting"
         }
       ]
@@ -712,7 +712,7 @@
       },
       "design": [
         {
-          "source": "design/modules/task-presentation.tsx",
+          "source": "design/components/task-presentation.tsx",
           "part": "StatePill"
         },
         {
@@ -791,7 +791,7 @@
       },
       "design": [
         {
-          "source": "design/modules/task-presentation.tsx",
+          "source": "design/components/task-presentation.tsx",
           "part": "TaskMessage"
         }
       ]
@@ -802,7 +802,7 @@
       },
       "design": [
         {
-          "source": "design/modules/task-presentation.tsx",
+          "source": "design/components/task-presentation.tsx",
           "part": "TaskMessage"
         },
         {
@@ -845,7 +845,7 @@
       },
       "design": [
         {
-          "source": "design/modules/task-presentation.tsx",
+          "source": "design/components/task-presentation.tsx",
           "part": "TaskMessage"
         },
         {
@@ -902,11 +902,11 @@
           "part": "RelationTaskCard"
         },
         {
-          "source": "design/modules/tasks.tsx",
+          "source": "design/components/task-card.tsx",
           "part": "OriginChain"
         },
         {
-          "source": "design/modules/tasks.tsx",
+          "source": "design/components/task-card.tsx",
           "part": "TaskCardHeader"
         }
       ]
@@ -956,11 +956,11 @@
       },
       "design": [
         {
-          "source": "design/modules/topology-mark.tsx",
+          "source": "design/components/topology-mark.tsx",
           "part": "TopologyMark"
         },
         {
-          "source": "design/modules/topology-mark.tsx",
+          "source": "design/components/topology-mark.tsx",
           "part": "ArcRecovery"
         }
       ]
@@ -971,7 +971,7 @@
       },
       "design": [
         {
-          "source": "design/modules/topology-group.tsx",
+          "source": "design/components/topology-group.tsx",
           "part": "TopologyGroup"
         }
       ]
@@ -982,7 +982,7 @@
       },
       "design": [
         {
-          "source": "design/modules/topology-group.tsx",
+          "source": "design/components/topology-group.tsx",
           "part": "TopologyGroup"
         }
       ]
@@ -993,15 +993,15 @@
       },
       "design": [
         {
-          "source": "design/modules/topology-group.tsx",
+          "source": "design/components/topology-group.tsx",
           "part": "TopologyGroup"
         },
         {
-          "source": "design/modules/topology-node.tsx",
+          "source": "design/components/topology-node.tsx",
           "part": "TopologyNode"
         },
         {
-          "source": "design/modules/topology-scene.tsx",
+          "source": "design/components/topology-scene.tsx",
           "part": "TopologyScene"
         },
         {
@@ -1047,11 +1047,11 @@
       },
       "design": [
         {
-          "source": "design/modules/onboarding.tsx",
+          "source": "design/components/onboarding-fields.tsx",
           "part": "OnboardingChoiceField"
         },
         {
-          "source": "design/modules/onboarding.tsx",
+          "source": "design/components/onboarding-fields.tsx",
           "part": "OnboardingField"
         },
         {
@@ -1069,7 +1069,7 @@
       },
       "design": [
         {
-          "source": "design/modules/onboarding.tsx",
+          "source": "design/components/onboarding-fields.tsx",
           "part": "OnboardingField"
         },
         {
@@ -1367,11 +1367,11 @@
           "part": "GeneralSettingsContent"
         },
         {
-          "source": "design/modules/display-settings.tsx",
+          "source": "design/components/theme-swatch.tsx",
           "part": "ThemeSwatch"
         },
         {
-          "source": "design/modules/updates.tsx",
+          "source": "design/components/update-about.tsx",
           "part": "UpdateAboutContent"
         },
         {
@@ -1457,7 +1457,7 @@
           "part": "Experimental"
         },
         {
-          "source": "design/modules/device-link.tsx",
+          "source": "design/components/device-experiment.tsx",
           "part": "DeviceExperiment"
         },
         {
@@ -1535,7 +1535,7 @@
       },
       "design": [
         {
-          "source": "design/modules/updates.tsx",
+          "source": "design/components/update-about.tsx",
           "part": "UpdateAboutContent"
         },
         {
@@ -1618,15 +1618,15 @@
       },
       "design": [
         {
-          "source": "design/modules/node-capsule.tsx",
+          "source": "design/components/node-capsule.tsx",
           "part": "nodeCapsuleLayout"
         },
         {
-          "source": "design/modules/node-capsule.tsx",
+          "source": "design/components/node-capsule.tsx",
           "part": "NodeCapsule"
         },
         {
-          "source": "design/modules/task-activity.tsx",
+          "source": "design/components/task-activity.tsx",
           "part": "TaskActivityIcon"
         }
       ]
@@ -1637,11 +1637,11 @@
       },
       "design": [
         {
-          "source": "design/modules/node-capsule.tsx",
+          "source": "design/components/node-capsule.tsx",
           "part": "nodeCapsuleLayout"
         },
         {
-          "source": "design/modules/node-capsule.tsx",
+          "source": "design/components/node-capsule.tsx",
           "part": "NodeCapsule"
         }
       ]
@@ -1652,11 +1652,11 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-mode.tsx",
+          "source": "design/components/homepage-mode.tsx",
           "part": "HomepageModeSwitch"
         },
         {
-          "source": "design/modules/homepage-mode.tsx",
+          "source": "design/components/homepage-mode.tsx",
           "part": "HomepageBar"
         }
       ]
@@ -1667,11 +1667,11 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-mode.tsx",
+          "source": "design/components/homepage-mode.tsx",
           "part": "HomepageModeSwitch"
         },
         {
-          "source": "design/modules/homepage-mode.tsx",
+          "source": "design/components/homepage-mode.tsx",
           "part": "HomepageBar"
         }
       ]
@@ -1682,7 +1682,7 @@
       },
       "design": [
         {
-          "source": "design/modules/device-link.tsx",
+          "source": "design/components/device-experiment.tsx",
           "part": "DeviceExperiment"
         },
         {
@@ -1873,7 +1873,7 @@
           "part": "ReviewUnavailable"
         },
         {
-          "source": "design/modules/request.tsx",
+          "source": "design/components/request.tsx",
           "part": "RoutingRow"
         },
         {
@@ -1881,7 +1881,7 @@
           "part": "Tag"
         },
         {
-          "source": "design/modules/task-presentation.tsx",
+          "source": "design/components/task-presentation.tsx",
           "part": "TaskMessage"
         },
         {
@@ -1896,11 +1896,11 @@
       },
       "design": [
         {
-          "source": "design/modules/quota.tsx",
+          "source": "design/components/quota.tsx",
           "part": "QuotaCard"
         },
         {
-          "source": "design/modules/quota.tsx",
+          "source": "design/components/quota.tsx",
           "part": "QuotaCards"
         }
       ]
@@ -1968,15 +1968,15 @@
       },
       "design": [
         {
-          "source": "design/modules/topology-group.tsx",
+          "source": "design/components/topology-group.tsx",
           "part": "TopologyGroup"
         },
         {
-          "source": "design/modules/topology-node.tsx",
+          "source": "design/components/topology-node.tsx",
           "part": "TopologyNode"
         },
         {
-          "source": "design/modules/topology-scene.tsx",
+          "source": "design/components/topology-scene.tsx",
           "part": "TopologyScene"
         },
         {
@@ -2030,7 +2030,7 @@
           "part": "UpdateHistoryContent"
         },
         {
-          "source": "design/modules/updates.tsx",
+          "source": "design/components/update-about.tsx",
           "part": "UpdateAboutContent"
         },
         {
@@ -2055,11 +2055,11 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-mode.tsx",
+          "source": "design/components/homepage-mode.tsx",
           "part": "HomepageModeSwitch"
         },
         {
-          "source": "design/modules/homepage-mode.tsx",
+          "source": "design/components/homepage-mode.tsx",
           "part": "HomepageBar"
         }
       ]
@@ -2103,7 +2103,7 @@
       },
       "design": [
         {
-          "source": "design/modules/node-capsule.tsx",
+          "source": "design/components/node-capsule.tsx",
           "part": "NodeCapsule"
         }
       ]
@@ -2114,7 +2114,7 @@
       },
       "design": [
         {
-          "source": "design/modules/node-capsule.tsx",
+          "source": "design/components/node-capsule.tsx",
           "part": "NodeCapsule"
         }
       ]
@@ -2125,7 +2125,7 @@
       },
       "design": [
         {
-          "source": "design/modules/node-capsule.tsx",
+          "source": "design/components/node-capsule.tsx",
           "part": "NodeCapsule"
         }
       ]
@@ -2146,7 +2146,7 @@
       },
       "design": [
         {
-          "source": "design/modules/tasks.tsx",
+          "source": "design/components/task-card.tsx",
           "part": "TaskCard"
         }
       ]
@@ -2157,8 +2157,30 @@
       },
       "design": [
         {
-          "source": "design/modules/tasks.tsx",
+          "source": "design/components/task-card.tsx",
           "part": "TaskCard"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/TaskNeedsYou.tsx"
+      },
+      "design": [
+        {
+          "source": "design/components/request.tsx",
+          "part": "PermissionActions"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/topology/Topology.tsx"
+      },
+      "design": [
+        {
+          "source": "design/components/topology-scene.tsx",
+          "part": "TopologyScreen"
         }
       ]
     }

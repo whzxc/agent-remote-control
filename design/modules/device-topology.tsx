@@ -1,17 +1,17 @@
 import { Frame, Icon } from 'adg';
 import { BrandMark } from "../components/brand-mark";
-import { AgentIcon } from "./agent-quota-mark";
+import { AgentIcon } from '../components/agent-quota-mark';
 import { Button } from '../components/button';
 import { Card } from '../components/card';
 import { Field, Input } from '../components/field';
 import { PanelShell, PanelHeader } from '../components/panel';
 import { SettingLine } from '../components/settings-row';
 import { Switch } from '../components/switch';
-import { TopologyNode } from './topology-node';
-import { TopologyGroup } from './topology-group';
-import { TopologyScene, type SceneItem, type ScenePath } from './topology-scene';
+import { TopologyNode } from '../components/topology-node';
+import { TopologyGroup } from '../components/topology-group';
+import { TopologyScene, type SceneItem, type ScenePath } from '../components/topology-scene';
 import { deviceAggregate, remoteRunning, remoteUnread, quotaReadings, overflow as overflowState, overflowAggregate } from '../fixtures/node-capsule';
-import { nodeCapsuleLayout } from './node-capsule';
+import { nodeCapsuleLayout } from '../components/node-capsule';
 import { copy, states, branchForms, accountMembers, profileMembers } from '../fixtures/device-topology';
 
 export type DeviceTopologyState = 'lan' | 'tunnel' | 'offline';

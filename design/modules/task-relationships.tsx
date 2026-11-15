@@ -1,11 +1,9 @@
 import { Frame, Icon } from "adg";
 import type { TileTone } from "../components/tile";
-import { TaskCard, TaskCardHeader, type TaskSnapshotData } from "./tasks";
+import { TaskCard, TaskCardHeader, type TaskSnapshotData } from '../components/task-card';
 import { origins } from "../fixtures/tasks";
-import { TopologyScene } from "./topology-scene";
-import {
-  parentTitle, family, positions, headers, familyExample, linkRows, branchRows, relationKinds,
-} from "../fixtures/task-relationships";
+import { TopologyScene } from '../components/topology-scene';
+import { parentTitle, family, positions, headers, familyExample, linkRows, branchRows, relationKinds } from '../fixtures/task-relationships';
 
 export type RelationKind = "side-chat" | "subagent";
 export type RelationTask = {

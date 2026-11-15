@@ -1,4 +1,4 @@
-import type { OnboardingStep } from "../modules/onboarding";
+import type { OnboardingStep } from '../components/onboarding-fields';
 export const maskedAddress = "teatnsestonon.ssthssr.oshranr";
 export const methods = [
   {

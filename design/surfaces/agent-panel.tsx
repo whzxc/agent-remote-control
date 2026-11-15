@@ -1,9 +1,9 @@
 import { Frame, Icon } from "adg";
 import { PanelLoading, PanelShell } from "../components/panel";
-import { AgentIcon } from "../modules/agent-quota-mark";
+import { AgentIcon } from '../components/agent-quota-mark';
 import { IconButton } from "../components/icon-button";
-import { QuotaCards } from "../modules/quota";
-import { TaskCard } from "../modules/tasks";
+import { QuotaCards } from '../components/quota';
+import { TaskCard } from '../components/task-card';
 import { origins } from "../fixtures/tasks";
 import { Tile } from "../components/tile";
 import { AgentTaskHistory, AgentSectionHeading } from "../modules/agent-activity";

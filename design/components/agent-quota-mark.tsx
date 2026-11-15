@@ -1,6 +1,6 @@
 import { Frame } from "adg";
-import { BrandMark, type Brand } from "../components/brand-mark";
-import { agentIconForms, iconExampleBrand } from "../fixtures/agent-icons";
+import { BrandMark, type Brand } from './brand-mark';
+import { agentIconForms, iconExampleBrand } from '../fixtures/agent-icons';
 
 const arcs = {
   1: [[0, 360]],

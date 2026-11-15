@@ -5,7 +5,7 @@ import { SetupChoice } from "../components/setup-choice";
 import { CopyField } from "../components/copy-field";
 import { Tile } from "../components/tile";
 import { type Brand } from "../components/brand-mark";
-import { OnboardingField, type OnboardingStep } from "./onboarding";
+import { OnboardingField, type OnboardingStep } from '../components/onboarding-fields';
 import { productRows, localProductRows, sourceCopy } from "../fixtures/source-onboarding";
 import { onboardingFrames, methods, maskedAddress } from "../fixtures/onboarding";
 import Gemini from "../art/gemini.svg";

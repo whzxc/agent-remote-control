@@ -1,5 +1,5 @@
 import { Frame } from "adg";
-import { TaskCard } from "./tasks";
+import { TaskCard } from '../components/task-card';
 import { origins } from "../fixtures/tasks";
 import { taskDispatch } from "../fixtures/task-presentation";
 import { agentHistory, agentRowExample } from "../fixtures/agent-activity";

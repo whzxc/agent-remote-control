@@ -1,7 +1,7 @@
-import type { TopologyNodeProps } from "../modules/topology-node";
-import type { ScenePath } from "../modules/topology-scene";
-import type { TopologyGroupProps } from "../modules/topology-group";
-import { idleAgents, idleCodexAccounts, idleSources, portraitAccountGroups } from "./topology-group";
+import type { TopologyNodeProps } from '../components/topology-node';
+import type { ScenePath } from '../components/topology-scene';
+import type { TopologyGroupProps } from '../components/topology-group';
+import { idleAgents, idleCodexAccounts, idleSources, portraitAccountGroups } from './topology-group';
 
 // Fixture geometry extracted from the approved topology sheets. Runtime solving stays in ui/topology/solve.ts.
 export const nodes: readonly TopologyNodeProps[] = [

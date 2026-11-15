@@ -3,7 +3,7 @@ import { Button } from "../components/button";
 import { SingleChoice } from "../components/single-choice";
 import { CopyField } from "../components/copy-field";
 import { Tile } from "../components/tile";
-import { OnboardingField, OnboardingChoiceField, type OnboardingStep } from "./onboarding";
+import { OnboardingField, OnboardingChoiceField, type OnboardingStep } from '../components/onboarding-fields';
 import { connectionCopy } from "../fixtures/connection-onboarding";
 import { onboardingFrames, methods, maskedAddress } from "../fixtures/onboarding";
 

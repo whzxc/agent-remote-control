@@ -1,3 +1,4 @@
+import { UpdateAboutContent } from '../components/update-about';
 import { Frame, Icon } from "adg";
 import { Button } from "../components/button";
 import { Card } from "../components/card";
@@ -96,33 +97,6 @@ export function UpdateHistoryContent({ entries }: { entries: readonly Release[] 
   );
 }
 
-type AboutLabels = Pick<typeof copy, "about" | "appVersion" | "check" | "history" | "repository" | "experimental">;
-
-export function UpdateAboutContent({ labels = copy, checkDisabled = false }: {
-  labels?: AboutLabels;
-  checkDisabled?: boolean;
-}) {
-  return (
-    <div class="flex flex-col gap-3">
-      <SettingsGroup title={labels.about}>
-        <SettingLine title={labels.appVersion}>
-          <Button disabled={checkDisabled} class={checkDisabled ? "opacity-45" : ""}>{labels.check}</Button>
-        </SettingLine>
-        <SettingLine title={labels.history} class="border-t border-border">
-          <IconButton icon="chevron-right" label={labels.history} />
-        </SettingLine>
-      </SettingsGroup>
-      <nav class="flex flex-wrap items-center gap-2 px-4" aria-label={labels.about}>
-        <span class="text-meta text-text-secondary">{labels.repository}</span>
-        <Button variant="ghost">GitHub<Icon name="external-link" size={14} /></Button>
-        <div class="ml-auto">
-          <Button variant="ghost">{labels.experimental}<Icon name="chevron-right" size={14} /></Button>
-        </div>
-      </nav>
-    </div>
-  );
-}
-
 export default () => [
   ...frames.map(({ name }) => (
     <Frame name={`update-content-${name}`} width={472}>
@@ -131,8 +105,5 @@ export default () => [
   )),
   <Frame name="update-history-content" width={472}>
     <div class="w-full bg-surface-raised"><UpdateHistoryContent entries={releases} /></div>
-  </Frame>,
-  <Frame name="update-about-content" width={672}>
-    <div class="w-full bg-surface-raised"><UpdateAboutContent /></div>
   </Frame>,
 ];

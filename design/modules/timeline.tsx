@@ -4,13 +4,10 @@ import { BrandMark } from "../components/brand-mark";
 import { IconButton } from "../components/icon-button";
 import { Button } from "../components/button";
 import { FilePath, ProjectLabel } from "../components/project-path";
-import { StatePill } from "./task-presentation";
-import { DispatchSpec } from "./model-configuration";
-import { PermissionCard, RequestRouting } from "./request";
-import {
-  timelineTask as task, relayParties, relayCopy, relayTurns, relaySteps, relayPlan, relayReply,
-  relayFailure, type RelayKind, type RelayStep,
-} from "../fixtures/timeline";
+import { StatePill } from '../components/task-presentation';
+import { DispatchSpec } from '../components/dispatch-spec';
+import { PermissionCard, RequestRouting } from '../components/request';
+import { timelineTask as task, relayParties, relayCopy, relayTurns, relaySteps, relayPlan, relayReply, relayFailure, type RelayKind, type RelayStep } from '../fixtures/timeline';
 import { taskDispatch } from "../fixtures/task-presentation";
 
 type RelayParty = { name: string; brand: "claude" | "codex" };

@@ -1,4 +1,4 @@
-import type { TaskStep, TaskPlan, TaskChange } from '../modules/task-activity';
+import type { TaskStep, TaskPlan, TaskChange } from '../components/task-activity';
 
 export const recentSteps: readonly TaskStep[] = [
   { kind: 'thinking', text: 'Check the queue ordering constraints', status: 'completed', elapsed: '12 s' },

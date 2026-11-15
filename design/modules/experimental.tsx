@@ -1,5 +1,5 @@
 import { copy } from '../fixtures/experimental';
-import { DeviceExperiment } from './device-link';
+import { DeviceExperiment } from '../components/device-experiment';
 
 
 
