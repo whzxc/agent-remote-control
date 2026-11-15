@@ -26,7 +26,7 @@ Every case carries exactly one English tag comment inside its body or immediatel
 - `// Regression: <fixing commit or observed failure>` identifies the defect being prevented.
 - `// Property: <invariant>` states an invariant of pure computation.
 
-Assert public behavior through MCP, CLI, management operations, exported pure functions or accessible roles/names. Do not assert classes, DOM structure, styles, pixel constants, exact UI copy, internal state files or mock invocation counts. Rewrite or delete tests broken by intended changes; never align implementation snapshots. Delete tests that obstruct reasonable refactors and report the removal. Use `npm run accept:ui` for visual/layout acceptance.
+Assert public behavior through MCP, CLI, management operations, exported pure functions or accessible roles/names. Do not assert classes, DOM structure, styles, pixel constants, exact UI copy, internal file layouts or mock invocation counts. Rewrite or delete tests broken by intended changes; never align implementation snapshots. Delete tests that obstruct reasonable refactors and report the removal. Use `npm run accept:ui` for visual/layout acceptance.
 
 Keep negative coverage for frozen error contracts, authorization and data boundaries, or an observed failure. Cover each failure mechanism with a representative input. Primitive-type, range and malformed-input permutations already handled by the same schema validator do not need separate matrices. Avoid tests of test diagnostics, report formatting or duplicated helpers. Lifecycle and retry regressions belong in the extended suite even when their setup looks small.
 

@@ -4,13 +4,13 @@
 
 TSX sources in `design/` define ARC's visual direction. React implementations follow approved sources. [UI conventions](ui.md) owns behavior, data projection and layout logic.
 
-The [ADG asset rules](https://github.com/whzxc/agent-design-gallery/blob/main/docs/asset-rules.md) govern asset placement, ownership, naming, fixture separation and lifecycle. The [toolkit contract](https://github.com/whzxc/agent-design-gallery/blob/main/docs/design-toolkit.md) governs authoring, rendering, checks and viewer commands. Follow the asset rules when local guidance conflicts. Use the global ADG CLI **>=0.5.0**, as required by `adg.config.mjs`; ARC does not depend on the toolkit at runtime.
+The [ADG asset rules](https://github.com/whzxc/agent-design-gallery/blob/main/docs/asset-rules.md) own generic placement, ownership, naming, frame admission, fixtures, review and lifecycle rules; this page keeps ARC-specific decisions. The [toolkit contract](https://github.com/whzxc/agent-design-gallery/blob/main/docs/design-toolkit.md) governs authoring, rendering, checks and viewer commands. Follow the asset rules when local guidance conflicts. Use the global ADG CLI **>=0.5.0**, as required by `adg.config.mjs`; ARC does not depend on the toolkit at runtime.
 
 ## Presentation forms
 
-ARC uses warm neutral surfaces, restrained semantic tints, rounded shared controls and Lucide icons. `design/tokens.css` owns the palette, typography and dimensions; `ui/tokens.css` is the runtime sheet. Both themes use the same declared forms. Reuse an existing semantic token when its value and role fit. A new runtime paint token must serve at least two independent features and name its role, never its literal value. Keep single-feature values in the owning CSS with an exact style exception. Canvas palettes that require global theme selection may use an exact file/token/reason exception in `tooling/ui-token-allowlist.json`. Keep the homepage's ARC mark, earcup connections and topology, and the tile's neutral shell with a separate state tint. Phase labels use shared typography with semantic color on the label span.
+ARC uses warm neutral surfaces, restrained semantic tints, rounded shared controls and Lucide icons. `design/tokens.css` owns the palette, typography and dimensions; `ui/tokens.css` is the runtime sheet. Both themes use the same declared forms. [UI implementation policy](ui.md#shared-controls-and-paint) owns runtime paint and exception rules. Keep the homepage's ARC mark, earcup connections and topology, and the tile's neutral shell with a separate state tint. Phase labels use shared typography with semantic color on the label span.
 
-The desktop targets are macOS and Windows. Headless Linux has no product UI. Each source uses one representative language. English and Simplified Chinese content follow its mapped fixture. Frame dimensions and capture viewports are declared in TSX. Landscape topology uses 1280×800 and portrait topology uses 640×800. Mobile forms are declared with their owning task or device surface. Rails reserve node and quota-ring space. The shared HomepageBar keeps the mode switch centered.
+The desktop targets are macOS and Windows. Headless Linux has no product UI. English and Simplified Chinese content follow its mapped fixture. Frame dimensions and capture viewports are declared in TSX. Landscape topology uses 1280×800 and portrait topology uses 640×800. Mobile forms are declared with their owning task or device surface. Rails reserve node and quota-ring space. The shared HomepageBar keeps the mode switch centered.
 
 The default exports declare presentations. Task cards have summary and detail forms with an identical header. Setup retains standalone and nested flows, including distinct method and ready controls. AX Board retains open, closed and detail forms. Detail replaces the list inside the same panel and can scroll beyond the viewport.
 
@@ -136,49 +136,21 @@ The browser scenarios retain the narrow layout coverage. The separate Devices wo
 
 ## Ownership and project configuration
 
-ADG discovers `components`, `modules` and `surfaces` in that order. Components mirror `ui/components/ui/`, modules map to feature components, and surfaces map to panels, workspaces, dialogs and homepage views. Modules import only components; surfaces import only modules and components. `design/implementation.json` owns every implementation counterpart. [Asset status](design-assets.md) keeps open proposals, retained exceptions and remaining gaps. `fixtures/` owns representative data with type-only references to defining visual owners. `art/` owns artwork and content images with display dimensions and budgets in the asset status document. There are no active studies or import-direction opt-outs.
+ARC uses ADG's default source directories. `design/components/` mirrors `ui/components/ui/`; modules map to feature components, and surfaces map to panels, workspaces, dialogs and homepage views. `design/implementation.json` is the sole counterpart record. [Asset status](design-assets.md) owns open proposals, retained exceptions, remaining gaps and artwork dimensions/budgets. Fixture data lives in `design/fixtures/` with type-only references to defining visual owners; artwork lives in `design/art/`. There are no active studies or import-direction opt-outs.
 
 Homepage node, mark, Board header and navigation parts live in shared components.
-[Homepage topology](../../design/surfaces/homepage-topology.tsx), [account folds](../../design/surfaces/homepage-topology-accounts.tsx) and [portrait topology](../../design/surfaces/homepage-topology-portrait.tsx) compose the shared scene from fixture solver geometry. [Layer slots](../../design/surfaces/layers.tsx) cover content-fit and capped XL workspaces, the M node panel, a nested dialog and the portrait workspace. Current device branches use the same local and remote node components in their landscape and portrait fixtures. Each surface frame names its fixture and full-page capture. ADG >=0.11.0 enforces strict assembly layers, implementation owners and frame lifecycle. Run `npm run design:topology` after changing topology solvers, painters, fixture configuration or node presentation. The command captures solver inputs from the same browser fixtures, then regenerates `design/fixtures/topology.ts` through the production solvers and painters. The daily regression test compares regenerated output and fixture inputs with the committed files.
+[Homepage topology](../../design/surfaces/homepage-topology.tsx), [account folds](../../design/surfaces/homepage-topology-accounts.tsx) and [portrait topology](../../design/surfaces/homepage-topology-portrait.tsx) compose the shared scene from fixture solver geometry. [Layer slots](../../design/surfaces/layers.tsx) cover content-fit and capped XL workspaces, the M node panel, a nested dialog and the portrait workspace. Current device branches use the same local and remote node components in their landscape and portrait fixtures. `adg.config.mjs` enables strict layers and lifecycle checks; `adg check` also checks implementation owners and shared consumers. Run `npm run design:topology` after changing topology solvers, painters, fixture configuration or node presentation. The command captures solver inputs from the same browser fixtures, then regenerates `design/fixtures/topology.ts` through the production solvers and painters. The daily regression test compares regenerated output and fixture inputs with the committed files.
 
 
 `design/tsconfig.json` resolves generated declarations in ignored `design/.adg/`. `adg.config.mjs` owns paths and the browser fixture adapter. Generated output belongs in ignored `output/design/`. Runtime geometry remains owned by `ui/topology/solve.ts`, `compact.ts` and `portrait.ts`.
 
-## Status, review and retirement
+## Review procedure
 
-Review roles do not authorize dispatch to Claude Code CLI. Launching or resuming work there requires explicit user authorization for the task or a clearly defined scope. Without it, the current authorized agent reviews the sources and renders and reports any remaining review gap.
+[AGENTS.md](../../AGENTS.md) owns Claude Code CLI authorization and the pre-commit `adg check` requirement. The current authorized agent proposes and implements; the user reviews the result.
 
-Every source asset is current or proposed, as defined by the ADG asset rules.
-A current part has an implementation binding, and its frames show states the implementation reaches.
-A current surface frame declares the `fixture` and `capture` that reach it.
-A proposed frame carries `proposed` with its review scope and is listed in [Asset status](design-assets.md) while its review is open.
+Layout and behavior changes may be implemented directly. New visual directions and redesigns start as proposed frames in the owning TSX source and require the user's approval of both-theme renders before implementation. Apply ADG's [status and lifecycle](https://github.com/whzxc/agent-design-gallery/blob/main/docs/asset-rules.md#status-and-lifecycle) rules for bindings, source updates after acceptance, drift and retirement.
 
-Layout and behavior changes MAY be implemented directly.
-After the user accepts the result, the same task updates the owning TSX source.
-New visual directions and redesigns start as proposed frames in the owning TSX source.
-The user approves their renders before implementation.
-Implementation removes the marker and adds the binding in the same change.
-A proposal whose review closes without implementation is deleted.
-`adg compare` differences are review notes, not a gate.
-
-A frame that differs from the running implementation is drift.
-Fix the source or the implementation in the task that found it; drift is not a status.
-A change that removes or replaces an implementation deletes or rebinds its design counterpart in the same commit.
-Delete parts without a binding, frames the implementation does not reach, explanatory diagrams and width-only or locale-only duplicates when they appear.
-
-Work on one cohesive family, feature module or composed surface at a time.
-Keep open proposals, retained exceptions and known gaps in [Asset status](design-assets.md).
-Keep batch history, check results and decision logs outside repository documentation.
-
-After implementation, run `adg compare` once on the affected frames as a review list.
-Rework missing or extra texts and offsets shared by many texts.
-Accept isolated small offsets.
-The user reviews the running result, or the gallery for new directions.
-Run `adg check` before committing.
-
-Commit scoped changes with a single-line Conventional Commits subject.
-Inspect `git show --stat HEAD` for unrelated files.
-Keep review evidence in ignored output or an external disposable directory.
+After implementation, run `adg compare` once on the affected frames as a review list. Rework missing or extra texts and offsets shared by many texts; accept isolated small offsets. Compare differences are review notes, not a gate. The user reviews the running result, or the gallery for new directions. Inspect `git show --stat HEAD` for unrelated files. Keep review evidence in ignored output or an external disposable directory; repository documentation keeps no batch history, check results or decision logs.
 
 ## Implementation checklist
 
@@ -188,24 +160,12 @@ Keep review evidence in ignored output or an external disposable directory.
 - Avoid `font-variant-numeric` and `letter-spacing` values that the source does not use, because they change text widths.
 - Panel forms have no stroke. A leftover 1px panel border shifts every text by 1px.
 - Review the overlay for shapes, fills, icons and elevation, because `compare` reads text only.
-- Feature CSS outside `ui/components/ui/` adds the feature's own layout and token-only presentation and never redraws a shared visual. A shared part with a single consumer moves back to its feature; literal-value exceptions live in `tooling/ui-style-allowlist.json`.
 - Delete superseded rules, classes, visual statements in [UI conventions](ui.md) and their design counterparts in the same change.
 
-## Migration
+## Implementation ownership
 
-- Existing surfaces MAY receive layout and behavior changes directly.
-- Update their owning source once the user accepts the result.
-- `ui/tokens.css` is the runtime token sheet. Migrating a surface aligns the tokens it uses with `design/tokens.css`.
-- Migrating a surface deletes its visual statements from [UI conventions](ui.md) and keeps its behavior statements.
+Migrating a surface aligns its runtime tokens with `design/tokens.css`. Move its visual statements out of [UI conventions](ui.md), retaining behavior there.
 
 Feature presentation stays with its feature, including [timeline content](../../design/modules/timeline.tsx), [MCP services](../../design/modules/mcp-service.tsx), [device facts](../../design/modules/device-facts.tsx), [updates](../../design/modules/updates.tsx), [permissions](../../design/modules/permissions.tsx), [pets](../../design/modules/pets.tsx), [homepage chrome](../../design/modules/homepage-scene.tsx), and [quota details](../../design/modules/quota-detail.tsx). Shared [record details](../../design/components/record-detail.tsx), [entity inventory](../../design/components/entity-inventory.tsx), [SetupFlow](../../design/components/setup-flow.tsx), and [inspection popovers](../../design/components/inspection-popover.tsx) retain multiple feature consumers.
 
-`check:ui-styles` validates feature paint values and shared runtime exports. It counts distinct feature directories, with flat `ui/components` files and Board/AX files as individual features. Multiple files inside subscriptions, devices, pets or another feature directory count once. Reexports resolve to the defining export. Shared implementation dependencies inherit their direct feature consumers; importing a feature from App does not create another consumer. Type-only imports and tests do not count. Every shared runtime export needs two feature consumers.
-
-
-`check:ui-styles` also checks runtime paint token consumers. It uses the same feature
-boundaries as the shared-part check, follows token aliases and shared component CSS,
-and stops at another feature rather than counting composition ancestors. Global
-shared selectors are attributed to the components that emit their classes. Tokens
-used only for layout are outside the paint check. Literal-value names fail even
-when the token has several consumers or an exception.
+Runtime enforcement and exception ownership are documented in [UI implementation policy](ui.md#shared-controls-and-paint).

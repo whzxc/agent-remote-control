@@ -12,6 +12,20 @@ Timeline groups follow native turn IDs regardless of dispatch origin. External C
 
 The timeline owns vertical scrolling. Tables, code blocks, file lists, diffs and command logs scroll horizontally within the stream and expand to their full content height. Wheel gestures over these blocks send horizontal deltas to the block and vertical deltas to the timeline, including diagonal gestures. Unconsumed boundary events retain native scroll chaining.
 
+## Shared controls and paint
+
+Use React with Radix for focus, keyboard navigation, dismissal layers, portals and modal behavior. Shared controls live in `ui/components/ui/` with counterparts in `design/components/`. Business pages compose them without restyling or redrawing their visuals. Follow [ADG ownership](https://github.com/whzxc/agent-design-gallery/blob/main/docs/asset-rules.md#ownership-and-imports) for shared-part placement.
+
+Use `SingleChoice` for every single-choice control: pills for at most five options when width permits, otherwise a dropdown. Do not add standalone Select or native `select`. Preserve keyboard navigation, disabled states and validation. Use the shared Lucide `Icon` wrapper and retain brand assets. Editing uses `Dialog`, native `form` and shared `Field`/`Input`; associate errors with their fields, focus the first error on failed submission and restore trigger focus on close.
+
+`design/tokens.css` owns design values; `ui/tokens.css` is the runtime sheet. `ui/theme.ts` owns light/dark state and follows the system by default. Reuse existing semantic values. Feature styles add layout and token-only paint, with no literal colors, radii, shadows or font sizes outside exact exceptions. `npm run check:ui-styles` runs the style, shared-consumer and token checks:
+
+- `tooling/check-ui-styles.mjs` reports literal paint; exceptions in `tooling/ui-style-allowlist.json` require an exact file, selector, property and reason.
+- `tooling/check-ui-consumers.mjs` requires two feature consumers per shared export and reports parts to move back to their feature or delete. It follows reexports and shared dependencies; a feature directory counts once, flat component and Board/AX files count individually, and tests/type-only imports do not count.
+- `tooling/check-ui-tokens.mjs` requires semantic paint token names and two feature consumers, following aliases and shared CSS without counting composition ancestors. Global shared selectors are attributed to the components emitting their classes. Layout-only tokens are excluded; literal-value names fail even with an exception. Keep single-feature literals in their owning style exception; canvas palettes needing global theme selection may use an exact file/token/reason exception in `tooling/ui-token-allowlist.json`.
+
+Related tooltips remain visible while smoothly moving and resizing; hover highlights use the shared token-driven layer. Hub toggles stay simple and tactile. The layer contract below owns reduced motion, keyboard navigation, focus restoration, sizing, dismissal and feedback.
+
 ## Homepage and layout
 
 The [homepage surfaces](../../design/surfaces/homepage-topology.tsx) and [layer slots](../../design/surfaces/layers.tsx) use fixture-derived scene geometry. The homepage module owns HomepageBar, navigation and topology-group composition. It embeds the shared `topology-mark`, `node-capsule` and `topology-node` component assets. Full-scene design coverage follows the gap in [asset notes](design-assets.md). Palette preferences apply to the control-source and Agent sides.

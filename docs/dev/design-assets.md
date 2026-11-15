@@ -2,7 +2,7 @@
 
 [Design governance](design.md) · [Implementation bindings](../../design/implementation.json)
 
-`design/implementation.json` is the sole implementation counterpart record. Sources are current or proposed. Current frames represent reachable implementation states; proposed frames name an active review scope.
+Use [implementation bindings](../../design/implementation.json) for counterparts and the [ADG asset rules](https://github.com/whzxc/agent-design-gallery/blob/main/docs/asset-rules.md) for frame admission and lifecycle. This page owns ARC's open proposals, exceptions, gaps and artwork budgets.
 
 ## Open proposals
 
@@ -10,7 +10,7 @@ None.
 
 ## Retained exceptions
 
-- Component and module specimens may rely on their containing surface's capture. Surface fixtures and capture targets remain declared in TSX; `adg.config.mjs` owns preparation through public controls.
+- Component and module specimens may rely on their containing surface's capture. `adg.config.mjs` prepares captures through public controls.
 - The model picker menu is portaled outside its dialog capture. Review its overlay separately from the dialog region.
 - Browser update fixtures disable the desktop-only update check.
 - Pet atlas labels are image content inside an accessibility-hidden preview.
@@ -23,11 +23,11 @@ None.
 - Loading, failure, not-found, busy, pagination, Board detail/event rows and populated hosting forms without declared sources need coverage in their owning family.
 - Shared controls still have geometry, typography and state differences: Button wrapping, Input error spacing, CopyField masking/loading, SearchInput entered-value color, Notice spacing, CardHeader layout and settings section typography. Reconcile each with the current implementation.
 - Theme swatches and isolated AX badges require fidelity review. Shared runtime CSS still contains local dimensions instead of some declared control tokens.
-- Feature CSS owns feature presentation through runtime tokens. Literal paint retained for illustrated topology, pet and Studio layers has an exact selector, property and drawing-specific reason in the style policy.
+- Literal paint retained for illustrated topology, pet and Studio layers has an exact selector, property and drawing-specific reason in the style policy.
 
 ## Image dimensions and budgets
 
-Budgets apply per file in `art/`. Owners downscale raster images before importing them. Brand SVGs may preserve their internal coordinates; display size belongs to the consuming part. These are maintenance limits, not additional presentation forms.
+Budgets below apply per file in `design/art/`. Brand SVGs may preserve their internal coordinates; the consuming part owns display size. Apply ADG's artwork preparation rules. These maintenance limits do not define additional presentation forms.
 
 | Class / owner | Files | Display dimensions (CSS px) | Per-file budget | Current gap |
 | --- | --- | --- | --- | --- |
