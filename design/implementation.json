@@ -153,7 +153,7 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/agent-icon.tsx",
           "part": "AgentIcon"
         }
       ]
@@ -457,7 +457,7 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/navigation.tsx",
           "part": "NavCapsule"
         }
       ]
@@ -931,11 +931,11 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/topology-mark.tsx",
           "part": "TopologyMark"
         },
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/topology-mark.tsx",
           "part": "ArcRecovery"
         }
       ]
@@ -946,7 +946,7 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/topology-group.tsx",
           "part": "TopologyGroup"
         }
       ]
@@ -957,7 +957,7 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/topology-group.tsx",
           "part": "TopologyGroup"
         }
       ]
@@ -968,11 +968,11 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/topology-group.tsx",
           "part": "TopologyGroup"
         },
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/topology-node.tsx",
           "part": "TopologyNode"
         }
       ]
@@ -1531,15 +1531,15 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/node-capsule.tsx",
           "part": "nodeCapsuleLayout"
         },
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/node-capsule.tsx",
           "part": "NodeCapsule"
         },
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/task-activity.tsx",
           "part": "TaskActivityIcon"
         }
       ]
@@ -1550,11 +1550,11 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/node-capsule.tsx",
           "part": "nodeCapsuleLayout"
         },
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/node-capsule.tsx",
           "part": "NodeCapsule"
         }
       ]
@@ -1565,11 +1565,11 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/navigation.tsx",
           "part": "HomepageModeSwitch"
         },
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/navigation.tsx",
           "part": "HomepageBar"
         }
       ]
@@ -1580,11 +1580,11 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/navigation.tsx",
           "part": "HomepageModeSwitch"
         },
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/navigation.tsx",
           "part": "HomepageBar"
         }
       ]
@@ -1858,11 +1858,11 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/topology-group.tsx",
           "part": "TopologyGroup"
         },
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/topology-node.tsx",
           "part": "TopologyNode"
         }
       ]
@@ -1906,11 +1906,11 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/navigation.tsx",
           "part": "HomepageModeSwitch"
         },
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/navigation.tsx",
           "part": "HomepageBar"
         }
       ]
@@ -1954,7 +1954,7 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/node-capsule.tsx",
           "part": "NodeCapsule"
         }
       ]
@@ -1965,7 +1965,7 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/node-capsule.tsx",
           "part": "NodeCapsule"
         }
       ]
@@ -1976,7 +1976,7 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/node-capsule.tsx",
           "part": "NodeCapsule"
         }
       ]
@@ -2264,11 +2264,11 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/topology-scene.tsx",
           "part": "TopologyScene"
         },
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/topology-scene.tsx",
           "part": "HomepageScene"
         },
         {
@@ -2313,7 +2313,7 @@
           "part": "NodePanelContent"
         },
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/node-panel-heading.tsx",
           "part": "NodePanelHeading"
         }
       ]
@@ -2325,7 +2325,7 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/navigation.tsx",
           "part": "HomepageBar"
         }
       ]
@@ -2337,7 +2337,7 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/task-activity.tsx",
           "part": "PhaseLabel"
         }
       ]
@@ -2348,7 +2348,7 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/navigation.tsx",
           "part": "HomepageBar"
         }
       ]
@@ -2359,7 +2359,7 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/task-activity.tsx",
           "part": "PhaseLabel"
         }
       ]
@@ -2371,7 +2371,7 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/navigation.tsx",
           "part": "NavCapsule"
         }
       ]
@@ -2382,7 +2382,7 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx"
+          "source": "design/modules/homepage-scene/index.tsx"
         }
       ]
     },
@@ -3041,7 +3041,7 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/graph-actions.tsx",
           "part": "GraphAction"
         }
       ]
@@ -3053,7 +3053,7 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/graph-actions.tsx",
           "part": "HubEntry"
         }
       ]
@@ -3064,15 +3064,15 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/graph-actions.tsx",
           "part": "GraphAction"
         },
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/graph-actions.tsx",
           "part": "HubEntry"
         },
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/topology-node.tsx",
           "part": "TopologyNode"
         }
       ]
@@ -3084,7 +3084,7 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/graph-actions.tsx",
           "part": "GraphFeedback"
         }
       ]
@@ -3144,7 +3144,7 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx",
+          "source": "design/modules/homepage-scene/topology-node.tsx",
           "part": "TopologyNode"
         }
       ]
@@ -3165,7 +3165,7 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx"
+          "source": "design/modules/homepage-scene/index.tsx"
         }
       ]
     },
@@ -3175,7 +3175,7 @@
       },
       "design": [
         {
-          "source": "design/modules/homepage-scene.tsx"
+          "source": "design/modules/homepage-scene/index.tsx"
         }
       ]
     },

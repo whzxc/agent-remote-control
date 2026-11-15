@@ -1,0 +1,67 @@
+import { type Brand, BrandMark } from '../../components/brand-mark';
+
+export type TopologyGroupQuota = "ok" | "low" | "out" | "unknown";
+
+export type TopologyGroupMember = { brand: Brand; quota?: TopologyGroupQuota };
+
+export type TopologyGroupProps = {
+  label: string;
+  members: readonly TopologyGroupMember[];
+  layout?: "vertical" | "source" | "agent";
+  hideLabel?: boolean;
+};
+
+export function TopologyGroup({ label, members, layout = "vertical", hideLabel = false }: TopologyGroupProps) {
+  const brands = [...new Set(members.map((m) => m.brand))];
+  const pool = brands.length === 1;
+  const capsuleLayout = layout === "agent"
+    ? `flex-row-reverse pl-3 ${pool ? "pr-[9px]" : "pr-2"}`
+    : `pr-3 ${pool ? "pl-[9px]" : "pl-2"}`;
+  const capsule = (
+    <span
+      aria-label={hideLabel ? label : undefined}
+      class={
+        "flex h-10 shrink-0 items-center gap-2 rounded-full border border-border bg-surface shadow-sm " + capsuleLayout
+      }
+    >
+      {pool ? (
+        <BrandMark brand={brands[0]} size={28} />
+      ) : (
+        <span class="flex">
+          {brands.slice(0, 3).map((brand, i) => (
+            <span
+              class={
+                "flex size-[30px] items-center justify-center rounded-full border border-border bg-surface " +
+                String(i ? "-ml-[4px]" : "")
+              }
+            >
+              <BrandMark brand={brand} size={18} />
+            </span>
+          ))}
+        </span>
+      )}
+      <span aria-hidden="true" class="text-meta font-semibold tabular-nums text-text-secondary">{members.length}</span>
+    </span>
+  );
+  if (hideLabel) return capsule;
+  if (layout === "source")
+    return (
+      <div class="flex h-12 items-center gap-[5px] text-text">
+        <span class="flex w-[85px] shrink-0 justify-end text-meta text-text-secondary">{label}</span>
+        {capsule}
+      </div>
+    );
+  if (layout === "agent")
+    return (
+      <div class="flex h-12 items-center gap-2 text-text">
+        {capsule}
+        <span class="whitespace-nowrap text-meta text-text-secondary">{label}</span>
+      </div>
+    );
+  return (
+    <div class="flex w-max flex-col items-start gap-1 text-text">
+      {capsule}
+      <span aria-hidden="true" class="pl-[6px] whitespace-nowrap text-meta leading-5 text-text-secondary">{label}</span>
+    </div>
+  );
+}
