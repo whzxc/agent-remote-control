@@ -1074,7 +1074,6 @@
   "detail.state.done": "Done",
   "detail.state.failed": "Failed",
   "detail.state.interrupted": "Interrupted",
-  "detail.state.unknown": "Unconfirmed",
   "detail.tools.read": "Read {count} files",
   "detail.tools.edit": "Edited {count} files",
   "detail.tools.file": "Accessed {count} files",
@@ -1845,7 +1844,6 @@
   "homepage.unknownDate": "Date unavailable",
   "homepage.running": "Running",
   "homepage.unread": "Completed unread",
-  "homepage.unconfirmed": "Unconfirmed",
   "homepage.recent": "Recent completed",
   "homepage.attentionCount": "{count} need me",
   "homepage.runningCount": "{count} running",
@@ -1895,7 +1893,6 @@
   "homepage.filter.running": "Running",
   "homepage.filter.waiting": "Waiting",
   "homepage.filter.completed": "Completed",
-  "homepage.filter.unconfirmed": "Unconfirmed",
   "homepage.controller": "Controller",
   "homepage.requestTo": "Request → {source}",
   "homepage.tool": "Using tool"

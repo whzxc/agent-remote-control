@@ -1,4 +1,4 @@
-import { recordedTimestamp, type TaskStepKind } from './taskProjection.ts';
+import { presentTaskState, recordedTimestamp, taskException, type TaskException, type TaskStepKind } from './taskProjection.ts';
 import type { AgentActivitySession, AgentActivitySnapshot, AgentInteraction } from "../types.ts";
 import { taskHierarchy } from './taskHierarchy.ts';
 import { orderedSubset } from '../topology/order.ts';
@@ -185,12 +185,12 @@ export function activityHeadline(session: Pick<AgentActivitySession, "headline" 
   return { text, path, fallback: !current, fullText: path ? filePathParts(path, session.project, session.interaction?.cwd).fullPath : text };
 }
 
-export type HomepageTaskGroup = 'needs-me' | 'running' | 'unread' | 'unconfirmed' | 'recent';
+export type HomepageTaskGroup = 'needs-me' | 'running' | 'unread' | 'recent';
 export type HomepageTask = {
   key: string; agent: string; session: TrackedActivity; group: HomepageTaskGroup;
   deviceId?: string; controllerDeviceId?: string; upstreamSourceId?: string; sourceIds: string[]; accountId?: string | null;
   activity: ReturnType<typeof import('./taskProjection.ts').taskCardActivity>;
-  observedAt?: string; freshness?: string; startedAt?: string | null; endedAt?: string | null; updatedAt?: string | null;
+  observedAt?: string; freshness?: string; stale?: boolean; startedAt?: string | null; endedAt?: string | null; updatedAt?: string | null;
 };
 export function activeHomepageTask(task: Pick<HomepageTask, 'group'>) {
   return task.group === 'running' || task.group === 'needs-me';
@@ -218,28 +218,35 @@ export function recentHomepageTasks(a: HomepageTask, b: HomepageTask) {
     || (homepageTaskTime(b) ?? 0) - (homepageTaskTime(a) ?? 0) || a.key.localeCompare(b.key);
 }
 export function homepageTaskGroup(session: TrackedActivity, pending: boolean, status?: string, observedCompletion = true): HomepageTaskGroup {
-  if (session.observed !== false && session.endedAt === undefined) return pending ? 'needs-me' : 'running';
-  if (session.endedAt !== undefined || ['completed', 'failed', 'cancelled', 'interrupted'].includes(status ?? ''))
-    return observedCompletion && session.readAt === undefined ? 'unread' : 'recent';
-  return 'unconfirmed';
+  const state = presentTaskState(status, session.observed !== false && session.endedAt === undefined, pending);
+  if (state === 'needsYou') return 'needs-me';
+  if (state === 'running') return 'running';
+  const recordedEnd = session.endedAt !== undefined || state !== 'done' || status === 'completed';
+  return recordedEnd && observedCompletion && session.readAt === undefined ? 'unread' : 'recent';
 }
 
 const phaseFor = (task: HomepageTask) => task.activity.steps.at(-1)?.kind ?? ({ command: 'command', thinking: 'thinking' } as const)[task.session.phase as 'command' | 'thinking'];
 export function nodeTaskState(tasks: HomepageTask[], deviceState?: 'online' | 'offline'): NodeTaskState {
   const offline = deviceState === 'offline';
-  const running = tasks.filter(task => task.group === 'running');
-  return { attention: offline ? 0 : tasks.filter(task => task.group === 'needs-me').length, running: offline ? 0 : running.length,
+  const running = offline ? [] : tasks.filter(task => task.group === 'running');
+  let latestEnded: HomepageTask | undefined;
+  for (const task of tasks) {
+    if (!activeHomepageTask(task) && (!latestEnded || (homepageTaskTime(task) ?? 0) > (homepageTaskTime(latestEnded) ?? 0))) latestEnded = task;
+  }
+  const exception = taskException(latestEnded?.session.status);
+  return { attention: offline ? 0 : tasks.filter(task => task.group === 'needs-me').length, running: running.length,
     unread: offline ? 0 : tasks.filter(task => task.group === 'unread').length,
-    unconfirmed: offline || deviceState !== 'online' && tasks.some(task => task.group === 'unconfirmed') && !tasks.some(task => task.group === 'running' || task.group === 'needs-me'), steps: running.map(phaseFor) };
+    ...(exception ? { exception } : {}), steps: running.map(phaseFor) };
 }
 
-export type NodeTaskState = { attention: number; running: number; unread: number; unconfirmed?: boolean; steps: (TaskStepKind | undefined)[] };
+export type NodeTaskState = { attention: number; running: number; unread: number; exception?: TaskException; steps: (TaskStepKind | undefined)[] };
 
-type Item = { kind: 'attention' } | { kind: 'step'; step?: TaskStepKind } | { kind: 'overflow' } | { kind: 'unconfirmed' };
+type Item = { kind: 'attention' } | { kind: 'step'; step?: TaskStepKind } | { kind: 'overflow' } | { kind: 'failed' } | { kind: 'interrupted' };
 export function capsuleItems(state: NodeTaskState, compact: boolean): Item[] {
-  if (state.unconfirmed) return [{ kind: 'unconfirmed' }];
   const items: Item[] = state.attention ? [{ kind: 'attention' }] : [];
+  if (state.exception) items.push({ kind: state.exception });
   const room = (compact ? 2 : 5) - items.length;
+  if (!room) return items;
   const shown = state.running > room ? room - 1 : state.running;
   for (let index = 0; index < shown; index++) items.push({ kind: 'step', step: state.steps[index] });
   if (state.running > shown) items.push({ kind: 'overflow' });
@@ -271,16 +278,16 @@ export function projectDeviceTasks(device: import('../devices/state').Device, ob
       status: record.runtime?.status ?? record.runtime?.runtimeStatus, origin: record.origin ?? record.task.origin,
     } });
   }
-  const unconfirmed = device.state === 'offline' || !!observation.error;
+  const stale = device.state === 'offline' || !!observation.error;
   return [...sessions.values()].map(({ agent, session }) => {
     const key = JSON.stringify([device.id, agent, session.id]);
     const read = reads.includes(remoteTaskReadKey({ key, session }));
-    const current = { ...session, ...(read ? { readAt: 1 } : {}), ...(unconfirmed ? { observed: false, interaction: undefined } : {}) };
+    const current = { ...session, ...(read ? { readAt: 1 } : {}), ...(stale ? { observed: false, interaction: undefined } : {}) };
     return { key, agent, deviceId: device.id, controllerDeviceId: session.origin?.deviceId ?? session.dispatchSummary?.controlSource?.deviceId,
-      session: current, group: unconfirmed ? 'unconfirmed' : homepageTaskGroup(current, !!current.interaction, current.status ?? undefined, session.observed === true),
+      session: current, group: homepageTaskGroup(current, !!current.interaction, current.status ?? undefined, !stale && session.observed === true),
       sourceIds: session.origin?.peerOrigin?.sourceId ? [session.origin.peerOrigin.sourceId] : [],
       accountId: session.agentAccountId ?? session.dispatchSummary?.agentAccountId,
-      activity: { steps: [], snapshot: [] }, startedAt: unconfirmed ? undefined : session.turnStartedAt, endedAt: session.turnEndedAt,
-      observedAt: snapshot.observedAt, freshness: device.lastSeen ?? snapshot.observedAt };
+      activity: { steps: [], snapshot: [] }, startedAt: session.turnStartedAt, endedAt: session.turnEndedAt,
+      observedAt: snapshot.observedAt, stale, freshness: device.lastSeen ?? snapshot.observedAt };
   });
 }

@@ -23,7 +23,7 @@ import { Button, Icon, IconButton, LoadingIndicator, Menu, Notice } from "./ui";
 import TimelineEntries, { TimelinePlanDock } from "./TimelineEntries";
 import { PhaseLabel } from "./activity";
 import { TaskSpecChoice } from "./AgentDispatchDefaults";
-import { isTaskId, taskState } from "../state/taskProjection";
+import { isTaskId, presentTaskState, taskException, taskState, taskStatusEvidence } from "../state/taskProjection";
 import { acceptTaskExecution } from "../state/taskExecution";
 import { executionStatus, executionSnapshot, executionPhase, terminalState } from "../state/taskExecutionModel";
 import { timelineDuration, timelineGroups, turnDuration } from "../state/timelineGroups";
@@ -206,10 +206,15 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   const source = latestSummary?.controlSource;
   const plan = running ? [...(groups.at(-1)?.entries ?? [])].reverse().find(entry => entry.type === "plan" && entry.plan?.length) : undefined;
   const hasPending = !external && !timeline?.readOnly && running && pendingSessions(agent, nativeSession, timeline?.entries ?? [], submissions).length > 0;
-  const state = taskState(timeline ? executionStatus(executionSnapshot(timeline), nativeSession.turnId) : session.status ?? undefined, running, hasPending);
+  const timelineStatus = timeline ? executionStatus(executionSnapshot(timeline), nativeSession.turnId) : undefined;
+  const recordedStatus = (nativeSession.turnId ? nativeSession.turnId === session.turnId : !live) ? session.status : undefined;
+  const status = taskStatusEvidence(timelineStatus, recordedStatus);
+  const state = presentTaskState(status, running, hasPending);
+  const activeState = state === "running" || state === "needsYou";
+  const recordedTerminal = terminalState(taskState(status, activeState));
   const detailPhase = relationKind && state === "running" ? executionPhase(nativeSession.phase, state) : undefined;
   const turnId = nativeSession.turnId || groups.at(-1)?.turnId;
-  const { review, reviewError, reloadReview } = useTaskReview(session.id, turnId, terminalState(state));
+  const { review, reviewError, reloadReview } = useTaskReview(session.id, turnId, recordedTerminal);
   const queue = useTaskQueue(external || timeline?.readOnly ? "" : agent, session.id);
   const latest = () => {
     const node = viewport.current;
@@ -274,9 +279,9 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
     || ((external || agent !== "codex") && (nativeSession.title || session.title
       || timeline?.entries.find(entry => entry.type === "user")?.text?.trim().split("\n")[0])) || t("timeline.title");
   const card = localTaskCard(agent, { ...nativeSession, title, orderAt: session.orderAt,
-    project: projectPath, projectName, dispatchSummary: latestSummary,
+    project: projectPath, projectName, dispatchSummary: latestSummary, status,
     turnCount: nativeSession.turnCount ?? session.turnCount },
-    state === 'running' ? 'running' : state === 'needsYou' ? 'needs-me' : state === 'unknown' ? 'unconfirmed' : 'recent');
+    state === 'running' ? 'running' : state === 'needsYou' ? 'needs-me' : 'recent');
   const parentSession = parentId ? parent ?? {
     id: parentId, nativeSessionId: parentId, source: "codex-thread" as const, title: parentTitle || undefined,
     phase: "idle" as const, phaseSince: null, headline: "", timeline: true, orderAt: 0, observed: false,
@@ -298,7 +303,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
           editable={!readOnlyBrowser && !external && agent === "codex" && validId && !timeline?.readOnly} />} />
       <div className="task-detail-chips"><TaskRelation kind={relationKind} />{detailPhase
         ? <PhaseLabel phase={detailPhase} running>{t(`activity.phase.${detailPhase}`)}</PhaseLabel>
-        : <span className="task-state" role="status" data-state={state}>{t(`detail.state.${state}`)}</span>}
+        : !taskException(state) && <span className="task-state" role="status" data-state={state}>{t(`detail.state.${state}`)}</span>}
         {session.selectedTurnId && groups.some(group => group.turnId === session.selectedTurnId) && <span className="activity-meta-chip">{t("detail.selectedTurn", { count: groups.findIndex(group => group.turnId === session.selectedTurnId) + 1 })}</span>}
         <TaskOwnership ownership={timeline?.ownership} />
       </div>
@@ -306,10 +311,11 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
         onOpen={() => selectAgentPanel({ type: "task", agent, session: parentSession })} />}
       {!!groups.length && <div className="task-turn-progress">{groups.map((group, index) => {
         const current = index === groups.length - 1 && (!nativeSession.turnId || nativeSession.turnId === group.turnId);
-        const turnState = taskState((group.turnId && timeline?.turnStatuses?.[group.turnId]) || (current ? timeline?.status : undefined), current && running, current && hasPending);
+        const turnStatus = (group.turnId && timeline?.turnStatuses?.[group.turnId]) || (current ? status : undefined);
+        const turnState = presentTaskState(turnStatus, current && activeState, current && hasPending);
         const plan = [...group.entries].reverse().find(entry => entry.type === "plan")?.plan;
         const completed = plan?.filter(step => step.status === "completed").length ?? 0;
-        const value = plan?.length ? completed / plan.length * 100 : turnState === "done" ? 100 : undefined;
+        const value = plan?.length ? completed / plan.length * 100 : turnStatus === "completed" ? 100 : undefined;
         return <div key={group.id} role="progressbar" aria-label={t("detail.turnProgress", { count: index + 1, state: t(`detail.state.${turnState}`) })} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value}
           aria-valuetext={plan?.length ? t("detail.planProgress", { completed, total: plan.length }) : t(`detail.state.${turnState}`)} data-state={turnState} data-indeterminate={value === undefined || undefined}>
           <span style={value === undefined ? undefined : { width: `${value}%` }} />
@@ -360,12 +366,12 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
               .map((text, index) => <p key={index}>{text}</p>)}
           </section>}
           {timeline?.entries.length === 0 && <p className="timeline-meta">{t("timeline.empty")}</p>}
-          <TimelineEntries narrow={narrow} key={session.id} entries={timeline?.entries ?? []} agent={agent} session={nativeSession} now={now} running={running} turnTimings={timeline?.turnTimings} status={timeline?.status} turnStatuses={timeline?.turnStatuses} turnDispatchSummaries={timeline?.turnDispatchSummaries}
+          <TimelineEntries narrow={narrow} key={session.id} entries={timeline?.entries ?? []} agent={agent} session={nativeSession} now={now} running={activeState} turnTimings={timeline?.turnTimings} status={status} turnStatuses={timeline?.turnStatuses} turnDispatchSummaries={timeline?.turnDispatchSummaries}
             onResume={!readOnlyBrowser && agent === "codex" && !external && !timeline?.readOnly && state === "interrupted" && turnId ? () => continueTurn("resume") : undefined}
             onRetry={!readOnlyBrowser && !external && !timeline?.readOnly && state === "failed" && turnId ? () => continueTurn("retry") : undefined} continuing={continuing} />
-          {hasPending && !groups.some(group => !nativeSession.turnId || !group.turnId || group.turnId === nativeSession.turnId) && <TaskNeedsYou agent={agent} session={nativeSession} entries={timeline?.entries ?? []} source={source} narrow={narrow} inline />}
+          {state === "needsYou" && !groups.some(group => !nativeSession.turnId || !group.turnId || group.turnId === nativeSession.turnId) && <TaskNeedsYou agent={agent} session={nativeSession} entries={timeline?.entries ?? []} source={source} narrow={narrow} inline />}
           <TaskQueuedMessages queue={queue} agent={agent} />
-          {terminalState(state) && review && <TaskContentCard reply className="task-final task-review-info" data-verdict={review.verdict}>
+          {recordedTerminal && review && <TaskContentCard reply className="task-final task-review-info" data-verdict={review.verdict}>
             <header><Icon icon={ClipboardCheck} /><strong>{t("detail.reviewInfo")}</strong></header>
             <div className="timeline-meta"><span>{t(review.verdict === "pass" ? "detail.reviewPassed" : "detail.reviewRework")}</span>
               {review.reviewer?.controlSource && <span>{review.reviewer.controlSource}</span>}
@@ -373,7 +379,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
             </div>
             {review.note && <p>{review.note}</p>}
           </TaskContentCard>}
-          {terminalState(state) && reviewError && <ReviewUnavailable action={<Button variant="ghost" onClick={reloadReview}>{t("retry")}</Button>}>{t("detail.reviewUnavailable")}</ReviewUnavailable>}
+          {recordedTerminal && reviewError && <ReviewUnavailable action={<Button variant="ghost" onClick={reloadReview}>{t("retry")}</Button>}>{t("detail.reviewUnavailable")}</ReviewUnavailable>}
 
           </>}
         </div>

@@ -7,8 +7,8 @@ import { taskListForms, tasks, tasksCopy as copy } from '../fixtures/tasks';
 export default () => taskListForms.map(({ name, width, height }) => {
   const narrow = width < 500, pad = narrow ? 'px-4' : 'px-6';
   const dockInset = width <= 600 ? 16 : 24;
-  const today = tasks.filter(task => task.group !== 'recent' && task.group !== 'unconfirmed');
-  const history = tasks.filter(task => task.group === 'recent' || task.group === 'unconfirmed');
+  const today = tasks.filter(task => task.group !== 'recent');
+  const history = tasks.filter(task => task.group === 'recent');
   return <Frame name={name} width={width} height={height} locale="en" fixture="homepage-task-list"
     capture={{ page: true, origin: '0 0', viewport: `${width}x${height}` }}>
     <div class="relative flex flex-col bg-canvas text-text" style={{ width, height }}>

@@ -105,7 +105,6 @@ export const checks = [{ stage: 'verify', order: 18, visual: true, async run(con
     await device.click();
     await page.getByRole('dialog').getByText(messages['device.online'], { exact: true }).waitFor();
     await page.keyboard.press('Escape');
-    if (await page.getByRole('button', { name: new RegExp(`^MacBook.*${text('unconfirmed')}`) }).count()) throw new Error('Online device inherited unknown task status.');
     const representedRoots = await page.evaluate(() => {
       const topology = window.__ARC_VIEW_MODEL__().topology;
       return new Set([...topology.nodes.filter(node => node.side === 1 && !node.parent && !node.group && !node.endpoint).map(node => node.id),
@@ -123,7 +122,7 @@ export const checks = [{ stage: 'verify', order: 18, visual: true, async run(con
     });
     const tasks = await page.evaluate(() => window.__ARC_VIEW_MODEL__().homepage.tasks);
     if (!tasks.some(task => task.deviceId === 'd45e'.repeat(16) && task.group === 'running')
-        || tasks.some(task => task.deviceId === 'c34d'.repeat(16) && task.group !== 'unconfirmed')) throw new Error('A malformed device read affected other devices or retained live claims.');
+        || tasks.some(task => task.deviceId === 'c34d'.repeat(16) && task.group !== 'recent')) throw new Error('A malformed device read affected other devices or retained live claims.');
   }
   if (check === 'idle') {
     await choose('tasks'); await page.getByRole('main', { name: text('tasks'), exact: true }).waitFor();

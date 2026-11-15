@@ -127,8 +127,9 @@ activity preview. A visible local detail card may request the native recent
 timeline. Remote previews use the observed controller-scoped snapshot.
 The running border follows the observed phase and is static under reduced motion.
 
-When a full backend snapshot removes a session, retain the observation until
-terminal execution evidence arrives for that turn. Viewing a completion marks
+When a full backend snapshot removes a session, retain the observation and continue
+reading for terminal evidence. The inactive card displays completion unless explicit
+failure or interruption is available. Viewing a completion marks
 it read. Elapsed duration uses the recorded end time. A new turn clears prior
 completion and unread state. Read acknowledgements persist per Agent and task
 in WebView storage across renderer reloads and app restarts.

@@ -21,7 +21,7 @@ import RelayRoute from "./RelayRoute";
 import TaskNeedsYou from "./TaskNeedsYou";
 import { answerLabel, interactionSummary, pendingSessions } from "../state/taskInteractions";
 import { copyText } from "../platform";
-import { processOpen, projectTurn, taskState, toolSummary, thoughtLine, toolTitle } from "../state/taskProjection";
+import { processOpen, projectTurn, presentTaskState, toolSummary, thoughtLine, toolTitle } from "../state/taskProjection";
 import { taskErrorText } from "../state/taskErrors";
 import { FilePath } from "./ui/ProjectPath";
 import TimelineMarkdown, { TimelineResources } from "./TimelineMarkdown";
@@ -248,7 +248,7 @@ const TurnCard = memo(function TurnCard({ narrow, group, index, latest, current,
   const submissions = activityApprovals.use();
   const change = (id: string) => (open: boolean) => setExpanded(previous => ({ ...previous, [id]: open }));
   const pending = live && pendingSessions(agent, session, group.entries, submissions).length > 0;
-  const state = taskState(status, live, pending);
+  const state = presentTaskState(status, live, pending);
   const projection = projectTurn(group.entries, state);
   const { prompt, final, rows, activity } = projection;
   const duration = turnDuration(group.entries, now, live, latest && current ? session.turnStartedAt : undefined, timing);

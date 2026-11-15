@@ -11,7 +11,7 @@ import { pendingSessions } from './taskInteractions';
 import { executionStatus } from './taskExecutionModel';
 import { activityReadMatches, homepageTaskGroup, localTaskDay, previewHomepageTask, projectDeviceTasks, remoteTaskReadKey, type HomepageTask, type TrackedActivity } from './activityModel';
 import { useAppNow } from './appEnvironment';
-import { taskCardActivity } from './taskProjection';
+import { taskCardActivity, taskStatusEvidence } from './taskProjection';
 import { api } from '../api';
 import type { AgentConversation, AgentConversationPage } from '../types';
 
@@ -129,7 +129,7 @@ export function useHomepageTasks(showHistory: boolean) {
       const key = JSON.stringify([agent, session.id]);
       const execution = executions[key];
       const pending = pendingSessions(agent, session, execution?.interactions ?? [], submissions);
-      const status = executionStatus(execution, session.turnId) ?? session.status ?? undefined;
+      const status = taskStatusEvidence(executionStatus(execution, session.turnId), session.status);
       const timing = execution?.turnTimings?.[session.turnId ?? execution.turnId ?? ''];
       const read = reads.get(key);
       const current = { ...session, status, readAt: session.readAt ?? (read && activityReadMatches(read, session) ? read.readAt : undefined), interaction: pending[0]?.interaction };

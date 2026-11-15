@@ -49,12 +49,16 @@ export const checks = [
                     }
                     if (name === 'task-states') {
                         const panel = page.getByRole('dialog', { name: 'Codex', exact: true });
-                        const expected = ['running', 'needsYou', 'done', 'failed', 'interrupted', 'unknown'];
+                        const expected = ['running', 'needsYou', 'done', 'failed', 'interrupted', 'done'];
                         for (const [index, state] of expected.entries()) {
                             const button = panel.getByRole('button', { name: `${messages['homepage.openDetail']}: ${fixture.tasks[index].title}`, exact: true });
                             await button.waitFor();
                             const description = await button.getAttribute('aria-description');
                             if (description !== messages[`detail.state.${state}`]) throw new Error(`Missing ${state} execution description`);
+                            if (state === 'failed' || state === 'interrupted') {
+                                const card = panel.getByRole('article', { name: fixture.tasks[index].title, exact: true });
+                                await card.getByRole('status').filter({ hasText: messages[`detail.state.${state}`] }).waitFor();
+                            }
                         }
                     }
                     if (name === 'dispatch-states') {

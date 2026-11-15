@@ -1,5 +1,5 @@
 import type { AgentActivitySession, AgentTimeline, AgentTimelineEntry } from "../types.ts";
-import { taskState, type TaskState } from "./taskProjection.ts";
+import { taskException, taskState, taskStatusEvidence, type TaskState } from "./taskProjection.ts";
 
 export interface TaskExecution extends Pick<AgentTimeline, "status" | "turnStatuses" | "turnTimings" | "dispatchSummary" | "turnDispatchSummaries" | "readOnly" | "coverage" | "executionEvidence"> {
   turnId?: string;
@@ -20,7 +20,8 @@ export function terminalState(state: TaskState) {
   return state === "done" || state === "failed" || state === "interrupted";
 }
 export function activityState(session: AgentActivitySession & { observed?: boolean; endedAt?: number; status?: string | null }, execution?: TaskExecution, pending = !!session.interaction, live = session.observed !== false && session.endedAt === undefined) {
-  return taskState(executionStatus(execution, session.turnId) ?? session.status ?? undefined, live, pending);
+  const status = taskStatusEvidence(executionStatus(execution, session.turnId), session.status);
+  return taskException(status) ?? taskState(status, live, pending);
 }
 export function executionPhase(phase: AgentActivitySession["phase"], state: TaskState) {
   return state === "running" && phase !== "interaction" && phase !== "idle" ? phase : undefined;

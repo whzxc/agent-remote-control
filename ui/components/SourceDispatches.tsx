@@ -87,14 +87,15 @@ export default function SourceDispatches({ sourceId }: { sourceId: string }) {
           const canOpen = !!id && !!record.turnId;
           const snapshotError = record.error?.code?.startsWith("DESKTOP_SNAPSHOT_") || record.error?.message === "DESKTOP_SNAPSHOT_TIMEOUT";
           const submission = ["awaitingApproval", "submitting", "notExecuted", "submissionUnknown", "submissionFailed"].includes(state);
+          const shownState = state === 'unknown' ? 'done' : state;
           const label = state === "submissionFailed" && snapshotError ? taskErrorText(record.error, "sourcePanel.submissionFailed")
-            : submission ? t(`sourcePanel.${state}`) : t(`detail.state.${state}`);
+            : submission ? t(`sourcePanel.${state}`) : t(`detail.state.${shownState}`);
           const observed = live ?? unread;
           const session: TrackedActivity = {
             ...observed, id: id ?? record.requestId, turnId: record.turnId, title,
             source: observed?.source ?? (agent === "codex" ? "codex-thread" : "arc-task"),
             observed: !!live, conversation: true, phase: live?.phase ?? "idle", headline: observed?.headline ?? "",
-            phaseSince: live?.phaseSince ?? null, timeline: canOpen, open: observed?.open ?? record.open,
+            phaseSince: live?.phaseSince ?? null, status: state === 'failed' || state === 'interrupted' ? state : undefined, timeline: canOpen, open: observed?.open ?? record.open,
             origin: observed?.origin ?? record.origin ?? record.task.origin,
             project: observed?.project ?? record.runtime?.project ?? record.task.project ?? record.task.directory,
             startedAt: observed?.startedAt ?? record.createdAt, orderAt: Date.parse(record.createdAt), selectedTurnId: record.turnId,
@@ -105,7 +106,7 @@ export default function SourceDispatches({ sourceId }: { sourceId: string }) {
             },
           };
           const group = state === 'running' ? 'running' : state === 'needsYou' || state === 'awaitingApproval' ? 'needs-me'
-            : unread ? 'unread' : state === 'unknown' ? 'unconfirmed' : 'recent';
+            : unread ? 'unread' : 'recent';
           const task = { ...localTaskCard(agent, session, group), sourceIds: [sourceId] };
           const preview = submission || state === 'needsYou' || state === 'running' || !!unread || localTaskDay(session.orderAt) === today;
           return <TaskCard key={record.requestId} task={task} now={now} form={preview ? 'detail' : 'summary'}

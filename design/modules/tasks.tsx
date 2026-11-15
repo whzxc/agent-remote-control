@@ -10,11 +10,11 @@ import {
 } from '../fixtures/tasks';
 
 export type OriginStep = { label: string; brand?: Brand; icon?: string };
-export type TaskGroup = 'needs-me' | 'running' | 'unread' | 'recent' | 'unconfirmed';
+export type TaskGroup = 'needs-me' | 'running' | 'unread' | 'recent';
 export type TaskSnapshotData = {
   id: string; node: string; title: string; group: TaskGroup;
   state: string; detail: string; icon: string; origin: readonly OriginStep[];
-  activity?: string; elapsed?: string; turns?: number; phase?: 'thinking' | 'command' | 'file' | 'tool' | 'text'; path?: string; steps?: readonly TaskStep[]; plan?: TaskPlan;
+  activity?: string; elapsed?: string; lastSeen?: string; exception?: 'failed' | 'interrupted'; turns?: number; phase?: 'thinking' | 'command' | 'file' | 'tool' | 'text'; path?: string; steps?: readonly TaskStep[]; plan?: TaskPlan;
   project?: Parameters<typeof ProjectLabel>[0];
   change?: TaskChange; partial?: boolean; prompt?: string;
   snapshot?: readonly TaskStep[]; dispatch?: Parameters<typeof DispatchSpec>[0];
@@ -47,12 +47,17 @@ const scrollRow = 'min-w-0 overflow-x-auto overflow-y-hidden [scrollbar-width:no
 const aurora = 'border-transparent [background:linear-gradient(var(--surface),var(--surface))_padding-box,conic-gradient(from_24deg,var(--border)_0deg,var(--border)_25deg,var(--aurora-tint)_75deg,var(--border)_142deg,var(--border)_215deg,var(--aurora-tint)_275deg,var(--border)_360deg)_border-box] [box-shadow:var(--shadow-md),0_0_15px_color-mix(in_srgb,var(--aurora-tint)_24%,transparent)]';
 
 export function TaskCardHeader({ task, heading = false }: { task: TaskSnapshotData; heading?: boolean }) {
-  const timing = task.group === 'unconfirmed' ? task.detail : task.elapsed;
+  const timing = task.elapsed ?? task.lastSeen;
   const title = 'w-max whitespace-nowrap text-left text-body leading-5 font-semibold text-text';
   return <header class="flex w-full min-w-0 flex-col gap-2 px-[14px] py-3">
     <div class="flex h-5 min-w-0 items-center justify-between gap-2">
       <div class={`flex-1 ${scrollRow}`}><div class="flex w-max"><OriginChain steps={task.origin} /></div></div>
-      {timing && <time class="shrink-0 whitespace-nowrap text-caption tabular-nums text-text-tertiary">{timing}</time>}
+      <div class="flex shrink-0 items-center gap-[6px]">
+        {task.exception && <span class={`whitespace-nowrap rounded-full px-[6px] text-caption leading-5 font-semibold ${task.exception === 'failed' ? 'bg-danger/10 text-danger' : 'bg-warning/10 text-warning'}`}>
+          {task.exception === 'failed' ? 'Failed' : 'Interrupted'}
+        </span>}
+        {timing && <time class="whitespace-nowrap text-caption tabular-nums text-text-tertiary">{timing}</time>}
+      </div>
     </div>
     <div class={scrollRow}>{heading ? <h2 class={title}>{task.title}</h2>
       : <button aria-label={`${copy.open}: ${task.title}`} class={title}>{task.title}</button>}</div>
@@ -138,6 +143,9 @@ export default () => [
   </Frame>),
   ...snapshotForms.map(({ name, id }) => <Frame name={`task-snapshot-${name}`} width={260}>
     <TaskCard task={tasks.find(task => task.id === id)!} form="detail" />
+  </Frame>),
+  ...(['failed', 'interrupted'] as const).map(exception => <Frame name={`task-summary-${exception}`} width={260}>
+    <TaskCard task={{ ...tasks.find(task => task.id === 'finished')!, exception }} form="summary" />
   </Frame>),
   <Frame name="task-snapshot-narrow" width={171}><TaskCard task={tasks[2]} form="detail" /></Frame>,
 ];

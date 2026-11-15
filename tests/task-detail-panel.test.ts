@@ -86,13 +86,16 @@ test("task detail projects native titles, compact ownership and pending input wi
       assert.equal(page.queryByLabelText(ownerName), null);
       const pending = entry("question", "current", "interaction", "", { status: "pending", interaction: { kind: "question", summary: "A pending choice", method: "item/tool/requestUserInput",
         questions: [{ id: "q", question: "Choose", options: [{ label: "Alpha" }] }], respond: { op: "codex_respond", args: { respondToken: "fixture" } } } });
-      const running = { ...base, status: "running", entries: [base.entries.at(-1)] };
+      const running = { ...base, status: "running", turnStatuses: { ...base.turnStatuses, current: "running" }, entries: [base.entries.at(-1)] };
       await render(running, true);
       assert.equal(page.queryByRole("region", { name: t("detail.needsYou") }), null);
       await render({ ...running, entries: [...running.entries, pending] }, true);
       assert.ok(page.getByRole("region", { name: t("detail.needsYou") }));
       assert.equal((page.getByRole("button", { name: t("detail.sendAnswer"), exact: true }) as HTMLButtonElement).disabled, true);
-      await render({ ...running, status: "completed", entries: [...running.entries, pending] });
+      await render({ ...running, turnStatuses: base.turnStatuses, entries: [...running.entries, pending] }, true);
+      assert.ok(page.getAllByRole("status").some(status => status.textContent === t("detail.state.interrupted")));
+      assert.equal(page.queryByRole("region", { name: t("detail.needsYou") }), null);
+      await render({ ...running, status: "completed", turnStatuses: { ...base.turnStatuses, current: "completed" }, entries: [...running.entries, pending] });
       assert.equal(page.queryByRole("region", { name: t("detail.needsYou") }), null);
       for (const key of ["detail.send", "detail.pass", "detail.rework", "detail.undo"]) assert.equal(page.queryByRole("button", { name: t(key), exact: true }), null);
       nativeTitle = "";

@@ -37,8 +37,8 @@ const baseTasks: TaskSnapshotData[] = [
     state: 'Completed', detail: 'Dispatch service', icon: 'check', origin: origins.local, elapsed: '02:21',
     project: { name: 'Dispatch service', path: '/workspace/dispatch' },
     dispatch: { model: 'GPT-6.1', effort: 'High', position: { count: 4, index: 2 }, tier: 'Fast', fast: true } },
-  { id: 'offline', node: 'moss-codex', title: 'Inspect the storage index', group: 'unconfirmed',
-    state: 'Unconfirmed', detail: 'Last seen 18 min ago', icon: 'circle-help', origin: origins.offline },
+  { id: 'offline', node: 'moss-codex', title: 'Inspect the storage index', group: 'recent',
+    state: 'Completed', detail: '', lastSeen: '18 min ago', icon: 'check', origin: origins.offline },
 ];
 const details: Record<string, Partial<TaskSnapshotData>> = {
   window: { elapsed: '01:48', activity: 'Waiting for your deployment choice',
@@ -59,7 +59,7 @@ const details: Record<string, Partial<TaskSnapshotData>> = {
   'remote-report': { elapsed: '01:52', activity: 'Configuration review is ready', path: 'LAN · 4 ms',
     change: { kind: 'diff', summary: 'config/agents.toml', added: 6, removed: 2 } },
   offline: { activity: 'Last observation unavailable',
-    change: { kind: 'command', summary: 'index scan --verify', output: 'Last recorded request; result is unconfirmed.' } },
+    change: { kind: 'command', summary: 'index scan --verify', output: 'Last recorded request.' } },
 };
 const prompts: Record<string, string> = {
   window: 'Prepare the deployment and ask before choosing the target environment.',
@@ -94,7 +94,7 @@ const snapshots: Record<string, readonly TaskStep[]> = {
   offline: [step('reading', 'Read storage/index.json', '3 s'), step('command', 'index scan --verify', '41 s')],
 };
 export const tasks: TaskSnapshotData[] = baseTasks.map(task => ({
-  ...task, ...details[task.id], turns: task.group === 'unconfirmed' ? undefined : 3, prompt: prompts[task.id], snapshot: snapshots[task.id],
+  ...task, ...details[task.id], turns: task.lastSeen ? undefined : 3, prompt: prompts[task.id], snapshot: snapshots[task.id],
 }));
 tasks.splice(4, 0, {
   id: 'tunnel', node: 'quartz-codex', title: 'Validate the build configuration', group: 'running',

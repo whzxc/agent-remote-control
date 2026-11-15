@@ -202,35 +202,38 @@ test('homepage activity preserves chronological work observations', async () => 
   assert.deepEqual(result.snapshot.map(row => row.id), ['read', 'edit', 'wait']);
 });
 
-test('homepage task groups keep missing observations unconfirmed', async () => {
+test('homepage task groups put inactive work with missing outcomes into completed history', async () => {
   // Property: only observed live work contributes active counts and acknowledged completions enter recent history.
   const { homepageTaskGroup, nodeTaskState, capsuleItems } = await import('../ui/state/activityModel.ts');
   const session = { id: 'sample', source: 'arc-task' as const, phase: 'thinking' as const, headline: '', phaseSince: null, timeline: false, orderAt: 0 };
-  assert.equal(homepageTaskGroup({ ...session, observed: false }, false), 'unconfirmed');
+  assert.equal(homepageTaskGroup({ ...session, observed: false }, false), 'recent');
+  assert.equal(homepageTaskGroup(session, true, 'failed'), 'unread');
   assert.equal(homepageTaskGroup(session, true), 'needs-me');
   assert.equal(homepageTaskGroup({ ...session, endedAt: 1, readAt: 2 }, false), 'recent');
   const task = { key: 'sample', agent: 'codex', session, group: 'running' as const, sourceIds: [], activity: { steps: [] }, partial: true };
   const offline = nodeTaskState([task], 'offline');
   assert.equal(offline.running, 0);
   assert.equal(offline.attention, 0);
-  assert.equal(offline.unconfirmed, true);
+  assert.deepEqual(capsuleItems(offline, true), []);
   const items = capsuleItems({ attention: 3, running: 12, unread: 2, steps: [] }, true);
   assert.deepEqual(items.map(item => item.kind), ['attention', 'overflow']);
   assert.deepEqual(capsuleItems({ attention: 0, running: 0, unread: 2, steps: [] }, false), []);
 });
 
-test('remote cards keep controller scope, receipt uncertainty and offline freshness', async () => {
+test('remote cards preserve scope, recorded exceptions and offline freshness', async () => {
   // Regression: remote records were unavailable to the homepage and receipt completion could be mistaken for task completion.
   const { projectDeviceTasks } = await import('../ui/state/activityModel.ts');
   const device = { id: 'member', state: 'online', lastSeen: '2026-01-01T00:00:00Z' };
   const snapshot = { observedAt: device.lastSeen, agents: { codex: { sessions: [{ id: 'running', source: 'arc-task', phase: 'thinking', headline: 'Inspect queue', phaseSince: null, timeline: false }] } }, records: [
     { agent: 'codex', taskId: 'unknown', state: 'completed', createdAt: device.lastSeen, task: { title: 'Acknowledged dispatch' } },
+    { agent: 'codex', taskId: 'failed', state: 'completed', createdAt: device.lastSeen, task: { title: 'Failed dispatch' }, runtime: { status: 'failed' } },
   ] };
   const projected = projectDeviceTasks(device, { snapshot }, []);
-  assert.deepEqual(projected.map(task => task.group), ['running', 'unconfirmed']);
+  assert.deepEqual(projected.map(task => task.group), ['running', 'recent', 'recent']);
   assert.ok(projected.every(task => task.deviceId === device.id));
   const offline = projectDeviceTasks({ ...device, state: 'offline' }, { snapshot }, []);
-  assert.ok(offline.every(task => task.group === 'unconfirmed' && !task.session.interaction && !task.startedAt));
+  assert.ok(offline.every(task => task.group === 'recent' && task.stale && !task.session.interaction && task.freshness === device.lastSeen));
+  assert.equal(offline.find(task => task.session.id === 'failed')?.session.status, 'failed');
 });
 
 
@@ -247,15 +250,20 @@ test('recorded timestamps preserve epoch units and omit unknown starts', async (
 });
 
 
-test('online devices keep a neutral capsule for unknown task observations', async () => {
+test('nodes show the latest recorded exception and omit a badge for unknown history', async () => {
   // Regression: an online LAN device inherited the unconfirmed ring from a retained remote dispatch record.
   const { nodeTaskState, capsuleItems } = await import('../ui/state/activityModel.ts');
-  const task = { key: 'remote', agent: 'codex', session: { id: 'remote', orderAt: 0 }, group: 'unconfirmed', sourceIds: [], activity: { steps: [] }, partial: true };
+  const task = { key: 'remote', agent: 'codex', session: { id: 'remote', orderAt: 0 }, group: 'recent', sourceIds: [], activity: { steps: [] }, partial: true };
   const online = nodeTaskState([task], 'online');
-  assert.equal(online.unconfirmed, false);
+  assert.equal(online.exception, undefined);
   assert.equal(online.running, 0);
   assert.deepEqual(capsuleItems(online, true), []);
-  assert.equal(nodeTaskState([task], 'offline').unconfirmed, true);
+  assert.deepEqual(capsuleItems(nodeTaskState([task], 'offline'), true), []);
+  const failed = { ...task, session: { ...task.session, orderAt: 2, status: 'failed' } };
+  assert.equal(nodeTaskState([task, failed]).exception, 'failed');
+  assert.equal(nodeTaskState([failed, { ...task, session: { ...task.session, orderAt: 3 } }]).exception, undefined);
+  assert.deepEqual(capsuleItems({ running: 2, unread: 0, attention: 1, exception: 'interrupted', steps: [] }, true),
+    [{ kind: 'attention' }, { kind: 'interrupted' }]);
 });
 
 test("failed turns retain command evidence and leave the terminal message to the outcome", () => {
@@ -267,4 +275,17 @@ test("failed turns retain command evidence and leave the terminal message to the
   assert.deepEqual(rows.flatMap(row => row.kind === "tools" ? row.entries : [row.entry]), [earlierError, command]);
   assert.equal(failed, 1);
   assert.deepEqual(projectTurn([command], "failed").rows, [{ kind: "tools", id: command.id, entries: [command] }]);
+});
+
+test('task presentation prefers explicit exceptions and keeps the evidence state separate', async () => {
+  // Property: lack of evidence falls back to completion only in presentation, and same-turn exceptions take precedence.
+  const { presentTaskState, taskState, taskStatusEvidence } = await import('../ui/state/taskProjection.ts');
+  assert.equal(taskState(undefined, false), 'unknown');
+  assert.equal(presentTaskState(undefined, false), 'done');
+  assert.equal(presentTaskState('running', false), 'done');
+  assert.equal(presentTaskState(undefined, true, true), 'needsYou');
+  assert.equal(presentTaskState(taskStatusEvidence('unknown', 'failed'), true, true), 'failed');
+  for (const status of ['cancelled', 'canceled', 'interrupted', 'aborted']) {
+    assert.equal(presentTaskState(status, true), 'interrupted');
+  }
 });

@@ -7,7 +7,7 @@ import { taskPhaseIcons } from './NodeCapsule';
 import { activeHomepageTask, homepageTaskGroup, type HomepageTask, type TrackedActivity } from '../../state/activityModel';
 import { taskExecution, taskExecutions, useTaskPreview } from '../../state/taskExecution';
 import { executionStatus, terminalState } from '../../state/taskExecutionModel';
-import { recordedTimestamp, taskCardActivity, taskState, thoughtLine, toolSummary, type TaskSnapshotRow } from '../../state/taskProjection';
+import { presentTaskState, recordedTimestamp, taskCardActivity, taskException, taskState, taskStatusEvidence, thoughtLine, toolSummary, type TaskSnapshotRow } from '../../state/taskProjection';
 import { useRequestRouting } from '../../state/requestRouting';
 import RecordedDispatchSpec from '../composites/RecordedDispatchSpec';
 import { compactDuration } from '../../lib/duration';
@@ -19,7 +19,7 @@ import type { AgentPhase } from '../../types';
 import './TaskCard.css';
 
 export type TaskCardData = Pick<HomepageTask, 'key' | 'agent' | 'session' | 'group'> &
-  Partial<Pick<HomepageTask, 'activity' | 'deviceId' | 'controllerDeviceId' | 'sourceIds' | 'accountId' | 'observedAt' | 'freshness' | 'startedAt' | 'endedAt'>>;
+  Partial<Pick<HomepageTask, 'activity' | 'deviceId' | 'controllerDeviceId' | 'sourceIds' | 'accountId' | 'observedAt' | 'freshness' | 'stale' | 'startedAt' | 'endedAt'>>;
 export const taskTitle = ({ session }: Pick<TaskCardData, 'session'>) => session.title || session.headline || session.id;
 
 export function localTaskCard(agent: string, session: TrackedActivity, group = homepageTaskGroup(session, !!session.interaction, session.status ?? undefined, false)): TaskCardData {
@@ -90,7 +90,7 @@ function ScrollRow({ children, label }: { children: ReactNode; label?: string })
 
 function TaskTime({ task, now, duration }: { task: TaskCardData; now: number; duration?: number }) {
   const language = locale.use();
-  if (task.group === 'unconfirmed') {
+  if (task.stale && task.session.turnDurationMs == null && !(task.session.turnEndedAt ?? task.endedAt)) {
     const seen = recordedTimestamp(task.freshness);
     if (seen === undefined) return null;
     const dateTime = new Date(seen).toISOString();
@@ -110,13 +110,17 @@ function TaskTime({ task, now, duration }: { task: TaskCardData; now: number; du
 
 export function TaskCardHeader({ task, now, onOpen, trigger, description, titleId, heading, spec, duration }: CardHeaderProps) {
   const origins = useTaskOrigins(task), title = taskTitle(task);
+  const exception = taskException(task.session.status);
   const originLabel = origins.map(origin => origin.label).join(' → ');
   return <header className="task-card-header">
     <div className="task-card-first-row">
       <ScrollRow label={originLabel}><span className="task-card-origins" role="img" aria-label={originLabel}>
         {origins.map((origin, index) => <span key={`${index}:${origin.label}`}>{index > 0 && <Icon icon={ChevronRight} size={10} />}<Tooltip text={[origin.label, origin.description].filter(Boolean).join(' · ')}><span className="task-card-origin">{origin.graphic}</span></Tooltip></span>)}
       </span></ScrollRow>
-      <TaskTime task={task} now={now} duration={duration} />
+      <div className="task-card-state-time">
+        {exception && <span className="task-card-exception" data-state={exception} role="status">{t(`detail.state.${exception}`)}</span>}
+        <TaskTime task={task} now={now} duration={duration} />
+      </div>
     </div>
     <ScrollRow label={title}>
       {heading ? <h2 id={titleId} className="task-card-title">{title}</h2>
@@ -159,28 +163,32 @@ export function TaskCard({ task, now, form, onOpen, trigger, description, snapsh
   const turn = task.session.selectedTurnId ?? task.session.turnId;
   const timing = execution?.turnTimings?.[turn ?? execution.turnId ?? ''];
   const summary = turn ? execution?.turnDispatchSummaries?.[turn] ?? (execution?.turnId === turn ? execution.dispatchSummary : undefined) : execution?.dispatchSummary;
-  const status = executionStatus(execution, turn);
+  const cachedStatus = executionStatus(execution, turn);
+  const recordedStatus = !task.session.selectedTurnId || task.session.selectedTurnId === task.session.turnId ? task.session.status : undefined;
+  const status = taskStatusEvidence(cachedStatus, recordedStatus);
+  const state = presentTaskState(status, activeHomepageTask(task), task.group === 'needs-me');
   const settled = !activeHomepageTask(task) && terminalState(taskState(status, false));
   useTaskPreview(task.agent, task.session.id, detail && !task.deviceId && !!task.session.timeline && !settled, card);
   const presentation = {
     ...task, startedAt: timing?.startedAt ?? task.startedAt, endedAt: timing?.endedAt ?? task.endedAt,
-    session: summary ? { ...task.session, dispatchSummary: { ...task.session.dispatchSummary, ...summary } } : task.session,
+    group: state === 'failed' || state === 'interrupted' ? task.group === 'unread' ? 'unread' as const : 'recent' as const : task.group,
+    session: { ...task.session, status, dispatchSummary: summary ? { ...task.session.dispatchSummary, ...summary } : task.session.dispatchSummary },
   };
   const entries = execution?.entries, snapshot = task.activity?.snapshot, selectedTurn = task.session.selectedTurnId;
   const rows = useMemo(() => snapshot ?? (detail && entries
     ? taskCardActivity(selectedTurn ? entries.filter(entry => entry.turnId === selectedTurn) : entries).snapshot
     : []), [snapshot, detail, entries, selectedTurn]);
-  const aurora = detail && task.group === 'running', phase = task.session.phase;
+  const aurora = detail && state === 'running', phase = task.session.phase;
   const title = taskTitle(task);
   const phaseDescription = aurora && phaseInk[phase] ? t(`activity.phase.${phase}`) : undefined;
-  return <article ref={card} className="task-card" aria-label={title} aria-description={phaseDescription ?? description} data-task-snapshot={snapshotKey}
-    data-form={form} data-offline={task.deviceId && task.group === 'unconfirmed' || undefined} data-aurora={aurora ? phase : undefined}
+  return <article ref={card} className="task-card" aria-label={title} aria-description={phaseDescription ?? description ?? t(`detail.state.${state}`)} data-task-snapshot={snapshotKey}
+    data-form={form} data-offline={task.stale || undefined} data-aurora={aurora ? phase : undefined}
     style={aurora ? { '--task-aurora-ink': phaseInk[phase] ?? 'var(--role-agent)' } as CSSProperties : undefined}
     onClick={onOpen && !trigger?.disabled ? event => {
       if (!(event.target instanceof Element) || event.target.closest('button, [tabindex="0"], a') || window.getSelection()?.toString()) return;
       onOpen();
     } : undefined}>
-    <TaskCardHeader task={presentation} now={now} description={description} onOpen={onOpen} trigger={trigger} />
+    <TaskCardHeader task={presentation} now={now} description={description ?? t(`detail.state.${state}`)} onOpen={onOpen} trigger={trigger} />
     {detail && <TaskCardPreview task={presentation} now={now} rows={rows} notice={notice} />}
   </article>;
 }

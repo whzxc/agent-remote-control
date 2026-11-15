@@ -13,7 +13,8 @@ import { trackedActivity } from "../state/activityBubbles";
 import { selectAgentPanel } from "../state/overviewPanels";
 import { localTaskDay, previewHomepageTask, type TrackedActivity } from "../state/activityModel";
 import { activitySections } from "../state/activitySections";
-import { activityState } from "../state/taskExecutionModel";
+import { executionStatus } from "../state/taskExecutionModel";
+import { presentTaskState, taskStatusEvidence } from "../state/taskProjection";
 import { Button, Empty, Loading, Notice } from "./ui";
 import { dockLoadingDelay } from "./useDockOpening";
 import { TaskCard, localTaskCard } from "./ui/TaskCard";
@@ -131,8 +132,9 @@ export default function AgentConversations({ agent, account, accountId, active, 
           {`${label} · ${entries.length}`}
         </h3>
         <div className="agent-task-section-rows">{entries.map(session => {
-          const current = live.has(session.id), state = activityState(session, taskExecution(agent, session.id), !!session.interaction, current);
-          const task = localTaskCard(agent, session, state === 'needsYou' ? 'needs-me' : state === 'running' ? 'running' : unread.has(session.id) ? 'unread' : state === 'unknown' ? 'unconfirmed' : 'recent');
+          const status = taskStatusEvidence(executionStatus(taskExecution(agent, session.id), session.turnId), session.status);
+          const state = presentTaskState(status ?? undefined, live.has(session.id), !!session.interaction);
+          const task = localTaskCard(agent, { ...session, status }, state === 'needsYou' ? 'needs-me' : state === 'running' ? 'running' : unread.has(session.id) ? 'unread' : 'recent');
           return <TaskCard key={session.id} task={task} now={now} form={previewHomepageTask(task, today) ? 'detail' : 'summary'}
             description={t(`detail.state.${state}`)} trigger={{ 'data-activity-session': task.key }}
             onOpen={() => selectAgentPanel({ type: "task", agent, session })} />;

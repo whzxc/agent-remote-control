@@ -31,7 +31,8 @@ Tasks combines live activity, recent native Codex conversations and ARC dispatch
 Tasks are grouped by the local calendar date of their latest recorded activity. Each
 date section uses responsive columns. Active tasks, including waiting tasks, today's
 tasks and unread completions show previews. Older history shows compact summaries.
-Unconfirmed history uses the last recorded observation when available. Opening an
+Inactive tasks show a recorded failure or interruption when available and
+otherwise appear completed. Offline history uses the last observation. Opening an
 unread completion marks it read.
 Snapshot opening and closing morph between the card and the centered layer slot.
 Reduced motion is instant.
@@ -51,8 +52,8 @@ node, label or branch rail.
 
 The capsule holds 20px discs on a 28px step: the needs-me icon, one phase disc per
 running task, and an ellipsis overflow disc. Full capsules hold five items; compact hold two.
-Completed unread is a dot on the outline. Offline uses unconfirmed without live counts
-or phases. The help disc indicates unconfirmed task status. Available quota stays visible
+Completed unread is a dot on the outline. The node can show the exception of its
+latest ended task. Offline nodes omit live counts and phases. Available quota stays visible
 for Agent accounts and their linked control source nodes. The logo opens its existing node panel;
 the task area opens scoped Tasks. Narrow topology pans horizontally between reserved
 columns by explicit user input; the header/navigation stay fixed. Device management

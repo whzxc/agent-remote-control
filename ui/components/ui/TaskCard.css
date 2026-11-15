@@ -39,6 +39,19 @@
 .task-card-origin { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--surface-sunken); }
 .task-card-title { display: block; width: max-content; margin: 0; padding: 0; border: 0; background: none; color: var(--text); font-size: var(--text-body); font-weight: 600; line-height: 20px; text-align: start; white-space: nowrap; }
 .task-card-title:disabled { cursor: default; }
+.task-card-state-time { display: flex; flex: none; align-items: center; gap: 6px; }
+.task-card-state-time:empty { display: none; }
+.task-card-exception {
+  padding-inline: 6px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  line-height: 20px;
+  white-space: nowrap;
+}
+.task-card-exception[data-state=failed] { color: var(--danger); }
+.task-card-exception[data-state=interrupted] { color: var(--warning); }
 .task-card-duration, .task-card-turns { flex: none; color: var(--text-tertiary); font-size: var(--text-caption); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .task-card-execution { display: flex; align-items: center; gap: 6px; width: max-content; height: 24px; white-space: nowrap; }
 .task-card-execution > * { flex-shrink: 0; }

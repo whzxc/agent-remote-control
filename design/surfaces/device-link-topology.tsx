@@ -19,7 +19,7 @@ const chrome = (width: number, height: number, attention = 2) => [
 
 export default () => [
   ...controllerForms.map(option => <Frame name={option.name} width={1280} height={800} locale="en"
-    note="Proposed. Static configuration geometry. Working node capsules open scoped Tasks; offline is unconfirmed.">
+    note="Proposed. Static configuration geometry. Working node capsules open scoped Tasks; offline devices omit live activity.">
     <TopologyScreen width={1280} height={800} scene={{
       nodes: [[89, 366, 17]],
       links: landscapePaths.map((path, i) => i === 3 && option.state === 'offline'

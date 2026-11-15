@@ -1074,7 +1074,6 @@
   "detail.state.done": "已完成",
   "detail.state.failed": "失败",
   "detail.state.interrupted": "已中断",
-  "detail.state.unknown": "状态未确认",
   "detail.tools.read": "读取 {count} 个文件",
   "detail.tools.edit": "编辑 {count} 个文件",
   "detail.tools.file": "访问 {count} 个文件",
@@ -1815,7 +1814,6 @@
   "homepage.unknownDate": "日期未知",
   "homepage.running": "运行中",
   "homepage.unread": "完成未读",
-  "homepage.unconfirmed": "未确认",
   "homepage.recent": "最近完成",
   "homepage.attentionCount": "{count} 项需要我",
   "homepage.runningCount": "{count} 项运行中",
@@ -1865,7 +1863,6 @@
   "homepage.filter.running": "运行中",
   "homepage.filter.waiting": "等待中",
   "homepage.filter.completed": "已完成",
-  "homepage.filter.unconfirmed": "未确认",
   "homepage.controller": "控制源",
   "homepage.requestTo": "请求 → {source}",
   "homepage.tool": "调用工具"

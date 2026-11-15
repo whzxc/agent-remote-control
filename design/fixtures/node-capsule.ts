@@ -10,7 +10,8 @@ export const localAttention: NodeTaskState = { attention: 1 };
 export const remoteRunning: NodeTaskState = { running: 1, attention: 1, steps: ['reading'] };
 export const remoteUnread: NodeTaskState = { unread: 1 };
 export const deviceAggregate: NodeTaskState = { attention: 1, running: 1, unread: 1, steps: ['reading'] };
-export const unconfirmed: NodeTaskState = { unconfirmed: true };
+const failed: NodeTaskState = { exception: 'failed' };
+const interrupted: NodeTaskState = { exception: 'interrupted', running: 1, steps: ['thinking'] };
 export const overflow: NodeTaskState = {
   attention: 112, running: 125, unread: 3, steps: ['reading', 'editing', 'command', 'thinking', 'waiting'],
 };
@@ -18,7 +19,7 @@ export const overflowAggregate: NodeTaskState = { ...overflow, attention: 224, r
 const thinkingWaiting: NodeTaskState = { running: 2, steps: ['thinking', 'waiting'], unread: 1 };
 export const stepCopy = {
   reading: 'Reading', editing: 'Editing', command: 'Running a command', thinking: 'Thinking', waiting: 'Waiting',
-  unconfirmed: 'Unconfirmed',
+  failed: 'Failed', interrupted: 'Interrupted',
 };
 export const capsuleForms: { name: string; state: NodeTaskState; brand?: Brand; label?: string; compact?: boolean; wing?: 'left' | 'right' }[] = [
   { name: 'idle', state: {} },
@@ -33,8 +34,8 @@ export const capsuleForms: { name: string; state: NodeTaskState; brand?: Brand; 
   { name: 'left-source-attention', state: deviceAggregate, wing: 'left', brand: 'anthropic', label: 'Personal' },
   { name: 'compact', state: deviceAggregate, compact: true },
   { name: 'compact-overflow', state: overflow, compact: true },
-  { name: 'unconfirmed', state: unconfirmed },
-  { name: 'compact-unconfirmed', state: unconfirmed, compact: true },
+  { name: 'failed', state: failed },
+  { name: 'compact-interrupted', state: interrupted, compact: true },
 ];
 export const accountContrast = {
   label: '3 accounts', members: [{ brand: 'codex', quota: 'ok' }, { brand: 'codex', quota: 'low' }, { brand: 'codex', quota: 'ok' }],

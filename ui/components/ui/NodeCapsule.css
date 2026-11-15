@@ -5,11 +5,13 @@
 .node-capsule-ring { position: absolute; inset: 0; pointer-events: none; }
 .node-capsule-logo { position: absolute; inset: 0 auto auto 0; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 50%; z-index: 1; }
 .node-capsule-mark { display: flex; transform: scale(.92); }
-.node-capsule[data-unconfirmed] .node-capsule-logo { opacity: .6; }
+
 .node-capsule-tasks { position: absolute; left: 40px; right: 0; top: 0; height: 48px; border-radius: 0 999px 999px 0; overflow: hidden; }
 .node-capsule-items { position: absolute; inset: 0; }
 .node-capsule-disc { position: absolute; top: 14px; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--surface-subtle); color: var(--text-tertiary); }
 .node-capsule-disc[data-kind=attention] { background: var(--warning); color: var(--canvas); }
+.node-capsule-disc[data-kind=failed] { color: var(--danger); }
+.node-capsule-disc[data-kind=interrupted] { color: var(--warning); }
 .node-capsule-disc[data-kind=overflow] { background: var(--surface-sunken); color: var(--text-secondary); }
 .node-capsule-disc[data-phase=reading], .node-capsule-disc[data-phase=editing] { color: var(--phase-file); }
 .node-capsule-disc[data-phase=thinking] { color: var(--phase-thinking); }

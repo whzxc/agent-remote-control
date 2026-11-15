@@ -10,7 +10,7 @@ import { Switch } from '../components/switch';
 import { TopologyNode } from './topology-node';
 import { TopologyGroup } from './topology-group';
 import { TopologyScene, type SceneItem, type ScenePath } from './topology-scene';
-import { deviceAggregate, remoteRunning, remoteUnread, unconfirmed, quotaReadings, overflow as overflowState, overflowAggregate } from '../fixtures/node-capsule';
+import { deviceAggregate, remoteRunning, remoteUnread, quotaReadings, overflow as overflowState, overflowAggregate } from '../fixtures/node-capsule';
 import { nodeCapsuleLayout } from './node-capsule';
 import { copy, states, branchForms, accountMembers, profileMembers } from '../fixtures/device-topology';
 
@@ -26,7 +26,7 @@ export function DeviceNode({ name = copy.member, latency, quotaAvailable = true,
     class="flex flex-col items-center text-text" style={{ width: 156 }}>
     <TopologyNode label={label} width={156} capsuleCompact={compact} capsuleWing={controller ? "left" : "right"}
       panelExpanded={expanded} hasChildren={hasChildren}
-      taskState={!merged || idle ? {} : state === 'offline' ? unconfirmed : overflow ? overflowAggregate : deviceAggregate}
+      taskState={!merged || idle ? {} : state === 'offline' ? {} : overflow ? overflowAggregate : deviceAggregate}
       capsuleNeutralRing={merged && !quotaAvailable} capsuleReadings={merged && quotaAvailable ? quotaReadings : []}
       capsuleMark={<span class="relative flex size-12 items-center justify-center text-text">
         {merged ? <BrandMark brand="codex" size={28} /> : <Icon name={controller ? 'monitor' : 'laptop'} size={26} />}
@@ -92,8 +92,8 @@ export function DeviceBranch({ state = 'lan', form = 'multiple', idle = false, o
 }) {
   const merged = form !== 'multiple', expanded = form !== 'merged-collapsed';
   const deviceState = {};
-  const agentState = idle ? {} : state === 'offline' ? unconfirmed : overflow ? overflowState : remoteRunning;
-  const otherState = idle ? {} : state === 'offline' ? unconfirmed : overflow ? overflowState : remoteUnread;
+  const agentState = idle ? {} : state === 'offline' ? {} : overflow ? overflowState : remoteRunning;
+  const otherState = idle ? {} : state === 'offline' ? {} : overflow ? overflowState : remoteUnread;
   const deviceEdge = 54 + nodeCapsuleLayout(deviceState).width;
   const agentEdge = 314 + 48;
   const otherEdge = 314 + 48;
@@ -126,8 +126,8 @@ export function DeviceBranch({ state = 'lan', form = 'multiple', idle = false, o
 
 export function PortraitDeviceBranch({ rootX, idle = false, state = 'lan', overflow = false }: { rootX: number; idle?: boolean; state?: DeviceTopologyState; overflow?: boolean }) {
   const deviceState = {};
-  const agentState = idle ? {} : state === 'offline' ? unconfirmed : overflow ? overflowState : remoteRunning;
-  const otherState = idle ? {} : state === 'offline' ? unconfirmed : overflow ? overflowState : remoteUnread;
+  const agentState = idle ? {} : state === 'offline' ? {} : overflow ? overflowState : remoteRunning;
+  const otherState = idle ? {} : state === 'offline' ? {} : overflow ? overflowState : remoteUnread;
   const deviceEdge = rootX + nodeCapsuleLayout(deviceState, true).width;
   const agentX = rootX + 152, accountX = rootX + 304;
   const agentEdge = agentX + 48;

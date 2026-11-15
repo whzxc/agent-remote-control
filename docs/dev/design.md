@@ -59,7 +59,7 @@ centered task layer. An older summary reads its timeline when opened.
 
 | Detail | Existing source | Presentation rule |
 | --- | --- | --- |
-| Current activity, state and origin | `ui/types.ts`: AgentActivitySession phase, headline, recentSteps, interaction, origin, agentAccountId and dispatchSummary | Use the current observation; unconfirmed tasks show no live verbs or counters. |
+| Current activity, state and origin | `ui/types.ts`: AgentActivitySession phase, headline, recentSteps, interaction, origin, agentAccountId and dispatchSummary | Use the current observation. Explicit failure or interruption takes precedence. Inactive tasks without an explicit exception appear completed. |
 | Recent step icons and short text | AgentTimelineEntry type, status, title/text, command, operation, commandActions and excerpt fields; `ui/state/taskProjection.ts` | Reading/editing derive from file operations; waiting requires an observed pending item. Keep chronological order in the bounded tail. |
 | Elapsed time | AgentActivitySession turnStartedAt; AgentTimeline turnTimings; AgentTimelineEntry durationMs | Derive from recorded timing. Remote cards use the snapshot observation as their end time. Normalize numeric epoch seconds or milliseconds and omit unknown starts. Offline cards omit elapsed time. |
 | Request and response state | AgentInteraction and AgentTimelineEntry response; `ui/state/activityModel.ts` approval submissions; native receipt state/result | Snapshots report the request and its controller routing state. Task details retain request handling. Pending/unconfirmed response state follows the receipt and is never inferred from the card. |
@@ -91,8 +91,7 @@ circular quota ring. A working node stretches that same ring into a 48px-high st
 a circle is a stadium with no straight run, so idle and working are one outline. Quota
 arcs keep their meaning as fractions of the outline, starting at the top of the inner
 cap and running clockwise; the elapsed tick stays on the outline. The pace trace stays
-on the idle ring and in panels only. Plain devices draw a neutral track; unconfirmed
-draws a dashed neutral track with no quota. The capsule fills with surface and grows
+on the idle ring and in panels only. Plain devices draw a neutral track. A known exception uses an icon while retaining quota readings. The capsule fills with surface and grows
 rightward on the executor wing and leftward, mirrored, on the control-source wing.
 
 Content follows one rhythm. Every item is a 20px disc centered on the capsule's
@@ -109,7 +108,7 @@ current phase, then an overflow disc.
   reached. Exact counts and phase names are in the accessible summary.
 - Completed unread: an accent dot on the outline at 45 degrees of the outer cap. It
   does not expand the node; an idle node with unread work stays a circle with the dot.
-- Unconfirmed: one help disc, the logo at reduced opacity, and the dashed outline.
+- Exception: the latest ended task can show a failure or interruption disc before the running phase discs.
 
 The account capsule stays distinct: it is 40px high with a 1px border, brand marks,
 quota dots and a member count; the working capsule is 48px with the 3px quota outline

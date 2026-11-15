@@ -246,7 +246,7 @@ NodeCapsule live in `ui/components/ui/`. The `homepage-modes-*` browser family c
 both modes, responsive layouts, manual persistence, capsule focus, completion read
 and device management in both themes. Remote cards join the controller-scoped `device/tasks` activity and bounded records.
 Remote task snapshots are validated at the read boundary. Failed or malformed reads
-retain that device's last observation as unconfirmed and expose its error in the
+retain that device's last observation, suppress live activity and expose its error in the
 device panel. Remote elapsed time ends at the snapshot's observation timestamp.
 Native visibility determines the remote task scope. Local cards use the current
 Agent activity and existing task records. Codex history first reads a 128 KiB tail.
@@ -302,16 +302,15 @@ to the device-tier owner.
 
 `modules/node-capsule.tsx` owns NodeCapsule and its shared outer-port geometry:
 `idle`, `working`, `attention`, `unread`, `aggregate`, `thinking-waiting`, `overflow`,
-`left-idle`, `left-working`, `compact`, `compact-overflow`, `unconfirmed`,
-`compact-unconfirmed`, `left-source-attention`, and `account-contrast`. `fixtures/node-capsule.ts` owns fictional
+`left-idle`, `left-working`, `compact`, `compact-overflow`, `failed`,
+`compact-interrupted`, `left-source-attention`, and `account-contrast`. `fixtures/node-capsule.ts` owns fictional
 counts, observed phases and quota readings. All node capsule forms are **User-approved**.
 
 The quota ring is the capsule outline: the idle circle stretches into a 48px stadium
 whose quota arcs keep their fractional meaning; the pace trace stays on the idle ring.
 Items are 20px discs on a 28px step, concentric with the caps. A shield icon marks
 needs-me tasks, phase icons use their phase tokens, and an ellipsis marks overflow.
-Counts are available in the accessible summary. Completed unread remains visible in Tasks and panels. Unconfirmed uses a dashed neutral outline,
-a help disc and a dimmed logo. The account capsule remains 40px with a 1px border,
+Counts are available in the accessible summary. Completed unread remains visible in Tasks and panels. The latest ended task can show a failure or interruption disc. The account capsule remains 40px with a 1px border,
 brand marks and a count.
 
 The maximum width is 188px landscape (five items) and 104px compact (two items),
@@ -544,13 +543,13 @@ The shared layer shells implement one centered slot with M node size and XL work
 | --- | --- | --- |
 | `modules/homepage-mode.tsx` | `ui/display/Studio.tsx`, `ui/state/homepage.ts` | Manually selected and persisted topology or tasks mode. |
 | `modules/tasks.tsx`, `modules/task-activity.tsx`, `surfaces/homepage-tasks.tsx` | `ui/components/ui/TaskCard.tsx`, `ui/components/HomepageTasks.tsx`, `ui/state/homepageTasks.ts`, `ui/state/taskProjection.ts`, `ui/state/activityModel.ts` | Local and controller-dispatched remote task grids by date, bounded newest-anchored previews, compact history, detail/read actions, ordering and node scope. Remote cards use native controller-scoped activity and records. Remote timeline and response forwarding remain unavailable through management. |
-| `modules/node-capsule.tsx`, `modules/topology-node.tsx` | `ui/components/ui/NodeCapsule.tsx`, `ui/components/GraphNode.tsx`, `ui/topology/spring.ts` | Stadium quota outline, phase discs, attention, overflow, unconfirmed and mirrored wing. Shared 210/26 spring integrates width and outgoing port. |
+| `modules/node-capsule.tsx`, `modules/topology-node.tsx` | `ui/components/ui/NodeCapsule.tsx`, `ui/components/GraphNode.tsx`, `ui/topology/spring.ts` | Stadium quota outline, phase discs, attention, overflow, recorded exceptions and mirrored wing. Shared 210/26 spring integrates width and outgoing port. |
 | `modules/device-topology.tsx`, `surfaces/device-link-topology.tsx` | `ui/topology/Topology.tsx`, `ui/devices/DeviceNodePanel.tsx`, `ui/components/SettingsPage.tsx` | One-hop paired-device nodes, management and lower-arc Device link action. Default-off controller-source disclosure. Remote inventory and single-Agent merge use `device/tasks`. Upstream disclosure uses native device configuration. Remote account/quota inventory remains unavailable. |
 
 `ui/topology/solve.ts`, `compact.ts`, `orientation.ts`, `portrait.ts`, `portraitRender.ts`, `render.ts` and `animate.ts` retain the topology engine. Node geometry, grouping, earcups, tentacles, springs and clock are adopted. Task slots, task queues, task wires and task-driven priorities are removed. `ArcActions.tsx` and `TuningControls.tsx` retain branch disclosure/read actions and the optional navigation entry. Browser fixtures cover the restored node engine alongside Tasks cards.
 
 The `homepage-modes-portrait-device` fixture covers three source groups, four local Agents, two local account pools and one merged online device at 800×1250 and 1280×800 in both themes. It uses the restored solver and portrait painter.
-`modules/device-topology.tsx` / `device-online-no-quota` maps to the shared neutral NodeCapsule ring. Device reachability controls its unconfirmed outline. Unknown remote task observations remain in Tasks without changing an online device's ring.
+`modules/device-topology.tsx` / `device-online-no-quota` maps to the shared neutral NodeCapsule ring. Offline observations remain in Tasks without live phases or counts. The device connection indicator reports reachability.
 
 The shared layer contract uses one centered slot for every node panel, workspace and dialog. `components/panel.tsx` and `surfaces/layers.tsx` map to `ui/components/ui/layerFrame.ts`, `Panel.tsx` and `Dialog.tsx`. M/XL describe content size. Layer opening never reserves, squeezes or moves topology. The source and Agent panel surfaces use the same centered M position.
 

@@ -5,13 +5,27 @@ export type TaskState = "running" | "needsYou" | "done" | "failed" | "interrupte
 export function isTaskId(id: unknown): id is string {
   return typeof id === "string" && id.trim().length > 0;
 }
+export type TaskException = "failed" | "interrupted";
+
+export function taskException(status?: string | null): TaskException | undefined {
+  switch (status?.trim().toLowerCase()) {
+    case "failed": case "error": return "failed";
+    case "cancelled": case "canceled": case "interrupted": case "aborted": return "interrupted";
+  }
+}
+
+export function taskStatusEvidence(observed?: string | null, recorded?: string | null): string | undefined {
+  return taskException(observed) ?? taskException(recorded) ?? observed ?? recorded ?? undefined;
+}
+
 export function taskState(status: string | undefined, live: boolean, pending = false): TaskState {
   if (pending && live) return "needsYou";
   if (live) return "running";
-  if (["failed", "error"].includes(status ?? "")) return "failed";
-  if (["cancelled", "interrupted", "canceled", "aborted"].includes(status ?? "")) return "interrupted";
-  if (status === "completed") return "done";
-  return "unknown";
+  return taskException(status) ?? (status === "completed" ? "done" : "unknown");
+}
+
+export function presentTaskState(status: string | undefined, live: boolean, pending = false): Exclude<TaskState, "unknown"> {
+  return taskException(status) ?? (live ? pending ? "needsYou" : "running" : "done");
 }
 export type ProcessRow = { kind: "tools"; id: string; entries: AgentTimelineEntry[] } | { kind: "entry"; id: string; entry: AgentTimelineEntry };
 export function processRows(entries: readonly AgentTimelineEntry[]): ProcessRow[] {

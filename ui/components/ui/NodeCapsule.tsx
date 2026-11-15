@@ -1,7 +1,7 @@
 export type { NodeTaskState } from '../../state/activityModel';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { integrateSpring } from '../../topology/spring';
-import { Brain, CircleHelp, Clock3, Ellipsis, FilePenLine, FileSearch, Loader, ShieldAlert, Terminal, Wrench } from 'lucide-react';
+import { Brain, CirclePause, CircleX, Clock3, Ellipsis, FilePenLine, FileSearch, Loader, ShieldAlert, Terminal, Wrench } from 'lucide-react';
 import { Icon, Tooltip } from './index';
 import { useMedia } from '../../state/hooks';
 import { t } from '../../i18n';
@@ -30,11 +30,11 @@ function stadium(width: number) {
   };
   return { total, at, path };
 }
-function CapsuleRing({ width, readings = [], used, dashed }: { width: number; readings?: readonly AgentIconReading[]; used?: boolean; dashed?: boolean }) {
+function CapsuleRing({ width, readings = [], used }: { width: number; readings?: readonly AgentIconReading[]; used?: boolean }) {
   const ring = stadium(width), distance = (angle: number) => ring.total * angle / 360;
   const ranges = ({ 1: [[0, 360]], 2: [[-8, -172], [8, 172]], 3: [[8, 112], [128, 232], [248, 352]] } as Record<number, number[][]>)[readings.length];
   return <svg className="node-capsule-ring" width={width} height={48} viewBox={`0 0 ${width} 48`} fill="none" strokeWidth={3} strokeLinecap="round" aria-hidden="true">
-    {!ranges && <path d={ring.path(0, ring.total)} stroke="var(--border-strong)" strokeDasharray={dashed ? '4 5' : undefined} />}
+    {!ranges && <path d={ring.path(0, ring.total)} stroke="var(--border-strong)" />}
     {ranges?.map(([start, end], index) => {
       const reading = readings[index], time = readings.length === 1 && !used && reading.elapsed !== undefined ? 1 - reading.elapsed : reading.elapsed ?? 0;
       const [x, y, nx, ny] = ring.at(distance(start + (end - start) * time));
@@ -68,26 +68,27 @@ export function NodeCapsule({ label, state, graphic, mark, neutralRing, readings
   }, [target, reduced]);
   const width = reduced ? target : animatedWidth;
   useLayoutEffect(() => onWidth?.(width), [width, onWidth]);
-  const summary = state.unconfirmed ? t('homepage.unconfirmed') : [state.attention ? t('homepage.attentionCount', { count: state.attention }) : '',
+  const summary = [state.attention ? t('homepage.attentionCount', { count: state.attention }) : '',
+    state.exception ? t(`detail.state.${state.exception}`) : '',
     state.running ? t('homepage.runningCount', { count: state.running }) : '', state.unread ? t('homepage.unreadCount', { count: state.unread }) : '',
     ...state.steps.map(step => t(`homepage.${step ?? 'running'}`))].filter(Boolean).join(', ');
   const mirror = wing === 'left', active = target > 48 || width > 48.1;
   const quota = readings?.map(reading => reading.label).join(' · ') || undefined;
   return <span className="node-capsule-anchor" data-wing={wing}>
-    <span className="node-capsule" data-unconfirmed={(state.unconfirmed && !quota) || undefined} style={{ width, transform: mirror ? 'scaleX(-1)' : undefined }}>
-      {(active || neutralRing) && <>{active && <span className="node-capsule-fill" />}<CapsuleRing width={width} readings={readings} used={used} dashed={state.unconfirmed} /></>}
+    <span className="node-capsule" style={{ width, transform: mirror ? 'scaleX(-1)' : undefined }}>
+      {(active || neutralRing) && <>{active && <span className="node-capsule-fill" />}<CapsuleRing width={width} readings={readings} used={used} /></>}
       <Tooltip text={active ? quota : undefined}><button type="button" className="node-capsule-logo" data-panel-anchor data-layer-switcher aria-label={label} aria-expanded={expanded}
         aria-description={active ? quota : undefined}
         onClick={onOpen} aria-keyshortcuts={onMove ? 'ArrowUp ArrowDown' : undefined}
         onKeyDown={event => { if (onMove && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) { event.preventDefault(); onMove(event.key === 'ArrowUp' ? -1 : 1); } }} style={{ transform: mirror ? 'scaleX(-1)' : undefined }}>
         {active ? <span className="node-capsule-mark">{mark ?? graphic}</span> : graphic}
       </button></Tooltip>
-      {items.length > 0 && <Tooltip text={state.unconfirmed && !neutralRing ? t('activity.unconfirmed') : summary}><button type="button" className="node-capsule-tasks" aria-label={`${label}. ${summary}. ${t('homepage.openTasks')}`} onClick={onTasks}>
+      {items.length > 0 && <Tooltip text={summary}><button type="button" className="node-capsule-tasks" aria-label={`${label}. ${summary}. ${t('homepage.openTasks')}`} onClick={onTasks}>
         <span className="node-capsule-items" style={{ opacity: Math.max(0, Math.min(1, (width - 48) / Math.max(1, target - 48))) }}>
           {items.map((item, index) => <span key={index} className="node-capsule-disc" data-kind={item.kind} data-phase={item.kind === 'step' ? item.step ?? 'running' : undefined}
             style={{ left: 24 + (index + 1) * 28 - 10 - 40, transform: mirror ? 'scaleX(-1)' : undefined }}>
-            <Icon size={item.kind === 'unconfirmed' || item.kind === 'overflow' ? 13 : 12}
-              icon={item.kind === 'attention' ? ShieldAlert : item.kind === 'overflow' ? Ellipsis : item.kind === 'unconfirmed' ? CircleHelp : taskPhaseIcons[item.step ?? 'running']} />
+            <Icon size={item.kind === 'overflow' ? 13 : 12}
+              icon={item.kind === 'attention' ? ShieldAlert : item.kind === 'overflow' ? Ellipsis : item.kind === 'failed' ? CircleX : item.kind === 'interrupted' ? CirclePause : taskPhaseIcons[item.step ?? 'running']} />
           </span>)}
         </span>
       </button></Tooltip>}

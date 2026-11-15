@@ -6,7 +6,7 @@ import { TopologyGroup } from './topology-group';
 import { capsuleForms, quotaReadings, stepCopy, accountContrast } from '../fixtures/node-capsule';
 
 export type NodeTaskState = {
-  running?: number; attention?: number; unread?: number; unconfirmed?: boolean; steps?: readonly TaskStepKind[];
+  running?: number; attention?: number; unread?: number; exception?: 'failed' | 'interrupted'; steps?: readonly TaskStepKind[];
 };
 
 /** Geometry: the quota ring is the capsule outline. Every item is a 20px disc on a 28px step, so the
@@ -16,23 +16,19 @@ const limits = { full: 5, compact: 2 };
 export const capsuleMaximum = { full: height + limits.full * step, compact: height + limits.compact * step };
 
 type Item = { kind: 'attention' } | { kind: 'step'; step: TaskStepKind | 'running' }
-  | { kind: 'overflow' } | { kind: 'unconfirmed' };
+  | { kind: 'overflow' } | { kind: 'failed' } | { kind: 'interrupted' };
 
 /** The reserved column width is state-independent. Only the outline and its outer port change. */
 export function nodeCapsuleLayout(state?: NodeTaskState, compact = false) {
   const items: Item[] = [];
-  if (state?.unconfirmed) items.push({ kind: 'unconfirmed' });
-  else {
-    const limit = compact ? limits.compact : limits.full;
-    if (state?.attention) items.push({ kind: 'attention' });
-    const running = state?.running ?? 0;
-    const steps: (TaskStepKind | 'running')[] = running
-      ? Array.from({ length: running }, (_, i) => state?.steps?.[i] ?? 'running') : [];
-    const room = limit - items.length;
-    const shown = steps.length > room ? Math.max(0, room - 1) : steps.length;
-    steps.slice(0, shown).forEach(s => items.push({ kind: 'step', step: s }));
-    if (steps.length > shown) items.push({ kind: 'overflow' });
-  }
+  const limit = compact ? limits.compact : limits.full;
+  if (state?.attention) items.push({ kind: 'attention' });
+  if (state?.exception) items.push({ kind: state.exception });
+  const room = limit - items.length;
+  const running = state?.running ?? 0;
+  const shown = running > room ? Math.max(0, room - 1) : running;
+  for (let index = 0; index < shown; index++) items.push({ kind: 'step', step: state?.steps?.[index] ?? 'running' });
+  if (room && running > shown) items.push({ kind: 'overflow' });
   return { width: height + items.length * step, active: items.length > 0, items };
 }
 
@@ -58,8 +54,8 @@ function stadium(width: number, r: number) {
 }
 
 /** The circular quota ring generalized to a stadium. Angles keep their meaning as fractions of the outline. */
-function CapsuleRing({ width, readings = [], used = false, dashed = false }: {
-  width: number; readings?: readonly AgentIconReading[]; used?: boolean; dashed?: boolean;
+function CapsuleRing({ width, readings = [], used = false }: {
+  width: number; readings?: readonly AgentIconReading[]; used?: boolean;
 }) {
   // The pace trace stays on the idle ring and in the panel; on a straight run it reads as an underline.
   const ring = stadium(width, radius);
@@ -68,8 +64,7 @@ function CapsuleRing({ width, readings = [], used = false, dashed = false }: {
   const d = (s: { total: number }, angle: number) => s.total * angle / 360;
   return <svg data-free class="pointer-events-none absolute inset-0" width={width} height={height}
     viewBox={`0 0 ${width} ${height}`} fill="none" stroke-width="3" stroke-linecap="round">
-    {!ranges && <path d={ring.path(0, ring.total)} stroke="var(--border-strong)"
-      stroke-dasharray={dashed ? '4 5' : undefined} />}
+    {!ranges && <path d={ring.path(0, ring.total)} stroke="var(--border-strong)" />}
     {ranges?.map(([start, end], i) => {
       const { value, color, elapsed } = readings[i];
       const single = readings.length === 1;
@@ -100,8 +95,9 @@ function CapsuleItem({ item }: { item: Item }) {
     <Icon name="shield-alert" size={12} /></span>;
   if (item.kind === 'overflow') return <span style={size}
     class={`${base} bg-surface-sunken text-text-secondary`}><Icon name="ellipsis" size={13} /></span>;
-  if (item.kind === 'unconfirmed') return <span style={size} class={`${base} text-text-tertiary`}>
-    <Icon name="circle-help" size={13} /></span>;
+  if (item.kind === 'failed' || item.kind === 'interrupted') return <span style={size}
+    class={`${base} bg-surface-subtle ${item.kind === 'failed' ? 'text-danger' : 'text-warning'}`}>
+    <Icon name={item.kind === 'failed' ? 'circle-x' : 'circle-pause'} size={12} /></span>;
   return <span style={size} class={`${base} bg-surface-subtle ${stepTone[item.step]}`}>
     {item.step === 'running' ? <Icon name="loader" size={12} /> : <TaskActivityIcon kind={item.step} size={12} />}
   </span>;
@@ -112,7 +108,8 @@ export function NodeCapsule({ state, label, graphic, mark, readings, used, neutr
   used?: boolean; neutralRing?: boolean; compact?: boolean; wing?: 'left' | 'right'; expanded?: boolean;
 }) {
   const model = nodeCapsuleLayout(state, compact);
-  const summary = state?.unconfirmed ? stepCopy.unconfirmed : [
+  const summary = [
+    state?.exception ? stepCopy[state.exception] : '',
     state?.attention ? `${state.attention} need me` : '', state?.running ? `${state.running} running` : '',
     state?.unread ? `${state.unread} completed unread` : '', ...(state?.steps ?? []).map(s => stepCopy[s]),
   ].filter(Boolean).join(', ');
@@ -125,10 +122,9 @@ export function NodeCapsule({ state, label, graphic, mark, readings, used, neutr
       style={{ width, transform: mirror ? 'scaleX(-1)' : undefined }}>
       {model.active ? <>
         <span class="absolute inset-[1.5px] rounded-full bg-surface shadow-sm" />
-        <CapsuleRing width={width} readings={state?.unconfirmed ? undefined : readings} used={used} dashed={state?.unconfirmed} />
+        <CapsuleRing width={width} readings={readings} used={used} />
         <button aria-label={`Open ${label} panel`} aria-expanded={expanded}
-          class={`absolute left-0 top-0 z-10 flex size-12 items-center justify-center rounded-full
-            ${state?.unconfirmed ? 'opacity-60' : ''}`}
+          class="absolute left-0 top-0 z-10 flex size-12 items-center justify-center rounded-full"
           style={{ transform: mirror ? 'scaleX(-1)' : undefined }}><span class="flex scale-[.92]">{mark ?? graphic}</span></button>
         <button aria-label={`${label}: ${summary}. Open Tasks`} title={summary}
           class="absolute top-0 z-10 h-12 rounded-r-full" style={{ left: buttonLeft, width: width - buttonLeft }}>
