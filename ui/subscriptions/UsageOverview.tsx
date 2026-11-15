@@ -1,3 +1,4 @@
+import { QuotaOverview } from '../components/ui/QuotaDetail';
 import { useState } from "react";
 import { t, locale } from "../i18n";
 import { subscriptions, refreshSubscription } from "../state/subscriptions";
@@ -27,7 +28,7 @@ export default function UsageOverview({ onNavigate, onClose }: { onNavigate: (pa
   return (
     <SettingsDialog busy={requesting || providers.some(provider => provider.refreshing)} title={t("trayUsage")} onClose={onClose} actions={providers.length > 0 &&
       <IconButton icon={RefreshCw} label={t("usageRefresh")} busy={requesting || providers.some(provider => provider.refreshing)} onClick={() => void refresh()} />}>
-    <section className="usage-overview" aria-label={t("trayUsage")}>
+    <QuotaOverview className="usage-overview" aria-label={t("trayUsage")}>
       <div
         className="usage-overview-scroll"
         onScroll={() => setDismissKey((k) => k + 1)}
@@ -55,7 +56,7 @@ export default function UsageOverview({ onNavigate, onClose }: { onNavigate: (pa
           )}
         </div>
       </div>
-    </section>
+    </QuotaOverview>
     </SettingsDialog>
   );
 }

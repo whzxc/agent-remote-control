@@ -1,3 +1,4 @@
+import { QuotaHistory, QuotaBreakdown } from '../components/ui/QuotaDetail';
 import { Tooltip as HoverHelp } from "../components/ui/index";
 import { useSensitiveText } from "../components/Sensitive";
 import { useState } from "react";
@@ -7,7 +8,7 @@ import { t, locale } from "../i18n";
 import { openUrl } from "../platform";
 import { useNow } from "../state/hooks";
 import { refreshSubscription } from "../state/subscriptions";
-import { Button, IconButton, Icon, HoverScope } from "../components/ui";
+import { Button, IconButton, Icon } from "../components/ui";
 import {
   quotaDisplay,
   resetDisplay,
@@ -191,7 +192,7 @@ export default function QuotaBubble({
                 } />;
               })}
             </div>
-            {((provider.creditBalance ?? 0) > 0 || provider.availableResetCount != null || !!provider.productUsage?.rows.length) && <HoverScope className="usage-history" activeKey={highlighted}>
+            {((provider.creditBalance ?? 0) > 0 || provider.availableResetCount != null || !!provider.productUsage?.rows.length) && <QuotaHistory className="usage-history" activeKey={highlighted}>
               {(provider.creditBalance ?? 0) > 0 && (
                 <div className="history-period">
                   <span>{t("usageCreditBalance")}</span>
@@ -222,7 +223,7 @@ export default function QuotaBubble({
                 </div>
               )}
               {!!provider.productUsage?.rows.length && (
-                <section className="product-usage" aria-label={t(provider.productUsage.shared ? "usageSharedProducts" : "usageWeeklyProducts")}>
+                <QuotaBreakdown className="product-usage" aria-label={t(provider.productUsage.shared ? "usageSharedProducts" : "usageWeeklyProducts")}>
                   <div className="product-usage-title">{t(provider.productUsage.shared ? "usageSharedProducts" : "usageWeeklyProducts")}</div>
                   <div className="product-usage-bar">
                     {productRows.map((row, index) => {
@@ -253,9 +254,9 @@ export default function QuotaBubble({
                       aria-expanded={expanded && displayed === "productRemaining"}
                     />}
                   </div>
-                </section>
+                </QuotaBreakdown>
               )}
-            </HoverScope>}
+            </QuotaHistory>}
           </>
         )}
       </UsageHistory>

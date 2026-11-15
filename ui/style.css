@@ -1,3 +1,4 @@
+@import "./components/ui/QuotaDetail.css";
 @import "./components/ui/UpdateContent.css";
 @import "./components/ui/ServiceInventory.css";
 @import "./components/ui/Settings.css";
@@ -285,7 +286,6 @@ pre {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  color: var(--text);
 }
 .usage-overview-scroll {
   min-height: 0;
@@ -323,5 +323,4 @@ pre {
 /* Equal-width pills match the shared design source while retaining fit measurement. */
 
 .usage-overview .empty-flush { padding-top: 8px; gap: 14px; }
-.usage-overview .empty-flush > p { line-height: 16px; }
 .usage-overview .empty-flush > .button { margin-top: 4px; }

@@ -558,21 +558,6 @@
     },
     {
       "implementation": {
-        "file": "ui/subscriptions/QuotaBubble.tsx"
-      },
-      "design": [
-        {
-          "source": "design/components/quota.tsx",
-          "part": "QuotaCard"
-        },
-        {
-          "source": "design/components/quota.tsx",
-          "part": "QuotaCards"
-        }
-      ]
-    },
-    {
-      "implementation": {
         "file": "ui/components/ui/TaskPresentation.tsx",
         "symbol": "RoutingRow"
       },
@@ -1395,16 +1380,6 @@
       "design": [
         {
           "source": "design/surfaces/agent-panel.tsx"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/subscriptions/UsageOverview.tsx"
-      },
-      "design": [
-        {
-          "source": "design/surfaces/quota-overview.tsx"
         }
       ]
     },
@@ -2972,6 +2947,150 @@
         {
           "source": "design/components/library-content.tsx",
           "part": "LibraryContent"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/subscriptions/QuotaBubble.tsx"
+      },
+      "design": [
+        {
+          "source": "design/components/quota.tsx",
+          "part": "QuotaCard"
+        },
+        {
+          "source": "design/components/quota.tsx",
+          "part": "QuotaCards"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/subscriptions/UsageOverview.tsx"
+      },
+      "design": [
+        {
+          "source": "design/surfaces/quota-overview.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/QuotaDetail.tsx",
+        "symbol": "QuotaDetail"
+      },
+      "design": [
+        {
+          "source": "design/components/quota-detail.tsx",
+          "part": "QuotaDetail"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/QuotaDetail.tsx",
+        "symbol": "QuotaPopover"
+      },
+      "design": [
+        {
+          "source": "design/components/quota-detail.tsx",
+          "part": "QuotaPopover"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/QuotaDetail.tsx",
+        "symbol": "QuotaHistory"
+      },
+      "design": [
+        {
+          "source": "design/components/quota-detail.tsx",
+          "part": "QuotaHistory"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/QuotaDetail.tsx",
+        "symbol": "QuotaPeriod"
+      },
+      "design": [
+        {
+          "source": "design/components/quota-detail.tsx",
+          "part": "QuotaPeriod"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/QuotaDetail.tsx",
+        "symbol": "QuotaCredit"
+      },
+      "design": [
+        {
+          "source": "design/components/quota-detail.tsx",
+          "part": "QuotaCredit"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/QuotaDetail.tsx",
+        "symbol": "QuotaOverview"
+      },
+      "design": [
+        {
+          "source": "design/components/quota-detail.tsx",
+          "part": "QuotaOverview"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/QuotaDetail.tsx",
+        "symbol": "QuotaBreakdown"
+      },
+      "design": [
+        {
+          "source": "design/components/quota-detail.tsx",
+          "part": "QuotaBreakdown"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/QuotaDetail.css"
+      },
+      "design": [
+        {
+          "source": "design/components/quota-detail.tsx",
+          "part": "QuotaDetail"
+        },
+        {
+          "source": "design/components/quota-detail.tsx",
+          "part": "QuotaPopover"
+        },
+        {
+          "source": "design/components/quota-detail.tsx",
+          "part": "QuotaHistory"
+        },
+        {
+          "source": "design/components/quota-detail.tsx",
+          "part": "QuotaPeriod"
+        },
+        {
+          "source": "design/components/quota-detail.tsx",
+          "part": "QuotaCredit"
+        },
+        {
+          "source": "design/components/quota-detail.tsx",
+          "part": "QuotaOverview"
+        },
+        {
+          "source": "design/components/quota-detail.tsx",
+          "part": "QuotaBreakdown"
         }
       ]
     }

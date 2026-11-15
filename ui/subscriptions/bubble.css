@@ -1,15 +1,13 @@
+@import "../components/ui/QuotaDetail.css";
 .usage-history {
   display: flex;
   flex-direction: column;
-  font-size: 12px;
   gap: 0;
-  line-height: 1.4;
 }
 .history-period {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  font-variant-numeric: tabular-nums;
   min-width: 0;
   gap: 10px;
   width: 100%;
@@ -25,13 +23,8 @@
   max-width: calc(100vw - 32px);
   padding: 8px 12px;
   box-sizing: border-box;
-  border-radius: 10px;
-  background: var(--surface-raised);
-  color: var(--text);
-  box-shadow: var(--shadow-md);
   outline: none;
   overflow: visible;
-  font-family: ui-rounded, "SF Pro Rounded", var(--font-ui);
 }
 .history-scroll {
   height: 100%;
@@ -48,14 +41,7 @@
   gap: 8px;
   width: auto;
   max-width: 100%;
-  font-size: 11.5px;
-  line-height: 14px;
   overflow-wrap: anywhere;
-}
-.history-detail > strong {
-  font-size: 14px;
-  line-height: 19px;
-  font-weight: 600;
 }
 .history-detail .history-period {
   gap: 10px;
@@ -66,11 +52,7 @@
   place-items: center;
   min-width: 18px;
   height: 18px;
-  border-radius: 50%;
   margin-right: 8px;
-  background: var(--accent);
-  color: white;
-  font-size: 10px;
 }
 .expiry-row > span {
   white-space: nowrap;
@@ -81,7 +63,6 @@
 }
 .history-detail .expiry-row {
   justify-content: space-between;
-  font-size: 11px;
   gap: 24px;
 }
 .history-popover { animation: quota-fade var(--motion-base) var(--ease-enter); }
@@ -89,12 +70,9 @@
 :root[data-reduced-motion="true"] { .history-popover { animation: none; } }
 
 .product-usage { margin-block: 12px; }
-.product-usage-title { font-weight: 600; }
 .product-usage-bar { display: flex; gap: 4px; margin-top: 10px; }
 .product-usage-bar .product-usage-segment {
   flex-basis: 0; flex-shrink: 1; min-width: 12px; width: auto;
-  height: 12px; min-height: 12px; padding: 0; border: 0;
-  border-radius: var(--radius-full, 999px); box-shadow: none;
+  height: 12px; min-height: 12px; padding: 0;
 }
-.product-usage-bar .product-usage-remaining { background: var(--border); }
 .product-usage-segment:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }

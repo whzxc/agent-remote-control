@@ -1,3 +1,4 @@
+import { QuotaPopover, QuotaDetail } from '../components/ui/QuotaDetail';
 import { TransientLayer } from "../components/ui/TransientLayer";
 import {
   useCallback,
@@ -133,7 +134,7 @@ export default function UsageHistory({
       >
         <Popover.Anchor virtualRef={anchor} />
         <Popover.Portal>
-          <TransientLayer><Popover.Content
+          <TransientLayer><QuotaPopover
             ref={card}
             className="history-popover"
             side="top"
@@ -158,14 +159,14 @@ export default function UsageHistory({
             onMouseLeave={() => { schedule(""); }}
           >
             <div className="history-scroll">
-              <div
+              <QuotaDetail
                 ref={attachContent}
                 className="history-detail"
               >
                 {detail(displayed)}
-              </div>
+              </QuotaDetail>
             </div>
-          </Popover.Content></TransientLayer>
+          </QuotaPopover></TransientLayer>
         </Popover.Portal>
       </Popover.Root>
     </>
