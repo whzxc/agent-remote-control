@@ -5,7 +5,7 @@ import path from 'node:path';
 
 const defaultState = () => process.env.ARC_STATE_DIR || (process.platform === 'win32'
   ? path.join(process.env.LOCALAPPDATA || homedir(), 'agent-remote-control')
-  : path.join((process.platform === 'linux' && process.env.XDG_STATE_HOME) || path.join(homedir(), '.local/state'), 'agent-remote-control'));
+  : path.join(homedir(), '.agent-remote-control'));
 async function durable(file, value) {
   await mkdir(path.dirname(file), { recursive: true, mode: 0o700 });
   const temp = `${file}.tmp`;

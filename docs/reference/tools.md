@@ -256,7 +256,7 @@ cancel work or move a submitted request to another path.
 
 ## Context provider
 
-An optional context provider supplies standard practices for the user's environment through an external MCP stdio server. Configure zero or one provider in `context-provider.json` under the ARC state directory (`ARC_STATE_DIR` when set). The defaults are `~/.local/state/agent-remote-control` on macOS, `$XDG_STATE_HOME/agent-remote-control` (or `~/.local/state/agent-remote-control`) on Linux, and `%LOCALAPPDATA%/agent-remote-control` on Windows.
+An optional context provider supplies standard practices for the user's environment through an external MCP stdio server. Configure zero or one provider in `context-provider.json` under the ARC state directory (`ARC_STATE_DIR` when set). The defaults are `~/.agent-remote-control` on macOS, `~/.agent-remote-control` (or `~/.agent-remote-control`) on Linux, and `%LOCALAPPDATA%/agent-remote-control` on Windows.
 
 ```json
 {

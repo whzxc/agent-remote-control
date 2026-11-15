@@ -44,7 +44,7 @@ if [ "$platform" = Darwin ]; then
   destination=${ARC_INSTALL_DIR:-/Applications}
   mkdir -p "$destination"
   destination=$(cd "$destination" && pwd -P)
-  ARC_STATE_DIR=${ARC_STATE_DIR:-"$HOME/.local/state/agent-remote-control"}
+  ARC_STATE_DIR=${ARC_STATE_DIR:-"$HOME/.agent-remote-control"}
   mkdir -p "$ARC_STATE_DIR"
   ARC_STATE_DIR=$(cd "$ARC_STATE_DIR" && pwd -P)
   export ARC_STATE_DIR

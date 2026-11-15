@@ -17,7 +17,7 @@ function report(file, name, line, rule, message) {
 }
 const assertion = /\b(?:assert(?:_\w+)?!?\s*[.(]|expect\s*\()/;
 const mockCount = /(?:\b(?:mock|spy)\b[^;]*?(?:calls|callCount|calledTimes|times|len\(|length)|\b(?:calls|fallbacks|attempts|reads|invocations)\b[^;]*?(?:len\(|length|is_empty\()|\btoHaveBeenCalled(?:Times|Once)?\s*\()/;
-const stateRoot = /\bARC_STATE_DIR\b|\b(?:root|state_dir|stateDir)\s*\(|["'`](?:[^"'`]*[\\/])?(?:\.local[\\/]state[\\/]agent-remote-control|Library[\\/]Application Support[\\/]agent-remote-control)/;
+const stateRoot = /\bARC_STATE_DIR\b|\b(?:root|state_dir|stateDir)\s*\(|["'`](?:[^"'`]*[\\/])?(?:\.agent-remote-control|\.local[\\/]state[\\/]agent-remote-control|Library[\\/]Application Support[\\/]agent-remote-control)/;
 const fsOperation = /(?:^|[.:])(?:readFile(?:Sync)?|writeFile(?:Sync)?|appendFile(?:Sync)?|readdir(?:Sync)?|mkdir(?:Sync)?|rm(?:Sync)?|open(?:Sync)?|read_to_string|read|write|remove_file|remove_dir_all|create_dir_all|save|load)$/;
 for (const file of testFiles()) {
   const source = readFileSync(file, 'utf8'), parsed = parseTests(file, source);

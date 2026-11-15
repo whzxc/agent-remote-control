@@ -652,9 +652,9 @@ Read subscriptions get first. subscriptions set replaces enabled and refreshMinu
 
 | Platform / purpose | Location or variable |
 | --- | --- |
-| macOS state | `~/.local/state/agent-remote-control` |
+| macOS state | `~/.agent-remote-control` |
 | Windows state | `%LOCALAPPDATA%/agent-remote-control` |
-| Linux state | `${XDG_STATE_HOME:-$HOME/.local/state}/agent-remote-control` |
+| Linux state | `$HOME/.agent-remote-control` |
 | Linux environment file | `${XDG_CONFIG_HOME:-$HOME/.config}/agent-remote-control/environment` |
 | Explicit instance | ARC_STATE_DIR; Desktop also accepts `--state-dir <path>` |
 | Desktop development (`npm run dev`) | Installed state directory; the supervisor quits the installed Desktop, hands off Core ownership, and restores it on exit |

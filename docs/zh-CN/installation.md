@@ -69,7 +69,7 @@ brew upgrade --cask --greedy local/agent-remote-control/agent-remote-control
 
 关闭登录启动，退出 ARC，再删除 macOS 应用或运行 Windows 卸载程序。Homebrew 用户可运行 `brew uninstall --cask agent-remote-control`。
 
-手动删除 App 时，在 macOS 的 `~/.local/state/agent-remote-control`、Windows 的 `%LOCALAPPDATA%/agent-remote-control` 保留状态。只有决定丢弃配置、回执和日志时才删除该目录；Agent 历史仍由各自程序管理。自定义位置见 [CLI](../reference/cli.md#state-and-environment)。
+手动删除 App 时，在 macOS 的 `~/.agent-remote-control`、Windows 的 `%LOCALAPPDATA%/agent-remote-control` 保留状态。只有决定丢弃配置、回执和日志时才删除该目录；Agent 历史仍由各自程序管理。自定义位置见 [CLI](../reference/cli.md#state-and-environment)。
 
 ## 限制
 

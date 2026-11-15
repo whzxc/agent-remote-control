@@ -143,18 +143,10 @@ pub fn root() -> PathBuf {
         .unwrap_or_else(|| {
             if cfg!(windows) {
                 dirs::data_local_dir().unwrap().join("agent-remote-control")
-            } else if cfg!(target_os = "linux") {
-                dirs::state_dir()
-                    .unwrap_or_else(|| {
-                        dirs::home_dir()
-                            .expect("home directory")
-                            .join(".local/state")
-                    })
-                    .join("agent-remote-control")
             } else {
                 dirs::home_dir()
-                    .unwrap()
-                    .join(".local/state/agent-remote-control")
+                    .expect("home directory")
+                    .join(".agent-remote-control")
             }
         })
 }

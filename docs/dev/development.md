@@ -109,3 +109,7 @@ Core owns quota reads, refresh scheduling, and reading caches. React shares Quot
 README and end-user onboarding/guides retain English primary files with complete Chinese counterparts. docs/reference and docs/dev are English only. Model-facing guides, catalog text, hints, errors, and generated notification text are English only. Original user input and upstream evidence retain their language. Use [terminology](terminology.md).
 
 cli guide embeds docs/reference/cli.md. Path changes require a Core rebuild. Documentation describes current behavior, limitations, and procedures without acceptance records or personal environments. Check internal links, CLI output, and localized counterparts after edits. Commits use a single-line English Conventional Commit subject without rewriting history.
+
+## Runtime state
+
+On macOS and Linux the default state directory is `~/.agent-remote-control`. Windows retains its local application-data directory. `ARC_STATE_DIR` selects an explicit instance. Existing installations must be stopped before moving their state to the new default; preserve credentials, configuration and task associations, and update absolute paths in owned configuration before restarting. Native Agent sessions remain in their native homes. Startup does not implicitly migrate or delete state.
