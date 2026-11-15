@@ -1,3 +1,4 @@
+import { NavCapsule } from './components/ui/NavCapsule';
 import { PanelRoute } from "./components/ui/Panel";
 import { oauthApproval, requestExternalNavigation } from "./state/externalNavigation";
 import { observeDevices } from './devices/state';
@@ -54,7 +55,7 @@ import Onboarding from "./components/Onboarding";
 import AddConnection from "./components/AddConnection";
 import { usePrivacy } from "./state/privacy";
 import { UpdateDock } from "./components/AppUpdate";
-import { Button, Icon, IconButton, Notice, HoverScope, Panel } from "./components/ui";
+import { Button, Icon, IconButton, Notice, Panel } from "./components/ui";
 import { api } from "./api";
 import { LayerOwnerContext } from "./components/ui/TransientLayer";
 import PermissionsPage from "./components/PermissionsPage";
@@ -253,8 +254,8 @@ export default function App() {
         </Panel>
       }</PanelRoute>
       <LayerOwnerContext.Provider value={workspace?.id}>
-      <nav
-        className="navigation-capsule"
+      <NavCapsule
+        activeKey={modalOpen ? "" : page === "overview" ? undefined : page}
         data-workspace-switcher
         style={{ zIndex: layerStore.stack().switcher }}
         inert={welcome || modalOpen}
@@ -262,10 +263,6 @@ export default function App() {
         hidden={welcome}
         aria-label={t("mainNavigation")}
       >
-        <HoverScope
-          activeKey={modalOpen ? "" : page === "overview" ? undefined : page}
-          className="capsule-icons"
-        >
           {pages.map((item) => (
             <button
               key={item.id}
@@ -283,8 +280,7 @@ export default function App() {
           <TuningControls available={page === "overview" && !welcome && !modalOpen && !workspace} />
           <StudioControls available={studio && page === "overview" && !welcome && !modalOpen && !workspace} />
           <UpdateDock />
-        </HoverScope>
-      </nav>
+      </NavCapsule>
       </LayerOwnerContext.Provider>
       {feedback.text && (
         <div className="app-feedback">

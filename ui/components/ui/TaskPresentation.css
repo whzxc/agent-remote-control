@@ -17,3 +17,6 @@
 
 .task-back-button.button { min-width: 0; justify-content: flex-start; padding-inline: 0; font-size: var(--text-meta); }
 .task-back-button > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.task-spec-choice { display: inline-flex; flex-shrink: 1; min-width: 0; max-width: 100%; border: 0; padding: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.task-spec-choice:focus-visible { border-radius: var(--radius-pill); }

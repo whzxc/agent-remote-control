@@ -1,3 +1,4 @@
+import { HomepageBarView } from '../components/ui/HomepageBar';
 import { homepageMode, selectHomepageMode } from '../state/homepage';
 import { TransientLayer } from "../components/ui/TransientLayer";
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -53,15 +54,9 @@ function HomepageBar({ now }: { now: number }) {
   const day = new Intl.DateTimeFormat(language, { month: 'long', day: 'numeric' }).format(date);
   const weekday = new Intl.DateTimeFormat(language, { weekday: 'short' }).format(date);
   const time = new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(date);
-  return <header className="homepage-bar">
-    <div className="homepage-bar-board">
-      <time dateTime={date.toISOString()} aria-label={t('studio.clock')}>{time}</time>
-      <Button id="board-trigger" variant="ghost" aria-label={t('center.open')} aria-description={summary || undefined}
-        aria-haspopup="dialog" onClick={() => openCenter()}>{t('center.title')}<span className="homepage-bar-date"> · {day} · {weekday}</span></Button>
-    </div>
-    <div className="homepage-mode-switch"><SingleChoice label={t('homepage.mode')} value={mode} compact onChange={value => selectHomepageMode(value as 'topology' | 'tasks')}
-      options={[{ value: 'topology', label: t('homepage.topology') }, { value: 'tasks', label: t('homepage.tasks') }]} /></div>
-  </header>;
+  return <HomepageBarView dateTime={date.toISOString()} time={time} day={day} weekday={weekday}
+    summary={summary} mode={mode} onOpenBoard={() => openCenter()}
+    onModeChange={value => selectHomepageMode(value as 'topology' | 'tasks')} />;
 }
 
 export function HomepageDisplay({ headerVisible }: { headerVisible: boolean }) {

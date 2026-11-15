@@ -7,8 +7,6 @@
 .node-panel:has(.task-detail-layer) .task-detail-header.dialog-header { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0; background: var(--surface-raised); }
 .task-detail-navigation { display: flex; justify-content: space-between; gap: 8px; min-width: 0; margin-bottom: 8px; }
 .task-detail-chips { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; margin-bottom: 12px; }
-.task-spec-choice { display: inline-flex; flex-shrink: 1; min-width: 0; max-width: 100%; border: 0; padding: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
-.task-spec-choice:focus-visible { border-radius: var(--radius-pill); }
 .task-turn-progress { display: flex; gap: 4px; }
 .task-turn-progress > div { flex: 1; height: 3px; min-width: 0; overflow: hidden; border-radius: 4px; background: var(--surface-sunken); color: var(--text-tertiary); }
 .task-turn-progress > [data-state=done] { color: var(--success); }
@@ -135,7 +133,6 @@
 .task-detail-layer[data-related] .task-detail-chips > .task-state::before { display: none; }
 .task-detail-chips .task-relation-separator { margin-left: 12px; color: var(--text-tertiary); }
 
-.task-detail-chips > .phase-label { display: inline-flex; align-items: center; height: 24px; font-size: var(--text-meta); color: var(--phase-color); }
 
 /* Relay timeline: directional messages around one chronological work rail. */
 .relay-route, .relay-party { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }

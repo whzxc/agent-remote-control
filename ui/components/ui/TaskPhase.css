@@ -1,0 +1,18 @@
+[data-phase="failed"] { --phase-color: var(--danger); }
+[data-phase="unknown"], [data-phase="interrupted"] { --phase-color: var(--text-tertiary); }
+[data-phase="thinking"] { --phase-color: var(--phase-thinking); }
+[data-phase="command"] { --phase-color: var(--phase-command); }
+[data-phase="file"] { --phase-color: var(--phase-file); }
+[data-phase="tool"], [data-phase="idle"] { --phase-color: var(--phase-tool); }
+[data-phase="text"] { --phase-color: var(--phase-text); }
+[data-phase="interaction"] { --phase-color: var(--warning); }
+[data-phase="completed"] { --phase-color: var(--success); }
+.phase-label { position: relative; min-width: 0; color: var(--phase-color); overflow: hidden; text-overflow: ellipsis; }
+.phase-shimmer { position: absolute; inset: 0; pointer-events: none; mask: linear-gradient(90deg, transparent, #000 15%, transparent 30%); will-change: transform; animation: phase-shimmer var(--motion-running) var(--ease-enter) infinite; }
+.phase-shimmer > span { display: block; overflow: hidden; text-overflow: ellipsis; color: color-mix(in srgb, var(--phase-color) 85%, var(--text)); will-change: transform; animation: phase-shimmer-text var(--motion-running) var(--ease-enter) infinite; }
+@keyframes phase-shimmer { from { transform: translateX(-30%); } to { transform: translateX(100%); } }
+@keyframes phase-shimmer-text { from { transform: translateX(30%); } to { transform: translateX(-100%); } }
+:root[data-reduced-motion="true"] .phase-shimmer, :root[data-reduced-motion="true"] .phase-shimmer > span { animation: none !important; will-change: auto; }
+:root[data-reduced-motion="true"] .phase-shimmer { display: none; }
+
+.task-detail-chips > .phase-label { display: inline-flex; align-items: center; height: 24px; font-size: var(--text-meta); color: var(--phase-color); }

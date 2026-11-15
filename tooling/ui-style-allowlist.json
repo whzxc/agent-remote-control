@@ -343,36 +343,6 @@
   },
   {
     "file": "ui/components/TaskDetail.css",
-    "selector": ".task-spec-choice",
-    "property": "border",
-    "reason": "Timeline content, phase semantics or task-specific presentation retained by its feature owner."
-  },
-  {
-    "file": "ui/components/TaskDetail.css",
-    "selector": ".task-spec-choice",
-    "property": "background",
-    "reason": "Timeline content, phase semantics or task-specific presentation retained by its feature owner."
-  },
-  {
-    "file": "ui/components/TaskDetail.css",
-    "selector": ".task-spec-choice",
-    "property": "color",
-    "reason": "Timeline content, phase semantics or task-specific presentation retained by its feature owner."
-  },
-  {
-    "file": "ui/components/TaskDetail.css",
-    "selector": ".task-spec-choice",
-    "property": "font",
-    "reason": "Timeline content, phase semantics or task-specific presentation retained by its feature owner."
-  },
-  {
-    "file": "ui/components/TaskDetail.css",
-    "selector": ".task-spec-choice:focus-visible",
-    "property": "border-radius",
-    "reason": "Timeline content, phase semantics or task-specific presentation retained by its feature owner."
-  },
-  {
-    "file": "ui/components/TaskDetail.css",
     "selector": ".task-turn-progress > div",
     "property": "border-radius",
     "reason": "Timeline content, phase semantics or task-specific presentation retained by its feature owner."
@@ -997,18 +967,6 @@
   },
   {
     "file": "ui/components/TaskDetail.css",
-    "selector": ".task-detail-chips > .phase-label",
-    "property": "font-size",
-    "reason": "Timeline content, phase semantics or task-specific presentation retained by its feature owner."
-  },
-  {
-    "file": "ui/components/TaskDetail.css",
-    "selector": ".task-detail-chips > .phase-label",
-    "property": "color",
-    "reason": "Timeline content, phase semantics or task-specific presentation retained by its feature owner."
-  },
-  {
-    "file": "ui/components/TaskDetail.css",
     "selector": ".relay-route",
     "property": "color",
     "reason": "Timeline content, phase semantics or task-specific presentation retained by its feature owner."
@@ -1269,48 +1227,6 @@
     "file": "ui/components/TaskDetail.css",
     "selector": ".task-outcome[data-state=failed]",
     "property": "background",
-    "reason": "Timeline content, phase semantics or task-specific presentation retained by its feature owner."
-  },
-  {
-    "file": "ui/components/activity/activity.css",
-    "selector": ".phase-tile",
-    "property": "border-radius",
-    "reason": "Timeline content, phase semantics or task-specific presentation retained by its feature owner."
-  },
-  {
-    "file": "ui/components/activity/activity.css",
-    "selector": ".phase-tile",
-    "property": "color",
-    "reason": "Timeline content, phase semantics or task-specific presentation retained by its feature owner."
-  },
-  {
-    "file": "ui/components/activity/activity.css",
-    "selector": ".phase-tile",
-    "property": "background",
-    "reason": "Timeline content, phase semantics or task-specific presentation retained by its feature owner."
-  },
-  {
-    "file": "ui/components/activity/activity.css",
-    "selector": ".phase-orbit",
-    "property": "border-radius",
-    "reason": "Timeline content, phase semantics or task-specific presentation retained by its feature owner."
-  },
-  {
-    "file": "ui/components/activity/activity.css",
-    "selector": ".phase-orbit::before",
-    "property": "background",
-    "reason": "Timeline content, phase semantics or task-specific presentation retained by its feature owner."
-  },
-  {
-    "file": "ui/components/activity/activity.css",
-    "selector": ".phase-label",
-    "property": "color",
-    "reason": "Timeline content, phase semantics or task-specific presentation retained by its feature owner."
-  },
-  {
-    "file": "ui/components/activity/activity.css",
-    "selector": ".phase-shimmer > span",
-    "property": "color",
     "reason": "Timeline content, phase semantics or task-specific presentation retained by its feature owner."
   },
   {
@@ -2550,48 +2466,6 @@
     "reason": "Homepage canvas lighting and clock presentation owned by Studio."
   },
   {
-    "file": "ui/display/studio.css",
-    "selector": ".homepage-bar",
-    "property": "color",
-    "reason": "Homepage canvas lighting and clock presentation owned by Studio."
-  },
-  {
-    "file": "ui/display/studio.css",
-    "selector": ".homepage-bar-board time",
-    "property": "font-size",
-    "reason": "Homepage canvas lighting and clock presentation owned by Studio."
-  },
-  {
-    "file": "ui/display/studio.css",
-    "selector": ".homepage-bar-board time",
-    "property": "font-weight",
-    "reason": "Homepage canvas lighting and clock presentation owned by Studio."
-  },
-  {
-    "file": "ui/display/studio.css",
-    "selector": ".homepage-bar-board time",
-    "property": "line-height",
-    "reason": "Homepage canvas lighting and clock presentation owned by Studio."
-  },
-  {
-    "file": "ui/display/studio.css",
-    "selector": ".homepage-bar-board time",
-    "property": "font-variant-numeric",
-    "reason": "Homepage canvas lighting and clock presentation owned by Studio."
-  },
-  {
-    "file": "ui/display/studio.css",
-    "selector": ".homepage-bar-date",
-    "property": "color",
-    "reason": "Homepage canvas lighting and clock presentation owned by Studio."
-  },
-  {
-    "file": "ui/display/studio.css",
-    "selector": ".homepage-bar-date",
-    "property": "font-size",
-    "reason": "Homepage canvas lighting and clock presentation owned by Studio."
-  },
-  {
     "file": "ui/mcp/mcp.css",
     "selector": ".mcp-failed-count",
     "property": "color",
@@ -3315,66 +3189,6 @@
     "file": "ui/product.css",
     "selector": ".home-workspace .connection-core",
     "property": "border-radius",
-    "reason": "Free-form homepage canvas or navigation silhouette; its geometry is not a shared control."
-  },
-  {
-    "file": "ui/product.css",
-    "selector": ".navigation-capsule",
-    "property": "border",
-    "reason": "Free-form homepage canvas or navigation silhouette; its geometry is not a shared control."
-  },
-  {
-    "file": "ui/product.css",
-    "selector": ".navigation-capsule",
-    "property": "border-radius",
-    "reason": "Free-form homepage canvas or navigation silhouette; its geometry is not a shared control."
-  },
-  {
-    "file": "ui/product.css",
-    "selector": ".navigation-capsule",
-    "property": "background",
-    "reason": "Free-form homepage canvas or navigation silhouette; its geometry is not a shared control."
-  },
-  {
-    "file": "ui/product.css",
-    "selector": ".navigation-capsule",
-    "property": "box-shadow",
-    "reason": "Free-form homepage canvas or navigation silhouette; its geometry is not a shared control."
-  },
-  {
-    "file": "ui/product.css",
-    "selector": ".navigation-capsule button",
-    "property": "background",
-    "reason": "Free-form homepage canvas or navigation silhouette; its geometry is not a shared control."
-  },
-  {
-    "file": "ui/product.css",
-    "selector": ".navigation-capsule button",
-    "property": "border",
-    "reason": "Free-form homepage canvas or navigation silhouette; its geometry is not a shared control."
-  },
-  {
-    "file": "ui/product.css",
-    "selector": ".navigation-capsule button",
-    "property": "box-shadow",
-    "reason": "Free-form homepage canvas or navigation silhouette; its geometry is not a shared control."
-  },
-  {
-    "file": "ui/product.css",
-    "selector": ".navigation-capsule button",
-    "property": "border-radius",
-    "reason": "Free-form homepage canvas or navigation silhouette; its geometry is not a shared control."
-  },
-  {
-    "file": "ui/product.css",
-    "selector": ".navigation-capsule button",
-    "property": "color",
-    "reason": "Free-form homepage canvas or navigation silhouette; its geometry is not a shared control."
-  },
-  {
-    "file": "ui/product.css",
-    "selector": ".navigation-capsule button:is(:hover, :focus-visible)",
-    "property": "color",
     "reason": "Free-form homepage canvas or navigation silhouette; its geometry is not a shared control."
   },
   {

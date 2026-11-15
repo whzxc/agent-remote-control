@@ -131,41 +131,6 @@
   right: 24px;
   text-align: center;
 }
-.navigation-capsule {
-  position: absolute;
-  left: var(--dock-left);
-  bottom: var(--dock-bottom);
-  z-index: 50;
-  width: max-content;
-  max-width: calc(100vw - 32px);
-  padding: var(--dock-padding-block) 6px;
-  border: 0;
-  border-radius: 22px;
-  background: var(--surface-raised);
-  box-shadow: var(--shadow-lg);
-}
-.navigation-capsule button {
-  width: var(--dock-button-size);
-  height: var(--dock-button-size);
-  padding: 9px;
-  display: grid;
-  place-items: center;
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-  border-radius: 50%;
-  position: relative;
-  color: var(--text-secondary);
-  transition: color var(--motion-fast);
-}
-.navigation-capsule button:is(:hover, :focus-visible) {
-  color: var(--text);
-}
-.navigation-capsule button svg {
-  width: 18px;
-  height: 18px;
-}
-
 /* Layout stays at the destination size; the animated shell only clips it. */
 
 .workspace { min-width: 0; width: 100%; }
@@ -587,7 +552,7 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 :root[data-reduced-motion="true"] {
   .graph-node[data-new-source] { animation: none; box-shadow: 0 0 0 4px var(--canvas), 0 0 0 6px var(--topology-source); }
 }
-.navigation-capsule[hidden] { display: none; }
+
 
 .pairing-card .pairing-fact { font-size: var(--text-meta); color: var(--text-secondary); }
 .pairing-card .pairing-summary { font-size: var(--text-small); }

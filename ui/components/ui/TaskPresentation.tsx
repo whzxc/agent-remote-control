@@ -26,3 +26,7 @@ export function TaskBackButton(props: ComponentProps<typeof Button>) { return <B
 export function StatePill({ state, children }: { state: string; children: ReactNode }) {
   return <span className="task-state" role="status" data-state={state}>{children}</span>;
 }
+
+export function TaskSpecTrigger(props: ComponentProps<'button'>) {
+  return <button type="button" {...props} className="task-spec-choice" />;
+}

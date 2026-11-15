@@ -21,7 +21,7 @@ import { activityApprovals, agentActivity, openActivitySession } from "../state/
 import { followsTimeline, refreshTimeline, reuseTimelineEntries, timelineScrollTarget } from "../state/timelineModel";
 import { Button, Icon, IconButton, LoadingIndicator, Menu, Notice, Tag } from "./ui";
 import TimelineEntries, { TimelinePlanDock } from "./TimelineEntries";
-import { PhaseLabel } from "./activity";
+import { PhaseLabel } from "./ui/TaskPhase";
 import { TaskSpecChoice } from "./AgentDispatchDefaults";
 import { isTaskId, presentTaskState, taskException, taskState, taskStatusEvidence } from "../state/taskProjection";
 import { acceptTaskExecution } from "../state/taskExecution";

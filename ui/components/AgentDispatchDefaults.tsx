@@ -1,3 +1,4 @@
+import { TaskSpecTrigger } from './ui/TaskPresentation';
 import { readOnlyBrowser } from "../browserMode";
 import { useEffect, useId, useMemo, useState } from "react";
 import { api } from "../api";
@@ -117,9 +118,9 @@ export function TaskSpecChoice({ agent, threadId, taskId, summary, editable }: {
   const [open, setOpen] = useState(false), specId = useId();
   if (!editable || readOnlyBrowser) return <RecordedDispatchSpec agent={agent} taskId={taskId} summary={summary} />;
   return <>
-    <button type="button" className="task-spec-choice" aria-haspopup="dialog" aria-label={t("taskDispatch.title")} aria-describedby={specId} onClick={() => setOpen(true)}>
+    <TaskSpecTrigger aria-haspopup="dialog" aria-label={t("taskDispatch.title")} aria-describedby={specId} onClick={() => setOpen(true)}>
       <RecordedDispatchSpec id={specId} agent={agent} taskId={taskId} summary={summary} fallback={t("taskDispatch.inherit")} />
-    </button>
+    </TaskSpecTrigger>
     {open && <TaskDispatchDialog agent={agent} threadId={threadId} onClose={() => setOpen(false)} />}
   </>;
 }
