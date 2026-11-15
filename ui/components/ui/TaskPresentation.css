@@ -20,3 +20,7 @@
 
 .task-spec-choice { display: inline-flex; flex-shrink: 1; min-width: 0; max-width: 100%; border: 0; padding: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
 .task-spec-choice:focus-visible { border-radius: var(--radius-pill); }
+
+.agent-task-section-heading { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 6px; margin: 0; padding: 8px 0; background: var(--surface-raised); color: var(--text-secondary); font-size: var(--text-meta); line-height: 16px; font-weight: 600; }
+.agent-task-section-heading[data-attention] { color: var(--warning); }
+.source-dispatch-list .agent-task-section-heading { padding: 0 0 8px; }

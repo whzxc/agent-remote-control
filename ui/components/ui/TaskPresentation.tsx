@@ -30,3 +30,7 @@ export function StatePill({ state, children }: { state: string; children: ReactN
 export function TaskSpecTrigger(props: ComponentProps<'button'>) {
   return <button type="button" {...props} className="task-spec-choice" />;
 }
+
+export function TaskDateHeading({ children, attention = false }: { children: ReactNode; attention?: boolean }) {
+  return <h3 className="agent-task-section-heading" data-attention={attention || undefined}>{children}</h3>;
+}

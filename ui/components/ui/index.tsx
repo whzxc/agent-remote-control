@@ -52,8 +52,8 @@ export { DataTable, Pagination } from "./DataTable";
 export type IconSize = 10 | 12 | 13 | 14 | 16 | 18 | 20 | 24 | 26 | 28 | 32;
 /** A compact label. `spec` names a choice, `fact` states a property and `danger` flags a risk. */
 export function Tag({ children, title, id, form = "spec", tone }: {
-  children: ReactNode; title?: string; id?: string; form?: "spec" | "fact" | "danger" | "resource" | "status" | "claim";
-  tone?: "success" | "warning";
+  children: ReactNode; title?: string; id?: string; form?: "spec" | "fact" | "danger" | "resource" | "status" | "claim" | "compact-status" | "workflow-status";
+  tone?: "success" | "warning" | "danger" | "command";
 }) {
   return <Tooltip text={title}><span id={id} className="tag" data-form={form} data-tone={tone}>{children}</span></Tooltip>;
 }
@@ -84,9 +84,9 @@ export function Icon({
 }
 /** A tinted square that carries an icon in the color of its parent's `color`. */
 export function Tile({ icon, className = "", form = 'card', tone }: {
-  icon: LucideIcon; className?: string; form?: 'card' | 'phase'; tone?: 'warning' | 'success' | 'neutral' | 'command' | 'file' | 'thinking';
+  icon: LucideIcon; className?: string; form?: 'card' | 'phase'; tone?: 'warning' | 'success' | 'neutral' | 'command' | 'file' | 'thinking' | 'danger' | 'accent';
 }) {
-  const colors = { warning: 'var(--warning)', success: 'var(--success)', neutral: 'var(--text-tertiary)', command: 'var(--phase-command)', file: 'var(--phase-file)', thinking: 'var(--phase-thinking)' };
+  const colors = { danger: 'var(--danger)', accent: 'var(--accent)', warning: 'var(--warning)', success: 'var(--success)', neutral: 'var(--text-tertiary)', command: 'var(--phase-command)', file: 'var(--phase-file)', thinking: 'var(--phase-thinking)' };
   return <span className={`tile ${form === 'phase' ? 'tile-phase' : ''} ${className}`} style={tone ? { color: colors[tone] } : undefined} aria-hidden="true"><Icon icon={icon} size={form === 'phase' ? 16 : 18} /></span>;
 }
 /** Bundled brand artwork with no control or quota decoration. */

@@ -98,7 +98,6 @@
 
 .app-scene.desktop { --homepage-bar-top: 40px; }
 
-
 .window-drag-strip {
   position: absolute;
   inset: 0 0 auto;
@@ -158,7 +157,6 @@
   }
 }
 
-
 .capsule-icons {
   border-radius: inherit;
   display: flex;
@@ -194,7 +192,6 @@
     padding: 0 16px;
   }
 }
-
 
 .sources .source-icon > span {
   display: flex;
@@ -246,7 +243,6 @@
 .topology-hub { position: absolute; left: 0; top: 0; z-index: 2; }
 
 .hub-entry { position: absolute; top: 50%; width: calc(var(--hub-dot-size) + 8px); height: calc(var(--hub-dot-size) + 8px); min-width: 28px; min-height: 28px; padding: 4px; border: 0; border-radius: 50%; background: transparent; transform: translate(-50%, -50%); cursor: pointer; display: grid; place-items: center; }
-
 
 .hub-entry:focus-visible { box-shadow: 0 0 0 2px var(--hub-color); }
 .hub-dot { position: relative; display: block; width: var(--hub-dot-size); height: var(--hub-dot-size); border-radius: 50%; transform: scale(var(--hub-dot-scale, 1)); transition: box-shadow var(--motion-base) var(--ease-enter); pointer-events: none; }
@@ -324,18 +320,14 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .timeline-output pre { margin: 4px 0 0; padding: 8px; background: var(--surface-subtle); border-radius: 6px; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: var(--text-meta)/1.6 var(--font-mono); }
 .timeline-files { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; min-width: 0; overflow-x: auto; }
 .timeline-error { color: var(--danger); border-radius: 8px; padding: 4px; background: color-mix(in srgb, var(--danger) 8%, transparent); }
-.timeline-markdown { min-width: 0; }
-.timeline-markdown > :first-child { margin-top: 0; }
-.timeline-markdown > :last-child { margin-bottom: 0; }
-.timeline-markdown pre { overflow-x: auto; white-space: pre; }
-.timeline-markdown img { max-width: 100%; }
+
 .timeline-image-placeholder { display: inline-flex; vertical-align: middle; color: var(--text-tertiary); }
 .timeline-link-error { display: block; color: var(--danger); font-size: var(--text-meta); overflow-wrap: anywhere; }
-.timeline-markdown a { color: var(--accent); text-decoration: underline; }
+
 .timeline-table { max-width: 100%; overflow-x: auto; border-radius: var(--radius-field); background: var(--surface-subtle); padding: 0 12px; }
 .timeline-table table { border-collapse: collapse; width: max-content; min-width: 100%; }
 .timeline-table th, .timeline-table td { padding: 4px 0; border: 0; font-size: var(--text-small); line-height: 20px; text-align: left; }
-.timeline-markdown .contains-task-list { list-style: none; padding-left: 4px; }
+
 :root[data-reduced-motion="true"] {
   .timeline-chevron { transition: none; }
 }
@@ -403,8 +395,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .agent-conversations { flex: 1 0 auto; gap: 20px; }
 .agent-conversations[data-empty] { --empty-gap: 9px; flex: none; padding: 32px 0 5px; }
 .agent-task-section { min-width: 0; }
-.agent-task-section-heading { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 6px; margin: 0; padding: 8px 0; background: var(--surface-raised); color: var(--text-secondary); font-size: var(--text-meta); line-height: 16px; font-weight: 600; }
-.agent-task-section-heading[data-attention] { color: var(--warning); }
 .agent-section-count { color: var(--text-tertiary); font-weight: 400; }
 .agent-task-section-rows { display: flex; flex-direction: column; gap: 8px; }
 .agent-conversation-more { height: 1px; }
@@ -420,7 +410,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .side-panel-scroll .copy-field { min-width: 0; }
 
 .source-dispatch-list { display: grid; gap: 16px; }
-.source-dispatch-list .agent-task-section-heading { padding: 0 0 8px; }
 .source-dispatch-more { height: 1px; }
 
 /* Source and connection setup use centered dialogs and shared controls. */
@@ -553,7 +542,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
   .graph-node[data-new-source] { animation: none; box-shadow: 0 0 0 4px var(--canvas), 0 0 0 6px var(--topology-source); }
 }
 
-
 .pairing-card .pairing-fact { font-size: var(--text-meta); color: var(--text-secondary); }
 .pairing-card .pairing-summary { font-size: var(--text-small); }
 
@@ -614,12 +602,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .topology-scene[data-orientation="portrait"] .graph-node-name { display: none; }
 .portrait-wires .portrait-rail { fill: none; stroke: var(--wire-color); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .topology-wires[data-inactive="true"] .topology-path-hit { pointer-events: none; }
-
-
-
-
-
-
 
 /* ARC status arcs follow the mark. Their revealed buttons stay upright. */
 .hub-arc-orbit, .hub-arc, .hub-arc > svg { position: absolute; inset: 0; pointer-events: none; }
@@ -685,10 +667,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 }
 
 /* Settings surface composition; shared controls retain their own forms. */
-
-
-
-
 
 .agent-summary strong { font-size: var(--text-title); font-weight: 650; line-height: 24px; }
 .agent-summary-meta { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 3px; font-size: var(--text-meta); line-height: 18px; color: var(--text-secondary); }

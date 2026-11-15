@@ -1140,9 +1140,8 @@
     },
     {
       "implementation": {
-        "file": "ui/coordination/CoordinationCenter.tsx",
-        "symbol": "RecordRow",
-        "anchor": "function RecordRow({ children, className = '', ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {"
+        "file": "ui/components/ui/Record.tsx",
+        "symbol": "RecordRow"
       },
       "design": [
         {
@@ -2430,6 +2429,156 @@
         {
           "source": "design/components/dispatch-spec.tsx",
           "part": "DispatchSpec"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/Record.tsx",
+        "symbol": "RecordRow"
+      },
+      "design": [
+        {
+          "source": "design/components/record.tsx",
+          "part": "RecordRow"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/Record.tsx",
+        "symbol": "RecordCard"
+      },
+      "design": [
+        {
+          "source": "design/components/record.tsx",
+          "part": "RecordCard"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/Record.tsx",
+        "symbol": "RecordMeta"
+      },
+      "design": [
+        {
+          "source": "design/components/record.tsx",
+          "part": "RecordMeta"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/Record.tsx",
+        "symbol": "RecordHeading"
+      },
+      "design": [
+        {
+          "source": "design/components/record.tsx",
+          "part": "RecordHeading"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/Record.css"
+      },
+      "design": [
+        {
+          "source": "design/components/record.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TimelineRail.tsx",
+        "symbol": "TimelineRailStep"
+      },
+      "design": [
+        {
+          "source": "design/components/timeline-rail.tsx",
+          "part": "TimelineRailStep"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TimelineRail.tsx",
+        "symbol": "TurnProgress"
+      },
+      "design": [
+        {
+          "source": "design/components/timeline-rail.tsx",
+          "part": "TurnProgress"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TimelineRail.css"
+      },
+      "design": [
+        {
+          "source": "design/components/timeline-rail.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TaskPresentation.tsx",
+        "symbol": "TaskDateHeading"
+      },
+      "design": [
+        {
+          "source": "design/components/task-presentation.tsx",
+          "part": "TaskDateHeading"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TaskContent.tsx",
+        "symbol": "TaskReplyCard"
+      },
+      "design": [
+        {
+          "source": "design/components/task-content.tsx",
+          "part": "TaskReplyCard"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TaskContent.tsx",
+        "symbol": "ContentProse"
+      },
+      "design": [
+        {
+          "source": "design/components/task-content.tsx",
+          "part": "ContentProse"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TaskContent.tsx",
+        "symbol": "PlanContent"
+      },
+      "design": [
+        {
+          "source": "design/components/task-content.tsx",
+          "part": "PlanContent"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TaskContent.css"
+      },
+      "design": [
+        {
+          "source": "design/components/task-content.tsx"
         }
       ]
     }

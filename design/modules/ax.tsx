@@ -5,6 +5,7 @@ import { SearchInput } from "../components/search";
 import { IconButton } from "../components/icon-button";
 import { Button } from "../components/button";
 import { Card } from "../components/card";
+import { Tag } from "../components/tag";
 import { Tile } from "../components/tile";
 
 import { axTabs, axFilters, axOpenEntries, axClosedEntries, axDetail, axStatusLabels, axCopy } from "../fixtures/ax";
@@ -21,11 +22,7 @@ const statuses = {
 
 export function AXStatusBadge({ status }: { status: AXStatus }) {
   const item = statuses[status];
-  return <span
-    class={`inline-flex shrink-0 items-center gap-[5px] rounded-field px-2 py-1 text-meta leading-4 font-medium ${item.tone}`}
-  >
-    <Icon name={item.icon} size={13} />{axStatusLabels[status]}
-  </span>;
+  return <Tag form="workflow-status" icon={item.icon} tone={status === 'open' ? 'warning' : status === 'triaged' ? 'command' : status === 'fixed' ? 'success' : undefined}>{axStatusLabels[status]}</Tag>;
 }
 
 export function AXEntryRow({ entry }: { entry: AXEntry }) {

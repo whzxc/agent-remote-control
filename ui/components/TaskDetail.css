@@ -1,20 +1,15 @@
 @import "./ui/TaskDetail-TaskPresentation.css";
 @import "./ui/TaskDetail-Dialog.css";
 @import "./ui/TaskDetail-controls.css";
+@import "./ui/TimelineRail.css";
+@import "./ui/TaskContent.css";
 .task-detail-layer { container-type: inline-size; }
 .task-detail-layer .timeline-error, .task-queue-error { min-width: 0; overflow-wrap: anywhere; }
 .task-queue-error { color: var(--danger); font-size: var(--text-small); }
 .node-panel:has(.task-detail-layer) .task-detail-header.dialog-header { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0; background: var(--surface-raised); }
 .task-detail-navigation { display: flex; justify-content: space-between; gap: 8px; min-width: 0; margin-bottom: 8px; }
 .task-detail-chips { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; margin-bottom: 12px; }
-.task-turn-progress { display: flex; gap: 4px; }
-.task-turn-progress > div { flex: 1; height: 3px; min-width: 0; overflow: hidden; border-radius: 4px; background: var(--surface-sunken); color: var(--text-tertiary); }
-.task-turn-progress > [data-state=done] { color: var(--success); }
-.task-turn-progress > [data-state=running] { color: var(--accent-text); }
-.task-turn-progress > [data-state=needsYou] { color: var(--warning); }
-.task-turn-progress > [data-state=failed] { color: var(--danger); }
-.task-turn-progress > div > span { display: block; height: 100%; background: currentColor; border-radius: inherit; }
-.task-turn-progress > [data-indeterminate] > span { width: 100%; }
+
 .task-detail-layer .timeline-entries { padding: 19px 0 20px; gap: 16px; }
 .task-turn, .task-turn-content, .task-process-rows { min-width: 0; }
 .task-turn-content { display: flex; flex-direction: column; gap: 16px; }
@@ -24,14 +19,7 @@
 .task-previous-turn > span:last-of-type:not(:first-child) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-size: var(--text-small); }
 .task-previous-turn > .timeline-chevron { position: absolute; right: 0; top: 9px; }
 .task-previous-turn[aria-expanded=true] > .timeline-chevron { transform: rotate(90deg); }
-.task-plan { font-size: var(--text-small); }
-.task-plan > header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: var(--text-meta); line-height: 20px; color: var(--text-secondary); }
-.task-plan > header > span:last-child { font-variant-numeric: tabular-nums; color: var(--text-tertiary); }
-.task-plan ul { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
-.task-plan li { display: flex; align-items: baseline; gap: 8px; padding-block: 4px; color: var(--text-secondary); line-height: 20px; }
-.task-plan li > .icon { flex: none; align-self: center; }
-.task-plan li[data-state=completed] .icon { color: var(--success); }
-.task-plan:not([data-settled]) li:is([data-state=in_progress], [data-state=inProgress], [data-state=running]) { color: var(--accent-text); font-weight: 600; }
+
 .task-tool-run { min-width: 0; color: var(--text-secondary); font-size: var(--text-meta); }
 .task-tool-counts { display: flex; min-width: 0; gap: 6px; white-space: nowrap; }
 .task-tool-categories { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -53,8 +41,8 @@
 .task-process-trigger.timeline-summary { width: fit-content; max-width: 100%; min-height: 20px; padding: 0; border-radius: 0; background: none; color: var(--text-secondary); font: var(--text-meta)/20px var(--font-ui); gap: 8px; }
 .task-process-rows { display: flex; flex-direction: column; gap: 8px; }
 .task-process > [data-state=open] > .relay-work { padding-top: 16px; }
-.task-final, .task-outcome { font-size: var(--text-body); line-height: 22px; overflow-wrap: anywhere; }
-.task-final > header { display: flex; align-items: center; gap: 8px; min-height: 16px; font-size: var(--text-meta); color: var(--success); }
+
+
 .task-changes { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font-size: var(--text-meta); color: var(--text-secondary); }
 .task-changes[data-single] > strong::after { content: " ·"; }
 .task-change-row { display: flex; align-items: baseline; gap: 6px; min-width: 0; color: var(--text); }
@@ -124,15 +112,12 @@
 .task-question { flex: 1 1 auto; }
 .task-question-options, .task-request-preview { flex: 1 1 auto; }
 
-
-
 .task-turn[data-turn-collapsed] { cursor: pointer; }
 
 .node-panel:has(.task-detail-layer[data-related]) .task-detail-header.dialog-header { padding-top: 12px; }
 .task-detail-layer[data-related] .task-detail-chips > .task-state { background: none; padding: 0; font-weight: 400; }
 .task-detail-layer[data-related] .task-detail-chips > .task-state::before { display: none; }
 .task-detail-chips .task-relation-separator { margin-left: 12px; color: var(--text-tertiary); }
-
 
 /* Relay timeline: directional messages around one chronological work rail. */
 .relay-route, .relay-party { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
@@ -152,12 +137,7 @@
 .task-previous-turn > .timeline-chevron { position: static; order: 3; flex: none; }
 .task-turn-heading:has([aria-expanded=true]) { margin-bottom: 12px; }
 .task-process-rows { gap: 12px; margin: 0; padding: 0; list-style: none; }
-.relay-step { position: relative; display: flex; gap: 10px; min-width: 0; }
-.relay-step:not(:last-child)::after { content: ""; position: absolute; left: 9px; top: 23px; bottom: -9px; width: 2px; border-radius: 1px; background: color-mix(in srgb, var(--role-agent) 20%, transparent); }
-.relay-step-node { position: relative; z-index: 1; display: grid; place-items: center; flex: none; width: 20px; height: 20px; border-radius: 50%; color: var(--phase-color, var(--role-agent)); background: var(--surface-raised); }
-.relay-step[data-live] > .relay-step-node { background: color-mix(in srgb, var(--role-agent) 15%, var(--surface-raised)); }
-.relay-step-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--role-agent); }
-.relay-step-content { flex: 1; min-width: 0; }
+
 .task-process-trigger > .icon:first-child { color: var(--success); }
 .task-process-trigger[data-failed], .task-process-trigger[data-failed] > .icon:first-child { color: var(--danger); }
 .task-tool-groups, .task-live-row { padding-left: 0; }
@@ -168,8 +148,7 @@
 .relay-narration { font-size: var(--text-body); line-height: 24px; min-width: 0; }
 .relay-narration[data-streaming] .timeline-markdown > :last-child::after { content: ""; display: inline-block; margin-left: 2px; width: 2px; height: 15px; background: var(--role-agent); vertical-align: middle; }
 .relay-error-line { padding: 6px 12px; border-radius: var(--radius-field); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent); margin: 6px 0 0; }
-.task-final { border: 1px solid var(--border); background: none; }
-.task-final > footer:not(:empty) { border-top: 1px solid var(--border); padding-top: 12px; }
+
 .relay-request { padding: 12px 16px; border-radius: var(--radius-card); background: var(--surface-subtle); }
 .relay-request .task-request-card { padding: 0; background: none; }
 .relay-request .task-needs-you { overflow: visible; }

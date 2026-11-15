@@ -1,3 +1,4 @@
+import { TaskDateHeading } from './ui/TaskPresentation';
 import { taskExecution, taskExecutions } from "../state/taskExecution";
 import { activityApprovals } from "../state/activity";
 import { pendingSessions } from "../state/taskInteractions";
@@ -128,9 +129,9 @@ export default function AgentConversations({ agent, account, accountId, active, 
     {sections.map(({ id, date, entries }) => {
       const label = date === undefined ? t(`agentPanel.${id}`) : new Date(date).toLocaleDateString(language, { month: 'short', day: 'numeric', weekday: 'short' });
       return entries.length > 0 && <section className="agent-task-section" key={id} aria-label={label}>
-        <h3 className="agent-task-section-heading" data-attention={id === "attention" || undefined}>
+        <TaskDateHeading attention={id === "attention"}>
           {`${label} · ${entries.length}`}
-        </h3>
+        </TaskDateHeading>
         <div className="agent-task-section-rows">{entries.map(session => {
           const status = taskStatusEvidence(executionStatus(taskExecution(agent, session.id), session.turnId), session.status);
           const state = presentTaskState(status ?? undefined, live.has(session.id), !!session.interaction);

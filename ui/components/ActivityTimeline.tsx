@@ -1,3 +1,4 @@
+import { TurnProgress } from './ui/TimelineRail';
 import { useLayerNaturalContent } from './ui/LayerPortals';
 import { PanelHeader, PanelFooter, usePanelState } from "./ui/Panel";
 import { readOnlyBrowser } from "../browserMode";
@@ -309,7 +310,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
       </div>
       {parentSession && <TaskListCard task={localTaskCard(agent, parentSession)} now={now} form="summary" description={t("activity.parentThread")}
         onOpen={() => selectAgentPanel({ type: "task", agent, session: parentSession })} />}
-      {!!groups.length && <div className="task-turn-progress">{groups.map((group, index) => {
+      {!!groups.length && <TurnProgress>{groups.map((group, index) => {
         const current = index === groups.length - 1 && (!nativeSession.turnId || nativeSession.turnId === group.turnId);
         const turnStatus = (group.turnId && timeline?.turnStatuses?.[group.turnId]) || (current ? status : undefined);
         const turnState = presentTaskState(turnStatus, current && activeState, current && hasPending);
@@ -320,7 +321,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
           aria-valuetext={plan?.length ? t("detail.planProgress", { completed, total: plan.length }) : t(`detail.state.${turnState}`)} data-state={turnState} data-indeterminate={value === undefined || undefined}>
           <span style={value === undefined ? undefined : { width: `${value}%` }} />
         </div>;
-      })}</div>}
+      })}</TurnProgress>}
     </div></PanelHeader>
     <div className="task-timeline" aria-busy={loading}>
       <div className="timeline-scroll" ref={viewport} tabIndex={0} aria-label={t("timeline.title")}

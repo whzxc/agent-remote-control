@@ -581,3 +581,13 @@ textarea.input.mono { font-family: var(--font-mono); font-size: var(--text-small
 .notice[data-compact] { font-size: var(--text-meta); font-weight: 400; line-height: 16px; }
 .notice[data-elevated] { box-shadow: var(--shadow-md); }
 .settings-group[data-subtle] > h2 { font-size: var(--text-small); font-weight: 600; color: var(--text-secondary); }
+
+.tile-phase { width: 32px; height: 32px; border-radius: var(--radius-tile); background: color-mix(in srgb, currentColor 17%, transparent); }
+.tag[data-form="compact-status"] { display: inline-flex; align-items: center; padding: 0 7px; height: auto; border-radius: var(--radius-pill); background: var(--surface-subtle); color: var(--text-secondary); font-size: 11px; line-height: 18px; white-space: nowrap; }
+.tag[data-form="compact-status"][data-tone="warning"] { background: var(--warning-soft); color: var(--warning); }
+.tag[data-form="compact-status"][data-tone="danger"] { background: var(--danger-soft); color: var(--danger); }
+.tag[data-form="compact-status"][data-tone="success"] { background: var(--success-soft); color: var(--success); }
+.tag[data-form="workflow-status"] { display: inline-flex; align-items: center; gap: 5px; height: auto; border-radius: var(--radius-field); padding: 4px 8px; font-size: var(--text-meta); line-height: 16px; font-weight: 500; white-space: nowrap; color: var(--text-secondary); background: var(--surface-sunken); }
+.tag[data-form="workflow-status"][data-tone="warning"] { color: var(--warning); background: color-mix(in srgb, var(--warning) 10%, transparent); }
+.tag[data-form="workflow-status"][data-tone="command"] { color: var(--phase-command); background: color-mix(in srgb, var(--phase-command) 10%, transparent); }
+.tag[data-form="workflow-status"][data-tone="success"] { color: var(--success); background: color-mix(in srgb, var(--success) 10%, transparent); }

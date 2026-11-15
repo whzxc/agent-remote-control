@@ -4,7 +4,7 @@ import { Tooltip as HoverHelp } from "../components/ui/index";
 import { PanelFooter } from "../components/ui/Panel";
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Check, ChevronDown, ChevronRight, CircleDot, Copy, GitCommitHorizontal, Inbox, Lightbulb, ListChecks, Minus, ReceiptText, MessageSquare, FileText, X } from 'lucide-react';
-import { Button, Icon, IconButton, LoadingIndicator, Notice, SearchInput, SingleChoice } from '../components/ui';
+import { Button, Icon, IconButton, LoadingIndicator, Notice, SearchInput, SingleChoice, Tile, Tag } from '../components/ui';
 import { Card } from '../components/ui/card';
 import { t, locale } from '../i18n';
 import { connector } from '../state/connector';
@@ -24,7 +24,7 @@ const icons = { open: CircleDot, triaged: ListChecks, candidate: Lightbulb, fix:
 
 function Status({ entry }: { entry: AXEntry }) {
   const status = axStatus(entry);
-  return <span className="ax-status" data-status={status}><Icon icon={icons[status as keyof typeof icons] ?? CircleDot} size={14} />{t(`center.ax.status.${status}`)}</span>;
+  return <Tag form="workflow-status" tone={status === 'open' || status === 'candidate' ? 'warning' : status === 'triaged' ? 'command' : ['fix', 'document', 'closed'].includes(status) ? 'success' : undefined}><Icon icon={icons[status as keyof typeof icons] ?? CircleDot} size={14} />{t(`center.ax.status.${status}`)}</Tag>;
 }
 function CopyValue({ value, label, compact = false }: { value: string; label: string; compact?: boolean }) {
   const { copied, error, copy } = useCopyState();
@@ -133,7 +133,7 @@ export default function AXPanel() {
         {rows.slice(0, limit).map(entry => {
           const id = `ax-row-${entry.id}`;
           return <Card asChild padded key={entry.id} className="ax-row"><button type="button" id={id} onClick={() => open(entry, id)} aria-labelledby={`${id}-title`} aria-describedby={`${id}-meta ${id}-status`}>
-            <span className="center-glyph"><Icon icon={Lightbulb} /></span>
+            <Tile icon={Lightbulb} form="phase" tone="neutral" />
             <span className="ax-row-body"><span className="ax-row-title"><HoverHelp text={entry.id}><code>{shortId(entry.id)}</code></HoverHelp><strong id={`${id}-title`}>{entry.symptom}</strong></span>
               <span id={`${id}-meta`} className="ax-row-meta">{[!axClosed(entry) && severity(entry), t('center.ax.occurrences', { count: entry.occurrenceCount }), source(entry.source), badgeTime(entry)].filter(Boolean).join(' · ')}</span></span>
             <span id={`${id}-status`}><Status entry={entry} /></span><Icon icon={ChevronRight} className="center-row-go" />

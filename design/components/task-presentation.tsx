@@ -74,3 +74,5 @@ export default () => [
     </Frame>
   )),
 ];
+
+export function TaskDateHeading({ children }: { children: unknown }) { return <h3 class="py-2 text-meta leading-4 font-semibold text-text-secondary">{children}</h3>; }

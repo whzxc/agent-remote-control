@@ -7,6 +7,7 @@ import { Input } from '../components/field';
 import { QuotaCards } from '../components/quota';
 import { TaskCard } from '../components/task-card';
 import { AgentIcon } from '../components/agent-quota-mark';
+import { TaskDateHeading } from '../components/task-presentation';
 import { IconButton } from '../components/icon-button';
 import { layerSettings, layerTask } from '../fixtures/layer-content';
 import { ThemeSwatch } from '../components/theme-swatch';
@@ -33,7 +34,7 @@ export function WorkspaceContent({ settings = false }: { settings?: boolean }) {
 }
 export function NodePanelContent() {
   return <div class="flex flex-col gap-4"><QuotaCards windows={agentQuotas} />
-    <section class="flex flex-col gap-2"><h3 class="text-meta font-semibold text-text-secondary">今天 · 1</h3>
+    <section class="flex flex-col"><TaskDateHeading>今天 · 1</TaskDateHeading>
       <TaskCard task={layerTask} form="detail" /></section>
   </div>;
 }

@@ -1,11 +1,13 @@
+import { TaskReplyCard, PlanContent } from './ui/TaskContent';
+import { TimelineRailStep as RailStep } from './ui/TimelineRail';
 import { motionTransition } from "../motion/tokens";
 import { Tooltip as HoverHelp } from "./ui/index";
 import { TaskReceiptHistory } from "./TaskNeedsYou";
-import { TaskContentCard, TaskMessage } from "./ui/TaskPresentation";
+import { TaskMessage } from "./ui/TaskPresentation";
 import { ChangedFiles } from "./TaskChanges";
 import TaskOutcome from "./TaskOutcome";
 import { memo, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { AlertCircle, Brain, Copy, Check, ChevronRight, CircleCheck, CircleX, ShieldCheck, Circle, FileText, ListChecks, MessageSquare, ShieldAlert, Terminal, UserRound, Wrench, type LucideIcon } from "lucide-react";
+import { AlertCircle, Brain, Copy, Check, ChevronRight, CircleCheck, CircleX, ShieldCheck, Circle, FileText, ListChecks, MessageSquare, ShieldAlert, Terminal, UserRound, Wrench } from "lucide-react";
 import { Collapsible } from "radix-ui";
 import { AnimatePresence, motion } from "motion/react";
 import { t } from "../i18n";
@@ -46,12 +48,6 @@ function Fold({ open, onChange, summary, children, className = "", expandable = 
       </Collapsible.Content>}
     </AnimatePresence>}
   </Collapsible.Root>;
-}
-function RailStep({ icon, phase, live, children }: { icon?: LucideIcon; phase?: string; live?: boolean; children: ReactNode }) {
-  return <li className="relay-step" data-phase={phase} data-live={live || undefined}>
-    <span className="relay-step-node" aria-hidden="true">{icon ? <Icon icon={icon} size={13} /> : <span className="relay-step-dot" />}</span>
-    <div className="relay-step-content">{children}</div>
-  </li>;
 }
 function UserMessage({ text, truncated, open, onChange }: { text: string; truncated?: boolean; open: boolean; onChange: (open: boolean) => void }) {
   const id = useId(), content = useRef<HTMLDivElement>(null);
@@ -130,10 +126,10 @@ function InteractionAnchor({ entry, agent, session }: { entry: AgentTimelineEntr
 }
 function PlanEntry({ entry, settled }: { entry: AgentTimelineEntry; settled: boolean }) {
   const steps = entry.plan ?? [];
-  return <section className="task-plan" aria-label={t("timeline.plan")} data-settled={settled || undefined}>
+  return <PlanContent label={t("timeline.plan")} settled={settled}>
     <header><Icon icon={ListChecks} /><span>{t("timeline.plan")}</span><span>{steps.filter(step => step.status === "completed").length}/{steps.length}</span></header>
     <ul>{steps.map((step, index) => <li key={index} data-state={step.status}><Icon icon={step.status === "completed" ? Check : Circle} /><span>{step.content.text}</span></li>)}</ul>
-  </section>;
+  </PlanContent>;
 }
 function ThoughtEntry({ entry }: { entry: AgentTimelineEntry }) {
   const [open, setOpen] = useState(false);
@@ -286,7 +282,7 @@ const TurnCard = memo(function TurnCard({ narrow, group, index, latest, current,
       {pending && <TaskNeedsYou agent={agent} session={session} entries={group.entries} source={source} narrow={!!narrow} inline />}
       {(state === "failed" || state === "interrupted") && <TaskOutcome state={state} entries={group.entries} project={session.project} onResume={latest && current ? onResume : undefined} onRetry={latest && current ? onRetry : undefined} continuing={continuing} agent={agent} source={source} />}
       <TaskReceiptHistory agent={agent} id={session.id} turnId={group.turnId} latest={latest} />
-      {final && state !== "failed" && state !== "interrupted" && <TaskContentCard reply className="task-final"><header><RelayRoute source={source} agent={agent} reverse label={t("relay.reply")} /><CopyReply text={final.text ?? ""} /></header><TimelineMarkdown text={final.text ?? ""} />{final.truncated && <span className="timeline-meta">{t("timeline.truncated")}</span>}<footer><ChangedFiles entries={group.entries} project={session.project} /></footer></TaskContentCard>}
+      {final && state !== "failed" && state !== "interrupted" && <TaskReplyCard><header><RelayRoute source={source} agent={agent} reverse label={t("relay.reply")} /><CopyReply text={final.text ?? ""} /></header><TimelineMarkdown text={final.text ?? ""} />{final.truncated && <span className="timeline-meta">{t("timeline.truncated")}</span>}<footer><ChangedFiles entries={group.entries} project={session.project} /></footer></TaskReplyCard>}
     </div>}
   </section></Collapsible.Root>;
 }, sameTurn);

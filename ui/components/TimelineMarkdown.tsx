@@ -1,3 +1,4 @@
+import { ContentProse } from './ui/TaskContent';
 import { Tooltip as HoverHelp } from "./ui/index";
 import { readOnlyBrowser } from "../browserMode";
 import { Children, createContext, isValidElement, memo, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -48,7 +49,7 @@ export default memo(function TimelineMarkdown({ text }: { text: string }) {
   const { agent, id } = useContext(ResourceContext);
   const root = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
-  return <div ref={root} className="markdown timeline-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml urlTransform={timelineUrl} components={{
+  return <ContentProse ref={root}><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml urlTransform={timelineUrl} components={{
     ...headings,
     a: ({ href = "", children }) => {
       const link = timelineLink(href);
@@ -69,5 +70,5 @@ export default memo(function TimelineMarkdown({ text }: { text: string }) {
     },
     img: ({ src, alt }) => <TimelineImage src={src} alt={alt} />,
     table: ({ children }) => <div className="timeline-table"><table>{children}</table></div>,
-  }}>{text}</ReactMarkdown>{error && <span className="timeline-link-error" role="alert">{error}</span>}</div>;
+  }}>{text}</ReactMarkdown>{error && <span className="timeline-link-error" role="alert">{error}</span>}</ContentProse>;
 });
