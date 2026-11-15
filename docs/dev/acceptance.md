@@ -9,11 +9,11 @@ UI/UX acceptance (layout, visual states, copy, light/dark, widths, panel and tas
 Isolated-instance runtime acceptance is reserved for behavior fixtures cannot simulate: native windows and focus, the replacement/update lifecycle, real Agent dispatch and resume, and notification delivery. Keep it to the scenarios the change affects.
 
 Before a push, UI changes MUST pass `npm test` and the `accept:ui` fixture families they affect.
+`accept:ui` omits screenshots by default (`-layout` runs); pass `--screenshots` for visual changes and for the full `accept:ui` sweep before releases.
 Browser-only fixtures MAY run in an assigned lane with `--lane-fixtures` on a non-default port.
-Run the full `accept:ui` sweep before releases.
 A full sweep is not required before every push.
-Behavior fixture checks run in one theme.
-Screenshot checks and families that assert theme or color behavior run in both themes.
+Behavior fixture checks run in one theme unless the family asserts theme or color behavior.
+Screenshot runs (`--screenshots`) and families that assert theme or color behavior run in both themes.
 Use `--theme=light`, `--theme=dark` or `--theme=both` for a scoped diagnostic override.
 Theme-only scenario pairs share one JSON fixture.
 Fixtures that differ beyond theme remain separate scenarios.
@@ -92,23 +92,23 @@ The `studio-connections`, `studio-stopped` and `studio-unavailable` fixtures cov
 npm ci
 npx playwright install chromium
 npm run accept:ui
+npm run accept:ui -- --screenshots
 ```
 
-The script starts an isolated Vite page and captures 640×800, 1280×800 and 1920×1080 unless the fixture supplies its own viewports. Stop the existing development service first if it owns port 5187. Scenario mode never connects to real Core. The script rejects all actual management API requests. For WebKit comparison:
+The script starts an isolated Vite page and checks 640×800, 1280×800 and 1920×1080 unless the fixture supplies its own viewports. Stop the existing development service first if it owns port 5187. Scenario mode never connects to real Core. The script rejects all actual management API requests. For WebKit comparison:
 
 ```sh
 npx playwright install webkit
-npm run accept:ui -- --webkit
+npm run accept:ui -- --webkit --screenshots
 ```
 
-Artifacts live in `output/acceptance/ui/<timestamp>-<browser>/`:
+Default layout runs write to `output/acceptance/ui/<timestamp>-<browser>-layout/`, and `--screenshots` runs write to `output/acceptance/ui/<timestamp>-<browser>/`:
 
-- index.html compares current, previous, and pixel-diff images for all scenarios.
-- report.json records missing baselines, changed pixels/ratios, and render errors.
-- `<scenario>@<theme>-<width>x<height>.png` / `.json` contain screenshots and live derived state.
-- `*-before.png` / `*-diff.png` contain the prior baseline and pixel differences.
+- `index.html` summarizes scenarios and, under `--screenshots`, compares current, previous, and pixel-diff images.
+- `report.json` records render errors and, under `--screenshots`, missing baselines and changed pixels/ratios.
+- `<scenario>@<theme>-<width>x<height>.json` records live derived state; `--screenshots` adds `.png`, `*-before.png`, and `*-diff.png`.
 
-The first run creates a baseline. Later runs compare with the latest directory for the same browser. Changes require visual review and are not automatically defects. Render errors, unexpected real API requests, or missing scenario nodes cause nonzero exit. Git ignores baselines and reports.
+At run start, `accept:ui` keeps at most two layout run directories and two screenshot run directories per browser engine (preserving the newest screenshot run's comparison base) and deletes older ones. Use the default output directories for every acceptance tool. Do not create per-task or per-round directories under `output/` or pass a fresh `--out=` base. Put ad hoc task evidence and command logs outside the checkout, and keep personal paths out of the repository. Render errors, unexpected real API requests, or missing scenario nodes cause nonzero exit. Git ignores baselines and reports.
 
 Scenarios in tooling/acceptance/scenarios/*.json include idle, single-task, parallel-seven, approval, long-multilingual, narrow-tentacles, left-panel, right-panel, light, and dark. Left and right panels are captured separately under the product's single-panel rule. The `p3-*` scenarios cover source setup (including empty, local, and fixed-connection entry), standalone and stacked connection methods/configuration/ready, Welcome, and owned/joined Connection detail in both themes. Fixtures use `sourceSetup`, `connectionSetup`, `remoteLink`, and `relayProgress` to select real renderer states without contacting Core. Copy scenario JSON to change Agents, phases, text, themes, language, and panels without unit tests.
 
@@ -152,9 +152,9 @@ Task dialogs take their accessible name from the visible native task-title headi
 
 At narrow panel widths, open the needs-you banner to inspect the capped request Dialog in either long-input scenario.
 
-Target one fixture with `npm run accept:ui -- --scenario=task-owner-desktop` from main.
-In an assigned lane, use `npm run accept:ui -- --lane-fixtures --no-screenshots --port=5287 --scenario=task-owner-desktop`.
-The runner uses browser fixtures and can omit screenshots. A missing route fails readiness with its method and path in `scenario.missingRoutes` and `data-scenario-error`.
+Target one fixture with `npm run accept:ui -- --scenario=task-owner-desktop` from main, adding `--screenshots` when inspecting visual changes.
+In an assigned lane, use `npm run accept:ui -- --lane-fixtures --port=5287 --scenario=task-owner-desktop`.
+The runner uses browser fixtures and omits screenshots unless `--screenshots` is passed. A missing route fails readiness with its method and path in `scenario.missingRoutes` and `data-scenario-error`.
 
 `quota-ring-remaining` and `quota-ring-used` show Codex ahead of time, Cursor even with time, and OpenCode behind time in the two quota display modes.
 
@@ -186,8 +186,8 @@ This isolated MCP scenario checks decision/full views, criteria hash reuse and i
 
 ```sh
 arc cli app start
-arc cli app snapshot --out ./output/acceptance/manual
-printf '%s' '{"width":1280,"height":800,"panel":{"kind":"agent","id":"codex"}}' | arc cli app snapshot --out ./output/acceptance/agent --stdin
+arc cli app snapshot
+printf '%s' '{"width":1280,"height":800,"panel":{"kind":"agent","id":"codex"}}' | arc cli app snapshot --stdin
 ```
 
 Without a shim, use the bundled CLI's absolute path. macOS cli install-shim idempotently creates ~/.local/bin/arc and stops rather than overwriting another file. Inspect pathHint for noninteractive-shell PATH. Its zsh command may be copied when needed. Shell configuration is never changed automatically. The check starts `$SHELL -c` with a minimal system PATH to avoid inherited interactive additions. It does not prove a customized SSH environment.
@@ -202,7 +202,7 @@ The target needs a macOS App with acceptance commands, working Codex login, and 
 
 ```sh
 node tooling/acceptance/remote.mjs --host <host>
-node tooling/acceptance/remote.mjs --host <host> --project /path/to/project --out ./output/acceptance/remote-manual
+node tooling/acceptance/remote.mjs --host <host> --project /path/to/project
 ```
 
 The script starts App-managed Core through app start, reads doctor, dispatches a local-cli read-only self-test that replies only ARC_ACCEPTANCE_OK, waits for creation and terminal receipts, checks records/origin/activity, and captures the App. It starts no independent headless daemon. Target-side cli wait performs bounded waiting without host-side SSH polling loops. Per-request approval:bypass does not change global target settings.
@@ -238,5 +238,5 @@ These fixtures are stateful and never contact downstream services.
 
 `tests/mcp-hub.test.ts` in `npm run test:extended` drives a synthetic stdio server through the hub ops: disabled exposure, add, paginated discovery, calls, `list_changed` refresh, error codes, Codex import, disable and removal.
 
-Browser-only fixtures may run in an explicitly assigned lane with `npm run accept:ui -- --lane-fixtures --no-screenshots --port=5287 --scenario='device-*'`.
+Browser-only fixtures may run in an explicitly assigned lane with `npm run accept:ui -- --lane-fixtures --port=5287 --scenario='device-*'`.
 The port MUST differ from the default preview port. The scenario filter accepts a trailing `*` for a family. Manual fixture preview uses `npm run dev:ui -- --mode fixtures`; fixture mode omits the native management proxy. This path never launches native instances.

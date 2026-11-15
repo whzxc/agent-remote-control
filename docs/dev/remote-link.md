@@ -99,7 +99,7 @@ Completed step labels retain the chosen value. Only the body scrolls when the vi
 
 Add connection MAY stack on top of Add control source or Change connection. The parent dialog stays mounted, scaled to 0.95 and shifted up without dimming or a visible scrim. The stacked dialog shows "Returns to <parent title> when done". Completing it closes only the stacked layer and selects the new connection in the parent. Closing it returns to the parent unchanged. Escape closes one layer.
 
-Run `npm run accept:ui -- --setup-only --no-screenshots` for setup layout acceptance at 640×800, 1280×800 and 1920×1080. Standard steps MUST fit without body scrolling at the two larger viewports. The 640px check permits vertical scrolling and rejects horizontal overflow. Stacked layers MUST remain narrower than their recessed parent.
+Run `npm run accept:ui -- --setup-only` for setup layout acceptance at 640×800, 1280×800 and 1920×1080. Standard steps MUST fit without body scrolling at the two larger viewports. The 640px check permits vertical scrolling and rejects horizontal overflow. Stacked layers MUST remain narrower than their recessed parent.
 
 ### Add a control source
 

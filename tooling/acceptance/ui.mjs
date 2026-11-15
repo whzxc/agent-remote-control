@@ -10,6 +10,7 @@ import path from 'node:path';
 import { PNG } from 'pngjs';
 import pixelmatch from 'pixelmatch';
 import { runTestCommand } from '../test.mjs';
+import { pruneUiRuns, screenshotsEnabled } from './ui-retention.mjs';
 
 if (process.argv.includes('--task-dock')) {
   await runTestCommand(process.execPath, ['tooling/check-tests.mjs']);
@@ -19,7 +20,7 @@ if (process.argv.includes('--task-dock')) {
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const base = path.resolve(process.argv.find(arg => arg.startsWith('--out='))?.slice('--out='.length) ?? path.join(root, 'output/acceptance/ui'));
-const screenshots = !process.argv.includes('--no-screenshots');
+const screenshots = screenshotsEnabled(process.argv);
 const scenarioFilter = process.argv.find(arg => arg.startsWith('--scenario='))?.slice('--scenario='.length);
 const requestedTheme = process.argv.find(arg => arg.startsWith('--theme='))?.slice('--theme='.length);
 if (requestedTheme && !['light', 'dark', 'both'].includes(requestedTheme)) throw new Error('--theme must be light, dark or both');
@@ -27,7 +28,7 @@ const port = Number(process.argv.find(arg => arg.startsWith('--port='))?.slice('
 const setupOnly = process.argv.includes('--setup-only');
 const engine = process.argv.includes('--webkit') ? 'webkit' : 'chromium';
 await mkdir(base, { recursive: true });
-const previous = (await readdir(base)).filter(n => n.endsWith(`-${engine}`)).sort().at(-1);
+const previous = await pruneUiRuns(base, engine, screenshots);
 const out = path.join(base, `${new Date().toISOString().replaceAll(':', '-')}-${engine}${screenshots ? '' : '-layout'}`);
 await mkdir(out);
 const scenarios = (await readdir(path.join(root, 'tooling/acceptance/scenarios'))).filter(f => f.endsWith('.json') && (!scenarioFilter || (scenarioFilter.endsWith('*') ? f.startsWith(scenarioFilter.slice(0, -1)) : f === `${scenarioFilter}.json`))).sort();

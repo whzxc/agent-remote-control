@@ -55,7 +55,7 @@ The workspace shares root Cargo.lock and target. The compilation-cache budget is
 
 ## Design sources
 
-Use the globally installed `adg` CLI, version 0.13.1 or later:
+Use the globally installed `adg` CLI, version 0.14.1 or later:
 
 ```sh
 adg check

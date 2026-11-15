@@ -4,7 +4,7 @@
 
 TSX sources in `design/` define ARC's visual direction. React implementations follow approved sources. [UI conventions](ui.md) owns behavior, data projection and layout logic.
 
-The [ADG asset rules](https://github.com/whzxc/agent-design-gallery/blob/main/docs/asset-rules.md) own generic placement, ownership, naming, frame admission, fixtures, review and lifecycle rules; this page keeps ARC-specific decisions. The [toolkit contract](https://github.com/whzxc/agent-design-gallery/blob/main/docs/design-toolkit.md) governs authoring, rendering, checks and viewer commands. Follow the asset rules when local guidance conflicts. Use the global ADG CLI **>=0.13.1**, as required by `adg.config.mjs`; ARC does not depend on the toolkit at runtime.
+The [ADG asset rules](https://github.com/whzxc/agent-design-gallery/blob/main/docs/asset-rules.md) own generic placement, ownership, naming, frame admission, fixtures, review and lifecycle rules; this page keeps ARC-specific decisions. The [toolkit contract](https://github.com/whzxc/agent-design-gallery/blob/main/docs/design-toolkit.md) governs authoring, rendering, checks and viewer commands. Follow the asset rules when local guidance conflicts. Use the global ADG CLI **>=0.14.1**, as required by `adg.config.mjs`; ARC does not depend on the toolkit at runtime.
 
 ## Presentation forms
 
@@ -150,7 +150,7 @@ Homepage node, mark, Board header and navigation parts live in shared components
 
 Layout and behavior changes may be implemented directly. New visual directions and redesigns start as proposed frames in the owning TSX source and require the user's approval of both-theme renders before implementation. Apply ADG's [status and lifecycle](https://github.com/whzxc/agent-design-gallery/blob/main/docs/asset-rules.md#status-and-lifecycle) rules for bindings, source updates after acceptance, drift and retirement.
 
-After implementation, run `adg compare` once on the affected frames as a review list. Rework missing or extra texts and offsets shared by many texts; accept isolated small offsets. Compare differences are review notes, not a gate. The user reviews the running result, or the gallery for new directions. Inspect `git show --stat HEAD` for unrelated files. Keep review evidence in ignored output or an external disposable directory; repository documentation keeps no batch history, check results or decision logs.
+Set `--base=<rev>` to the commit where the task started; Git supplies the added, removed and changed frames. Run `adg diff --base=<rev> --impacted --json` to write the overwritten review page in `output/design/diff/index.html` and read `data.review` (`added`, `removed`, `changed`), and run `adg link <viewer-url> --base=<rev>` to print the single reachable hub review URL (`?base=<rev>`). A design change report carries that review link and the `added`, `removed` and `changed` counts, with no per-frame images or custom comparison scripts. After implementation, run `adg compare` once on the affected frames as a text-alignment review note (reworking missing or extra texts and offsets shared by many texts while accepting isolated small offsets; `compare` is not a gate). Inspect `git show --stat HEAD` for unrelated files. Keep tool outputs in their default `output/` locations and put any ad hoc task evidence outside the checkout; repository documentation keeps no batch history, check results or decision logs.
 
 ## Implementation checklist
 
