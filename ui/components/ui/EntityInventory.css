@@ -1,0 +1,43 @@
+
+.agent-section-count { color: var(--text-tertiary); font-weight: 400; }
+.connection-meta { color:var(--text-secondary); font:400 var(--text-meta)/16px var(--font-ui); }
+.connection-card-identity h3 { font:650 var(--text-body)/16px var(--font-ui); }
+.connection-relay { color:var(--accent); }
+.connection-tunnel { color:var(--phase-command); }
+.connection-facts dt { color:var(--text-secondary); font:400 var(--text-meta)/16px var(--font-ui); }
+.connection-facts dd { font:400 var(--text-body)/20px var(--font-ui); }
+.connection-version { color:var(--text-secondary); font:400 var(--text-meta)/16px var(--font-ui); }
+
+.account-card { border: 1px solid var(--border); }
+.account-email, .account-status { font-size: var(--text-meta); line-height: 16px; color: var(--text-secondary); }
+.account-status [data-signed-out] { color: var(--danger); }
+.agent-platform-empty { color: var(--text-secondary); font-size: var(--text-small); }
+.native-agent-card > p { color: var(--text-secondary); font-size: var(--text-small); line-height: 18px; }
+.connector-card .connector-name h3 { font-size: var(--text-body); line-height: 20px; font-weight: 650; }
+.connector-state { color: var(--text-secondary); font-size: var(--text-meta); line-height: 16px; }
+.connector-state[data-connected] { color: var(--success); }
+.connector-facts { font-size: var(--text-meta); line-height: 16px; }
+.connector-fact + .connector-fact::before { color: var(--text-tertiary); }
+.connector-fact dt { color: var(--text-secondary); }
+.platforms-heading h2 { font-size: var(--text-title); font-weight: 650; }
+
+.agent-summary strong { font-size: var(--text-title); font-weight: 650; line-height: 24px; }
+.agent-summary-meta { font-size: var(--text-meta); line-height: 18px; color: var(--text-secondary); }
+.agent-summary-meta > a { color: var(--accent-text); font-size: var(--text-small); }
+.agents-toolbar > h3 { font-size: var(--text-small); font-weight: 650; line-height: 16px; color: var(--text-secondary); }
+.agent-copy > a, .agent-copy > strong { font-size: var(--text-body); font-weight: 650; line-height: 18px; color: inherit; text-decoration: none; }
+.agent-copy > a:hover {
+  text-decoration: underline;
+}
+.agent-copy > span,
+.agent-adapter {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.agent-detail-trigger {
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-tile);
+}
+.agent-uninstalled { background: transparent; border: 0; border-radius: var(--radius-tile); color: inherit; text-decoration: none; }
+.agent-uninstalled:hover { background: var(--hover); }

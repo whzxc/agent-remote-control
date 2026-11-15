@@ -1,3 +1,4 @@
+@import "./components/ui/EntityInventory.css";
 @import "./components/ui/style-HoverScope.css";
 @import "./components/ui/style-Settings.css";
 @import "./components/ui/style-Dialog.css";
@@ -300,27 +301,18 @@ pre {
   flex-direction: column;
   gap: 4px;
 }
-.agent-copy > a, .agent-copy > strong { font-size: var(--text-body); font-weight: 650; line-height: 18px; color: inherit; text-decoration: none; }
-.agent-copy > a:hover {
-  text-decoration: underline;
-}
 .agent-copy > span,
 .agent-adapter {
-  font-size: 12px;
-  color: var(--text-secondary);
   overflow-wrap: anywhere;
 }
 .agent-adapter {
   grid-column: 2 / 4;
 }
 .agent-detail-trigger {
-  background: transparent;
-  border: 0;
   padding: 0;
   cursor: pointer;
   display: flex;
   justify-content: center;
-  border-radius: var(--radius-tile);
 }
 @media (max-width: 420px) {
   .agent-grid {
@@ -357,8 +349,7 @@ pre {
 .agent-copy > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .agent-adapter { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; margin: 0; }
 .uninstalled-agents { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 4px; }
-.agent-uninstalled { display: flex; gap: 10px; align-items: center; padding: 8px; background: transparent; border: 0; border-radius: var(--radius-tile); text-align: left; color: inherit; text-decoration: none; }
-.agent-uninstalled:hover { background: var(--hover); }
+.agent-uninstalled { display: flex; gap: 10px; align-items: center; padding: 8px; text-align: left; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .slider { position: relative; display: flex; align-items: center; min-width: 0; height: var(--field-height); touch-action: none; user-select: none; }

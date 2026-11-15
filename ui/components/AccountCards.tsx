@@ -1,3 +1,4 @@
+import { EntityCard } from './ui/EntityInventory';
 import { useSubmittedDirty } from "./ui/useSubmittedDirty";
 import { useDialogCompletion } from "./ui/Dialog";
 import { useId, useState, type FormEvent } from 'react';
@@ -8,7 +9,6 @@ import { refreshAccounts, refreshAccountQuota } from '../state/accounts';
 import { readOnlyBrowser } from '../browserMode';
 import { t } from '../i18n';
 import { Button, Dialog, Field, IconButton, Input, Notice, Tag } from './ui';
-import { Card } from './ui/card';
 import { Sensitive } from './Sensitive';
 import AgentQuota from './AgentQuota';
 import { accountQuotaProvider } from '../subscriptions/accountQuota';
@@ -28,7 +28,7 @@ export function AgentAccountCard({ account, profile, onSelect, onReauth }: {
     catch (error) { setError(String(error)); }
     finally { setRefreshing(false); }
   }
-  return <Card variant="reply" className="account-card" role="region" aria-label={account.alias}>
+  return <EntityCard variant="reply" className="account-card" role="region" aria-label={account.alias}>
     <div className="account-heading">
       <div className="account-identity">
         <div className="account-name">
@@ -51,7 +51,7 @@ export function AgentAccountCard({ account, profile, onSelect, onReauth }: {
       </div>}
     {editing && <AccountEdit account={account} profile={profile} action={editing}
       returnFocus={`[id="${id}-${editing}"], [data-add-agent-account]`} onClose={() => setEditing(undefined)} />}
-  </Card>;
+  </EntityCard>;
 }
 
 function AccountEdit({ account, profile, action, returnFocus, onClose }: {

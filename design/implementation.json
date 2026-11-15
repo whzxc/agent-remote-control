@@ -2733,6 +2733,52 @@
           "source": "design/components/record-detail.tsx"
         }
       ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/EntityInventory.tsx",
+        "symbol": "EntityInventory"
+      },
+      "design": [
+        {
+          "source": "design/components/entity-inventory.tsx",
+          "part": "EntityInventory"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/EntityInventory.tsx",
+        "symbol": "EntitySection"
+      },
+      "design": [
+        {
+          "source": "design/components/entity-inventory.tsx",
+          "part": "EntitySection"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/EntityInventory.css"
+      },
+      "design": [
+        {
+          "source": "design/components/entity-inventory.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/EntityInventory.tsx",
+        "symbol": "EntityCard"
+      },
+      "design": [
+        {
+          "source": "design/components/entity-inventory.tsx",
+          "part": "EntityCard"
+        }
+      ]
     }
   ]
 }

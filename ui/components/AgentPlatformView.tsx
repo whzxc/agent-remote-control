@@ -1,3 +1,4 @@
+import { EntitySection, EntityCard } from './ui/EntityInventory';
 import { PanelHeader } from "./ui/Panel";
 import { useCallback, useState, type ReactNode } from 'react';
 import PetPicker from '../pets/PetPicker';
@@ -13,7 +14,6 @@ import { AgentQuotaIcon } from '../subscriptions/AgentQuotaIcon';
 import { AgentAccountCard } from './AccountCards';
 import AgentAccountAdd from './AgentAccountAdd';
 import { Button, DialogClose, Icon, IconButton, Loading, Notice } from './ui';
-import { Card } from './ui/card';
 import type { ProviderAccount } from '../types';
 import { readOnlyBrowser } from '../browserMode';
 
@@ -27,7 +27,7 @@ export default function AgentPlatformView({ agent, onSettings, widthControl }: {
   const kind = managesAgentAccounts(agent.agent) ? agent.agent : undefined;
   const canLogin = kind && agent.installed && !readOnlyBrowser;
   const accounts = orderedSubset(state.items.filter(account => account.agentProfiles.some(profile => profile.agent === agent.agent)), orders[`1:${agent.agent}`] ?? []);
-  return <section className="agent-panel-layer agent-platform-view">
+  return <EntitySection as="section" className="agent-panel-layer agent-platform-view">
     <PanelHeader><header className="dialog-header agent-panel-header">
       <AgentQuotaIcon agent={agent.agent} />
       <div className="agent-panel-heading"><h2>{name(agent)}</h2></div>
@@ -47,7 +47,7 @@ export default function AgentPlatformView({ agent, onSettings, widthControl }: {
         onSelect={() => selectAgentPanel({ type: 'agent', agent: agent.agent, accountId: account.id })} />)}
       {!accounts.length && !state.error && !state.loading && (canLogin ?
         <p className="agent-platform-empty">{t('accounts.empty')}</p> :
-        <Card className="native-agent-card">
+        <EntityCard className="native-agent-card">
           <p>{t(agent.installed && agent.available && agent.enabled ? 'agentReadyNoAccounts' : 'agentNeedsSetup')}</p>
           <div className="actions">
             <IconButton compact icon={RefreshCw} label={t('refreshAgents')} busy={refreshing} onClick={async () => {
@@ -55,8 +55,8 @@ export default function AgentPlatformView({ agent, onSettings, widthControl }: {
             }} />
             <IconButton compact icon={Settings} label={t('agents')} disabled={refreshing} onClick={onSettings} />
           </div>
-        </Card>)}
+        </EntityCard>)}
     </div>
     {login && kind && <AgentAccountAdd kind={kind} account={login.account} onClose={closeLogin} />}
-  </section>;
+  </EntitySection>;
 }
