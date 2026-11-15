@@ -1,7 +1,6 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync } from 'node:fs';
-import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -10,7 +9,8 @@ export function enterHeavyBuild() {
   if (process.env.ARC_HEAVY_BUILD_HELD === '1') return;
   const root = fileURLToPath(new URL('../', import.meta.url));
   const source = path.join(root, 'tooling/heavy-build.rs');
-  const cache = path.join(homedir(), '.cache/agent-remote-control');
+  const commonGit = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: root, encoding: 'utf8' }).trim();
+  const cache = path.join(commonGit, 'build-tools');
   const key = createHash('sha256').update(readFileSync(source)).digest('hex').slice(0, 16);
   const binary = path.join(cache, `heavy-build-${key}${process.platform === 'win32' ? '.exe' : ''}`);
   mkdirSync(cache, { recursive: true });

@@ -1,7 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -39,7 +38,8 @@ function resolveValues(value, bindings) {
 }
 
 async function captureScenario(scenario, catalog) {
-  const directory = await mkdtemp(path.join(tmpdir(), 'arc-agent-scenarios-'));
+  await mkdir(path.join(root, 'tmp'), { recursive: true });
+  const directory = await mkdtemp(path.join(root, 'tmp', 'arc-agent-scenarios-'));
   const stateDir = path.join(directory, 'arc-state'), home = path.join(directory, 'home');
   const client = new Client({ name: 'agent-remote-control-test', version: '1' });
   const transport = new StdioClientTransport({ command: executable('contract-fixture'), env: {

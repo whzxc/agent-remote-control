@@ -7,7 +7,6 @@ import {createServer} from 'node:http';
 import {execFile, spawn} from 'node:child_process';
 import {promisify} from 'node:util';
 import {mkdir, mkdtemp, readFile, writeFile, open, realpath} from 'node:fs/promises';
-import {tmpdir} from 'node:os';
 import path from 'node:path';
 import { build as buildClient } from 'vite';
 
@@ -19,7 +18,8 @@ const root = path.resolve(import.meta.dirname, '../..');
 process.chdir(root);
 const out = path.join(root, 'output/acceptance', `updates-${new Date().toISOString().replaceAll(':', '-')}`);
 await mkdir(out, {recursive:true});
-const temporary = await realpath(await mkdtemp(path.join(tmpdir(), 'arc-update-acceptance-')));
+await mkdir(path.join(root, 'tmp'), { recursive: true });
+const temporary = await realpath(await mkdtemp(path.join(root, 'tmp', 'arc-update-acceptance-')));
 const stateDir = path.join(temporary, 'state');
 const target = path.join(temporary, 'ARC Update Acceptance.app');
 const candidate = path.join(temporary, 'Candidate.app');
