@@ -21,6 +21,7 @@ export function Panel({
   viewportWidth = 1280,
   headerless = false,
   roomyHeader = false,
+  headerHeight,
 }: {
   title?: unknown;
   kind?: "panel" | "dialog";
@@ -37,6 +38,7 @@ export function Panel({
   viewportWidth?: number;
   headerless?: boolean;
   roomyHeader?: boolean;
+  headerHeight?: number;
 }) {
   return (
     <section
@@ -48,7 +50,7 @@ export function Panel({
         ${roomyHeader ? "gap-[29px] pt-[21px]" : "gap-[25px] pt-[13px]"}`}
     >
       {!headerless && (
-        <header class="flex h-(--control-height) items-center justify-between gap-4">
+        <header class="flex h-(--control-height) items-center justify-between gap-4" style={{height: headerHeight}}>
           {leading}
           <h2 class="text-title leading-6 font-[650]">{title}</h2>
           {headerNavigation}
@@ -158,7 +160,7 @@ export default () => {
     </div>
   );
   return [
-    ...dismissalForms.map(({ name, state, note }) => (
+    ...dismissalForms.filter(form => form.name !== 'dialog-running-cancellable').map(({ name, state, note }) => (
       <Frame name={name} note={note}>
         <Dialog title={dismissalCopy.title} footer={<DialogDismissalFooter state={state} />}>
           <Field label={dismissalCopy.field}><Input value={dismissalCopy.value} /></Field>

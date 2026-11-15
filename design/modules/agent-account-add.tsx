@@ -59,7 +59,6 @@ export default () => [
   <Frame name="external" fixture="codex-account-add-external@light" capture={{ selector: ".agent-account-add", viewport: "1280x800" }}><AgentAccountAdd method="import" owner="external" /></Frame>,
   ...([
     ['claude-add', 'claude-add'],
-    ['reauth', 'reauth'],
     ['reauth-waiting', 'waiting'],
     ['reauth-expired', 'expired'],
   ] as const).map(([name, flow]) => (

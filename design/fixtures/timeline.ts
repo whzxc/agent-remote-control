@@ -1,3 +1,4 @@
+import type { RelayStep } from "../modules/timeline";
 export const timelineTask = {
   title: "Review project configuration and verify the requested changes",
 };

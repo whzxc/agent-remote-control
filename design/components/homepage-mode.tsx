@@ -1,25 +1,27 @@
 import { Frame } from 'adg';
-import { SingleChoice } from '../components/single-choice';
+import { SingleChoice } from './single-choice';
 import { modeCopy as copy, modeForms } from '../fixtures/homepage-mode';
 
 export type HomepageMode = 'topology' | 'tasks';
 
-export function HomepageModeSwitch({ mode }: { mode: HomepageMode }) {
+export function HomepageModeSwitch({ mode, language = "en" }: { mode: HomepageMode; language?: "en" | "zh-CN" }) {
   return <SingleChoice label={copy.label} value={mode} options={[
-    { value: 'topology', label: copy.topology }, { value: 'tasks', label: copy.tasks },
+    { value: 'topology', label: language === "en" ? copy.topology : "拓扑" }, { value: 'tasks', label: language === "en" ? copy.tasks : "任务" },
   ]} />;
 }
 
-/** One-row homepage bar: Board clock on the left, mode switch centered. */
-export function HomepageBar({ mode, compact = false, date = copy.date, time = copy.time, title = copy.board }: {
-  mode: HomepageMode; compact?: boolean; date?: string; time?: string; title?: string;
+/** The clock and Board entry share a baseline; mode choice stays centered. */
+export function HomepageBar({ mode, compact = false, date = copy.date, time = copy.time, title = copy.board, language = "en" }: {
+  mode: HomepageMode; compact?: boolean; date?: string; time?: string; title?: string; language?: "en" | "zh-CN";
 }) {
-  return <div class="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-3">
-    <button aria-label={copy.openBoard} class="flex min-w-0 items-baseline gap-2 justify-self-start text-left text-text">
+  return <div class="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 text-text">
+    <div class="flex items-baseline gap-2 min-w-0 overflow-visible">
       <time class="text-title leading-6 font-[650] tabular-nums">{time}</time>
-      <span class="truncate text-meta text-text-secondary">{title}{!compact && ` · ${date}`}</span>
-    </button>
-    <HomepageModeSwitch mode={mode} />
+      <button class="flex items-center gap-0 min-w-0 h-9 text-small font-semibold whitespace-nowrap shrink-0">
+        {title}{!compact && <span class="text-meta text-text-secondary font-semibold whitespace-pre"> · {date.split(" · ").map((text,i)=><>{i>0 && " · "}<span>{text}</span></>)}</span>}
+      </button>
+    </div>
+    <div class={language === "en" ? "w-[157px]" : "w-[114px]"}><HomepageModeSwitch mode={mode} language={language} /></div>
   </div>;
 }
 

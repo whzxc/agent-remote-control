@@ -116,9 +116,6 @@ export default () => [
   <Frame name="board-feedback-gap" width={772}>
     <div class="w-full bg-surface-raised"><BoardFeedback gap /></div>
   </Frame>,
-  <Frame name="board-feedback-unavailable" width={772}>
-    <div class="w-full bg-surface-raised"><BoardFeedback /></div>
-  </Frame>,
   <Frame name="board-filters-current" width={772}>
     <div class="w-full bg-surface-raised"><BoardFilters /></div>
   </Frame>,

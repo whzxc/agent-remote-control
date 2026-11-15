@@ -14,7 +14,7 @@ The timeline owns vertical scrolling. Tables, code blocks, file lists, diffs and
 
 ## Homepage and layout
 
-The homepage uses the shared `homepage-mode` HomepageBar, `topology-mark`, `topology-group`, `node-capsule` and `topology-node` component assets. Full-scene design coverage follows the gap in [asset notes](design-assets.md). Palette preferences apply to the control-source and Agent sides.
+The [homepage surfaces](../../design/surfaces/homepage-topology.tsx) and [layer slots](../../design/surfaces/layers.tsx) use fixture-derived scene geometry. The homepage uses the shared `homepage-mode` HomepageBar, `topology-mark`, `topology-group`, `node-capsule` and `topology-node` component assets. Full-scene design coverage follows the gap in [asset notes](design-assets.md). Palette preferences apply to the control-source and Agent sides.
 
 `ui/topology/solve.ts` owns landscape geometry, earcup ports and mirrored node trees. `compact.ts` folds configuration subtrees under viewport pressure. Selection, explicit pins and attention protect nodes and ancestors. Task phases, running counts, task queues and activity timestamps do not determine node priority or compaction.
 

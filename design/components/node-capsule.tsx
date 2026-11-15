@@ -141,10 +141,10 @@ export function NodeCapsule({ state, label, graphic, mark, readings, used, neutr
 }
 
 export default () => [
-  ...capsuleForms.map(({ name, state, compact, wing, brand = 'codex', label = 'Codex' }) => {
+  ...capsuleForms.filter(form => !['unread', 'compact'].includes(form.name)).map(({ name, state, compact, wing, brand = 'codex', label = 'Codex' }) => {
     const model = nodeCapsuleLayout(state, compact);
     return <Frame name={name} width={model.width} height={48}
-      note="Proposed. The quota ring is the capsule outline. Logo anchor stays fixed; width and the outer port use the topology spring 210/26; reduced motion is direct.">
+      note="The quota ring is the capsule outline. Logo anchor stays fixed; width and the outer port use the topology spring 210/26; reduced motion is direct.">
       <div class="flex h-12" style={{ width: model.width }}>
         {wing === 'left' && <span class="flex-1" />}
         <NodeCapsule label={label} graphic={<AgentIcon brand={brand} readings={quotaReadings} />}

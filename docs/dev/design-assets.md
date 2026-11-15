@@ -6,7 +6,7 @@
 
 ## Open proposals
 
-- `surfaces/permissions.tsx` / `readiness`: review the permissions workspace composition using the shared centered Panel.
+None.
 
 ## Retained exceptions
 
@@ -17,7 +17,7 @@
 
 ## Known gaps
 
-- Homepage and device topology have no retained full-scene asset. A replacement must use current solver geometry and controller disclosure; existing browser scenarios cover the implementation.
+- Additional controller-disclosure and remote device states remain covered by browser scenarios; admit further scene frames only for a distinct reachable appearance.
 - Remaining combined component specimens need review for distinct-appearance coverage.
 - Remote task cards have snapshot history. Remote timeline, response forwarding, account/quota inventory and transfer controls remain unavailable.
 - Loading, failure, not-found, busy, pagination, Board detail/event rows and populated hosting forms without declared sources need coverage in their owning family.

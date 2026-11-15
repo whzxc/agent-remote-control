@@ -91,7 +91,7 @@ export default () => [
       <TopologyMark {...props} />
     </Frame>
   )),
-  ...recoveryForms.map(({ form, note }) => (
+  ...recoveryForms.filter(form => !['core', 'blocked'].includes(form.form)).map(({ form, note }) => (
     <Frame name={`arc-recovery-${form}`} note={note}>
       <ArcRecovery form={form} />
     </Frame>

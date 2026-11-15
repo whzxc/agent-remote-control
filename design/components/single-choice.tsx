@@ -103,7 +103,7 @@ export function SingleChoice({
             ? "flex w-full flex-col gap-2"
             : tabs
               ? "inline-flex gap-(--control-inset)"
-              : `inline-grid grid-flow-col auto-cols-fr rounded-control bg-surface-sunken p-(--control-inset) ${fill ? "w-full" : ""}`
+              : `inline-grid grid-flow-col ${fill ? "auto-cols-fr" : "auto-cols-max"} rounded-control bg-surface-sunken p-(--control-inset) ${fill ? "w-full" : ""}`
       }`}
     >
       {options.map((option, index) => {
@@ -114,7 +114,7 @@ export function SingleChoice({
             ? "gap-5 h-11 px-4 rounded-card text-body font-medium bg-surface-sunken"
             : tabs
               ? "h-(--control-height) px-3 text-body"
-              : `h-7 ${compact ? "px-0" : "px-4"} rounded-[14px] justify-center text-small whitespace-nowrap`;
+              : `h-7 ${compact ? "px-0" : "px-[14px]"} rounded-[14px] justify-center text-small whitespace-nowrap`;
         const content = (
           <>
             {option.graphic ||

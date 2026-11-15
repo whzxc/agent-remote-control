@@ -44,7 +44,7 @@ export function TopologyGroup({ label, members, layout = "vertical", hideLabel =
           ))}
         </span>
       )}
-      <span class="text-meta font-semibold tabular-nums text-text-secondary">{members.length}</span>
+      <span aria-hidden="true" class="text-meta font-semibold tabular-nums text-text-secondary">{members.length}</span>
     </span>
   );
   if (hideLabel) return capsule;
@@ -63,9 +63,9 @@ export function TopologyGroup({ label, members, layout = "vertical", hideLabel =
       </div>
     );
   return (
-    <div class="flex flex-col items-start gap-1 text-text">
+    <div class="flex w-max flex-col items-start gap-1 text-text">
       {capsule}
-      <span class="pl-[6px] text-meta leading-5 text-text-secondary">{label}</span>
+      <span aria-hidden="true" class="pl-[6px] whitespace-nowrap text-meta leading-5 text-text-secondary">{label}</span>
     </div>
   );
 }

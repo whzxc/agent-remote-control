@@ -11,10 +11,17 @@ const icons: Record<TaskStepKind, string> = {
 export function TaskActivityIcon({ kind, size = 14 }: { kind: TaskStepKind; size?: number }) {
   return <Icon name={icons[kind]} size={size} />;
 }
-export default () => (
+export function PhaseLabel({ children, phase = 'thinking', running = false }: { children: unknown; phase?: string; running?: boolean }) {
+  return <span data-free class="relative min-w-0 overflow-hidden text-ellipsis" style={{ color: `var(--phase-${phase})` }}>
+    {children}{running && <span class="absolute inset-0 opacity-15" aria-hidden="true">{children}</span>}
+  </span>;
+}
+export default () => [
+  <Frame name="phase-label"><PhaseLabel>Thinking</PhaseLabel></Frame>,
+
   <Frame name="task-activity-icons">
     <div class="flex items-center gap-3">
       {[...new Set(recentSteps.map(step => step.kind)), 'waiting' as const].map(kind => <TaskActivityIcon kind={kind} />)}
     </div>
   </Frame>
-);
+];

@@ -2292,6 +2292,146 @@
           "part": "StatePill"
         }
       ]
+    },
+    {
+      "implementation": {
+        "file": "ui/topology/Topology.tsx"
+      },
+      "design": [
+        {
+          "source": "design/components/topology-scene.tsx",
+          "part": "TopologyScene"
+        },
+        {
+          "source": "design/modules/homepage-scene.tsx",
+          "part": "HomepageScene"
+        },
+        {
+          "source": "design/surfaces/homepage-topology.tsx"
+        },
+        {
+          "source": "design/surfaces/homepage-topology-accounts.tsx"
+        },
+        {
+          "source": "design/surfaces/homepage-topology-portrait.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/layerFrame.ts"
+      },
+      "design": [
+        {
+          "source": "design/surfaces/layers.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/SettingsPage.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/layer-content.tsx",
+          "part": "WorkspaceContent"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AgentPanel.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/layer-content.tsx",
+          "part": "NodePanelContent"
+        },
+        {
+          "source": "design/modules/layer-content.tsx",
+          "part": "NodePanelHeading"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/HomepageBar.tsx",
+        "symbol": "HomepageBarView"
+      },
+      "design": [
+        {
+          "source": "design/components/homepage-mode.tsx",
+          "part": "HomepageBar"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TaskPhase.tsx",
+        "symbol": "PhaseLabel"
+      },
+      "design": [
+        {
+          "source": "design/components/task-activity.tsx",
+          "part": "PhaseLabel"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/HomepageBar.css"
+      },
+      "design": [
+        {
+          "source": "design/components/homepage-mode.tsx",
+          "part": "HomepageBar"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TaskPhase.css"
+      },
+      "design": [
+        {
+          "source": "design/components/task-activity.tsx",
+          "part": "PhaseLabel"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/NavCapsule.tsx",
+        "symbol": "NavCapsule"
+      },
+      "design": [
+        {
+          "source": "design/components/nav-capsule.tsx",
+          "part": "NavCapsule"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/NavCapsule.css"
+      },
+      "design": [
+        {
+          "source": "design/components/nav-capsule.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TaskPresentation.tsx",
+        "symbol": "TaskSpecTrigger"
+      },
+      "design": [
+        {
+          "source": "design/components/dispatch-spec.tsx",
+          "part": "DispatchSpec"
+        }
+      ]
     }
   ]
 }

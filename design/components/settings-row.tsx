@@ -17,11 +17,11 @@ export function Setting({
   toggle?: boolean;
 }) {
   return (
-    <div class="flex w-full items-center justify-between gap-4 rounded-card bg-surface-subtle px-4 py-4">
-      <div class="flex min-w-0 flex-col gap-[5px]">
-        <div class="text-body leading-4 font-medium text-text">{title}</div>
+    <div class={`flex w-full items-center justify-between gap-6 px-4 min-h-14 ${description ? "py-[14px]" : "py-[11px]"}`}>
+      <div class="flex min-w-0 flex-col gap-1">
+        <div class="text-body leading-5 font-medium text-text">{title}</div>
         {description && (
-          <div class="text-meta leading-[18px] text-text-secondary">
+          <div class="text-meta leading-[18px] text-text-secondary whitespace-pre-line">
             {description}
           </div>
         )}
@@ -41,8 +41,8 @@ export function SettingsSection({
 }) {
   return (
     <section class="flex flex-col gap-3">
-      {title && <h2 class="text-body font-semibold text-text">{title}</h2>}
-      {children}
+      {title && <h2 class="text-small leading-4 font-[650] text-text-secondary">{title}</h2>}
+      <Card class="py-0! gap-0!">{children}</Card>
     </section>
   );
 }

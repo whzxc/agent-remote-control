@@ -23,8 +23,9 @@ const prepared = {
 };
 
 export default {
-  requires: '>=0.5.0',
+  requires: '>=0.11.0',
   design: 'design',
+  check: { strictLayers: true, lifecycle: true },
   output: 'output/design',
   compare: {
     port: 5188,
@@ -44,7 +45,7 @@ export default {
         theme: (runTheme ?? fixture.theme) === 'dark' ? 'dark' : 'light',
         locale: fixture.language === 'zh-CN' ? 'zh-CN' : 'en-US',
         clock: fixture.clock ?? '2026-01-01T00:00:00Z',
-        ...(fixture.timezone ? { timezone: fixture.timezone } : {}),
+        timezone: fixture.timezone ?? 'Asia/Shanghai',
         ...(scenario.startsWith('portrait-topology-') ? { timezone: 'Asia/Shanghai' } : {}),
       };
     },

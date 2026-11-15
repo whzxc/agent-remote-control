@@ -7,9 +7,11 @@ import { FilePath, ProjectLabel } from "../components/project-path";
 import { StatePill } from '../components/task-presentation';
 import { DispatchSpec } from '../components/dispatch-spec';
 import { PermissionCard, RequestRouting } from '../components/request';
-import { timelineTask as task, relayParties, relayCopy, relayTurns, relaySteps, relayPlan, relayReply, relayFailure, type RelayKind, type RelayStep } from '../fixtures/timeline';
+import { timelineTask as task, relayParties, relayCopy, relayTurns, relaySteps, relayPlan, relayReply, relayFailure } from '../fixtures/timeline';
 import { taskDispatch } from "../fixtures/task-presentation";
 
+export type RelayKind = 'dispatch' | 'followup' | 'queued' | 'local';
+export type RelayStep = { kind: 'thought' | 'say' | 'tools' | 'edit' | 'failed' | 'live' | 'thinking' | 'request' | 'answered'; label?: string; meta?: string; detail?: string[]; target?: string; added?: number; removed?: number; expanded?: boolean; streaming?: boolean; by?: string };
 type RelayParty = { name: string; brand: "claude" | "codex" };
 const { source, agent } = relayParties;
 
@@ -320,7 +322,7 @@ export function RelayTimeline({ state }: { state: "running" | "waiting" | "done"
 
 export default () => [
   <Frame name="relay-route" width={420}><RelayRoute label={relayCopy.kind.dispatch} time="13:58" /></Frame>,
-  ...(["dispatch", "followup", "queued", "local"] as const).map((kind) => (
+  ...(["dispatch", "queued", "local"] as const).map((kind) => (
     <Frame name={`relay-message-${kind}`} width={512}>
       <div class="w-full bg-surface-raised">
         <RelayMessage kind={kind} text={kind === "queued" ? relayTurns.queued.prompt : undefined}
