@@ -77,6 +77,8 @@ test('small token differences consolidate unless three declarations use the valu
     await writeFile(path.join(root,'design/tokens.css'), ':root { --line-small:18px; --line-summary:19px; }');
     await writeFile(path.join(root,'ui/feature.css'), '.a{line-height:var(--line-summary)} .b{line-height:var(--line-summary)}');
     assert.ok(checkTokens(root).errors.some(error => error.includes('nearest --line-small')));
+    await writeFile(path.join(root,'ui/components/ui/literal.css'), '.example{line-height:19px}');
+    assert.ok(checkTokens(root).errors.some(error => error.includes('nearest --line-small')));
     await writeFile(path.join(root,'ui/extra.tsx'), 'export const line = {lineHeight: "var(--line-summary)"};');
     assert.deepEqual(checkTokens(root).errors, []);
     await writeFile(path.join(root,'tooling/ui-style-allowlist.json'), JSON.stringify([{file:'ui/feature.css',selector:'.a',property:'color',reason:'Feature-only decoration.'}]));
