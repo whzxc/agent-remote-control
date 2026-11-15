@@ -16,7 +16,8 @@ import { tasks, type TaskRecord } from "../state/tasks";
 import ActivityInteraction from "./ActivityInteraction";
 import TaskQuestion from "./TaskQuestion";
 import { Dialog, IconButton } from "./ui";
-import { TaskContentCard, RequestEntry } from "./ui/TaskPresentation";
+import { TaskContentCard } from "./ui/TaskPresentation";
+import { RequestEntry } from "./timeline/TaskPresentation";
 import { FilePath } from "./ui/ProjectPath";
 
 export function taskReceipts(records: TaskRecord[], agent: string, id: string) {

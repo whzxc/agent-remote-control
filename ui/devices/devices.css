@@ -1,4 +1,4 @@
-@import "../components/ui/DeviceFacts.css";
+@import "./DeviceFacts.css";
 .devices-content { display:flex; flex-direction:column; gap:24px; min-width:0; }
 .device-identity { display:flex; align-items:center; gap:12px; min-width:0; }
 .device-name { display:flex; flex-direction:column; gap:4px; flex:1; min-width:0; }

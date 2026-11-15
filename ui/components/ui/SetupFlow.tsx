@@ -1,4 +1,4 @@
-import type { ComponentProps, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { t } from "../../i18n";
 import { Dialog } from "./index";
 
@@ -19,8 +19,3 @@ export function SetupFlow({ layerId, title, steps, active, done, stacked, parent
       <span>{step.label}{index < active && step.value ? ` · ${step.value}` : ""}</span>
     </li>)}</ol>} footer={footer && <div className="setup-actions" data-layout={actionLayout}>{footer}</div>}>{children}</Dialog>;
 }
-
-export function SetupAccountDialog(props:ComponentProps<typeof Dialog>){return <Dialog {...props} className="agent-account-add"/>;}
-export function SetupWelcome(props:ComponentProps<'section'>){return <section {...props} className="welcome-page"/>;}
-export function SetupApproval(props:ComponentProps<'form'>){return <form {...props} className={'pairing-card '+(props.className??'')}/>;}
-export function SetupImpact(props:ComponentProps<'p'>){return <p {...props} className="hub-recovery-impact"/>;}

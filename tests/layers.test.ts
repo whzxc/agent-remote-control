@@ -242,7 +242,8 @@ test('deferred close focus restoration preserves the next action trigger', async
 test('cross-slot Back retains the originating panel detail and restores its control', async () => {
   // Regression: an exiting Board shell ran its close callback again when the task slot entered, clearing the retained record and Back focus target.
   await withDialog(async ({ server, root, settle, focused }) => {
-    const { default: Panel, PanelProvider } = await server.ssrLoadModule('/ui/components/ui/Panel.tsx');
+    const { default: Panel } = await server.ssrLoadModule('/ui/components/ui/Panel.tsx');
+    const { PanelProvider } = await server.ssrLoadModule('/ui/components/providers/PanelProvider.tsx');
     const { Button } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
     const { layers } = await server.ssrLoadModule('/ui/state/layers.ts');
     function Owner() {
@@ -267,7 +268,8 @@ test('slot content retains its feature context across workspace replacement', as
   await withDialog(async ({ server, root, settle }) => {
     const { createContext, useContext } = await import('react');
     const Context = createContext('Missing context');
-    const { default: Panel, PanelProvider, PanelRoute } = await server.ssrLoadModule('/ui/components/ui/Panel.tsx');
+    const { default: Panel, PanelRoute } = await server.ssrLoadModule('/ui/components/ui/Panel.tsx');
+    const { PanelProvider } = await server.ssrLoadModule('/ui/components/providers/PanelProvider.tsx');
     const { layers } = await server.ssrLoadModule('/ui/state/layers.ts');
     function Content() { return h('button', null, useContext(Context)); }
     function Owner() {

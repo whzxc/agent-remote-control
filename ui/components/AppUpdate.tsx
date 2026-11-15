@@ -1,4 +1,4 @@
-import { UpdateContent } from './ui/UpdateContent';
+import { UpdateContent } from './updates/UpdateContent';
 import { Tooltip as HoverHelp } from "./ui/index";
 import { TransientLayer } from "./ui/TransientLayer";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -10,12 +10,10 @@ import { isDesktop, openUrl } from "../platform";
 import { connector } from "../state/connector";
 import { navigation } from "../state/navigation";
 import { groupedReleaseNotes, releaseList, updateRange, type PublishedRelease } from "../state/releaseNotes";
-import {
-  updates, available, updateVisible, checkUpdate, showUpdate, dismissUpdate,
-  installUpdate, downloadUpdate, skipUpdate, updateActive, loadReleaseHistory,
-} from "../state/updates";
+import { updates, available, updateVisible, checkUpdate, showUpdate, dismissUpdate, installUpdate, downloadUpdate, skipUpdate, updateActive, loadReleaseHistory } from "../state/updates";
 import Dialog, { useDialogFeedback } from "./ui/Dialog";
-import { Button, Notice, Progress, Icon, IconButton, Menu, Tooltip } from "./ui";
+import { Button, Notice, Icon, IconButton, Menu, Tooltip } from "./ui";
+import { Progress } from "./updates/Progress";
 import { SettingsSection, Setting } from "./ui/Settings";
 import { Card } from "./ui/card";
 import "./AppUpdate.css";

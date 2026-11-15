@@ -1,0 +1,6 @@
+.stepped-slider { position: relative; display: flex; align-items: center; height: 36px; touch-action: none; user-select: none; }
+.stepped-slider-track { position: relative; flex: 1; height: 28px; border-radius: var(--radius-pill); background: var(--surface-sunken); }
+.stepped-slider-mark { position: absolute; top: 50%; left: calc(18px + var(--mark) * (100% - 36px)); width: 5px; height: 5px; border-radius: var(--border-radius-50); background: var(--text-tertiary); transform: translate(-50%, -50%); pointer-events: none; }
+.stepped-slider-thumb { display: block; width: 36px; height: 36px; border-radius: var(--border-radius-50); background: var(--knob); box-shadow: var(--shadow-md); cursor: grab; }
+.stepped-slider-thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.stepped-slider[data-disabled] { opacity: .42; }

@@ -1,5 +1,5 @@
 import {InspectionPopover} from '../components/ui/InspectionPopover';
-import { HomepageBarView } from '../components/ui/HomepageBar';
+import { HomepageBarView } from './HomepageBar';
 import { homepageMode, selectHomepageMode } from '../state/homepage';
 import { TransientLayer } from "../components/ui/TransientLayer";
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';

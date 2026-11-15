@@ -1,4 +1,4 @@
-import { LibraryContent } from '../components/ui/LibraryContent';
+import { LibraryContent } from './LibraryContent';
 import { Tooltip as HoverHelp } from "../components/ui/index";
 import { useSubmittedDirty } from "../components/ui/useSubmittedDirty";
 import { usePanelState } from "../components/ui/Panel";

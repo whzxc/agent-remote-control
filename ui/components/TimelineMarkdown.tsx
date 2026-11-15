@@ -1,4 +1,4 @@
-import { ContentProse } from './ui/TaskContent';
+import { ContentProse } from './timeline/TaskContent';
 import { Tooltip as HoverHelp } from "./ui/index";
 import { readOnlyBrowser } from "../browserMode";
 import { Children, createContext, isValidElement, memo, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";

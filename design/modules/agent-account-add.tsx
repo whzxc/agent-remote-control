@@ -1,3 +1,4 @@
+export function SetupAccountDialog({children}:{children:unknown}){return <div class="text-small leading-[18px]">{children}</div>}
 import { Frame } from 'adg';
 import { Dialog } from '../components/panel';
 import { Button } from '../components/button';

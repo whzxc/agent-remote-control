@@ -1,9 +1,10 @@
-import { TaskReplyCard, PlanContent } from './ui/TaskContent';
-import { TimelineRailStep as RailStep } from './ui/TimelineRail';
+import { TaskReplyCard, PlanContent } from './timeline/TaskContent';
+import { TimelineRailStep as RailStep } from './timeline/TimelineRail';
 import { motionTransition } from "../motion/tokens";
 import { Tooltip as HoverHelp } from "./ui/index";
 import { TaskReceiptHistory } from "./TaskNeedsYou";
-import { TaskMessage } from "./ui/TaskPresentation";
+
+import { TaskMessage } from "./timeline/TaskPresentation";
 import { ChangedFiles } from "./TaskChanges";
 import TaskOutcome from "./TaskOutcome";
 import { memo, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";

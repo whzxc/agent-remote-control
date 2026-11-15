@@ -83,8 +83,3 @@ export function SetupFlow({ step, children }: { step: OnboardingStep; children?:
 }
 
 export default () => <Frame name="flow" width={560}><SetupFlow step={onboardingFrames.find(s=>s.name==='stacked-method')!}>Choose a connection.</SetupFlow></Frame>;
-
-export function SetupAccountDialog({children}:{children:unknown}){return <div class="text-small leading-[18px]">{children}</div>}
-export function SetupWelcome({children}:{children:unknown}){return <section class="rounded-panel bg-surface-raised shadow-lg">{children}</section>}
-export function SetupApproval({children}:{children:unknown}){return <form class="rounded-[12px] border border-border">{children}</form>}
-export function SetupImpact({children}:{children:unknown}){return <p class="text-meta text-text-secondary">{children}</p>}

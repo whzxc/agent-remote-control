@@ -1,13 +1,6 @@
-import { QuotaPopover, QuotaDetail } from '../components/ui/QuotaDetail';
+import { QuotaPopover, QuotaDetail } from './QuotaDetail';
 import { TransientLayer } from "../components/ui/TransientLayer";
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Popover } from "radix-ui";
 import { useGeometryTransition } from "../motion/geometry";
 export type BubbleControls = {

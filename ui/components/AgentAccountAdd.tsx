@@ -1,4 +1,5 @@
-import {SetupAccountDialog} from './ui/SetupFlow';
+
+import { SetupAccountDialog } from "./accounts/SetupAccountDialog";
 import { useSubmittedDirty } from "./ui/useSubmittedDirty";
 import { useDialogCompletion } from "./ui/Dialog";
 import { useEffect, useId, useState, type FormEvent } from 'react';

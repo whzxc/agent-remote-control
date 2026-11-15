@@ -21,7 +21,9 @@ export function tokenPaint(value, property) {
   }
   if (/[#"']/.test(text) || /(?:rgba?|hsla?|oklch|oklab|lab|lch|color)\s*\(/i.test(text)) return false;
   // Percentages in color-mix are blending weights, not authored colors or dimensions.
-  text = text.replace(/color-mix\s*\(\s*in\s+(?:srgb|oklab|oklch)\s*,/g, '(').replace(/\b\d+(?:\.\d+)?%/g, '');
+  const mix = /color-mix\s*\(/i.test(text);
+  text = text.replace(/color-mix\s*\(\s*in\s+(?:srgb|oklab|oklch)\s*,/g, '(');
+  if (mix) text = text.replace(/\b\d+(?:\.\d+)?%/g, '');
   if (property === 'font-weight' || property === 'font') text = text.replace(/\b[1-9]00\b/g, '');
   if (property === 'line-height') text = text.replace(/\b\d+(?:\.\d+)?(?![\w.])/g, '');
   return text.replace(/\b(?:TOKEN|inherit|currentColor|transparent|none|normal|solid|dashed|dotted|double|inset|outset|bold|bolder|lighter|italic|oblique|tabular-nums|lining-nums|proportional-nums|small-caps|uppercase|lowercase|capitalize|underline|line-through|overline|auto)\b/gi, '')

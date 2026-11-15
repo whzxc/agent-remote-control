@@ -1,4 +1,5 @@
-import {SetupImpact} from './ui/SetupFlow';
+
+import { SetupImpact } from "./onboarding/SetupAppearance";
 import { useDialogCompletion } from "./ui/Dialog";
 import { useState } from "react";
 import { api } from "../api";

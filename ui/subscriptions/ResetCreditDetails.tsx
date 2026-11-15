@@ -1,4 +1,4 @@
-import { QuotaPeriod, QuotaCredit } from '../components/ui/QuotaDetail';
+import { QuotaPeriod, QuotaCredit } from './QuotaDetail';
 import { t } from "../i18n";
 import { preciseTime, resetText } from "./presentation";
 import type { ProviderSnapshot } from "./types";

@@ -1,5 +1,6 @@
-import { TaskFilter, TaskFeedSection } from './ui/TimelineSurface';
-import { prepareTaskSnapshot, taskSnapshotElement } from './ui/taskSnapshotMotion';
+import { TaskFilter, TaskFeedSection } from './timeline/TimelineSurface';
+import { taskSnapshotElement } from './timeline/taskSnapshotMotion';
+import { prepareTaskSnapshot } from "./timeline/taskSnapshotMotion";
 import { layers, captureLayerTrigger } from '../state/layers';
 import { deviceTasks } from '../devices/tasks';
 import { locale, t } from '../i18n';

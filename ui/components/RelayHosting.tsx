@@ -1,3 +1,4 @@
+import {DataTable} from './hosting/DataTable';
 import { EntityInventory } from './ui/EntityInventory';
 import { useCopyState } from "./ui/useCopyState";
 import { Tooltip as HoverHelp } from "./ui/index";
@@ -14,7 +15,7 @@ import { connector, notify, refreshConnector } from "../state/connector";
 import { appNow, useAppNow } from "../state/appEnvironment";
 import { useRelays, useRelayProgress, type Relay, type RelayProgress as Progress } from "../state/relay";
 import RelayProgress from "./RelayProgress";
-import { ConfirmDialog, Button, DataTable, Dialog, Icon, IconButton, Loading, Notice, Status } from "./ui";
+import { ConfirmDialog, Button, Dialog, Icon, IconButton, Loading, Notice, Status } from "./ui";
 
 type Member = { id: string; name: string; isSelf: boolean; joinedAt: string; lastOnline: string | null; online: boolean };
 type Job = { action: "create" | "redeploy" | "delete"; id?: string };

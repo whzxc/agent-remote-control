@@ -1,20 +1,8 @@
-.ui-error-callout {
-  display: grid;
-  align-items: center;
-  grid-template-columns: 20px minmax(0, 1fr);
-  justify-content: stretch;
-  background: var(--danger-soft);
-  color: var(--danger);
-  border-radius: var(--radius-tile);
-  gap: var(--space-3);
-  padding: var(--space-4);
-  font-size: var(--text-body);
-  line-height: 20px;
-}
-.ui-error-content { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); min-width: 0; width: 100%; }
-.ui-error-message { flex: 1; min-width: 0; margin: 0; overflow-wrap: anywhere; }
-.ui-error-action { flex: none; }
-.ui-error-action .button { color: inherit; }
+
+
+
+
+
 .ui-loading { display: inline-flex; color: var(--text-secondary); }
 .ui-spinner {
   width: 20px;
@@ -27,14 +15,4 @@
 @keyframes ui-spin { to { transform: rotate(360deg); } }
 :root[data-reduced-motion="true"] {
   .ui-spinner { animation: none; }
-}
-.app-feedback {
-  box-shadow: var(--shadow-md);
-  border-radius: var(--radius-field);
-}
-.graph-error {
-  color: var(--danger);
-}
-.graph-error {
-  font-size: 12px;
 }

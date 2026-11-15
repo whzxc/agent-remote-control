@@ -1,4 +1,4 @@
-@import "./ui/UpdateContent.css";
+@import "./updates/UpdateContent.css";
 .update-dock-divider { width: 1px; height: 22px; margin: 0 3px; flex: none; }
 .navigation-capsule .update-dock-entry { flex: none; }
 .update-available-dot { position: absolute; top: 5px; right: 5px; width: 5px; height: 5px; }

@@ -1,6 +1,7 @@
 import { useImperativeHandle, useLayoutEffect, useRef, type Ref, type PointerEventHandler } from 'react';
 import { CheckCheck, Minus, Plus } from 'lucide-react';
-import { GraphAction } from '../components/ui/GraphNode';
+
+import { GraphAction } from "./GraphActions";
 import { notify } from '../state/connector';
 import { t } from '../i18n';
 import { arcActionPositions, arcPath, type ArcActionGeometry } from './geometry';

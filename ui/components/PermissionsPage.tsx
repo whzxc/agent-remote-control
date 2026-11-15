@@ -1,4 +1,4 @@
-import { PermissionRow } from './ui/PermissionRow';
+import { PermissionRow } from './permissions/PermissionRow';
 import { useDialogFeedback } from "./ui/Dialog";
 import { usePanelState } from "./ui/Panel";
 import { useEffect, useState } from "react";
@@ -6,7 +6,8 @@ import { Accessibility, Bell, Check, Circle, HardDrive, LogIn, Monitor, Terminal
 import { api } from "../api";
 import { locale, t } from "../i18n";
 import { isDesktop, openUrl } from "../platform";
-import { Tag, Button, Group, Icon, Tooltip } from "./ui";
+import { Tag, Button, Icon, Tooltip } from "./ui";
+import { Group } from "./permissions/Group";
 import { connector } from "../state/connector";
 import { permissions, refreshPermissions, type PermissionItem } from "../state/permissions";
 

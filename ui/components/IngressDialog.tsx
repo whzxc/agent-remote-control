@@ -8,28 +8,13 @@ import { t } from "../i18n";
 import { displayMessage } from "../messages";
 import { openUrl } from "../platform";
 import { nextSourceName } from "../controlSources";
-import {
-  providers,
-  fixedDomain,
-  needsCredential,
-  credentialSaved,
-  secretFields,
-} from "../ingressConfig";
+import { providers, fixedDomain, needsCredential, credentialSaved, secretFields } from "../ingressConfig";
 import { connectionDomain, validDomain } from "../formRules";
 import { connectionForm, type ConnectionForm } from "../state/connectionForm";
 import { connector, refreshConnector } from "../state/connector";
 import type { Ingress } from "../state/types";
 import type { ToolPolicy } from "../toolPolicy";
-import {
-  Button,
-  Dialog,
-  DialogClose,
-  Field,
-  Input,
-  IconButton,
-  Notice,
-  SingleChoice,
-} from "./ui";
+import { Button, Dialog, DialogClose, Field, Input, IconButton, Notice, SingleChoice } from "./ui";
 import { SensitiveInput, useSensitiveText } from "./Sensitive";
 import ToolPolicyField from "./ToolPolicyField";
 export default function IngressDialog({

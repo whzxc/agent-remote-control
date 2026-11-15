@@ -2,7 +2,8 @@ import { AppWindow, Monitor } from "lucide-react";
 import { t } from "../i18n";
 import type { TaskOwnership as Ownership } from "../types";
 import { Icon } from "./ui";
-import { OwnershipTag } from "./ui/TaskPresentation";
+
+import { OwnershipTag } from "./timeline/TaskPresentation";
 
 export default function TaskOwnership({ ownership }: { ownership?: Ownership }) {
   const owner = ownership?.owner;

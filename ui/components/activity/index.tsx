@@ -1,4 +1,4 @@
-import { SourceMark } from "../ui/SourceMark";
+import { SourceMark } from "./SourceMark";
 import { Terminal } from "lucide-react";
 import type { DispatchSummary } from "../../types";
 import { controlSource } from "../../controlSources";

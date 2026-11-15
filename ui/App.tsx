@@ -1,4 +1,4 @@
-import { NavCapsule } from './components/ui/NavCapsule';
+import { NavCapsule } from './components/navigation/NavCapsule';
 import { PanelRoute } from "./components/ui/Panel";
 import { oauthApproval, requestExternalNavigation } from "./state/externalNavigation";
 import { observeDevices } from './devices/state';
@@ -12,23 +12,8 @@ import { studioEnabled } from './display/state';
 import { ArrowLeft } from "lucide-react";
 import { scenarioName } from "./scenarioMode";
 import { captureRequest, type PanelRequest } from "./acceptance";
-import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
-import {
-  Settings,
-  X,
-  ShieldAlert,
-  ShieldCheck,
-  RefreshCw,
-  Users,
-  PawPrint,
-  Cloud,
-  Plug,
-} from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Settings, X, ShieldAlert, ShieldCheck, RefreshCw, Users, PawPrint, Cloud, Plug } from "lucide-react";
 import { t, locale } from "./i18n";
 import { copyText, isDesktop } from "./platform";
 import { connector, notify, startConnector } from "./state/connector";
@@ -36,13 +21,7 @@ import { startAgents } from "./state/agents";
 import { startSubscriptions } from "./state/subscriptions";
 import { startAgentActivity } from "./state/activity";
 import { startTasks } from "./state/tasks";
-import {
-  startUpdateChecks,
-  updates,
-  checkUpdate,
-  showUpdate,
-  updateVisible,
-} from "./state/updates";
+import { startUpdateChecks, updates, checkUpdate, showUpdate, updateVisible } from "./state/updates";
 import { onboarding, connectionSetup, connectionSwitch } from "./state/onboarding";
 import { navigation, openConnections, type Page } from "./state/navigation";
 import { layers as layerStore, captureLayerTrigger } from "./state/layers";

@@ -1,4 +1,4 @@
-import { LibraryContent } from '../components/library-content';
+export function LibraryContent({children,class:extra=''}:{children:unknown;class?:string}){return <div class={extra}>{children}</div>}
 import { copy } from '../fixtures/pets';
 import { Frame } from "adg";
 

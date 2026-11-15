@@ -5,7 +5,6 @@ import { layers } from '../../state/layers';
 import { notify } from '../../state/connector';
 import type { DialogProps } from './Dialog';
 export const CloseContext = createContext<{ id: string; busy?: boolean; close: () => void; feedback: (message: string, error: boolean) => void } | null>(null);
-export function useDialogClose() { return useContext(CloseContext)?.close; }
 export function useDialogFeedback() {
   const context = useContext(CloseContext);
   return (message: string, error = false) => {
@@ -36,26 +35,6 @@ export type View = { title: string; back: () => void; trigger: HTMLElement | nul
 export const ViewContext = createContext<{
   set: (view: View | null) => void; body: HTMLElement | null; footer: HTMLElement | null;
 } | null>(null);
-
-/** A retained view inside its owner's shell, never another modal layer. */
-export function DialogView({ open, title, onBack, children, footer }: {
-  open: boolean; title: string; onBack: () => void; children: ReactNode; footer?: ReactNode;
-}) {
-  const context = useContext(ViewContext);
-  const back = useRef(onBack); back.current = onBack;
-  useLayoutEffect(() => {
-    if (!open || !context) return;
-    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    context.set({ title, back: () => back.current(), trigger });
-    return () => context.set(null);
-  }, [open, title, context?.set]);
-  useLayoutEffect(() => {
-    if (!open || !context?.body) return;
-    const frame = requestAnimationFrame(() => context.body?.focus({ preventScroll: true }));
-    return () => cancelAnimationFrame(frame);
-  }, [open, context?.body]);
-  return context && <>{context.body && createPortal(children, context.body)}{context.footer && createPortal(footer, context.footer)}</>;
-}
 
 export const HeaderContext = createContext<{ target: HTMLElement | null; register: () => () => void; ready: () => void } | null>(null);
 /** Keep feature-owned node headers outside the scrolling body. */

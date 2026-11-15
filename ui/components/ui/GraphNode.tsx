@@ -1,8 +1,8 @@
-import type {ComponentProps} from 'react';
-import {IconButton} from './index';
+
+
 import './GraphNode.css';
 import { NodeCapsule, type NodeTaskState } from './NodeCapsule';
-import type { AgentIconReading } from './agent-icon';
+import type { AgentIconReading } from '../../subscriptions/agent-icon';
 import type { ReactNode } from "react";
 import { t } from "../../i18n";
 import type { WireState } from "../../topology/render";
@@ -27,6 +27,3 @@ export function GraphNode({ label, state, onOpen, onMove, highlighted, newlyAdde
       }
     }}>{children}{!hideLabel && caption}</button>;
 }
-
-export function GraphAction(props:ComponentProps<typeof IconButton>){return <IconButton {...props} className="arc-action-button"/>}
-export function HubEntry(props:ComponentProps<'button'>){return <button type="button" {...props} className={'hub-entry '+(props.className??'')}/>;}

@@ -1,4 +1,5 @@
-import {HubEntry} from '../components/ui/GraphNode';
+
+import { HubEntry } from "./GraphActions";
 import { useId } from "react";
 import { t } from "../i18n";
 import { hubMarkGeometry } from "./geometry";

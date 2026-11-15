@@ -1,4 +1,4 @@
-@import "../components/ui/LibraryContent.css";
+@import "./LibraryContent.css";
 @import "../components/ui/InspectionPopover.css";
 .pet-group, .pet-import { display: grid; gap: 14px; min-width: 0; }
 .pet-import { padding: 16px; gap: 24px; }

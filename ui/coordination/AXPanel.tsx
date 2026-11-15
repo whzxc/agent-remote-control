@@ -1,5 +1,6 @@
 import { RecordSurface } from '../components/ui/RecordDetail';
-import { RecordDetail, RecordEmpty, RecordListRow } from '../components/ui/RecordDetail';
+import { RecordDetail, RecordEmpty } from '../components/ui/RecordDetail';
+import { RecordListRow } from "./RecordParts";
 import { useLayerNaturalContent } from '../components/ui/LayerPortals';
 import { useCopyState } from "../components/ui/useCopyState";
 import { Tooltip as HoverHelp } from "../components/ui/index";

@@ -1,6 +1,6 @@
-@import "./components/ui/QuotaDetail.css";
-@import "./components/ui/ServiceInventory.css";
-@import "./components/ui/UpdateContent.css";
+@import "./subscriptions/QuotaDetail.css";
+@import "./mcp/ServiceInventory.css";
+@import "./components/updates/UpdateContent.css";
 @import "./components/ui/Feedback.css";
 @import "./components/ui/Settings.css";
 @import "./components/ui/EntityInventory.css";

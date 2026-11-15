@@ -1,4 +1,4 @@
-import { UpdateContent as ReleaseContent } from '../components/update-content';
+export function ReleaseContent({ children, class: extra = '' }: { children: unknown; class?: string }) { return <div class={extra}>{children}</div>; }
 import { UpdateAboutContent } from '../components/update-about';
 import { Frame, Icon } from "adg";
 import { Button } from "../components/button";

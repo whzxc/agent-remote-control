@@ -1,8 +1,0 @@
-
-.pet-import nav { font-size: var(--text-small); font-weight: 600; line-height: 20px; }
-.pet-import nav a { color: var(--accent-text); text-decoration: none; }
-
-.pet-group > h2 { font-size: var(--text-small); font-weight: 650; line-height: 16px; color: var(--text-secondary); }
-.pets-page footer { color: var(--text-secondary); font-size: 12px; }
-.pet-package h3 { font-size: var(--text-body); font-weight: 650; line-height: 16px; }
-.pet-description { color: var(--text-secondary); font-size: 12px; line-height: 16px; }

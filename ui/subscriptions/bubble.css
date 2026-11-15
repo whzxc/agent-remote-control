@@ -1,4 +1,4 @@
-@import "../components/ui/QuotaDetail.css";
+@import "./QuotaDetail.css";
 .usage-history {
   display: flex;
   flex-direction: column;

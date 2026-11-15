@@ -7,7 +7,7 @@ import { IconButton, SingleChoice } from "./ui";
 import { effortGaugePosition, effortLabel } from "./composites/dispatchSpecLabel";
 import DispatchSpec from "./ui/DispatchSpec";
 import EffortGauge from "./ui/EffortGauge";
-import SteppedSlider from "./ui/SteppedSlider";
+import SteppedSlider from "./model/SteppedSlider";
 import ChoiceTrigger from "./ui/ChoiceTrigger";
 import "./ModelEffortPicker.css";
 

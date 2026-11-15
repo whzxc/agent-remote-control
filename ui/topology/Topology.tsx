@@ -13,7 +13,7 @@ import { solvePortrait } from "./portrait";
 import { PortraitPainter } from "./portraitRender";
 import { compactRoots, compactLayout, compactTree, topologyGroups, topologyPinned, retainOpenGroup, type TopologyGroupPlan, type CompactPlan } from './compact';
 import { t } from '../i18n';
-import { TopologyGroup } from '../components/ui/TopologyGroup';
+import { TopologyGroup } from './TopologyGroup';
 import { BrandMark } from '../components/ui';
 import SourceIcon from '../components/SourceIcon';
 import { icons } from '../state/agents';

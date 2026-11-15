@@ -1,3 +1,5 @@
+export function TaskFeedSection({ children }: { children: unknown }) { return <section class="text-small text-text-secondary">{children}</section>; }
+export function TaskFilter({ children }: { children: unknown }) { return <div class="rounded-full border border-accent-text/40 bg-accent-text/10 text-small font-semibold text-accent-text">{children}</div>; }
 import { TaskCard, type TaskSnapshotData } from '../components/task-card';
 import { Frame, Icon } from 'adg';
 import { BrandMark, type Brand } from "../components/brand-mark";

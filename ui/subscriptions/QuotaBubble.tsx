@@ -1,4 +1,4 @@
-import { QuotaHistory, QuotaBreakdown } from '../components/ui/QuotaDetail';
+import { QuotaHistory, QuotaBreakdown } from './QuotaDetail';
 import { Tooltip as HoverHelp } from "../components/ui/index";
 import { useSensitiveText } from "../components/Sensitive";
 import { useState } from "react";
@@ -9,16 +9,9 @@ import { openUrl } from "../platform";
 import { useNow } from "../state/hooks";
 import { refreshSubscription } from "../state/subscriptions";
 import { Button, IconButton, Icon } from "../components/ui";
-import {
-  quotaDisplay,
-  resetDisplay,
-} from "./displayPreferences";
+import { quotaDisplay, resetDisplay } from "./displayPreferences";
 import { windowLabel, subscriptionLabel } from "./labels";
-import {
-  compactAge,
-  preciseTime,
-  errorLabels,
-} from "./presentation";
+import { compactAge, preciseTime, errorLabels } from "./presentation";
 import { quotaPace } from "./pace";
 import { usageLink } from "./usageLinks";
 import type { ProviderSnapshot } from "./types";

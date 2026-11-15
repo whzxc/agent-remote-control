@@ -1,0 +1,29 @@
+
+
+.mcp-failed-count { color: var(--danger); }
+.mcp-server { border-radius: var(--radius-card); background: var(--surface-subtle); }
+.mcp-server-identity h3 { color: var(--text); font-size: var(--text-body); font-weight: var(--weight-title); line-height: var(--line-body); }
+.mcp-server-identity p { color: var(--text-secondary); font-size: var(--text-meta); line-height: var(--line-compact); }
+.mcp-target { font-family: var(--font-mono); }
+.mcp-server-facts { color: var(--text-secondary); font-size: var(--text-meta); line-height: var(--line-compact); }
+
+.mcp-tools { border-radius: var(--radius-14); background: var(--surface); }
+
+.mcp-tool + .mcp-tool { border-top: var(--stroke-thin) solid var(--border); }
+
+.mcp-no-match { color: var(--text-secondary); font-size: var(--text-small); }
+
+
+.mcp-empty > h3 { color: var(--text); font-size: var(--text-title); font-weight: var(--weight-title); line-height: var(--line-title); }
+.mcp-add > p { color: var(--text-secondary); font-size: var(--text-small); }
+.mcp-add h3 { color: var(--text); font-size: var(--text-small); font-weight: 600; }
+.mcp-empty > p { color: var(--text-secondary); font-size: var(--text-small); line-height: var(--line-compact); }
+.mcp-tool-name code { color: var(--text); font: 500 var(--text-small)/var(--line-small) var(--font-mono); line-height: var(--line-compact); }
+.mcp-tool p { color: var(--text-secondary); font-size: var(--text-meta); line-height: var(--text-body); }
+
+.mcp-stats { color: var(--text-secondary); font-size: var(--text-meta); line-height: var(--line-small); }
+.tool-policy-summary > span { font-size:var(--text-meta); }
+.tool-name {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+}

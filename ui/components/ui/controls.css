@@ -139,19 +139,6 @@ textarea.input {
   color: var(--danger);
   background: color-mix(in srgb, var(--danger) 14%, transparent);
 }
-.tag.disclosure {
-  gap: 4px;
-  color: var(--text);
-  font-weight: 600;
-  cursor: pointer;
-  transition: background var(--motion-fast);
-}
-.tag.disclosure:hover {
-  background: color-mix(in srgb, var(--surface), var(--text) 5%);
-}
-.tag.disclosure > .icon {
-  color: var(--text-secondary);
-}
 .tile {
   display: grid;
   place-items: center;
@@ -161,30 +148,6 @@ textarea.input {
   border-radius: 12px;
   color: inherit;
   background: color-mix(in srgb, currentColor 16%, transparent);
-}
-.prompt {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 16px;
-  padding: 14px 16px;
-  border-radius: var(--radius-card);
-  background: var(--surface-subtle);
-}
-.prompt > p:first-child {
-  flex: 1 1 240px;
-  min-width: 0;
-  color: var(--text);
-  font-size: var(--text-small);
-  line-height: 20px;
-  overflow-wrap: anywhere;
-  user-select: text;
-}
-.prompt > .button {
-  flex: none;
-}
-.prompt > .field-error {
-  flex-basis: 100%;
 }
 .form {
   display: grid;
@@ -580,7 +543,6 @@ textarea.input.mono { font-family: var(--font-mono); font-size: var(--text-small
 .field[data-compact] label { font-size: var(--text-meta); }
 .notice[data-compact] { font-size: var(--text-meta); font-weight: 400; line-height: 16px; }
 .notice[data-elevated] { box-shadow: var(--shadow-md); }
-.settings-group[data-subtle] > h2 { font-size: var(--text-small); font-weight: 600; color: var(--text-secondary); }
 
 .tile-phase { width: 32px; height: 32px; border-radius: var(--radius-tile); background: color-mix(in srgb, currentColor 17%, transparent); }
 .tag[data-form="compact-status"] { display: inline-flex; align-items: center; padding: 0 7px; height: auto; border-radius: var(--radius-pill); background: var(--surface-subtle); color: var(--text-secondary); font-size: 11px; line-height: 18px; white-space: nowrap; }

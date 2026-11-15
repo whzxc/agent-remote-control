@@ -1,4 +1,4 @@
-import { QuotaOverview } from '../components/ui/QuotaDetail';
+import { QuotaOverview } from './QuotaDetail';
 import { useState } from "react";
 import { t, locale } from "../i18n";
 import { subscriptions, refreshSubscription } from "../state/subscriptions";

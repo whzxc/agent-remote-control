@@ -1,4 +1,5 @@
-import { DialogActions, useDialogClose } from "./ui/Dialog";
+import { DialogActions } from "./ui/Dialog";
+import { useDialogClose } from "./hosting/useDialogClose";
 import { usePrivacy } from "../state/privacy";
 import { maskSensitive } from "../privacyMask";
 import { Check, Circle, LoaderCircle } from "lucide-react";

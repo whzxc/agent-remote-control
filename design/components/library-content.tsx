@@ -1,3 +1,0 @@
-import {Frame} from 'adg';
-export function LibraryContent({children,class:extra=''}:{children:unknown;class?:string}){return <div class={extra}>{children}</div>}
-export default ()=><Frame name="library" width={480}><LibraryContent><h3 class="text-body font-[650] text-text">Mascot</h3><p>Installed</p></LibraryContent></Frame>;

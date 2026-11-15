@@ -2,53 +2,15 @@ import { useCopyState } from "./useCopyState";
 import { TransientLayer } from "./TransientLayer";
 import { Sensitive, useSensitiveText } from "../Sensitive";
 import { maskSensitive } from "../../privacyMask";
-import {
-  createContext,
-  useContext,
-  type ComponentProps,
-  useId,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ButtonHTMLAttributes,
-  type InputHTMLAttributes,
-  type TextareaHTMLAttributes,
-  type ReactNode,
-  type CSSProperties,
-  type Ref,
-} from "react";
-import {
-  Select as S,
-  RadioGroup,
-  Switch as Sw,
-  Slider as RS,
-  Checkbox as C,
-  Tooltip as T,
-  DropdownMenu as M,
-  Progress as R,
-} from "radix-ui";
-import {
-  Bot,
-  Check,
-  ChevronDown,
-  ChevronRight,
-  ChevronUp,
-  CircleAlert,
-  LoaderCircle,
-  Copy,
-  Eye,
-  Search,
-  EyeOff,
-  type LucideIcon,
-} from "lucide-react";
+import { createContext, useContext, type ComponentProps, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type TextareaHTMLAttributes, type ReactNode, type CSSProperties, type Ref } from "react";
+import { Select as S, RadioGroup, Switch as Sw, Checkbox as C, Tooltip as T, DropdownMenu as M } from "radix-ui";
+import { Bot, Check, ChevronDown, ChevronRight, ChevronUp, CircleAlert, LoaderCircle, Copy, Eye, Search, EyeOff, type LucideIcon } from "lucide-react";
 import { t } from "../../i18n";
 import { HoverScope } from "./HoverScope";
 import ChoiceTrigger from "./ChoiceTrigger";
 export { HoverScope };
-export { SetupAction, WelcomeChoice, WelcomeStatusAction } from "./SetupChoice";
-export { HoverPreviewGroup } from "./HoverPreviewGroup";
-export { ErrorCallout, LoadingIndicator } from "./Feedback";
-export { DataTable, Pagination } from "./DataTable";
+export { SetupAction } from "./SetupChoice";
+export { LoadingIndicator } from "./Feedback";
 export type IconSize = 10 | 12 | 13 | 14 | 16 | 18 | 20 | 24 | 26 | 28 | 32;
 /** A compact label. `spec` names a choice, `fact` states a property and `danger` flags a risk. */
 export function Tag({ children, title, id, form = "spec", tone }: {
@@ -56,12 +18,6 @@ export function Tag({ children, title, id, form = "spec", tone }: {
   tone?: "success" | "warning" | "danger" | "command";
 }) {
   return <Tooltip text={title}><span id={id} className="tag" data-form={form} data-tone={tone}>{children}</span></Tooltip>;
-}
-/** A fact-sized button that shows or hides related content. */
-export function Disclosure({ expanded, controls, onToggle, children }: { expanded: boolean; controls?: string; onToggle: () => void; children: ReactNode }) {
-  return <button type="button" className="tag disclosure" aria-expanded={expanded} aria-controls={controls} onClick={onToggle}>
-    {children}<Icon icon={expanded ? ChevronUp : ChevronDown} size={12} />
-  </button>;
 }
 export function Icon({
   icon: Component,
@@ -165,16 +121,6 @@ export function SearchInput({ className = "", placeholder, ...props }: InputHTML
     <input type="search" {...props} placeholder={placeholder} aria-label={props["aria-label"] ?? placeholder} className="input" />
   </label>;
 }
-export function Slider({ label, value, min, max, step, onChange, onCommit }: {
-  label: string; value: number; min: number; max: number; step: number;
-  onChange: (value: number) => void; onCommit: (value: number) => void;
-}) {
-  return <RS.Root className="slider" value={[value]} min={min} max={max} step={step}
-    onValueChange={values => onChange(values[0])} onValueCommit={values => onCommit(values[0])} onBlur={() => onCommit(value)}>
-    <RS.Track className="slider-track"><RS.Range className="slider-fill" /></RS.Track>
-    <RS.Thumb className="slider-thumb" aria-label={label} />
-  </RS.Root>;
-}
 export function Textarea({ className = "", ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea {...props} className={`input ${className}`} />;
 }
@@ -249,18 +195,6 @@ export function Notice({
     </div>
   );
 }
-/** Copyable text for the user to paste into an Agent. */
-export function Prompt({ text, label, context, actionBelow = false }: { text: string; label: string; context?: string; actionBelow?: boolean }) {
-  const { copied, error, copy } = useCopyState(), id = useId();
-  return <div className={`prompt ${actionBelow ? "prompt-action-below" : ""}`}>
-    <p id={id}>{text}</p>
-    <Button aria-describedby={id} onClick={() => { void copy(text); }}>
-      <Icon icon={copied ? Check : Copy} />{copied ? t("copied") : label}{context && <span className="sr-only">{context}</span>}
-    </Button>
-    {error && <p className="field-error" role="alert"><Icon icon={CircleAlert} size={14} />{error}</p>}
-    {copied && <span className="sr-only" role="status">{t("copied")}</span>}
-  </div>;
-}
 export function Empty({
   children,
   action,
@@ -300,58 +234,6 @@ export function Status({
       <span aria-hidden="true" className="status-dot" />
       {children}
     </span>
-  );
-}
-export function Group({
-  title,
-  children,
-  subtle = false,
-}: {
-  title?: ReactNode;
-  children: ReactNode;
-  subtle?: boolean;
-}) {
-  return (
-    <section className="settings-group" data-subtle={subtle || undefined}>
-      {title && <h2>{title}</h2>}
-      <div>{children}</div>
-    </section>
-  );
-}
-export function Row({
-  title,
-  description,
-  children,
-  controlId,
-  id,
-  onNavigate,
-  highlight = true,
-}: {
-  title: ReactNode;
-  description?: ReactNode;
-  children?: ReactNode;
-  controlId?: string;
-  id?: string;
-  onNavigate?: () => void;
-  highlight?: boolean;
-}) {
-  if (onNavigate) return <HoverScope className="settings-row-hover" activeKey={highlight ? undefined : ""}>
-    <Button id={id} variant="ghost" className="settings-row settings-row-navigation" data-hover-target="navigation" onClick={onNavigate}>
-      <span className="row-copy">
-        <span className="row-title">{title}</span>
-        {description && <span className="row-description">{description}</span>}
-      </span>
-      <Icon icon={ChevronRight} />
-    </Button>
-  </HoverScope>;
-  return (
-    <div className="settings-row">
-      <div className="row-copy">
-        <label htmlFor={controlId}>{title}</label>
-        {description && <p>{description}</p>}
-      </div>
-      <div className="row-control">{children}</div>
-    </div>
   );
 }
 export function Switch({
@@ -709,30 +591,6 @@ export function Menu({
         </M.Content></TransientLayer>
       </M.Portal>
     </M.Root>
-  );
-}
-export function Progress({
-  value,
-  label,
-  color,
-}: {
-  value: number;
-  label: string;
-  color?: string;
-}) {
-  return (
-    <R.Root
-      className="progress"
-      value={Math.max(0, Math.min(100, value))}
-      aria-label={label}
-    >
-      <R.Indicator
-        style={{
-          width: `${Math.max(0, Math.min(100, value))}%`,
-          background: color,
-        }}
-      />
-    </R.Root>
   );
 }
 export function CopyField({

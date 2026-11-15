@@ -1,4 +1,5 @@
-import { TaskSpecTrigger } from './ui/TaskPresentation';
+
+import { TaskSpecTrigger } from "./timeline/TaskPresentation";
 import { readOnlyBrowser } from "../browserMode";
 import { useEffect, useId, useMemo, useState } from "react";
 import { api } from "../api";

@@ -101,23 +101,23 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/SteppedSlider.tsx",
+        "file": "ui/components/model/SteppedSlider.tsx",
         "symbol": "SteppedSlider"
       },
       "design": [
         {
-          "source": "design/components/stepped-slider.tsx",
+          "source": "design/modules/model-configuration.tsx",
           "part": "SteppedSlider"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/SteppedSlider.css"
+        "file": "ui/components/model/SteppedSlider.css"
       },
       "design": [
         {
-          "source": "design/components/stepped-slider.tsx",
+          "source": "design/modules/model-configuration.tsx",
           "part": "SteppedSlider"
         }
       ]
@@ -148,7 +148,7 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/agent-icon.tsx",
+        "file": "ui/subscriptions/agent-icon.tsx",
         "symbol": "AgentIcon"
       },
       "design": [
@@ -457,7 +457,7 @@
       },
       "design": [
         {
-          "source": "design/components/nav-capsule.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "NavCapsule"
         }
       ]
@@ -487,7 +487,7 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TaskPresentation.tsx",
+        "file": "ui/components/timeline/TaskPresentation.tsx",
         "symbol": "RequestEntry"
       },
       "design": [
@@ -499,7 +499,7 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TaskPresentation.tsx",
+        "file": "ui/components/timeline/TaskPresentation.tsx",
         "symbol": "ReviewUnavailable"
       },
       "design": [
@@ -539,7 +539,7 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/index.tsx",
+        "file": "ui/mcp/Controls.tsx",
         "symbol": "Prompt"
       },
       "design": [
@@ -596,7 +596,7 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TaskPresentation.tsx",
+        "file": "ui/components/timeline/TaskPresentation.tsx",
         "symbol": "RoutingRow"
       },
       "design": [
@@ -703,7 +703,7 @@
       },
       "design": [
         {
-          "source": "design/components/task-presentation.tsx",
+          "source": "design/modules/timeline.tsx",
           "part": "StatePill"
         },
         {
@@ -749,7 +749,7 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TaskPresentation.tsx",
+        "file": "ui/components/timeline/TaskPresentation.tsx",
         "symbol": "OwnershipTag"
       },
       "design": [
@@ -761,7 +761,7 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/index.tsx",
+        "file": "ui/mcp/Controls.tsx",
         "symbol": "Disclosure"
       },
       "design": [
@@ -773,12 +773,12 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TaskPresentation.tsx",
+        "file": "ui/components/timeline/TaskPresentation.tsx",
         "symbol": "TaskMessage"
       },
       "design": [
         {
-          "source": "design/components/task-presentation.tsx",
+          "source": "design/modules/timeline.tsx",
           "part": "TaskMessage"
         }
       ]
@@ -789,7 +789,7 @@
       },
       "design": [
         {
-          "source": "design/components/task-presentation.tsx",
+          "source": "design/modules/timeline.tsx",
           "part": "TaskMessage"
         },
         {
@@ -832,7 +832,7 @@
       },
       "design": [
         {
-          "source": "design/components/task-presentation.tsx",
+          "source": "design/modules/timeline.tsx",
           "part": "TaskMessage"
         },
         {
@@ -869,7 +869,7 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TaskRelation.tsx",
+        "file": "ui/components/timeline/TaskRelation.tsx",
         "symbol": "TaskRelation"
       },
       "design": [
@@ -915,18 +915,6 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TaskPresentation.tsx",
-        "symbol": "AgentPhaseTile"
-      },
-      "design": [
-        {
-          "source": "design/components/tile.tsx",
-          "part": "Tile"
-        }
-      ]
-    },
-    {
-      "implementation": {
         "file": "ui/components/ui/index.tsx",
         "symbol": "Tooltip"
       },
@@ -954,7 +942,7 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TopologyGroup.tsx"
+        "file": "ui/topology/TopologyGroup.tsx"
       },
       "design": [
         {
@@ -965,7 +953,7 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TopologyGroup.css"
+        "file": "ui/topology/TopologyGroup.css"
       },
       "design": [
         {
@@ -1031,7 +1019,7 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/SetupChoice.tsx",
+        "file": "ui/components/onboarding/WelcomeChoice.tsx",
         "symbol": "WelcomeChoice"
       },
       "design": [
@@ -1065,7 +1053,7 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/SetupChoice.tsx",
+        "file": "ui/components/onboarding/WelcomeChoice.tsx",
         "symbol": "WelcomeStatusAction"
       },
       "design": [
@@ -1118,7 +1106,7 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/Record.tsx",
+        "file": "ui/coordination/Record.tsx",
         "symbol": "RecordRow"
       },
       "design": [
@@ -1577,11 +1565,11 @@
       },
       "design": [
         {
-          "source": "design/components/homepage-mode.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "HomepageModeSwitch"
         },
         {
-          "source": "design/components/homepage-mode.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "HomepageBar"
         }
       ]
@@ -1592,11 +1580,11 @@
       },
       "design": [
         {
-          "source": "design/components/homepage-mode.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "HomepageModeSwitch"
         },
         {
-          "source": "design/components/homepage-mode.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "HomepageBar"
         }
       ]
@@ -1634,7 +1622,7 @@
       },
       "design": [
         {
-          "source": "design/components/permission-row.tsx",
+          "source": "design/modules/permissions.tsx",
           "part": "PermissionRow"
         },
         {
@@ -1783,7 +1771,7 @@
           "part": "Tag"
         },
         {
-          "source": "design/components/task-presentation.tsx",
+          "source": "design/modules/timeline.tsx",
           "part": "TaskMessage"
         },
         {
@@ -1855,7 +1843,7 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TaskRelation.css"
+        "file": "ui/components/timeline/TaskRelation.css"
       },
       "design": [
         {
@@ -1918,11 +1906,11 @@
       },
       "design": [
         {
-          "source": "design/components/homepage-mode.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "HomepageModeSwitch"
         },
         {
-          "source": "design/components/homepage-mode.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "HomepageBar"
         }
       ]
@@ -2172,7 +2160,7 @@
       },
       "design": [
         {
-          "source": "design/components/task-presentation.tsx"
+          "source": "design/modules/timeline.tsx"
         }
       ]
     },
@@ -2182,7 +2170,7 @@
       },
       "design": [
         {
-          "source": "design/components/task-presentation.tsx"
+          "source": "design/modules/timeline.tsx"
         }
       ]
     },
@@ -2198,22 +2186,22 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/SourceMark.tsx"
+        "file": "ui/components/activity/SourceMark.tsx"
       },
       "design": [
         {
-          "source": "design/components/source-mark.tsx",
+          "source": "design/modules/activity-source-mark.tsx",
           "part": "SourceMark"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/SourceMark.css"
+        "file": "ui/components/activity/SourceMark.css"
       },
       "design": [
         {
-          "source": "design/components/source-mark.tsx",
+          "source": "design/modules/activity-source-mark.tsx",
           "part": "SourceMark"
         }
       ]
@@ -2260,12 +2248,12 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TaskPresentation.tsx",
+        "file": "ui/components/timeline/TaskPresentation.tsx",
         "symbol": "StatePill"
       },
       "design": [
         {
-          "source": "design/components/task-presentation.tsx",
+          "source": "design/modules/timeline.tsx",
           "part": "StatePill"
         }
       ]
@@ -2332,12 +2320,12 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/HomepageBar.tsx",
+        "file": "ui/display/HomepageBar.tsx",
         "symbol": "HomepageBarView"
       },
       "design": [
         {
-          "source": "design/components/homepage-mode.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "HomepageBar"
         }
       ]
@@ -2356,11 +2344,11 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/HomepageBar.css"
+        "file": "ui/display/HomepageBar.css"
       },
       "design": [
         {
-          "source": "design/components/homepage-mode.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "HomepageBar"
         }
       ]
@@ -2378,29 +2366,29 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/NavCapsule.tsx",
+        "file": "ui/components/navigation/NavCapsule.tsx",
         "symbol": "NavCapsule"
       },
       "design": [
         {
-          "source": "design/components/nav-capsule.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "NavCapsule"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/NavCapsule.css"
+        "file": "ui/components/navigation/NavCapsule.css"
       },
       "design": [
         {
-          "source": "design/components/nav-capsule.tsx"
+          "source": "design/modules/homepage-scene.tsx"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TaskPresentation.tsx",
+        "file": "ui/components/timeline/TaskPresentation.tsx",
         "symbol": "TaskSpecTrigger"
       },
       "design": [
@@ -2412,209 +2400,209 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/Record.tsx",
+        "file": "ui/coordination/Record.tsx",
         "symbol": "RecordRow"
       },
       "design": [
         {
-          "source": "design/components/record.tsx",
+          "source": "design/modules/board-record.tsx",
           "part": "RecordRow"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/Record.tsx",
+        "file": "ui/coordination/Record.tsx",
         "symbol": "RecordCard"
       },
       "design": [
         {
-          "source": "design/components/record.tsx",
+          "source": "design/modules/board-record.tsx",
           "part": "RecordCard"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/Record.tsx",
+        "file": "ui/coordination/Record.tsx",
         "symbol": "RecordMeta"
       },
       "design": [
         {
-          "source": "design/components/record.tsx",
+          "source": "design/modules/board-record.tsx",
           "part": "RecordMeta"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/Record.tsx",
+        "file": "ui/coordination/Record.tsx",
         "symbol": "RecordHeading"
       },
       "design": [
         {
-          "source": "design/components/record.tsx",
+          "source": "design/modules/board-record.tsx",
           "part": "RecordHeading"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/Record.css"
+        "file": "ui/coordination/Record.css"
       },
       "design": [
         {
-          "source": "design/components/record.tsx"
+          "source": "design/modules/board-record.tsx"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TimelineRail.tsx",
+        "file": "ui/components/timeline/TimelineRail.tsx",
         "symbol": "TimelineRailStep"
       },
       "design": [
         {
-          "source": "design/components/timeline-rail.tsx",
+          "source": "design/modules/timeline.tsx",
           "part": "TimelineRailStep"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TimelineRail.tsx",
+        "file": "ui/components/timeline/TimelineRail.tsx",
         "symbol": "TurnProgress"
       },
       "design": [
         {
-          "source": "design/components/timeline-rail.tsx",
+          "source": "design/modules/timeline.tsx",
           "part": "TurnProgress"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TimelineRail.css"
+        "file": "ui/components/timeline/TimelineRail.css"
       },
       "design": [
         {
-          "source": "design/components/timeline-rail.tsx"
+          "source": "design/modules/timeline.tsx"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TaskPresentation.tsx",
+        "file": "ui/components/timeline/TaskPresentation.tsx",
         "symbol": "TaskDateHeading"
       },
       "design": [
         {
-          "source": "design/components/task-presentation.tsx",
+          "source": "design/modules/layer-content.tsx",
           "part": "TaskDateHeading"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TaskContent.tsx",
+        "file": "ui/components/timeline/TaskContent.tsx",
         "symbol": "TaskReplyCard"
       },
       "design": [
         {
-          "source": "design/components/task-content.tsx",
+          "source": "design/modules/timeline.tsx",
           "part": "TaskReplyCard"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TaskContent.tsx",
+        "file": "ui/components/timeline/TaskContent.tsx",
         "symbol": "ContentProse"
       },
       "design": [
         {
-          "source": "design/components/task-content.tsx",
+          "source": "design/modules/timeline.tsx",
           "part": "ContentProse"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TaskContent.tsx",
+        "file": "ui/components/timeline/TaskContent.tsx",
         "symbol": "PlanContent"
       },
       "design": [
         {
-          "source": "design/components/task-content.tsx",
+          "source": "design/modules/timeline.tsx",
           "part": "PlanContent"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TaskContent.css"
+        "file": "ui/components/timeline/TaskContent.css"
       },
       "design": [
         {
-          "source": "design/components/task-content.tsx"
+          "source": "design/modules/timeline.tsx"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TimelineSurface.tsx",
+        "file": "ui/components/timeline/TimelineSurface.tsx",
         "symbol": "TimelineSurface"
       },
       "design": [
         {
-          "source": "design/components/timeline-surface.tsx",
+          "source": "design/modules/timeline.tsx",
           "part": "TimelineSurface"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TimelineSurface.tsx",
+        "file": "ui/components/timeline/TimelineSurface.tsx",
         "symbol": "ActivityHeading"
       },
       "design": [
         {
-          "source": "design/components/timeline-surface.tsx",
+          "source": "design/modules/layer-content.tsx",
           "part": "ActivityHeading"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TimelineSurface.tsx",
+        "file": "ui/components/timeline/TimelineSurface.tsx",
         "symbol": "TaskFeedSection"
       },
       "design": [
         {
-          "source": "design/components/timeline-surface.tsx",
+          "source": "design/modules/tasks.tsx",
           "part": "TaskFeedSection"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TimelineSurface.tsx",
+        "file": "ui/components/timeline/TimelineSurface.tsx",
         "symbol": "TaskFilter"
       },
       "design": [
         {
-          "source": "design/components/timeline-surface.tsx",
+          "source": "design/modules/tasks.tsx",
           "part": "TaskFilter"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TimelineSurface.css"
+        "file": "ui/components/timeline/TimelineSurface.css"
       },
       "design": [
         {
-          "source": "design/components/timeline-surface.tsx"
+          "source": "design/modules/timeline.tsx"
         }
       ]
     },
@@ -2644,24 +2632,24 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/RecordDetail.tsx",
+        "file": "ui/coordination/RecordParts.tsx",
         "symbol": "RecordListRow"
       },
       "design": [
         {
-          "source": "design/components/record-detail.tsx",
+          "source": "design/modules/board-record.tsx",
           "part": "RecordListRow"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/RecordDetail.tsx",
+        "file": "ui/coordination/RecordParts.tsx",
         "symbol": "RecordFooter"
       },
       "design": [
         {
-          "source": "design/components/record-detail.tsx",
+          "source": "design/modules/board-record.tsx",
           "part": "RecordFooter"
         }
       ]
@@ -2680,24 +2668,24 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/RecordDetail.tsx",
+        "file": "ui/coordination/RecordParts.tsx",
         "symbol": "RecordDisclosure"
       },
       "design": [
         {
-          "source": "design/components/record-detail.tsx",
+          "source": "design/modules/board-record.tsx",
           "part": "RecordDisclosure"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/RecordDetail.tsx",
+        "file": "ui/coordination/RecordParts.tsx",
         "symbol": "RecordEvent"
       },
       "design": [
         {
-          "source": "design/components/record-detail.tsx",
+          "source": "design/modules/board-record.tsx",
           "part": "RecordEvent"
         }
       ]
@@ -2748,67 +2736,67 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/ServiceInventory.tsx",
+        "file": "ui/mcp/ServiceInventory.tsx",
         "symbol": "ServiceInventory"
       },
       "design": [
         {
-          "source": "design/components/service-inventory.tsx",
+          "source": "design/modules/mcp-service.tsx",
           "part": "ServiceInventory"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/ServiceInventory.css"
+        "file": "ui/mcp/ServiceInventory.css"
       },
       "design": [
         {
-          "source": "design/components/service-inventory.tsx"
+          "source": "design/modules/mcp-service.tsx"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/DeviceFacts.tsx",
+        "file": "ui/devices/DeviceFacts.tsx",
         "symbol": "DeviceFacts"
       },
       "design": [
         {
-          "source": "design/components/device-facts.tsx",
+          "source": "design/modules/device-facts.tsx",
           "part": "DeviceFacts"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/DeviceFacts.css"
+        "file": "ui/devices/DeviceFacts.css"
       },
       "design": [
         {
-          "source": "design/components/device-facts.tsx"
+          "source": "design/modules/device-facts.tsx"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/UpdateContent.tsx",
+        "file": "ui/components/updates/UpdateContent.tsx",
         "symbol": "UpdateContent"
       },
       "design": [
         {
-          "source": "design/components/update-content.tsx",
-          "part": "UpdateContent"
+          "source": "design/modules/updates.tsx",
+          "part": "ReleaseContent"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/UpdateContent.css"
+        "file": "ui/components/updates/UpdateContent.css"
       },
       "design": [
         {
-          "source": "design/components/update-content.tsx"
+          "source": "design/modules/updates.tsx"
         }
       ]
     },
@@ -2860,23 +2848,23 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/PermissionRow.tsx",
+        "file": "ui/components/permissions/PermissionRow.tsx",
         "symbol": "PermissionRow"
       },
       "design": [
         {
-          "source": "design/components/permission-row.tsx",
+          "source": "design/modules/permissions.tsx",
           "part": "PermissionRow"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/PermissionRow.css"
+        "file": "ui/components/permissions/PermissionRow.css"
       },
       "design": [
         {
-          "source": "design/components/permission-row.tsx",
+          "source": "design/modules/permissions.tsx",
           "part": "PermissionRow"
         }
       ]
@@ -2906,166 +2894,166 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/LibraryContent.tsx",
+        "file": "ui/pets/LibraryContent.tsx",
         "symbol": "LibraryContent"
       },
       "design": [
         {
-          "source": "design/components/library-content.tsx",
+          "source": "design/modules/pets.tsx",
           "part": "LibraryContent"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/LibraryContent.css"
+        "file": "ui/pets/LibraryContent.css"
       },
       "design": [
         {
-          "source": "design/components/library-content.tsx",
+          "source": "design/modules/pets.tsx",
           "part": "LibraryContent"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/QuotaDetail.tsx",
+        "file": "ui/subscriptions/QuotaDetail.tsx",
         "symbol": "QuotaDetail"
       },
       "design": [
         {
-          "source": "design/components/quota-detail.tsx",
+          "source": "design/modules/quota-detail.tsx",
           "part": "QuotaDetail"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/QuotaDetail.tsx",
+        "file": "ui/subscriptions/QuotaDetail.tsx",
         "symbol": "QuotaPopover"
       },
       "design": [
         {
-          "source": "design/components/quota-detail.tsx",
+          "source": "design/modules/quota-detail.tsx",
           "part": "QuotaPopover"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/QuotaDetail.tsx",
+        "file": "ui/subscriptions/QuotaDetail.tsx",
         "symbol": "QuotaHistory"
       },
       "design": [
         {
-          "source": "design/components/quota-detail.tsx",
+          "source": "design/modules/quota-detail.tsx",
           "part": "QuotaHistory"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/QuotaDetail.tsx",
+        "file": "ui/subscriptions/QuotaDetail.tsx",
         "symbol": "QuotaPeriod"
       },
       "design": [
         {
-          "source": "design/components/quota-detail.tsx",
+          "source": "design/modules/quota-detail.tsx",
           "part": "QuotaPeriod"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/QuotaDetail.tsx",
+        "file": "ui/subscriptions/QuotaDetail.tsx",
         "symbol": "QuotaCredit"
       },
       "design": [
         {
-          "source": "design/components/quota-detail.tsx",
+          "source": "design/modules/quota-detail.tsx",
           "part": "QuotaCredit"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/QuotaDetail.tsx",
+        "file": "ui/subscriptions/QuotaDetail.tsx",
         "symbol": "QuotaOverview"
       },
       "design": [
         {
-          "source": "design/components/quota-detail.tsx",
+          "source": "design/modules/quota-detail.tsx",
           "part": "QuotaOverview"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/QuotaDetail.tsx",
+        "file": "ui/subscriptions/QuotaDetail.tsx",
         "symbol": "QuotaBreakdown"
       },
       "design": [
         {
-          "source": "design/components/quota-detail.tsx",
+          "source": "design/modules/quota-detail.tsx",
           "part": "QuotaBreakdown"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/QuotaDetail.css"
+        "file": "ui/subscriptions/QuotaDetail.css"
       },
       "design": [
         {
-          "source": "design/components/quota-detail.tsx",
+          "source": "design/modules/quota-detail.tsx",
           "part": "QuotaDetail"
         },
         {
-          "source": "design/components/quota-detail.tsx",
+          "source": "design/modules/quota-detail.tsx",
           "part": "QuotaPopover"
         },
         {
-          "source": "design/components/quota-detail.tsx",
+          "source": "design/modules/quota-detail.tsx",
           "part": "QuotaHistory"
         },
         {
-          "source": "design/components/quota-detail.tsx",
+          "source": "design/modules/quota-detail.tsx",
           "part": "QuotaPeriod"
         },
         {
-          "source": "design/components/quota-detail.tsx",
+          "source": "design/modules/quota-detail.tsx",
           "part": "QuotaCredit"
         },
         {
-          "source": "design/components/quota-detail.tsx",
+          "source": "design/modules/quota-detail.tsx",
           "part": "QuotaOverview"
         },
         {
-          "source": "design/components/quota-detail.tsx",
+          "source": "design/modules/quota-detail.tsx",
           "part": "QuotaBreakdown"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/GraphNode.tsx",
+        "file": "ui/topology/GraphActions.tsx",
         "symbol": "GraphAction"
       },
       "design": [
         {
-          "source": "design/components/topology-node.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "GraphAction"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/GraphNode.tsx",
+        "file": "ui/topology/GraphActions.tsx",
         "symbol": "HubEntry"
       },
       "design": [
         {
-          "source": "design/components/topology-node.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "HubEntry"
         }
       ]
@@ -3076,11 +3064,11 @@
       },
       "design": [
         {
-          "source": "design/components/topology-node.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "GraphAction"
         },
         {
-          "source": "design/components/topology-node.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "HubEntry"
         },
         {
@@ -3091,60 +3079,60 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/Feedback.tsx",
+        "file": "ui/components/topology/GraphFeedback.tsx",
         "symbol": "GraphFeedback"
       },
       "design": [
         {
-          "source": "design/components/notice.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "GraphFeedback"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/SetupFlow.tsx",
+        "file": "ui/components/accounts/SetupAccountDialog.tsx",
         "symbol": "SetupAccountDialog"
       },
       "design": [
         {
-          "source": "design/components/setup-flow.tsx",
+          "source": "design/modules/agent-account-add.tsx",
           "part": "SetupAccountDialog"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/SetupFlow.tsx",
+        "file": "ui/components/onboarding/SetupAppearance.tsx",
         "symbol": "SetupWelcome"
       },
       "design": [
         {
-          "source": "design/components/setup-flow.tsx",
+          "source": "design/modules/onboarding.tsx",
           "part": "SetupWelcome"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/SetupFlow.tsx",
+        "file": "ui/components/onboarding/SetupApproval.tsx",
         "symbol": "SetupApproval"
       },
       "design": [
         {
-          "source": "design/components/setup-flow.tsx",
+          "source": "design/modules/onboarding.tsx",
           "part": "SetupApproval"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/SetupFlow.tsx",
+        "file": "ui/components/onboarding/SetupAppearance.tsx",
         "symbol": "SetupImpact"
       },
       "design": [
         {
-          "source": "design/components/setup-flow.tsx",
+          "source": "design/modules/onboarding.tsx",
           "part": "SetupImpact"
         }
       ]
@@ -3158,6 +3146,156 @@
         {
           "source": "design/components/topology-node.tsx",
           "part": "TopologyNode"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/coordination/RecordParts.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/board-record.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/topology/GraphActions.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/homepage-scene.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/topology/GraphFeedback.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/homepage-scene.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/onboarding/SetupAppearance.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/onboarding.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/onboarding/WelcomeChoice.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/welcome.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/mcp/Controls.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/mcp-service.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/topology/Slider.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/model-configuration.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/permissions/Group.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/permissions.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/updates/Progress.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/updates.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/topology/Slider.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/model-configuration.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/permissions/Group.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/permissions.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/updates/Progress.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/updates.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/providers/PanelProvider.tsx"
+      },
+      "design": [
+        {
+          "source": "design/surfaces/layers.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/hosting/useDialogClose.ts"
+      },
+      "design": [
+        {
+          "source": "design/modules/relay-hosting.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/permissions/DialogView.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/permissions.tsx"
         }
       ]
     }

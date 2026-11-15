@@ -1,5 +1,5 @@
-import { ActivityHeading } from './ui/TimelineSurface';
-import { taskSnapshotElement } from './ui/taskSnapshotMotion';
+import { ActivityHeading } from './timeline/TimelineSurface';
+import { taskSnapshotElement } from './timeline/taskSnapshotMotion';
 import { Tooltip as HoverHelp } from "./ui/index";
 import { layerTrigger } from "../state/layers";
 import Panel, { PanelHeader, usePanelState } from "./ui/Panel";

@@ -1,4 +1,4 @@
-import { ServiceInventory } from '../components/ui/ServiceInventory';
+import { ServiceInventory } from './ServiceInventory';
 import { useCopyState } from "../components/ui/useCopyState";
 import { Tooltip as HoverHelp } from "../components/ui/index";
 import Panel from "../components/ui/Panel";
@@ -9,7 +9,8 @@ import { api } from '../api';
 import { locale, t } from '../i18n';
 import { useAppNow } from '../state/appEnvironment';
 import { relativeTime } from '../lib/relativeTime';
-import { ConfirmDialog, Button, Dialog, Disclosure, Icon, IconButton, Loading, Notice, Prompt, SearchInput, SingleChoice, Status, Switch, Tag, Tile } from '../components/ui';
+import { ConfirmDialog, Button, Dialog, Icon, IconButton, Loading, Notice, SearchInput, SingleChoice, Status, Switch, Tag, Tile } from '../components/ui';
+import { Disclosure, Prompt } from "./Controls";
 import { failureKind, hubSummary, matchServer } from './model';
 import type { HubServer, HubSnapshot, HubTool } from './state';
 import './mcp.css';

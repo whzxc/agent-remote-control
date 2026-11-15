@@ -140,7 +140,7 @@ Motion owns layer entry, exit, content crossfades and geometry transitions. Dial
 
 ## Functional pages
 
-Agent panels retain task rows and execution details. [design/surfaces/agent-panel.tsx](../../design/surfaces/agent-panel.tsx) defines the overview and empty forms, and [task presentation](../../design/components/task-presentation.tsx) defines StatePill and TaskMessage. [Agent activity](../../design/modules/agent-activity.tsx) and [source activity](../../design/modules/source-activity.tsx) own their grouping, metadata and disclosure policy. There is no standalone Tasks page. React renders titles, code, and lists without executing raw HTML.
+Agent panels retain task rows and execution details. [design/surfaces/agent-panel.tsx](../../design/surfaces/agent-panel.tsx) defines the overview and empty forms, and [task presentation](../../design/modules/timeline.tsx) defines StatePill and TaskMessage. [Agent activity](../../design/modules/agent-activity.tsx) and [source activity](../../design/modules/source-activity.tsx) own their grouping, metadata and disclosure policy. There is no standalone Tasks page. React renders titles, code, and lists without executing raw HTML.
 
 Request logs remain available through native management interfaces; there is no standalone Records page.
 
@@ -371,4 +371,4 @@ A dialog above a panel or dialog uses the existing 24% light or 60% dark scrim o
 Dialog focus containment, aria-modal and consumed outside dismissal remain active without a scrim.
 The layer store starts clean switches immediately and coordinates deferred dirty or busy switches without waiting for the old close to finish.
 
-Shared presentation wrappers in `ui/components/ui/` own timeline, record, inventory, setup, library, inspection and quota content styles. [SetupFlow](../../design/components/setup-flow.tsx) and [TopologyNode](../../design/components/topology-node.tsx) mirror the shared runtime assemblies; their feature callers retain data loading and actions.
+Shared controls remain in `ui/components/ui/` only while at least two features use them. Feature-local timeline, record, library, device, update and quota presentation lives with its feature and uses runtime tokens. [SetupFlow](../../design/components/setup-flow.tsx) and [TopologyNode](../../design/components/topology-node.tsx) mirror the shared runtime assemblies; their feature callers retain data loading and actions.

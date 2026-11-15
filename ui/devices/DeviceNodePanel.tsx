@@ -1,4 +1,4 @@
-import { DeviceFacts } from '../components/ui/DeviceFacts';
+import { DeviceFacts } from './DeviceFacts';
 import { deviceTasks } from './tasks';
 import { focusNodeTasks } from '../state/homepage';
 import { icons, name as agentName } from '../state/agents';

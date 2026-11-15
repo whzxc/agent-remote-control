@@ -1,4 +1,5 @@
-import {SetupWelcome} from './ui/SetupFlow';
+
+import { SetupWelcome } from "./onboarding/SetupAppearance";
 import { useEffect, useState } from "react";
 import { Monitor, Smartphone } from "lucide-react";
 import { api } from "../api";
@@ -10,7 +11,8 @@ import { navigation } from "../state/navigation";
 import { isPendingSource } from "../sourcePresentation";
 import type { Login } from "../state/types";
 import AddControlSource from "./AddControlSource";
-import { Button, Notice, Status, WelcomeChoice, WelcomeStatusAction } from "./ui";
+import { Button, Notice, Status } from "./ui";
+import { WelcomeChoice, WelcomeStatusAction } from "./onboarding/WelcomeChoice";
 
 export default function Onboarding({ returnFocus }: { returnFocus?: string }) {
   const flow = onboarding.use()!, { status, sources, sourcesLoaded } = connector.use(); permissions.use();

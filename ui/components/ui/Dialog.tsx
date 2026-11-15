@@ -1,4 +1,4 @@
-import { morphTaskSnapshot, taskSnapshotElement } from './taskSnapshotMotion';
+import { morphTaskSnapshot, taskSnapshotElement } from '../timeline/taskSnapshotMotion';
 import { animate } from "motion/react";
 import { motionTransition } from "../../motion/tokens";
 import { useLayerFrame } from "./useLayerFrame";
@@ -15,7 +15,7 @@ import { LayerOwnerContext } from './TransientLayer';
 import { IconButton, Notice } from './index';
 import { NaturalContentContext, CloseContext, HeaderContext, ActionsContext, PanelStateContext, ViewContext, type View, type PanelState, type NaturalContent } from './LayerPortals';
 import { LayerDismissalFooter } from './LayerDismissalFooter';
-export { DialogClose, DialogView, DialogActions, PanelHeader, usePanelState, useDialogClose, useDialogFeedback } from './LayerPortals';
+export { DialogClose, DialogActions, PanelHeader, usePanelState, useDialogFeedback } from './LayerPortals';
 import './Dialog.css';
 
 /** Completion respects Keep open and routes results from closed owners to global feedback. */

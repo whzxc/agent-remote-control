@@ -1,4 +1,5 @@
-import {SetupApproval} from './ui/SetupFlow';
+
+import { SetupApproval } from "./onboarding/SetupApproval";
 import { useSubmittedDirty } from "./ui/useSubmittedDirty";
 import { DialogActions, useDialogCompletion } from "./ui/Dialog";
 import { layers } from "../state/layers";

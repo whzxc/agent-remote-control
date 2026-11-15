@@ -1,4 +1,5 @@
-import { PanelProvider } from './ui/Panel';
+
+import { PanelProvider } from "./providers/PanelProvider";
 import { observeAppEnvironment, useReducedMotion } from "../state/appEnvironment";
 import { MotionConfig } from "motion/react";
 import { useEffect, type ReactNode } from "react";

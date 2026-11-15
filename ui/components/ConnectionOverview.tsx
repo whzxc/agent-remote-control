@@ -1,4 +1,5 @@
-import { GraphFeedback } from './ui/Feedback';
+
+import { GraphFeedback } from "./topology/GraphFeedback";
 import { layers } from '../state/layers';
 import { markActivitiesRead } from '../state/activityBubbles';
 import { orderedSubset } from '../topology/order';
@@ -27,20 +28,10 @@ import { platformQuotaForAgent, subscriptions } from "../state/subscriptions";
 import { navigation, openConnections } from "../state/navigation";
 import { AgentQuotaIcon } from "../subscriptions/AgentQuotaIcon";
 import { accountQuotaProvider } from "../subscriptions/accountQuota";
-import {
-  useEffect, useCallback,
-  useState,
-  useRef,
-} from "react";
+import { useEffect, useCallback, useState, useRef } from "react";
 import { t } from "../i18n";
 import { ingressState, connector, notify, refreshConnector, refreshHubHealth, orderedSources, reorderSources } from "../state/connector";
-import {
-  agents as agentStore,
-  orderedAgents,
-  moveAgent, reorderAgents,
-  name,
-  type Agent,
-} from "../state/agents";
+import { agents as agentStore, orderedAgents, moveAgent, reorderAgents, name, type Agent } from "../state/agents";
 import type { Ingress } from "../state/types";
 import SourceIcon from "./SourceIcon";
 import { isPendingSource } from "../sourcePresentation";

@@ -23,7 +23,7 @@ None.
 - Loading, failure, not-found, busy, pagination, Board detail/event rows and populated hosting forms without declared sources need coverage in their owning family.
 - Shared controls still have geometry, typography and state differences: Button wrapping, Input error spacing, CopyField masking/loading, SearchInput entered-value color, Notice spacing, CardHeader layout and settings section typography. Reconcile each with the current implementation.
 - Theme swatches and isolated AX badges require fidelity review. Shared runtime CSS still contains local dimensions instead of some declared control tokens.
-- Feature CSS retains paint only for the topology canvas, animated pet artwork and Studio illustration layers. Each remaining declaration has an exact selector, property and drawing-specific reason in the style policy.
+- Feature CSS owns feature presentation through runtime tokens. Literal paint retained for illustrated topology, pet and Studio layers has an exact selector, property and drawing-specific reason in the style policy.
 
 ## Image dimensions and budgets
 

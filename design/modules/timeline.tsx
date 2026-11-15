@@ -1,11 +1,90 @@
-import { TimelineSurface } from '../components/timeline-surface';
+import { Card } from '../components/card';
+export function TaskReplyCard({ children }: { children: unknown }) {
+  return <Card variant="reply" padded class="border border-border bg-transparent text-body leading-[22px]">{children}</Card>;
+}
+export function ContentProse({ children }: { children: unknown }) {
+  return <div class="min-w-0 text-body leading-[22px]">{children}</div>;
+}
+export function PlanContent({ children }: { children: unknown }) {
+  return <section class="text-small text-text-secondary">{children}</section>;
+}
+import { stateForms, messageForms, messageExample } from '../fixtures/task-presentation';
+export type TaskState = "running" | "waiting" | "done" | "failed" | "stopped";
+export function StatePill({
+  state,
+  children,
+  class: extra = "",
+}: {
+  state: TaskState;
+  children?: unknown;
+  class?: string;
+}) {
+  const paint = {
+    running:
+      "relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] " +
+      "before:bg-accent-text before:opacity-15 text-accent-text",
+    waiting:
+      "relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] " +
+      "before:bg-warning before:opacity-15 text-warning",
+    done: "relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] " +
+      "before:bg-success before:opacity-15 text-success",
+    failed:
+      "relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] " +
+      "before:bg-danger before:opacity-15 text-danger",
+    stopped:
+      "relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] " +
+      "before:bg-text-tertiary before:opacity-12 text-text-tertiary",
+  };
+  return (
+    <span
+      class={`inline-flex items-center gap-[5px] h-6 pl-[9px] pr-[10px] rounded-field text-meta font-semibold ${paint[state]} ${extra}`}
+    >
+      <span class="size-[6px] rounded-[3px] bg-current" />
+      {children}
+    </span>
+  );
+}
+export function TaskMessage({
+  text,
+  children,
+  queued = false,
+  status,
+  class: extra = "",
+}: {
+  text?: string;
+  children?: unknown;
+  queued?: boolean;
+  status?: string;
+  class?: string;
+}) {
+  return (
+    <div
+      class={`flex w-full flex-col gap-[18px] rounded-card bg-surface-sunken px-4 py-[15px] text-text ${extra}`}
+    >
+      <p class="text-small leading-4">{text ?? children}</p>
+      {(status || queued) && (
+        <span class="self-end text-meta leading-[14px] text-text-secondary">
+          {status || "Queued"}
+        </span>
+      )}
+    </div>
+  );
+}
+
+export function TimelineRailStep({ children }: { children: unknown }) {
+  return <li class="relative flex gap-[10px] min-w-0"><span class="grid size-5 shrink-0 place-items-center rounded-full bg-surface-raised text-phase-command"><Icon name="terminal" size={13}/></span><div class="flex-1 min-w-0">{children}</div></li>;
+}
+export function TurnProgress() {
+  return <div class="flex gap-1"><div class="h-[3px] flex-1 rounded bg-success"/><div class="h-[3px] flex-1 rounded bg-accent-text"/></div>;
+}
+export function TimelineSurface({ children, class: extra = '' }: { children: unknown; class?: string }) { return <section class={extra}>{children}</section>; }
+
 import { Frame, Icon } from "adg";
 import { PanelShell } from "../components/panel";
 import { BrandMark } from "../components/brand-mark";
 import { IconButton } from "../components/icon-button";
 import { Button } from "../components/button";
 import { FilePath, ProjectLabel } from "../components/project-path";
-import { StatePill } from '../components/task-presentation';
 import { DispatchSpec } from '../components/dispatch-spec';
 import { PermissionCard, RequestRouting } from '../components/request';
 import { timelineTask as task, relayParties, relayCopy, relayTurns, relaySteps, relayPlan, relayReply, relayFailure } from '../fixtures/timeline';

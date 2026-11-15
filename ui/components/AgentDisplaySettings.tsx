@@ -2,17 +2,9 @@ import { readOnlyBrowser } from "../browserMode";
 import { useState } from "react";
 import { t } from "../i18n";
 import { subscriptions, saveSubscriptions } from "../state/subscriptions";
-import {
-  quotaDisplay, topologyLayout, type LayoutPreference,
-  resetDisplay,
-  maxVisibleAgents,
-} from "../subscriptions/displayPreferences";
+import { quotaDisplay, topologyLayout, type LayoutPreference, resetDisplay, maxVisibleAgents } from "../subscriptions/displayPreferences";
 import AgentDispatchDefaults from "./AgentDispatchDefaults";
-import {
-  Notice,
-  SingleChoice,
-  Switch,
-} from "./ui";
+import { Notice, SingleChoice, Switch } from "./ui";
 import { SettingsDialog as Dialog, SettingsSection as Group, Setting as Row } from "./ui/Settings";
 export default function AgentDisplaySettings({
   onClose,

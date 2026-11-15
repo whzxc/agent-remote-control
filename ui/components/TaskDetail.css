@@ -1,9 +1,9 @@
-@import "./ui/TimelineSurface.css";
+@import "./timeline/TimelineSurface.css";
 @import "./ui/TaskDetail-TaskPresentation.css";
 @import "./ui/TaskDetail-Dialog.css";
 @import "./ui/TaskDetail-controls.css";
-@import "./ui/TimelineRail.css";
-@import "./ui/TaskContent.css";
+@import "./timeline/TimelineRail.css";
+@import "./timeline/TaskContent.css";
 .task-detail-layer { container-type: inline-size; }
 .task-detail-layer .timeline-error, .task-queue-error { min-width: 0; overflow-wrap: anywhere; }
 .node-panel:has(.task-detail-layer) .task-detail-header.dialog-header { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0; }

@@ -1,5 +1,5 @@
-import { TimelineSurface } from './ui/TimelineSurface';
-import { TurnProgress } from './ui/TimelineRail';
+import { TimelineSurface } from './timeline/TimelineSurface';
+import { TurnProgress } from './timeline/TimelineRail';
 import { useLayerNaturalContent } from './ui/LayerPortals';
 import { PanelHeader, PanelFooter, usePanelState } from "./ui/Panel";
 import { readOnlyBrowser } from "../browserMode";
@@ -8,7 +8,8 @@ import { pendingSessions } from "../state/taskInteractions";
 import { useTaskPresence } from "../state/requestRouting";
 import { observeTaskPanel } from "../state/taskPanel";
 import { useTaskQueue } from "../state/taskQueue";
-import { TaskContentCard, ReviewUnavailable, TaskBackButton, StatePill } from "./ui/TaskPresentation";
+import { TaskContentCard } from "./ui/TaskPresentation";
+import { ReviewUnavailable, TaskBackButton, StatePill } from "./timeline/TaskPresentation";
 import { TaskCard as TaskListCard, TaskCardHeader, localTaskCard } from "./ui/TaskCard";
 import TaskQueuedMessages from "./TaskQueuedMessages";
 import { useTaskReview } from "../state/taskReview";
@@ -35,7 +36,7 @@ import TaskOwnership from "./TaskOwnership";
 import { activityHeadline, type TrackedActivity } from "../state/activityModel";
 import { trackedActivity } from "../state/activityBubbles";
 import { selectAgentPanel } from "../state/overviewPanels";
-import { TaskRelation } from "./ui/TaskRelation";
+import { TaskRelation } from "./timeline/TaskRelation";
 import type { TaskRuntime } from "../state/tasks";
 
 import { name, orderedAgents } from "../state/agents";

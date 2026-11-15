@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { AgentIcon } from "../components/ui/agent-icon";
+import { AgentIcon } from "./agent-icon";
 import { locale, t } from "../i18n";
 import { icons } from "../state/agents";
 import { useNow } from "../state/hooks";

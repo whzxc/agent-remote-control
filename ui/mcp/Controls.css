@@ -1,0 +1,38 @@
+
+.tag.disclosure {
+  gap: 4px;
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--motion-fast);
+}
+.tag.disclosure:hover {
+  background: color-mix(in srgb, var(--surface), var(--text) 5%);
+}
+.tag.disclosure > .icon {
+  color: var(--text-secondary);
+}
+.prompt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 14px 16px;
+  border-radius: var(--radius-card);
+  background: var(--surface-subtle);
+}
+.prompt > p:first-child {
+  flex: 1 1 240px;
+  min-width: 0;
+  color: var(--text);
+  font-size: var(--text-small);
+  line-height: var(--line-body);
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.prompt > .button {
+  flex: none;
+}
+.prompt > .field-error {
+  flex-basis: 100%;
+}

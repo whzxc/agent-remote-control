@@ -8,19 +8,7 @@ import { motion, Reorder, useDragControls } from "motion/react";
 import { RefreshCw, Settings, Gauge } from "lucide-react";
 import { t } from "../i18n";
 import { openUrl } from "../platform";
-import {
-  agents,
-  orderedAgents,
-  moveAgent,
-  reorderAgents,
-  name,
-  icons,
-  compactAgentVersion,
-  agentLinks,
-  toggleAgent,
-  refreshAgents,
-  type Agent,
-} from "../state/agents";
+import { agents, orderedAgents, moveAgent, reorderAgents, name, icons, compactAgentVersion, agentLinks, toggleAgent, refreshAgents, type Agent } from "../state/agents";
 import { subscriptions } from "../state/subscriptions";
 import UsageOverview from "../subscriptions/UsageOverview";
 import QuotaBubble from "../subscriptions/QuotaBubble";

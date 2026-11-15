@@ -1,3 +1,5 @@
+export function ActivityHeading({ children }: { children: unknown }) { return <div class="text-title leading-6 font-[650]">{children}</div>; }
+export function TaskDateHeading({ children }: { children: unknown }) { return <h3 class="py-2 text-meta leading-4 font-semibold text-text-secondary">{children}</h3>; }
 import { Frame } from 'adg';
 import { Button } from '../components/button';
 import { Setting, SettingsSection } from '../components/settings-row';
@@ -7,7 +9,6 @@ import { Input } from '../components/field';
 import { QuotaCards } from '../components/quota';
 import { TaskCard } from '../components/task-card';
 import { AgentIcon } from '../components/agent-quota-mark';
-import { TaskDateHeading } from '../components/task-presentation';
 import { IconButton } from '../components/icon-button';
 import { layerSettings, layerTask } from '../fixtures/layer-content';
 import { ThemeSwatch } from '../components/theme-swatch';

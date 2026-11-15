@@ -1,23 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import { t, locale } from "../i18n";
-import {
-  identifyPolicy,
-  normalizeSelection,
-  presetPolicy,
-  type ToolCatalog,
-  type ToolMode,
-  type ToolPolicy,
-} from "../toolPolicy";
-import {
-  Button,
-  Checkbox,
-  Field,
-  Notice,
-  SingleChoice,
-  Tooltip,
-} from "./ui";
-import { DialogView } from "./ui/Dialog";
+import { identifyPolicy, normalizeSelection, presetPolicy, type ToolCatalog, type ToolMode, type ToolPolicy } from "../toolPolicy";
+import { Button, Checkbox, Field, Notice, SingleChoice, Tooltip } from "./ui";
+
+import { DialogView } from "./permissions/DialogView";
 export default function ToolPolicyField({
   value,
   onChange,

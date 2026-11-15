@@ -1,4 +1,7 @@
-import { ServiceInventory } from '../components/service-inventory';
+export function ServiceInventory({ children, variant = 'server', class: extra }: { children: unknown; variant?: 'server' | 'tool' | 'import'; class?: string }) {
+  const defaults = { server: 'rounded-card bg-surface-subtle p-4 text-text', tool: 'text-meta leading-[14px] text-text-secondary', import: 'text-small text-text-secondary' };
+  return <div class={extra ?? defaults[variant]}>{children}</div>;
+}
 import { copy } from '../fixtures/mcp-service';
 import { Frame, Icon } from "adg";
 import { Panel } from "../components/panel";

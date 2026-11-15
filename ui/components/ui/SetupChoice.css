@@ -28,17 +28,9 @@
 .setup-choice-action > .icon { flex:none; margin-inline:0 0; }
 .setup-choice-action strong { font:inherit; }
 .setup-choice-badge { flex:none; margin-left:auto; color:var(--accent-text); font:400 var(--text-meta)/16px var(--font-ui); }
-.welcome-choice { display:flex; flex-direction:column; align-items:flex-start; padding:20px; border:0; border-radius:var(--radius-card); background:var(--surface-subtle); color:var(--text); text-align:start; cursor:pointer; }
-.welcome-choice .tile { color:var(--accent); }
-.welcome-choice[data-tone="command"] .tile { color:var(--phase-command); }
-.welcome-choice strong { margin-top:18px; font:650 var(--text-body)/16px var(--font-ui); }
-.welcome-choice > span:not(.tile) { margin-top:8px; color:var(--text-secondary); font:400 var(--text-small)/20px var(--font-ui); }
-.welcome-choice small { margin-top:20px; color:var(--text-secondary); font:400 var(--text-meta)/16px var(--font-ui); }
 @media (max-width:520px) {
   .choice[data-form="setup-product"] .choice-radio { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .choice[data-form="setup-row"][data-secondary-from] .choice-radio { grid-template-columns:minmax(0,1fr); }
   .choice[data-form="setup-row"] .choice-option[data-secondary] { margin-top:0; }
   .choice[data-form="setup-row"] .choice-option:not([data-secondary]) + [data-secondary] { margin-top:26px; }
 }
-
-.welcome-status-link.button { color:var(--text); font:600 var(--text-small)/20px var(--font-ui); }

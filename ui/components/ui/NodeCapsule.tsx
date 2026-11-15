@@ -5,7 +5,7 @@ import { Brain, CirclePause, CircleX, Clock3, Ellipsis, FilePenLine, FileSearch,
 import { Icon, Tooltip } from './index';
 import { useMedia } from '../../state/hooks';
 import { t } from '../../i18n';
-import type { AgentIconReading } from './agent-icon';
+import type { AgentIconReading } from '../../subscriptions/agent-icon';
 import { capsuleItems, type NodeTaskState } from '../../state/activityModel';
 import './NodeCapsule.css';
 

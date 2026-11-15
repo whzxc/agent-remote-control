@@ -70,5 +70,3 @@ export default () => [
     </Notice>
   </Frame>,
 ];
-
-export function GraphFeedback({children}:{children:unknown}){return <div class="text-small text-danger">{children}</div>}

@@ -1,0 +1,18 @@
+
+.agent-account-add .account-login-status { font-size: var(--text-small); font-weight: 500; line-height: var(--line-small); }
+.agent-account-add .account-removal { font-size: var(--text-small); line-height: var(--line-body); }
+.pairing-card { border:var(--stroke-thin) solid var(--border); border-radius:var(--radius-field); }
+.pairing-code { font:var(--pairing-code-font); letter-spacing:var(--pairing-code-tracking); }
+.pairing-card details { font-size:var(--text-meta); }
+.pairing-card.pairing-inline { border:0; border-radius:0; }
+.pairing-card:not(.pairing-inline) .pairing-code-panel { border-radius:var(--radius-card); background:var(--surface-subtle); font-size:var(--text-small); }
+.pairing-card:not(.pairing-inline) .pairing-code-panel .pairing-code { font:600 var(--pairing-panel-code-size) var(--font-mono); letter-spacing:var(--pairing-code-tracking); }
+.pairing-inline .pairing-code-panel { font-size:var(--text-small); }
+.pairing-inline .pairing-code { font:var(--pairing-inline-font); letter-spacing:normal; }
+.welcome-page { border-radius:var(--radius-panel); background:var(--surface-raised); box-shadow:var(--shadow-lg); }
+.welcome-page h1 { font:var(--welcome-title-font); }
+.welcome-readiness > .status { font-size:var(--text-small); }
+
+.pairing-card .pairing-fact { font-size: var(--text-meta); color: var(--text-secondary); }
+.pairing-card .pairing-summary { font-size: var(--text-small); }
+.hub-recovery-impact { color: var(--text-secondary); font-size: var(--text-meta); }

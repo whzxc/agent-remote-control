@@ -1,6 +1,7 @@
 import { RecordSurface } from '../components/ui/RecordDetail';
-import { RecordDetail, RecordDisclosure, RecordEvent, RecordFooter, RecordEmpty } from '../components/ui/RecordDetail';
-import { RecordRow, RecordHeading, RecordCard, RecordMeta } from '../components/ui/Record';
+import { RecordDetail, RecordEmpty } from '../components/ui/RecordDetail';
+import { RecordDisclosure, RecordEvent, RecordFooter } from "./RecordParts";
+import { RecordRow, RecordHeading, RecordCard, RecordMeta } from './Record';
 import { layers } from "../state/layers";
 import { Tooltip as HoverHelp } from "../components/ui/index";
 import { oauthApproval, openNavigationAttention } from "../state/externalNavigation";

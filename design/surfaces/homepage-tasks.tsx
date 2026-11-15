@@ -1,7 +1,7 @@
 import { Frame } from 'adg';
-import { HomepageBar } from '../components/homepage-mode';
+import { HomepageBar } from '../modules/homepage-scene';
 import { TaskGrid } from '../modules/tasks';
-import { NavCapsule } from '../components/nav-capsule';
+import { NavCapsule } from '../modules/homepage-scene';
 import { taskListForms, tasks, tasksCopy as copy } from '../fixtures/tasks';
 
 export default () => taskListForms.filter(({ name }) => name === 'landscape').map(({ name, width, height }) => {

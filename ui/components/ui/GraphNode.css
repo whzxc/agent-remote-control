@@ -24,21 +24,10 @@
   background: transparent;
 }
 .graph-node-name { font-size: 12px; font-weight: 400; color: var(--text-secondary); }
-
-.hub-entry { border: 0; border-radius: 50%; background: transparent; }
-
-.hub-entry:focus-visible { box-shadow: 0 0 0 2px var(--hub-color); }
-.hub-dot { border-radius: 50%; }
-.topology-hub .hub-entry:is(:hover, :focus-visible) .hub-dot { box-shadow: 0 0 6px 2px color-mix(in srgb, var(--hub-color) 45%, transparent); }
-.hub-entry[data-empty] .hub-dot::after { border: 1px solid var(--hub-color); border-radius: 50%; }
 .topology-node .graph-node-name { line-height: calc(14px * var(--node-art-scale)); font-size: calc(var(--text-meta) * var(--node-art-scale)); color: var(--text); }
 :root[data-reduced-motion="true"] {
   .graph-node[data-new-source] { box-shadow: 0 0 0 4px var(--canvas), 0 0 0 6px var(--topology-source); }
 }
-.topology-arc-actions .arc-action-button { background: transparent; }
-.topology-arc-actions .arc-action-button:is(:hover, [aria-expanded="true"]):not(:disabled) { background: transparent; }
-.arc-action-button::before { border-radius: 50%; background: var(--account-color); }
-.arc-action-button > .icon { color: var(--canvas); }
 .topology-scene[data-orientation="portrait"] .topology-node .graph-node,
 .topology-scene[data-orientation="portrait"] .topology-node .graph-node:hover { background: var(--canvas); border-radius: 50%; }
 .topology-node .capsule-graph-node small { color: var(--text-secondary); }

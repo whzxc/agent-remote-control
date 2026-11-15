@@ -1,5 +1,5 @@
 @import "./ui/DispatchSpec.css";
-@import "./ui/TimelineSurface.css";
+@import "./timeline/TimelineSurface.css";
 .spec-picker-model-row { display: grid; grid-template-columns: minmax(0, 1fr) 30px; align-items: center; gap: 18px; }
 .spec-picker-model-row .choice { min-width: 0; }
 .spec-picker-effort { display: grid; gap: 12px; margin-top: 18px; }
