@@ -2,68 +2,2165 @@
   "version": 1,
   "mappings": [
     {
-      "implementation": {"file": "ui/components/ui/ProjectPath.tsx", "symbol": "ProjectLabel"},
-      "design": [{"source": "design/components/project-path.tsx", "part": "ProjectLabel"}]
+      "implementation": {
+        "file": "ui/components/ui/ProjectPath.tsx",
+        "symbol": "ProjectLabel"
+      },
+      "design": [
+        {
+          "source": "design/components/project-path.tsx",
+          "part": "ProjectLabel"
+        }
+      ]
     },
     {
-      "implementation": {"file": "ui/components/ui/ProjectPath.tsx", "symbol": "FilePath"},
-      "design": [{"source": "design/components/project-path.tsx", "part": "FilePath"}]
+      "implementation": {
+        "file": "ui/components/ui/ProjectPath.tsx",
+        "symbol": "FilePath"
+      },
+      "design": [
+        {
+          "source": "design/components/project-path.tsx",
+          "part": "FilePath"
+        }
+      ]
     },
     {
-      "implementation": {"file": "ui/components/ui/ProjectPath.css"},
-      "design": [{"source": "design/components/project-path.tsx", "part": "ProjectLabel"}, {"source": "design/components/project-path.tsx", "part": "FilePath"}]
+      "implementation": {
+        "file": "ui/components/ui/ProjectPath.css"
+      },
+      "design": [
+        {
+          "source": "design/components/project-path.tsx",
+          "part": "ProjectLabel"
+        },
+        {
+          "source": "design/components/project-path.tsx",
+          "part": "FilePath"
+        }
+      ]
     },
     {
-      "implementation": {"file": "ui/components/ui/DispatchSpec.tsx", "symbol": "DispatchSpec"},
-      "design": [{"source": "design/modules/model-configuration.tsx", "part": "DispatchSpec"}]
+      "implementation": {
+        "file": "ui/components/ui/DispatchSpec.tsx",
+        "symbol": "DispatchSpec"
+      },
+      "design": [
+        {
+          "source": "design/modules/model-configuration.tsx",
+          "part": "DispatchSpec"
+        }
+      ]
     },
     {
-      "implementation": {"file": "ui/components/ui/DispatchSpec.css"},
-      "design": [{"source": "design/modules/model-configuration.tsx", "part": "DispatchSpec"}]
+      "implementation": {
+        "file": "ui/components/ui/DispatchSpec.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/model-configuration.tsx",
+          "part": "DispatchSpec"
+        }
+      ]
     },
     {
-      "implementation": {"file": "ui/components/composites/RecordedDispatchSpec.tsx", "symbol": "RecordedDispatchSpec"},
-      "design": [{"source": "design/modules/model-configuration.tsx", "part": "DispatchSpec"}]
+      "implementation": {
+        "file": "ui/components/composites/RecordedDispatchSpec.tsx",
+        "symbol": "RecordedDispatchSpec"
+      },
+      "design": [
+        {
+          "source": "design/modules/model-configuration.tsx",
+          "part": "DispatchSpec"
+        }
+      ]
     },
     {
-      "implementation": {"file": "ui/components/ui/EffortGauge.tsx", "symbol": "EffortGauge"},
-      "design": [{"source": "design/modules/model-configuration.tsx", "part": "EffortGauge"}]
+      "implementation": {
+        "file": "ui/components/ui/EffortGauge.tsx",
+        "symbol": "EffortGauge"
+      },
+      "design": [
+        {
+          "source": "design/modules/model-configuration.tsx",
+          "part": "EffortGauge"
+        }
+      ]
     },
     {
-      "implementation": {"file": "ui/components/ModelEffortPicker.tsx", "symbol": "ModelEffortPicker"},
-      "design": [{"source": "design/modules/model-configuration.tsx", "part": "ModelEffortPicker"}]
+      "implementation": {
+        "file": "ui/components/ModelEffortPicker.tsx",
+        "symbol": "ModelEffortPicker"
+      },
+      "design": [
+        {
+          "source": "design/modules/model-configuration.tsx",
+          "part": "ModelEffortPicker"
+        }
+      ]
     },
     {
-      "implementation": {"file": "ui/components/ui/SteppedSlider.tsx", "symbol": "SteppedSlider"},
-      "design": [{"source": "design/components/stepped-slider.tsx", "part": "SteppedSlider"}]
+      "implementation": {
+        "file": "ui/components/ui/SteppedSlider.tsx",
+        "symbol": "SteppedSlider"
+      },
+      "design": [
+        {
+          "source": "design/components/stepped-slider.tsx",
+          "part": "SteppedSlider"
+        }
+      ]
     },
     {
-      "implementation": {"file": "ui/components/ui/SteppedSlider.css"},
-      "design": [{"source": "design/components/stepped-slider.tsx", "part": "SteppedSlider"}]
+      "implementation": {
+        "file": "ui/components/ui/SteppedSlider.css"
+      },
+      "design": [
+        {
+          "source": "design/components/stepped-slider.tsx",
+          "part": "SteppedSlider"
+        }
+      ]
     },
     {
-      "implementation": {"file": "ui/components/ui/index.tsx", "symbol": "BrandMark"},
-      "design": [{"source": "design/components/brand-mark.tsx", "part": "BrandMark"}]
+      "implementation": {
+        "file": "ui/components/ui/index.tsx",
+        "symbol": "BrandMark"
+      },
+      "design": [
+        {
+          "source": "design/components/brand-mark.tsx",
+          "part": "BrandMark"
+        }
+      ]
     },
     {
-      "implementation": {"file": "ui/components/ui/index.tsx", "symbol": "Tile"},
-      "design": [{"source": "design/components/tile.tsx", "part": "Tile"}]
+      "implementation": {
+        "file": "ui/components/ui/index.tsx",
+        "symbol": "Tile"
+      },
+      "design": [
+        {
+          "source": "design/components/tile.tsx",
+          "part": "Tile"
+        }
+      ]
     },
     {
-      "implementation": {"file": "ui/components/ui/agent-icon.tsx", "symbol": "AgentIcon"},
-      "design": [{"source": "design/modules/agent-quota-mark.tsx", "part": "AgentIcon"}]
+      "implementation": {
+        "file": "ui/components/ui/agent-icon.tsx",
+        "symbol": "AgentIcon"
+      },
+      "design": [
+        {
+          "source": "design/modules/agent-quota-mark.tsx",
+          "part": "AgentIcon"
+        }
+      ]
     },
     {
-      "implementation": {"file": "ui/components/ui/TaskCard.tsx", "symbol": "TaskCard"},
-      "design": [{"source": "design/modules/tasks.tsx", "part": "TaskCard"}]
+      "implementation": {
+        "file": "ui/components/ui/TaskCard.tsx",
+        "symbol": "TaskCard"
+      },
+      "design": [
+        {
+          "source": "design/modules/tasks.tsx",
+          "part": "TaskCard"
+        }
+      ]
     },
     {
-      "implementation": {"file": "ui/components/ui/TaskCard.css"},
-      "design": [{"source": "design/modules/tasks.tsx", "part": "TaskCardHeader"}]
+      "implementation": {
+        "file": "ui/components/ui/TaskCard.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/tasks.tsx",
+          "part": "TaskCardHeader"
+        },
+        {
+          "source": "design/modules/tasks.tsx",
+          "part": "TaskCard"
+        },
+        {
+          "source": "design/modules/task-relationships.tsx",
+          "part": "RelationTaskCard"
+        },
+        {
+          "source": "design/modules/tasks.tsx",
+          "part": "OriginChain"
+        }
+      ]
     },
     {
-      "implementation": {"file": "ui/components/composites/SourcePanelHeader.tsx", "symbol": "SourcePanelHeader"},
-      "design": [{"source": "design/surfaces/source-panel.tsx", "part": "SourcePanelHeader"}]
+      "implementation": {
+        "file": "ui/components/composites/SourcePanelHeader.tsx",
+        "symbol": "SourcePanelHeader"
+      },
+      "design": [
+        {
+          "source": "design/surfaces/source-panel.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/Dialog.tsx"
+      },
+      "design": [
+        {
+          "source": "design/components/panel.tsx",
+          "part": "Panel"
+        },
+        {
+          "source": "design/components/panel.tsx",
+          "part": "Dialog"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/Panel.tsx"
+      },
+      "design": [
+        {
+          "source": "design/components/panel.tsx",
+          "part": "Panel"
+        },
+        {
+          "source": "design/components/panel.tsx",
+          "part": "Dialog"
+        },
+        {
+          "source": "design/surfaces/layers.tsx"
+        },
+        {
+          "source": "design/components/panel.tsx",
+          "part": "PanelLoading"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/LayerDismissalFooter.tsx"
+      },
+      "design": [
+        {
+          "source": "design/components/panel.tsx",
+          "part": "DialogDismissalFooter"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/state/layers.ts"
+      },
+      "design": [
+        {
+          "source": "design/components/panel.tsx",
+          "part": "DialogDismissalFooter"
+        },
+        {
+          "source": "design/surfaces/layers.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/index.tsx",
+        "symbol": "Button"
+      },
+      "design": [
+        {
+          "source": "design/components/button.tsx",
+          "part": "Button"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/style.css"
+      },
+      "design": [
+        {
+          "source": "design/components/button.tsx",
+          "part": "Button"
+        },
+        {
+          "source": "design/components/icon-button.tsx",
+          "part": "IconButton"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/card.tsx",
+        "symbol": "Card",
+        "anchor": "function Card({ className, asChild = false, padded = false, variant = \"default\", ...props }: React.ComponentProps<\"div\"> & { asChild?: boolean; padded?: boolean; variant?: \"default\" | \"reply\" }) {"
+      },
+      "design": [
+        {
+          "source": "design/components/card.tsx",
+          "part": "Card"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/card.tsx",
+        "symbol": "CardHeader",
+        "anchor": "function CardHeader({ className, ...props }: React.ComponentProps<\"div\">) {"
+      },
+      "design": [
+        {
+          "source": "design/components/card.tsx",
+          "part": "CardHeader"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/card.tsx",
+        "symbol": "CardContent",
+        "anchor": "function CardContent({ className, ...props }: React.ComponentProps<\"div\">) {"
+      },
+      "design": [
+        {
+          "source": "design/components/card.tsx",
+          "part": "CardContent"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/TaskNeedsYou.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/request.tsx",
+          "part": "PermissionCard"
+        },
+        {
+          "source": "design/modules/request.tsx",
+          "part": "RequestSheet"
+        },
+        {
+          "source": "design/modules/request.tsx",
+          "part": "InlineRequest"
+        },
+        {
+          "source": "design/modules/timeline.tsx",
+          "part": "RelayRequest"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ActivityInteraction.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/request.tsx",
+          "part": "PermissionCard"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/index.tsx",
+        "symbol": "CopyField"
+      },
+      "design": [
+        {
+          "source": "design/components/copy-field.tsx",
+          "part": "CopyField"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AgentDispatchDefaults.tsx",
+        "symbol": "TaskDispatchDialog",
+        "anchor": "function TaskDispatchDialog({ agent, threadId, onClose }: { agent: string; threadId: string; onClose: () => void }) {"
+      },
+      "design": [
+        {
+          "source": "design/modules/model-configuration.tsx",
+          "part": "ModelDialog"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ModelEffortPicker.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/model-configuration.tsx",
+          "part": "ModelEffortPicker"
+        },
+        {
+          "source": "design/modules/model-configuration.tsx",
+          "part": "ModelMenu"
+        },
+        {
+          "source": "design/modules/model-configuration.tsx",
+          "part": "ModelEffort"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AgentDispatchDefaults.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/model-configuration.tsx",
+          "part": "ModelEffort"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/index.tsx",
+        "symbol": "Input"
+      },
+      "design": [
+        {
+          "source": "design/components/field.tsx",
+          "part": "Input"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/index.tsx",
+        "symbol": "Field"
+      },
+      "design": [
+        {
+          "source": "design/components/field.tsx",
+          "part": "Field"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/index.tsx",
+        "symbol": "IconButton"
+      },
+      "design": [
+        {
+          "source": "design/components/icon-button.tsx",
+          "part": "IconButton"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/App.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/nav-capsule.tsx",
+          "part": "NavCapsule"
+        },
+        {
+          "source": "design/surfaces/layers.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/index.tsx",
+        "symbol": "Notice"
+      },
+      "design": [
+        {
+          "source": "design/components/notice.tsx",
+          "part": "Notice"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/TaskQuestion.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/request.tsx",
+          "part": "QuestionCard"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TaskPresentation.tsx",
+        "symbol": "RequestEntry"
+      },
+      "design": [
+        {
+          "source": "design/modules/request.tsx",
+          "part": "RequestEntry"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TaskPresentation.tsx",
+        "symbol": "ReviewUnavailable"
+      },
+      "design": [
+        {
+          "source": "design/modules/request.tsx",
+          "part": "ReviewUnavailable"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/Dialog.tsx",
+        "symbol": "Dialog"
+      },
+      "design": [
+        {
+          "source": "design/components/panel.tsx",
+          "part": "Dialog"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/Dialog.tsx",
+        "symbol": "LayerShell"
+      },
+      "design": [
+        {
+          "source": "design/components/panel.tsx",
+          "part": "PanelShell"
+        },
+        {
+          "source": "design/components/panel.tsx",
+          "part": "PanelHeader"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/index.tsx",
+        "symbol": "Prompt"
+      },
+      "design": [
+        {
+          "source": "design/components/prompt.tsx",
+          "part": "Prompt"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/QuotaCard.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/quota.tsx",
+          "part": "QuotaCard"
+        },
+        {
+          "source": "design/modules/quota.tsx",
+          "part": "QuotaCards"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AgentQuota.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/quota.tsx",
+          "part": "QuotaCard"
+        },
+        {
+          "source": "design/modules/quota.tsx",
+          "part": "QuotaCards"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/subscriptions/QuotaBubble.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/quota.tsx",
+          "part": "QuotaCard"
+        },
+        {
+          "source": "design/modules/quota.tsx",
+          "part": "QuotaCards"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TaskPresentation.tsx",
+        "symbol": "RoutingRow"
+      },
+      "design": [
+        {
+          "source": "design/modules/request.tsx",
+          "part": "RoutingRow"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/RequestRouting.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/request.tsx",
+          "part": "RequestRouting"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/index.tsx",
+        "symbol": "SearchInput"
+      },
+      "design": [
+        {
+          "source": "design/components/search.tsx",
+          "part": "SearchInput"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/Settings.tsx",
+        "symbol": "Setting"
+      },
+      "design": [
+        {
+          "source": "design/components/settings-row.tsx",
+          "part": "Setting"
+        },
+        {
+          "source": "design/components/settings-row.tsx",
+          "part": "SettingLine"
+        },
+        {
+          "source": "design/components/settings-row.tsx",
+          "part": "SettingsToggleRows"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/Settings.tsx",
+        "symbol": "SettingsSection"
+      },
+      "design": [
+        {
+          "source": "design/components/settings-row.tsx",
+          "part": "SettingsSection"
+        },
+        {
+          "source": "design/components/settings-row.tsx",
+          "part": "SettingsGroup"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/index.tsx",
+        "symbol": "SingleChoice"
+      },
+      "design": [
+        {
+          "source": "design/components/setup-choice.tsx",
+          "part": "SetupChoice"
+        },
+        {
+          "source": "design/components/single-choice.tsx",
+          "part": "SingleChoice"
+        },
+        {
+          "source": "design/components/settings-row.tsx",
+          "part": "SettingsChoices"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/SetupChoice.tsx",
+        "symbol": "SetupAction"
+      },
+      "design": [
+        {
+          "source": "design/modules/source-onboarding.tsx",
+          "part": "SetupAction"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ActivityTimeline.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/task-presentation.tsx",
+          "part": "StatePill"
+        },
+        {
+          "source": "design/modules/task-relationships.tsx",
+          "part": "TaskDetailHeader"
+        },
+        {
+          "source": "design/modules/task-relationships.tsx",
+          "part": "TaskFamily"
+        },
+        {
+          "source": "design/modules/timeline.tsx",
+          "part": "RelayTimeline"
+        },
+        {
+          "source": "design/surfaces/task-detail.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/index.tsx",
+        "symbol": "Switch"
+      },
+      "design": [
+        {
+          "source": "design/components/switch.tsx",
+          "part": "Switch"
+        },
+        {
+          "source": "design/components/settings-row.tsx",
+          "part": "SettingsToggleRows"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/index.tsx",
+        "symbol": "Tag"
+      },
+      "design": [
+        {
+          "source": "design/components/tag.tsx",
+          "part": "Tag"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TaskPresentation.tsx",
+        "symbol": "OwnershipTag"
+      },
+      "design": [
+        {
+          "source": "design/components/tag.tsx",
+          "part": "Tag"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/index.tsx",
+        "symbol": "Disclosure"
+      },
+      "design": [
+        {
+          "source": "design/components/tag.tsx",
+          "part": "Disclosure"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TaskPresentation.tsx",
+        "symbol": "TaskMessage"
+      },
+      "design": [
+        {
+          "source": "design/modules/task-presentation.tsx",
+          "part": "TaskMessage"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/TimelineEntries.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/task-presentation.tsx",
+          "part": "TaskMessage"
+        },
+        {
+          "source": "design/modules/timeline.tsx",
+          "part": "TimelineStep"
+        },
+        {
+          "source": "design/modules/timeline.tsx",
+          "part": "TimelineRail"
+        },
+        {
+          "source": "design/modules/timeline.tsx",
+          "part": "TimelineFold"
+        },
+        {
+          "source": "design/modules/timeline.tsx",
+          "part": "TimelinePlanDock"
+        },
+        {
+          "source": "design/modules/timeline.tsx",
+          "part": "TimelineEarlierTurn"
+        },
+        {
+          "source": "design/modules/timeline.tsx",
+          "part": "RelayReply"
+        },
+        {
+          "source": "design/modules/timeline.tsx",
+          "part": "RelayRequest"
+        },
+        {
+          "source": "design/modules/timeline.tsx",
+          "part": "RelayFailure"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/TaskQueuedMessages.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/task-presentation.tsx",
+          "part": "TaskMessage"
+        },
+        {
+          "source": "design/modules/timeline.tsx",
+          "part": "RelayMessage"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AgentConversations.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/agent-activity.tsx",
+          "part": "AgentTaskHistory"
+        },
+        {
+          "source": "design/modules/agent-activity.tsx",
+          "part": "AgentSectionHeading"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/SourceDispatches.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/source-activity.tsx",
+          "part": "SourceTaskGroups"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TaskRelation.tsx",
+        "symbol": "TaskRelation"
+      },
+      "design": [
+        {
+          "source": "design/modules/task-relationships.tsx",
+          "part": "TaskRelation"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TaskCard.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/task-relationships.tsx",
+          "part": "RelationTaskCard"
+        },
+        {
+          "source": "design/modules/tasks.tsx",
+          "part": "OriginChain"
+        },
+        {
+          "source": "design/modules/tasks.tsx",
+          "part": "TaskCardHeader"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/RelayRoute.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/timeline.tsx",
+          "part": "RelayRoute"
+        },
+        {
+          "source": "design/modules/timeline.tsx",
+          "part": "RelayMessage"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TaskPresentation.tsx",
+        "symbol": "AgentPhaseTile"
+      },
+      "design": [
+        {
+          "source": "design/components/tile.tsx",
+          "part": "Tile"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/index.tsx",
+        "symbol": "Tooltip"
+      },
+      "design": [
+        {
+          "source": "design/components/tooltip.tsx",
+          "part": "Tooltip"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/topology/Hub.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/topology-mark.tsx",
+          "part": "TopologyMark"
+        },
+        {
+          "source": "design/modules/topology-mark.tsx",
+          "part": "ArcRecovery"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TopologyGroup.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/topology-group.tsx",
+          "part": "TopologyGroup"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TopologyGroup.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/topology-group.tsx",
+          "part": "TopologyGroup"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/topology/Topology.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/topology-group.tsx",
+          "part": "TopologyGroup"
+        },
+        {
+          "source": "design/modules/topology-node.tsx",
+          "part": "TopologyNode"
+        },
+        {
+          "source": "design/modules/topology-scene.tsx",
+          "part": "TopologyScene"
+        },
+        {
+          "source": "design/modules/device-topology.tsx",
+          "part": "DeviceNode"
+        },
+        {
+          "source": "design/modules/device-topology.tsx",
+          "part": "DeviceNodePanel"
+        },
+        {
+          "source": "design/modules/device-topology.tsx",
+          "part": "ControllerSourcePanel"
+        },
+        {
+          "source": "design/modules/device-topology.tsx",
+          "part": "DeviceBranch"
+        },
+        {
+          "source": "design/modules/device-topology.tsx",
+          "part": "PortraitDeviceBranch"
+        },
+        {
+          "source": "design/surfaces/layers.tsx"
+        },
+        {
+          "source": "design/surfaces/device-link-topology.tsx"
+        },
+        {
+          "source": "design/surfaces/homepage-topology-accounts.tsx"
+        },
+        {
+          "source": "design/surfaces/homepage-topology.tsx"
+        },
+        {
+          "source": "design/surfaces/homepage-topology-portrait.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AddConnection.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/onboarding.tsx",
+          "part": "OnboardingChoiceField"
+        },
+        {
+          "source": "design/modules/onboarding.tsx",
+          "part": "OnboardingField"
+        },
+        {
+          "source": "design/modules/connection-onboarding.tsx",
+          "part": "ConnectionOnboarding"
+        },
+        {
+          "source": "design/surfaces/setup.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AddControlSource.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/onboarding.tsx",
+          "part": "OnboardingField"
+        },
+        {
+          "source": "design/modules/source-onboarding.tsx",
+          "part": "SourceOnboarding"
+        },
+        {
+          "source": "design/surfaces/setup.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/SetupDialog.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/onboarding.tsx",
+          "part": "OnboardingSteps"
+        },
+        {
+          "source": "design/modules/onboarding.tsx",
+          "part": "OnboardingFooter"
+        },
+        {
+          "source": "design/modules/onboarding.tsx",
+          "part": "OnboardingShell"
+        },
+        {
+          "source": "design/surfaces/setup.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/SetupChoice.tsx",
+        "symbol": "WelcomeChoice"
+      },
+      "design": [
+        {
+          "source": "design/modules/welcome.tsx",
+          "part": "WelcomeChoice"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/Onboarding.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/welcome.tsx",
+          "part": "WelcomeChoice"
+        },
+        {
+          "source": "design/modules/welcome.tsx",
+          "part": "WelcomeStatus"
+        },
+        {
+          "source": "design/modules/welcome.tsx",
+          "part": "Welcome"
+        },
+        {
+          "source": "design/surfaces/setup.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/SetupChoice.tsx",
+        "symbol": "WelcomeStatusAction"
+      },
+      "design": [
+        {
+          "source": "design/modules/welcome.tsx",
+          "part": "WelcomeStatus"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ToolPolicyField.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/connection-onboarding.tsx",
+          "part": "ConnectionOperations"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ConnectionsContent.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/connection-management.tsx",
+          "part": "ConnectionFacts"
+        },
+        {
+          "source": "design/modules/connection-management.tsx",
+          "part": "ConnectionCard"
+        },
+        {
+          "source": "design/surfaces/connections.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ConnectionsContent.tsx",
+        "symbol": "ConnectionsContent"
+      },
+      "design": [
+        {
+          "source": "design/modules/connection-management.tsx",
+          "part": "ConnectionList"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/coordination/CoordinationCenter.tsx",
+        "symbol": "RecordRow",
+        "anchor": "function RecordRow({ children, className = '', ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {"
+      },
+      "design": [
+        {
+          "source": "design/modules/board.tsx",
+          "part": "BoardRow"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/coordination/CoordinationCenter.tsx",
+        "symbol": "Section",
+        "anchor": "function Section({ label, count, note, attention, children }: { label: string; count?: number; note?: string; attention?: boolean; children: ReactNode }) {"
+      },
+      "design": [
+        {
+          "source": "design/modules/board.tsx",
+          "part": "BoardSection"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/coordination/CoordinationCenter.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/board.tsx",
+          "part": "BoardFeedback"
+        },
+        {
+          "source": "design/modules/board.tsx",
+          "part": "BoardFilters"
+        },
+        {
+          "source": "design/modules/ax.tsx",
+          "part": "AXBoard"
+        },
+        {
+          "source": "design/surfaces/coordination.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/coordination/CoordinationCenter.tsx",
+        "symbol": "CoordinationCenter"
+      },
+      "design": [
+        {
+          "source": "design/modules/board.tsx",
+          "part": "CoordinationBoard"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/coordination/AXPanel.tsx",
+        "symbol": "Status",
+        "anchor": "function Status({ entry }: { entry: AXEntry }) {"
+      },
+      "design": [
+        {
+          "source": "design/modules/ax.tsx",
+          "part": "AXStatusBadge"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/coordination/AXPanel.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/ax.tsx",
+          "part": "AXEntryRow"
+        },
+        {
+          "source": "design/surfaces/coordination-ax.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/coordination/AXPanel.tsx",
+        "symbol": "detail",
+        "anchor": "function detail(entry: AXEntry) {"
+      },
+      "design": [
+        {
+          "source": "design/modules/ax.tsx",
+          "part": "AXEntryDetail"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/coordination/AXPanel.tsx",
+        "symbol": "AXPanel"
+      },
+      "design": [
+        {
+          "source": "design/modules/ax.tsx",
+          "part": "AXBoard"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/mcp/McpHub.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/mcp-service.tsx",
+          "part": "McpService"
+        },
+        {
+          "source": "design/modules/mcp-service.tsx",
+          "part": "McpHub"
+        },
+        {
+          "source": "design/modules/mcp-service.tsx",
+          "part": "McpFailure"
+        },
+        {
+          "source": "design/modules/mcp-service.tsx",
+          "part": "McpImportPrompt"
+        },
+        {
+          "source": "design/surfaces/mcp-hub.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/objects/ConnectorCard.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/connectors.tsx",
+          "part": "ConnectorCard"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/PlatformsPage.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/connectors.tsx",
+          "part": "ConnectorContent"
+        },
+        {
+          "source": "design/surfaces/platforms.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/SettingsPage.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/general-settings.tsx",
+          "part": "GeneralSettings"
+        },
+        {
+          "source": "design/modules/general-settings.tsx",
+          "part": "GeneralSettingsContent"
+        },
+        {
+          "source": "design/modules/display-settings.tsx",
+          "part": "ThemeSwatch"
+        },
+        {
+          "source": "design/modules/updates.tsx",
+          "part": "UpdateAboutContent"
+        },
+        {
+          "source": "design/surfaces/settings.tsx"
+        },
+        {
+          "source": "design/surfaces/updates.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AgentsSettings.tsx",
+        "symbol": "AgentCard",
+        "anchor": "function AgentCard({ agent, onMove, children }: {"
+      },
+      "design": [
+        {
+          "source": "design/modules/agent-settings.tsx",
+          "part": "AgentInventoryCard"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AgentDispatchDefaults.tsx",
+        "symbol": "AgentDispatchDefaults"
+      },
+      "design": [
+        {
+          "source": "design/modules/agent-settings.tsx",
+          "part": "AgentDispatchSettings"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AgentsSettings.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/agent-settings.tsx",
+          "part": "AgentDetail"
+        },
+        {
+          "source": "design/modules/agent-settings.tsx",
+          "part": "Agents"
+        },
+        {
+          "source": "design/surfaces/settings.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AgentDisplaySettings.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/display-settings.tsx",
+          "part": "DisplayContent"
+        },
+        {
+          "source": "design/modules/display-settings.tsx",
+          "part": "Display"
+        },
+        {
+          "source": "design/surfaces/settings.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ExperimentalSettings.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/experimental.tsx",
+          "part": "ExperimentalContent"
+        },
+        {
+          "source": "design/modules/experimental.tsx",
+          "part": "Experimental"
+        },
+        {
+          "source": "design/modules/device-link.tsx",
+          "part": "DeviceExperiment"
+        },
+        {
+          "source": "design/modules/device-link.tsx",
+          "part": "DeviceFingerprint"
+        },
+        {
+          "source": "design/modules/device-link.tsx",
+          "part": "DevicePairDialog"
+        },
+        {
+          "source": "design/modules/device-link.tsx",
+          "part": "DeviceAddressDialog"
+        },
+        {
+          "source": "design/modules/device-link.tsx",
+          "part": "DeviceRevokeDialog"
+        },
+        {
+          "source": "design/surfaces/settings.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/pets/PetsPage.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/pets.tsx",
+          "part": "PetImport"
+        },
+        {
+          "source": "design/modules/pets.tsx",
+          "part": "PetCard"
+        },
+        {
+          "source": "design/modules/pets.tsx",
+          "part": "PetsLibrary"
+        },
+        {
+          "source": "design/surfaces/pets-settings.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AppUpdate.tsx",
+        "symbol": "PanelContents",
+        "anchor": "function PanelContents() {"
+      },
+      "design": [
+        {
+          "source": "design/modules/updates.tsx",
+          "part": "UpdateContent"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AppUpdate.tsx",
+        "symbol": "UpdateHistory",
+        "anchor": "function UpdateHistory({ currentVersion, onClose }: { currentVersion?: string; onClose: () => void }) {"
+      },
+      "design": [
+        {
+          "source": "design/modules/updates.tsx",
+          "part": "UpdateHistoryContent"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AppUpdate.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/updates.tsx",
+          "part": "UpdateAboutContent"
+        },
+        {
+          "source": "design/surfaces/updates.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/RelayHosting.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/relay-hosting.tsx",
+          "part": "RelayHostingContent"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/SourcePlatformView.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/connectors.tsx",
+          "part": "SourceConnectorSummary"
+        },
+        {
+          "source": "design/surfaces/source-panel.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AgentPlatformView.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/agent-settings.tsx",
+          "part": "NativeAgentInfo"
+        },
+        {
+          "source": "design/surfaces/agent-platform.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AgentAccountAdd.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/agent-account-add.tsx",
+          "part": "AgentAccountAdd"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AccountCards.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/agent-account.tsx",
+          "part": "AccountCard"
+        },
+        {
+          "source": "design/modules/agent-account.tsx",
+          "part": "EditAccountAlias"
+        },
+        {
+          "source": "design/modules/agent-account.tsx",
+          "part": "RemoveAccount"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/NodeCapsule.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/node-capsule.tsx",
+          "part": "nodeCapsuleLayout"
+        },
+        {
+          "source": "design/modules/node-capsule.tsx",
+          "part": "NodeCapsule"
+        },
+        {
+          "source": "design/modules/task-activity.tsx",
+          "part": "TaskActivityIcon"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/NodeCapsule.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/node-capsule.tsx",
+          "part": "nodeCapsuleLayout"
+        },
+        {
+          "source": "design/modules/node-capsule.tsx",
+          "part": "NodeCapsule"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/display/Studio.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/homepage-mode.tsx",
+          "part": "HomepageModeSwitch"
+        },
+        {
+          "source": "design/modules/homepage-mode.tsx",
+          "part": "HomepageBar"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/state/homepage.ts"
+      },
+      "design": [
+        {
+          "source": "design/modules/homepage-mode.tsx",
+          "part": "HomepageModeSwitch"
+        },
+        {
+          "source": "design/modules/homepage-mode.tsx",
+          "part": "HomepageBar"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/devices/DeviceNodePanel.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/device-link.tsx",
+          "part": "DeviceExperiment"
+        },
+        {
+          "source": "design/modules/device-link.tsx",
+          "part": "DeviceFingerprint"
+        },
+        {
+          "source": "design/modules/device-link.tsx",
+          "part": "DevicePairDialog"
+        },
+        {
+          "source": "design/modules/device-link.tsx",
+          "part": "DeviceAddressDialog"
+        },
+        {
+          "source": "design/modules/device-link.tsx",
+          "part": "DeviceRevokeDialog"
+        },
+        {
+          "source": "design/modules/device-topology.tsx",
+          "part": "DeviceNode"
+        },
+        {
+          "source": "design/modules/device-topology.tsx",
+          "part": "DeviceNodePanel"
+        },
+        {
+          "source": "design/modules/device-topology.tsx",
+          "part": "ControllerSourcePanel"
+        },
+        {
+          "source": "design/modules/device-topology.tsx",
+          "part": "DeviceBranch"
+        },
+        {
+          "source": "design/modules/device-topology.tsx",
+          "part": "PortraitDeviceBranch"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/PermissionsPage.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/permissions.tsx",
+          "part": "PermissionRow"
+        },
+        {
+          "source": "design/modules/permissions.tsx",
+          "part": "PermissionsContent"
+        },
+        {
+          "source": "design/surfaces/permissions.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/HomepageTasks.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/tasks.tsx",
+          "part": "NodeTaskFilter"
+        },
+        {
+          "source": "design/modules/tasks.tsx",
+          "part": "TasksEmpty"
+        },
+        {
+          "source": "design/modules/tasks.tsx",
+          "part": "TaskGrid"
+        },
+        {
+          "source": "design/surfaces/homepage-tasks.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/layerFrame.ts"
+      },
+      "design": [
+        {
+          "source": "design/surfaces/layers.tsx"
+        },
+        {
+          "source": "design/components/panel.tsx",
+          "part": "Panel"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AgentPanel.tsx"
+      },
+      "design": [
+        {
+          "source": "design/surfaces/agent-panel.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/subscriptions/UsageOverview.tsx"
+      },
+      "design": [
+        {
+          "source": "design/surfaces/quota-overview.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/RelaySettings.tsx"
+      },
+      "design": [
+        {
+          "source": "design/surfaces/relay-hosting.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/SourcePanel.tsx"
+      },
+      "design": [
+        {
+          "source": "design/surfaces/source-panel.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ModelEffortPicker.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/model-configuration.tsx",
+          "part": "ModelEffortPicker"
+        },
+        {
+          "source": "design/modules/model-configuration.tsx",
+          "part": "ModelMenu"
+        },
+        {
+          "source": "design/modules/model-configuration.tsx",
+          "part": "ModelEffort"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/Dialog.css"
+      },
+      "design": [
+        {
+          "source": "design/components/panel.tsx",
+          "part": "Panel"
+        },
+        {
+          "source": "design/components/panel.tsx",
+          "part": "Dialog"
+        },
+        {
+          "source": "design/components/panel.tsx",
+          "part": "PanelShell"
+        },
+        {
+          "source": "design/components/panel.tsx",
+          "part": "PanelHeader"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TaskPresentation.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/request.tsx",
+          "part": "RequestEntry"
+        },
+        {
+          "source": "design/modules/request.tsx",
+          "part": "ReviewUnavailable"
+        },
+        {
+          "source": "design/modules/request.tsx",
+          "part": "RoutingRow"
+        },
+        {
+          "source": "design/components/tag.tsx",
+          "part": "Tag"
+        },
+        {
+          "source": "design/modules/task-presentation.tsx",
+          "part": "TaskMessage"
+        },
+        {
+          "source": "design/components/tile.tsx",
+          "part": "Tile"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/QuotaCard.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/quota.tsx",
+          "part": "QuotaCard"
+        },
+        {
+          "source": "design/modules/quota.tsx",
+          "part": "QuotaCards"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/Settings.css"
+      },
+      "design": [
+        {
+          "source": "design/components/settings-row.tsx",
+          "part": "Setting"
+        },
+        {
+          "source": "design/components/settings-row.tsx",
+          "part": "SettingLine"
+        },
+        {
+          "source": "design/components/settings-row.tsx",
+          "part": "SettingsToggleRows"
+        },
+        {
+          "source": "design/components/settings-row.tsx",
+          "part": "SettingsSection"
+        },
+        {
+          "source": "design/components/settings-row.tsx",
+          "part": "SettingsGroup"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/SetupChoice.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/source-onboarding.tsx",
+          "part": "SetupAction"
+        },
+        {
+          "source": "design/modules/welcome.tsx",
+          "part": "WelcomeChoice"
+        },
+        {
+          "source": "design/modules/welcome.tsx",
+          "part": "WelcomeStatus"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TaskRelation.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/task-relationships.tsx",
+          "part": "TaskRelation"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/topology/Topology.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/topology-group.tsx",
+          "part": "TopologyGroup"
+        },
+        {
+          "source": "design/modules/topology-node.tsx",
+          "part": "TopologyNode"
+        },
+        {
+          "source": "design/modules/topology-scene.tsx",
+          "part": "TopologyScene"
+        },
+        {
+          "source": "design/modules/device-topology.tsx",
+          "part": "DeviceNode"
+        },
+        {
+          "source": "design/modules/device-topology.tsx",
+          "part": "DeviceNodePanel"
+        },
+        {
+          "source": "design/modules/device-topology.tsx",
+          "part": "ControllerSourcePanel"
+        },
+        {
+          "source": "design/modules/device-topology.tsx",
+          "part": "DeviceBranch"
+        },
+        {
+          "source": "design/modules/device-topology.tsx",
+          "part": "PortraitDeviceBranch"
+        },
+        {
+          "source": "design/surfaces/layers.tsx"
+        },
+        {
+          "source": "design/surfaces/device-link-topology.tsx"
+        },
+        {
+          "source": "design/surfaces/homepage-topology-accounts.tsx"
+        },
+        {
+          "source": "design/surfaces/homepage-topology.tsx"
+        },
+        {
+          "source": "design/surfaces/homepage-topology-portrait.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AppUpdate.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/updates.tsx",
+          "part": "UpdateContent"
+        },
+        {
+          "source": "design/modules/updates.tsx",
+          "part": "UpdateHistoryContent"
+        },
+        {
+          "source": "design/modules/updates.tsx",
+          "part": "UpdateAboutContent"
+        },
+        {
+          "source": "design/surfaces/updates.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AgentAccountAdd.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/agent-account-add.tsx",
+          "part": "AgentAccountAdd"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/display/Studio.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/homepage-mode.tsx",
+          "part": "HomepageModeSwitch"
+        },
+        {
+          "source": "design/modules/homepage-mode.tsx",
+          "part": "HomepageBar"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/HomepageTasks.css"
+      },
+      "design": [
+        {
+          "source": "design/modules/tasks.tsx",
+          "part": "NodeTaskFilter"
+        },
+        {
+          "source": "design/modules/tasks.tsx",
+          "part": "TasksEmpty"
+        },
+        {
+          "source": "design/modules/tasks.tsx",
+          "part": "TaskGrid"
+        },
+        {
+          "source": "design/surfaces/homepage-tasks.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/TaskOutcome.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/timeline.tsx",
+          "part": "RelayFailure"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/topology/nodeViews.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/node-capsule.tsx",
+          "part": "NodeCapsule"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/SourceIcon.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/node-capsule.tsx",
+          "part": "NodeCapsule"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/topology/spring.ts"
+      },
+      "design": [
+        {
+          "source": "design/modules/node-capsule.tsx",
+          "part": "NodeCapsule"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/state/homepageTasks.ts"
+      },
+      "design": [
+        {
+          "source": "design/surfaces/homepage-tasks.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/state/taskProjection.ts"
+      },
+      "design": [
+        {
+          "source": "design/modules/tasks.tsx",
+          "part": "TaskCard"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/state/activityModel.ts"
+      },
+      "design": [
+        {
+          "source": "design/modules/tasks.tsx",
+          "part": "TaskCard"
+        }
+      ]
     }
   ]
 }
