@@ -32,6 +32,7 @@ const psQuote = value => `'${value.replaceAll("'", "''")}'`;
 const shellQuote = value => `'${value.replaceAll("'", "'\"'\"'")}'`;
 const sshOptions = ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15'];
 const workerEnv = () => Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(TAURI_SIGNING_|APPLE_|CSC_|WIN_CSC_)/.test(key)));
+export const workProfileRoot = (workRoot, override) => override?.trim() || path.join(workRoot, 'profiles', 'personal');
 const powershell = (host, script) => runCommand('ssh', [...sshOptions, host,
   `powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand ${Buffer.from("$ProgressPreference='SilentlyContinue'\n" + script, 'utf16le').toString('base64')}`], { env: workerEnv() });
 
@@ -40,7 +41,7 @@ export async function prepareWindowsWorker({ timer }) {
   const fleet = JSON.parse(await readFile(path.join(runtime.profileRoot, 'fleet/targets.json'))).targets;
   const work = runtime.packages.find(pkg => pkg.identity.name === '@whzxc/work');
   if (!work) throw new Error('Windows release requires the installed @whzxc/work package; inspect enjoy runtime.');
-  const workProfile = path.join(work.root, path.relative(runtime.packageRoot, runtime.profileRoot));
+  const workProfile = workProfileRoot(work.root, process.env.ENJOY_PROFILE_ROOT);
   const builds = JSON.parse(await readFile(path.join(workProfile, 'client/client-build-targets.json')));
   const target = builds.targets[builds.windowsTarget];
   const host = target.ssh;

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { assetMatches, boundedMap, ghOptions, transferOptions, platformAssetNames, publicationStages,
   publishedTags, releaseByTag, releaseById, uploadReleaseAsset, fileDigest, retry, stageTimer, validateResume, validateRemoteAssets, validateArtifactInventory, parallelPlatforms, dependencyEnv, releasePlatforms } from '../tooling/release-support.mjs';
-import { workerReady, canStopWorker, validateWindowsReceipt } from '../tooling/windows-release.mjs';
+import { workerReady, canStopWorker, validateWindowsReceipt, workProfileRoot } from '../tooling/windows-release.mjs';
 import { inputKey, dependenciesMatch } from '../tooling/build-cache.mjs';
 import { testEnvironment } from '../tooling/test-environment.mjs';
 import { validateLinuxElf, validateLinuxReceipt } from '../tooling/linux-release.mjs';
@@ -98,6 +98,12 @@ test('dependency installs reread npmrc script policy without mutating the parent
   const env = { npm_config_allow_scripts: 'esbuild', NPM_CONFIG_ALLOW_SCRIPTS: 'esbuild', PATH: '/tools', npm_config_registry: 'https://example.com' };
   assert.deepEqual(dependencyEnv(env), { PATH: '/tools', npm_config_registry: 'https://example.com' });
   assert.equal(env.npm_config_allow_scripts, 'esbuild');
+});
+
+test('Windows worker uses the Work package profile or explicit override', () => {
+  // Regression: Work profiles live under its personal profile directory, not Enjoy's profile directory.
+  assert.equal(workProfileRoot('/work/dist'), path.join('/work/dist', 'profiles', 'personal'));
+  assert.equal(workProfileRoot('/work/dist', '/custom/profiles'), '/custom/profiles');
 });
 
 test('worker readiness requires power SSH and ready signals together', () => {
