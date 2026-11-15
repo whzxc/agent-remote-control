@@ -2,7 +2,7 @@
 .welcome-choice { display:flex; flex-direction:column; align-items:flex-start; padding:20px; border:0; border-radius:var(--radius-card); background:var(--surface-subtle); color:var(--text); text-align:start; cursor:pointer; }
 .welcome-choice .tile { color:var(--accent); }
 .welcome-choice[data-tone="command"] .tile { color:var(--phase-command); }
-.welcome-choice strong { margin-top:18px; font:var(--welcome-choice-font); }
+.welcome-choice strong { margin-top:18px; font:650 var(--text-body)/16px var(--font-ui); }
 .welcome-choice > span:not(.tile) { margin-top:8px; color:var(--text-secondary); font:400 var(--text-small)/var(--line-body) var(--font-ui); }
 .welcome-choice small { margin-top:20px; color:var(--text-secondary); font:400 var(--text-meta)/var(--line-compact) var(--font-ui); }
 

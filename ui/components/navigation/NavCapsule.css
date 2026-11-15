@@ -7,7 +7,7 @@
   max-width: calc(100vw - 32px);
   padding: var(--dock-padding-block) 6px;
   border: 0;
-  border-radius: var(--radius-22);
+  border-radius: 22px;
   background: var(--surface-raised);
   box-shadow: var(--shadow-lg);
 }
@@ -20,7 +20,7 @@
   background: transparent;
   border: 0;
   box-shadow: none;
-  border-radius: var(--border-radius-50);
+  border-radius: var(--radius-circle);
   position: relative;
   color: var(--text-secondary);
   transition: color var(--motion-fast);

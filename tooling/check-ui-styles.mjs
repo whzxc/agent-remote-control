@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import postcss from 'postcss';
 import { checkConsumers } from './check-ui-consumers.mjs';
+import { checkTokens } from './check-ui-tokens.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const paint = /^(?:color|background(?:-.+)?|border(?:-(?:top|right|bottom|left|inline|block|inline-start|inline-end|block-start|block-end))?(?:-(?:color|style|radius))?|border-(?:top-left|top-right|bottom-left|bottom-right|start-start|start-end|end-start|end-end)-radius|box-shadow|font(?:-.+)?|line-height|letter-spacing|text-shadow|text-transform|text-decoration(?:-.+)?)$/;
@@ -71,7 +72,8 @@ export async function checkStyles(base = root) {
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
     const result = await checkStyles();
-    result.errors.push(...checkConsumers().errors);
+    const consumers = checkConsumers();
+    result.errors.push(...consumers.errors, ...checkTokens(root, consumers.parts).errors);
     if (result.errors.length) { console.error(result.errors.join('\n')); process.exitCode = 1; }
     else console.log(`UI style policy passed (${result.declarations} declarations, ${result.exceptions} exact exceptions).`);
   } catch (error) { console.error(error.message); process.exitCode = 1; }

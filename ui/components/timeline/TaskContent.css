@@ -1,4 +1,4 @@
-.task-final { font-size: var(--text-body); line-height: var(--line-reading); overflow-wrap: anywhere; }
+.task-final { font-size: var(--text-body); line-height: 22px; overflow-wrap: anywhere; }
 .task-plan { font-size: var(--text-small); }
 .task-plan > header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: var(--text-meta); line-height: var(--line-body); color: var(--text-secondary); }
 .task-plan > header > span:last-child { font-variant-numeric: tabular-nums; color: var(--text-tertiary); }
@@ -18,4 +18,4 @@
 .timeline-markdown a { color: var(--accent); text-decoration: underline; }
 .timeline-markdown .contains-task-list { list-style: none; padding-left: 4px; }
 
-.task-outcome { font-size: var(--text-body); line-height: var(--line-reading); overflow-wrap: anywhere; }
+.task-outcome { font-size: var(--text-body); line-height: 22px; overflow-wrap: anywhere; }

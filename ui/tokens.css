@@ -16,7 +16,6 @@
   --warning-soft: color-mix(in srgb, var(--warning) 14%, var(--surface));
   --danger-soft: color-mix(in srgb, var(--danger) 12%, var(--surface));
   --on-success: #ffffff;
-  --update-accent: var(--success);
   --brand-ink: #1d1d1f;
   --brand-orange: #d97757;
   --brand-agent-start: #9c8cff;

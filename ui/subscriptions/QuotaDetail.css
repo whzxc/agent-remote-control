@@ -14,10 +14,10 @@
   background: var(--surface-raised);
   color: var(--text);
   box-shadow: var(--shadow-md);
-  font-family: var(--font-quota-rounded);
+  font-family: ui-rounded, "SF Pro Rounded", var(--font-ui);
 }
 .history-detail {
-  font-size: var(--quota-detail-size);
+  font-size: 11.5px;
   line-height: var(--text-body);
 }
 .history-detail > strong {
@@ -26,10 +26,10 @@
   font-weight: 600;
 }
 .credit-number {
-  border-radius: var(--border-radius-50);
+  border-radius: var(--radius-circle);
   background: var(--accent);
-  color: var(--white);
-  font-size: var(--text-tiny);
+  color: var(--knob);
+  font-size: 10px;
 }
 .history-detail .expiry-row {
   font-size: var(--text-caption);

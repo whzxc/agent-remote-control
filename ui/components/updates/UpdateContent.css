@@ -1,6 +1,6 @@
 .update-dock-divider { background: var(--border-strong); }
-.navigation-capsule .update-dock-entry { color: var(--update-accent); }
-.update-available-dot { border-radius: var(--border-radius-50); background: var(--update-accent); }
+.navigation-capsule .update-dock-entry { color: var(--success); }
+.update-available-dot { border-radius: var(--radius-circle); background: var(--success); }
 .update-panel { border: 0; border-radius: var(--radius-panel); background: var(--surface-raised); color: var(--text); box-shadow: var(--shadow-lg); }
 .update-panel-header > h2 { font-size: var(--text-title); font-weight: var(--weight-title); line-height: var(--line-title); }
 .update-download .progress { background: var(--surface-sunken); }

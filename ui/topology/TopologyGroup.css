@@ -4,7 +4,7 @@
 .topology-group-mark { display: flex; width: 28px; height: 28px; }
 .topology-group-mark > span, .topology-group-mark .brand-mark, .topology-group .topology-group-mark .source-icon { width: 28px; height: 28px; }
 .topology-group-brands { display: flex; margin-left: -1px; }
-.topology-group-brands > span { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: var(--stroke-thin) solid var(--border); border-radius: var(--border-radius-50); background: var(--surface); }
+.topology-group-brands > span { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: var(--stroke-thin) solid var(--border); border-radius: var(--radius-circle); background: var(--surface); }
 .topology-group-brands > span + span { margin-left: -4px; }
 .topology-group-brands .brand-mark, .topology-group-brands .source-icon { width: 18px !important; height: 18px !important; }
 .topology-group-count { font-size: var(--text-meta); font-weight: 600; font-variant-numeric: tabular-nums; }

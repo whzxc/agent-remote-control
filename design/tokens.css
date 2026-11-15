@@ -1,38 +1,15 @@
 /* Design token source for TSX frames and shared artwork. */
 :root {
-  --border-radius-50: 50%;
-  --radius-6: 6px;
+  --radius-circle: 50%;
+  --radius-disclosure: 6px;
   --stroke-ring: 2px;
-  --glow-radius: 6px;
-  --font-source-serif: Georgia, serif;
-  --source-letter-size: 27px;
-  --shadow-row-divider: inset 0 -1px var(--border);
-  --pairing-code-size: 42px;
-  --pairing-code-font: 600 42px ui-monospace,monospace;
-  --pairing-code-tracking: .18em;
-  --pairing-panel-code-size: 28px;
-  --pairing-inline-line: 32px;
-  --pairing-inline-font: 650 var(--text-display)/32px var(--font-mono);
-  --welcome-title-font: 650 var(--text-title)/24px var(--font-ui);
-  --welcome-choice-font: 650 var(--text-body)/16px var(--font-ui);
-  --line-reading: 22px;
-  --radius-4: 4px;
-  --radius-1: 1px;
-  --focus-ring-offset: 4px;
-  --record-code-font: var(--text-meta)/1.6 var(--font-mono);
-  --radius-8: 8px;
   --line-compact: 16px;
   --line-body: 20px;
   --weight-title: 650;
   --line-title: 24px;
-  --radius-14: 14px;
   --stroke-thin: 1px;
   --line-small: 18px;
-  --font-quota-rounded: ui-rounded, "SF Pro Rounded", var(--font-ui);
   --line-summary: 19px;
-  --white: white;
-  --text-tiny: 10px;
-  --radius-22: 22px;
   --theme-swatch-default-left: #5B5FF5;
   --theme-swatch-default-right: #5B5FF5;
   --theme-swatch-blue-left: #00a6c7;
@@ -51,7 +28,6 @@
   --text-small: 13px;
   --text-meta: 12px;
   --text-caption: 11px;
-  --quota-detail-size: 11.5px;
   --radius-control: 17px;
   --radius-field: 12px;
   --radius-tile: 10px;

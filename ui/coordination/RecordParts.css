@@ -6,11 +6,11 @@
 .center-row-go { color: var(--text-tertiary); }
 
 .center-technical { font-size: var(--text-meta); }
-.center-technical > summary { color: var(--text-tertiary); border-radius: var(--radius-6); }
+.center-technical > summary { color: var(--text-tertiary); border-radius: var(--radius-disclosure); }
 .center-technical > summary:hover { color: var(--text-secondary); }
 .center-content pre, .center-footer pre { font-size: var(--text-meta); background: var(--surface-subtle); border-radius: var(--radius-tile); }
 .center-event::before { background: var(--border); }
-.center-event::after { border-radius: var(--border-radius-50); background: var(--surface); box-shadow: inset 0 0 0 var(--stroke-ring) var(--border-strong); }
+.center-event::after { border-radius: var(--radius-circle); background: var(--surface); box-shadow: inset 0 0 0 var(--stroke-ring) var(--border-strong); }
 .center-event[data-tone="warning"]::after { box-shadow: inset 0 0 0 var(--stroke-ring) var(--warning); }
 .center-event[data-tone="danger"]::after { background: var(--danger); box-shadow: none; }
 .center-event[data-tone="success"]::after { box-shadow: inset 0 0 0 var(--stroke-ring) var(--success); }

@@ -80,24 +80,24 @@
 
 .activity-panel-title { font-size: var(--text-body); line-height: var(--line-body); font-weight: 600; }
 .activity-panel-meta { color: var(--text-secondary); font-size: var(--text-meta); }
-.timeline-user-preview { line-height: var(--line-reading); }
+.timeline-user-preview { line-height: 22px; }
 .timeline-meta { color: var(--text-secondary); font-size: var(--text-meta); }
 .timeline-summary { color: inherit; }
-button.timeline-summary { background: transparent; border: 0; font: inherit; border-radius: var(--radius-6); }
+button.timeline-summary { background: transparent; border: 0; font: inherit; border-radius: var(--radius-disclosure); }
 button.timeline-summary:hover { background: var(--surface-subtle); }
-button.timeline-summary:focus-visible { box-shadow: 0 0 0 var(--stroke-ring) var(--surface), 0 0 0 var(--focus-ring-offset) var(--accent); }
+button.timeline-summary:focus-visible { box-shadow: 0 0 0 var(--stroke-ring) var(--surface), 0 0 0 4px var(--accent); }
 
 .timeline-chevron { color: var(--text-tertiary); }
 .timeline-output { font-size: var(--text-meta); }
-.timeline-output pre { background: var(--surface-subtle); border-radius: var(--radius-6); font: var(--record-code-font); }
-.timeline-error { color: var(--danger); border-radius: var(--radius-8); background: color-mix(in srgb, var(--danger) 8%, transparent); }
+.timeline-output pre { background: var(--surface-subtle); border-radius: var(--radius-disclosure); font: var(--text-meta)/1.6 var(--font-mono); }
+.timeline-error { color: var(--danger); border-radius: 8px; background: color-mix(in srgb, var(--danger) 8%, transparent); }
 
 .timeline-image-placeholder { color: var(--text-tertiary); }
 .timeline-link-error { color: var(--danger); font-size: var(--text-meta); }
 
 .timeline-table { border-radius: var(--radius-field); background: var(--surface-subtle); }
 .timeline-table th, .timeline-table td { border: 0; font-size: var(--text-small); line-height: var(--line-body); }
-.activity-panel button:focus-visible { box-shadow: 0 0 0 var(--stroke-ring) var(--surface), 0 0 0 var(--focus-ring-offset) var(--accent); }
+.activity-panel button:focus-visible { box-shadow: 0 0 0 var(--stroke-ring) var(--surface), 0 0 0 4px var(--accent); }
 
 .activity-panel .agent-panel-heading h2.activity-panel-title { font-size: var(--text-title); line-height: var(--line-title); font-weight: var(--weight-title); }
 .agent-panel-heading .activity-panel-meta { font-size: var(--text-meta); line-height: var(--line-compact); }

@@ -1,12 +1,12 @@
 
 
-.hub-entry { border: 0; border-radius: var(--border-radius-50); background: transparent; }
+.hub-entry { border: 0; border-radius: var(--radius-circle); background: transparent; }
 
 .hub-entry:focus-visible { box-shadow: 0 0 0 var(--stroke-ring) var(--hub-color); }
-.hub-dot { border-radius: var(--border-radius-50); }
-.topology-hub .hub-entry:is(:hover, :focus-visible) .hub-dot { box-shadow: 0 0 var(--glow-radius) var(--stroke-ring) color-mix(in srgb, var(--hub-color) 45%, transparent); }
-.hub-entry[data-empty] .hub-dot::after { border: var(--stroke-thin) solid var(--hub-color); border-radius: var(--border-radius-50); }
+.hub-dot { border-radius: var(--radius-circle); }
+.topology-hub .hub-entry:is(:hover, :focus-visible) .hub-dot { box-shadow: 0 0 6px var(--stroke-ring) color-mix(in srgb, var(--hub-color) 45%, transparent); }
+.hub-entry[data-empty] .hub-dot::after { border: var(--stroke-thin) solid var(--hub-color); border-radius: var(--radius-circle); }
 .topology-arc-actions .arc-action-button { background: transparent; }
 .topology-arc-actions .arc-action-button:is(:hover, [aria-expanded="true"]):not(:disabled) { background: transparent; }
-.arc-action-button::before { border-radius: var(--border-radius-50); background: var(--account-color); }
+.arc-action-button::before { border-radius: var(--radius-circle); background: var(--account-color); }
 .arc-action-button > .icon { color: var(--canvas); }

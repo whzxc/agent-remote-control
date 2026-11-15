@@ -5,6 +5,7 @@ import path from 'node:path';
 import { tmpdir } from 'node:os';
 import { checkStyles, tokenPaint } from '../tooling/check-ui-styles.mjs';
 import { checkConsumers } from '../tooling/check-ui-consumers.mjs';
+import { checkTokens } from '../tooling/check-ui-tokens.mjs';
 
 test('feature presentation accepts tokens and rejects unowned literal paint', async () => {
   // Regression: layout-only policy forced single-feature visuals into the shared library.
@@ -39,4 +40,29 @@ test('shared parts count feature boundaries through aliases without counting com
     await writeFile(path.join(root,'ui/pets/view.tsx'),'import {Mark} from "../components/ui"; export function Pet(){return <Mark/>}');
     assert.deepEqual(checkConsumers(root).errors, []);
   } finally { await rm(root,{recursive:true,force:true}); }
+});
+
+
+test('runtime paint tokens require semantic names and independent feature consumers', async () => {
+  // Regression: governance wrapped single-feature literals in globally named tokens.
+  const root = await mkdtemp(path.join(tmpdir(), 'arc-token-policy-'));
+  try {
+    for (const dir of ['design', 'tooling', 'ui/components/ui', 'ui/devices', 'ui/pets']) await mkdir(path.join(root, dir), { recursive: true });
+    await writeFile(path.join(root, 'design/tokens.css'), ':root { --text: #222; --radius-7: 7px; --art-glow: gold; --ink: var(--text); }');
+    await writeFile(path.join(root, 'ui/components/ui/part.tsx'), 'export function Part(){return <span className="part"/>}');
+    await writeFile(path.join(root, 'ui/components/ui/part.css'), '.part { color:var(--ink); border-radius:var(--radius-7); }');
+    await writeFile(path.join(root, 'ui/devices/view.tsx'), 'import {Part} from "../components/ui/part"; export function Device(){return <Part/>}');
+    await writeFile(path.join(root, 'ui/devices/view.css'), '.device { background:var(--art-glow); }');
+    await writeFile(path.join(root, 'ui/App.tsx'), 'import {Device} from "./devices/view"; export function App(){return <Device/>}');
+    let result = checkTokens(root);
+    assert.equal(result.tokens.find(row => row.token === '--text').count, 1);
+    assert.ok(result.errors.some(error => error.includes('name encodes its literal value')));
+    await writeFile(path.join(root, 'ui/pets/view.tsx'), 'import {Part} from "../components/ui/part"; export function Pets(){return <Part/>}');
+    await writeFile(path.join(root, 'design/tokens.css'), ':root { --text: #222; --radius-detail: 7px; --art-glow: gold; --ink: var(--text); }');
+    await writeFile(path.join(root, 'ui/components/ui/part.css'), '.part { color:var(--ink); border-radius:var(--radius-detail); }');
+    await writeFile(path.join(root, 'tooling/ui-token-allowlist.json'), JSON.stringify([{ file: 'design/tokens.css', token: '--art-glow', reason: 'Device artwork preserves the gold glow in its isolated canvas.' }]));
+    result = checkTokens(root);
+    assert.equal(result.tokens.find(row => row.token === '--text').count, 2);
+    assert.deepEqual(result.errors, []);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });

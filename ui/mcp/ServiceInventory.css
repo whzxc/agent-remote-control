@@ -7,7 +7,7 @@
 .mcp-target { font-family: var(--font-mono); }
 .mcp-server-facts { color: var(--text-secondary); font-size: var(--text-meta); line-height: var(--line-compact); }
 
-.mcp-tools { border-radius: var(--radius-14); background: var(--surface); }
+.mcp-tools { border-radius: 14px; background: var(--surface); }
 
 .mcp-tool + .mcp-tool { border-top: var(--stroke-thin) solid var(--border); }
 

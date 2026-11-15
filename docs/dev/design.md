@@ -8,7 +8,7 @@ The [ADG asset rules](https://github.com/whzxc/agent-design-gallery/blob/main/do
 
 ## Presentation forms
 
-ARC uses warm neutral surfaces, restrained semantic tints, rounded shared controls and Lucide icons. `design/tokens.css` owns the palette, typography and dimensions; `ui/tokens.css` is the runtime sheet. Both themes use the same declared forms. Add a token for a value shared or semantically named across sources; keep single-use local dimensions in the owning part. Keep the homepage's ARC mark, earcup connections and topology, and the tile's neutral shell with a separate state tint. Phase labels use shared typography with semantic color on the label span.
+ARC uses warm neutral surfaces, restrained semantic tints, rounded shared controls and Lucide icons. `design/tokens.css` owns the palette, typography and dimensions; `ui/tokens.css` is the runtime sheet. Both themes use the same declared forms. Reuse an existing semantic token when its value and role fit. A new runtime paint token must serve at least two independent features and name its role, never its literal value. Keep single-feature values in the owning CSS with an exact style exception. Canvas palettes that require global theme selection may use an exact file/token/reason exception in `tooling/ui-token-allowlist.json`. Keep the homepage's ARC mark, earcup connections and topology, and the tile's neutral shell with a separate state tint. Phase labels use shared typography with semantic color on the label span.
 
 The desktop targets are macOS and Windows. Headless Linux has no product UI. Each source uses one representative language. English and Simplified Chinese content follow its mapped fixture. Frame dimensions and capture viewports are declared in TSX. Landscape topology uses 1280×800 and portrait topology uses 640×800. Mobile forms are declared with their owning task or device surface. Rails reserve node and quota-ring space. The shared HomepageBar keeps the mode switch centered.
 
@@ -201,3 +201,11 @@ Keep review evidence in ignored output or an external disposable directory.
 Feature presentation stays with its feature, including [timeline content](../../design/modules/timeline.tsx), [MCP services](../../design/modules/mcp-service.tsx), [device facts](../../design/modules/device-facts.tsx), [updates](../../design/modules/updates.tsx), [permissions](../../design/modules/permissions.tsx), [pets](../../design/modules/pets.tsx), [homepage chrome](../../design/modules/homepage-scene.tsx), and [quota details](../../design/modules/quota-detail.tsx). Shared [record details](../../design/components/record-detail.tsx), [entity inventory](../../design/components/entity-inventory.tsx), [SetupFlow](../../design/components/setup-flow.tsx), and [inspection popovers](../../design/components/inspection-popover.tsx) retain multiple feature consumers.
 
 `check:ui-styles` validates feature paint values and shared runtime exports. It counts distinct feature directories, with flat `ui/components` files and Board/AX files as individual features. Multiple files inside subscriptions, devices, pets or another feature directory count once. Reexports resolve to the defining export. Shared implementation dependencies inherit their direct feature consumers; importing a feature from App does not create another consumer. Type-only imports and tests do not count. Every shared runtime export needs two feature consumers.
+
+
+`check:ui-styles` also checks runtime paint token consumers. It uses the same feature
+boundaries as the shared-part check, follows token aliases and shared component CSS,
+and stops at another feature rather than counting composition ancestors. Global
+shared selectors are attributed to the components that emit their classes. Tokens
+used only for layout are outside the paint check. Literal-value names fail even
+when the token has several consumers or an exception.
