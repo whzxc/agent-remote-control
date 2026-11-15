@@ -88,7 +88,7 @@ export function inspectTokens(base = root, parts = inspectConsumers(base)) {
     const classes = selector.split(',').map(branch => /\.([a-zA-Z_][\w-]*)/.exec(branch)?.[1] ?? /\[([\w-]+)/.exec(branch)?.[1]).filter(Boolean);
     for (const part of parts) {
       const body = sharedBodies.get(`${part.file}#${part.local}`) ?? '';
-      if (classes.some(name => new RegExp(`(?<![\\w-])${name}(?![\\w-])`).test(body))) for (const owner of part.consumers) include(token, owner);
+      if (classes.some(name => new RegExp(`(?<![\w-])${name}(?![\w-])`).test(body))) for (const owner of part.consumers) include(token, owner);
     }
   }
   const painted = new Set();
