@@ -370,3 +370,5 @@ First-level panels and dialogs have no scrim.
 A dialog above a panel or dialog uses the existing 24% light or 60% dark scrim over everything beneath it.
 Dialog focus containment, aria-modal and consumed outside dismissal remain active without a scrim.
 The layer store starts clean switches immediately and coordinates deferred dirty or busy switches without waiting for the old close to finish.
+
+Shared presentation wrappers in `ui/components/ui/` own timeline, record, inventory, setup, library, inspection and quota content styles. [SetupFlow](../../design/components/setup-flow.tsx) and [TopologyNode](../../design/components/topology-node.tsx) mirror the shared runtime assemblies; their feature callers retain data loading and actions.

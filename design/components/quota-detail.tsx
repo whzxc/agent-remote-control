@@ -1,5 +1,5 @@
 import {Frame} from 'adg';
-export function QuotaDetail({children}:{children:unknown}){return <div class="flex flex-col gap-2 text-[11.5px] leading-[14px]">{children}</div>}
+export function QuotaDetail({children}:{children:unknown}){return <div class="flex flex-col gap-2 text-(length:--quota-detail-size) leading-[14px]">{children}</div>}
 export function QuotaPopover({children}:{children:unknown}){return <div class="rounded-[10px] bg-surface-raised text-text shadow-md px-3 py-2">{children}</div>}
 export function QuotaHistory({children}:{children:unknown}){return <div class="text-meta leading-[1.4]">{children}</div>}
 export function QuotaPeriod({children}:{children:unknown}){return <div class="flex justify-between gap-[10px] tabular-nums">{children}</div>}

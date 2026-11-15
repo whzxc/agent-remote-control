@@ -1,6 +1,4 @@
-@import "../components/ui/RecordDetail.css";
-
-@import "../components/ui/TimelineSurface.css";
+@import "./../components/ui/RecordDetail.css";
 
 .coordination-center { display: flex; flex-direction: column; gap: 20px; min-width: 0; width: 100%; min-height: 0; container-type: inline-size; }
 

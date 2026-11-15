@@ -3,348 +3,348 @@
     "file": "ui/display/studio.css",
     "selector": ".studio-backdrop",
     "property": "background",
-    "reason": "Homepage canvas lighting and clock presentation owned by Studio."
+    "reason": "Studio artwork: background draws base wall gradient behind the desk. This is a composited full-viewport scene layer."
   },
   {
     "file": "ui/display/studio.css",
     "selector": ".studio-image",
     "property": "background-size",
-    "reason": "Homepage canvas lighting and clock presentation owned by Studio."
+    "reason": "Studio artwork: background-size draws cropping of the fixed desk illustration. This is a composited full-viewport scene layer."
   },
   {
     "file": "ui/display/studio.css",
     "selector": ".studio-image",
     "property": "background-position",
-    "reason": "Homepage canvas lighting and clock presentation owned by Studio."
+    "reason": "Studio artwork: background-position draws cropping of the fixed desk illustration. This is a composited full-viewport scene layer."
   },
   {
     "file": "ui/display/studio.css",
     "selector": ".studio-day",
     "property": "background-image",
-    "reason": "Homepage canvas lighting and clock presentation owned by Studio."
+    "reason": "Studio artwork: background-image draws daytime desk image layer. This is a composited full-viewport scene layer."
   },
   {
     "file": "ui/display/studio.css",
     "selector": ".studio-night",
     "property": "background-image",
-    "reason": "Homepage canvas lighting and clock presentation owned by Studio."
+    "reason": "Studio artwork: background-image draws nighttime desk image layer. This is a composited full-viewport scene layer."
   },
   {
     "file": "ui/display/studio.css",
     "selector": ".studio-atmosphere",
     "property": "background",
-    "reason": "Homepage canvas lighting and clock presentation owned by Studio."
+    "reason": "Studio artwork: background draws ambient light overlay. This is a composited full-viewport scene layer."
   },
   {
     "file": "ui/display/studio.css",
     "selector": ".studio-window-light",
     "property": "background",
-    "reason": "Homepage canvas lighting and clock presentation owned by Studio."
+    "reason": "Studio artwork: background draws window illumination gradient. This is a composited full-viewport scene layer."
   },
   {
     "file": "ui/display/studio.css",
     "selector": ".studio-leaf-shadows",
     "property": "background",
-    "reason": "Homepage canvas lighting and clock presentation owned by Studio."
+    "reason": "Studio artwork: background draws plant shadow pattern. This is a composited full-viewport scene layer."
   },
   {
     "file": "ui/display/studio.css",
     "selector": ".studio-lamp-light",
     "property": "border-radius",
-    "reason": "Homepage canvas lighting and clock presentation owned by Studio."
+    "reason": "Studio artwork: border-radius draws radial lamp glow. This is a composited full-viewport scene layer."
   },
   {
     "file": "ui/display/studio.css",
     "selector": ".studio-lamp-light",
     "property": "background",
-    "reason": "Homepage canvas lighting and clock presentation owned by Studio."
+    "reason": "Studio artwork: background draws radial lamp glow. This is a composited full-viewport scene layer."
   },
   {
     "file": "ui/display/studio.css",
     "selector": ".studio-window-glints",
     "property": "background",
-    "reason": "Homepage canvas lighting and clock presentation owned by Studio."
+    "reason": "Studio artwork: background draws window glint texture. This is a composited full-viewport scene layer."
   },
   {
     "file": "ui/display/studio.css",
     "selector": ".app-scene[data-display=\"studio\"] .connection-core",
     "property": "background",
-    "reason": "Homepage canvas lighting and clock presentation owned by Studio."
+    "reason": "Studio artwork: background draws transparent graph plane above the studio illustration. This is a composited full-viewport scene layer."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-sprite",
     "property": "background-repeat",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Sprite atlas artwork: background-repeat prevents tiling outside the selected animation cell."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": "from",
     "property": "background-position-x",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Sprite atlas animation: background-position-x selects the first frame offset used by the stepped animation."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": "to",
     "property": "background-position-x",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Sprite atlas animation: background-position-x selects the terminal frame offset used by the stepped animation."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".topology-pet",
     "property": "border",
-    "reason": "Free-form topology canvas geometry and semantic connection paint."
+    "reason": "Draggable actor hit area: border preserves the transparent sprite silhouette and keyboard focus shape on the scene canvas."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".topology-pet",
     "property": "background",
-    "reason": "Free-form topology canvas geometry and semantic connection paint."
+    "reason": "Draggable actor hit area: background preserves the transparent sprite silhouette and keyboard focus shape on the scene canvas."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".topology-pet",
     "property": "color",
-    "reason": "Free-form topology canvas geometry and semantic connection paint."
+    "reason": "Draggable actor hit area: color preserves the transparent sprite silhouette and keyboard focus shape on the scene canvas."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".topology-pet:focus-visible",
     "property": "border-radius",
-    "reason": "Free-form topology canvas geometry and semantic connection paint."
+    "reason": "Draggable actor hit area: border-radius preserves the transparent sprite silhouette and keyboard focus shape on the scene canvas."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-name, .pet-speech",
     "property": "background",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Actor annotation: background draws the small name or speech label anchored to the moving sprite and measured with its bounds."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-name, .pet-speech",
     "property": "color",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Actor annotation: color draws the small name or speech label anchored to the moving sprite and measured with its bounds."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-name, .pet-speech",
     "property": "border",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Actor annotation: border draws the small name or speech label anchored to the moving sprite and measured with its bounds."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-name, .pet-speech",
     "property": "border-radius",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Actor annotation: border-radius draws the small name or speech label anchored to the moving sprite and measured with its bounds."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-name, .pet-speech",
     "property": "font-size",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Actor annotation: font-size draws the small name or speech label anchored to the moving sprite and measured with its bounds."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-name",
     "property": "line-height",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Actor annotation: line-height draws the small name or speech label anchored to the moving sprite and measured with its bounds."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-card",
     "property": "border-radius",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Physics canvas task prop: border-radius draws the 112px paper thrown to and carried by actors, with the current task tone."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-card",
     "property": "border",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Physics canvas task prop: border draws the 112px paper thrown to and carried by actors, with the current task tone."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-card",
     "property": "border-left",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Physics canvas task prop: border-left draws the 112px paper thrown to and carried by actors, with the current task tone."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-card",
     "property": "background",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Physics canvas task prop: background draws the 112px paper thrown to and carried by actors, with the current task tone."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-card",
     "property": "color",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Physics canvas task prop: color draws the 112px paper thrown to and carried by actors, with the current task tone."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-card",
     "property": "box-shadow",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Physics canvas task prop: box-shadow draws the 112px paper thrown to and carried by actors, with the current task tone."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-card",
     "property": "font-size",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Physics canvas task prop: font-size draws the 112px paper thrown to and carried by actors, with the current task tone."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-card",
     "property": "line-height",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Physics canvas task prop: line-height draws the 112px paper thrown to and carried by actors, with the current task tone."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-card[data-tone=\"success\"]",
     "property": "border-color",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Physics canvas task prop: border-color draws the 112px paper thrown to and carried by actors, with the completed task tone."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-card[data-tone=\"success\"]",
     "property": "background",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Physics canvas task prop: background draws the 112px paper thrown to and carried by actors, with the completed task tone."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-card[data-tone=\"danger\"]",
     "property": "border-color",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Physics canvas task prop: border-color draws the 112px paper thrown to and carried by actors, with the failed task tone."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-card[data-tone=\"danger\"]",
     "property": "background",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Physics canvas task prop: background draws the 112px paper thrown to and carried by actors, with the failed task tone."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-carried-card",
     "property": "border-radius",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Actor-held miniature task prop: border-radius draws the rotated 68px paper attached to the animated hand; it is not an interactive task card."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-carried-card",
     "property": "background",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Actor-held miniature task prop: background draws the rotated 68px paper attached to the animated hand; it is not an interactive task card."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-carried-card",
     "property": "color",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Actor-held miniature task prop: color draws the rotated 68px paper attached to the animated hand; it is not an interactive task card."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-carried-card",
     "property": "border",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Actor-held miniature task prop: border draws the rotated 68px paper attached to the animated hand; it is not an interactive task card."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-carried-card",
     "property": "border-left",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Actor-held miniature task prop: border-left draws the rotated 68px paper attached to the animated hand; it is not an interactive task card."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-carried-card",
     "property": "box-shadow",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Actor-held miniature task prop: box-shadow draws the rotated 68px paper attached to the animated hand; it is not an interactive task card."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-carried-card",
     "property": "font-size",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Actor-held miniature task prop: font-size draws the rotated 68px paper attached to the animated hand; it is not an interactive task card."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-carried-card",
     "property": "line-height",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Actor-held miniature task prop: line-height draws the rotated 68px paper attached to the animated hand; it is not an interactive task card."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-carried-card[data-tone=\"success\"]",
     "property": "border-bottom-color",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Actor-held miniature task prop: border-bottom-color draws the rotated 68px paper attached to the animated hand; it is not an interactive task card."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-carried-card[data-tone=\"danger\"]",
     "property": "border-bottom-color",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Actor-held miniature task prop: border-bottom-color draws the rotated 68px paper attached to the animated hand; it is not an interactive task card."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-play-token",
     "property": "color",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Animated play token: color draws the glyph thrown across the actor canvas."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-play-token",
     "property": "font-size",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Animated play token: font-size draws the glyph thrown across the actor canvas."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-play-token",
     "property": "line-height",
-    "reason": "Animated pet artwork and its library presentation; no shared control owns this visual."
+    "reason": "Animated play token: line-height draws the glyph thrown across the actor canvas."
   },
   {
     "file": "ui/product.css",
     "selector": ".connection-core",
     "property": "background",
-    "reason": "Free-form homepage canvas or navigation silhouette; its geometry is not a shared control."
+    "reason": "Topology canvas: background defines the earcup connection drawing plane, independent of panel and control surfaces."
   },
   {
     "file": "ui/product.css",
     "selector": ".connection-core",
     "property": "border",
-    "reason": "Free-form homepage canvas or navigation silhouette; its geometry is not a shared control."
+    "reason": "Topology canvas: border defines the earcup connection drawing plane, independent of panel and control surfaces."
   },
   {
     "file": "ui/product.css",
     "selector": ".connection-core",
     "property": "border-radius",
-    "reason": "Free-form homepage canvas or navigation silhouette; its geometry is not a shared control."
+    "reason": "Topology canvas: border-radius defines the earcup connection drawing plane, independent of panel and control surfaces."
   },
   {
     "file": "ui/product.css",
     "selector": ".app-scene",
     "property": "background",
-    "reason": "Free-form homepage canvas or navigation silhouette; its geometry is not a shared control."
+    "reason": "Topology canvas: background defines the application scene background, independent of panel and control surfaces."
   },
   {
     "file": "ui/product.css",
     "selector": ".home-workspace .connection-core",
     "property": "border",
-    "reason": "Free-form homepage canvas or navigation silhouette; its geometry is not a shared control."
+    "reason": "Topology canvas: border defines the full-viewport topology drawing plane, independent of panel and control surfaces."
   },
   {
     "file": "ui/product.css",
     "selector": ".home-workspace .connection-core",
     "property": "border-radius",
-    "reason": "Free-form homepage canvas or navigation silhouette; its geometry is not a shared control."
+    "reason": "Topology canvas: border-radius defines the full-viewport topology drawing plane, independent of panel and control surfaces."
   },
   {
     "file": "ui/product.css",
     "selector": ".connection-graph.topology-scene",
     "property": "color",
-    "reason": "Free-form topology canvas geometry and semantic connection paint."
+    "reason": "Topology canvas: color defines semantic default ink for the topology scene, independent of panel and control surfaces."
   },
   {
     "file": "ui/product.css",
     "selector": ".topology-guides text",
     "property": "font",
-    "reason": "Free-form topology canvas geometry and semantic connection paint."
+    "reason": "Topology canvas: font defines solver guide labels on the geometry overlay, independent of panel and control surfaces."
   }
 ]

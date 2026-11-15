@@ -1,12 +1,12 @@
-@import "./components/ui/NavCapsule.css";
+@import "./components/ui/controls.css";
 @import "./components/ui/Feedback.css";
+@import "./components/ui/NavCapsule.css";
 @import "./components/ui/GraphNode.css";
 @import "./components/ui/InspectionPopover.css";
 @import "./components/ui/PermissionRow.css";
 @import "./components/ui/SetupFlow.css";
-@import "./components/ui/ServiceInventory.css";
-@import "./components/ui/controls.css";
 @import "./components/ui/SourceMark.css";
+@import "./components/ui/ServiceInventory.css";
 @import "./components/ui/EntityInventory.css";
 @import "./components/ui/TimelineSurface.css";
 @import "./components/ui/product-Markdown.css";
