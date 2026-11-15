@@ -44,3 +44,4 @@
 .hosted-relay + .hosted-relay { border-top: 1px solid var(--border); }
 .hosting-empty-group h2 { font-weight:650; }
 .hosting-empty-copy > h2, .hosting-empty-copy > p { line-height: 16px; }
+.relay-hosting .hosting-empty-group h2 { font-weight: 650; }
