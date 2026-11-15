@@ -2581,6 +2581,64 @@
           "source": "design/components/task-content.tsx"
         }
       ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TimelineSurface.tsx",
+        "symbol": "TimelineSurface"
+      },
+      "design": [
+        {
+          "source": "design/components/timeline-surface.tsx",
+          "part": "TimelineSurface"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TimelineSurface.tsx",
+        "symbol": "ActivityHeading"
+      },
+      "design": [
+        {
+          "source": "design/components/timeline-surface.tsx",
+          "part": "ActivityHeading"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TimelineSurface.tsx",
+        "symbol": "TaskFeedSection"
+      },
+      "design": [
+        {
+          "source": "design/components/timeline-surface.tsx",
+          "part": "TaskFeedSection"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TimelineSurface.tsx",
+        "symbol": "TaskFilter"
+      },
+      "design": [
+        {
+          "source": "design/components/timeline-surface.tsx",
+          "part": "TaskFilter"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TimelineSurface.css"
+      },
+      "design": [
+        {
+          "source": "design/components/timeline-surface.tsx"
+        }
+      ]
     }
   ]
 }

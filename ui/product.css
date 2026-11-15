@@ -1,3 +1,4 @@
+@import "./components/ui/TimelineSurface.css";
 @import "./components/ui/product-Markdown.css";
 @import "./components/ui/product-TaskPresentation.css";
 @import "./components/ui/product-HoverScope.css";
@@ -290,50 +291,45 @@
 :root[data-reduced-motion="true"] { .topology-wires .connecting-wire, .topology-wires .activity-flow { animation: none; } }
 .activity-session-summary { overflow-wrap: anywhere; }
 
-.activity-panel-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; font-size: 14px; line-height: 20px; font-weight: 600; }
-.activity-panel-meta { min-width: 0; color: var(--text-secondary); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-panel-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.activity-panel-meta { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .activity-task-list { display: flex; flex-direction: column; gap: 0; }
 @keyframes activity-flow { to { stroke-dashoffset: 18; } }
-:root[data-reduced-motion="true"] {
-}
 .task-timeline { min-height: 0; display: flex; flex-direction: column; gap: 8px; }
 .timeline-scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; overflow-anchor: none; }
 .timeline-entries { display: flex; flex-direction: column; gap: 12px; padding: 4px 4px 12px; }
 .timeline-loading { height: 100%; display: grid; place-items: center; }
 /* Disclosures remain inside the existing timeline viewport. */
 .timeline-user-content { position: relative; }
-.timeline-user-preview { white-space: pre-line; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; text-overflow: ellipsis; overflow-wrap: anywhere; line-height: 22px; }
+.timeline-user-preview { white-space: pre-line; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; text-overflow: ellipsis; overflow-wrap: anywhere; }
 .timeline-user-preview[data-expanded] { position: absolute; inset: 0 0 auto; visibility: hidden; pointer-events: none; }
-.timeline-meta { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: var(--text-meta); overflow-wrap: anywhere; }
-.timeline-summary { display: flex; align-items: center; gap: 7px; min-width: 0; min-height: 32px; width: 100%; padding: 5px 4px; box-sizing: border-box; text-align: left; color: inherit; }
-button.timeline-summary { appearance: none; background: transparent; border: 0; font: inherit; cursor: pointer; border-radius: 6px; }
-button.timeline-summary:hover { background: var(--surface-subtle); }
-button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+.timeline-meta { display: flex; align-items: center; gap: 6px; overflow-wrap: anywhere; }
+.timeline-summary { display: flex; align-items: center; gap: 7px; min-width: 0; min-height: 32px; width: 100%; padding: 5px 4px; box-sizing: border-box; text-align: left; }
+button.timeline-summary { appearance: none; cursor: pointer; }
 .timeline-summary > .icon { flex: none; }
 
-.timeline-chevron { flex: none; color: var(--text-tertiary); transition: transform var(--motion-base); }
+.timeline-chevron { flex: none; transition: transform var(--motion-base); }
 .timeline-summary[data-state=open] > .timeline-chevron { transform: rotate(90deg); }
 .timeline-fold-content { overflow: hidden; }
 .timeline-entry-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.timeline-output { display: grid; gap: 8px; padding: 8px 6px 10px 23px; font-size: var(--text-meta); overflow-wrap: anywhere; }
+.timeline-output { display: grid; gap: 8px; padding: 8px 6px 10px 23px; overflow-wrap: anywhere; }
 .timeline-output section { min-width: 0; }
-.timeline-output pre { margin: 4px 0 0; padding: 8px; background: var(--surface-subtle); border-radius: 6px; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: var(--text-meta)/1.6 var(--font-mono); }
+.timeline-output pre { margin: 4px 0 0; padding: 8px; overflow-x: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 .timeline-files { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; min-width: 0; overflow-x: auto; }
-.timeline-error { color: var(--danger); border-radius: 8px; padding: 4px; background: color-mix(in srgb, var(--danger) 8%, transparent); }
+.timeline-error { padding: 4px; }
 
-.timeline-image-placeholder { display: inline-flex; vertical-align: middle; color: var(--text-tertiary); }
-.timeline-link-error { display: block; color: var(--danger); font-size: var(--text-meta); overflow-wrap: anywhere; }
+.timeline-image-placeholder { display: inline-flex; vertical-align: middle; }
+.timeline-link-error { display: block; overflow-wrap: anywhere; }
 
-.timeline-table { max-width: 100%; overflow-x: auto; border-radius: var(--radius-field); background: var(--surface-subtle); padding: 0 12px; }
+.timeline-table { max-width: 100%; overflow-x: auto; padding: 0 12px; }
 .timeline-table table { border-collapse: collapse; width: max-content; min-width: 100%; }
-.timeline-table th, .timeline-table td { padding: 4px 0; border: 0; font-size: var(--text-small); line-height: 20px; text-align: left; }
+.timeline-table th, .timeline-table td { padding: 4px 0; text-align: left; }
 
 :root[data-reduced-motion="true"] {
   .timeline-chevron { transition: none; }
 }
 
 /* Turns share the existing scroll viewport, including nested disclosures. */
-.activity-panel button:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
 
 /* Optional topology controls open from the shared navigation capsule. */
 .topology-tuner { display: flex; flex-direction: column; overflow: hidden; width: min(320px, calc(100vw - 32px)); max-height: min(650px, calc(100dvh - 100px), var(--radix-popover-content-available-height, 650px)); box-sizing: border-box; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface-raised); color: var(--text); box-shadow: var(--shadow-md); font-size: var(--text-meta); }
@@ -385,8 +381,8 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 
 .agent-panel-title-row > .activity-panel-title { flex: 0 1 auto; min-width: 0; width: auto; overflow: hidden; }
 
-.activity-panel .agent-panel-heading h2.activity-panel-title { display: block; margin: 0; white-space: nowrap; text-overflow: ellipsis; font-size: var(--text-title); line-height: 24px; font-weight: 650; }
-.agent-panel-heading .activity-panel-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--text-meta); line-height: 16px; }
+.activity-panel .agent-panel-heading h2.activity-panel-title { display: block; margin: 0; white-space: nowrap; text-overflow: ellipsis; }
+.agent-panel-heading .activity-panel-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .agent-panel-title-row { display: flex; align-items: center; min-width: 0; gap: 4px; height: 30px; }
 .agent-panel-title-row > .icon-button { flex: none; --icon-button-size: 30px; }
 .agent-panel-header .actions { flex: none; }
@@ -398,8 +394,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .agent-section-count { color: var(--text-tertiary); font-weight: 400; }
 .agent-task-section-rows { display: flex; flex-direction: column; gap: 8px; }
 .agent-conversation-more { height: 1px; }
-:root[data-reduced-motion="true"] {
-}
 
 /* Mirrored control-source dock uses the same fixed shell and scroll boundaries. */
 .side-panel-layer { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; }
@@ -418,35 +412,32 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .pairing-code { font:600 42px ui-monospace,monospace; letter-spacing:.18em; text-align:center; padding:12px 0; }
 .pairing-card details { font-size:12px; overflow-wrap:anywhere; }
 .relay-settings:empty { display:none; }
-.relay-settings { padding-block:16px; border-bottom:1px solid var(--border); }
+.relay-settings { padding-block:16px; }
 .relay-settings .actions { flex-wrap:wrap; margin-block:12px; }
 .relay-settings h3 { margin-bottom:6px; }
 .source-product-choice { display:grid; gap:var(--space-2); }
 .relay-hosting, .hosted-relay { display: grid; gap: var(--space-6); }
-.relay-hosting h2, .relay-hosting h3 { margin: 0; font-size: var(--text-body); font-weight: 600; }
+.relay-hosting h2, .relay-hosting h3 { margin: 0; }
 .hosting-section-heading { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
 .hosting-section-heading > div { min-width: 0; }
 .hosting-section-heading p, .hosted-relay-danger p { margin: var(--space-1) 0 0; }
-.hosted-relay-card, .hosted-relay-table { border: 1px solid var(--border); border-radius: var(--radius-field); overflow: hidden; }
+.hosted-relay-card, .hosted-relay-table { overflow: hidden; }
 .hosted-relay-summary { display: flex; gap: var(--space-3); align-items: center; padding: var(--space-4); }
-.hosted-relay-icon { display: grid; place-items: center; flex-shrink: 0; width: var(--field-height); height: var(--field-height); border-radius: var(--radius-tile); background: var(--surface-subtle); color: var(--text-secondary); }
+.hosted-relay-icon { display: grid; place-items: center; flex-shrink: 0; width: var(--field-height); height: var(--field-height); }
 .hosted-relay-identity { min-width: 0; flex: 1; }
-.hosted-relay-identity h3 { font: 500 var(--text-small)/1.5 var(--font-mono); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.hosted-relay-provider { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1); color: var(--text-secondary); font-size: var(--text-meta); }
-.hosted-relay-state { flex-shrink: 0; padding: var(--space-1) var(--space-2); border-radius: var(--radius-pill); background: var(--surface-subtle); }
-.hosted-relay-state.running { background: var(--success-soft); }
-.hosted-relay-invite { background: var(--surface-subtle); border-top: 1px solid var(--border); padding: var(--space-3) var(--space-4); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
-.hosted-relay-invite p { flex: 1 1 220px; margin: 0; font-size: var(--text-small); }
+.hosted-relay-identity h3 { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.hosted-relay-provider { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1); }
+.hosted-relay-state { flex-shrink: 0; padding: var(--space-1) var(--space-2); }
+.hosted-relay-invite { padding: var(--space-3) var(--space-4); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.hosted-relay-invite p { flex: 1 1 220px; margin: 0; }
 .hosted-relay-invite .actions { flex-wrap: wrap; margin-left: auto; }
 .hosted-relay-devices { display: grid; gap: var(--space-3); }
-.hosted-relay-table thead { background: var(--surface-subtle); }
-.hosted-relay-table tbody tr:last-child td { box-shadow: none; }
-.hosted-relay-table time { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hosted-relay-table time { white-space: nowrap; }
 .hosted-relay-device { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .hosted-relay-device > .status { flex-shrink: 0; gap: 0; }
 .hosted-relay-device-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.hosted-relay-self { flex-shrink: 0; border-radius: var(--radius-tile); padding: 0 var(--space-1); background: var(--surface-subtle); color: var(--text-secondary); font-size: var(--text-meta); white-space: nowrap; }
-.hosted-relay-danger { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: center; justify-content: space-between; border-top: 1px solid var(--border); padding-top: var(--space-4); }
+.hosted-relay-self { flex-shrink: 0; padding: 0 var(--space-1); white-space: nowrap; }
+.hosted-relay-danger { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: center; justify-content: space-between; padding-top: var(--space-4); }
 .hosted-relay-danger > div { flex: 1 1 260px; }
 .hosted-relay + .hosted-relay { border-top: 1px solid var(--border); padding-top: var(--space-6); }
 

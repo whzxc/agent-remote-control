@@ -1,3 +1,4 @@
+import { TimelineSurface } from './ui/TimelineSurface';
 import { TurnProgress } from './ui/TimelineRail';
 import { useLayerNaturalContent } from './ui/LayerPortals';
 import { PanelHeader, PanelFooter, usePanelState } from "./ui/Panel";
@@ -289,7 +290,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   } : undefined;
   usePanelState({ busy: continuing });
   useLayerNaturalContent(content, true, { version: `${loading ? 'loading' : 'ready'}:${title}`, flexibleFooter: true, resetHeight: true });
-  return <section ref={detail} className="agent-panel-layer task-detail-layer" data-related={!!relationKind || undefined} data-narrow={narrow || undefined}>
+  return <TimelineSurface ref={detail} className="agent-panel-layer" data-related={!!relationKind || undefined} data-narrow={narrow || undefined}>
     <PanelHeader><div className="dialog-header task-detail-header" role="banner">
       <div className="task-detail-navigation"><TaskBackButton aria-label={t("back")} title={backLabel ?? agentName} onClick={onBack}><Icon icon={ArrowLeft} /><RelayRoute source={source} agent={agent} /></TaskBackButton>
         {!narrow && <div className="actions">{!readOnlyBrowser && validId && nativeSession.open && <IconButton icon={ArrowUpRight} label={t("activity.open")} onClick={() => { setOpenError(""); void openActivitySession(agent, nativeSession).catch(error => setOpenError(String(error))); }} />}
@@ -388,5 +389,5 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
       {!atLatest && <IconButton className="timeline-latest" variant="secondary" icon={ArrowDown} size={20} label={t("timeline.latest")} onClick={latest} />}
     </div>
     {plan && <PanelFooter><TimelinePlanDock key={groups.at(-1)?.id} entry={plan} /></PanelFooter>}
-  </section>;
+  </TimelineSurface>;
 }

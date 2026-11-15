@@ -1,3 +1,4 @@
+import { TaskFilter, TaskFeedSection } from './ui/TimelineSurface';
 import { prepareTaskSnapshot, taskSnapshotElement } from './ui/taskSnapshotMotion';
 import { layers, captureLayerTrigger } from '../state/layers';
 import { deviceTasks } from '../devices/tasks';
@@ -65,17 +66,17 @@ export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
   const dateLabel = (day?: number) => day === today ? t('agentPanel.today') : day === yesterday.getTime() ? t('agentPanel.yesterday')
     : day === undefined ? t('homepage.unknownDate') : new Intl.DateTimeFormat(language, { dateStyle: 'medium' }).format(day);
   return <main ref={body} className="homepage-tasks" aria-label={t('homepage.tasks')} tabIndex={-1}>
-    {focus && <div className="homepage-task-filter" role="status"><Icon icon={ListFilter} size={14} />{focus.label}<IconButton compact icon={X} label={t('homepage.clearFilter')} onClick={() => homepageTaskFocus.set(undefined)} /></div>}
+    {focus && <TaskFilter  role="status"><Icon icon={ListFilter} size={14} />{focus.label}<IconButton compact icon={X} label={t('homepage.clearFilter')} onClick={() => homepageTaskFocus.set(undefined)} /></TaskFilter>}
     {dates.length === 0 ? <div className="homepage-tasks-empty"><Icon icon={Inbox} size={32} /><h2>{t('homepage.empty')}</h2></div>
       : dates.map(([day, items]) => {
         const previews = items.filter(task => previewHomepageTask(task, today));
         const summaries = items.filter(task => !previewHomepageTask(task, today));
         const label = dateLabel(day);
-        return <section key={day ?? 'unknown'} className="homepage-task-section" aria-label={label}>
+        return <TaskFeedSection key={day ?? 'unknown'}  aria-label={label}>
           <h2>{label}</h2>
           {grid(previews, true)}
           {grid(summaries, false)}
-        </section>;
+        </TaskFeedSection>;
       })}
     {omitted > 0 && <p className="homepage-task-omitted" role="status" aria-label={t('homepage.partial')}>{t('homepage.omitted', { count: omitted })}</p>}
   </main>;

@@ -1,3 +1,4 @@
+@import "./ui/TimelineSurface.css";
 .spec-picker-model-row { display: grid; grid-template-columns: minmax(0, 1fr) 30px; align-items: center; gap: 18px; }
 .spec-picker-model-row .choice { min-width: 0; }
 .spec-picker-effort { display: grid; gap: 12px; margin-top: 18px; }
@@ -5,4 +6,3 @@
 .select-trigger[data-dispatch-spec] > span { min-width: 0; display: flex; }
 .spec-picker-effort > strong { display: flex; align-items: center; gap: 5px; font-size: var(--text-small); line-height: 16px; font-weight: 600; }
 .task-dispatch-fields { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
-.task-dispatch-fields > span { font-size: var(--text-small); font-weight: 600; }

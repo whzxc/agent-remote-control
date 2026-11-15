@@ -1,3 +1,5 @@
+@import "../components/ui/TimelineSurface.css";
+
 .coordination-center { display: flex; flex-direction: column; gap: 20px; min-width: 0; width: 100%; min-height: 0; container-type: inline-size; }
 
 .center-navigation { flex: 1; min-width: 0; }
@@ -59,7 +61,7 @@ p.center-note { margin: var(--space-1) 0; }
 .center-group > summary::-webkit-details-marker { display: none; }
 .center-timeline.nested { margin-top: var(--space-1); }
 .center-timeline.nested > .center-event::before, .center-timeline.nested > .center-event::after { display: none; }
-.center-timeline.nested > .center-event { padding-left: 0; border-top: 1px solid var(--border); }
+.center-timeline.nested > .center-event { padding-left: 0; }
 
 .center-detail { display: grid; align-content: start; gap: var(--space-3); }
 .center-detail header { display: flex; justify-content: space-between; gap: var(--space-3); align-items: flex-start; }

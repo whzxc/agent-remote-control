@@ -1,3 +1,4 @@
+import { ActivityHeading } from './ui/TimelineSurface';
 import { taskSnapshotElement } from './ui/taskSnapshotMotion';
 import { Tooltip as HoverHelp } from "./ui/index";
 import { layerTrigger } from "../state/layers";
@@ -57,7 +58,7 @@ function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWi
     <PanelHeader active={active}><header className="dialog-header agent-panel-header">
       {platformAvailable ? <Button variant="link" disabled={quotaBusy} aria-label={name(agent)} onClick={() => selectAgentPanel({ type: "platform", agent: agent.agent })}><AgentQuotaIcon agent={agent.agent} provider={provider} /></Button>
         : <AgentQuotaIcon agent={agent.agent} provider={provider} />}
-      <div className="agent-panel-heading">
+      <ActivityHeading>
         <div className="agent-panel-title-row">
           <HoverHelp text={title}><h2 className="activity-panel-title" tabIndex={-1}>{title}</h2></HoverHelp>
           {!readOnlyBrowser && agent.installed && status?.platform && status.platform !== "linux" && <IconButton icon={ArrowUpRight} label={t("activity.open")} onClick={() => {
@@ -65,7 +66,7 @@ function AgentView({ agent, account, accountId, onSettings, expanded, onToggleWi
           }} />}
         </div>
         <HoverHelp text={agent.version || undefined}><span className="activity-panel-meta">{[compactAgentVersion(agent.version), t("agentPanel.inProgress", { count: sessions.length })].filter(Boolean).join(" · ")}</span></HoverHelp>
-      </div>
+      </ActivityHeading>
       <div className="actions">
         {provider && !readOnlyBrowser && <IconButton icon={RefreshCw} label={t("usageRefresh")} busy={quotaBusy}
           disabled={!provider.eligible} onClick={() => void refresh()} />}
