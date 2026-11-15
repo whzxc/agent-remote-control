@@ -8,8 +8,6 @@
 
 .mcp-servers { display: grid; gap: 16px; }
 .mcp-server { display: grid; gap: 12px; min-width: 0; padding: 16px; border-radius: var(--radius-card); background: var(--surface-subtle); }
-.mcp-server[data-transport="http"] .mcp-server-head > .tile { color: var(--phase-command); }
-.mcp-server[data-transport="stdio"] .mcp-server-head > .tile { color: var(--phase-file); }
 .mcp-server[data-state="disabled"] .mcp-server-head > :is(.tile, .mcp-server-identity, .status) { opacity: .5; }
 .mcp-server-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .mcp-server-identity { flex: 1; min-width: 0; }
@@ -39,7 +37,6 @@
 .mcp-no-match { margin: 0; padding: 48px 0; text-align: center; color: var(--text-secondary); font-size: var(--text-small); }
 
 
-.mcp-empty > .tile { color: var(--text-secondary); }
 .mcp-empty > h3 { margin-top: 16px; color: var(--text); font-size: var(--text-title); font-weight: 650; line-height: 24px; }
 
 

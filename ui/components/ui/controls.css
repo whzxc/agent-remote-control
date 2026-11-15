@@ -571,3 +571,7 @@ textarea.input {
 .tag[data-form="status"][data-tone="success"] { color: var(--success); background: var(--success-soft); }
 .tag[data-form="status"][data-tone="warning"] { color: var(--warning); background: var(--warning-soft); }
 .tag[data-form="status"]:not([data-tone="success"]) .icon { width: 6px; height: 6px; fill: currentColor; }
+
+textarea.input.mono { font-family: var(--font-mono); font-size: var(--text-small); }
+.tag[data-form="claim"] { height: auto; line-height: 1.4; padding: 6px 12px; border-radius: var(--radius-pill); font-size: var(--text-body); white-space: normal; overflow-wrap: anywhere; }
+.spec-picker.popover { width: 312px; padding: 16px; border: 0; border-radius: var(--radius-panel); box-shadow: var(--shadow-lg); }

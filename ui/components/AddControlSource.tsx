@@ -154,7 +154,7 @@ export default function AddControlSource({ returnFocus }: { returnFocus?: string
       {waiting && current ? <ApprovalCard key={waiting.id} request={waiting} ingress={current} product={product} inline onBusy={setBusy} onDirty={setApprovalDirty} onDecided={allow => { if (!allow) retry(); }} /> : <Notice tone="warning">{t("connect.requestExpired")}</Notice>}
       {(!waiting || ["denied", "expired"].includes(waiting.status)) && <Button onClick={retry}>{t("retry")}</Button>}
     </>}
-    {flow.step === "success" && <div className="setup-success"><div className="setup-success-heading"><Tile icon={Check} /><div><h3>{t("source.added", { name: added?.label ?? name })}</h3><p>{t("setup.via", { name: current?.name ?? t("source.connectionRemoved") })}</p></div></div>
+    {flow.step === "success" && <div className="setup-success"><div className="setup-success-heading"><Tile icon={Check} tone="success" /><div><h3>{t("source.added", { name: added?.label ?? name })}</h3><p>{t("setup.via", { name: current?.name ?? t("source.connectionRemoved") })}</p></div></div>
       <Field label={t("setup.tryPrompt", { name })}><CopyField value={t("setup.firstPrompt")} label={t("copy")} /></Field>
     </div>}
     </div>

@@ -17,7 +17,7 @@
 
 ## Known gaps
 
-- Device topology has no retained full-scene asset. A replacement must use current solver geometry and controller disclosure; existing browser scenarios cover the implementation.
+- Homepage and device topology have no retained full-scene asset. A replacement must use current solver geometry and controller disclosure; existing browser scenarios cover the implementation.
 - Remaining combined component specimens need review for distinct-appearance coverage.
 - Remote task cards have snapshot history. Remote timeline, response forwarding, account/quota inventory and transfer controls remain unavailable.
 - Loading, failure, not-found, busy, pagination, Board detail/event rows and populated hosting forms without declared sources need coverage in their owning family.

@@ -8,10 +8,11 @@ export function Tag({
   tone,
 }: {
   children?: unknown;
-  form?: "spec" | "meta" | "fact" | "danger" | "ownership" | "resource" | "status";
+  form?: "spec" | "meta" | "fact" | "danger" | "ownership" | "resource" | "status" | "claim";
   tone?: "success" | "warning";
   icon?: string;
 }) {
+  if (form === "claim") return <span class="rounded-(--radius-pill) bg-surface-sunken px-3 py-[6px] text-body leading-[1.4] text-text-secondary">{children}</span>;
   if (form === "resource") return <span class="max-w-full overflow-hidden whitespace-nowrap text-ellipsis rounded-[6px]
     border border-border px-[6px] text-[11px] leading-[18px] text-text-secondary">{children}</span>;
   if (form === "status") return <span class={`inline-flex items-center gap-1 whitespace-nowrap rounded-(--radius-pill)
@@ -52,6 +53,7 @@ export function Disclosure({ expanded = false, children }: { expanded?: boolean;
   );
 }
 export default () => [
+  <Frame name="claim"><Tag form="claim">Account switch</Tag></Frame>,
   <Frame name="resource"><Tag form="resource">Agent</Tag></Frame>,
   <Frame name="status-ready"><Tag form="status" tone="success" icon="check">Granted</Tag></Frame>,
   <Frame name="status-missing"><Tag form="status" tone="warning" icon="circle">Missing</Tag></Frame>,

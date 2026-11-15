@@ -65,7 +65,7 @@ function Server({ server, query, busy, act, remove, now }: { server: HubServer; 
   const meta = server.toolCount !== undefined || facts.length > 0 || !!checked;
   return <article className="mcp-server" data-state={server.state} data-transport={server.transport} aria-labelledby={headingId}>
     <div className="mcp-server-head">
-      <Tile icon={http ? Globe : Terminal} />
+      <Tile icon={http ? Globe : Terminal} tone={http ? "command" : "file"} />
       <div className="mcp-server-identity">
         <h3 id={headingId}>{server.name}</h3>
         <p>{target ? `${transport} · ` : transport}{target && <HoverHelp text={target}><span className="mcp-target">{target}</span></HoverHelp>}</p>
@@ -139,7 +139,7 @@ export default function McpHub({ expanded, onToggleWidth, onClose }: { expanded:
         <div className="mcp-servers">{visible.map(server => <Server key={server.name} server={server} query={query} busy={busy} act={act} remove={setRemoving} now={now} />)}</div>
         {!visible.length && <p className="mcp-no-match" role="status">{t('mcp.noMatch')}</p>}
       </> : <section className="mcp-empty" aria-labelledby="mcp-empty-title">
-        <Tile icon={Plug} />
+        <Tile icon={Plug} tone="neutral" />
         <h3 id="mcp-empty-title">{t('mcp.emptyTitle')}</h3>
         <p>{t('mcp.empty')}</p>
         <ImportPrompt actionBelow />

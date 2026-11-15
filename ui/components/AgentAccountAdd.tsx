@@ -165,7 +165,7 @@ export default function AgentAccountAdd({ kind, account, onClose }: {
         {method === 'oauth' ? useBrowser && !expired && <Field label={t('accountAdd.browser')}><SingleChoice label={t('accountAdd.browser')} value={browser} onChange={setBrowser} disabled={busy} dropdown fill options={[
           { value: 'default', label: t('accountAdd.defaultBrowser') }, ...browsers.map(b => ({ value: b.id, label: b.name })),
         ]} /></Field> : <>
-          <Field id={`${id}-auth`} label={t('accountAdd.auth')} error={errors.auth}><Textarea id={`${id}-auth`} value={auth} onChange={e => setAuth(e.target.value)} disabled={busy} spellCheck={false} autoComplete="off" rows={5} placeholder={t('accountAdd.authPlaceholder')} aria-invalid={!!errors.auth} aria-describedby={errors.auth ? `${id}-auth-error` : undefined} /></Field>
+          <Field id={`${id}-auth`} label={t('accountAdd.auth')} error={errors.auth}><Textarea className="mono" id={`${id}-auth`} value={auth} onChange={e => setAuth(e.target.value)} disabled={busy} spellCheck={false} autoComplete="off" rows={5} placeholder={t('accountAdd.authPlaceholder')} aria-invalid={!!errors.auth} aria-describedby={errors.auth ? `${id}-auth-error` : undefined} /></Field>
           {!importOnly && <Field label={t('accountAdd.refresh')}><SingleChoice label={t('accountAdd.refresh')} value={owner} onChange={v => setOwner(v as Owner)} disabled={busy} fill options={[
             { value: 'codex', label: t('accountAdd.codexRefresh') }, { value: 'none', label: t('accountAdd.noRefresh') }, { value: 'external', label: t('accountAdd.external') },
           ]} /></Field>}

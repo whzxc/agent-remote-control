@@ -30,30 +30,6 @@
     "reason": "Account credential import content retained by AgentAccountAdd."
   },
   {
-    "file": "ui/components/AgentAccountAdd.css",
-    "selector": ".agent-account-add textarea.input",
-    "property": "font-family",
-    "reason": "Account credential import content retained by AgentAccountAdd."
-  },
-  {
-    "file": "ui/components/AgentAccountAdd.css",
-    "selector": ".agent-account-add textarea.input",
-    "property": "font-size",
-    "reason": "Account credential import content retained by AgentAccountAdd."
-  },
-  {
-    "file": "ui/components/AgentAccountAdd.css",
-    "selector": ".agent-account-add [id$=\"-args\"]",
-    "property": "font-family",
-    "reason": "Account credential import content retained by AgentAccountAdd."
-  },
-  {
-    "file": "ui/components/AgentAccountAdd.css",
-    "selector": ".agent-account-add [id$=\"-args\"]",
-    "property": "font-size",
-    "reason": "Account credential import content retained by AgentAccountAdd."
-  },
-  {
     "file": "ui/components/AppUpdate.css",
     "selector": ".update-dock-divider",
     "property": "background",
@@ -334,24 +310,6 @@
     "selector": ".homepage-task-omitted",
     "property": "color",
     "reason": "Timeline content, phase semantics or task-specific presentation retained by its feature owner."
-  },
-  {
-    "file": "ui/components/ModelEffortPicker.css",
-    "selector": ".spec-picker.popover",
-    "property": "border",
-    "reason": "Compound model picker composition and effort preview retained by ModelEffortPicker."
-  },
-  {
-    "file": "ui/components/ModelEffortPicker.css",
-    "selector": ".spec-picker.popover",
-    "property": "border-radius",
-    "reason": "Compound model picker composition and effort preview retained by ModelEffortPicker."
-  },
-  {
-    "file": "ui/components/ModelEffortPicker.css",
-    "selector": ".spec-picker.popover",
-    "property": "box-shadow",
-    "reason": "Compound model picker composition and effort preview retained by ModelEffortPicker."
   },
   {
     "file": "ui/components/ModelEffortPicker.css",
@@ -2737,18 +2695,6 @@
   },
   {
     "file": "ui/mcp/mcp.css",
-    "selector": ".mcp-server[data-transport=\"http\"] .mcp-server-head > .tile",
-    "property": "color",
-    "reason": "MCP service inventory and schema content retained by McpHub."
-  },
-  {
-    "file": "ui/mcp/mcp.css",
-    "selector": ".mcp-server[data-transport=\"stdio\"] .mcp-server-head > .tile",
-    "property": "color",
-    "reason": "MCP service inventory and schema content retained by McpHub."
-  },
-  {
-    "file": "ui/mcp/mcp.css",
     "selector": ".mcp-server-identity h3",
     "property": "color",
     "reason": "MCP service inventory and schema content retained by McpHub."
@@ -2841,12 +2787,6 @@
     "file": "ui/mcp/mcp.css",
     "selector": ".mcp-no-match",
     "property": "font-size",
-    "reason": "MCP service inventory and schema content retained by McpHub."
-  },
-  {
-    "file": "ui/mcp/mcp.css",
-    "selector": ".mcp-empty > .tile",
-    "property": "color",
     "reason": "MCP service inventory and schema content retained by McpHub."
   },
   {
@@ -4579,12 +4519,6 @@
   },
   {
     "file": "ui/product.css",
-    "selector": ".setup-success-heading .tile",
-    "property": "color",
-    "reason": "Onboarding flow content and progress illustration; shared fields and actions retain their own styles."
-  },
-  {
-    "file": "ui/product.css",
     "selector": ".setup-success-heading h3",
     "property": "font",
     "reason": "Onboarding flow content and progress illustration; shared fields and actions retain their own styles."
@@ -4762,24 +4696,6 @@
     "selector": ".graph-node[data-new-source]",
     "property": "box-shadow",
     "reason": "Free-form topology canvas geometry and semantic connection paint."
-  },
-  {
-    "file": "ui/product.css",
-    "selector": ".pairing-claim .tag",
-    "property": "line-height",
-    "reason": "Onboarding flow content and progress illustration; shared fields and actions retain their own styles."
-  },
-  {
-    "file": "ui/product.css",
-    "selector": ".pairing-claim .tag",
-    "property": "border-radius",
-    "reason": "Onboarding flow content and progress illustration; shared fields and actions retain their own styles."
-  },
-  {
-    "file": "ui/product.css",
-    "selector": ".pairing-claim .tag",
-    "property": "font-size",
-    "reason": "Onboarding flow content and progress illustration; shared fields and actions retain their own styles."
   },
   {
     "file": "ui/product.css",

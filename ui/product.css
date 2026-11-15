@@ -557,7 +557,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .pairing-inline .pairing-code { font:650 var(--text-display)/32px var(--font-mono); padding:0; letter-spacing:normal; white-space:nowrap; }
 .setup-success { display:grid; gap:24px; text-align:start; }
 .setup-success-heading { display:flex; align-items:center; gap:16px; }
-.setup-success-heading .tile { color:var(--success); }
 .setup-success-heading h3 { font:650 var(--text-title)/24px var(--font-ui); }
 .setup-success-heading p { margin-top:8px; color:var(--text-secondary); font-size:var(--text-small); }
 .setup-connection-card { display:grid; grid-template-columns:minmax(0,1fr); gap:24px; padding:20px; }
@@ -618,7 +617,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 }
 .navigation-capsule[hidden] { display: none; }
 
-.pairing-claim .tag { height: auto; line-height: 1.4; padding: 6px 12px; border-radius: var(--radius-pill); font-size: var(--text-body); white-space: normal; overflow-wrap: anywhere; }
 .pairing-card .pairing-fact { font-size: var(--text-meta); color: var(--text-secondary); }
 .pairing-card .pairing-summary { font-size: var(--text-small); }
 

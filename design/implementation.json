@@ -986,13 +986,6 @@
         {
           "source": "design/components/topology-node.tsx",
           "part": "TopologyNode"
-        },
-        {
-          "source": "design/components/topology-scene.tsx",
-          "part": "TopologyScene"
-        },
-        {
-          "source": "design/surfaces/homepage-topology.tsx"
         }
       ]
     },
@@ -1906,13 +1899,6 @@
         {
           "source": "design/components/topology-node.tsx",
           "part": "TopologyNode"
-        },
-        {
-          "source": "design/components/topology-scene.tsx",
-          "part": "TopologyScene"
-        },
-        {
-          "source": "design/surfaces/homepage-topology.tsx"
         }
       ]
     },
