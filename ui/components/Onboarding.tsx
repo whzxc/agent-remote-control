@@ -1,3 +1,4 @@
+import {SetupWelcome} from './ui/SetupFlow';
 import { useEffect, useState } from "react";
 import { Monitor, Smartphone } from "lucide-react";
 import { api } from "../api";
@@ -29,7 +30,7 @@ export default function Onboarding({ returnFocus }: { returnFocus?: string }) {
     catch (e) { setError(String(e)); } finally { setBusy(false); }
   }
   if (flow.step !== "welcome") return <AddControlSource returnFocus={returnFocus} />;
-  return <section className="welcome-page" aria-labelledby="welcome-title">
+  return <SetupWelcome aria-labelledby="welcome-title">
     <img className="welcome-mark" src={new URL("../assets/arc/mark.svg", import.meta.url).href} alt="ARC" />
     <h1 id="welcome-title">{t("setup.welcomeTitle")}</h1>
     {error && <Notice>{error}</Notice>}
@@ -44,5 +45,5 @@ export default function Onboarding({ returnFocus }: { returnFocus?: string }) {
     </Status>
       <Button variant="ghost" onClick={() => openConnectionSetup({ method: "join" })}>{t("setup.invite")}</Button>
     </footer>
-  </section>;
+  </SetupWelcome>;
 }

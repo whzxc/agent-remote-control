@@ -1,9 +1,11 @@
-import type { ReactNode } from "react";
-import { t } from "../i18n";
-import { Dialog } from "./ui";
+import type { ComponentProps, ReactNode } from "react";
+import { t } from "../../i18n";
+import { Dialog } from "./index";
+
+import "./SetupFlow.css";
 
 export type SetupStep = { label: string; value?: string };
-export default function SetupDialog({ layerId, title, steps, active, done, stacked, parentTitle, busy, dirty, onCancel, onClose, footer, children, initialFocus, returnFocus, context, actionLayout = "split" }: {
+export function SetupFlow({ layerId, title, steps, active, done, stacked, parentTitle, busy, dirty, onCancel, onClose, footer, children, initialFocus, returnFocus, context, actionLayout = "split" }: {
   layerId?: string;
   title: string; steps: SetupStep[]; active: number; done?: boolean; stacked?: boolean; parentTitle?: string;
   context?: ReactNode; actionLayout?: "split" | "end";
@@ -17,3 +19,8 @@ export default function SetupDialog({ layerId, title, steps, active, done, stack
       <span>{step.label}{index < active && step.value ? ` · ${step.value}` : ""}</span>
     </li>)}</ol>} footer={footer && <div className="setup-actions" data-layout={actionLayout}>{footer}</div>}>{children}</Dialog>;
 }
+
+export function SetupAccountDialog(props:ComponentProps<typeof Dialog>){return <Dialog {...props} className="agent-account-add"/>;}
+export function SetupWelcome(props:ComponentProps<'section'>){return <section {...props} className="welcome-page"/>;}
+export function SetupApproval(props:ComponentProps<'form'>){return <form {...props} className={'pairing-card '+(props.className??'')}/>;}
+export function SetupImpact(props:ComponentProps<'p'>){return <p {...props} className="hub-recovery-impact"/>;}

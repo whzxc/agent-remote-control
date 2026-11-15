@@ -1,3 +1,4 @@
+import {SetupApproval} from './ui/SetupFlow';
 import { useSubmittedDirty } from "./ui/useSubmittedDirty";
 import { DialogActions, useDialogCompletion } from "./ui/Dialog";
 import { layers } from "../state/layers";
@@ -41,7 +42,7 @@ export function ApprovalCard({ request, ingress, inline = false, product, onDeci
     } catch (e) { setError(`${t("connect.approvalFailed")} ${String(e)}`); }
     finally { setBusy(false); }
   }
-  return <form id={`approval-${request.id}`} className={`pairing-card ${inline ? "pairing-inline" : ""}`} aria-live="polite" onSubmit={e => { e.preventDefault(); void decide((e.nativeEvent as SubmitEvent).submitter?.getAttribute("value") !== "deny"); }}>
+  return <SetupApproval id={`approval-${request.id}`} className={`${inline ? "pairing-inline" : ""}`} aria-live="polite" onSubmit={e => { e.preventDefault(); void decide((e.nativeEvent as SubmitEvent).submitter?.getAttribute("value") !== "deny"); }}>
     {request.status === "pending" ? <>
       {inline ? <Card className="pairing-code-panel"><div className="pairing-code-heading"><strong className="pairing-code">{request.pairingCode ?? "—"}</strong><span>{t("connect.compareCode")}</span></div>
         <p className="pairing-fact">{t("connect.client", { name: request.clientName })} · {t("connect.scope", { scope: ingress.toolPolicy === "all" ? t("connect.allPermissions") : t("connect.selectedPermissions") })}</p>
@@ -55,7 +56,7 @@ export function ApprovalCard({ request, ingress, inline = false, product, onDeci
       {!inline && <DialogActions className="actions"><Button disabled={readOnlyBrowser || busy} onClick={() => void decide(false)}>{t("oauthDeny")}</Button><Button variant="primary" busy={busy} disabled={readOnlyBrowser || !request.switchSourceId && sourceId !== "new" && !candidates.some(s => s.id === sourceId)} onClick={() => void decide(true)}>{t("oauthAllow")}</Button></DialogActions>}
     </> : <p>{t(request.status === "approved" ? "connect.returning" : request.status === "denied" ? "oauthDenied" : "oauthFinished")}</p>}
     {error && <Notice tone="danger">{error}</Notice>}
-  </form>;
+  </SetupApproval>;
 }
 export default function OAuthApproval({ requested, onClose, inlineEnabled }: { requested?: { id: string }; onClose: () => void; inlineEnabled: boolean }) {
   const { status } = connector.use(), savedFlow = onboarding.use(), switching = connectionSwitch.use();

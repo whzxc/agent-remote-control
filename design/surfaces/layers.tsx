@@ -4,7 +4,7 @@ import { WorkspaceContent, NodePanelContent, NodePanelHeading } from '../modules
 import { Panel } from '../components/panel';
 import { IconButton } from '../components/icon-button';
 import { topologyScenes } from '../fixtures/topology';
-import { OnboardingShell } from '../modules/onboarding';
+import { SetupFlow } from '../components/setup-flow';
 import { ConnectionOnboarding } from '../modules/connection-onboarding';
 import { SourceOnboarding } from '../modules/source-onboarding';
 import { onboardingFrames } from '../fixtures/onboarding';
@@ -37,12 +37,12 @@ export default () => [
     <div class="relative w-[1280px] h-[800px] bg-canvas">
       <div aria-hidden="true"><HomepageScene scene={topologyScenes['nested-dialog']} chrome={false} /></div>
       <div aria-hidden="true" inert class="absolute top-[192px] left-[360px] w-[560px] h-[420px]">
-        <OnboardingShell step={onboardingFrames.find(s=>s.name==='source-connection')!}><SourceOnboarding step={onboardingFrames.find(s=>s.name==='source-connection')!}/></OnboardingShell>
+        <SetupFlow step={onboardingFrames.find(s=>s.name==='source-connection')!}><SourceOnboarding step={onboardingFrames.find(s=>s.name==='source-connection')!}/></SetupFlow>
       </div>
       <div class="absolute inset-0 bg-layer-scrim flex items-center justify-center pt-5 pb-4">
-        <OnboardingShell step={onboardingFrames.find(s=>s.name==='stacked-method')!}>
+        <SetupFlow step={onboardingFrames.find(s=>s.name==='stacked-method')!}>
           <ConnectionOnboarding step={onboardingFrames.find(s=>s.name==='stacked-method')!}/>
-        </OnboardingShell>
+        </SetupFlow>
       </div>
     </div>
   </Frame>,

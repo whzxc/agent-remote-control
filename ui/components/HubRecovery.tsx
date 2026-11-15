@@ -1,3 +1,4 @@
+import {SetupImpact} from './ui/SetupFlow';
 import { useDialogCompletion } from "./ui/Dialog";
 import { useState } from "react";
 import { api } from "../api";
@@ -69,7 +70,7 @@ export default function HubRecovery({ side, onClose, openCore }: {
     <div className="hub-recovery-reason">
       <p>{t(reason)}</p>
       {!blocked && (!remote || !hubHealth?.remoteUnavailable) && !(stopped && !remote) &&
-        <p className="hub-recovery-impact">{t(remote ? "hub.remoteRestartImpact" : "hub.coreRestartImpact")}</p>}
+        <SetupImpact>{t(remote ? "hub.remoteRestartImpact" : "hub.coreRestartImpact")}</SetupImpact>}
       {remote && !blocked && faults.length > 1 && !hubHealth?.remoteUnavailable && faults.map(fault =>
         <Button key={fault.id} disabled={!!busy} busy={busy === fault.id} onClick={() => void restartConnection(fault.id)}>{t("hub.restartNamedConnection", { name: fault.name })}</Button>)}
       {error && <Notice>{error}</Notice>}

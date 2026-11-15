@@ -9,7 +9,7 @@ import { openUrl } from "../platform";
 import { connector, refreshConnector } from "../state/connector";
 import { onboarding, openConnectionSetup, finishSourceSetup, addedSource, type OnboardingStep, type ConnectionMethod } from "../state/onboarding";
 import { connectionDisabledReason, connectionKind, isPendingSource } from "../sourcePresentation";
-import SetupDialog from "./SetupDialog";
+import { SetupFlow } from "./ui/SetupFlow";
 import { useDialogCompletion } from "./ui/Dialog";
 import SourceIcon from "./SourceIcon";
 import { ApprovalCard } from "./OAuthApproval";
@@ -98,7 +98,7 @@ export default function AddControlSource({ returnFocus }: { returnFocus?: string
     {flow.step === "address" && <Button variant="primary" busy>{t(current?.auth === "oauth" ? "connect.waitClient" : "source.waitConnection", { name })}</Button>}
     {flow.step === "success" && <><Button variant="primary" onClick={() => { if (flow.sourceId) addedSource.set(flow.sourceId); onboarding.set({ step: "product" }); }}>{t("setup.addAnother")}</Button></>}
   </>;
-  return <SetupDialog layerId={completion.layerId} title={title} steps={steps.slice(0, 4).map((value, index) => ({ label: t(`source.step.${value}`), value: index === 0 ? productName(selectedProduct || "custom") : index === 1 ? current?.name : undefined }))}
+  return <SetupFlow layerId={completion.layerId} title={title} steps={steps.slice(0, 4).map((value, index) => ({ label: t(`source.step.${value}`), value: index === 0 ? productName(selectedProduct || "custom") : index === 1 ? current?.name : undefined }))}
     context={flow.step === "product" && flow.fixedConnection && current ? t("setup.via", { name: current.name }) : undefined}
     actionLayout={["product", "approval", "success"].includes(flow.step) ? "end" : "split"}
     active={steps.indexOf(flow.step)} done={flow.step === "success"} busy={busy || flow.step === "address" && !connected} dirty={approvalDirty || draft.dirty} onClose={finishSourceSetup}
@@ -158,5 +158,5 @@ export default function AddControlSource({ returnFocus }: { returnFocus?: string
       <Field label={t("setup.tryPrompt", { name })}><CopyField value={t("setup.firstPrompt")} label={t("copy")} /></Field>
     </div>}
     </div>
-  </SetupDialog>;
+  </SetupFlow>;
 }

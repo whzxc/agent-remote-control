@@ -932,68 +932,6 @@
     },
     {
       "implementation": {
-        "file": "ui/components/AddConnection.tsx"
-      },
-      "design": [
-        {
-          "source": "design/components/onboarding-fields.tsx",
-          "part": "OnboardingChoiceField"
-        },
-        {
-          "source": "design/components/onboarding-fields.tsx",
-          "part": "OnboardingField"
-        },
-        {
-          "source": "design/modules/connection-onboarding.tsx",
-          "part": "ConnectionOnboarding"
-        },
-        {
-          "source": "design/surfaces/setup.tsx"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/AddControlSource.tsx"
-      },
-      "design": [
-        {
-          "source": "design/components/onboarding-fields.tsx",
-          "part": "OnboardingField"
-        },
-        {
-          "source": "design/modules/source-onboarding.tsx",
-          "part": "SourceOnboarding"
-        },
-        {
-          "source": "design/surfaces/setup.tsx"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/SetupDialog.tsx"
-      },
-      "design": [
-        {
-          "source": "design/modules/onboarding.tsx",
-          "part": "OnboardingSteps"
-        },
-        {
-          "source": "design/modules/onboarding.tsx",
-          "part": "OnboardingFooter"
-        },
-        {
-          "source": "design/modules/onboarding.tsx",
-          "part": "OnboardingShell"
-        },
-        {
-          "source": "design/surfaces/setup.tsx"
-        }
-      ]
-    },
-    {
-      "implementation": {
         "file": "ui/components/ui/SetupChoice.tsx",
         "symbol": "WelcomeChoice"
       },
@@ -1001,28 +939,6 @@
         {
           "source": "design/modules/welcome.tsx",
           "part": "WelcomeChoice"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/Onboarding.tsx"
-      },
-      "design": [
-        {
-          "source": "design/modules/welcome.tsx",
-          "part": "WelcomeChoice"
-        },
-        {
-          "source": "design/modules/welcome.tsx",
-          "part": "WelcomeStatus"
-        },
-        {
-          "source": "design/modules/welcome.tsx",
-          "part": "Welcome"
-        },
-        {
-          "source": "design/surfaces/setup.tsx"
         }
       ]
     },
@@ -1390,17 +1306,6 @@
         },
         {
           "source": "design/surfaces/agent-platform.tsx"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/AgentAccountAdd.tsx"
-      },
-      "design": [
-        {
-          "source": "design/modules/agent-account-add.tsx",
-          "part": "AgentAccountAdd"
         }
       ]
     },
@@ -2843,6 +2748,161 @@
         {
           "source": "design/components/entity-inventory.tsx",
           "part": "EntityCard"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AddConnection.tsx"
+      },
+      "design": [
+        {
+          "source": "design/components/onboarding-fields.tsx",
+          "part": "OnboardingChoiceField"
+        },
+        {
+          "source": "design/components/onboarding-fields.tsx",
+          "part": "OnboardingField"
+        },
+        {
+          "source": "design/modules/connection-onboarding.tsx",
+          "part": "ConnectionOnboarding"
+        },
+        {
+          "source": "design/surfaces/setup.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AddControlSource.tsx"
+      },
+      "design": [
+        {
+          "source": "design/components/onboarding-fields.tsx",
+          "part": "OnboardingField"
+        },
+        {
+          "source": "design/modules/source-onboarding.tsx",
+          "part": "SourceOnboarding"
+        },
+        {
+          "source": "design/surfaces/setup.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/Onboarding.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/welcome.tsx",
+          "part": "WelcomeChoice"
+        },
+        {
+          "source": "design/modules/welcome.tsx",
+          "part": "WelcomeStatus"
+        },
+        {
+          "source": "design/modules/welcome.tsx",
+          "part": "Welcome"
+        },
+        {
+          "source": "design/surfaces/setup.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AgentAccountAdd.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/agent-account-add.tsx",
+          "part": "AgentAccountAdd"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/SetupFlow.tsx",
+        "symbol": "SetupFlow"
+      },
+      "design": [
+        {
+          "source": "design/components/setup-flow.tsx",
+          "part": "SetupFlow"
+        },
+        {
+          "source": "design/components/setup-flow.tsx",
+          "part": "OnboardingSteps"
+        },
+        {
+          "source": "design/components/setup-flow.tsx",
+          "part": "OnboardingFooter"
+        },
+        {
+          "source": "design/surfaces/setup.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/SetupFlow.css"
+      },
+      "design": [
+        {
+          "source": "design/components/setup-flow.tsx",
+          "part": "SetupFlow"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/SetupFlow.tsx",
+        "symbol": "SetupAccountDialog"
+      },
+      "design": [
+        {
+          "source": "design/components/setup-flow.tsx",
+          "part": "SetupAccountDialog"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/SetupFlow.tsx",
+        "symbol": "SetupWelcome"
+      },
+      "design": [
+        {
+          "source": "design/components/setup-flow.tsx",
+          "part": "SetupWelcome"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/SetupFlow.tsx",
+        "symbol": "SetupApproval"
+      },
+      "design": [
+        {
+          "source": "design/components/setup-flow.tsx",
+          "part": "SetupApproval"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/SetupFlow.tsx",
+        "symbol": "SetupImpact"
+      },
+      "design": [
+        {
+          "source": "design/components/setup-flow.tsx",
+          "part": "SetupImpact"
         }
       ]
     }

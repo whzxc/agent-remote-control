@@ -49,12 +49,12 @@ test('stacked setup edits tools inside its owning dialog and Back and Escape pre
   await withDialog(async ({ server, root, settle, focused }) => {
     const { installScenario } = await server.ssrLoadModule('/ui/scenarios.ts');
     await installScenario('p3-stacked-secure-en@light');
-    const { default: SetupDialog } = await server.ssrLoadModule('/ui/components/SetupDialog.tsx');
+    const { SetupFlow } = await server.ssrLoadModule('/ui/components/ui/SetupFlow.tsx');
     const { default: AddConnection } = await server.ssrLoadModule('/ui/components/AddConnection.tsx');
     const { TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
     const { t } = await server.ssrLoadModule('/ui/i18n.ts');
     await act(async () => root.render(h(TooltipProvider, null,
-      h(SetupDialog, { title: 'Source setup', steps: [], active: 0, onClose() {} }, h('input', { 'aria-label': 'Source draft', defaultValue: 'Parent retained' })),
+      h(SetupFlow, { title: 'Source setup', steps: [], active: 0, onClose() {} }, h('input', { 'aria-label': 'Source draft', defaultValue: 'Parent retained' })),
       h(AddConnection, { options: { forSource: true, method: 'https', step: 'address' }, onClose() {}, onAdded() {} }))));
     await settle();
     const page = within(document.body);

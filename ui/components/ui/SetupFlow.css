@@ -1,0 +1,39 @@
+
+.agent-account-add .account-login-status { font-size: var(--text-small); font-weight: 500; line-height: 18px; }
+.agent-account-add .account-removal { font-size: var(--text-small); line-height: 20px; }
+.pairing-card { border:1px solid var(--border); border-radius:12px; }
+.pairing-code { font:600 42px ui-monospace,monospace; letter-spacing:.18em; }
+.pairing-card details { font-size:12px; }
+.setup-return, .setup-context { color:var(--text-secondary); font-size:var(--text-meta); line-height:16px; }
+.setup-steps li { color:var(--text-secondary); font:400 var(--text-meta)/16px var(--font-ui); }
+.setup-steps li::before { border-radius:1.5px; background:var(--surface-sunken); }
+.setup-steps li[data-complete]::before, .setup-steps li[aria-current]::before { background:var(--accent); }
+.setup-steps li[aria-current] { color:var(--text); font-weight:600; }
+.setup-steps[data-done] li::before { background:var(--success); }
+.platform-group h3 { color:var(--text-tertiary); font:400 var(--text-meta)/16px var(--font-ui); }
+.setup-empty h3 { font-size:var(--text-body); font-weight:650; }
+.setup-instructions li::before { border-radius:50%; background:var(--surface-sunken); font:600 var(--text-meta)/16px var(--font-ui); }
+.setup-instructions strong { font:650 var(--text-body)/24px var(--font-ui); }
+.setup-instructions p { font-size:var(--text-small); color:var(--text-secondary); }
+.pairing-card.pairing-inline { border:0; border-radius:0; }
+.pairing-card:not(.pairing-inline) .pairing-code-panel { border-radius:var(--radius-card); background:var(--surface-subtle); font-size:var(--text-small); }
+.pairing-card:not(.pairing-inline) .pairing-code-panel .pairing-code { font:600 28px var(--font-mono); letter-spacing:.18em; }
+.pairing-inline .pairing-code-panel { font-size:var(--text-small); }
+.pairing-inline .pairing-code { font:650 var(--text-display)/32px var(--font-mono); letter-spacing:normal; }
+.setup-success-heading h3 { font:650 var(--text-title)/24px var(--font-ui); }
+.setup-success-heading p { color:var(--text-secondary); font-size:var(--text-small); }
+.setup-connection-identity > strong { font:650 var(--text-body)/20px var(--font-ui); }
+.setup-connection-address > span { color:var(--text-secondary); font-size:var(--text-small); }
+.remote-steps strong { font:650 var(--text-body)/16px var(--font-ui); }
+.remote-steps small { font:400 var(--text-meta)/16px var(--font-ui); color:var(--text-secondary); }
+.step-complete { color:var(--success); }
+.step-running { color:var(--accent); }
+.step-waiting { color:var(--text-tertiary); }
+.welcome-page { border-radius:var(--radius-panel); background:var(--surface-raised); box-shadow:var(--shadow-lg); }
+.welcome-page h1 { font:650 var(--text-title)/24px var(--font-ui); }
+.welcome-readiness > .status { font-size:var(--text-small); }
+
+.pairing-card .pairing-fact { font-size: var(--text-meta); color: var(--text-secondary); }
+.pairing-card .pairing-summary { font-size: var(--text-small); }
+.hub-recovery-impact { color: var(--text-secondary); font-size: var(--text-meta); }
+

@@ -9,7 +9,7 @@ import { connector, refreshConnector } from "../state/connector";
 import { connectionSwitch, openConnectionSetup } from "../state/onboarding";
 import { connectionDisabledReason, connectionKind, isPendingSource } from "../sourcePresentation";
 import type { Ingress } from "../state/types";
-import SetupDialog from "./SetupDialog";
+import { SetupFlow } from "./ui/SetupFlow";
 import { useDialogCompletion } from "./ui/Dialog";
 import { ApprovalCard } from "./OAuthApproval";
 import { Button, CopyField, DialogClose, Field, Icon, Notice, SingleChoice, SetupAction } from "./ui";
@@ -69,7 +69,7 @@ export default function ChangeConnection() {
   const expired = flow.step !== "connection" && ((!source?.pendingSwitch && source?.ingressId !== flow.ingressId) || request?.status === "expired" || request?.status === "denied");
   const canApprove = request?.status === "pending" && !expired;
   const waiting = flow.step === "address" && !expired && source?.ingressId !== flow.ingressId;
-  return <SetupDialog layerId={completion.layerId} title={t("switch.sourceTitle", { name: source?.label ?? flow.sourceId })} active={steps.indexOf(flow.step)} busy={busy || waiting} dirty={approvalDirty || draft.dirty}
+  return <SetupFlow layerId={completion.layerId} title={t("switch.sourceTitle", { name: source?.label ?? flow.sourceId })} active={steps.indexOf(flow.step)} busy={busy || waiting} dirty={approvalDirty || draft.dirty}
     steps={[{ label: t("source.step.connection"), value: target?.name }, { label: t("switch.address") }, { label: t("switch.reauthorize") }]}
     actionLayout={flow.step === "approval" && canApprove ? "end" : "split"} returnFocus="[data-change-connection]" onCancel={waiting ? () => cancel(true) : undefined} onClose={async () => { await cancel(true); }} footer={<>
       {flow.step === "approval" && canApprove ? <><Button form={`approval-${request.id}`} type="submit" value="deny" disabled={busy}>{t("oauthDeny")}</Button><Button form={`approval-${request.id}`} type="submit" value="allow" variant="primary" busy={busy}>{t("switch.approve")}</Button></> : <>
@@ -99,5 +99,5 @@ export default function ChangeConnection() {
         {expired && <Notice tone="warning">{t("switch.expired")}</Notice>}
       </>}
     </div>
-  </SetupDialog>;
+  </SetupFlow>;
 }

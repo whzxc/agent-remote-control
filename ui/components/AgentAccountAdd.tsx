@@ -1,3 +1,4 @@
+import {SetupAccountDialog} from './ui/SetupFlow';
 import { useSubmittedDirty } from "./ui/useSubmittedDirty";
 import { useDialogCompletion } from "./ui/Dialog";
 import { useEffect, useId, useState, type FormEvent } from 'react';
@@ -5,7 +6,7 @@ import { accountsApi, api } from '../api';
 import { t } from '../i18n';
 import { refreshAccounts, refreshAccountQuota } from '../state/accounts';
 import type { AccountLogin, CodexAccountImport, ProviderAccount } from '../types';
-import { DialogClose, Button, Dialog, Field, Input, Notice, SingleChoice, Textarea } from './ui';
+import { DialogClose, Button, Field, Input, Notice, SingleChoice, Textarea } from './ui';
 import { copyText } from '../platform';
 import './AgentAccountAdd.css';
 
@@ -134,7 +135,7 @@ export default function AgentAccountAdd({ kind, account, onClose }: {
   const notice = error || loginError || login?.browserError;
   const waitingBrowser = login?.browserName ?? browsers.find(option => option.id === login?.browserId)?.name;
   const focusTarget = account ? `[data-account-reauth="${CSS.escape(account.id)}"], [data-add-agent-account]` : '[data-add-agent-account]';
-  return <Dialog layerId={completion.layerId} title={title} className="agent-account-add" busy={busy || active}
+  return <SetupAccountDialog layerId={completion.layerId} title={title} busy={busy || active}
     dirty={draft.dirty}
     onCancel={active && !desktop ? cancelLogin : undefined}
     onClose={onClose} returnFocus={focusTarget} footer={<div className="actions">
@@ -176,5 +177,5 @@ export default function AgentAccountAdd({ kind, account, onClose }: {
         </>}
       </>}
     </form>
-  </Dialog>;
+  </SetupAccountDialog>;
 }

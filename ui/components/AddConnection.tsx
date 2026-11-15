@@ -11,7 +11,7 @@ import { useRelayProgress, type RelayProgress as Progress } from "../state/relay
 import { SensitiveInput, useSensitiveText } from "./Sensitive";
 import IngressDialog from "./IngressDialog";
 import RelayProgress from "./RelayProgress";
-import SetupDialog from "./SetupDialog";
+import { SetupFlow } from "./ui/SetupFlow";
 import { useDialogCompletion } from "./ui/Dialog";
 import { Card } from "./ui/card";
 import { DialogClose, Button, CopyField, Field, Icon, Input, Loading, Notice, SingleChoice, Status, Tile } from "./ui";
@@ -101,7 +101,7 @@ export default function AddConnection({ options, onClose, onAdded, returnFocus }
   }
   const flow = onboarding.get();
   const parentTitle = options.forConnections ? t("connections.title") : options.forSwitch ? t("switch.sourceTitle", { name: sources.find(s => s.id === connectionSwitch.get()?.sourceId)?.label ?? "" }) : flow?.source ? t("setup.addProduct", { name: flow.localTarget === "code" ? "Claude Code" : flow.localTarget === "desktop" ? t("setup.claudeDesktop") : controlSource(flow.source)?.shortName ?? t("setup.otherClient") }) : t("addControlSource");
-  return <SetupDialog layerId={completion.layerId} title={t("source.newConnection")} steps={[{ label: t("setup.method"), value: methodName }, { label: t("source.step.address") }, { label: t("setup.ready") }]}
+  return <SetupFlow layerId={completion.layerId} title={t("source.newConnection")} steps={[{ label: t("setup.method"), value: methodName }, { label: t("source.step.address") }, { label: t("setup.ready") }]}
     active={steps.indexOf(step)} done={step === "success"} stacked={(options.forSource || options.forSwitch || options.forConnections)} parentTitle={parentTitle} busy={busy || configBusy || waiting} dirty={draft.dirty || configDirty}
     onCancel={waiting ? cancelRelay : undefined} onClose={onClose}
     returnFocus={returnFocus} actionLayout={step === "method" || step === "success" ? "end" : "split"}
@@ -146,5 +146,5 @@ export default function AddConnection({ options, onClose, onAdded, returnFocus }
         {created && created.state !== "ready" && <Button busy={busy} onClick={() => void perform(async () => { await api(`ingress/${created.id}/start`, "POST"); await refreshConnector(); })}>{t("retry")}</Button>}
       </div>}
     </div>
-  </SetupDialog>;
+  </SetupFlow>;
 }

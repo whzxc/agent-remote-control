@@ -1,5 +1,5 @@
 import { Frame } from "adg";
-import { OnboardingShell } from "../modules/onboarding";
+import { SetupFlow } from "../components/setup-flow";
 import { Welcome } from "../modules/welcome";
 import { SourceOnboarding } from "../modules/source-onboarding";
 import { ConnectionOnboarding } from "../modules/connection-onboarding";
@@ -18,10 +18,10 @@ export default () =>
       note={step.name.startsWith("stacked-") ? "M child-dialog region. Its parent stays mounted and stationary under the scrim; p3-stacked acceptance covers the pair." : undefined}
     >
       {step.body === "welcome" ? <Welcome /> : (
-        <OnboardingShell step={step}>
+        <SetupFlow step={step}>
           {step.name.startsWith("source-")
             ? <SourceOnboarding step={step} /> : <ConnectionOnboarding step={step} />}
-        </OnboardingShell>
+        </SetupFlow>
       )}
     </Frame>
   ));
