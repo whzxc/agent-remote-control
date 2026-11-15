@@ -1,6 +1,6 @@
 [data-phase="failed"] { --phase-color: var(--danger); }
 [data-phase="unknown"], [data-phase="interrupted"] { --phase-color: var(--text-tertiary); }
-[data-phase="thinking"] { --phase-color: var(--phase-thinking); }
+[data-phase="thinking"] { --phase-color: var(--role-agent); }
 [data-phase="command"] { --phase-color: var(--phase-command); }
 [data-phase="file"] { --phase-color: var(--phase-file); }
 [data-phase="tool"], [data-phase="idle"] { --phase-color: var(--phase-tool); }

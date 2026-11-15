@@ -7,7 +7,7 @@
   max-width: calc(100vw - 32px);
   padding: var(--dock-padding-block) 6px;
   border: 0;
-  border-radius: 22px;
+  border-radius: var(--radius-panel);
   background: var(--surface-raised);
   box-shadow: var(--shadow-lg);
 }

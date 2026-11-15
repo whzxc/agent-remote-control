@@ -6,14 +6,14 @@
 .update-download .progress { background: var(--surface-sunken); }
 .update-status, .update-panel-footer > p { font-size: var(--text-meta); line-height: var(--line-compact); color: var(--text-secondary); }
 .update-notes, .update-history-release { font-size: var(--text-body); line-height: var(--line-body); color: var(--text-secondary); }
-.update-note-group h3, .update-history-release h4 { font-size: var(--text-small); line-height: var(--line-compact); font-weight: 600; color: var(--text); }
-.update-history-release h3 { font-weight: 600; color: var(--text); }
+.update-note-group h3, .update-history-release h4 { font-size: var(--text-small); line-height: var(--line-compact); font-weight: var(--weight-strong); color: var(--text); }
+.update-history-release h3 { font-weight: var(--weight-strong); color: var(--text); }
 .update-notes a, .update-history-release a { color: var(--accent-text); text-decoration: underline; }
 .update-note-version { font-size: var(--text-meta); color: var(--text-tertiary); }
 .settings-about-links > span { font-size: var(--text-meta); color: var(--text-secondary); }
 .settings-about .setting + .setting { border-top: var(--stroke-thin) solid var(--border); }
 .release-notes {
-  line-height: 1.7;
+  line-height: var(--line-reading);
   font-family: var(--font-ui);
   font-size: var(--text-small);
 }

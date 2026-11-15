@@ -13,7 +13,7 @@
 .homepage-task-omitted { position: absolute; right: 24px; top: 0; max-width: calc(100% - 180px); margin: 0; text-align: right; }
 
 
-.homepage-task-section h2 { color: var(--text-secondary); font-size: var(--text-small); font-weight: 600; }
-.homepage-task-filter { border: var(--stroke-thin) solid color-mix(in srgb, var(--accent-text) 40%, transparent); background: color-mix(in srgb, var(--accent-text) 10%, transparent); color: var(--accent-text); border-radius: var(--radius-pill); font-size: var(--text-small); font-weight: 600; }
+.homepage-task-section h2 { color: var(--text-secondary); font-size: var(--text-small); font-weight: var(--weight-strong); }
+.homepage-task-filter { border: var(--stroke-thin) solid color-mix(in srgb, var(--accent-text) 40%, transparent); background: color-mix(in srgb, var(--accent-text) 10%, transparent); color: var(--accent-text); border-radius: var(--radius-pill); font-size: var(--text-small); font-weight: var(--weight-strong); }
 .homepage-task-omitted { font-size: var(--text-caption); color: var(--text-secondary); }
 .homepage-tasks-empty { color: var(--text-secondary); }

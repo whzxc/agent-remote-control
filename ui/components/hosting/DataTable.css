@@ -17,11 +17,11 @@
   padding: 12px 10px;
   vertical-align: middle;
   text-align: left;
-  box-shadow: inset 0 -1px var(--border);
+  box-shadow: var(--shadow-table-divider);
 }
 .data-table th {
   color: var(--text-secondary);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
 }
 .data-table-row {
   cursor: pointer;

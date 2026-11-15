@@ -2,7 +2,7 @@
 .tag.disclosure {
   gap: 4px;
   color: var(--text);
-  font-weight: 600;
+  font-weight: var(--weight-strong);
   cursor: pointer;
   transition: background var(--motion-fast);
 }

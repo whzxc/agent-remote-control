@@ -6,30 +6,10 @@ import { checkConsumers } from './check-ui-consumers.mjs';
 import { checkTokens } from './check-ui-tokens.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const paint = /^(?:color|background(?:-.+)?|border(?:-(?:top|right|bottom|left|inline|block|inline-start|inline-end|block-start|block-end))?(?:-(?:color|style|radius))?|border-(?:top-left|top-right|bottom-left|bottom-right|start-start|start-end|end-start|end-end)-radius|box-shadow|font(?:-.+)?|line-height|letter-spacing|text-shadow|text-transform|text-decoration(?:-.+)?)$/;
+const paint = /^(?:color|background(?:-.+)?|border(?:-(?:top|right|bottom|left|inline|block|inline-start|inline-end|block-start|block-end))?(?:-(?:color|style|radius))?|border-(?:top-left|top-right|bottom-left|bottom-right|start-start|start-end|end-start|end-end)-radius|box-shadow|font(?:-.+)?|line-height|letter-spacing|text-shadow|text-transform|text-decoration(?:-.+)?|fill|stroke(?:-width|-color)?)$/;
 
-// Values may combine tokens with structural CSS syntax. A fallback must obey the same rule.
-export function tokenPaint(value, property) {
-  let text = value.replace(/\/\*[\s\S]*?\*\//g, '').trim();
-  for (let index = text.indexOf('var('); index >= 0; index = text.indexOf('var(')) {
-    let depth = 1, end = index + 4;
-    for (; end < text.length && depth; end++) { if (text[end] === '(') depth++; if (text[end] === ')') depth--; }
-    if (depth) return false;
-    const body = text.slice(index + 4, end - 1), comma = body.indexOf(',');
-    const name = (comma < 0 ? body : body.slice(0, comma)).trim();
-    if (!/^--[a-zA-Z0-9_-]+$/.test(name) || comma >= 0 && !tokenPaint(body.slice(comma + 1), property)) return false;
-    text = text.slice(0, index) + ' TOKEN ' + text.slice(end);
-  }
-  if (/[#"']/.test(text) || /(?:rgba?|hsla?|oklch|oklab|lab|lch|color)\s*\(/i.test(text)) return false;
-  // Percentages in color-mix are blending weights, not authored colors or dimensions.
-  const mix = /color-mix\s*\(/i.test(text);
-  text = text.replace(/color-mix\s*\(\s*in\s+(?:srgb|oklab|oklch)\s*,/g, '(');
-  if (mix) text = text.replace(/\b\d+(?:\.\d+)?%/g, '');
-  if (property === 'font-weight' || property === 'font') text = text.replace(/\b[1-9]00\b/g, '');
-  if (property === 'line-height') text = text.replace(/\b\d+(?:\.\d+)?(?![\w.])/g, '');
-  return text.replace(/\b(?:TOKEN|inherit|currentColor|transparent|none|normal|solid|dashed|dotted|double|inset|outset|bold|bolder|lighter|italic|oblique|tabular-nums|lining-nums|proportional-nums|small-caps|uppercase|lowercase|capitalize|underline|line-through|overline|auto)\b/gi, '')
-    .replace(/(?<![\w.])0(?![\w.])/g, '').replace(/[\s(),/+*-]/g, '') === '';
-}
+export { tokenPaint } from './ui-paint.mjs';
+import { tokenPaint } from './ui-paint.mjs';
 
 export async function inspectStyles(base = root) {
   const declarations = [];
@@ -62,8 +42,8 @@ export async function checkStyles(base = root) {
   const declarations = await inspectStyles(base), used = new Set(), errors = [];
   for (const row of declarations) {
     if (tokenPaint(row.value, row.property)) continue;
-    if (allowed.has(key(row))) used.add(key(row));
-    else errors.push(`${row.file}:${row.line}: ${row.selector}: ${row.property} requires runtime tokens or an exact literal-value exception.`);
+    if (allowed.has(key(row)) && /artwork/i.test(allowed.get(key(row)).reason)) used.add(key(row));
+    else errors.push(`${row.file}:${row.line}: ${row.selector}: ${row.property} requires runtime tokens or an exact artwork exception naming the artwork.`);
   }
   for (const [id, row] of allowed) if (!used.has(id)) errors.push(`Stale style exception: ${row.file}: ${row.selector}: ${row.property}`);
   return { declarations: declarations.length, exceptions: used.size, errors };

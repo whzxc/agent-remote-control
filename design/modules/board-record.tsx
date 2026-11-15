@@ -19,5 +19,5 @@ export function RecordHeading({ children, count, attention = false }: { children
   </h2>;
 }
 export default () => <Frame name="record" width={560}><div class="w-full"><RecordHeading count={1}>Activity</RecordHeading><RecordRow>
-  <Tile icon="activity" tone="neutral" form="phase"/><div class="flex-1"><strong class="text-small leading-[19px] font-semibold">Review changes</strong><RecordMeta>Completed · Today</RecordMeta></div>
+  <Tile icon="activity" tone="neutral" form="phase"/><div class="flex-1"><strong class="text-small leading-(--line-small) font-semibold">Review changes</strong><RecordMeta>Completed · Today</RecordMeta></div>
 </RecordRow></div></Frame>;

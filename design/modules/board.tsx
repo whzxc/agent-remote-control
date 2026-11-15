@@ -18,7 +18,7 @@ export function BoardRow({ row }: { row: BoardRowData }) {
     <article class="flex items-start gap-4 rounded-card bg-surface-subtle p-4">
       <Tile form="phase" icon={row.icon} tone={row.tone} />
       <div class="flex min-w-0 flex-1 flex-col">
-        <strong class="whitespace-pre-line text-small leading-[19px] font-semibold">{row.title}</strong>
+        <strong class="whitespace-pre-line text-small leading-(--line-small) font-semibold">{row.title}</strong>
         <span class="flex flex-wrap gap-x-1 text-meta leading-[13px] text-text-secondary">{row.meta.map((part, index) => <span class="inline-flex gap-1">{index > 0 && <span aria-hidden="true">·</span>}{part}</span>)}</span>
       </div>
       {row.tone !== "neutral" && <Icon name="chevron-right" class="self-center text-text-secondary" />}

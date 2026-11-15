@@ -28,5 +28,20 @@
     "file": "ui/tokens.css",
     "token": "--studio-night-glint",
     "reason": "Studio artwork needs paired day/night colors for its reflective window highlights; this canvas palette is independent of control semantics."
+  },
+  {
+    "file": "ui/tokens.css",
+    "token": "--brand-orange",
+    "reason": "Claude brand artwork preserves its source mark color in both themes."
+  },
+  {
+    "file": "ui/tokens.css",
+    "token": "--brand-agent-start",
+    "reason": "Agent brand artwork preserves its gradient start color in both themes."
+  },
+  {
+    "file": "ui/tokens.css",
+    "token": "--brand-agent-end",
+    "reason": "Agent brand artwork preserves its gradient end color in both themes."
   }
 ]

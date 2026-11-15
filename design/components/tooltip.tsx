@@ -13,7 +13,7 @@ export function Tooltip({
   return (
     <div
       role="tooltip"
-      class="inline-flex items-center px-3 py-2 rounded-tile bg-tooltip text-on-tooltip shadow-md text-meta leading-[14px] font-medium"
+      class="inline-flex items-center px-3 py-2 rounded-tile bg-action text-on-action shadow-md text-meta leading-[14px] font-medium"
     >
       {text ?? children}
     </div>

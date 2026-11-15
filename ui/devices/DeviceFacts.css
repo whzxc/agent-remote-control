@@ -1,12 +1,12 @@
 
-.device-name strong { font-size:var(--text-body); font-weight:600; }
+.device-name strong { font-size:var(--text-body); font-weight:var(--weight-strong); }
 .device-name > span:not(.device-meta) { font-size:var(--text-small); }
-.device-meta { font-weight:400; font-size:var(--text-meta); line-height:var(--line-compact); color:var(--text-secondary); }
+.device-meta { font-weight:var(--weight-normal); font-size:var(--text-meta); line-height:var(--line-compact); color:var(--text-secondary); }
 .device-status { font-size:var(--text-meta); color:var(--text-secondary); }
 .device-status[data-state="online"] { color:var(--success); }
 .device-status > span { border-radius:var(--radius-circle); background:currentColor; }
 .device-fingerprint { font-size:var(--text-small); }
-.device-fingerprint > span { font-weight:600; }
+.device-fingerprint > span { font-weight:var(--weight-strong); }
 .device-fingerprint code { font-family:var(--font-mono); font-size:var(--text-meta); line-height:var(--line-body); color:var(--text-secondary); }
 .device-facts { font-size:var(--text-small); }
 .device-facts dt { color:var(--text-secondary); }
@@ -17,6 +17,6 @@
 .device-revoke-copy { font-size:var(--text-small); line-height:var(--line-body); }
 
 .device-fingerprint.device-addresses code, .device-fingerprint .device-address-code { font-size:var(--text-small); }
-.device-paragraph.device-meta { font-weight:400; font-size:var(--text-meta); }
-.device-name .device-heavy { font-weight:700; }
+.device-paragraph.device-meta { font-weight:var(--weight-normal); font-size:var(--text-meta); }
+.device-name .device-heavy { font-weight:var(--weight-title); }
 .device-success-status { color:var(--text); }

@@ -1,5 +1,5 @@
 
-.task-dispatch-fields > span { font-size: var(--text-small); font-weight: 600; }
+.task-dispatch-fields > span { font-size: var(--text-small); font-weight: var(--weight-strong); }
 .task-queue-error { color: var(--danger); font-size: var(--text-small); }
 .node-panel:has(.task-detail-layer) .task-detail-header.dialog-header { background: var(--surface-raised); }
 .task-previous-turn { border: 0; background: none; font: var(--text-meta)/var(--line-body) var(--font-ui); color: var(--text-secondary); }
@@ -25,17 +25,17 @@
 .task-file-operation[data-operation=delete], .task-removed { color: var(--danger); }
 .task-added { color: var(--success); }
 .task-interaction-anchor { font-size: var(--text-meta); color: var(--success); }
-.task-interaction-line strong { font-weight: 400; }
+.task-interaction-line strong { font-weight: var(--weight-normal); }
 .task-interaction-anchor span { color: var(--text); }
 .task-detail-layer > .task-detail-footer.dialog-footer { border: 0; background: var(--surface-raised); }
-.task-needs-you > header > strong { font-size: var(--text-body); font-weight: 600; line-height: var(--line-body); }
+.task-needs-you > header > strong { font-size: var(--text-body); font-weight: var(--weight-strong); line-height: var(--line-body); }
 .task-needs-you > header .request-routing-inline { font-size: var(--text-meta); color: var(--text-tertiary); }
-.task-request-preview strong { font-size: var(--text-body); font-weight: 600; line-height: var(--line-small); }
+.task-request-preview strong { font-size: var(--text-body); font-weight: var(--weight-strong); line-height: var(--line-small); }
 .task-request-preview > header > span { font-size: var(--text-meta); line-height: var(--line-compact); color: var(--text-secondary); }
 .task-request-preview > p { font-size: var(--text-small); }
 .task-request-preview > pre { font: var(--text-meta)/var(--line-body) var(--font-mono); background: var(--surface-sunken); border-radius: var(--radius-field); }
 .task-question-field { border: 0; }
-.task-question-field legend { font-size: var(--text-body); line-height: var(--line-body); font-weight: 600; }
+.task-question-field legend { font-size: var(--text-body); line-height: var(--line-body); font-weight: var(--weight-strong); }
 .task-multi-option { border-radius: var(--radius-card); background: var(--surface-sunken); }
 .task-multi-option small { color: var(--text-secondary); }
 .task-question kbd { font: var(--text-meta) var(--font-mono); color: var(--text-tertiary); }
@@ -52,7 +52,7 @@
 .task-receipt-anchor [data-verdict=reject] { color: var(--danger); }
 .task-receipt-anchor [data-verdict=bypass] { color: var(--accent); }
 .task-review-info[data-verdict="rework"] > header { color: var(--warning); }
-.task-detail-layer[data-related] .task-detail-chips > .task-state { background: none; font-weight: 400; }
+.task-detail-layer[data-related] .task-detail-chips > .task-state { background: none; font-weight: var(--weight-normal); }
 .task-detail-chips .task-relation-separator { color: var(--text-tertiary); }
 .relay-route { color: var(--text-secondary); font: var(--text-meta)/var(--line-body) var(--font-ui); }
 .relay-party { color: var(--text); }
@@ -78,26 +78,26 @@
 .relay-plan-current { color: var(--text); }
 .task-outcome[data-state=failed] { border: var(--stroke-thin) solid color-mix(in srgb, var(--danger) 35%, transparent); background: none; }
 
-.activity-panel-title { font-size: var(--text-body); line-height: var(--line-body); font-weight: 600; }
+.activity-panel-title { font-size: var(--text-body); line-height: var(--line-body); font-weight: var(--weight-strong); }
 .activity-panel-meta { color: var(--text-secondary); font-size: var(--text-meta); }
-.timeline-user-preview { line-height: 22px; }
+.timeline-user-preview { line-height: var(--line-reading); }
 .timeline-meta { color: var(--text-secondary); font-size: var(--text-meta); }
 .timeline-summary { color: inherit; }
 button.timeline-summary { background: transparent; border: 0; font: inherit; border-radius: var(--radius-disclosure); }
 button.timeline-summary:hover { background: var(--surface-subtle); }
-button.timeline-summary:focus-visible { box-shadow: 0 0 0 var(--stroke-ring) var(--surface), 0 0 0 4px var(--accent); }
+button.timeline-summary:focus-visible { box-shadow: var(--shadow-focus); }
 
 .timeline-chevron { color: var(--text-tertiary); }
 .timeline-output { font-size: var(--text-meta); }
-.timeline-output pre { background: var(--surface-subtle); border-radius: var(--radius-disclosure); font: var(--text-meta)/1.6 var(--font-mono); }
-.timeline-error { color: var(--danger); border-radius: 8px; background: color-mix(in srgb, var(--danger) 8%, transparent); }
+.timeline-output pre { background: var(--surface-subtle); border-radius: var(--radius-disclosure); font: var(--text-meta)/var(--line-body) var(--font-mono); }
+.timeline-error { color: var(--danger); border-radius: var(--radius-feedback); background: color-mix(in srgb, var(--danger) 8%, transparent); }
 
 .timeline-image-placeholder { color: var(--text-tertiary); }
 .timeline-link-error { color: var(--danger); font-size: var(--text-meta); }
 
 .timeline-table { border-radius: var(--radius-field); background: var(--surface-subtle); }
 .timeline-table th, .timeline-table td { border: 0; font-size: var(--text-small); line-height: var(--line-body); }
-.activity-panel button:focus-visible { box-shadow: 0 0 0 var(--stroke-ring) var(--surface), 0 0 0 4px var(--accent); }
+.activity-panel button:focus-visible { box-shadow: var(--shadow-focus); }
 
 .activity-panel .agent-panel-heading h2.activity-panel-title { font-size: var(--text-title); line-height: var(--line-title); font-weight: var(--weight-title); }
 .agent-panel-heading .activity-panel-meta { font-size: var(--text-meta); line-height: var(--line-compact); }

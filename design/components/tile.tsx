@@ -22,7 +22,7 @@ export function Tile({
     danger: "text-danger",
     command: "text-phase-command",
     file: "text-phase-file",
-    thinking: "text-phase-thinking",
+    thinking: "text-role-agent",
     warning: "text-warning",
     success: "text-success",
     accent: "text-accent",

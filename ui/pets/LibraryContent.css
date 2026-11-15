@@ -1,5 +1,5 @@
 
-.pet-import nav { font-size: var(--text-small); font-weight: 600; line-height: var(--line-body); }
+.pet-import nav { font-size: var(--text-small); font-weight: var(--weight-strong); line-height: var(--line-body); }
 .pet-import nav a { color: var(--accent-text); text-decoration: none; }
 
 .pet-group > h2 { font-size: var(--text-small); font-weight: var(--weight-title); line-height: var(--line-compact); color: var(--text-secondary); }

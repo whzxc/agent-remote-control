@@ -3,17 +3,19 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import postcss from 'postcss';
 import ts from 'typescript';
+import { tokenPaint } from './ui-paint.mjs';
+import { nearestToken, tokenKind } from './token-distance.mjs';
 import { featureOwner, inspectConsumers } from './check-ui-consumers.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const shared = 'ui/components/ui/';
-const paint = /^(?:color|background(?:-.+)?|border.*|box-shadow|font(?:-.+)?|line-height|letter-spacing|text-shadow|text-decoration.*|fill|stroke(?:-.+)?)$/;
+const paint = /^(?:color|background(?:-.+)?|border(?!-collapse|-spacing).*|box-shadow|font(?:-.+)?|line-height|letter-spacing|text-shadow|text-decoration.*|fill|stroke(?:-width|-color)?)$/;
 const references = value => [...value.matchAll(/var\(\s*(--[\w-]+)/g)].map(match => match[1]);
 
 export function inspectTokens(base = root, parts = inspectConsumers(base)) {
   const files = readdirSync(path.join(base, 'ui'), { recursive: true })
     .filter(file => /\.(?:css|tsx?|svg)$/.test(file)).map(file => `ui/${file}`);
-  const sharedPaint = [], definitions = new Map(), usages = new Map(), localAliases = new Map(), paintTokens = new Set();
+  const literalUses = [], declarationUses = new Map(), sharedPaint = [], definitions = new Map(), usages = new Map(), localAliases = new Map(), paintTokens = new Set();
   for (const file of ['design/tokens.css', 'ui/tokens.css']) {
     if (!existsSync(path.join(base, file))) continue;
     postcss.parse(readFileSync(path.join(base, file), 'utf8')).walkDecls(declaration => {
@@ -39,7 +41,9 @@ export function inspectTokens(base = root, parts = inspectConsumers(base)) {
           }
           return;
         }
-        for (const token of references(declaration.value)) {
+        if (file !== 'ui/tokens.css' && !references(declaration.value).length) literalUses.push({property:declaration.prop,value:declaration.value});
+        for (const token of new Set(references(declaration.value))) {
+          if (file !== 'ui/tokens.css') declarationUses.set(token, (declarationUses.get(token) ?? 0) + 1);
           used.add(token);
           if (paint.test(declaration.prop)) paintTokens.add(token);
           if (file.startsWith(shared)) sharedPaint.push({ token, selector: declaration.parent.selector ?? '' });
@@ -104,7 +108,7 @@ export function inspectTokens(base = root, parts = inspectConsumers(base)) {
     for (const value of definition.values) for (const dependency of references(value)) markPaint(dependency);
   }
   for (const token of paintTokens) markPaint(token);
-  return [...definitions.values()].filter(row => row.paint).map(({ consumers, ...row }) => ({ ...row, consumers: [...consumers].sort(), count: consumers.size }));
+  return [...definitions.values()].map(({ consumers, ...row }) => ({ ...row, consumers: [...consumers].sort(), count: consumers.size, uses: (declarationUses.get(row.token) ?? 0) + literalUses.filter(use => use.property === (tokenKind(row.token) === 'radius' ? 'border-radius' : tokenKind(row.token)) && row.values.includes(use.value)).length }));
 }
 
 export function checkTokens(base = root, parts) {
@@ -117,17 +121,29 @@ export function checkTokens(base = root, parts) {
     if (allowed.has(key)) throw new Error(`Duplicate token exception: ${key}`);
     allowed.set(key, row);
   }
+  const stylesFile = path.join(base, 'tooling/ui-style-allowlist.json');
+  const artwork = existsSync(stylesFile) ? JSON.parse(readFileSync(stylesFile, 'utf8')) : [];
+  const styleKey = row => JSON.stringify([row.file, row.selector, row.property]);
+  const artworkKeys = new Set(artwork.filter(row => /artwork/i.test(row.reason)).map(styleKey));
+  for (const relative of readdirSync(path.join(base, 'ui'), { recursive: true }).filter(file => file.endsWith('.css') && file !== 'tokens.css' && !file.startsWith('components/ui/'))) {
+    const file = `ui/${relative}`;
+    postcss.parse(readFileSync(path.join(base, file), 'utf8')).walkDecls(declaration => {
+      if (!paint.test(declaration.prop) || declaration.prop.startsWith('--') || tokenPaint(declaration.value, declaration.prop)) return;
+      const selector = declaration.parent.selector ?? `@${declaration.parent.name} ${declaration.parent.params}`.trim();
+      if (!artworkKeys.has(styleKey({ file, selector, property: declaration.prop }))) errors.push(`${file}: ${selector}: literal ${declaration.prop} needs a runtime token; only named artwork can be excepted.`);
+    });
+  }
   const tokens = inspectTokens(base, parts);
   for (const row of tokens) {
+    if (!row.paint) continue;
     const key = `${row.file}#${row.token}`;
     // A numbered series (chart channels, spacing steps) is distinct from a name encoding its literal value.
     const numeric = [...row.token.matchAll(/(?:^|-)(\d+)(?=-|$)/g)].map(match => Number(match[1]));
     const valueNamed = numeric.some(number => row.values.some(value => new RegExp(`^${number}(?:px|rem|em|%|ms|s)?$`).test(value.trim())));
     if (valueNamed) errors.push(`${key}: name encodes its literal value; use a semantic role.`);
-    if (row.count < 2) {
-      if (allowed.has(key)) used.add(key);
-      else errors.push(`${key}: ${row.count} feature consumer(s) [${row.consumers.join(', ')}]; use an existing scale token or move the literal to its feature with an exact style exception.`);
-    }
+    if (allowed.has(key)) { used.add(key); continue; }
+    const nearest = nearestToken(row, tokens);
+    if (nearest && !nearest.large && row.uses < 3) errors.push(`${key}: ${row.uses} declaration use(s); nearest ${nearest.token} differs by ${nearest.difference}; use that token for this small difference.`);
   }
   for (const key of allowed.keys()) if (!used.has(key)) errors.push(`Stale token exception: ${key}`);
   return { tokens, exceptions: used.size, errors };

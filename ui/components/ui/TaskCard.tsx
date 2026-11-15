@@ -27,7 +27,7 @@ export function localTaskCard(agent: string, session: TrackedActivity, group = h
 }
 
 const phaseInk: Partial<Record<AgentPhase, string>> = {
-  thinking: 'var(--phase-thinking)', tool: 'var(--phase-tool)', text: 'var(--phase-text)',
+  thinking: 'var(--role-agent)', tool: 'var(--phase-tool)', text: 'var(--phase-text)',
   command: 'var(--phase-command)', file: 'var(--phase-file)',
 };
 const SnapshotMarkdown = memo(function SnapshotMarkdown({ text }: { text: string }) {

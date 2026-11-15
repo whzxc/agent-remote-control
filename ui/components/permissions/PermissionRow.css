@@ -1,6 +1,6 @@
 
 .permission-row + .permission-row { border-top: var(--stroke-thin) solid var(--border); }
 .permission-symbol { color: var(--text-secondary); }
-.permission-copy h3 { font-size: var(--text-small); font-weight: 600; }
-.permission-copy p { font-size: var(--text-meta); color: var(--text-secondary); line-height: 1.5; }
+.permission-copy h3 { font-size: var(--text-small); font-weight: var(--weight-strong); }
+.permission-copy p { font-size: var(--text-meta); color: var(--text-secondary); line-height: var(--line-description); }
 .permission-copy .permission-hint, .permission-hint { color: var(--text-tertiary); font-size: var(--text-meta); }

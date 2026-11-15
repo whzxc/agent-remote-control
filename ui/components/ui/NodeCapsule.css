@@ -14,7 +14,7 @@
 .node-capsule-disc[data-kind=interrupted] { color: var(--warning); }
 .node-capsule-disc[data-kind=overflow] { background: var(--surface-sunken); color: var(--text-secondary); }
 .node-capsule-disc[data-phase=reading], .node-capsule-disc[data-phase=editing] { color: var(--phase-file); }
-.node-capsule-disc[data-phase=thinking] { color: var(--phase-thinking); }
+.node-capsule-disc[data-phase=thinking] { color: var(--role-agent); }
 .node-capsule-disc[data-phase=command] { color: var(--phase-command); }
 .node-capsule-disc[data-phase=running] { color: var(--role-agent); animation: capsule-pulse 1.4s ease-in-out infinite; }
 @keyframes capsule-pulse { 50% { opacity: .45; } }

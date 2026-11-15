@@ -165,7 +165,7 @@ textarea.input {
   justify-content: space-between;
   gap: 16px;
   padding: 14px 16px;
-  border-radius: 14px;
+  border-radius: var(--radius-inset);
   color: var(--tone);
   background: color-mix(in srgb, var(--tone) 10%, transparent);
   font-size: var(--text-small);
@@ -346,7 +346,7 @@ textarea.input {
   gap: 8px;
   padding: 4px 12px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-feedback);
   background: transparent;
   color: var(--text-secondary);
   white-space: nowrap;
@@ -374,7 +374,7 @@ textarea.input {
   min-height: 28px;
   gap: 6px;
   padding: 0 14px;
-  border-radius: 14px;
+  border-radius: var(--radius-inset);
   transition:
     background var(--motion-fast),
     color var(--motion-fast),
@@ -402,9 +402,9 @@ textarea.input {
 .choice-measure-swatches > div { gap: 2px; }
 .choice-measure-swatches > div > span { width: 36px; padding: 0; }
 .choice-fill > .select-trigger { width: 100%; }
-.choice-fill .choice-icon-only .choice-option { width: auto; border-radius: 14px; }
+.choice-fill .choice-icon-only .choice-option { width: auto; border-radius: var(--radius-inset); }
 .choice-swatches .choice-radio { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--surface-sunken); padding: 3px; gap: 2px; border-radius: var(--radius-control); }
-.choice-swatches .choice-option { width: 36px; min-height: 28px; padding: 0; border-radius: 14px; }
+.choice-swatches .choice-option { width: 36px; min-height: 28px; padding: 0; border-radius: var(--radius-inset); }
 .choice-swatch { width: 16px; height: 16px; border-radius: 50%; background: var(--swatch); }
 .select-trigger {
   width: max-content;
@@ -432,7 +432,7 @@ textarea.input {
   background: var(--surface-raised);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius-inset);
   box-shadow: var(--shadow-md);
   padding: 4px;
   max-width: calc(100vw - 24px);
@@ -485,8 +485,8 @@ textarea.input {
   align-items: center;
   padding: 6px 12px;
   border-radius: 10px;
-  background: var(--tooltip);
-  color: var(--on-tooltip);
+  background: var(--action);
+  color: var(--on-action);
   box-shadow: var(--shadow-md);
   font-size: var(--text-meta);
   font-weight: 500;
@@ -578,7 +578,7 @@ h1 {
   line-height: 1.25;
 }
 h2 {
-  font-size: var(--text-lg);
+  font-size: var(--text-body);
   font-weight: 600;
 }
 h3 {

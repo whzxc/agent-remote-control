@@ -4,7 +4,7 @@
 }
 .usage-overview .empty-flush > p { line-height: var(--line-compact); }.usage-history {
   font-size: var(--text-meta);
-  line-height: 1.4;
+  line-height: var(--line-prose);
 }
 .history-period {
   font-variant-numeric: tabular-nums;
@@ -14,27 +14,27 @@
   background: var(--surface-raised);
   color: var(--text);
   box-shadow: var(--shadow-md);
-  font-family: ui-rounded, "SF Pro Rounded", var(--font-ui);
+  font-family: var(--font-rounded);
 }
 .history-detail {
-  font-size: 11.5px;
+  font-size: var(--text-caption);
   line-height: var(--text-body);
 }
 .history-detail > strong {
   font-size: var(--text-body);
-  line-height: var(--line-summary);
-  font-weight: 600;
+  line-height: var(--line-small);
+  font-weight: var(--weight-strong);
 }
 .credit-number {
   border-radius: var(--radius-circle);
   background: var(--accent);
   color: var(--knob);
-  font-size: 10px;
+  font-size: var(--text-caption);
 }
 .history-detail .expiry-row {
   font-size: var(--text-caption);
 }
-.product-usage-title { font-weight: 600; }
+.product-usage-title { font-weight: var(--weight-strong); }
 .product-usage-bar .product-usage-segment { border: 0;
   border-radius: var(--radius-full, var(--radius-pill)); box-shadow: none;
 }

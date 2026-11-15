@@ -61,266 +61,176 @@
   },
   {
     "file": "ui/pets/pets.css",
-    "selector": ".topology-pet:focus-visible",
-    "property": "border-radius",
-    "reason": "Draggable actor hit area: border-radius preserves the transparent sprite silhouette and keyboard focus shape on the scene canvas."
-  },
-  {
-    "file": "ui/pets/pets.css",
     "selector": ".pet-name, .pet-speech",
     "property": "border",
-    "reason": "Actor annotation: border draws the small name or speech label anchored to the moving sprite and measured with its bounds."
-  },
-  {
-    "file": "ui/pets/pets.css",
-    "selector": ".pet-name, .pet-speech",
-    "property": "border-radius",
-    "reason": "Actor annotation: border-radius draws the small name or speech label anchored to the moving sprite and measured with its bounds."
+    "reason": "Pet actor artwork: Actor annotation: border draws the small name or speech label anchored to the moving sprite and measured with its bounds."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-name, .pet-speech",
     "property": "font-size",
-    "reason": "Actor annotation: font-size draws the small name or speech label anchored to the moving sprite and measured with its bounds."
+    "reason": "Pet actor artwork: Actor annotation: font-size draws the small name or speech label anchored to the moving sprite and measured with its bounds."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-name",
     "property": "line-height",
-    "reason": "Actor annotation: line-height draws the small name or speech label anchored to the moving sprite and measured with its bounds."
-  },
-  {
-    "file": "ui/pets/pets.css",
-    "selector": ".pet-card",
-    "property": "border-radius",
-    "reason": "Physics canvas task prop: border-radius draws the 112px paper thrown to and carried by actors, with the current task tone."
+    "reason": "Pet actor artwork: Actor annotation: line-height draws the small name or speech label anchored to the moving sprite and measured with its bounds."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-card",
     "property": "border",
-    "reason": "Physics canvas task prop: border draws the 112px paper thrown to and carried by actors, with the current task tone."
+    "reason": "Pet actor artwork: Physics canvas task prop: border draws the 112px paper thrown to and carried by actors, with the current task tone."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-card",
     "property": "border-left",
-    "reason": "Physics canvas task prop: border-left draws the 112px paper thrown to and carried by actors, with the current task tone."
+    "reason": "Pet actor artwork: Physics canvas task prop: border-left draws the 112px paper thrown to and carried by actors, with the current task tone."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-card",
     "property": "font-size",
-    "reason": "Physics canvas task prop: font-size draws the 112px paper thrown to and carried by actors, with the current task tone."
+    "reason": "Pet actor artwork: Physics canvas task prop: font-size draws the 112px paper thrown to and carried by actors, with the current task tone."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-card",
     "property": "line-height",
-    "reason": "Physics canvas task prop: line-height draws the 112px paper thrown to and carried by actors, with the current task tone."
+    "reason": "Pet actor artwork: Physics canvas task prop: line-height draws the 112px paper thrown to and carried by actors, with the current task tone."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-carried-card",
     "property": "border-radius",
-    "reason": "Actor-held miniature task prop: border-radius draws the rotated 68px paper attached to the animated hand; it is not an interactive task card."
+    "reason": "Pet actor artwork: Actor-held miniature task prop: border-radius draws the rotated 68px paper attached to the animated hand; it is not an interactive task card."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-carried-card",
     "property": "border",
-    "reason": "Actor-held miniature task prop: border draws the rotated 68px paper attached to the animated hand; it is not an interactive task card."
+    "reason": "Pet actor artwork: Actor-held miniature task prop: border draws the rotated 68px paper attached to the animated hand; it is not an interactive task card."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-carried-card",
     "property": "border-left",
-    "reason": "Actor-held miniature task prop: border-left draws the rotated 68px paper attached to the animated hand; it is not an interactive task card."
+    "reason": "Pet actor artwork: Actor-held miniature task prop: border-left draws the rotated 68px paper attached to the animated hand; it is not an interactive task card."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-carried-card",
     "property": "box-shadow",
-    "reason": "Actor-held miniature task prop: box-shadow draws the rotated 68px paper attached to the animated hand; it is not an interactive task card."
+    "reason": "Pet actor artwork: Actor-held miniature task prop: box-shadow draws the rotated 68px paper attached to the animated hand; it is not an interactive task card."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-carried-card",
     "property": "font-size",
-    "reason": "Actor-held miniature task prop: font-size draws the rotated 68px paper attached to the animated hand; it is not an interactive task card."
+    "reason": "Pet actor artwork: Actor-held miniature task prop: font-size draws the rotated 68px paper attached to the animated hand; it is not an interactive task card."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-carried-card",
     "property": "line-height",
-    "reason": "Actor-held miniature task prop: line-height draws the rotated 68px paper attached to the animated hand; it is not an interactive task card."
+    "reason": "Pet actor artwork: Actor-held miniature task prop: line-height draws the rotated 68px paper attached to the animated hand; it is not an interactive task card."
   },
   {
     "file": "ui/pets/pets.css",
     "selector": ".pet-play-token",
     "property": "font-size",
-    "reason": "Animated play token: font-size draws the glyph thrown across the actor canvas."
+    "reason": "Pet actor artwork: Animated play token: font-size draws the glyph thrown across the actor canvas."
   },
   {
     "file": "ui/product.css",
     "selector": ".topology-guides text",
     "property": "font",
-    "reason": "Topology canvas: font defines solver guide labels on the geometry overlay, independent of panel and control surfaces."
+    "reason": "Topology canvas artwork: Topology canvas: font defines solver guide labels on the geometry overlay, independent of panel and control surfaces."
   },
   {
     "file": "ui/display/studio.css",
     "selector": ".studio-lamp-light",
     "property": "border-radius",
-    "reason": "Homepage canvas lighting and clock presentation owned by Studio."
-  },
-  {
-    "file": "ui/components/activity/SourceMark.css",
-    "selector": ".source-icon b",
-    "property": "font-family",
-    "reason": "Source activity lettermark uses the Georgia serif brand silhouette."
-  },
-  {
-    "file": "ui/components/activity/SourceMark.css",
-    "selector": ".source-icon b",
-    "property": "font-size",
-    "reason": "Source activity lettermark preserves its 27px glyph within the existing mark bounds."
-  },
-  {
-    "file": "ui/components/hosting/DataTable.css",
-    "selector": ".data-table th,\n.data-table td",
-    "property": "box-shadow",
-    "reason": "Hosted Relay table uses an inset bottom divider on its final row."
-  },
-  {
-    "file": "ui/components/navigation/NavCapsule.css",
-    "selector": ".navigation-capsule",
-    "property": "border-radius",
-    "reason": "Navigation capsule preserves the existing 22px outside corner around its mode entries."
-  },
-  {
-    "file": "ui/components/onboarding/SetupAppearance.css",
-    "selector": ".pairing-code",
-    "property": "font",
-    "reason": "Standalone pairing code preserves the large monospace transcription target."
-  },
-  {
-    "file": "ui/components/onboarding/SetupAppearance.css",
-    "selector": ".pairing-code",
-    "property": "letter-spacing",
-    "reason": "Pairing code letter spacing separates characters for manual transcription."
-  },
-  {
-    "file": "ui/components/onboarding/SetupAppearance.css",
-    "selector": ".pairing-card:not(.pairing-inline) .pairing-code-panel .pairing-code",
-    "property": "letter-spacing",
-    "reason": "Pairing code letter spacing separates characters for manual transcription."
-  },
-  {
-    "file": "ui/components/onboarding/SetupAppearance.css",
-    "selector": ".pairing-inline .pairing-code",
-    "property": "font",
-    "reason": "Inline pairing code preserves its 32px line box within the onboarding panel."
-  },
-  {
-    "file": "ui/components/onboarding/SetupAppearance.css",
-    "selector": ".welcome-page h1",
-    "property": "font",
-    "reason": "Welcome title preserves its 24px line box; its size and family use the shared typography scale."
-  },
-  {
-    "file": "ui/components/onboarding/WelcomeChoice.css",
-    "selector": ".welcome-choice strong",
-    "property": "font",
-    "reason": "Welcome option heading preserves its compact 16px line box within the onboarding tile."
-  },
-  {
-    "file": "ui/components/timeline/TaskContent.css",
-    "selector": ".task-final",
-    "property": "line-height",
-    "reason": "Task transcript prose preserves its 22px reading line box."
-  },
-  {
-    "file": "ui/components/timeline/TaskContent.css",
-    "selector": ".task-outcome",
-    "property": "line-height",
-    "reason": "Task transcript prose preserves its 22px reading line box."
-  },
-  {
-    "file": "ui/components/timeline/TaskPresentation.css",
-    "selector": ".task-message",
-    "property": "line-height",
-    "reason": "Task transcript prose preserves its 22px reading line box."
-  },
-  {
-    "file": "ui/components/timeline/TimelineRail.css",
-    "selector": ".task-turn-progress > div",
-    "property": "border-radius",
-    "reason": "Task progress rail preserves its clipped 3px track end shape."
-  },
-  {
-    "file": "ui/components/timeline/TimelineSurface.css",
-    "selector": ".timeline-user-preview",
-    "property": "line-height",
-    "reason": "Task transcript prose preserves its 22px reading line box."
-  },
-  {
-    "file": "ui/components/timeline/TimelineSurface.css",
-    "selector": "button.timeline-summary:focus-visible",
-    "property": "box-shadow",
-    "reason": "Task transcript disclosure focus ring preserves the existing 4px outer reach."
-  },
-  {
-    "file": "ui/components/timeline/TimelineSurface.css",
-    "selector": ".timeline-output pre",
-    "property": "font",
-    "reason": "Task transcript code preserves its unitless 1.6 reading line height."
-  },
-  {
-    "file": "ui/components/timeline/TimelineSurface.css",
-    "selector": ".timeline-error",
-    "property": "border-radius",
-    "reason": "Task transcript error strip preserves its existing 8px corner shape."
-  },
-  {
-    "file": "ui/components/timeline/TimelineSurface.css",
-    "selector": ".activity-panel button:focus-visible",
-    "property": "box-shadow",
-    "reason": "Task transcript disclosure focus ring preserves the existing 4px outer reach."
-  },
-  {
-    "file": "ui/mcp/ServiceInventory.css",
-    "selector": ".mcp-tools",
-    "property": "border-radius",
-    "reason": "MCP expanded tool list preserves its inset 14px corner shape."
-  },
-  {
-    "file": "ui/subscriptions/QuotaDetail.css",
-    "selector": ".history-popover",
-    "property": "font-family",
-    "reason": "Quota metric uses the platform rounded numeral face for its gauge readout."
-  },
-  {
-    "file": "ui/subscriptions/QuotaDetail.css",
-    "selector": ".credit-number",
-    "property": "font-size",
-    "reason": "Quota gauge marker preserves its 10px annotation inside the compact ring."
+    "reason": "Studio lighting artwork: Homepage canvas lighting and clock presentation owned by Studio."
   },
   {
     "file": "ui/topology/GraphActions.css",
     "selector": ".topology-hub .hub-entry:is(:hover, :focus-visible) .hub-dot",
     "property": "box-shadow",
-    "reason": "Topology hub hover glow preserves the existing halo around its canvas connection dot."
+    "reason": "Topology canvas artwork: Topology hub hover glow preserves the existing halo around its canvas connection dot."
   },
   {
-    "file": "ui/components/timeline/TimelineRail.css",
-    "selector": ".relay-step:not(:last-child)::after",
+    "file": "ui/pets/pets.css",
+    "selector": ".pet-play-token",
+    "property": "line-height",
+    "reason": "Pet play-token artwork uses a single glyph line box during its thrown animation."
+  },
+  {
+    "file": "ui/pets/pets.css",
+    "selector": ".topology-pet:focus-visible",
     "property": "border-radius",
-    "reason": "Task timeline connector preserves the 1px rounded end of its 2px vertical rail."
+    "reason": "Pet actor artwork: Draggable actor hit area: border-radius preserves the transparent sprite silhouette and keyboard focus shape on the scene canvas."
   },
   {
-    "file": "ui/subscriptions/QuotaDetail.css",
-    "selector": ".history-detail",
-    "property": "font-size",
-    "reason": "Quota history detail preserves the compact 11.5px secondary reading size below its metric."
+    "file": "ui/pets/pets.css",
+    "selector": ".pet-name, .pet-speech",
+    "property": "border-radius",
+    "reason": "Pet actor artwork: Actor annotation: border-radius draws the small name or speech label anchored to the moving sprite and measured with its bounds."
+  },
+  {
+    "file": "ui/pets/pets.css",
+    "selector": ".pet-card",
+    "property": "border-radius",
+    "reason": "Pet actor artwork: Physics canvas task prop: border-radius draws the 112px paper thrown to and carried by actors, with the current task tone."
+  },
+  {
+    "file": "ui/product.css",
+    "selector": ".hub-plus",
+    "property": "stroke-width",
+    "reason": "Topology canvas artwork: stroke width defines the existing wire, guide and interactive hit-path geometry."
+  },
+  {
+    "file": "ui/product.css",
+    "selector": ".topology-guides",
+    "property": "stroke-width",
+    "reason": "Topology canvas artwork: stroke width defines the existing wire, guide and interactive hit-path geometry."
+  },
+  {
+    "file": "ui/product.css",
+    "selector": ".topology-guides text",
+    "property": "stroke-width",
+    "reason": "Topology canvas artwork: stroke width defines the existing wire, guide and interactive hit-path geometry."
+  },
+  {
+    "file": "ui/product.css",
+    "selector": ".arc-action-hit path",
+    "property": "stroke-width",
+    "reason": "Topology canvas artwork: stroke width defines the existing wire, guide and interactive hit-path geometry."
+  },
+  {
+    "file": "ui/product.css",
+    "selector": ".topology-path-hit",
+    "property": "stroke-width",
+    "reason": "Topology canvas artwork: stroke width defines the existing wire, guide and interactive hit-path geometry."
+  },
+  {
+    "file": "ui/product.css",
+    "selector": ".portrait-wires .portrait-rail",
+    "property": "stroke-width",
+    "reason": "Topology canvas artwork: stroke width defines the existing wire, guide and interactive hit-path geometry."
+  },
+  {
+    "file": "ui/style.css",
+    "selector": ".quota-outline",
+    "property": "stroke-width",
+    "reason": "Quota ring artwork: stroke width draws the existing quota outline and elapsed tick geometry."
+  },
+  {
+    "file": "ui/style.css",
+    "selector": ".quota-time-tick",
+    "property": "stroke-width",
+    "reason": "Quota ring artwork: stroke width draws the existing quota outline and elapsed tick geometry."
   }
 ]

@@ -133,7 +133,7 @@ export function RelayMessage({ kind = "followup", text = relayTurns.second.promp
 }
 
 const stepIcon: Record<RelayStep["kind"], [string, string]> = {
-  thought: ["brain", "text-phase-thinking"], thinking: ["brain", "text-phase-thinking"], say: ["", ""],
+  thought: ["brain", "text-role-agent"], thinking: ["brain", "text-role-agent"], say: ["", ""],
   tools: ["file-search", "text-phase-file"], edit: ["file-pen-line", "text-phase-file"],
   failed: ["circle-x", "text-danger"], live: ["loader-circle", "text-role-agent"],
   request: ["shield-alert", "text-warning"], answered: ["shield-check", "text-success"],
