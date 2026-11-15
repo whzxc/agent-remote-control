@@ -288,7 +288,7 @@ export default function App() {
       </LayerOwnerContext.Provider>
       {feedback.text && (
         <div className="app-feedback">
-          <Notice
+          <Notice elevated
             tone={feedback.error ? "danger" : "success"}
             action={
               <>{feedback.copy && <Button onClick={() => void copyText(feedback.copy!).catch(() => notify(t("connect.actionFailed"), true))}>{t("copy")}</Button>}<IconButton

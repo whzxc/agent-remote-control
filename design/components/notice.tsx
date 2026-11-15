@@ -9,6 +9,8 @@ export function Notice({
   action,
   actionBelow = false,
   layout = "inline",
+  compact = false,
+  elevated = false,
   class: extra = "",
 }: {
   children?: unknown;
@@ -17,6 +19,8 @@ export function Notice({
   action?: unknown;
   actionBelow?: boolean;
   layout?: "inline" | "stacked";
+  compact?: boolean;
+  elevated?: boolean;
   class?: string;
 }) {
   const paint = {
@@ -41,7 +45,7 @@ export function Notice({
   }
   return (
     <div
-      class={`flex w-full gap-3 rounded-[14px] px-4 pt-4 pb-[13px] ${paint[tone]} ${actionBelow ? "flex-col" : "items-start"}`}
+      class={`flex w-full gap-3 rounded-[14px] px-4 pt-4 pb-[13px] ${paint[tone]} ${actionBelow ? "flex-col" : "items-start"} ${compact ? "text-meta leading-4 font-normal" : ""} ${elevated ? "shadow-md" : ""}`}
     >
       <div class="flex min-w-0 flex-1 flex-col gap-1 text-meta leading-4">
         {title && <strong class="text-small leading-4">{title}</strong>}

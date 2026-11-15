@@ -223,16 +223,6 @@
 .graph-error {
   z-index: 22;
 }
-.navigation-capsule .task-count {
-  position: absolute;
-  right: 0;
-  top: 0;
-  background: var(--accent);
-  color: var(--canvas);
-  font-size: 10px;
-  min-width: 16px;
-  border-radius: 20px;
-}
 
 @media (max-width: 600px) {
   .home-workspace .connection-core {
@@ -261,9 +251,6 @@
   transform: none;
   width: auto;
 }
-.app-feedback .notice {
-  box-shadow: var(--shadow-md);
-}
 
 .graph-node { position: relative; }
 .graph-node-name { position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%); max-width: 112px; font-size: 12px; font-weight: 400; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -284,7 +271,6 @@
   .permission-actions { grid-column: 2; justify-content: space-between; }
 }
 .permissions-page .settings-group { gap: 0; }
-.permissions-page .settings-group > h2 { padding: 0; font-size: var(--text-meta); font-weight: 600; color: var(--text-secondary); margin: 0 0 var(--space-1); }
 .permissions-page .settings-group + .settings-group { margin-top: var(--space-6); }
 
 /* The solver owns layout; one imperative frame writes HTML and SVG geometry. */
@@ -335,25 +321,19 @@
 .topology-wires .secondary[data-state="failed"] { --task-color: var(--danger); }
 .topology-wires .secondary:is([data-state="interrupted"], [data-state="unknown"]) { --task-color: var(--text-tertiary); }
 .topology-wires .secondary[data-state="summary"] { --task-color: var(--border-strong); }
-.topology-wires .task-body { fill: var(--task-color); }
-.topology-wires .activity-flow { fill: none; stroke: color-mix(in srgb, var(--task-color) 65%, var(--text)); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 1 17; animation: activity-flow calc(var(--motion-running) * var(--topology-time-scale, 1)) var(--ease-enter) infinite; }
 @keyframes graph-connecting { to { stroke-dashoffset: -11; } }
-.activity-slot { position: absolute; left: 0; top: 0; z-index: 3; }
 .topology-scene [data-reorderable] { touch-action: none; user-select: none; }
 .topology-scene [data-reorderable] button { cursor: grab; }
 .topology-scene [data-dragging] { z-index: 6; }
 .topology-scene [data-dragging] button { cursor: grabbing; }
-.activity-slot[inert] button { pointer-events: none; }
 :root[data-reduced-motion="true"] { .topology-wires .connecting-wire, .topology-wires .activity-flow { animation: none; } }
 .activity-session-summary { overflow-wrap: anywhere; }
-.activity-edge-fade { position: fixed; inset: 0 0 0 auto; width: 32px; background: linear-gradient(to right, transparent, var(--canvas)); pointer-events: none; z-index: 4; }
 
 .activity-panel-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; font-size: 14px; line-height: 20px; font-weight: 600; }
 .activity-panel-meta { min-width: 0; color: var(--text-secondary); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .activity-task-list { display: flex; flex-direction: column; gap: 0; }
 @keyframes activity-flow { to { stroke-dashoffset: 18; } }
 :root[data-reduced-motion="true"] {
-  .activity-flow { animation: none !important; }
 }
 .task-timeline { min-height: 0; display: flex; flex-direction: column; gap: 8px; }
 .timeline-scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; overflow-anchor: none; }
@@ -425,7 +405,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
   .topology-section-content[data-state] { animation: none; }
 }
 .topology-tuner .field { gap: 4px; margin-top: 8px; }
-.topology-tuner .field label { font-size: var(--text-meta); }
 .topology-parameter { display: grid; grid-template-columns: minmax(0, 1fr) 62px 32px; align-items: center; gap: 8px; }
 .topology-parameter .slider { margin: 0 8px; }
 .topology-custom { color: var(--accent); }
@@ -463,14 +442,9 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .agent-task-section-heading[data-attention] { color: var(--warning); }
 .agent-section-count { color: var(--text-tertiary); font-weight: 400; }
 .agent-task-section-rows { display: flex; flex-direction: column; gap: 8px; }
-.activity-created { flex: none; color: var(--text-tertiary); font: var(--text-caption)/17px var(--font-ui); white-space: nowrap; }
-.activity-conversation-meta .activity-created { margin-left: auto; }
-.activity-conversation-meta > .project-label { max-width: 40%; }
 .agent-conversation-more { height: 1px; }
 :root[data-reduced-motion="true"] {
 }
-.agent-task-count { position: absolute; top: -6px; right: -8px; min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box; border-radius: var(--radius-pill); background: var(--topology-agent); color: var(--surface); font: 10px/18px var(--font-ui); text-align: center; }
-.agent-task-count[data-attention] { background: var(--warning); }
 
 /* Mirrored control-source dock uses the same fixed shell and scroll boundaries. */
 .side-panel-layer { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; }
@@ -494,8 +468,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .relay-settings .actions { flex-wrap:wrap; margin-block:12px; }
 .relay-settings h3 { margin-bottom:6px; }
 .source-product-choice { display:grid; gap:var(--space-2); }
-
-.settings-breadcrumb-divider { color: var(--text-tertiary); margin-inline: var(--space-2); font-weight: 400; }
 .relay-hosting, .hosted-relay { display: grid; gap: var(--space-6); }
 .relay-hosting h2, .relay-hosting h3 { margin: 0; font-size: var(--text-body); font-weight: 600; }
 .hosting-section-heading { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
@@ -676,13 +648,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .topology-scene[data-orientation="portrait"] .topology-node .graph-node:hover { background: var(--canvas); border-radius: 50%; }
 .topology-scene[data-orientation="portrait"] .graph-node-name { display: none; }
 .portrait-wires .portrait-rail { fill: none; stroke: var(--wire-color); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.portrait-wires .portrait-task { --task-color: var(--topology-agent); fill: none; stroke: var(--task-color); stroke-width: 2; stroke-linecap: round; }
-.portrait-wires .portrait-task[data-state="done"] { --task-color: var(--success); }
-.portrait-wires .portrait-task[data-state="needsYou"] { --task-color: var(--warning); }
-.portrait-wires .portrait-task[data-state="failed"] { --task-color: var(--danger); }
-.portrait-wires .portrait-task:is([data-state="interrupted"], [data-state="unknown"]) { --task-color: var(--text-tertiary); }
-.portrait-wires .portrait-task[data-state="summary"] { --task-color: var(--border-strong); }
-.portrait-wires .portrait-task.activity-flow { stroke: color-mix(in srgb, var(--task-color) 65%, var(--text)); stroke-width: 3; stroke-dasharray: 1 17; }
 .topology-wires[data-inactive="true"] .topology-path-hit { pointer-events: none; }
 
 
@@ -700,8 +665,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .hub-arc-bridge, .hub-arc-action { position: absolute; left: 50%; }
 .hub-arc-bridge { width: var(--control-height-compact); height: 36%; transform: translateX(-50%); }
 .hub-arc[data-paired] .hub-arc-bridge { width: calc(2 * var(--control-height-compact) + var(--space-2)); }
-.hub-arc-top .hub-arc-bridge { top: -4px; }
-.hub-arc-bottom .hub-arc-bridge { bottom: -4px; }
 .hub-arc-action {
   display: flex;
   gap: var(--space-2);
@@ -710,8 +673,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
   transform: translateX(-50%) rotate(calc(0deg - var(--hub-rotation, 0deg)));
   transition: opacity var(--motion-fast) var(--ease-enter), translate var(--motion-base) var(--ease-enter);
 }
-.hub-arc-top .hub-arc-action { bottom: calc(90% + 4px); translate: 0 5px; }
-.hub-arc-bottom .hub-arc-action { top: calc(90% + 4px); translate: 0 -5px; }
 .hub-arc:is(:hover, :focus-within) .hub-arc-bridge { pointer-events: auto; }
 .hub-arc:is(:hover, :focus-within) .hub-arc-action { opacity: 1; translate: none; pointer-events: auto; }
 :root[data-reduced-motion="true"] .hub-arc-action { transition: none; }
@@ -768,10 +729,6 @@ button.timeline-summary:focus-visible { box-shadow: 0 0 0 2px var(--surface), 0 
 .agent-summary-meta { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 3px; font-size: var(--text-meta); line-height: 18px; color: var(--text-secondary); }
 .agent-summary-meta > p { margin: 0; }
 .agent-summary-meta > a { color: var(--accent-text); font-size: var(--text-small); }
-
-.task-family-wire { fill: none; stroke: var(--border-strong); stroke-width: 1.75; stroke-linecap: round; }
-.activity-bubble.activity-family-summary { width: fit-content; max-width: 100%; min-height: 36px; padding: 8px 12px; border-radius: var(--radius-control); background: var(--surface-subtle); box-shadow: none; font-size: var(--text-meta); color: var(--text-secondary); }
-.topology-scene[data-orientation="portrait"] .activity-family-summary { margin-left: auto; }
 
 /* Preserve the approved workspace content inside the shared layer shell. */
 .agent-grid .agent-card { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 8px 16px; padding: 24px 16px; }

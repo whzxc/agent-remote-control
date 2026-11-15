@@ -34,16 +34,18 @@ export function Field({
   error,
   help,
   children,
+  compact = false,
 }: {
   id?: string;
   label: unknown;
   error?: string;
   help?: unknown;
   children?: unknown;
+  compact?: boolean;
 }) {
   return (
     <div class="flex w-full min-w-0 flex-col gap-2 text-text">
-      <div class="flex items-center justify-between gap-2 text-small leading-4 font-semibold">
+      <div class={`flex items-center justify-between gap-2 ${compact ? "text-meta" : "text-small"} leading-4 font-semibold`}>
         <label for={id}>{label}</label>
         {help}
       </div>

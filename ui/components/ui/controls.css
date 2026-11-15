@@ -575,3 +575,9 @@ textarea.input {
 textarea.input.mono { font-family: var(--font-mono); font-size: var(--text-small); }
 .tag[data-form="claim"] { height: auto; line-height: 1.4; padding: 6px 12px; border-radius: var(--radius-pill); font-size: var(--text-body); white-space: normal; overflow-wrap: anywhere; }
 .spec-picker.popover { width: 312px; padding: 16px; border: 0; border-radius: var(--radius-panel); box-shadow: var(--shadow-lg); }
+
+.button[data-presentation="record-link"] { color: var(--accent); font-size: var(--text-meta); }
+.field[data-compact] label { font-size: var(--text-meta); }
+.notice[data-compact] { font-size: var(--text-meta); font-weight: 400; line-height: 16px; }
+.notice[data-elevated] { box-shadow: var(--shadow-md); }
+.settings-group[data-subtle] > h2 { font-size: var(--text-small); font-weight: 600; color: var(--text-secondary); }

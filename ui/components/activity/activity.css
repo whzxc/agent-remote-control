@@ -24,10 +24,6 @@
 /* Counter-translation keeps the glyphs in place while the static mask travels. */
 .phase-shimmer { position: absolute; inset: 0; pointer-events: none; mask: linear-gradient(90deg, transparent, #000 15%, transparent 30%); will-change: transform; animation: phase-shimmer var(--motion-running) var(--ease-enter) infinite; }
 .phase-shimmer > span { display: block; overflow: hidden; text-overflow: ellipsis; color: color-mix(in srgb, var(--phase-color) 85%, var(--text)); will-change: transform; animation: phase-shimmer-text var(--motion-running) var(--ease-enter) infinite; }
-.step-trail { display: inline-flex; flex: none; align-items: center; gap: 2px; }
-.step-trail i { width: 5px; height: 5px; border-radius: 50%; background: var(--phase-color); opacity: 0.55; }
-.step-trail i:last-child { opacity: 1; }
-.step-trail[data-running] i:last-child { animation: phase-pulse var(--motion-running) var(--ease-enter) infinite; }
 @keyframes phase-orbit { to { transform: rotate(360deg); } }
 @keyframes phase-shimmer { from { transform: translateX(-30%); } to { transform: translateX(100%); } }
 @keyframes phase-shimmer-text { from { transform: translateX(30%); } to { transform: translateX(-100%); } }

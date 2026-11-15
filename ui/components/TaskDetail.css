@@ -26,11 +26,6 @@
 .task-previous-turn > span:last-of-type:not(:first-child) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-size: var(--text-small); }
 .task-previous-turn > .timeline-chevron { position: absolute; right: 0; top: 9px; }
 .task-previous-turn[aria-expanded=true] > .timeline-chevron { transform: rotate(90deg); }
-.task-prompt { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 0; }
-.task-prompt > small { color: var(--text-tertiary); font-size: var(--text-meta); }
-.task-prompt .task-message { max-width: 86%; }
-.task-phase { display: flex; gap: 12px; color: var(--text); font-size: var(--text-body); line-height: 22px; min-width: 0; }
-.task-phase > div { min-width: 0; }
 .task-plan { font-size: var(--text-small); }
 .task-plan > header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: var(--text-meta); line-height: 20px; color: var(--text-secondary); }
 .task-plan > header > span:last-child { font-variant-numeric: tabular-nums; color: var(--text-tertiary); }
@@ -40,8 +35,6 @@
 .task-plan li[data-state=completed] .icon { color: var(--success); }
 .task-plan:not([data-settled]) li:is([data-state=in_progress], [data-state=inProgress], [data-state=running]) { color: var(--accent-text); font-weight: 600; }
 .task-tool-run { min-width: 0; color: var(--text-secondary); font-size: var(--text-meta); }
-.task-tool-groups { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 8px 28px; padding-left: 44px; }
-.task-tool-groups > :is(.task-tool-run, .task-tool-row):has([data-state=open]) { flex-basis: 100%; }
 .task-tool-counts { display: flex; min-width: 0; gap: 6px; white-space: nowrap; }
 .task-tool-categories { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .task-process-summary > span + span::before { content: "·"; margin-right: 4px; }
@@ -171,7 +164,6 @@
 .task-process-trigger > .icon:first-child { color: var(--success); }
 .task-process-trigger[data-failed], .task-process-trigger[data-failed] > .icon:first-child { color: var(--danger); }
 .task-tool-groups, .task-live-row { padding-left: 0; }
-.task-tool-groups { display: block; }
 .task-tool-run > .timeline-summary, .relay-thought > .timeline-summary { min-height: 20px; padding: 0; gap: 8px; font-size: var(--text-small); }
 .relay-thought .timeline-summary > span { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .relay-thought time { flex: none; color: var(--text-tertiary); font-size: var(--text-meta); }

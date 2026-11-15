@@ -97,6 +97,7 @@ export function BrandMark({ markup, size = 40 }: { markup?: string; size?: numbe
 }
 export function Button({
   variant = "secondary",
+  presentation,
   busy = false,
   children,
   className = "",
@@ -106,6 +107,7 @@ export function Button({
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "ghost" | "link" | "danger" | "danger-outline";
   busy?: boolean;
+  presentation?: "record-link";
   ref?: Ref<HTMLButtonElement>;
 }) {
   return (
@@ -113,6 +115,7 @@ export function Button({
       type="button"
       {...props}
       disabled={disabled || busy}
+      data-presentation={presentation}
       aria-busy={busy || props["aria-busy"]}
       className={`button ${variant} ${busy ? "pending" : ""} ${className}`}
     >
@@ -181,6 +184,7 @@ export function Field({
   error,
   help,
   helpPlacement = "end",
+  compact = false,
   children,
 }: {
   id?: string;
@@ -188,10 +192,11 @@ export function Field({
   error?: string;
   help?: ReactNode;
   helpPlacement?: "end" | "label";
+  compact?: boolean;
   children: ReactNode;
 }) {
   return (
-    <div className="field">
+    <div className="field" data-compact={compact || undefined}>
       <div className="field-heading" data-help-placement={helpPlacement}>
         <label htmlFor={id}>{label}</label>
         {help}
@@ -218,6 +223,8 @@ export function Notice({
   action,
   actionBelow = false,
   layout,
+  compact = false,
+  elevated = false,
 }: {
   children: ReactNode;
   title?: ReactNode;
@@ -225,12 +232,16 @@ export function Notice({
   tone?: "danger" | "warning" | "success";
   action?: ReactNode;
   actionBelow?: boolean;
+  compact?: boolean;
+  elevated?: boolean;
 }) {
   const protect = useSensitiveText();
   const body = typeof children === "string" ? protect(children) : children;
   return (
     <div
       className={`notice ${layout ? `notice-${layout}` : ""} ${tone} ${actionBelow ? "notice-action-below" : ""}`}
+      data-compact={compact || undefined}
+      data-elevated={elevated || undefined}
       role={tone === "danger" ? "alert" : "status"}
     >
       {title ? <div className="notice-copy"><strong>{title}</strong>{body}</div> : <span>{body}</span>}
@@ -294,12 +305,14 @@ export function Status({
 export function Group({
   title,
   children,
+  subtle = false,
 }: {
   title?: ReactNode;
   children: ReactNode;
+  subtle?: boolean;
 }) {
   return (
-    <section className="settings-group">
+    <section className="settings-group" data-subtle={subtle || undefined}>
       {title && <h2>{title}</h2>}
       <div>{children}</div>
     </section>

@@ -1,5 +1,4 @@
 .devices-content { display:flex; flex-direction:column; gap:24px; min-width:0; }
-.device-list { display:flex; flex-direction:column; gap:12px; }
 .device-identity { display:flex; align-items:center; gap:12px; min-width:0; }
 .device-name { display:flex; flex-direction:column; gap:4px; flex:1; min-width:0; }
 .device-name > div { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
@@ -26,8 +25,6 @@
 .device-muted { color:var(--text-secondary); }
 .device-split { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
 .device-setting, .device-experiment { padding:0; gap:0; }
-.device-empty { display:flex; flex-direction:column; align-items:center; gap:16px; padding:24px 0; text-align:center; }
-.device-empty h3 { font-size:var(--text-title); font-weight:600; margin:0; }
 .device-form { display:flex; flex-direction:column; gap:20px; }
 .device-form .input { width:100%; }
 .device-pair-input { font-family:var(--font-mono); font-size:var(--text-small); text-overflow:ellipsis; }
@@ -35,11 +32,8 @@
 .device-error-code { font-family:var(--font-mono); color:var(--danger); font-size:var(--text-caption); }
 .device-revoke-copy { display:flex; flex-direction:column; gap:12px; font-size:var(--text-small); line-height:20px; }
 .device-revoke-copy p { margin:0; }
-.topology-device-summary { position:absolute; display:flex; justify-content:center; width:240px; pointer-events:auto; }
 
 .devices-content > * { flex:none; }
-
-.device-header-actions { gap:var(--control-gap); }
 
 .device-fingerprint.device-addresses code, .device-fingerprint .device-address-code { font-size:var(--text-small); }
 .device-paragraph.device-meta { font-weight:400; font-size:var(--text-meta); }

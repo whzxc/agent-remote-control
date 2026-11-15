@@ -31,7 +31,7 @@ function ParameterControl({ spec, value }: { spec: typeof PARAMETERS[number]; va
     saveTopologyParameters(); setText(String(topologyValues.get()[spec.key]));
     setNotice(adjusted ? t("topology.adjusted", { label, min: spec.min, max: spec.max, value: topologyValues.get()[spec.key] }) : "");
   }
-  return <Field id={`topology-${spec.key}`} label={<span>{label}{changed && <span className="topology-custom" aria-label={t("topology.custom")}> •</span>}</span>}>
+  return <Field compact id={`topology-${spec.key}`} label={<span>{label}{changed && <span className="topology-custom" aria-label={t("topology.custom")}> •</span>}</span>}>
     <HoverHelp text={t("topology.defaultValue", { value: spec.default })}><div className="topology-parameter">
       <Slider label={label} min={spec.min} max={spec.max} step={spec.step} value={value}
         onChange={number => { previewParameter(spec.key, number); setNotice(""); }}
@@ -93,7 +93,7 @@ export default function TuningControls({ available }: { available: boolean }) {
                 return spec.label[lang];
               }).join(", ") }) : t("topology.imported"));
             }}>
-              <Field id="topology-import" label={t("topology.paste")} error={importError}>
+              <Field compact id="topology-import" label={t("topology.paste")} error={importError}>
                 <Textarea id="topology-import" rows={4} value={json} spellCheck={false} aria-invalid={!!importError}
                   aria-describedby={importError ? "topology-import-error" : undefined} onChange={event => { setJson(event.target.value); setImportError(""); }} />
               </Field>

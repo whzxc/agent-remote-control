@@ -74,8 +74,8 @@ export default function PermissionsPage() {
   }
   return <div className="permissions-page">
     {data && <>
-      {mac && <Group title={t("permissionsSystem")}><p className="permission-hint">{t("permissionsAppHint", {app: appName})}</p>{visible.filter(item => systemIds.includes(item.id)).map(row)}</Group>}
-      <Group title={t("permissionsEnvironment")}>{visible.filter(item => !systemIds.includes(item.id)).map(row)}</Group>
+      {mac && <Group subtle title={t("permissionsSystem")}><p className="permission-hint">{t("permissionsAppHint", {app: appName})}</p>{visible.filter(item => systemIds.includes(item.id)).map(row)}</Group>}
+      <Group subtle title={t("permissionsEnvironment")}>{visible.filter(item => !systemIds.includes(item.id)).map(row)}</Group>
     </>}
   </div>;
 }

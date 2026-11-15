@@ -72,7 +72,7 @@ button.center-row:focus-visible { outline: 2px solid var(--accent); outline-offs
 .center-event-line > .center-raw-toggle[aria-expanded="true"] { color: var(--text); background: var(--surface-subtle); }
 .center-event > pre { margin: var(--space-1) 0 0; }
 .center-event-links { display: flex; flex-wrap: wrap; gap: var(--space-1); }
-.button.center-link { height: 24px; min-height: 24px; max-width: 100%; padding: 0 var(--space-2); margin-left: calc(-1 * var(--space-2)); color: var(--accent); font-size: var(--text-meta); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.button.center-link { height: 24px; min-height: 24px; max-width: 100%; padding: 0 var(--space-2); margin-left: calc(-1 * var(--space-2)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .center-group > summary { cursor: pointer; list-style: none; }
 .center-group > summary::-webkit-details-marker { display: none; }
 .center-timeline.nested { margin-top: var(--space-1); }

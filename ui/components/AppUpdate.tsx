@@ -94,7 +94,7 @@ function PanelContents() {
       <h2>{state.version ? t("updates.targetVersion", { version: state.version }) : t("appUpdates")}</h2>
     </header>
     <div className="update-panel-body">
-      {actionError && !state.error && <Notice tone="danger">{actionError}</Notice>}
+      {actionError && !state.error && <Notice compact tone="danger">{actionError}</Notice>}
       {(metadata || downloading) && <div className="update-download">
         <div className="update-status" role="status">
           <span>{metadata}</span>
@@ -103,7 +103,7 @@ function PanelContents() {
         {downloading && !!state.total && <Progress label={t("updateDownloadProgress")}
           value={state.downloaded / state.total * 100} />}
       </div>}
-      {state.error && <Notice><HoverHelp text={state.error}><span>{t(errorLabel)}</span></HoverHelp></Notice>}
+      {state.error && <Notice compact><HoverHelp text={state.error}><span>{t(errorLabel)}</span></HoverHelp></Notice>}
       {state.version && <Card asChild padded>
         <section className="update-notes" tabIndex={0} aria-label={t("updates.notes")}>
           <ReleaseGroups releases={releases} />
@@ -185,7 +185,7 @@ export function AppUpdate({ children }: { children?: ReactNode }) {
     ? t("downloadingValueMb", { size: mb(state.downloaded) })
     : feedback ? state.error ? t("updateCheckRetry") : state.message : t("checkForUpdates");
   return <section className="settings-about">
-    {actionError && !state.error && <Notice tone="danger">{actionError}</Notice>}
+    {actionError && !state.error && <Notice compact tone="danger">{actionError}</Notice>}
     <SettingsSection title={t("aboutApp")}>
       <Setting title={`ARC ${currentVersion ?? "—"}`} width={available() ? 300 : 152}>
         <div className="actions">

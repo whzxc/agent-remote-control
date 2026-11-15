@@ -5,6 +5,7 @@ export type ButtonProps = {
   variant?:
     "primary" | "secondary" | "ghost" | "link" | "danger" | "danger-outline";
   busy?: boolean;
+  presentation?: "record-link";
   disabled?: boolean;
   icon?: string;
   children?: unknown;
@@ -12,6 +13,7 @@ export type ButtonProps = {
 };
 export function Button({
   variant = "secondary",
+  presentation,
   busy,
   disabled,
   icon,
@@ -34,7 +36,7 @@ export function Button({
       aria-busy={busy}
       class={`inline-flex shrink-0 items-center justify-center gap-(--control-gap)
         ${variant === "link" ? "h-6 px-0" : "h-(--control-height) px-4"}
-        rounded-control text-small leading-4 font-semibold whitespace-nowrap ${paint[variant]} ${extra}`}
+        rounded-control text-small leading-4 font-semibold whitespace-nowrap ${paint[variant]} ${presentation === "record-link" ? "text-accent! text-meta!" : ""} ${extra}`}
     >
       {(busy || icon) && (
         <Icon name={busy ? "loader-circle" : icon!} class="size-(--control-icon-size)" />
