@@ -1,3 +1,4 @@
+import {HubEntry} from '../components/ui/GraphNode';
 import { useId } from "react";
 import { t } from "../i18n";
 import { hubMarkGeometry } from "./geometry";
@@ -70,7 +71,7 @@ export default function Hub({ sourceEmpty, agentEmpty, remote, core, onAddSource
     {(["source", "agent"] as const).map(side => {
       const source = side === "source", empty = source ? sourceEmpty : agentEmpty;
       const label = t(source ? "addControlSource" : empty ? "addAgent" : "manageAgents");
-      return <button key={side} type="button" className={`hub-entry hub-${side}`} data-empty={empty || undefined}
+      return <HubEntry key={side} className={`hub-${side}`} data-empty={empty || undefined}
         data-panel-anchor aria-label={label} onClick={source ? onAddSource : onManageAgents}>
         <span className="hub-dot" data-panel-visual>
           <svg viewBox="0 0 20 20" aria-hidden="true">
@@ -88,7 +89,7 @@ export default function Hub({ sourceEmpty, agentEmpty, remote, core, onAddSource
             <circle cx="10" cy="10" r="10" fill={source ? "var(--topology-source)" : "var(--topology-agent)"} mask={`url(#${id}-${side}-mask)`} />
           </svg>
         </span>
-      </button>;
+      </HubEntry>;
     })}
   </>;
 }

@@ -1,3 +1,4 @@
+@import "./components/ui/Feedback.css";
 @import "./components/ui/QuotaDetail.css";
 @import "./components/ui/UpdateContent.css";
 @import "./components/ui/ServiceInventory.css";
@@ -236,8 +237,6 @@ pre {
   width: max-content;
   max-width: calc(100vw - 32px);
   z-index: 140;
-  box-shadow: var(--shadow-md);
-  border-radius: var(--radius-field);
 }
 .app-feedback .notice {
   max-height: 40dvh;

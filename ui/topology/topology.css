@@ -1,7 +1,8 @@
+@import "../components/ui/NodeCapsule.css";
+@import "../components/ui/GraphNode.css";
 .topology-viewport { position: absolute; inset: var(--homepage-content-top) 0 0; overflow: auto; overscroll-behavior: contain; overflow-anchor: none; }
 .topology-node .capsule-graph-node { position: absolute; left: -2px; top: -2px; width: 48px; }
 .topology-node .capsule-graph-node .graph-node-name { position: absolute; top: 60px; left: 24px; width: 110px; text-align: center; }
-.topology-node .capsule-graph-node small { display: block; color: var(--text-secondary); }
+.topology-node .capsule-graph-node small { display: block; }
 .device-node-graphic { position: relative; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; }
-.device-node-badge { position: absolute; right: 6px; bottom: 6px; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; background: var(--surface); }
-.topology-scene[data-orientation=portrait] .node-capsule-logo { background: var(--canvas); border-radius: 50%; }
+.device-node-badge { position: absolute; right: 6px; bottom: 6px; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; }

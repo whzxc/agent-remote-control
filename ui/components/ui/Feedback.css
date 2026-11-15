@@ -28,3 +28,13 @@
 :root[data-reduced-motion="true"] {
   .ui-spinner { animation: none; }
 }
+.app-feedback {
+  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-field);
+}
+.graph-error {
+  color: var(--danger);
+}
+.graph-error {
+  font-size: 12px;
+}

@@ -865,21 +865,6 @@
     },
     {
       "implementation": {
-        "file": "ui/topology/Hub.tsx"
-      },
-      "design": [
-        {
-          "source": "design/components/topology-mark.tsx",
-          "part": "TopologyMark"
-        },
-        {
-          "source": "design/components/topology-mark.tsx",
-          "part": "ArcRecovery"
-        }
-      ]
-    },
-    {
-      "implementation": {
         "file": "ui/components/ui/TopologyGroup.tsx"
       },
       "design": [
@@ -1293,40 +1278,6 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/NodeCapsule.tsx"
-      },
-      "design": [
-        {
-          "source": "design/components/node-capsule.tsx",
-          "part": "nodeCapsuleLayout"
-        },
-        {
-          "source": "design/components/node-capsule.tsx",
-          "part": "NodeCapsule"
-        },
-        {
-          "source": "design/components/task-activity.tsx",
-          "part": "TaskActivityIcon"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/ui/NodeCapsule.css"
-      },
-      "design": [
-        {
-          "source": "design/components/node-capsule.tsx",
-          "part": "nodeCapsuleLayout"
-        },
-        {
-          "source": "design/components/node-capsule.tsx",
-          "part": "NodeCapsule"
-        }
-      ]
-    },
-    {
-      "implementation": {
         "file": "ui/state/homepage.ts"
       },
       "design": [
@@ -1619,17 +1570,6 @@
     },
     {
       "implementation": {
-        "file": "ui/topology/nodeViews.tsx"
-      },
-      "design": [
-        {
-          "source": "design/components/node-capsule.tsx",
-          "part": "NodeCapsule"
-        }
-      ]
-    },
-    {
-      "implementation": {
         "file": "ui/components/SourceIcon.tsx"
       },
       "design": [
@@ -1830,16 +1770,6 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/product-Dialog.css"
-      },
-      "design": [
-        {
-          "source": "design/components/panel.tsx"
-        }
-      ]
-    },
-    {
-      "implementation": {
         "file": "ui/components/ui/product-Settings.css"
       },
       "design": [
@@ -1983,28 +1913,6 @@
         {
           "source": "design/components/task-activity.tsx",
           "part": "PhaseLabel"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/ui/NavCapsule.tsx",
-        "symbol": "NavCapsule"
-      },
-      "design": [
-        {
-          "source": "design/components/nav-capsule.tsx",
-          "part": "NavCapsule"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/ui/NavCapsule.css"
-      },
-      "design": [
-        {
-          "source": "design/components/nav-capsule.tsx"
         }
       ]
     },
@@ -3091,6 +2999,153 @@
         {
           "source": "design/components/quota-detail.tsx",
           "part": "QuotaBreakdown"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/topology/Hub.tsx"
+      },
+      "design": [
+        {
+          "source": "design/components/topology-mark.tsx",
+          "part": "TopologyMark"
+        },
+        {
+          "source": "design/components/topology-mark.tsx",
+          "part": "ArcRecovery"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/NodeCapsule.tsx"
+      },
+      "design": [
+        {
+          "source": "design/components/node-capsule.tsx",
+          "part": "nodeCapsuleLayout"
+        },
+        {
+          "source": "design/components/node-capsule.tsx",
+          "part": "NodeCapsule"
+        },
+        {
+          "source": "design/components/task-activity.tsx",
+          "part": "TaskActivityIcon"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/NodeCapsule.css"
+      },
+      "design": [
+        {
+          "source": "design/components/node-capsule.tsx",
+          "part": "nodeCapsuleLayout"
+        },
+        {
+          "source": "design/components/node-capsule.tsx",
+          "part": "NodeCapsule"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/topology/nodeViews.tsx"
+      },
+      "design": [
+        {
+          "source": "design/components/node-capsule.tsx",
+          "part": "NodeCapsule"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/product-Dialog.css"
+      },
+      "design": [
+        {
+          "source": "design/components/panel.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/NavCapsule.tsx",
+        "symbol": "NavCapsule"
+      },
+      "design": [
+        {
+          "source": "design/components/nav-capsule.tsx",
+          "part": "NavCapsule"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/NavCapsule.css"
+      },
+      "design": [
+        {
+          "source": "design/components/nav-capsule.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/GraphNode.tsx",
+        "symbol": "GraphAction"
+      },
+      "design": [
+        {
+          "source": "design/components/topology-node.tsx",
+          "part": "GraphAction"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/GraphNode.tsx",
+        "symbol": "HubEntry"
+      },
+      "design": [
+        {
+          "source": "design/components/topology-node.tsx",
+          "part": "HubEntry"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/GraphNode.css"
+      },
+      "design": [
+        {
+          "source": "design/components/topology-node.tsx",
+          "part": "GraphAction"
+        },
+        {
+          "source": "design/components/topology-node.tsx",
+          "part": "HubEntry"
+        },
+        {
+          "source": "design/components/topology-node.tsx",
+          "part": "TopologyNode"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/Feedback.tsx",
+        "symbol": "GraphFeedback"
+      },
+      "design": [
+        {
+          "source": "design/components/notice.tsx",
+          "part": "GraphFeedback"
         }
       ]
     }

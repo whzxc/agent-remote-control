@@ -35,3 +35,7 @@
 
 
 .navigation-capsule[hidden] { display: none; }
+
+.capsule-icons {
+  border-radius: inherit;
+}

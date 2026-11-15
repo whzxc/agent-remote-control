@@ -7,7 +7,7 @@ import { layers } from '../state/layers';
 import { cloneElement, isValidElement, useCallback, useMemo } from 'react';
 import { Laptop, Monitor } from 'lucide-react';
 import { BrandMark, Icon } from '../components/ui';
-import GraphNode from '../components/GraphNode';
+import {GraphNode} from '../components/ui/GraphNode';
 import SourceIcon from '../components/SourceIcon';
 import { nodeTaskState, type HomepageTask } from '../state/activityModel';
 import { focusNodeTasks } from '../state/homepage';

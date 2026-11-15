@@ -1,3 +1,4 @@
+import { GraphFeedback } from './ui/Feedback';
 import { layers } from '../state/layers';
 import { markActivitiesRead } from '../state/activityBubbles';
 import { orderedSubset } from '../topology/order';
@@ -43,7 +44,7 @@ import {
 import type { Ingress } from "../state/types";
 import SourceIcon from "./SourceIcon";
 import { isPendingSource } from "../sourcePresentation";
-import GraphNode from "./GraphNode";
+import {GraphNode} from './ui/GraphNode';
 import Topology, { type NodeView, type TopologyHandle } from "../topology/Topology";
 import type { WireState } from "../topology/render";
 import { onboarding, openOnboarding, connectionSetup, connectionSwitch, addedSource } from "../state/onboarding";
@@ -276,7 +277,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
         }</PanelRoute>
 
         {error && coreState === "ready" && (
-          <div className="graph-error">
+          <GraphFeedback className="graph-error">
             <Notice
               action={
                 <Button onClick={() => void refreshConnector().catch(() => {})}>
@@ -286,7 +287,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
             >
               {error}
             </Notice>
-          </div>
+          </GraphFeedback>
         )}
       </section>
       {recovery && visible && <HubRecovery key={recovery} side={recovery} onClose={() => setRecovery(undefined)} openCore={() => setRecovery("core")} />}

@@ -1,4 +1,4 @@
-import GraphNode from '../components/GraphNode';
+import {GraphNode} from '../components/ui/GraphNode';
 import SourceIcon from '../components/SourceIcon';
 import type { NodeView } from './Topology';
 import { accountNodeId, sourcePlatformNodeId, type TopologyAccount } from './accounts';

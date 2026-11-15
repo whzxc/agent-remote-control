@@ -1,10 +1,13 @@
-import { NodeCapsule, type NodeTaskState } from './ui/NodeCapsule';
-import type { AgentIconReading } from './ui/agent-icon';
+import type {ComponentProps} from 'react';
+import {IconButton} from './index';
+import './GraphNode.css';
+import { NodeCapsule, type NodeTaskState } from './NodeCapsule';
+import type { AgentIconReading } from './agent-icon';
 import type { ReactNode } from "react";
-import { t } from "../i18n";
-import type { WireState } from "../topology/render";
+import { t } from "../../i18n";
+import type { WireState } from "../../topology/render";
 
-export default function GraphNode({ label, state, onOpen, onMove, highlighted, newlyAdded, hideLabel = highlighted, panelExpanded = highlighted, caption, children, capsule, onTasks, capsuleMark, neutralRing, readings, used, compact, wing, onWidth }: {
+export function GraphNode({ label, state, onOpen, onMove, highlighted, newlyAdded, hideLabel = highlighted, panelExpanded = highlighted, caption, children, capsule, onTasks, capsuleMark, neutralRing, readings, used, compact, wing, onWidth }: {
   neutralRing?: boolean; capsule?: NodeTaskState; onTasks?: () => void; capsuleMark?: ReactNode; readings?: AgentIconReading[]; used?: boolean; compact?: boolean; wing?: 'left' | 'right'; onWidth?: (width: number) => void;
   label: string; state: WireState; onOpen: () => void; onMove?: (by: number) => void;
   caption?: ReactNode; hideLabel?: boolean; panelExpanded?: boolean; highlighted?: boolean; newlyAdded?: boolean; children: ReactNode;
@@ -24,3 +27,6 @@ export default function GraphNode({ label, state, onOpen, onMove, highlighted, n
       }
     }}>{children}{!hideLabel && caption}</button>;
 }
+
+export function GraphAction(props:ComponentProps<typeof IconButton>){return <IconButton {...props} className="arc-action-button"/>}
+export function HubEntry(props:ComponentProps<'button'>){return <button type="button" {...props} className={'hub-entry '+(props.className??'')}/>;}

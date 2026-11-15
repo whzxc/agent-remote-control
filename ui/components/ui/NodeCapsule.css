@@ -20,3 +20,4 @@
 @keyframes capsule-pulse { 50% { opacity: .45; } }
 @media (prefers-reduced-motion: reduce) { .node-capsule-disc { animation: none; } }
 .node-capsule-logo, .node-capsule-tasks { border: 0; padding: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.topology-scene[data-orientation=portrait] .node-capsule-logo { background: var(--canvas); border-radius: 50%; }

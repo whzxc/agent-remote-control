@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { AlertCircle } from "lucide-react";
 import { Icon } from "./index";
 import "./Feedback.css";
@@ -18,3 +18,5 @@ export function LoadingIndicator({ label }: { label: string }) {
     <span className="ui-spinner" aria-hidden="true" />
   </span>;
 }
+
+export function GraphFeedback(props:ComponentProps<'div'>){return <div {...props} className="graph-error"/>}

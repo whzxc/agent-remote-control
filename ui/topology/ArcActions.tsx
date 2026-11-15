@@ -1,6 +1,6 @@
 import { useImperativeHandle, useLayoutEffect, useRef, type Ref, type PointerEventHandler } from 'react';
 import { CheckCheck, Minus, Plus } from 'lucide-react';
-import { IconButton } from '../components/ui';
+import { GraphAction } from '../components/ui/GraphNode';
 import { notify } from '../state/connector';
 import { t } from '../i18n';
 import { arcActionPositions, arcPath, type ArcActionGeometry } from './geometry';
@@ -45,7 +45,7 @@ export default function ArcActions({ label, side, open, collapsed, canCollapse, 
     }} /></svg>
     {actions.map(action => <div key={action.id} data-arc-action={action.id} className="arc-action-slot">
       <span className="arc-action-bridge" aria-hidden="true" />
-      <IconButton compact variant="ghost" icon={action.icon} className="arc-action-button" label={action.label} disabled={action.disabled}
+      <GraphAction compact variant="ghost" icon={action.icon} label={action.label} disabled={action.disabled}
         aria-expanded={action.id === 'collapse' ? !collapsed : undefined} onPointerDown={event => event.stopPropagation()} onClick={() => {
           try { action.run(); onOpen(false); requestAnimationFrame(onDismiss); } catch (error) { notify(String(error), true); }
         }} />
