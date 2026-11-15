@@ -1,6 +1,6 @@
 import { Frame, Icon } from "adg";
 import { PanelLoading, PanelShell } from "../components/panel";
-import { AgentIcon } from '../components/agent-quota-mark';
+import { AgentIcon } from '../modules/homepage-scene';
 import { IconButton } from "../components/icon-button";
 import { QuotaCards } from '../components/quota';
 import { TaskCard } from '../components/task-card';

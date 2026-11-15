@@ -153,7 +153,7 @@
       },
       "design": [
         {
-          "source": "design/components/agent-quota-mark.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "AgentIcon"
         }
       ]
@@ -946,7 +946,7 @@
       },
       "design": [
         {
-          "source": "design/components/topology-group.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "TopologyGroup"
         }
       ]
@@ -957,7 +957,7 @@
       },
       "design": [
         {
-          "source": "design/components/topology-group.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "TopologyGroup"
         }
       ]
@@ -968,7 +968,7 @@
       },
       "design": [
         {
-          "source": "design/components/topology-group.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "TopologyGroup"
         },
         {
@@ -1858,7 +1858,7 @@
       },
       "design": [
         {
-          "source": "design/components/topology-group.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "TopologyGroup"
         },
         {
@@ -2264,7 +2264,7 @@
       },
       "design": [
         {
-          "source": "design/components/topology-scene.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "TopologyScene"
         },
         {
@@ -2313,7 +2313,7 @@
           "part": "NodePanelContent"
         },
         {
-          "source": "design/modules/layer-content.tsx",
+          "source": "design/modules/homepage-scene.tsx",
           "part": "NodePanelHeading"
         }
       ]

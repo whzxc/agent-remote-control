@@ -1,8 +1,7 @@
 import { Frame, Icon } from 'adg';
 import { BrandMark } from './brand-mark';
-import { AgentIcon, type AgentIconReading } from './agent-quota-mark';
+import type { AgentIconReading } from '../modules/homepage-scene';
 import { TaskActivityIcon, type TaskStepKind } from './task-activity';
-import { TopologyGroup } from './topology-group';
 import { capsuleForms, quotaReadings, stepCopy, accountContrast } from '../fixtures/node-capsule';
 
 export type NodeTaskState = {
@@ -139,25 +138,6 @@ export function NodeCapsule({ state, label, graphic, mark, readings, used, neutr
     </span>
   </span>;
 }
-
-export default () => [
-  ...capsuleForms.filter(form => !['unread', 'compact'].includes(form.name)).map(({ name, state, compact, wing, brand = 'codex', label = 'Codex' }) => {
-    const model = nodeCapsuleLayout(state, compact);
-    return <Frame name={name} width={model.width} height={48}
-      note="The quota ring is the capsule outline. Logo anchor stays fixed; width and the outer port use the topology spring 210/26; reduced motion is direct.">
-      <div class="flex h-12" style={{ width: model.width }}>
-        {wing === 'left' && <span class="flex-1" />}
-        <NodeCapsule label={label} graphic={<AgentIcon brand={brand} readings={quotaReadings} />}
-          mark={<BrandMark brand={brand} size={28} />} readings={quotaReadings}
-          state={state} compact={compact} wing={wing} />
-      </div>
-    </Frame>;
-  }),
-  <Frame name="account-contrast" width={420} height={72}>
-    <div class="flex w-[420px] items-start justify-between gap-6 pt-1">
-      <NodeCapsule label="Codex" graphic={<AgentIcon brand="codex" readings={quotaReadings} />}
-        mark={<BrandMark brand="codex" size={28} />} readings={quotaReadings} state={capsuleForms[1].state} />
-      <TopologyGroup {...accountContrast} />
-    </div>
-  </Frame>,
-];
+export default () => <Frame name="capsule" width={132} height={48}>
+  <NodeCapsule label="Codex" graphic={<BrandMark brand="codex" size={38}/>} mark={<BrandMark brand="codex" size={28}/>} state={{running:2,steps:['reading','thinking']}}/>
+</Frame>;

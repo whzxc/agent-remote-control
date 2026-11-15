@@ -2,7 +2,7 @@ import { example } from '../fixtures/topology-node';
 import { Frame } from "adg";
 import { NodeCapsule, type NodeTaskState } from './node-capsule';
 import { BrandMark, type Brand } from './brand-mark';
-import { AgentIcon, type AgentIconReading } from './agent-quota-mark';
+import type { AgentIconReading } from '../modules/homepage-scene';
 
 export type TopologyNodeProps = {
   label: string;
@@ -52,7 +52,7 @@ export function TopologyNode({
         />
       )}
       <span class="col-start-1 row-start-1 flex">
-        <AgentIcon brand={brand} readings={readings} used={used} />
+        <BrandMark brand={brand} size={readings?.length ? 28 : 38} />
       </span>
     </span>
   );

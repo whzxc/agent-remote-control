@@ -1,4 +1,4 @@
-import type { AgentIconReading } from '../components/agent-quota-mark';
+import type { AgentIconReading } from '../modules/homepage-scene';
 
 export const iconExampleBrand = "claude-code";
 

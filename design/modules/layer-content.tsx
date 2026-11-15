@@ -8,7 +8,6 @@ import { Switch } from '../components/switch';
 import { Input } from '../components/field';
 import { QuotaCards } from '../components/quota';
 import { TaskCard } from '../components/task-card';
-import { AgentIcon } from '../components/agent-quota-mark';
 import { IconButton } from '../components/icon-button';
 import { layerSettings, layerTask } from '../fixtures/layer-content';
 import { ThemeSwatch } from '../components/theme-swatch';
@@ -37,14 +36,6 @@ export function NodePanelContent() {
   return <div class="flex flex-col gap-4"><QuotaCards windows={agentQuotas} />
     <section class="flex flex-col"><TaskDateHeading>今天 · 1</TaskDateHeading>
       <TaskCard task={layerTask} form="detail" /></section>
-  </div>;
-}
-export function NodePanelHeading() {
-  return <div class="flex items-center gap-3 w-full"><AgentIcon brand="codex" size={44} readings={agentQuotas.map((quota,index)=>({id:String(index),label:quota.label,value:quota.value,color:`var(--${quota.tone})`,elapsed:quota.elapsed}))}/>
-    <div class="flex flex-col flex-1 gap-1"><div class="flex gap-2 h-6 items-center"><h2 class="text-title font-[650] leading-6">Codex</h2><IconButton icon="arrow-up-right" label="Open Agent"/></div>
-      <p class="text-meta text-text-secondary leading-4">fixture · 0 个任务进行中</p></div>
-    <div class="flex gap-1"><IconButton icon="refresh-cw" label="Refresh"/><IconButton icon="settings" label="Settings"/>
-      <IconButton icon="maximize-2" label="Expand"/></div>
   </div>;
 }
 export default () => <Frame name="workspace-fit" width={912}><WorkspaceContent /></Frame>;

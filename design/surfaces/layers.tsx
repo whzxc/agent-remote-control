@@ -1,6 +1,6 @@
 import { Frame } from 'adg';
-import { HomepageScene } from '../modules/homepage-scene';
-import { WorkspaceContent, NodePanelContent, NodePanelHeading } from '../modules/layer-content';
+import { HomepageScene, NodePanelHeading } from '../modules/homepage-scene';
+import { WorkspaceContent, NodePanelContent } from '../modules/layer-content';
 import { Panel } from '../components/panel';
 import { IconButton } from '../components/icon-button';
 import { topologyScenes } from '../fixtures/topology';
