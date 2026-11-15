@@ -30,9 +30,9 @@ const cases = [
 ];
 
 export async function generateTopology(inputs) {
-  const [{ compactLayout, compactRoots }, { TopologyAnimator }, { TopologyPainter }, { PortraitPainter }] = await Promise.all([
+  const [{ compactLayout, compactRoots }, { TopologyAnimator }, { TopologyPainter }, { PortraitPainter }, { DEFAULTS }] = await Promise.all([
     import('../ui/topology/compact.ts'), import('../ui/topology/animate.ts'),
-    import('../ui/topology/render.ts'), import('../ui/topology/portraitRender.ts'),
+    import('../ui/topology/render.ts'), import('../ui/topology/portraitRender.ts'), import('../ui/topology/solve.ts'),
   ]);
   const window = new Window();
   const previous = globalThis.document;
@@ -40,7 +40,8 @@ export async function generateTopology(inputs) {
   try {
     const scenes = {};
     for (const input of inputs) {
-      const { scene, params, expanded } = input.solver;
+      const { scene, expanded } = input.solver;
+      const params = DEFAULTS;
       const plan = compactRoots(scene.left, scene.right, scene, input.orientation, params);
       const layout = compactLayout(scene, plan, new Set(expanded), params, input.orientation);
       const animator = new TopologyAnimator(params);
