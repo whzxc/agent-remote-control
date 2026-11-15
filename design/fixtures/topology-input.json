@@ -1,0 +1,4709 @@
+[
+  {
+    "name": "nested-dialog",
+    "orientation": "landscape",
+    "solver": {
+      "scene": {
+        "vw": 1280,
+        "vh": 728,
+        "left": [
+          {
+            "id": "source-personal",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          }
+        ],
+        "right": [
+          {
+            "id": "codex",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          }
+        ]
+      },
+      "params": {
+        "margin": 40,
+        "squeezeMin": 0.72,
+        "ringScale": 1,
+        "earFollow": 0.7,
+        "earSep": 7,
+        "earMax": 42,
+        "earMin": 22,
+        "earPad": 7,
+        "t1Node": 0.42,
+        "t1Root": 0.3,
+        "flare": 1,
+        "arcGap": 11,
+        "arcFollow": 0.75,
+        "arcMax": 58,
+        "arcPad": 9,
+        "bubbleOffset": 104,
+        "t2Root": 0.34,
+        "t2End": 0.5,
+        "nodeSize": 42,
+        "colDist": 2.6,
+        "rowGap": 12,
+        "sourceRow": 78,
+        "idleRow": 78,
+        "idleIndent": 22,
+        "minIdleRow": 42,
+        "stiffness": 210,
+        "damping": 26
+      },
+      "hidden": {
+        "left": [],
+        "right": []
+      },
+      "expanded": []
+    },
+    "nodes": [
+      {
+        "id": "source-personal",
+        "label": "Claude · Personal",
+        "brand": "claude",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "codex",
+        "label": "Codex",
+        "brand": "codex",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      }
+    ],
+    "paintNodes": [
+      {
+        "id": "source-personal",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude · Personal",
+        "hasChildren": false
+      },
+      {
+        "id": "codex",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Codex",
+        "hasChildren": false
+      }
+    ],
+    "origin": {
+      "x": 0,
+      "y": 72
+    },
+    "presentation": {
+      "width": 1280,
+      "height": 800,
+      "fixture": "nested-dialog",
+      "nav": true,
+      "time": "08:00",
+      "date": "1月1日 · 周四",
+      "language": "zh-CN"
+    },
+    "fixture": {
+      "name": "p3-stacked-method",
+      "data": {
+        "language": "zh-CN",
+        "agents": [
+          "codex"
+        ],
+        "tasks": [],
+        "remoteLink": {},
+        "connectionSetup": {
+          "forSource": true,
+          "product": "claude",
+          "step": "method"
+        },
+        "sourceSetup": {
+          "step": "connection",
+          "source": "claude"
+        }
+      }
+    }
+  },
+  {
+    "name": "idle",
+    "orientation": "landscape",
+    "solver": {
+      "scene": {
+        "vw": 1280,
+        "vh": 728,
+        "left": [
+          {
+            "id": "fixture-source",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "fixture-source-anthropic",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "fixture-source-google",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "fixture-source-xai",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          }
+        ],
+        "right": [
+          {
+            "id": "codex",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "claude",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "opencode",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          }
+        ]
+      },
+      "params": {
+        "margin": 40,
+        "squeezeMin": 0.72,
+        "ringScale": 1,
+        "earFollow": 0.7,
+        "earSep": 7,
+        "earMax": 42,
+        "earMin": 22,
+        "earPad": 7,
+        "t1Node": 0.42,
+        "t1Root": 0.3,
+        "flare": 1,
+        "arcGap": 11,
+        "arcFollow": 0.75,
+        "arcMax": 58,
+        "arcPad": 9,
+        "bubbleOffset": 104,
+        "t2Root": 0.34,
+        "t2End": 0.5,
+        "nodeSize": 42,
+        "colDist": 2.6,
+        "rowGap": 12,
+        "sourceRow": 78,
+        "idleRow": 78,
+        "idleIndent": 22,
+        "minIdleRow": 42,
+        "stiffness": 210,
+        "damping": 26
+      },
+      "hidden": {
+        "left": [],
+        "right": []
+      },
+      "expanded": []
+    },
+    "nodes": [
+      {
+        "id": "fixture-source",
+        "label": "OpenAI",
+        "brand": "openai",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "fixture-source-anthropic",
+        "label": "Anthropic",
+        "brand": "anthropic",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "fixture-source-google",
+        "label": "Google",
+        "brand": "google",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "fixture-source-xai",
+        "label": "xAI",
+        "brand": "xai",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "codex",
+        "label": "Codex",
+        "brand": "codex",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": [
+          {
+            "value": 32,
+            "color": "var(--warning)",
+            "elapsed": 0.5714285714285714
+          }
+        ]
+      },
+      {
+        "id": "claude",
+        "label": "Claude Code",
+        "brand": "claude-code",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "opencode",
+        "label": "OpenCode",
+        "brand": "opencode",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [],
+        "readings": []
+      }
+    ],
+    "paintNodes": [
+      {
+        "id": "fixture-source",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "OpenAI",
+        "hasChildren": false
+      },
+      {
+        "id": "fixture-source-anthropic",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Anthropic",
+        "hasChildren": false
+      },
+      {
+        "id": "fixture-source-google",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Google",
+        "hasChildren": false
+      },
+      {
+        "id": "fixture-source-xai",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "xAI",
+        "hasChildren": false
+      },
+      {
+        "id": "codex",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Codex",
+        "hasChildren": false
+      },
+      {
+        "id": "claude",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude Code",
+        "hasChildren": false
+      },
+      {
+        "id": "opencode",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "OpenCode",
+        "hasChildren": false
+      }
+    ],
+    "origin": {
+      "x": 0,
+      "y": 72
+    },
+    "presentation": {
+      "width": 1280,
+      "height": 800,
+      "fixture": "idle",
+      "nav": true,
+      "time": "08:00",
+      "date": "January 1 · Thu"
+    },
+    "fixture": {
+      "name": "portrait-topology-0",
+      "data": {
+        "theme": "light",
+        "language": "en",
+        "sourceProducts": [
+          "openai",
+          "anthropic",
+          "google",
+          "xai"
+        ],
+        "agents": [
+          "codex",
+          "claude",
+          "opencode"
+        ],
+        "quota": true,
+        "tasks": [],
+        "viewports": [
+          {
+            "width": 640,
+            "height": 800
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "working",
+    "orientation": "landscape",
+    "solver": {
+      "scene": {
+        "vw": 1280,
+        "vh": 728,
+        "left": [
+          {
+            "id": "example-chatgpt",
+            "extent": 76,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "platform:anthropic",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": true,
+            "children": [
+              {
+                "id": "example-claude-personal",
+                "extent": 76,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "example-claude-laptop",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "example-claude-studio",
+                "extent": 104,
+                "collapsed": false,
+                "selected": false,
+                "attention": true,
+                "pinned": true,
+                "children": []
+              },
+              {
+                "id": "example-source-two",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "example-source-one",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              }
+            ]
+          }
+        ],
+        "right": [
+          {
+            "id": "claude",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": true,
+            "children": [
+              {
+                "id": "[\"account\",\"claude\",\"example-personal\"]",
+                "extent": 76,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "[\"account\",\"claude\",\"example-studio\"]",
+                "extent": 76,
+                "collapsed": false,
+                "selected": false,
+                "attention": true,
+                "pinned": true,
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "codex",
+            "extent": 76,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "dsh",
+            "extent": 76,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          }
+        ]
+      },
+      "params": {
+        "margin": 40,
+        "squeezeMin": 0.72,
+        "ringScale": 1,
+        "earFollow": 0.7,
+        "earSep": 7,
+        "earMax": 42,
+        "earMin": 22,
+        "earPad": 7,
+        "t1Node": 0.42,
+        "t1Root": 0.3,
+        "flare": 1,
+        "arcGap": 11,
+        "arcFollow": 0.75,
+        "arcMax": 58,
+        "arcPad": 9,
+        "bubbleOffset": 104,
+        "t2Root": 0.34,
+        "t2End": 0.5,
+        "nodeSize": 42,
+        "colDist": 2.6,
+        "rowGap": 12,
+        "sourceRow": 78,
+        "idleRow": 78,
+        "idleIndent": 22,
+        "minIdleRow": 42,
+        "stiffness": 210,
+        "damping": 26
+      },
+      "hidden": {
+        "left": [],
+        "right": []
+      },
+      "expanded": []
+    },
+    "nodes": [
+      {
+        "id": "example-chatgpt",
+        "label": "Personal",
+        "brand": "openai",
+        "wing": "left",
+        "capsule": true,
+        "width": 76,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [
+          {
+            "kind": "step",
+            "phase": "command"
+          }
+        ],
+        "readings": []
+      },
+      {
+        "id": "platform:anthropic",
+        "label": "Anthropic",
+        "brand": "anthropic",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "example-claude-personal",
+        "label": "Claude",
+        "brand": "claude",
+        "wing": "left",
+        "capsule": true,
+        "width": 76,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [
+          {
+            "kind": "step",
+            "phase": "command"
+          }
+        ],
+        "readings": [
+          {
+            "value": 73,
+            "color": "var(--success)",
+            "elapsed": 0.5714285714285714
+          }
+        ]
+      },
+      {
+        "id": "example-claude-laptop",
+        "label": "Claude",
+        "brand": "claude",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": [
+          {
+            "value": 73,
+            "color": "var(--success)",
+            "elapsed": 0.5714285714285714
+          }
+        ]
+      },
+      {
+        "id": "example-claude-studio",
+        "label": "Claude",
+        "brand": "claude",
+        "wing": "left",
+        "capsule": true,
+        "width": 104,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [
+          {
+            "kind": "attention"
+          },
+          {
+            "kind": "step",
+            "phase": "command"
+          }
+        ],
+        "readings": [
+          {
+            "value": 27,
+            "color": "var(--warning)",
+            "elapsed": 0.5714285714285714
+          }
+        ]
+      },
+      {
+        "id": "example-source-two",
+        "label": "Claude · Desktop",
+        "brand": "claude",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "example-source-one",
+        "label": "Claude · Laptop",
+        "brand": "claude",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "claude",
+        "label": "Claude Code",
+        "brand": "claude-code",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "[\"account\",\"claude\",\"example-personal\"]",
+        "label": "Personal",
+        "brand": "claude-code",
+        "wing": "right",
+        "capsule": true,
+        "width": 76,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [
+          {
+            "kind": "step",
+            "phase": "command"
+          }
+        ],
+        "readings": [
+          {
+            "value": 73,
+            "color": "var(--success)",
+            "elapsed": 0.5714285714285714
+          }
+        ]
+      },
+      {
+        "id": "[\"account\",\"claude\",\"example-studio\"]",
+        "label": "Studio",
+        "brand": "claude-code",
+        "wing": "right",
+        "capsule": true,
+        "width": 76,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [
+          {
+            "kind": "attention"
+          }
+        ],
+        "readings": [
+          {
+            "value": 27,
+            "color": "var(--warning)",
+            "elapsed": 0.5714285714285714
+          }
+        ]
+      },
+      {
+        "id": "codex",
+        "label": "Codex",
+        "brand": "codex",
+        "wing": "right",
+        "capsule": true,
+        "width": 76,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [
+          {
+            "kind": "step",
+            "phase": "command"
+          }
+        ],
+        "readings": []
+      },
+      {
+        "id": "dsh",
+        "label": "DeepSeek Harness",
+        "brand": "deepseek",
+        "wing": "right",
+        "capsule": true,
+        "width": 76,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [
+          {
+            "kind": "step",
+            "phase": "command"
+          }
+        ],
+        "readings": []
+      }
+    ],
+    "paintNodes": [
+      {
+        "id": "example-chatgpt",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Personal",
+        "hasChildren": false
+      },
+      {
+        "id": "platform:anthropic",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Anthropic",
+        "hasChildren": true
+      },
+      {
+        "id": "example-claude-personal",
+        "side": -1,
+        "parent": "platform:anthropic",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude",
+        "hasChildren": false
+      },
+      {
+        "id": "example-claude-laptop",
+        "side": -1,
+        "parent": "platform:anthropic",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude",
+        "hasChildren": false
+      },
+      {
+        "id": "example-claude-studio",
+        "side": -1,
+        "parent": "platform:anthropic",
+        "state": "normal",
+        "attention": true,
+        "selected": false,
+        "label": "Claude",
+        "hasChildren": false
+      },
+      {
+        "id": "example-source-two",
+        "side": -1,
+        "parent": "platform:anthropic",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude · Desktop",
+        "hasChildren": false
+      },
+      {
+        "id": "example-source-one",
+        "side": -1,
+        "parent": "platform:anthropic",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude · Laptop",
+        "hasChildren": false
+      },
+      {
+        "id": "claude",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude Code",
+        "hasChildren": true
+      },
+      {
+        "id": "[\"account\",\"claude\",\"example-personal\"]",
+        "side": 1,
+        "parent": "claude",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Personal",
+        "hasChildren": false
+      },
+      {
+        "id": "[\"account\",\"claude\",\"example-studio\"]",
+        "side": 1,
+        "parent": "claude",
+        "state": "normal",
+        "attention": true,
+        "selected": false,
+        "label": "Studio",
+        "hasChildren": false
+      },
+      {
+        "id": "codex",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Codex",
+        "hasChildren": false
+      },
+      {
+        "id": "dsh",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "DeepSeek Harness",
+        "hasChildren": false
+      }
+    ],
+    "origin": {
+      "x": 0,
+      "y": 72
+    },
+    "presentation": {
+      "width": 1280,
+      "height": 800,
+      "fixture": "working",
+      "nav": true,
+      "time": "08:00",
+      "date": "January 1 · Thu"
+    },
+    "fixture": {
+      "name": "topology-accounts",
+      "data": {
+        "theme": "light",
+        "language": "en",
+        "agents": [
+          "claude",
+          "codex",
+          "dsh"
+        ],
+        "tasks": [
+          {
+            "agent": "claude",
+            "phase": "thinking",
+            "title": "Review navigation",
+            "headline": "Checking the account routes"
+          },
+          {
+            "agent": "claude",
+            "phase": "command",
+            "title": "Validate workspace",
+            "headline": "Waiting for permission",
+            "approval": true
+          },
+          {
+            "agent": "claude",
+            "phase": "text",
+            "title": "Update documentation",
+            "headline": "Documentation updated",
+            "completed": true
+          },
+          {
+            "agent": "codex",
+            "phase": "command",
+            "title": "Check configuration",
+            "headline": "Running the configuration check"
+          },
+          {
+            "agent": "dsh",
+            "phase": "thinking",
+            "title": "Review changes",
+            "headline": "Reading the project changes"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "accounts",
+    "orientation": "landscape",
+    "solver": {
+      "scene": {
+        "vw": 1280,
+        "vh": 728,
+        "left": [
+          {
+            "id": "example-chatgpt",
+            "extent": 132,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "platform:anthropic",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": [
+              {
+                "id": "example-claude-personal",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "example-claude-laptop",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "example-claude-studio",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "example-source-two",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "example-source-one",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              }
+            ]
+          }
+        ],
+        "right": [
+          {
+            "id": "codex",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": [
+              {
+                "id": "[\"account\",\"codex\",\"example-codex-00\"]",
+                "extent": 104,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "[\"account\",\"codex\",\"example-codex-01\"]",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "[\"account\",\"codex\",\"example-codex-02\"]",
+                "extent": 76,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "[\"account\",\"codex\",\"example-codex-03\"]",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "[\"account\",\"codex\",\"example-codex-04\"]",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "[\"account\",\"codex\",\"example-codex-05\"]",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "[\"account\",\"codex\",\"example-codex-06\"]",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "[\"account\",\"codex\",\"example-codex-07\"]",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "[\"account\",\"codex\",\"example-codex-08\"]",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "[\"account\",\"codex\",\"example-codex-09\"]",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "[\"account\",\"codex\",\"example-codex-10\"]",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "claude",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "opencode",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "dsh",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "cursor",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          }
+        ]
+      },
+      "params": {
+        "margin": 40,
+        "squeezeMin": 0.72,
+        "ringScale": 1,
+        "earFollow": 0.7,
+        "earSep": 7,
+        "earMax": 42,
+        "earMin": 22,
+        "earPad": 7,
+        "t1Node": 0.42,
+        "t1Root": 0.3,
+        "flare": 1,
+        "arcGap": 11,
+        "arcFollow": 0.75,
+        "arcMax": 58,
+        "arcPad": 9,
+        "bubbleOffset": 104,
+        "t2Root": 0.34,
+        "t2End": 0.5,
+        "nodeSize": 42,
+        "colDist": 2.6,
+        "rowGap": 12,
+        "sourceRow": 78,
+        "idleRow": 78,
+        "idleIndent": 22,
+        "minIdleRow": 42,
+        "stiffness": 210,
+        "damping": 26
+      },
+      "hidden": {
+        "left": [],
+        "right": [
+          "[\"account\",\"codex\",\"example-codex-10\"]",
+          "[\"account\",\"codex\",\"example-codex-09\"]",
+          "[\"account\",\"codex\",\"example-codex-08\"]",
+          "[\"account\",\"codex\",\"example-codex-07\"]",
+          "[\"account\",\"codex\",\"example-codex-06\"]",
+          "[\"account\",\"codex\",\"example-codex-05\"]",
+          "[\"account\",\"codex\",\"example-codex-04\"]",
+          "[\"account\",\"codex\",\"example-codex-03\"]",
+          "[\"account\",\"codex\",\"example-codex-02\"]",
+          "[\"account\",\"codex\",\"example-codex-01\"]",
+          "[\"account\",\"codex\",\"example-codex-00\"]"
+        ]
+      },
+      "expanded": []
+    },
+    "nodes": [
+      {
+        "id": "example-chatgpt",
+        "label": "Personal",
+        "brand": "openai",
+        "wing": "left",
+        "capsule": true,
+        "width": 132,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [
+          {
+            "kind": "step",
+            "phase": "command"
+          },
+          {
+            "kind": "step",
+            "phase": "command"
+          },
+          {
+            "kind": "step",
+            "phase": "command"
+          }
+        ],
+        "readings": []
+      },
+      {
+        "id": "platform:anthropic",
+        "label": "Anthropic",
+        "brand": "anthropic",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "example-claude-personal",
+        "label": "Claude",
+        "brand": "claude",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "example-claude-laptop",
+        "label": "Claude",
+        "brand": "claude",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "example-claude-studio",
+        "label": "Claude",
+        "brand": "claude",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "example-source-two",
+        "label": "Claude · Desktop",
+        "brand": "claude",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "example-source-one",
+        "label": "Claude · Laptop",
+        "brand": "claude",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "codex",
+        "label": "Codex",
+        "brand": "codex",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "[\"group\",1,\"codex\"]",
+        "label": "11 idle accounts",
+        "wing": "right",
+        "capsule": false,
+        "width": 48,
+        "group": {
+          "count": 11,
+          "layout": "vertical"
+        },
+        "labelBox": {
+          "x": -2,
+          "y": 46,
+          "width": 95.78125,
+          "height": 20
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "claude",
+        "label": "Claude Code",
+        "brand": "claude-code",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "opencode",
+        "label": "OpenCode",
+        "brand": "opencode",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "dsh",
+        "label": "DeepSeek Harness",
+        "brand": "deepseek",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "cursor",
+        "label": "Cursor Agent",
+        "brand": "cursor",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [],
+        "readings": []
+      }
+    ],
+    "paintNodes": [
+      {
+        "id": "example-chatgpt",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Personal",
+        "hasChildren": false
+      },
+      {
+        "id": "platform:anthropic",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Anthropic",
+        "hasChildren": true
+      },
+      {
+        "id": "example-claude-personal",
+        "side": -1,
+        "parent": "platform:anthropic",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude",
+        "hasChildren": false
+      },
+      {
+        "id": "example-claude-laptop",
+        "side": -1,
+        "parent": "platform:anthropic",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude",
+        "hasChildren": false
+      },
+      {
+        "id": "example-claude-studio",
+        "side": -1,
+        "parent": "platform:anthropic",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude",
+        "hasChildren": false
+      },
+      {
+        "id": "example-source-two",
+        "side": -1,
+        "parent": "platform:anthropic",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude · Desktop",
+        "hasChildren": false
+      },
+      {
+        "id": "example-source-one",
+        "side": -1,
+        "parent": "platform:anthropic",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude · Laptop",
+        "hasChildren": false
+      },
+      {
+        "id": "codex",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Codex",
+        "hasChildren": true
+      },
+      {
+        "id": "[\"group\",1,\"codex\"]",
+        "side": 1,
+        "parent": "codex",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "11 idle accounts"
+      },
+      {
+        "id": "claude",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude Code",
+        "hasChildren": false
+      },
+      {
+        "id": "opencode",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "OpenCode",
+        "hasChildren": false
+      },
+      {
+        "id": "dsh",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "DeepSeek Harness",
+        "hasChildren": false
+      },
+      {
+        "id": "cursor",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Cursor Agent",
+        "hasChildren": false
+      }
+    ],
+    "origin": {
+      "x": 0,
+      "y": 72
+    },
+    "presentation": {
+      "width": 1280,
+      "height": 800,
+      "fixture": "accounts",
+      "nav": true,
+      "time": "08:00",
+      "date": "January 1 · Thu"
+    },
+    "fixture": {
+      "name": "topology-accounts-dense",
+      "data": {
+        "theme": "light",
+        "language": "en",
+        "agents": [
+          "codex",
+          "claude",
+          "opencode",
+          "dsh",
+          "cursor"
+        ],
+        "maxVisibleAgents": 6,
+        "tasks": [
+          {
+            "agent": "codex",
+            "phase": "command",
+            "title": "Check configuration",
+            "headline": "npm run check"
+          },
+          {
+            "agent": "codex",
+            "phase": "thinking",
+            "title": "Review changes",
+            "headline": "Read the project changes"
+          },
+          {
+            "agent": "codex",
+            "phase": "text",
+            "title": "Update documentation",
+            "headline": "Documentation updated",
+            "completed": true
+          },
+          {
+            "agent": "codex",
+            "phase": "command",
+            "title": "Verify account attribution",
+            "headline": "Checking the workspace"
+          }
+        ],
+        "viewports": [
+          {
+            "width": 1280,
+            "height": 800
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "portrait",
+    "orientation": "portrait",
+    "solver": {
+      "scene": {
+        "vw": 640,
+        "vh": 728,
+        "left": [
+          {
+            "id": "fixture-source",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "fixture-source-anthropic",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "fixture-source-google",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "fixture-source-xai",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          }
+        ],
+        "right": [
+          {
+            "id": "codex",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "claude",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "opencode",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          }
+        ]
+      },
+      "params": {
+        "margin": 40,
+        "squeezeMin": 0.72,
+        "ringScale": 1,
+        "earFollow": 0.7,
+        "earSep": 7,
+        "earMax": 42,
+        "earMin": 22,
+        "earPad": 7,
+        "t1Node": 0.42,
+        "t1Root": 0.3,
+        "flare": 1,
+        "arcGap": 11,
+        "arcFollow": 0.75,
+        "arcMax": 58,
+        "arcPad": 9,
+        "bubbleOffset": 104,
+        "t2Root": 0.34,
+        "t2End": 0.5,
+        "nodeSize": 42,
+        "colDist": 2.6,
+        "rowGap": 12,
+        "sourceRow": 78,
+        "idleRow": 78,
+        "idleIndent": 22,
+        "minIdleRow": 42,
+        "stiffness": 210,
+        "damping": 26
+      },
+      "hidden": {
+        "left": [],
+        "right": []
+      },
+      "expanded": []
+    },
+    "nodes": [
+      {
+        "id": "fixture-source",
+        "label": "OpenAI",
+        "brand": "openai",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "fixture-source-anthropic",
+        "label": "Anthropic",
+        "brand": "anthropic",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "fixture-source-google",
+        "label": "Google",
+        "brand": "google",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "fixture-source-xai",
+        "label": "xAI",
+        "brand": "xai",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "codex",
+        "label": "Codex",
+        "brand": "codex",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": [
+          {
+            "value": 32,
+            "color": "var(--warning)",
+            "elapsed": 0.5714285714285714
+          }
+        ]
+      },
+      {
+        "id": "claude",
+        "label": "Claude Code",
+        "brand": "claude-code",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "opencode",
+        "label": "OpenCode",
+        "brand": "opencode",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      }
+    ],
+    "paintNodes": [
+      {
+        "id": "fixture-source",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "OpenAI",
+        "hasChildren": false
+      },
+      {
+        "id": "fixture-source-anthropic",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Anthropic",
+        "hasChildren": false
+      },
+      {
+        "id": "fixture-source-google",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Google",
+        "hasChildren": false
+      },
+      {
+        "id": "fixture-source-xai",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "xAI",
+        "hasChildren": false
+      },
+      {
+        "id": "codex",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Codex",
+        "hasChildren": false
+      },
+      {
+        "id": "claude",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude Code",
+        "hasChildren": false
+      },
+      {
+        "id": "opencode",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "OpenCode",
+        "hasChildren": false
+      }
+    ],
+    "origin": {
+      "x": 0,
+      "y": 72
+    },
+    "presentation": {
+      "width": 640,
+      "height": 800,
+      "fixture": "portrait",
+      "nav": true,
+      "time": "08:00",
+      "date": "January 1 · Thu"
+    },
+    "fixture": {
+      "name": "portrait-topology-0",
+      "data": {
+        "theme": "light",
+        "language": "en",
+        "sourceProducts": [
+          "openai",
+          "anthropic",
+          "google",
+          "xai"
+        ],
+        "agents": [
+          "codex",
+          "claude",
+          "opencode"
+        ],
+        "quota": true,
+        "tasks": [],
+        "viewports": [
+          {
+            "width": 640,
+            "height": 800
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "sources-folded",
+    "orientation": "portrait",
+    "solver": {
+      "scene": {
+        "vw": 640,
+        "vh": 728,
+        "left": [],
+        "right": [
+          {
+            "id": "codex",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "claude",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "opencode",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          }
+        ]
+      },
+      "params": {
+        "margin": 40,
+        "squeezeMin": 0.72,
+        "ringScale": 1,
+        "earFollow": 0.7,
+        "earSep": 7,
+        "earMax": 42,
+        "earMin": 22,
+        "earPad": 7,
+        "t1Node": 0.42,
+        "t1Root": 0.3,
+        "flare": 1,
+        "arcGap": 11,
+        "arcFollow": 0.75,
+        "arcMax": 58,
+        "arcPad": 9,
+        "bubbleOffset": 104,
+        "t2Root": 0.34,
+        "t2End": 0.5,
+        "nodeSize": 42,
+        "colDist": 2.6,
+        "rowGap": 12,
+        "sourceRow": 78,
+        "idleRow": 78,
+        "idleIndent": 22,
+        "minIdleRow": 42,
+        "stiffness": 210,
+        "damping": 26
+      },
+      "hidden": {
+        "left": [],
+        "right": []
+      },
+      "expanded": []
+    },
+    "nodes": [
+      {
+        "id": "codex",
+        "label": "Codex",
+        "brand": "codex",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": [
+          {
+            "value": 32,
+            "color": "var(--warning)",
+            "elapsed": 0.5714285714285714
+          }
+        ]
+      },
+      {
+        "id": "claude",
+        "label": "Claude Code",
+        "brand": "claude-code",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "opencode",
+        "label": "OpenCode",
+        "brand": "opencode",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      }
+    ],
+    "paintNodes": [
+      {
+        "id": "codex",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Codex",
+        "hasChildren": false
+      },
+      {
+        "id": "claude",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude Code",
+        "hasChildren": false
+      },
+      {
+        "id": "opencode",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "OpenCode",
+        "hasChildren": false
+      }
+    ],
+    "origin": {
+      "x": 0,
+      "y": 72
+    },
+    "presentation": {
+      "width": 640,
+      "height": 800,
+      "fixture": "sources-folded",
+      "nav": true,
+      "time": "08:00",
+      "date": "January 1 · Thu"
+    },
+    "fixture": {
+      "name": "portrait-topology-0",
+      "data": {
+        "theme": "light",
+        "language": "en",
+        "sourceProducts": [
+          "openai",
+          "anthropic",
+          "google",
+          "xai"
+        ],
+        "agents": [
+          "codex",
+          "claude",
+          "opencode"
+        ],
+        "quota": true,
+        "tasks": [],
+        "viewports": [
+          {
+            "width": 640,
+            "height": 800
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "agents-folded",
+    "orientation": "portrait",
+    "solver": {
+      "scene": {
+        "vw": 640,
+        "vh": 728,
+        "left": [
+          {
+            "id": "fixture-source",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "fixture-source-anthropic",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "fixture-source-google",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "fixture-source-xai",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          }
+        ],
+        "right": []
+      },
+      "params": {
+        "margin": 40,
+        "squeezeMin": 0.72,
+        "ringScale": 1,
+        "earFollow": 0.7,
+        "earSep": 7,
+        "earMax": 42,
+        "earMin": 22,
+        "earPad": 7,
+        "t1Node": 0.42,
+        "t1Root": 0.3,
+        "flare": 1,
+        "arcGap": 11,
+        "arcFollow": 0.75,
+        "arcMax": 58,
+        "arcPad": 9,
+        "bubbleOffset": 104,
+        "t2Root": 0.34,
+        "t2End": 0.5,
+        "nodeSize": 42,
+        "colDist": 2.6,
+        "rowGap": 12,
+        "sourceRow": 78,
+        "idleRow": 78,
+        "idleIndent": 22,
+        "minIdleRow": 42,
+        "stiffness": 210,
+        "damping": 26
+      },
+      "hidden": {
+        "left": [],
+        "right": []
+      },
+      "expanded": []
+    },
+    "nodes": [
+      {
+        "id": "fixture-source",
+        "label": "OpenAI",
+        "brand": "openai",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "fixture-source-anthropic",
+        "label": "Anthropic",
+        "brand": "anthropic",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "fixture-source-google",
+        "label": "Google",
+        "brand": "google",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "fixture-source-xai",
+        "label": "xAI",
+        "brand": "xai",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      }
+    ],
+    "paintNodes": [
+      {
+        "id": "fixture-source",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "OpenAI",
+        "hasChildren": false
+      },
+      {
+        "id": "fixture-source-anthropic",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Anthropic",
+        "hasChildren": false
+      },
+      {
+        "id": "fixture-source-google",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Google",
+        "hasChildren": false
+      },
+      {
+        "id": "fixture-source-xai",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "xAI",
+        "hasChildren": false
+      }
+    ],
+    "origin": {
+      "x": 0,
+      "y": 72
+    },
+    "presentation": {
+      "width": 640,
+      "height": 800,
+      "fixture": "agents-folded",
+      "nav": true,
+      "time": "08:00",
+      "date": "January 1 · Thu"
+    },
+    "fixture": {
+      "name": "portrait-topology-0",
+      "data": {
+        "theme": "light",
+        "language": "en",
+        "sourceProducts": [
+          "openai",
+          "anthropic",
+          "google",
+          "xai"
+        ],
+        "agents": [
+          "codex",
+          "claude",
+          "opencode"
+        ],
+        "quota": true,
+        "tasks": [],
+        "viewports": [
+          {
+            "width": 640,
+            "height": 800
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "workspace-fit",
+    "orientation": "landscape",
+    "solver": {
+      "scene": {
+        "vw": 1280,
+        "vh": 728,
+        "left": [
+          {
+            "id": "fixture-source",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          }
+        ],
+        "right": [
+          {
+            "id": "claude",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "codex",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          }
+        ]
+      },
+      "params": {
+        "margin": 40,
+        "squeezeMin": 0.72,
+        "ringScale": 1,
+        "earFollow": 0.7,
+        "earSep": 7,
+        "earMax": 42,
+        "earMin": 22,
+        "earPad": 7,
+        "t1Node": 0.42,
+        "t1Root": 0.3,
+        "flare": 1,
+        "arcGap": 11,
+        "arcFollow": 0.75,
+        "arcMax": 58,
+        "arcPad": 9,
+        "bubbleOffset": 104,
+        "t2Root": 0.34,
+        "t2End": 0.5,
+        "nodeSize": 42,
+        "colDist": 2.6,
+        "rowGap": 12,
+        "sourceRow": 78,
+        "idleRow": 78,
+        "idleIndent": 22,
+        "minIdleRow": 42,
+        "stiffness": 210,
+        "damping": 26
+      },
+      "hidden": {
+        "left": [],
+        "right": []
+      },
+      "expanded": []
+    },
+    "nodes": [
+      {
+        "id": "fixture-source",
+        "label": "Claude",
+        "brand": "claude",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "claude",
+        "label": "Claude Code",
+        "brand": "claude-code",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "codex",
+        "label": "Codex",
+        "brand": "codex",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [],
+        "readings": []
+      }
+    ],
+    "paintNodes": [
+      {
+        "id": "fixture-source",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude",
+        "hasChildren": false
+      },
+      {
+        "id": "claude",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude Code",
+        "hasChildren": false
+      },
+      {
+        "id": "codex",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Codex",
+        "hasChildren": false
+      }
+    ],
+    "origin": {
+      "x": 0,
+      "y": 72
+    },
+    "presentation": {
+      "width": 1280,
+      "height": 800,
+      "fixture": "workspace-fit",
+      "nav": true,
+      "time": "08:00",
+      "date": "January 1 · Thu"
+    },
+    "fixture": {
+      "name": "relay-hosting-light",
+      "data": {
+        "theme": "light",
+        "language": "en",
+        "agents": [
+          "claude",
+          "codex"
+        ],
+        "page": "relay-hosting",
+        "tasks": [],
+        "relayHosting": true
+      }
+    }
+  },
+  {
+    "name": "workspace-cap",
+    "orientation": "landscape",
+    "solver": {
+      "scene": {
+        "vw": 1280,
+        "vh": 728,
+        "left": [
+          {
+            "id": "fixture-source",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          }
+        ],
+        "right": [
+          {
+            "id": "claude",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "codex",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          }
+        ]
+      },
+      "params": {
+        "margin": 40,
+        "squeezeMin": 0.72,
+        "ringScale": 1,
+        "earFollow": 0.7,
+        "earSep": 7,
+        "earMax": 42,
+        "earMin": 22,
+        "earPad": 7,
+        "t1Node": 0.42,
+        "t1Root": 0.3,
+        "flare": 1,
+        "arcGap": 11,
+        "arcFollow": 0.75,
+        "arcMax": 58,
+        "arcPad": 9,
+        "bubbleOffset": 104,
+        "t2Root": 0.34,
+        "t2End": 0.5,
+        "nodeSize": 42,
+        "colDist": 2.6,
+        "rowGap": 12,
+        "sourceRow": 78,
+        "idleRow": 78,
+        "idleIndent": 22,
+        "minIdleRow": 42,
+        "stiffness": 210,
+        "damping": 26
+      },
+      "hidden": {
+        "left": [],
+        "right": []
+      },
+      "expanded": []
+    },
+    "nodes": [
+      {
+        "id": "fixture-source",
+        "label": "Claude",
+        "brand": "claude",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "claude",
+        "label": "Claude Code",
+        "brand": "claude-code",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "codex",
+        "label": "Codex",
+        "brand": "codex",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [],
+        "readings": []
+      }
+    ],
+    "paintNodes": [
+      {
+        "id": "fixture-source",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude",
+        "hasChildren": false
+      },
+      {
+        "id": "claude",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude Code",
+        "hasChildren": false
+      },
+      {
+        "id": "codex",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Codex",
+        "hasChildren": false
+      }
+    ],
+    "origin": {
+      "x": 0,
+      "y": 72
+    },
+    "presentation": {
+      "width": 1280,
+      "height": 800,
+      "fixture": "workspace-cap",
+      "nav": true,
+      "time": "08:00",
+      "date": "January 1 · Thu"
+    },
+    "fixture": {
+      "name": "settings-about-light",
+      "data": {
+        "theme": "light",
+        "language": "en",
+        "agents": [
+          "claude",
+          "codex"
+        ],
+        "page": "settings",
+        "tasks": []
+      }
+    }
+  },
+  {
+    "name": "node-panel",
+    "orientation": "landscape",
+    "solver": {
+      "scene": {
+        "vw": 1280,
+        "vh": 728,
+        "left": [
+          {
+            "id": "fixture-source",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          }
+        ],
+        "right": [
+          {
+            "id": "codex",
+            "extent": 48,
+            "collapsed": false,
+            "selected": true,
+            "attention": false,
+            "pinned": true,
+            "children": []
+          },
+          {
+            "id": "cursor",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "opencode",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          }
+        ]
+      },
+      "params": {
+        "margin": 40,
+        "squeezeMin": 0.72,
+        "ringScale": 1,
+        "earFollow": 0.7,
+        "earSep": 7,
+        "earMax": 42,
+        "earMin": 22,
+        "earPad": 7,
+        "t1Node": 0.42,
+        "t1Root": 0.3,
+        "flare": 1,
+        "arcGap": 11,
+        "arcFollow": 0.75,
+        "arcMax": 58,
+        "arcPad": 9,
+        "bubbleOffset": 104,
+        "t2Root": 0.34,
+        "t2End": 0.5,
+        "nodeSize": 42,
+        "colDist": 2.6,
+        "rowGap": 12,
+        "sourceRow": 78,
+        "idleRow": 78,
+        "idleIndent": 22,
+        "minIdleRow": 42,
+        "stiffness": 210,
+        "damping": 26
+      },
+      "hidden": {
+        "left": [],
+        "right": []
+      },
+      "expanded": []
+    },
+    "nodes": [
+      {
+        "id": "fixture-source",
+        "label": "Claude",
+        "brand": "claude",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "codex",
+        "label": "",
+        "brand": "codex",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": [
+          {
+            "value": 32,
+            "color": "var(--warning)",
+            "elapsed": 0.5714285714285714
+          }
+        ]
+      },
+      {
+        "id": "cursor",
+        "label": "Cursor Agent",
+        "brand": "cursor",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "opencode",
+        "label": "OpenCode",
+        "brand": "opencode",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [],
+        "readings": []
+      }
+    ],
+    "paintNodes": [
+      {
+        "id": "fixture-source",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude",
+        "hasChildren": false
+      },
+      {
+        "id": "codex",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": true,
+        "label": "Codex",
+        "hasChildren": false
+      },
+      {
+        "id": "cursor",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Cursor Agent",
+        "hasChildren": false
+      },
+      {
+        "id": "opencode",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "OpenCode",
+        "hasChildren": false
+      }
+    ],
+    "origin": {
+      "x": 0,
+      "y": 72
+    },
+    "presentation": {
+      "width": 1280,
+      "height": 800,
+      "fixture": "node-panel",
+      "nav": true,
+      "time": "08:00",
+      "date": "1月1日 · 周四",
+      "language": "zh-CN"
+    },
+    "fixture": {
+      "name": "agent-panel-short",
+      "data": {
+        "theme": "light",
+        "language": "zh-CN",
+        "timezone": "Asia/Shanghai",
+        "agents": [
+          "codex",
+          "cursor",
+          "opencode"
+        ],
+        "tasks": [],
+        "quota": true,
+        "panelHistory": true,
+        "historyRows": 1,
+        "panel": {
+          "kind": "agent",
+          "id": "codex"
+        },
+        "viewports": [
+          {
+            "width": 1280,
+            "height": 800
+          },
+          {
+            "width": 640,
+            "height": 800
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "portrait-workspace",
+    "orientation": "portrait",
+    "solver": {
+      "scene": {
+        "vw": 640,
+        "vh": 728,
+        "left": [
+          {
+            "id": "fixture-source",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          }
+        ],
+        "right": [
+          {
+            "id": "claude",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "codex",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          }
+        ]
+      },
+      "params": {
+        "margin": 40,
+        "squeezeMin": 0.72,
+        "ringScale": 1,
+        "earFollow": 0.7,
+        "earSep": 7,
+        "earMax": 42,
+        "earMin": 22,
+        "earPad": 7,
+        "t1Node": 0.42,
+        "t1Root": 0.3,
+        "flare": 1,
+        "arcGap": 11,
+        "arcFollow": 0.75,
+        "arcMax": 58,
+        "arcPad": 9,
+        "bubbleOffset": 104,
+        "t2Root": 0.34,
+        "t2End": 0.5,
+        "nodeSize": 42,
+        "colDist": 2.6,
+        "rowGap": 12,
+        "sourceRow": 78,
+        "idleRow": 78,
+        "idleIndent": 22,
+        "minIdleRow": 42,
+        "stiffness": 210,
+        "damping": 26
+      },
+      "hidden": {
+        "left": [],
+        "right": []
+      },
+      "expanded": []
+    },
+    "nodes": [
+      {
+        "id": "fixture-source",
+        "label": "Claude",
+        "brand": "claude",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "claude",
+        "label": "Claude Code",
+        "brand": "claude-code",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "codex",
+        "label": "Codex",
+        "brand": "codex",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      }
+    ],
+    "paintNodes": [
+      {
+        "id": "fixture-source",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude",
+        "hasChildren": false
+      },
+      {
+        "id": "claude",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude Code",
+        "hasChildren": false
+      },
+      {
+        "id": "codex",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Codex",
+        "hasChildren": false
+      }
+    ],
+    "origin": {
+      "x": 0,
+      "y": 72
+    },
+    "presentation": {
+      "width": 640,
+      "height": 800,
+      "fixture": "portrait-workspace",
+      "nav": true,
+      "time": "08:00",
+      "date": "January 1 · Thu"
+    },
+    "fixture": {
+      "name": "relay-hosting-light",
+      "data": {
+        "theme": "light",
+        "language": "en",
+        "agents": [
+          "claude",
+          "codex"
+        ],
+        "page": "relay-hosting",
+        "tasks": [],
+        "relayHosting": true
+      }
+    }
+  },
+  {
+    "name": "device-landscape",
+    "orientation": "landscape",
+    "solver": {
+      "scene": {
+        "vw": 1280,
+        "vh": 728,
+        "left": [
+          {
+            "id": "platform:anthropic",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": [
+              {
+                "id": "portrait-source-anthropic-0",
+                "extent": 104,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "portrait-source-anthropic-1",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "platform:xai",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": [
+              {
+                "id": "portrait-source-xai-0",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "portrait-source-xai-1",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "platform:openai",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": [
+              {
+                "id": "portrait-source-openai-0",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "portrait-source-openai-1",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              }
+            ]
+          }
+        ],
+        "right": [
+          {
+            "id": "codex",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": [
+              {
+                "id": "[\"account\",\"codex\",\"portrait-openai-0\"]",
+                "extent": 76,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "[\"account\",\"codex\",\"portrait-openai-1\"]",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "claude",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": [
+              {
+                "id": "[\"account\",\"claude\",\"portrait-anthropic-0\"]",
+                "extent": 76,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "[\"account\",\"claude\",\"portrait-anthropic-1\"]",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "dsh",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "opencode",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "device:c34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34d",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          }
+        ]
+      },
+      "params": {
+        "margin": 40,
+        "squeezeMin": 0.72,
+        "ringScale": 1,
+        "earFollow": 0.7,
+        "earSep": 7,
+        "earMax": 42,
+        "earMin": 22,
+        "earPad": 7,
+        "t1Node": 0.42,
+        "t1Root": 0.3,
+        "flare": 1,
+        "arcGap": 11,
+        "arcFollow": 0.75,
+        "arcMax": 58,
+        "arcPad": 9,
+        "bubbleOffset": 104,
+        "t2Root": 0.34,
+        "t2End": 0.5,
+        "nodeSize": 42,
+        "colDist": 2.6,
+        "rowGap": 12,
+        "sourceRow": 78,
+        "idleRow": 78,
+        "idleIndent": 22,
+        "minIdleRow": 42,
+        "stiffness": 210,
+        "damping": 26
+      },
+      "hidden": {
+        "left": [],
+        "right": [
+          "[\"account\",\"claude\",\"portrait-anthropic-1\"]",
+          "[\"account\",\"claude\",\"portrait-anthropic-0\"]"
+        ]
+      },
+      "expanded": []
+    },
+    "nodes": [
+      {
+        "id": "platform:anthropic",
+        "label": "Anthropic",
+        "brand": "anthropic",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "portrait-source-anthropic-0",
+        "label": "Personal",
+        "brand": "anthropic",
+        "wing": "left",
+        "capsule": true,
+        "width": 104,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [
+          {
+            "kind": "step",
+            "phase": "command"
+          },
+          {
+            "kind": "step",
+            "phase": "command"
+          }
+        ],
+        "readings": []
+      },
+      {
+        "id": "portrait-source-anthropic-1",
+        "label": "Review",
+        "brand": "anthropic",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "platform:xai",
+        "label": "xAI",
+        "brand": "xai",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "portrait-source-xai-0",
+        "label": "Personal",
+        "brand": "xai",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "portrait-source-xai-1",
+        "label": "Work",
+        "brand": "xai",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "platform:openai",
+        "label": "OpenAI",
+        "brand": "openai",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "portrait-source-openai-0",
+        "label": "Pro",
+        "brand": "openai",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "portrait-source-openai-1",
+        "label": "Studio",
+        "brand": "openai",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "codex",
+        "label": "Codex",
+        "brand": "codex",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "[\"account\",\"codex\",\"portrait-openai-0\"]",
+        "label": "Pro",
+        "brand": "codex",
+        "wing": "right",
+        "capsule": true,
+        "width": 76,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [
+          {
+            "kind": "step",
+            "phase": "command"
+          }
+        ],
+        "readings": []
+      },
+      {
+        "id": "[\"account\",\"codex\",\"portrait-openai-1\"]",
+        "label": "Studio",
+        "brand": "codex",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "claude",
+        "label": "Claude Code",
+        "brand": "claude-code",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.004974365234375
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "[\"group\",1,\"claude\"]",
+        "label": "2 idle accounts",
+        "wing": "right",
+        "capsule": false,
+        "width": 48,
+        "group": {
+          "count": 2,
+          "layout": "vertical"
+        },
+        "labelBox": {
+          "x": -2,
+          "y": 46,
+          "width": 91.890625,
+          "height": 20
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "dsh",
+        "label": "DeepSeek Harness",
+        "brand": "deepseek",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "opencode",
+        "label": "OpenCode",
+        "brand": "opencode",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 48.36114501953125,
+          "width": 105,
+          "height": 14.00494384765625
+        },
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "device:c34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34d",
+        "label": "MacBook · Codex\nLAN · 39 ms",
+        "brand": "codex",
+        "device": true,
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "labelBox": {
+          "x": -31.5,
+          "y": 41.358642578125,
+          "width": 105,
+          "height": 28.00994873046875
+        },
+        "items": [],
+        "readings": []
+      }
+    ],
+    "paintNodes": [
+      {
+        "id": "platform:anthropic",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Anthropic",
+        "hasChildren": true
+      },
+      {
+        "id": "portrait-source-anthropic-0",
+        "side": -1,
+        "parent": "platform:anthropic",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Personal",
+        "hasChildren": false
+      },
+      {
+        "id": "portrait-source-anthropic-1",
+        "side": -1,
+        "parent": "platform:anthropic",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Review",
+        "hasChildren": false
+      },
+      {
+        "id": "platform:xai",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "xAI",
+        "hasChildren": true
+      },
+      {
+        "id": "portrait-source-xai-0",
+        "side": -1,
+        "parent": "platform:xai",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Personal",
+        "hasChildren": false
+      },
+      {
+        "id": "portrait-source-xai-1",
+        "side": -1,
+        "parent": "platform:xai",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Work",
+        "hasChildren": false
+      },
+      {
+        "id": "platform:openai",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "OpenAI",
+        "hasChildren": true
+      },
+      {
+        "id": "portrait-source-openai-0",
+        "side": -1,
+        "parent": "platform:openai",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Pro",
+        "hasChildren": false
+      },
+      {
+        "id": "portrait-source-openai-1",
+        "side": -1,
+        "parent": "platform:openai",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Studio",
+        "hasChildren": false
+      },
+      {
+        "id": "codex",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Codex",
+        "hasChildren": true
+      },
+      {
+        "id": "[\"account\",\"codex\",\"portrait-openai-0\"]",
+        "side": 1,
+        "parent": "codex",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Pro",
+        "hasChildren": false
+      },
+      {
+        "id": "[\"account\",\"codex\",\"portrait-openai-1\"]",
+        "side": 1,
+        "parent": "codex",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Studio",
+        "hasChildren": false
+      },
+      {
+        "id": "claude",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude Code",
+        "hasChildren": true
+      },
+      {
+        "id": "[\"group\",1,\"claude\"]",
+        "side": 1,
+        "parent": "claude",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "2 idle accounts"
+      },
+      {
+        "id": "dsh",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "DeepSeek Harness",
+        "hasChildren": false
+      },
+      {
+        "id": "opencode",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "OpenCode",
+        "hasChildren": false
+      },
+      {
+        "id": "device:c34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34d",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "MacBook · Codex",
+        "hasChildren": false
+      }
+    ],
+    "origin": {
+      "x": 0,
+      "y": 72
+    },
+    "presentation": {
+      "width": 1280,
+      "height": 800,
+      "fixture": "device-landscape",
+      "nav": true,
+      "time": "08:00",
+      "date": "January 1 · Thu"
+    },
+    "fixture": {
+      "name": "homepage-modes-portrait-device",
+      "data": {
+        "theme": "dark",
+        "language": "en",
+        "clock": "2026-01-01T00:00:00Z",
+        "agents": [
+          "codex",
+          "claude",
+          "dsh",
+          "opencode"
+        ],
+        "maxVisibleAgents": 4,
+        "topologyAccounts": "device-portrait",
+        "homepage": {
+          "mode": "topology",
+          "check": "portrait-device",
+          "remoteTaskCount": 1
+        },
+        "viewports": [
+          {
+            "width": 800,
+            "height": 1250
+          },
+          {
+            "width": 1280,
+            "height": 800
+          }
+        ],
+        "tasks": [
+          {
+            "agent": "codex",
+            "phase": "thinking",
+            "title": "Inspect local configuration",
+            "headline": "Review current settings"
+          },
+          {
+            "agent": "claude",
+            "phase": "file",
+            "title": "Review local changes",
+            "headline": "src/settings.ts"
+          }
+        ],
+        "deviceLink": {
+          "state": "controller",
+          "enabled": true,
+          "snapshot": {
+            "deviceId": "b10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10c",
+            "name": "Example controller",
+            "controller": null,
+            "members": [
+              {
+                "deviceId": "c34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34d",
+                "name": "MacBook",
+                "addresses": [
+                  "cedar.example.test:7143"
+                ],
+                "tunnelUrl": null,
+                "addressOverride": null
+              }
+            ],
+            "pending": null,
+            "offerExpiresInSeconds": null,
+            "devices": [
+              {
+                "id": "c34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34d",
+                "platform": "darwin",
+                "arch": "arm64",
+                "arcVersion": "fixture",
+                "state": "online",
+                "path": "lan",
+                "latency": 39,
+                "lastSeen": "2026-01-01T00:00:00Z",
+                "capabilities": null
+              }
+            ]
+          },
+          "taskSnapshots": {
+            "c34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34d": {
+              "observedAt": "2026-01-01T00:00:00Z",
+              "activeAgents": [],
+              "agents": {},
+              "availableAgents": [
+                {
+                  "agent": "codex",
+                  "displayName": "Codex",
+                  "installed": true,
+                  "enabled": true,
+                  "available": true
+                }
+              ],
+              "records": [
+                {
+                  "agent": "codex",
+                  "taskId": "remote-unknown",
+                  "requestId": "fixture-remote-request",
+                  "state": "completed",
+                  "createdAt": "2026-01-01T00:00:00Z",
+                  "updatedAt": "2026-01-01T00:00:00Z",
+                  "approval": {
+                    "decision": "automatic",
+                    "source": "peer",
+                    "at": "2026-01-01T00:00:00Z"
+                  },
+                  "task": {
+                    "kind": "create",
+                    "title": "Recorded remote dispatch",
+                    "prompt": "Inspect the workspace"
+                  }
+                }
+              ],
+              "omittedRecords": 0
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "name": "device-portrait",
+    "orientation": "portrait",
+    "solver": {
+      "scene": {
+        "vw": 800,
+        "vh": 1178,
+        "left": [
+          {
+            "id": "platform:anthropic",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": [
+              {
+                "id": "portrait-source-anthropic-0",
+                "extent": 104,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "portrait-source-anthropic-1",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "platform:xai",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": [
+              {
+                "id": "portrait-source-xai-0",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "portrait-source-xai-1",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "platform:openai",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": [
+              {
+                "id": "portrait-source-openai-0",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "portrait-source-openai-1",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              }
+            ]
+          }
+        ],
+        "right": [
+          {
+            "id": "codex",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": [
+              {
+                "id": "[\"account\",\"codex\",\"portrait-openai-0\"]",
+                "extent": 76,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "[\"account\",\"codex\",\"portrait-openai-1\"]",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "claude",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": [
+              {
+                "id": "[\"account\",\"claude\",\"portrait-anthropic-0\"]",
+                "extent": 76,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              },
+              {
+                "id": "[\"account\",\"claude\",\"portrait-anthropic-1\"]",
+                "extent": 48,
+                "collapsed": false,
+                "selected": false,
+                "attention": false,
+                "pinned": false,
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "dsh",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "opencode",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          },
+          {
+            "id": "device:c34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34d",
+            "extent": 48,
+            "collapsed": false,
+            "selected": false,
+            "attention": false,
+            "pinned": false,
+            "children": []
+          }
+        ]
+      },
+      "params": {
+        "margin": 40,
+        "squeezeMin": 0.72,
+        "ringScale": 1,
+        "earFollow": 0.7,
+        "earSep": 7,
+        "earMax": 42,
+        "earMin": 22,
+        "earPad": 7,
+        "t1Node": 0.42,
+        "t1Root": 0.3,
+        "flare": 1,
+        "arcGap": 11,
+        "arcFollow": 0.75,
+        "arcMax": 58,
+        "arcPad": 9,
+        "bubbleOffset": 104,
+        "t2Root": 0.34,
+        "t2End": 0.5,
+        "nodeSize": 42,
+        "colDist": 2.6,
+        "rowGap": 12,
+        "sourceRow": 78,
+        "idleRow": 78,
+        "idleIndent": 22,
+        "minIdleRow": 42,
+        "stiffness": 210,
+        "damping": 26
+      },
+      "hidden": {
+        "left": [],
+        "right": []
+      },
+      "expanded": []
+    },
+    "nodes": [
+      {
+        "id": "platform:anthropic",
+        "label": "Anthropic",
+        "brand": "anthropic",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "portrait-source-anthropic-0",
+        "label": "Personal",
+        "brand": "anthropic",
+        "wing": "left",
+        "capsule": true,
+        "width": 104,
+        "items": [
+          {
+            "kind": "step",
+            "phase": "command"
+          },
+          {
+            "kind": "step",
+            "phase": "command"
+          }
+        ],
+        "readings": []
+      },
+      {
+        "id": "portrait-source-anthropic-1",
+        "label": "Review",
+        "brand": "anthropic",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "platform:xai",
+        "label": "xAI",
+        "brand": "xai",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "portrait-source-xai-0",
+        "label": "Personal",
+        "brand": "xai",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "portrait-source-xai-1",
+        "label": "Work",
+        "brand": "xai",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "platform:openai",
+        "label": "OpenAI",
+        "brand": "openai",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "portrait-source-openai-0",
+        "label": "Pro",
+        "brand": "openai",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "portrait-source-openai-1",
+        "label": "Studio",
+        "brand": "openai",
+        "wing": "left",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "codex",
+        "label": "Codex",
+        "brand": "codex",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "[\"account\",\"codex\",\"portrait-openai-0\"]",
+        "label": "Pro",
+        "brand": "codex",
+        "wing": "right",
+        "capsule": true,
+        "width": 76,
+        "items": [
+          {
+            "kind": "step",
+            "phase": "command"
+          }
+        ],
+        "readings": []
+      },
+      {
+        "id": "[\"account\",\"codex\",\"portrait-openai-1\"]",
+        "label": "Studio",
+        "brand": "codex",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "claude",
+        "label": "Claude Code",
+        "brand": "claude-code",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "[\"account\",\"claude\",\"portrait-anthropic-0\"]",
+        "label": "Personal",
+        "brand": "claude-code",
+        "wing": "right",
+        "capsule": true,
+        "width": 76,
+        "items": [
+          {
+            "kind": "step",
+            "phase": "command"
+          }
+        ],
+        "readings": []
+      },
+      {
+        "id": "[\"account\",\"claude\",\"portrait-anthropic-1\"]",
+        "label": "Review",
+        "brand": "claude-code",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "dsh",
+        "label": "DeepSeek Harness",
+        "brand": "deepseek",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "opencode",
+        "label": "OpenCode",
+        "brand": "opencode",
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      },
+      {
+        "id": "device:c34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34d",
+        "label": "MacBook · Codex\nLAN · 39 ms",
+        "brand": "codex",
+        "device": true,
+        "wing": "right",
+        "capsule": true,
+        "width": 48,
+        "items": [],
+        "readings": []
+      }
+    ],
+    "paintNodes": [
+      {
+        "id": "platform:anthropic",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Anthropic",
+        "hasChildren": true
+      },
+      {
+        "id": "portrait-source-anthropic-0",
+        "side": -1,
+        "parent": "platform:anthropic",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Personal",
+        "hasChildren": false
+      },
+      {
+        "id": "portrait-source-anthropic-1",
+        "side": -1,
+        "parent": "platform:anthropic",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Review",
+        "hasChildren": false
+      },
+      {
+        "id": "platform:xai",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "xAI",
+        "hasChildren": true
+      },
+      {
+        "id": "portrait-source-xai-0",
+        "side": -1,
+        "parent": "platform:xai",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Personal",
+        "hasChildren": false
+      },
+      {
+        "id": "portrait-source-xai-1",
+        "side": -1,
+        "parent": "platform:xai",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Work",
+        "hasChildren": false
+      },
+      {
+        "id": "platform:openai",
+        "side": -1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "OpenAI",
+        "hasChildren": true
+      },
+      {
+        "id": "portrait-source-openai-0",
+        "side": -1,
+        "parent": "platform:openai",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Pro",
+        "hasChildren": false
+      },
+      {
+        "id": "portrait-source-openai-1",
+        "side": -1,
+        "parent": "platform:openai",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Studio",
+        "hasChildren": false
+      },
+      {
+        "id": "codex",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Codex",
+        "hasChildren": true
+      },
+      {
+        "id": "[\"account\",\"codex\",\"portrait-openai-0\"]",
+        "side": 1,
+        "parent": "codex",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Pro",
+        "hasChildren": false
+      },
+      {
+        "id": "[\"account\",\"codex\",\"portrait-openai-1\"]",
+        "side": 1,
+        "parent": "codex",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Studio",
+        "hasChildren": false
+      },
+      {
+        "id": "claude",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Claude Code",
+        "hasChildren": true
+      },
+      {
+        "id": "[\"account\",\"claude\",\"portrait-anthropic-0\"]",
+        "side": 1,
+        "parent": "claude",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Personal",
+        "hasChildren": false
+      },
+      {
+        "id": "[\"account\",\"claude\",\"portrait-anthropic-1\"]",
+        "side": 1,
+        "parent": "claude",
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "Review",
+        "hasChildren": false
+      },
+      {
+        "id": "dsh",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "DeepSeek Harness",
+        "hasChildren": false
+      },
+      {
+        "id": "opencode",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "OpenCode",
+        "hasChildren": false
+      },
+      {
+        "id": "device:c34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34d",
+        "side": 1,
+        "state": "normal",
+        "attention": false,
+        "selected": false,
+        "label": "MacBook · Codex",
+        "hasChildren": false
+      }
+    ],
+    "origin": {
+      "x": 0,
+      "y": 72
+    },
+    "presentation": {
+      "width": 800,
+      "height": 1250,
+      "fixture": "device-portrait",
+      "nav": true,
+      "time": "08:00",
+      "date": "January 1 · Thu"
+    },
+    "fixture": {
+      "name": "homepage-modes-portrait-device",
+      "data": {
+        "theme": "dark",
+        "language": "en",
+        "clock": "2026-01-01T00:00:00Z",
+        "agents": [
+          "codex",
+          "claude",
+          "dsh",
+          "opencode"
+        ],
+        "maxVisibleAgents": 4,
+        "topologyAccounts": "device-portrait",
+        "homepage": {
+          "mode": "topology",
+          "check": "portrait-device",
+          "remoteTaskCount": 1
+        },
+        "viewports": [
+          {
+            "width": 800,
+            "height": 1250
+          },
+          {
+            "width": 1280,
+            "height": 800
+          }
+        ],
+        "tasks": [
+          {
+            "agent": "codex",
+            "phase": "thinking",
+            "title": "Inspect local configuration",
+            "headline": "Review current settings"
+          },
+          {
+            "agent": "claude",
+            "phase": "file",
+            "title": "Review local changes",
+            "headline": "src/settings.ts"
+          }
+        ],
+        "deviceLink": {
+          "state": "controller",
+          "enabled": true,
+          "snapshot": {
+            "deviceId": "b10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10c",
+            "name": "Example controller",
+            "controller": null,
+            "members": [
+              {
+                "deviceId": "c34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34d",
+                "name": "MacBook",
+                "addresses": [
+                  "cedar.example.test:7143"
+                ],
+                "tunnelUrl": null,
+                "addressOverride": null
+              }
+            ],
+            "pending": null,
+            "offerExpiresInSeconds": null,
+            "devices": [
+              {
+                "id": "c34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34d",
+                "platform": "darwin",
+                "arch": "arm64",
+                "arcVersion": "fixture",
+                "state": "online",
+                "path": "lan",
+                "latency": 39,
+                "lastSeen": "2026-01-01T00:00:00Z",
+                "capabilities": null
+              }
+            ]
+          },
+          "taskSnapshots": {
+            "c34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34dc34d": {
+              "observedAt": "2026-01-01T00:00:00Z",
+              "activeAgents": [],
+              "agents": {},
+              "availableAgents": [
+                {
+                  "agent": "codex",
+                  "displayName": "Codex",
+                  "installed": true,
+                  "enabled": true,
+                  "available": true
+                }
+              ],
+              "records": [
+                {
+                  "agent": "codex",
+                  "taskId": "remote-unknown",
+                  "requestId": "fixture-remote-request",
+                  "state": "completed",
+                  "createdAt": "2026-01-01T00:00:00Z",
+                  "updatedAt": "2026-01-01T00:00:00Z",
+                  "approval": {
+                    "decision": "automatic",
+                    "source": "peer",
+                    "at": "2026-01-01T00:00:00Z"
+                  },
+                  "task": {
+                    "kind": "create",
+                    "title": "Recorded remote dispatch",
+                    "prompt": "Inspect the workspace"
+                  }
+                }
+              ],
+              "omittedRecords": 0
+            }
+          }
+        }
+      }
+    }
+  }
+]

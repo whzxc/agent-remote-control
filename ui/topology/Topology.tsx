@@ -41,6 +41,12 @@ export interface NodeView extends Omit<PaintNode, "side"> { content: ReactNode; 
 }
 export interface TopologyHandle { memberLayerPointer: (event: Event) => void; panelFrame: (rect: SurfaceRect | null) => void }
 
+function solverEntities(nodes: NodeView[]): object[] {
+  return nodes.map(({ id, extent, collapsed, selected, attention, pinned, children }) => ({
+    id, extent, collapsed, selected, attention, pinned, children: solverEntities(children ?? []),
+  }));
+}
+
 const noTasks: HomepageTask[] = [];
 export default function Topology({ left: localLeft, right: localRight, tasks = noTasks, accountsEnabled = false, brand, boundary, panelKey, panelExpanded = false, onCollapseSide, onMarkRead, onReorderNodes, ref }: {
   left: NodeView[]; right: NodeView[]; tasks?: HomepageTask[]; accountsEnabled?: boolean; brand: ReactNode;
@@ -241,6 +247,10 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
     interaction: { hover: latest.current.hover, focus: latest.current.focus, revealed: latest.current.revealed },
     groups: latest.current.groups.map(group => ({ ...group, folded: !latest.current.expandedGroups.has(group.id), position: animator.current.values(nodeKey(group.side, group.id)) })),
     nodes: latest.current.nodes.map(({ content: _content, icon: _icon, children: _children, capsuleMark: _capsuleMark, ...node }) => ({ ...node, position: animator.current.values(nodeKey(node.side, node.id)) })),
+    solver: { scene: { ...size.current,
+      left: solverEntities(latest.current.left), right: solverEntities(latest.current.right) }, params: latest.current.params,
+      hidden: { left: [...latest.current.compacted.left], right: [...latest.current.compacted.right] },
+      expanded: [...latest.current.expandedGroups] },
     primitives: Object.fromEntries([...animator.current.live.keys()].map(key => [key, animator.current.values(key)])),
     paths: [...((orientation.current === "portrait" ? portraitSvg.current : svg.current)?.querySelectorAll("path") ?? [])].map(path => ({ d: path.getAttribute("d"), class: path.getAttribute("class"), opacity: path.getAttribute("opacity"), mask: path.getAttribute("mask") })),
   })), []);

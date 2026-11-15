@@ -42,7 +42,8 @@
     "agent-scenarios": "node tooling/agent-scenarios.mjs",
     "agent-scenarios:capture": "node tooling/agent-scenarios.mjs capture",
     "agent-scenarios:check": "node tooling/agent-scenarios.mjs check",
-    "agent-scenarios:approve": "node tooling/agent-scenarios.mjs approve"
+    "agent-scenarios:approve": "node tooling/agent-scenarios.mjs approve",
+    "design:topology": "node tooling/design-topology.mjs"
   },
   "devDependencies": {
     "@ast-grep/lang-rust": ">=0.0.7 <1",
