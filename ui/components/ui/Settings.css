@@ -24,3 +24,4 @@
 .setting-line-copy > label { font-size:var(--text-body); font-weight:500; line-height:16px; }
 .setting-line-copy > p { margin:0; font-size:var(--text-meta); line-height:18px; color:var(--text-secondary); }
 .setting-line > :last-child { flex-shrink:0; }
+.settings-row-hover:not(:last-child) { border-bottom: 1px solid var(--border); }

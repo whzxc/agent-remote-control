@@ -591,3 +591,45 @@ textarea.input.mono { font-family: var(--font-mono); font-size: var(--text-small
 .tag[data-form="workflow-status"][data-tone="warning"] { color: var(--warning); background: color-mix(in srgb, var(--warning) 10%, transparent); }
 .tag[data-form="workflow-status"][data-tone="command"] { color: var(--phase-command); background: color-mix(in srgb, var(--phase-command) 10%, transparent); }
 .tag[data-form="workflow-status"][data-tone="success"] { color: var(--success); background: color-mix(in srgb, var(--success) 10%, transparent); }
+html {
+  font-size: 16px;
+  background: var(--canvas);
+  color: var(--text);
+}
+body {
+  font: 400 var(--text-body)/1.5 var(--font-ui);
+}
+button,
+input,
+textarea {
+  font: inherit;
+}
+button {
+  color: inherit;
+}
+a {
+  color: var(--accent);
+}
+h1 {
+  font-size: var(--text-display);
+  font-weight: 500;
+  line-height: 1.25;
+}
+h2 {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+h3 {
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+pre,
+code {
+  font-family: var(--font-mono);
+}
+.status.neutral {
+  background: color-mix(in srgb, var(--tone) 12%, transparent);
+}
+.connection-core button {
+  color: inherit;
+}

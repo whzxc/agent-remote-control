@@ -30,30 +30,6 @@
     "reason": "Account credential import content retained by AgentAccountAdd."
   },
   {
-    "file": "ui/components/HomepageTasks.css",
-    "selector": ".homepage-tasks-empty",
-    "property": "color",
-    "reason": "Task date sections and filtered feed presentation retained by HomepageTasks."
-  },
-  {
-    "file": "ui/components/ModelEffortPicker.css",
-    "selector": ".spec-picker-effort > strong",
-    "property": "font-size",
-    "reason": "Compound model picker composition and effort preview retained by ModelEffortPicker."
-  },
-  {
-    "file": "ui/components/ModelEffortPicker.css",
-    "selector": ".spec-picker-effort > strong",
-    "property": "line-height",
-    "reason": "Compound model picker composition and effort preview retained by ModelEffortPicker."
-  },
-  {
-    "file": "ui/components/ModelEffortPicker.css",
-    "selector": ".spec-picker-effort > strong",
-    "property": "font-weight",
-    "reason": "Compound model picker composition and effort preview retained by ModelEffortPicker."
-  },
-  {
     "file": "ui/display/studio.css",
     "selector": ".studio-backdrop",
     "property": "background",
@@ -601,18 +577,6 @@
   },
   {
     "file": "ui/product.css",
-    "selector": ".source-icon b",
-    "property": "font-family",
-    "reason": "Feature-owned content semantics for .source-icon b; no shared control is restyled."
-  },
-  {
-    "file": "ui/product.css",
-    "selector": ".source-icon b",
-    "property": "font-size",
-    "reason": "Feature-owned content semantics for .source-icon b; no shared control is restyled."
-  },
-  {
-    "file": "ui/product.css",
     "selector": ".graph-error",
     "property": "color",
     "reason": "Free-form topology canvas geometry and semantic connection paint."
@@ -645,12 +609,6 @@
     "file": "ui/product.css",
     "selector": ".capsule-icons",
     "property": "border-radius",
-    "reason": "Free-form homepage canvas or navigation silhouette; its geometry is not a shared control."
-  },
-  {
-    "file": "ui/product.css",
-    "selector": ".connection-core button",
-    "property": "color",
     "reason": "Free-form homepage canvas or navigation silhouette; its geometry is not a shared control."
   },
   {
@@ -961,12 +919,6 @@
   },
   {
     "file": "ui/product.css",
-    "selector": ".hosted-relay + .hosted-relay",
-    "property": "border-top",
-    "reason": "Feature-owned content semantics for .hosted-relay + .hosted-relay; no shared control is restyled."
-  },
-  {
-    "file": "ui/product.css",
     "selector": ".setup-return, .setup-context",
     "property": "color",
     "reason": "Onboarding flow content and progress illustration; shared fields and actions retain their own styles."
@@ -1225,12 +1177,6 @@
   },
   {
     "file": "ui/product.css",
-    "selector": ".tool-policy-summary > span",
-    "property": "font-size",
-    "reason": "Feature-owned content semantics for .tool-policy-summary > span; no shared control is restyled."
-  },
-  {
-    "file": "ui/product.css",
     "selector": ".welcome-page",
     "property": "border-radius",
     "reason": "Onboarding flow content and progress illustration; shared fields and actions retain their own styles."
@@ -1258,12 +1204,6 @@
     "selector": ".welcome-readiness > .status",
     "property": "font-size",
     "reason": "Onboarding flow content and progress illustration; shared fields and actions retain their own styles."
-  },
-  {
-    "file": "ui/product.css",
-    "selector": ".hosting-empty-group h2",
-    "property": "font-weight",
-    "reason": "Feature-owned content semantics for .hosting-empty-group h2; no shared control is restyled."
   },
   {
     "file": "ui/product.css",
@@ -1342,144 +1282,6 @@
     "selector": ".hub-recovery-impact",
     "property": "font-size",
     "reason": "Free-form homepage canvas or navigation silhouette; its geometry is not a shared control."
-  },
-  {
-    "file": "ui/product.css",
-    "selector": ".hosting-empty-copy > h2, .hosting-empty-copy > p",
-    "property": "line-height",
-    "reason": "Feature-owned content semantics for .hosting-empty-copy > h2, .hosting-empty-copy > p; no shared control is restyled."
-  },
-  {
-    "file": "ui/style.css",
-    "selector": "html",
-    "property": "font-size",
-    "reason": "Application document typography and native element reset; shared control rules remain in controls.css."
-  },
-  {
-    "file": "ui/style.css",
-    "selector": "html",
-    "property": "background",
-    "reason": "Application document typography and native element reset; shared control rules remain in controls.css."
-  },
-  {
-    "file": "ui/style.css",
-    "selector": "html",
-    "property": "color",
-    "reason": "Application document typography and native element reset; shared control rules remain in controls.css."
-  },
-  {
-    "file": "ui/style.css",
-    "selector": "body",
-    "property": "font",
-    "reason": "Application document typography and native element reset; shared control rules remain in controls.css."
-  },
-  {
-    "file": "ui/style.css",
-    "selector": "button,\ninput,\ntextarea",
-    "property": "font",
-    "reason": "Application document typography and native element reset; shared control rules remain in controls.css."
-  },
-  {
-    "file": "ui/style.css",
-    "selector": "button",
-    "property": "color",
-    "reason": "Application document typography and native element reset; shared control rules remain in controls.css."
-  },
-  {
-    "file": "ui/style.css",
-    "selector": "a",
-    "property": "color",
-    "reason": "Application document typography and native element reset; shared control rules remain in controls.css."
-  },
-  {
-    "file": "ui/style.css",
-    "selector": "h1",
-    "property": "font-size",
-    "reason": "Application document typography and native element reset; shared control rules remain in controls.css."
-  },
-  {
-    "file": "ui/style.css",
-    "selector": "h1",
-    "property": "font-weight",
-    "reason": "Application document typography and native element reset; shared control rules remain in controls.css."
-  },
-  {
-    "file": "ui/style.css",
-    "selector": "h1",
-    "property": "line-height",
-    "reason": "Application document typography and native element reset; shared control rules remain in controls.css."
-  },
-  {
-    "file": "ui/style.css",
-    "selector": "h2",
-    "property": "font-size",
-    "reason": "Application document typography and native element reset; shared control rules remain in controls.css."
-  },
-  {
-    "file": "ui/style.css",
-    "selector": "h2",
-    "property": "font-weight",
-    "reason": "Application document typography and native element reset; shared control rules remain in controls.css."
-  },
-  {
-    "file": "ui/style.css",
-    "selector": "h3",
-    "property": "font-size",
-    "reason": "Application document typography and native element reset; shared control rules remain in controls.css."
-  },
-  {
-    "file": "ui/style.css",
-    "selector": "h3",
-    "property": "font-weight",
-    "reason": "Application document typography and native element reset; shared control rules remain in controls.css."
-  },
-  {
-    "file": "ui/style.css",
-    "selector": "pre,\ncode",
-    "property": "font-family",
-    "reason": "Application document typography and native element reset; shared control rules remain in controls.css."
-  },
-  {
-    "file": "ui/style.css",
-    "selector": ".status.neutral",
-    "property": "background",
-    "reason": "Feature-owned content semantics for .status.neutral; no shared control is restyled."
-  },
-  {
-    "file": "ui/style.css",
-    "selector": ".settings-row-hover:not(:last-child)",
-    "property": "border-bottom",
-    "reason": "Feature-owned content semantics for .settings-row-hover:not(:last-child); no shared control is restyled."
-  },
-  {
-    "file": "ui/style.css",
-    "selector": ".tool-name",
-    "property": "font-family",
-    "reason": "Tool identifier prose uses the monospace content font."
-  },
-  {
-    "file": "ui/style.css",
-    "selector": ".tool-name",
-    "property": "font-size",
-    "reason": "Tool identifier prose uses the monospace content font."
-  },
-  {
-    "file": "ui/style.css",
-    "selector": ".release-notes",
-    "property": "line-height",
-    "reason": "Published release-note prose typography; this is content rather than a shared control."
-  },
-  {
-    "file": "ui/style.css",
-    "selector": ".release-notes",
-    "property": "font-family",
-    "reason": "Published release-note prose typography; this is content rather than a shared control."
-  },
-  {
-    "file": "ui/style.css",
-    "selector": ".release-notes",
-    "property": "font-size",
-    "reason": "Published release-note prose typography; this is content rather than a shared control."
   },
   {
     "file": "ui/style.css",

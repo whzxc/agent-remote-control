@@ -1,3 +1,6 @@
+@import "./components/ui/UpdateContent.css";
+@import "./components/ui/ServiceInventory.css";
+@import "./components/ui/Settings.css";
 @import "./components/ui/EntityInventory.css";
 @import "./components/ui/style-HoverScope.css";
 @import "./components/ui/style-Settings.css";
@@ -8,19 +11,8 @@
 * {
   box-sizing: border-box;
 }
-html {
-  font-size: 16px;
-  background: var(--canvas);
-  color: var(--text);
-}
 body {
   margin: 0;
-  font: 400 var(--text-body)/1.5 var(--font-ui);
-}
-button,
-input,
-textarea {
-  font: inherit;
 }
 button,
 a,
@@ -28,11 +20,7 @@ input,
 [tabindex] {
   -webkit-tap-highlight-color: transparent;
 }
-button {
-  color: inherit;
-}
 a {
-  color: var(--accent);
   text-underline-offset: 3px;
 }
 /* All renderer windows share the same outline-free interaction styling. */
@@ -52,23 +40,6 @@ h3,
 p {
   margin: 0;
 }
-h1 {
-  font-size: var(--text-display);
-  font-weight: 500;
-  line-height: 1.25;
-}
-h2 {
-  font-size: var(--text-lg);
-  font-weight: 600;
-}
-h3 {
-  font-size: var(--text-body);
-  font-weight: 600;
-}
-pre,
-code {
-  font-family: var(--font-mono);
-}
 pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -77,9 +48,6 @@ pre {
 .prompt-action-below > p:first-child { margin: 0; }
 .spacer {
   flex: 1;
-}
-.status.neutral {
-  background: color-mix(in srgb, var(--tone) 12%, transparent);
 }
 .status.running {
   --tone: var(--accent-text);
@@ -106,7 +74,6 @@ pre {
 .settings-row-navigation > .icon { flex-shrink: 0; }
 .settings-row-navigation .row-title,
 .settings-row-navigation .row-description { display: block; }
-.settings-row-hover:not(:last-child) { border-bottom: 1px solid var(--border); }
 .row-control {
   max-width: 58%;
   min-width: 0;
@@ -199,8 +166,6 @@ pre {
   margin: 8px 0 0 12px;
 }
 .tool-name {
-  font-family: var(--font-mono);
-  font-size: var(--text-meta);
   overflow-wrap: anywhere;
 }
 .settings-page {
@@ -209,9 +174,6 @@ pre {
 }
 .release-notes {
   margin: 16px 0;
-  line-height: 1.7;
-  font-family: var(--font-ui);
-  font-size: var(--text-small);
 }
 .agent-quota-icon {
   --agent-icon-art-size: var(--agent-quota-size, 40px);

@@ -1,3 +1,4 @@
+import { EntityInventory } from './ui/EntityInventory';
 import { useCopyState } from "./ui/useCopyState";
 import { Tooltip as HoverHelp } from "./ui/index";
 import Panel from "./ui/Panel";
@@ -166,7 +167,7 @@ function RelayHostingContent({ relays }: { relays: ReturnType<typeof useRelays> 
     }
   }, [dialogOpen, job, progress.phase, progress.reason]);
   const owners = relays.relays.filter(relay => relay.owner);
-  return <div className="relay-hosting">
+  return <EntityInventory variant="relay" className="relay-hosting">
     <div className="hosting-empty-group"><div className="hosting-empty-copy"><h2>{t("hosting.title")}</h2>
       {!relays.loaded ? <Loading /> : !owners.length && !relays.error && <p className="muted">{t("hosting.empty")}</p>}</div>
       <Button disabled={busy || !!job} onClick={() => { setError(""); setAccount(""); draft.submit(""); setDialogOpen(true); }}>{t("hosting.deploy")}</Button>
@@ -183,5 +184,5 @@ function RelayHostingContent({ relays }: { relays: ReturnType<typeof useRelays> 
         <DialogActions><Button type="submit" variant="primary" busy={busy}>{t("hosting.deploy")}</Button></DialogActions>
       </form>}
     </Dialog>}
-  </div>;
+  </EntityInventory>;
 }

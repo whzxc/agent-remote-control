@@ -52,7 +52,7 @@ function ReleaseGroups({ releases, history = false }: { releases: PublishedRelea
     const bullets = group.entries.flatMap(({ markdown, version }) => markdown.split(/\r?\n/)
       .filter(line => line.trim())
       .map(line => ({ version, text: /^[-*+] (.+)$/.exec(line)?.[1] })));
-    return <UpdateContent as="section" key={group.title} className="update-note-group">
+    return <UpdateContent as="section" key={group.title} variant="notes">
       <Heading>{group.title}</Heading>
       {bullets.every(bullet => bullet.text) ? <ul>{bullets.map(({ text, version }, index) => (
         <li key={index}><ReleaseMarkdown inline text={text!} />
@@ -94,7 +94,7 @@ function PanelContents() {
     <header className="update-panel-header">
       <h2>{state.version ? t("updates.targetVersion", { version: state.version }) : t("appUpdates")}</h2>
     </header>
-    <UpdateContent className="update-panel-body">
+    <UpdateContent variant="body">
       {actionError && !state.error && <Notice compact tone="danger">{actionError}</Notice>}
       {(metadata || downloading) && <div className="update-download">
         <div className="update-status" role="status">
@@ -185,7 +185,7 @@ export function AppUpdate({ children }: { children?: ReactNode }) {
   const label = checking ? t("checkingLabel") : state.phase === "downloading"
     ? t("downloadingValueMb", { size: mb(state.downloaded) })
     : feedback ? state.error ? t("updateCheckRetry") : state.message : t("checkForUpdates");
-  return <UpdateContent as="section" className="settings-about">
+  return <UpdateContent as="section" variant="about">
     {actionError && !state.error && <Notice compact tone="danger">{actionError}</Notice>}
     <SettingsSection title={t("aboutApp")}>
       <Setting title={`ARC ${currentVersion ?? "—"}`} width={available() ? 300 : 152}>

@@ -12,3 +12,8 @@
 .update-note-version { font-size: var(--text-meta); color: var(--text-tertiary); }
 .settings-about-links > span { font-size: var(--text-meta); color: var(--text-secondary); }
 .settings-about .setting + .setting { border-top: 1px solid var(--border); }
+.release-notes {
+  line-height: 1.7;
+  font-family: var(--font-ui);
+  font-size: var(--text-small);
+}

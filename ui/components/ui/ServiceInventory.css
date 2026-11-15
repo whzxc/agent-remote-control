@@ -22,3 +22,8 @@
 .mcp-tool p { color: var(--text-secondary); font-size: var(--text-meta); line-height: 14px; }
 
 .mcp-stats { color: var(--text-secondary); font-size: var(--text-meta); line-height: 18px; }
+.tool-policy-summary > span { font-size:var(--text-meta); }
+.tool-name {
+  font-family: var(--font-mono);
+  font-size: var(--text-meta);
+}

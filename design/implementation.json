@@ -42,29 +42,6 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/DispatchSpec.tsx",
-        "symbol": "DispatchSpec"
-      },
-      "design": [
-        {
-          "source": "design/components/dispatch-spec.tsx",
-          "part": "DispatchSpec"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/ui/DispatchSpec.css"
-      },
-      "design": [
-        {
-          "source": "design/components/dispatch-spec.tsx",
-          "part": "DispatchSpec"
-        }
-      ]
-    },
-    {
-      "implementation": {
         "file": "ui/components/composites/RecordedDispatchSpec.tsx",
         "symbol": "RecordedDispatchSpec"
       },
@@ -626,42 +603,6 @@
         {
           "source": "design/components/search.tsx",
           "part": "SearchInput"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/ui/Settings.tsx",
-        "symbol": "Setting"
-      },
-      "design": [
-        {
-          "source": "design/components/settings-row.tsx",
-          "part": "Setting"
-        },
-        {
-          "source": "design/components/settings-row.tsx",
-          "part": "SettingLine"
-        },
-        {
-          "source": "design/components/settings-row.tsx",
-          "part": "SettingsToggleRows"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/ui/Settings.tsx",
-        "symbol": "SettingsSection"
-      },
-      "design": [
-        {
-          "source": "design/components/settings-row.tsx",
-          "part": "SettingsSection"
-        },
-        {
-          "source": "design/components/settings-row.tsx",
-          "part": "SettingsGroup"
         }
       ]
     },
@@ -1251,32 +1192,6 @@
     },
     {
       "implementation": {
-        "file": "ui/mcp/McpHub.tsx"
-      },
-      "design": [
-        {
-          "source": "design/modules/mcp-service.tsx",
-          "part": "McpService"
-        },
-        {
-          "source": "design/modules/mcp-service.tsx",
-          "part": "McpHub"
-        },
-        {
-          "source": "design/modules/mcp-service.tsx",
-          "part": "McpFailure"
-        },
-        {
-          "source": "design/modules/mcp-service.tsx",
-          "part": "McpImportPrompt"
-        },
-        {
-          "source": "design/surfaces/mcp-hub.tsx"
-        }
-      ]
-    },
-    {
-      "implementation": {
         "file": "ui/components/objects/ConnectorCard.tsx"
       },
       "design": [
@@ -1452,57 +1367,6 @@
     },
     {
       "implementation": {
-        "file": "ui/components/AppUpdate.tsx",
-        "symbol": "PanelContents",
-        "anchor": "function PanelContents() {"
-      },
-      "design": [
-        {
-          "source": "design/modules/updates.tsx",
-          "part": "UpdateContent"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/AppUpdate.tsx",
-        "symbol": "UpdateHistory",
-        "anchor": "function UpdateHistory({ currentVersion, onClose }: { currentVersion?: string; onClose: () => void }) {"
-      },
-      "design": [
-        {
-          "source": "design/modules/updates.tsx",
-          "part": "UpdateHistoryContent"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/AppUpdate.tsx"
-      },
-      "design": [
-        {
-          "source": "design/components/update-about.tsx",
-          "part": "UpdateAboutContent"
-        },
-        {
-          "source": "design/surfaces/updates.tsx"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/RelayHosting.tsx"
-      },
-      "design": [
-        {
-          "source": "design/modules/relay-hosting.tsx",
-          "part": "RelayHostingContent"
-        }
-      ]
-    },
-    {
-      "implementation": {
         "file": "ui/components/SourcePlatformView.tsx"
       },
       "design": [
@@ -1620,33 +1484,6 @@
         {
           "source": "design/components/homepage-mode.tsx",
           "part": "HomepageBar"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/devices/DeviceNodePanel.tsx"
-      },
-      "design": [
-        {
-          "source": "design/components/device-experiment.tsx",
-          "part": "DeviceExperiment"
-        },
-        {
-          "source": "design/modules/device-link.tsx",
-          "part": "DeviceFingerprint"
-        },
-        {
-          "source": "design/modules/device-link.tsx",
-          "part": "DevicePairDialog"
-        },
-        {
-          "source": "design/modules/device-link.tsx",
-          "part": "DeviceAddressDialog"
-        },
-        {
-          "source": "design/modules/device-link.tsx",
-          "part": "DeviceRevokeDialog"
         }
       ]
     },
@@ -1826,33 +1663,6 @@
         {
           "source": "design/components/quota.tsx",
           "part": "QuotaCards"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/ui/Settings.css"
-      },
-      "design": [
-        {
-          "source": "design/components/settings-row.tsx",
-          "part": "Setting"
-        },
-        {
-          "source": "design/components/settings-row.tsx",
-          "part": "SettingLine"
-        },
-        {
-          "source": "design/components/settings-row.tsx",
-          "part": "SettingsToggleRows"
-        },
-        {
-          "source": "design/components/settings-row.tsx",
-          "part": "SettingsSection"
-        },
-        {
-          "source": "design/components/settings-row.tsx",
-          "part": "SettingsGroup"
         }
       ]
     },
@@ -2060,31 +1870,6 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/controls.css"
-      },
-      "design": [
-        {
-          "source": "design/components/button.tsx"
-        },
-        {
-          "source": "design/components/single-choice.tsx"
-        },
-        {
-          "source": "design/components/field.tsx"
-        },
-        {
-          "source": "design/components/tag.tsx"
-        },
-        {
-          "source": "design/components/tooltip.tsx"
-        },
-        {
-          "source": "design/components/notice.tsx"
-        }
-      ]
-    },
-    {
-      "implementation": {
         "file": "ui/components/ui/product-controls.css"
       },
       "design": [
@@ -2215,28 +2000,6 @@
       "design": [
         {
           "source": "design/modules/timeline.tsx"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/ui/SourceMark.tsx"
-      },
-      "design": [
-        {
-          "source": "design/components/source-mark.tsx",
-          "part": "SourceMark"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/ui/SourceMark.css"
-      },
-      "design": [
-        {
-          "source": "design/components/source-mark.tsx",
-          "part": "SourceMark"
         }
       ]
     },
@@ -2584,64 +2347,6 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/TimelineSurface.tsx",
-        "symbol": "TimelineSurface"
-      },
-      "design": [
-        {
-          "source": "design/components/timeline-surface.tsx",
-          "part": "TimelineSurface"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/ui/TimelineSurface.tsx",
-        "symbol": "ActivityHeading"
-      },
-      "design": [
-        {
-          "source": "design/components/timeline-surface.tsx",
-          "part": "ActivityHeading"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/ui/TimelineSurface.tsx",
-        "symbol": "TaskFeedSection"
-      },
-      "design": [
-        {
-          "source": "design/components/timeline-surface.tsx",
-          "part": "TaskFeedSection"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/ui/TimelineSurface.tsx",
-        "symbol": "TaskFilter"
-      },
-      "design": [
-        {
-          "source": "design/components/timeline-surface.tsx",
-          "part": "TaskFilter"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/ui/TimelineSurface.css"
-      },
-      "design": [
-        {
-          "source": "design/components/timeline-surface.tsx"
-        }
-      ]
-    },
-    {
-      "implementation": {
         "file": "ui/components/ui/RecordDetail.tsx",
         "symbol": "RecordSurface"
       },
@@ -2736,6 +2441,301 @@
     },
     {
       "implementation": {
+        "file": "ui/components/ui/DispatchSpec.tsx",
+        "symbol": "DispatchSpec"
+      },
+      "design": [
+        {
+          "source": "design/components/dispatch-spec.tsx",
+          "part": "DispatchSpec"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/DispatchSpec.css"
+      },
+      "design": [
+        {
+          "source": "design/components/dispatch-spec.tsx",
+          "part": "DispatchSpec"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/Settings.tsx",
+        "symbol": "Setting"
+      },
+      "design": [
+        {
+          "source": "design/components/settings-row.tsx",
+          "part": "Setting"
+        },
+        {
+          "source": "design/components/settings-row.tsx",
+          "part": "SettingLine"
+        },
+        {
+          "source": "design/components/settings-row.tsx",
+          "part": "SettingsToggleRows"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/Settings.tsx",
+        "symbol": "SettingsSection"
+      },
+      "design": [
+        {
+          "source": "design/components/settings-row.tsx",
+          "part": "SettingsSection"
+        },
+        {
+          "source": "design/components/settings-row.tsx",
+          "part": "SettingsGroup"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/mcp/McpHub.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/mcp-service.tsx",
+          "part": "McpService"
+        },
+        {
+          "source": "design/modules/mcp-service.tsx",
+          "part": "McpHub"
+        },
+        {
+          "source": "design/modules/mcp-service.tsx",
+          "part": "McpFailure"
+        },
+        {
+          "source": "design/modules/mcp-service.tsx",
+          "part": "McpImportPrompt"
+        },
+        {
+          "source": "design/surfaces/mcp-hub.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AppUpdate.tsx",
+        "symbol": "PanelContents",
+        "anchor": "function PanelContents() {"
+      },
+      "design": [
+        {
+          "source": "design/modules/updates.tsx",
+          "part": "UpdateContent"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AppUpdate.tsx",
+        "symbol": "UpdateHistory",
+        "anchor": "function UpdateHistory({ currentVersion, onClose }: { currentVersion?: string; onClose: () => void }) {"
+      },
+      "design": [
+        {
+          "source": "design/modules/updates.tsx",
+          "part": "UpdateHistoryContent"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/AppUpdate.tsx"
+      },
+      "design": [
+        {
+          "source": "design/components/update-about.tsx",
+          "part": "UpdateAboutContent"
+        },
+        {
+          "source": "design/surfaces/updates.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/RelayHosting.tsx"
+      },
+      "design": [
+        {
+          "source": "design/modules/relay-hosting.tsx",
+          "part": "RelayHostingContent"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/devices/DeviceNodePanel.tsx"
+      },
+      "design": [
+        {
+          "source": "design/components/device-experiment.tsx",
+          "part": "DeviceExperiment"
+        },
+        {
+          "source": "design/modules/device-link.tsx",
+          "part": "DeviceFingerprint"
+        },
+        {
+          "source": "design/modules/device-link.tsx",
+          "part": "DevicePairDialog"
+        },
+        {
+          "source": "design/modules/device-link.tsx",
+          "part": "DeviceAddressDialog"
+        },
+        {
+          "source": "design/modules/device-link.tsx",
+          "part": "DeviceRevokeDialog"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/Settings.css"
+      },
+      "design": [
+        {
+          "source": "design/components/settings-row.tsx",
+          "part": "Setting"
+        },
+        {
+          "source": "design/components/settings-row.tsx",
+          "part": "SettingLine"
+        },
+        {
+          "source": "design/components/settings-row.tsx",
+          "part": "SettingsToggleRows"
+        },
+        {
+          "source": "design/components/settings-row.tsx",
+          "part": "SettingsSection"
+        },
+        {
+          "source": "design/components/settings-row.tsx",
+          "part": "SettingsGroup"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/controls.css"
+      },
+      "design": [
+        {
+          "source": "design/components/button.tsx"
+        },
+        {
+          "source": "design/components/single-choice.tsx"
+        },
+        {
+          "source": "design/components/field.tsx"
+        },
+        {
+          "source": "design/components/tag.tsx"
+        },
+        {
+          "source": "design/components/tooltip.tsx"
+        },
+        {
+          "source": "design/components/notice.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/SourceMark.tsx"
+      },
+      "design": [
+        {
+          "source": "design/components/source-mark.tsx",
+          "part": "SourceMark"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/SourceMark.css"
+      },
+      "design": [
+        {
+          "source": "design/components/source-mark.tsx",
+          "part": "SourceMark"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TimelineSurface.tsx",
+        "symbol": "TimelineSurface"
+      },
+      "design": [
+        {
+          "source": "design/components/timeline-surface.tsx",
+          "part": "TimelineSurface"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TimelineSurface.tsx",
+        "symbol": "ActivityHeading"
+      },
+      "design": [
+        {
+          "source": "design/components/timeline-surface.tsx",
+          "part": "ActivityHeading"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TimelineSurface.tsx",
+        "symbol": "TaskFeedSection"
+      },
+      "design": [
+        {
+          "source": "design/components/timeline-surface.tsx",
+          "part": "TaskFeedSection"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TimelineSurface.tsx",
+        "symbol": "TaskFilter"
+      },
+      "design": [
+        {
+          "source": "design/components/timeline-surface.tsx",
+          "part": "TaskFilter"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/TimelineSurface.css"
+      },
+      "design": [
+        {
+          "source": "design/components/timeline-surface.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
         "file": "ui/components/ui/EntityInventory.tsx",
         "symbol": "EntityInventory"
       },
@@ -2765,18 +2765,6 @@
       "design": [
         {
           "source": "design/components/entity-inventory.tsx"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/ui/EntityInventory.tsx",
-        "symbol": "EntityCard"
-      },
-      "design": [
-        {
-          "source": "design/components/entity-inventory.tsx",
-          "part": "EntityCard"
         }
       ]
     },
@@ -2843,6 +2831,18 @@
       "design": [
         {
           "source": "design/components/update-content.tsx"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/EntityInventory.tsx",
+        "symbol": "EntityCard"
+      },
+      "design": [
+        {
+          "source": "design/components/entity-inventory.tsx",
+          "part": "EntityCard"
         }
       ]
     }

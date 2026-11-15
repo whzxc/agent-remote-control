@@ -21,3 +21,4 @@
 .dispatch-spec-value { color: var(--text-secondary); }
 .effort-gauge, .dispatch-spec-fast { display: block; flex: none; }
 .dispatch-spec-fast { color: var(--warning); }
+.spec-picker-effort > strong { font-size: var(--text-small); line-height: 16px; font-weight: 600; }

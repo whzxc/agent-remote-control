@@ -20,14 +20,14 @@ const profileName = (from?: string) => from && (profiles as readonly string[]).i
 
 function ImportPrompt({ actionBelow = false }: { actionBelow?: boolean }) {
   const [from, setFrom] = useState<string>('codex');
-  return <ServiceInventory className="mcp-import">
+  return <ServiceInventory variant="import">
     <SingleChoice compact label={t('mcp.importFrom')} value={from} onChange={setFrom} options={profiles.map(value => ({ value, label: t(`mcp.profile.${value}`) }))} />
     <Prompt actionBelow={actionBelow} label={t('mcp.copyPrompt')} context={t('mcp.importFrom')} text={t('mcp.promptImport', { from: t(`mcp.profile.${from}`) })} />
   </ServiceInventory>;
 }
 
 function ToolRow({ tool }: { tool: HubTool }) {
-  return <ServiceInventory as="li" className="mcp-tool">
+  return <ServiceInventory as="li" variant="tool">
     <div className="mcp-tool-name"><code>{tool.name}</code>
       {tool.readOnly && <Tag>{t('mcp.readOnly')}</Tag>}
       {tool.destructive && !tool.readOnly && <Tag form="danger">{t('mcp.destructive')}</Tag>}
@@ -64,7 +64,7 @@ function Server({ server, query, busy, act, remove, now }: { server: HubServer; 
     origin,
   ].filter((fact): fact is string => !!fact);
   const meta = server.toolCount !== undefined || facts.length > 0 || !!checked;
-  return <ServiceInventory as="article" className="mcp-server" data-state={server.state} data-transport={server.transport} aria-labelledby={headingId}>
+  return <ServiceInventory as="article" variant="server" data-state={server.state} data-transport={server.transport} aria-labelledby={headingId}>
     <div className="mcp-server-head">
       <Tile icon={http ? Globe : Terminal} tone={http ? "command" : "file"} />
       <div className="mcp-server-identity">
