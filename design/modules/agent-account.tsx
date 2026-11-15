@@ -1,3 +1,4 @@
+import { EntityCard } from '../components/entity-inventory';
 import { Frame } from "adg";
 import { Button } from "../components/button";
 import { Card } from "../components/card";
@@ -17,7 +18,7 @@ export function AccountCard({ account }: { account: AgentAccount }) {
   const signedIn = account.state === "signed-in";
   const status = signedIn ? copy.quotaUnavailable : copy.signedOut;
   return (
-    <Card padded variant="reply" class="gap-3! border border-border">
+    <EntityCard padded variant="reply" class="gap-3! border border-border">
       <div class="flex items-center gap-2">
         <div class="flex min-w-0 flex-1 flex-col">
           <div class="flex items-center gap-2">
@@ -40,7 +41,7 @@ export function AccountCard({ account }: { account: AgentAccount }) {
           {!signedIn && <Button>{copy.reauth}</Button>}
         </div>
       )}
-    </Card>
+    </EntityCard>
   );
 }
 

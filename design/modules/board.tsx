@@ -1,3 +1,4 @@
+import { RecordSurface } from '../components/record-detail';
 import { Frame, Icon } from "adg";
 import { Panel } from "../components/panel";
 import { SingleChoice } from "../components/single-choice";
@@ -75,7 +76,7 @@ export function CoordinationBoard({ form }: { form: BoardForm }) {
       actions={<IconButton icon="refresh-cw" label={boardCopy.refresh} />}
       headerNavigation={<SingleChoice value={gap ? "activity" : "current"} options={boardTabs} label={boardCopy.title} tabs />}
       footer={(form === "current" || form === "empty") && <p class="text-meta leading-4 text-text-tertiary">{boardCopy.observed}</p>}>
-      <div class="flex flex-col gap-5">
+      <RecordSurface class="flex flex-col gap-5">
       <div><BoardFilters activity={gap} /></div>
       {(gap || unavailable) && <div class="mt-5"><BoardFeedback gap={gap} /></div>}
       {form === "empty" ? (
@@ -90,7 +91,7 @@ export function CoordinationBoard({ form }: { form: BoardForm }) {
           </div>
         )
       )}
-      </div>
+      </RecordSurface>
     </Panel>
   );
 }

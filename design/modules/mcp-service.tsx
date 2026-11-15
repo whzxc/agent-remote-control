@@ -1,3 +1,4 @@
+import { ServiceInventory } from '../components/service-inventory';
 import { copy } from '../fixtures/mcp-service';
 import { Frame, Icon } from "adg";
 import { Panel } from "../components/panel";
@@ -23,7 +24,7 @@ export function McpService({
   const error = failed && "error" in service ? service.error : undefined;
   const off = service.title === "archive";
   return (
-    <article class="flex flex-col rounded-card bg-surface-subtle p-4">
+    <ServiceInventory class="flex flex-col rounded-card bg-surface-subtle p-4">
       <div class="flex items-center gap-3">
         <span class={off ? "opacity-45" : ""}>
           <Tile
@@ -95,7 +96,7 @@ export function McpService({
       {error && (
         <McpFailure error={error} />
       )}
-    </article>
+    </ServiceInventory>
   );
 }
 export function McpHub({ form, workspace = false }: { form: string; workspace?: boolean }) {

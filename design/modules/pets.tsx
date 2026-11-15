@@ -1,3 +1,4 @@
+import { LibraryContent } from '../components/library-content';
 import { copy } from '../fixtures/pets';
 import { Frame } from "adg";
 
@@ -59,7 +60,7 @@ export function PetCard({ pet }: { pet: typeof pets[number] }) {
 }
 
 export function PetsLibrary() {
-  return (<div class="flex flex-col gap-[30px] pt-2">
+  return (<LibraryContent class="flex flex-col gap-[30px] pt-2">
         <PetImport  />
         <section class="flex flex-col gap-[14px]">
           <h3 class="text-small leading-4 font-[650] text-text-secondary">{copy.text7}</h3>
@@ -70,7 +71,7 @@ export function PetsLibrary() {
           </div>
         </section>
         <p class="text-meta leading-4 text-text-secondary pt-[2px]">{copy.text8}</p>
-      </div>);
+      </LibraryContent>);
 }
 
 export default () => [

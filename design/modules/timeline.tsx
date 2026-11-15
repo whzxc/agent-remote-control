@@ -1,3 +1,4 @@
+import { TimelineSurface } from '../components/timeline-surface';
 import { Frame, Icon } from "adg";
 import { PanelShell } from "../components/panel";
 import { BrandMark } from "../components/brand-mark";
@@ -292,7 +293,7 @@ export function RelayTimeline({ state }: { state: "running" | "waiting" | "done"
       <div class="mt-3 flex shrink-0 gap-1">
         {bars.map((paint) => <span class={`h-[3px] flex-1 rounded-[2px] ${paint}`} />)}
       </div>
-      <div class="mt-5 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+      <TimelineSurface class="mt-5 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
         {!failed && <TimelineEarlierTurn />}
         <RelayMessage kind={failed ? "dispatch" : "followup"} text={failed ? relayTurns.second.prompt : undefined} />
         {state === "running" && (
@@ -314,7 +315,7 @@ export function RelayTimeline({ state }: { state: "running" | "waiting" | "done"
             <RelayFailure />
           </>
         )}
-      </div>
+      </TimelineSurface>
       {(state === "running" || waiting) && <div class="mt-4 shrink-0"><TimelinePlanDock /></div>}
     </PanelShell>
   );

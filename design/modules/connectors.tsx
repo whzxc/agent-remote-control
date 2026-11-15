@@ -1,3 +1,5 @@
+import { EntityInventory } from '../components/entity-inventory';
+import { EntityCard } from '../components/entity-inventory';
 import { copy } from "../fixtures/connectors";
 import { Frame, Icon } from "adg";
 
@@ -10,7 +12,7 @@ import { platformChoices as platforms } from "../fixtures/choices";
 import { details, frames } from "../fixtures/connectors";
 export function ConnectorCard({ brand = "openai", title = copy.text1, state = copy.text2, facts = details }: { brand?: Brand; title?: string; state?: string; facts?: string[][][] } = {}) {
   return (
-    <Card padded class="gap-3!">
+    <EntityCard padded class="gap-3!">
       <div class="flex items-center gap-3">
         <BrandMark brand={brand} size={28} />
         <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2"><strong class="text-body leading-5 font-[650]">{title}</strong><span class="text-meta leading-4 text-success">{state.split(" ").map((word, index) => <>{index > 0 && " "}<span>{word}</span></>)}</span></div>
@@ -30,13 +32,13 @@ export function ConnectorCard({ brand = "openai", title = copy.text1, state = co
           ))}
         </div>
       ))}</div>
-    </Card>
+    </EntityCard>
   );
 }
 
 export function ConnectorContent({ frame }: { frame: (typeof frames)[number] }) {
   return (
-    <div class="grid grid-cols-[216px_minmax(0,1fr)] gap-6">
+    <EntityInventory class="grid grid-cols-[216px_minmax(0,1fr)] gap-6">
       <div class="self-start">
         <SingleChoice
           value={frame.platform}
@@ -63,7 +65,7 @@ export function ConnectorContent({ frame }: { frame: (typeof frames)[number] }) 
           <div class="flex flex-1 items-center justify-center text-small text-text-secondary">{copy.text8}</div>
         )}
       </div>
-    </div>
+    </EntityInventory>
   );
 }
 

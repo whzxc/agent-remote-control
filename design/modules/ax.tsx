@@ -1,3 +1,4 @@
+import { RecordDetail } from '../components/record-detail';
 import { Frame, Icon } from "adg";
 import { Panel } from "../components/panel";
 import { SingleChoice } from "../components/single-choice";
@@ -43,7 +44,7 @@ export function AXEntryRow({ entry }: { entry: AXEntry }) {
 }
 
 export function AXEntryDetail() {
-  return <div class="flex flex-col gap-6">
+  return <RecordDetail variant="issue" class="flex flex-col gap-6">
     <div class="flex items-center justify-between">
       <Button variant="ghost" icon="arrow-left">{axCopy.back}</Button>
       <IconButton icon="copy" label={axCopy.copyId} />
@@ -89,7 +90,7 @@ export function AXEntryDetail() {
         <span class="text-text-secondary">{item.time}</span><span>{item.text}</span>
       </div>)}
     </section>
-  </div>;
+  </RecordDetail>;
 }
 
 export function AXBoard({ form }: { form: AXForm }) {

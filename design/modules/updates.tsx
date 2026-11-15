@@ -1,3 +1,4 @@
+import { UpdateContent as ReleaseContent } from '../components/update-content';
 import { UpdateAboutContent } from '../components/update-about';
 import { Frame, Icon } from "adg";
 import { Button } from "../components/button";
@@ -44,7 +45,7 @@ export function UpdateContent({ state }: { state: UpdateState }) {
   const installing = state === "installing";
   const status = ready ? copy.ready : downloading ? copy.downloading : "";
   return (
-    <div class="flex min-w-0 flex-col gap-4">
+    <ReleaseContent class="flex min-w-0 flex-col gap-4">
       <div class="flex flex-col gap-2">
         <div class="flex items-center justify-between gap-3 text-meta leading-4 text-text-secondary" role="status">
           <p>{[copy.fromVersion, status].filter(Boolean).join(" · ")}</p>
@@ -73,7 +74,7 @@ export function UpdateContent({ state }: { state: UpdateState }) {
           )}
         </div>
       </div>
-    </div>
+    </ReleaseContent>
   );
 }
 
