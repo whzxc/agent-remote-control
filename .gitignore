@@ -35,3 +35,6 @@ mutants.out*/
 .stryker-tmp/
 output/
 .playwright-cli
+
+# Local installation recovery artifacts
+/.local/install-backups/
