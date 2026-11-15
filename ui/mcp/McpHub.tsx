@@ -1,3 +1,4 @@
+import { ServiceInventory } from '../components/ui/ServiceInventory';
 import { useCopyState } from "../components/ui/useCopyState";
 import { Tooltip as HoverHelp } from "../components/ui/index";
 import Panel from "../components/ui/Panel";
@@ -19,20 +20,20 @@ const profileName = (from?: string) => from && (profiles as readonly string[]).i
 
 function ImportPrompt({ actionBelow = false }: { actionBelow?: boolean }) {
   const [from, setFrom] = useState<string>('codex');
-  return <div className="mcp-import">
+  return <ServiceInventory className="mcp-import">
     <SingleChoice compact label={t('mcp.importFrom')} value={from} onChange={setFrom} options={profiles.map(value => ({ value, label: t(`mcp.profile.${value}`) }))} />
     <Prompt actionBelow={actionBelow} label={t('mcp.copyPrompt')} context={t('mcp.importFrom')} text={t('mcp.promptImport', { from: t(`mcp.profile.${from}`) })} />
-  </div>;
+  </ServiceInventory>;
 }
 
 function ToolRow({ tool }: { tool: HubTool }) {
-  return <li className="mcp-tool">
+  return <ServiceInventory as="li" className="mcp-tool">
     <div className="mcp-tool-name"><code>{tool.name}</code>
       {tool.readOnly && <Tag>{t('mcp.readOnly')}</Tag>}
       {tool.destructive && !tool.readOnly && <Tag form="danger">{t('mcp.destructive')}</Tag>}
     </div>
     {tool.description && <p>{tool.description}</p>}
-  </li>;
+  </ServiceInventory>;
 }
 
 function Failure({ server }: { server: HubServer }) {
@@ -63,7 +64,7 @@ function Server({ server, query, busy, act, remove, now }: { server: HubServer; 
     origin,
   ].filter((fact): fact is string => !!fact);
   const meta = server.toolCount !== undefined || facts.length > 0 || !!checked;
-  return <article className="mcp-server" data-state={server.state} data-transport={server.transport} aria-labelledby={headingId}>
+  return <ServiceInventory as="article" className="mcp-server" data-state={server.state} data-transport={server.transport} aria-labelledby={headingId}>
     <div className="mcp-server-head">
       <Tile icon={http ? Globe : Terminal} tone={http ? "command" : "file"} />
       <div className="mcp-server-identity">
@@ -89,7 +90,7 @@ function Server({ server, query, busy, act, remove, now }: { server: HubServer; 
       {failure && <Failure server={server} />}
       {expanded && !!shown.length && <ul id={toolsId} className="mcp-tools" aria-label={t('mcp.toolList')}>{shown.map(tool => <ToolRow key={tool.name} tool={tool} />)}</ul>}
     </div>}
-  </article>;
+  </ServiceInventory>;
 }
 
 export default function McpHub({ expanded, onToggleWidth, onClose }: { expanded: boolean; onToggleWidth: () => void; onClose: () => void }) {

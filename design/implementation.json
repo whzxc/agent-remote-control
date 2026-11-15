@@ -2779,6 +2779,28 @@
           "part": "EntityCard"
         }
       ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/ServiceInventory.tsx",
+        "symbol": "ServiceInventory"
+      },
+      "design": [
+        {
+          "source": "design/components/service-inventory.tsx",
+          "part": "ServiceInventory"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/ServiceInventory.css"
+      },
+      "design": [
+        {
+          "source": "design/components/service-inventory.tsx"
+        }
+      ]
     }
   ]
 }
