@@ -1,3 +1,4 @@
+import { UpdateContent } from './ui/UpdateContent';
 import { Tooltip as HoverHelp } from "./ui/index";
 import { TransientLayer } from "./ui/TransientLayer";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -51,7 +52,7 @@ function ReleaseGroups({ releases, history = false }: { releases: PublishedRelea
     const bullets = group.entries.flatMap(({ markdown, version }) => markdown.split(/\r?\n/)
       .filter(line => line.trim())
       .map(line => ({ version, text: /^[-*+] (.+)$/.exec(line)?.[1] })));
-    return <section key={group.title} className="update-note-group">
+    return <UpdateContent as="section" key={group.title} className="update-note-group">
       <Heading>{group.title}</Heading>
       {bullets.every(bullet => bullet.text) ? <ul>{bullets.map(({ text, version }, index) => (
         <li key={index}><ReleaseMarkdown inline text={text!} />
@@ -61,7 +62,7 @@ function ReleaseGroups({ releases, history = false }: { releases: PublishedRelea
         {showVersions && <p className="update-note-version">{version}</p>}
         <ReleaseMarkdown text={markdown} />
       </div>)}
-    </section>;
+    </UpdateContent>;
   });
 }
 
@@ -93,7 +94,7 @@ function PanelContents() {
     <header className="update-panel-header">
       <h2>{state.version ? t("updates.targetVersion", { version: state.version }) : t("appUpdates")}</h2>
     </header>
-    <div className="update-panel-body">
+    <UpdateContent className="update-panel-body">
       {actionError && !state.error && <Notice compact tone="danger">{actionError}</Notice>}
       {(metadata || downloading) && <div className="update-download">
         <div className="update-status" role="status">
@@ -110,7 +111,7 @@ function PanelContents() {
         </section>
       </Card>}
       {(checking || state.message) && <p role="status">{checking ? t("checkingLabel") : state.message}</p>}
-    </div>
+    </UpdateContent>
     <footer className="update-panel-footer">
       {state.ready && <p>{t("updates.restartEffect")}</p>}
       <div className="update-actions">
@@ -184,7 +185,7 @@ export function AppUpdate({ children }: { children?: ReactNode }) {
   const label = checking ? t("checkingLabel") : state.phase === "downloading"
     ? t("downloadingValueMb", { size: mb(state.downloaded) })
     : feedback ? state.error ? t("updateCheckRetry") : state.message : t("checkForUpdates");
-  return <section className="settings-about">
+  return <UpdateContent as="section" className="settings-about">
     {actionError && !state.error && <Notice compact tone="danger">{actionError}</Notice>}
     <SettingsSection title={t("aboutApp")}>
       <Setting title={`ARC ${currentVersion ?? "—"}`} width={available() ? 300 : 152}>
@@ -211,5 +212,5 @@ export function AppUpdate({ children }: { children?: ReactNode }) {
       {children}
     </nav>
     {historyOpen && <UpdateHistory currentVersion={currentVersion} onClose={() => setHistoryOpen(false)} />}
-  </section>;
+  </UpdateContent>;
 }

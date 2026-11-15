@@ -2823,6 +2823,28 @@
           "source": "design/components/device-facts.tsx"
         }
       ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/UpdateContent.tsx",
+        "symbol": "UpdateContent"
+      },
+      "design": [
+        {
+          "source": "design/components/update-content.tsx",
+          "part": "UpdateContent"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/UpdateContent.css"
+      },
+      "design": [
+        {
+          "source": "design/components/update-content.tsx"
+        }
+      ]
     }
   ]
 }

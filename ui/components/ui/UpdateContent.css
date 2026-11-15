@@ -1,0 +1,14 @@
+.update-dock-divider { background: var(--border-strong); }
+.navigation-capsule .update-dock-entry { color: var(--update-accent); }
+.update-available-dot { border-radius: 50%; background: var(--update-accent); }
+.update-panel { border: 0; border-radius: var(--radius-panel); background: var(--surface-raised); color: var(--text); box-shadow: var(--shadow-lg); }
+.update-panel-header > h2 { font-size: var(--text-title); font-weight: 650; line-height: 24px; }
+.update-download .progress { background: var(--surface-sunken); }
+.update-status, .update-panel-footer > p { font-size: var(--text-meta); line-height: 16px; color: var(--text-secondary); }
+.update-notes, .update-history-release { font-size: var(--text-body); line-height: 20px; color: var(--text-secondary); }
+.update-note-group h3, .update-history-release h4 { font-size: var(--text-small); line-height: 16px; font-weight: 600; color: var(--text); }
+.update-history-release h3 { font-weight: 600; color: var(--text); }
+.update-notes a, .update-history-release a { color: var(--accent-text); text-decoration: underline; }
+.update-note-version { font-size: var(--text-meta); color: var(--text-tertiary); }
+.settings-about-links > span { font-size: var(--text-meta); color: var(--text-secondary); }
+.settings-about .setting + .setting { border-top: 1px solid var(--border); }
