@@ -346,7 +346,7 @@ textarea.input {
   gap: 8px;
   padding: 4px 12px;
   border: 0;
-  border-radius: var(--radius-feedback);
+  border-radius: var(--radius-disclosure);
   background: transparent;
   color: var(--text-secondary);
   white-space: nowrap;
@@ -536,7 +536,7 @@ textarea.input {
 .tag[data-form="status"]:not([data-tone="success"]) .icon { width: 6px; height: 6px; fill: currentColor; }
 
 textarea.input.mono { font-family: var(--font-mono); font-size: var(--text-small); }
-.tag[data-form="claim"] { height: auto; line-height: 1.4; padding: 6px 12px; border-radius: var(--radius-pill); font-size: var(--text-body); white-space: normal; overflow-wrap: anywhere; }
+.tag[data-form="claim"] { height: auto; line-height: var(--line-prose); padding: 6px 12px; border-radius: var(--radius-pill); font-size: var(--text-body); white-space: normal; overflow-wrap: anywhere; }
 .spec-picker.popover { width: 312px; padding: 16px; border: 0; border-radius: var(--radius-panel); box-shadow: var(--shadow-lg); }
 
 .button[data-presentation="record-link"] { color: var(--accent); font-size: var(--text-meta); }

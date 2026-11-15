@@ -156,12 +156,6 @@
     "reason": "Studio lighting artwork: Homepage canvas lighting and clock presentation owned by Studio."
   },
   {
-    "file": "ui/topology/GraphActions.css",
-    "selector": ".topology-hub .hub-entry:is(:hover, :focus-visible) .hub-dot",
-    "property": "box-shadow",
-    "reason": "Topology canvas artwork: Topology hub hover glow preserves the existing halo around its canvas connection dot."
-  },
-  {
     "file": "ui/pets/pets.css",
     "selector": ".pet-play-token",
     "property": "line-height",

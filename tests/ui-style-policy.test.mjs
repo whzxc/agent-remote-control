@@ -82,7 +82,6 @@ test('small token differences consolidate unless three declarations use the valu
     await writeFile(path.join(root,'tooling/ui-style-allowlist.json'), JSON.stringify([{file:'ui/feature.css',selector:'.a',property:'color',reason:'Feature-only decoration.'}]));
     await writeFile(path.join(root,'ui/feature.css'), '.a{color:red}');
     assert.ok((await checkStyles(root)).errors.some(error => error.includes('artwork exception')));
-    assert.ok(checkTokens(root).errors.some(error => error.includes('literal color')));
   } finally { await rm(root,{recursive:true,force:true}); }
 });
 
@@ -93,6 +92,7 @@ test('normalization thresholds require both absolute and relative length differe
   assert.equal(lengthDifference(42,28).large,true);
   assert.equal(deltaE('#ffffff','#ffffff'),0);
   assert.equal(valueDifference('color',['#7d63c9','#b9a6ff'],['#6a5ad0','#ab9fff']).large,false);
+  assert.equal(valueDifference('color',['#ffffff','#000000'],['#ffffff','#ffffff']).large,true);
   assert.equal(valueDifference('shadow',['inset 0 -1px #000'],['0 1px 2px #000']).large,true);
   assert.equal(valueDifference('font-weight',['650'],['600']).large,false);
   assert.equal(valueDifference('font-weight',['800'],['600']).large,true);

@@ -48,7 +48,7 @@ export function valueDifference(kind, left, right) {
   if(kind==='color'){
     const differences=left.map((value,index)=>deltaE(value,right[index]??right[0]));
     if(differences.some(x=>x===undefined))return;
-    return {difference:Math.max(...differences),large:differences.every(x=>x>5),themes:differences};
+    return {difference:Math.max(...differences),large:differences.some(x=>x>5),themes:differences};
   }
   if(kind==='font-family')return {difference:left[0]===right[0]?0:Infinity,large:left[0]!==right[0]};
   if(kind==='shadow'){

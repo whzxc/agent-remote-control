@@ -1,5 +1,6 @@
 /* Design token source for TSX frames and shared artwork. */
 :root {
+  --shadow-hub-halo: 0 0 6px var(--stroke-ring) color-mix(in srgb, var(--hub-color) 45%, transparent);
   --font-lettermark: Georgia, serif;
   --font-rounded: ui-rounded, "SF Pro Rounded", var(--font-ui);
   --text-code-display: 42px;
@@ -7,7 +8,6 @@
   --line-code-display: 32px;
   --line-reading: 22px;
   --radius-progress: 4px;
-  --radius-feedback: 8px;
   --radius-inset: 14px;
   --radius-rail: 1px;
   --shadow-table-divider: inset 0 -1px var(--border);

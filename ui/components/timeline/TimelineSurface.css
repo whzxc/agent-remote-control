@@ -90,7 +90,7 @@ button.timeline-summary:focus-visible { box-shadow: var(--shadow-focus); }
 .timeline-chevron { color: var(--text-tertiary); }
 .timeline-output { font-size: var(--text-meta); }
 .timeline-output pre { background: var(--surface-subtle); border-radius: var(--radius-disclosure); font: var(--text-meta)/var(--line-body) var(--font-mono); }
-.timeline-error { color: var(--danger); border-radius: var(--radius-feedback); background: color-mix(in srgb, var(--danger) 8%, transparent); }
+.timeline-error { color: var(--danger); border-radius: var(--radius-disclosure); background: color-mix(in srgb, var(--danger) 8%, transparent); }
 
 .timeline-image-placeholder { color: var(--text-tertiary); }
 .timeline-link-error { color: var(--danger); font-size: var(--text-meta); }

@@ -3,8 +3,8 @@
 .pet-picker { border: 1px solid var(--border); border-radius: var(--radius-card); background: var(--surface); color: var(--text); box-shadow: var(--shadow-md); }
 .topology-tuner { border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--surface-raised); color: var(--text); box-shadow: var(--shadow-md); font-size: var(--text-meta); }
 .topology-tuner > header strong { font-size: var(--text-meta); }
-.topology-tuner-hint { color: var(--text-secondary); line-height: 1.5; }
-.topology-tuner-status { color: var(--text-secondary); line-height: 1.5; }
+.topology-tuner-hint { color: var(--text-secondary); line-height: var(--line-description); }
+.topology-tuner-status { color: var(--text-secondary); line-height: var(--line-description); }
 .topology-parameter-group, .topology-import { border-top: 1px solid var(--border); }
 .topology-section-heading { font-size: inherit; }
 .topology-section-trigger { border: 0; font-size: inherit; font-weight: 500; }

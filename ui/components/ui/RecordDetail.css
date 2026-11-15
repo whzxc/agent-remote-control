@@ -24,7 +24,7 @@
 .center-note { color: var(--text-secondary); font-size: var(--text-meta); }
 
 .center-empty > .icon { border-radius: var(--radius-field); background: color-mix(in srgb, var(--text-tertiary) 17%, transparent); }
-.center-detail header h2 { font-size: var(--text-body); line-height: 1.4; color: var(--text); }
+.center-detail header h2 { font-size: var(--text-body); line-height: var(--line-prose); color: var(--text); }
 .center-detail h2:focus-visible { border-radius: var(--radius-progress); }
 .center-detail dl { font-size: var(--text-small); }
 .center-detail dt { color: var(--text-secondary); }
