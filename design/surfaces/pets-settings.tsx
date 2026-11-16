@@ -20,6 +20,7 @@ export default () => (
     fixture="pets-settings"
     capture={{ selector: ".layer-panel", viewport: "1280x800" }}
     note="Pet atlas labels are decorative image content inside aria-hidden previews."
+    width={992}
   >
     <Panel viewportHeight={800}
       title="Pets"

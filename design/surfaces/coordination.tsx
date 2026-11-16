@@ -6,6 +6,7 @@ export default () =>
   boardFrames.map(({ name, fixture, viewport, clicks }) => (
     <Frame
       name={name}
+      width={name === "current" ? 1280 : 992}
       fixture={fixture}
       capture={{ selector: ".layer-panel", viewport, ...(clicks ? { clicks } : {}) }}
       note={name === "current" ? boardCopy.notes.current : name === "unavailable" ? boardCopy.notes.unavailable : undefined}

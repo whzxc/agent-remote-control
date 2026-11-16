@@ -77,7 +77,7 @@ const topologyMarkFrames = () => [
     </Frame>
   )),
   ...recoveryForms.filter(form => !['core', 'blocked'].includes(form.form)).map(({ form, note }) => (
-    <Frame name={`arc-recovery-${form}`} note={note}>
+    <Frame name={`arc-recovery-${form}`} width={592} note={note}>
       <ArcRecovery form={form} />
     </Frame>
   )),

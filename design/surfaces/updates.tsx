@@ -13,7 +13,7 @@ export default () => [
       </PanelShell>
     </Frame>
   )),
-  <Frame name="history" fixture="updates-history"
+  <Frame width={592} name="history" fixture="updates-history"
     capture={{ region: copy.history, viewport: "1280x800", clicks: [copy.history] }}>
     <Dialog title={copy.history}>
       <UpdateHistoryContent entries={releases} />

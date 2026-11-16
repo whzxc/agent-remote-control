@@ -82,4 +82,4 @@ export function SetupFlow({ step, children }: { step: OnboardingStep; children?:
   );
 }
 
-export default () => <Frame name="flow" width={560}><SetupFlow step={onboardingFrames.find(s=>s.name==='stacked-method')!}>Choose a connection.</SetupFlow></Frame>;
+export default () => <Frame name="flow" width={592}><SetupFlow step={onboardingFrames.find(s=>s.name==='stacked-method')!}>Choose a connection.</SetupFlow></Frame>;

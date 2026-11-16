@@ -46,7 +46,7 @@ export function Panel({
     <section
       style={{ height, width: viewportHeight && (viewportWidth < 760 || viewportHeight > viewportWidth) ? `calc(${viewportWidth}px - 2 * var(--layer-side-margin))` : `var(--layer-${size ?? (kind === "panel" ? "xl" : "m")})`, "--layer-retained-height": retainedHeight ? `${retainedHeight}px` : "0px", "--layer-viewport-height": viewportHeight ? `${viewportHeight}px` : undefined, "--layer-frame-top": "var(--layer-top-browser)", "--layer-frame-bottom": `var(${kind === "panel" ? "--layer-panel-bottom" : "--layer-side-margin"})` }}
       class={`flex min-h-(--layer-retained-height) flex-col rounded-panel bg-surface-raised pb-6 px-6 text-text shadow-lg
-        mx-auto max-w-[calc(100%_-_2_*_var(--layer-side-margin))]! max-h-[calc(100%_-_var(--layer-top)_-_var(--layer-frame-bottom))]! max-[759px]:w-[calc(100%_-_2_*_var(--layer-side-margin))]! portrait:w-[calc(100%_-_2_*_var(--layer-side-margin))]!
+        mx-auto max-w-[calc(100%_-_2_*_var(--layer-side-margin))]! max-h-[calc(100%_-_var(--layer-top)_-_var(--layer-frame-bottom))]!
         ${viewportHeight ? "max-h-[calc(var(--layer-viewport-height)_-_var(--layer-frame-top)_-_var(--layer-frame-bottom))]!" : ""}
         max-w-full [&>header]:shrink-0
         ${roomyHeader ? "gap-[29px] pt-[21px]" : "gap-[25px] pt-[13px]"}`}
@@ -162,22 +162,22 @@ export default () => {
     </div>
   );
   return [
+    <Frame name="panel" width={992}>
+      <Panel title={panelExample.title} actions={actions}>{content}</Panel>
+    </Frame>,
+    <Frame name="dialog" width={592}>
+      <Dialog title={panelExample.title} actions={actions}>{content}</Dialog>
+    </Frame>,
+    <Frame name="panel-shell" width={560}>
+      <PanelShell>{content}</PanelShell>
+    </Frame>,
     ...dismissalForms.filter(form => form.name !== 'dialog-running-cancellable').map(({ name, state, note }) => (
-      <Frame name={name} note={note}>
+      <Frame name={name} width={592} note={note}>
         <Dialog title={dismissalCopy.title} footer={<DialogDismissalFooter state={state} />}>
           <Field label={dismissalCopy.field}><Input value={dismissalCopy.value} /></Field>
         </Dialog>
       </Frame>
     )),
-    <Frame name="panel">
-      <Panel title={panelExample.title} actions={actions}>{content}</Panel>
-    </Frame>,
-    <Frame name="dialog">
-      <Dialog title={panelExample.title} actions={actions}>{content}</Dialog>
-    </Frame>,
-    <Frame name="panel-shell">
-      <PanelShell>{content}</PanelShell>
-    </Frame>,
     <Frame name="panel-header" width={512}>
       <div class="w-full bg-surface-raised text-text">
         <PanelHeader title={panelExample.title} actions={actions} />

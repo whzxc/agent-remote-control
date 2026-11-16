@@ -44,7 +44,7 @@ export function QuestionCard({ sheet = false }: { sheet?: boolean } = {}) {
 
 export function RequestSheet({ question = false }: { question?: boolean }) {
   return (
-    <Dialog title={requestCopy.title}
+    <Dialog viewportWidth={390} viewportHeight={844} title={requestCopy.title}
       description={<div class="text-meta leading-[18px]">{requestCopy.status}</div>}
       footer={question ? <QuestionActions sheet /> : <PermissionActions sheet />}>
       {question ? <QuestionCard sheet /> : <PermissionCard sheet />}
@@ -108,7 +108,7 @@ export function ReviewUnavailable({
 export default () => [
   <Frame
     name="request-sheet-permission"
-    width={358}
+    width={390}
     fixture="approval-permission"
     capture={{
       selector: ".layer-dialog:has(.task-input-sheet)",
@@ -121,7 +121,7 @@ export default () => [
   </Frame>,
   <Frame
     name="request-sheet-question"
-    width={358}
+    width={390}
     fixture="approval-question"
     capture={{
       selector: ".layer-dialog:has(.task-input-sheet)",

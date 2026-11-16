@@ -20,6 +20,7 @@ export default () =>
         viewport: "1280x800",
         ...(frame.name === "empty" ? { clicks: ["Google"] } : {}),
       }}
+      width={992}
     >
       <Panel viewportHeight={800}
           title="Platforms"

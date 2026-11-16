@@ -120,6 +120,7 @@ export default () => [
     capture={{ selector: "[role=menu]", viewport: "1280x800" }}><ModelMenu /></Frame>,
   <Frame
     name="model-effort"
+    width={592}
     fixture="model-dialog"
     capture={{
       selector: ".dialog:has(.task-dispatch-fields)",

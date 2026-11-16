@@ -66,12 +66,12 @@ export function DeviceRevokeDialog({ locale, memberSide }: Localized & { memberS
   </Dialog>;
 }
 export default () => (['en'] as const).flatMap(locale => [
-  ...pairStates.filter(state => !['protocol', 'declined', 'unreachable'].includes(state)).map(state => <Frame name={`device-pair-${state}-${locale}`}
+  ...pairStates.filter(state => !['protocol', 'declined', 'unreachable'].includes(state)).map(state => <Frame width={592} name={`device-pair-${state}-${locale}`}
     fixture={`device-pair-${state}-${locale}@light`} capture={{ selector: ".device-dialog", viewport: "1280x800" }}>
     <DevicePairDialog locale={locale} state={state} />
   </Frame>),
-  <Frame name={`device-address-${locale}`} fixture={`device-address-${locale}@light`} capture={{ selector: ".device-dialog", viewport: "1280x800" }}><DeviceAddressDialog locale={locale} /></Frame>,
-  ...[false].map(memberSide => <Frame name={`device-revoke-${memberSide ? 'controller' : 'member'}-${locale}`}
+  <Frame width={592} name={`device-address-${locale}`} fixture={`device-address-${locale}@light`} capture={{ selector: ".device-dialog", viewport: "1280x800" }}><DeviceAddressDialog locale={locale} /></Frame>,
+  ...[false].map(memberSide => <Frame width={592} name={`device-revoke-${memberSide ? 'controller' : 'member'}-${locale}`}
     fixture={`device-revoke-${memberSide ? 'controller' : 'member'}-${locale}@light`} capture={{ selector: ".device-dialog", viewport: "1280x800" }}>
     <DeviceRevokeDialog locale={locale} memberSide={memberSide} />
   </Frame>),

@@ -9,6 +9,7 @@ export default () => (
     name="overview"
     fixture="p3-workspace-add@light"
     capture={{ selector: ".layer-panel", viewport: "1280x800" }}
+    width={992}
   >
     <Panel viewportHeight={800} title={connectionCopy.title}
       actions={<Button variant="primary" icon="plus">{connectionCopy.add}</Button>}>

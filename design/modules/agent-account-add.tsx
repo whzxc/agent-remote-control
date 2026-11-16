@@ -55,15 +55,15 @@ export function AgentAccountAdd({
   </Dialog>;
 }
 export default () => [
-  <Frame name="oauth" fixture="codex-account-add-oauth@light" capture={{ selector: ".agent-account-add", viewport: "1280x800" }}><AgentAccountAdd /></Frame>,
-  <Frame name="import" fixture="codex-account-add-import@light" capture={{ selector: ".agent-account-add", viewport: "1280x800" }}><AgentAccountAdd method="import" /></Frame>,
-  <Frame name="external" fixture="codex-account-add-external@light" capture={{ selector: ".agent-account-add", viewport: "1280x800" }}><AgentAccountAdd method="import" owner="external" /></Frame>,
+  <Frame name="oauth" width={592} fixture="codex-account-add-oauth@light" capture={{ selector: ".agent-account-add", viewport: "1280x800" }}><AgentAccountAdd /></Frame>,
+  <Frame name="import" width={592} fixture="codex-account-add-import@light" capture={{ selector: ".agent-account-add", viewport: "1280x800" }}><AgentAccountAdd method="import" /></Frame>,
+  <Frame name="external" width={592} fixture="codex-account-add-external@light" capture={{ selector: ".agent-account-add", viewport: "1280x800" }}><AgentAccountAdd method="import" owner="external" /></Frame>,
   ...([
     ['claude-add', 'claude-add'],
     ['reauth-waiting', 'waiting'],
     ['reauth-expired', 'expired'],
   ] as const).map(([name, flow]) => (
-    <Frame name={name} fixture={`agent-account-${name}`} capture={{ selector: ".dialog.agent-account-add", viewport: "1280x800" }}>
+    <Frame name={name} width={592} fixture={`agent-account-${name}`} capture={{ selector: ".dialog.agent-account-add", viewport: "1280x800" }}>
       <AgentAccountAdd flow={flow} />
     </Frame>
   )),

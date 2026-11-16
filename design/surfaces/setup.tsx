@@ -9,6 +9,7 @@ export default () =>
   onboardingFrames.map((step) => (
     <Frame
       name={step.name}
+      width={step.body === "welcome" ? undefined : 592}
       fixture={step.fixture}
       capture={{
         selector: step.body === "welcome" ? ".welcome-page" : step.name.startsWith("stacked-")

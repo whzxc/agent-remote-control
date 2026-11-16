@@ -10,6 +10,7 @@ export default () => (
     name="empty"
     fixture="relay-hosting-light"
     capture={{ selector: ".layer-panel", viewport: "1280x800" }}
+    width={992}
   >
     <Panel viewportHeight={800}
       title="Relay hosting"

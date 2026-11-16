@@ -65,11 +65,11 @@ export function RemoveAccount() {
 
 export default () => [
   <Frame name="account-card" width={440}><AccountCard account={platformAccounts.claude.accounts[0]} /></Frame>,
-  <Frame name="edit-account-alias" fixture="agent-account-edit"
+  <Frame name="edit-account-alias" width={592} fixture="agent-account-edit"
     capture={{ selector: ".dialog.agent-account-add", viewport: "1280x800" }}>
     <EditAccountAlias account={platformAccounts.claude.accounts[0]} />
   </Frame>,
-  <Frame name="remove-account" fixture="agent-account-remove"
+  <Frame name="remove-account" width={592} fixture="agent-account-remove"
     capture={{ selector: ".dialog.agent-account-add", viewport: "1280x800" }}>
     <RemoveAccount />
   </Frame>,

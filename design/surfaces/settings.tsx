@@ -75,7 +75,7 @@ const frames = [
 export default () =>
   frames.map(({ view: View, ...frame }) => {
     const workspace = ["about", "agents", "experimental"].includes(frame.name);
-    return <Frame {...frame}>
+    return <Frame {...frame} width={workspace ? 992 : 592}>
       <View {...(workspace ? { workspace: true } : {})} />
     </Frame>;
   });
