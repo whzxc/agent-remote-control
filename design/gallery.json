@@ -11,7 +11,8 @@
         "components/switch.tsx",
         "components/single-choice.tsx",
         "components/tag.tsx",
-        "components/tooltip.tsx"
+        "components/tooltip.tsx",
+        "components/theme-swatch.tsx"
       ]
     },
     {
@@ -31,12 +32,26 @@
       ]
     },
     {
+      "title": "Task components",
+      "assets": [
+        "components/task-card.tsx",
+        "components/dispatch-spec.tsx",
+        "components/request.tsx"
+      ]
+    },
+    {
+      "title": "Setup components",
+      "assets": [
+        "components/onboarding-fields.tsx",
+        "components/setup-choice.tsx",
+        "components/setup-flow.tsx",
+        "components/brand-mark.tsx"
+      ]
+    },
+    {
       "title": "Timeline",
       "assets": [
         "modules/timeline.tsx",
-        "components/task-card.tsx",
-        "components/dispatch-spec.tsx",
-        "components/request.tsx",
         "modules/tasks.tsx",
         "modules/task-relationships.tsx",
         "modules/request.tsx",
@@ -70,9 +85,6 @@
     {
       "title": "Onboarding",
       "assets": [
-        "components/onboarding-fields.tsx",
-        "components/setup-choice.tsx",
-        "components/setup-flow.tsx",
         "modules/onboarding.tsx",
         "modules/welcome.tsx",
         "modules/source-onboarding.tsx"
@@ -81,7 +93,6 @@
     {
       "title": "Settings",
       "assets": [
-        "components/theme-swatch.tsx",
         "modules/general-settings.tsx",
         "modules/display-settings.tsx",
         "modules/permissions.tsx",
@@ -95,7 +106,6 @@
       "title": "Homepage",
       "assets": [
         "modules/homepage-scene/index.tsx",
-        "components/brand-mark.tsx",
         "modules/board.tsx",
         "modules/board-record.tsx",
         "modules/ax.tsx"
