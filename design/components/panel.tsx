@@ -162,7 +162,7 @@ export default () => {
     </div>
   );
   return [
-    <Frame name="panel" width={992}>
+    <Frame name="panel" width={992} note="Desktop XL panel in its host slot; the panel body is 960px wide.">
       <Panel title={panelExample.title} actions={actions}>{content}</Panel>
     </Frame>,
     <Frame name="dialog" width={592}>
