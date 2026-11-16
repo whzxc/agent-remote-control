@@ -11,6 +11,7 @@ import { PNG } from 'pngjs';
 import pixelmatch from 'pixelmatch';
 import { runTestCommand } from '../test.mjs';
 import { pruneUiRuns, screenshotsEnabled } from './ui-retention.mjs';
+import { selectScenarios, caseKey, reusableCases, uiFingerprint } from './ui-plan.mjs';
 
 if (process.argv.includes('--task-dock')) {
   await runTestCommand(process.execPath, ['tooling/check-tests.mjs']);
@@ -22,6 +23,10 @@ const root = fileURLToPath(new URL('../../', import.meta.url));
 const base = path.resolve(process.argv.find(arg => arg.startsWith('--out='))?.slice('--out='.length) ?? path.join(root, 'output/acceptance/ui'));
 const screenshots = screenshotsEnabled(process.argv);
 const scenarioFilter = process.argv.find(arg => arg.startsWith('--scenario='))?.slice('--scenario='.length);
+const all = process.argv.includes('--all');
+const smoke = !all && !scenarioFilter;
+const fresh = process.argv.includes('--fresh');
+const keepGoing = process.argv.includes('--keep-going');
 const requestedTheme = process.argv.find(arg => arg.startsWith('--theme='))?.slice('--theme='.length);
 if (requestedTheme && !['light', 'dark', 'both'].includes(requestedTheme)) throw new Error('--theme must be light, dark or both');
 const port = Number(process.argv.find(arg => arg.startsWith('--port='))?.slice('--port='.length) ?? 5187);
@@ -31,25 +36,39 @@ await mkdir(base, { recursive: true });
 const previous = await pruneUiRuns(base, engine, screenshots);
 const out = path.join(base, `${new Date().toISOString().replaceAll(':', '-')}-${engine}${screenshots ? '' : '-layout'}`);
 await mkdir(out);
-const scenarios = (await readdir(path.join(root, 'tooling/acceptance/scenarios'))).filter(f => f.endsWith('.json') && (!scenarioFilter || (scenarioFilter.endsWith('*') ? f.startsWith(scenarioFilter.slice(0, -1)) : f === `${scenarioFilter}.json`))).sort();
+const scenarios = selectScenarios((await readdir(path.join(root, 'tooling/acceptance/scenarios'))).filter(file => file.endsWith('.json')), { all, filter: scenarioFilter });
 if (!scenarios.length) throw new Error('No matching acceptance scenario');
-const report = { engine, screenshots, previous: screenshots ? previous ?? null : null, viewports: [{ width: 640, height: 800 }, { width: 1280, height: 800 }, { width: 1920, height: 1080 }], scenarios: [], failures: [] };
+const report = { engine, screenshots, previous: screenshots ? previous ?? null : null, viewports: [{ width: 640, height: 800 }, { width: 1280, height: 800 }, { width: 1920, height: 1080 }], scenarios: [], reused: [], failures: [] };
+const cacheFile = path.join(base, `.${engine}-passed.json`);
+let cache;
+try { cache = JSON.parse(await readFile(cacheFile, 'utf8')); }
+catch (error) { if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error; }
+let fingerprint, passed;
+console.log(`UI acceptance: ${smoke ? 'smoke' : all ? 'all' : 'selected'}; ${scenarios.length} scenarios; ${screenshots ? 'screenshots' : 'layout'}; ${keepGoing ? 'collect failures' : 'stop on first failure'}.`);
 // This server has no production owner dependency: fixture API calls are intercepted
 // in the dev-only module, and the browser rejects every real management request.
+process.env.ARC_BUILD_VERSION = '0.0.0';
 const server = await createServer({ mode: 'fixtures', cacheDir: path.join(root, 'node_modules/.vite-acceptance'), configFile: path.join(root, 'vite.config.ts'), server: { port, strictPort: true } });
 let browser;
 try {
   await server.listen();
   browser = await ({ chromium, webkit }[engine]).launch();
-  for (const file of scenarios) {
+  const runtime = { browser: browser.version(), node: process.version, platform: process.platform, arch: process.arch };
+  fingerprint = await uiFingerprint(root, runtime);
+  passed = reusableCases(cache, fingerprint, fresh);
+  scenarioLoop: for (const file of scenarios) {
     const data = JSON.parse(await readFile(path.join(root, 'tooling/acceptance/scenarios', file), 'utf8'));
     const setup = !!(data.sourceSetup && data.sourceSetup.step !== 'welcome' || data.connectionSetup);
     if (setupOnly && !setup) continue;
     const themes = requestedTheme && requestedTheme !== 'both' ? [requestedTheme] : screenshots || requestedTheme === 'both' || requiresBothThemes(data) ? ['light', 'dark'] : [data.theme ?? 'light'];
     for (const [themeIndex, theme] of themes.entries()) {
     const fixture = { ...data, theme };
-    for (const { width, height } of fixture.viewports ?? report.viewports) {
-      const name = file.slice(0, -5), key = `${name}@${theme}-${width}x${height}`;
+    const viewports = fixture.viewports ?? (smoke ? [{ width: 1280, height: 800 }] : report.viewports);
+    for (const { width, height } of viewports) {
+      const name = file.slice(0, -5), key = caseKey({ name, theme, width, height });
+      const passKey = `${key}:${themeIndex === 0 ? 'behavior' : 'visual'}`;
+      if (!screenshots && passed.has(passKey)) { report.reused.push(key); continue; }
+      console.log(`UI check: ${key}`);
       const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1, colorScheme: theme, reducedMotion: fixture.historyDelayMs || fixture.slowDock ? 'no-preference' : 'reduce', locale: 'en-US',
         timezoneId: fixture.timezone ?? (name.startsWith('portrait-topology-') ? 'Asia/Shanghai' : undefined) });
       const errors = [];
@@ -109,15 +128,20 @@ try {
       if (errors.length) { report.failures.push(key); console.error(`${key}: ${errors.join("; ")}`); }
       report.scenarios.push(row);
       await page.close();
+      if (errors.length) passed.delete(passKey);
+      else passed.add(passKey);
+      if (errors.length && !keepGoing) break scenarioLoop;
     }
     }
   }
+  if (fingerprint !== await uiFingerprint(root, runtime)) throw new Error('UI inputs changed during acceptance. Rerun the affected scenarios.');
+  await writeFile(cacheFile, JSON.stringify({ fingerprint, passed: [...passed] }) + '\n');
 } finally {
   await browser?.close();
   await server.close();
 }
 const escape = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 await writeFile(path.join(out, 'report.json'), JSON.stringify(report, null, 2));
-await writeFile(path.join(out, 'index.html'), `<!doctype html><meta charset="utf-8"><title>ARC UI acceptance</title><style>body{font:14px system-ui;background:#eee;color:#222;margin:24px}section{background:white;padding:16px;margin:16px 0;border-radius:12px}figure{margin:0}img{width:100%;border:1px solid #ccc} .images{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}.changed{border-left:6px solid #d88b00}code{white-space:pre-wrap}</style><h1>ARC UI acceptance · ${engine}</h1><p>Previous: ${escape(report.previous ?? (screenshots ? 'none — first run has no baseline' : 'screenshots disabled'))} · failures: ${report.failures.length}</p>${report.scenarios.map(r => `<section class="${r.baseline.includes('changed') && r.baseline !== 'unchanged' ? 'changed' : ''}"><h2>${escape(r.key)} · ${r.baseline} ${r.changedPixels ?? ''}</h2>${r.errors.length ? `<code>${escape(r.errors.join('\n'))}</code>` : ''}${screenshots ? `<div class="images">${r.baseline !== 'missing' ? `<figure><figcaption>Previous</figcaption><img src="${r.key}-before.png"></figure>` : ''}<figure><figcaption>Current</figcaption><a href="${r.key}.png"><img src="${r.key}.png"></a></figure>${r.changedPixels !== null ? `<figure><figcaption>Pixel diff (${(r.changedRatio * 100).toFixed(3)}%)</figcaption><img src="${r.key}-diff.png"></figure>` : ''}</div>` : '<p>Screenshots disabled; layout measurements are in report.json.</p>'}<a href="${r.key}.json">View model</a></section>`).join('')}`);
-console.log(JSON.stringify({ ok: !report.failures.length, directory: out, report: path.join(out, 'index.html'), failures: report.failures }));
+await writeFile(path.join(out, 'index.html'), `<!doctype html><meta charset="utf-8"><title>ARC UI acceptance</title><style>body{font:14px system-ui;background:#eee;color:#222;margin:24px}section{background:white;padding:16px;margin:16px 0;border-radius:12px}figure{margin:0}img{width:100%;border:1px solid #ccc} .images{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}.changed{border-left:6px solid #d88b00}code{white-space:pre-wrap}</style><h1>ARC UI acceptance · ${engine}</h1><p>Previous: ${escape(report.previous ?? (screenshots ? 'none — first run has no baseline' : 'screenshots disabled'))} · executed: ${report.scenarios.length} · reused: ${report.reused.length} · failures: ${report.failures.length}</p>${report.scenarios.map(r => `<section class="${r.baseline.includes('changed') && r.baseline !== 'unchanged' ? 'changed' : ''}"><h2>${escape(r.key)} · ${r.baseline} ${r.changedPixels ?? ''}</h2>${r.errors.length ? `<code>${escape(r.errors.join('\n'))}</code>` : ''}${screenshots ? `<div class="images">${r.baseline !== 'missing' ? `<figure><figcaption>Previous</figcaption><img src="${r.key}-before.png"></figure>` : ''}<figure><figcaption>Current</figcaption><a href="${r.key}.png"><img src="${r.key}.png"></a></figure>${r.changedPixels !== null ? `<figure><figcaption>Pixel diff (${(r.changedRatio * 100).toFixed(3)}%)</figcaption><img src="${r.key}-diff.png"></figure>` : ''}</div>` : '<p>Screenshots disabled; layout measurements are in report.json.</p>'}<a href="${r.key}.json">View model</a></section>`).join('')}`);
+console.log(JSON.stringify({ ok: !report.failures.length, executed: report.scenarios.length, reused: report.reused.length, directory: out, report: path.join(out, 'index.html'), failures: report.failures }));
 process.exitCode = report.failures.length ? 1 : 0;

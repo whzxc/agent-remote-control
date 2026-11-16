@@ -9,9 +9,11 @@ UI/UX acceptance (layout, visual states, copy, light/dark, widths, panel and tas
 Isolated-instance runtime acceptance is reserved for behavior fixtures cannot simulate: native windows and focus, the replacement/update lifecycle, real Agent dispatch and resume, and notification delivery. Keep it to the scenarios the change affects.
 
 Before a push, UI changes MUST pass `npm test` and the `accept:ui` fixture families they affect.
-`accept:ui` omits screenshots by default (`-layout` runs); pass `--screenshots` for visual changes and for the full `accept:ui` sweep before releases.
+`accept:ui` runs a small release smoke set at representative widths by default. Use `--scenario=name,other-name` (or a family prefix ending in `*`) for affected behavior and `--screenshots` for changed visuals. `--all` explicitly selects the full scenario and width matrix. Normal releases run the smoke set automatically.
 Browser-only fixtures MAY run in an assigned lane with `--lane-fixtures` on a non-default port.
-A full sweep is not required before every push.
+Run affected scenarios while developing and reuse their passing results. After a failure, fix it and rerun the same scoped command. Execution stops on the first failing case and reuses earlier passes while inputs are unchanged. Use `--keep-going` only when collecting independent failures for an audit.
+
+Layout passes are reused while frontend files, acceptance code, dependencies, browser version, Node version and host platform are unchanged. Fixture builds use development version 0.0.0. Actual working-tree bytes are hashed, so committing or changing release notes preserves passes and source edits invalidate them. Screenshot runs always capture fresh output. `--fresh` reruns layout cases explicitly. The report lists executed and reused cases; a partial run never counts as a complete pass.
 Behavior fixture checks run in one theme unless the family asserts theme or color behavior.
 Screenshot runs (`--screenshots`) and families that assert theme or color behavior run in both themes.
 Use `--theme=light`, `--theme=dark` or `--theme=both` for a scoped diagnostic override.
@@ -92,14 +94,15 @@ The `studio-connections`, `studio-stopped` and `studio-unavailable` fixtures cov
 npm ci
 npx playwright install chromium
 npm run accept:ui
-npm run accept:ui -- --screenshots
+npm run accept:ui -- --scenario=studio-connections --screenshots
+npm run accept:ui -- --all --screenshots
 ```
 
-The script starts an isolated Vite page and checks 640×800, 1280×800 and 1920×1080 unless the fixture supplies its own viewports. Stop the existing development service first if it owns port 5187. Scenario mode never connects to real Core. The script rejects all actual management API requests. For WebKit comparison:
+The script starts an isolated Vite page. The smoke set covers startup, task states and panels, approvals, connection controls, narrow keyboard focus, timeline scrolling, onboarding and update settings at 1280×800 or fixture-specific widths. Selected scenarios and `--all` check 640×800, 1280×800 and 1920×1080 unless the fixture supplies its own viewports. Stop the existing development service first if it owns port 5187. Scenario mode never connects to real Core. The script rejects all actual management API requests. For WebKit comparison:
 
 ```sh
 npx playwright install webkit
-npm run accept:ui -- --webkit --screenshots
+npm run accept:ui -- --scenario=studio-connections --webkit --screenshots
 ```
 
 Default layout runs write to `output/acceptance/ui/<timestamp>-<browser>-layout/`, and `--screenshots` runs write to `output/acceptance/ui/<timestamp>-<browser>/`:

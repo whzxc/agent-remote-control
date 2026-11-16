@@ -185,7 +185,7 @@ if (mode === 'release') {
       console.log(`Release v${version} from ${sourceSha}; platforms: ${platforms.join(',')}; no version commit`);
     });
     if (resume) {
-      for (const name of ['tests', 'macOS wall', 'Windows wall', 'Linux wall', 'platform critical path']) timer.skip(name);
+      for (const name of ['tests', 'UI smoke', 'macOS wall', 'Windows wall', 'Linux wall', 'platform critical path']) timer.skip(name);
     } else {
       output = path.resolve(await mkdtemp(path.join('release-artifacts', `v${version}-`)));
       console.log(`Release artifacts: ${output}`);
@@ -197,6 +197,7 @@ if (mode === 'release') {
       };
       await timer.run('build/test critical path', async () => {
         await tests();
+        if (mac || windows) await timer.run('UI smoke', () => runCommand('npm', ['run', 'accept:ui'], { env: testEnvironment(env) }));
         await timer.run('platform critical path', () => parallelPlatforms([
           ...(mac ? [() => timer.run('macOS wall', () => buildMac({ sourceSha, output, env, timer }))] : []),
           ...(windows ? [() => timer.run('Windows wall', () => buildWindows({ sourceSha, version, output, env, timer,
