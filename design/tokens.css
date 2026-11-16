@@ -1,41 +1,22 @@
 /* Design token source for TSX frames and shared artwork. */
 :root {
-  --shadow-hub-halo: 0 0 6px var(--stroke-ring) color-mix(in srgb, var(--hub-color) 45%, transparent);
+  /* Typography */
   --font-lettermark: Georgia, serif;
   --font-rounded: ui-rounded, "SF Pro Rounded", var(--font-ui);
   --text-code-display: 42px;
   --tracking-code: .18em;
   --line-code-display: 32px;
   --line-reading: 22px;
-  --radius-progress: 4px;
-  --radius-inset: 14px;
-  --radius-rail: 1px;
-  --shadow-table-divider: inset 0 -1px var(--border);
-  --shadow-focus: 0 0 0 var(--stroke-ring) var(--surface), 0 0 0 4px var(--accent);
   --weight-normal: 400;
   --weight-medium: 500;
   --weight-strong: 600;
   --line-prose: 1.4;
   --line-description: 1.5;
-  --radius-circle: 50%;
-  --radius-disclosure: 6px;
-  --stroke-ring: 2px;
   --line-compact: 16px;
   --line-body: 20px;
   --weight-title: 650;
   --line-title: 24px;
-  --stroke-thin: 1px;
   --line-small: 18px;
-  --theme-swatch-default-left: #5B5FF5;
-  --theme-swatch-default-right: #5B5FF5;
-  --theme-swatch-blue-left: #00a6c7;
-  --theme-swatch-blue-right: #007aff;
-  --theme-swatch-purple-left: #f8509e;
-  --theme-swatch-purple-right: #943d96;
-  --theme-swatch-orange-left: #e1393e;
-  --theme-swatch-orange-right: #f78218;
-  --theme-swatch-green-left: #e0b219;
-  --theme-swatch-green-right: #22b85c;
   --font-ui: -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Segoe UI","Microsoft YaHei",Inter,"WenQuanYi Zen Hei",sans-serif;
   --font-mono: "SF Mono", ui-monospace, Menlo, Consolas, "JetBrains Mono", monospace;
   --text-display: 28px;
@@ -44,12 +25,24 @@
   --text-small: 13px;
   --text-meta: 12px;
   --text-caption: 11px;
+
+  /* Shape */
+  --radius-progress: 4px;
+  --radius-inset: 14px;
+  --radius-rail: 1px;
+  --radius-circle: 50%;
+  --radius-disclosure: 6px;
+  --stroke-ring: 2px;
+  --stroke-thin: 1px;
   --radius-control: 17px;
   --radius-field: 12px;
   --radius-tile: 10px;
   --radius-card: 18px;
   --radius-panel: 24px;
   --radius-pill: 999px;
+  --radius-switch: 13px;
+
+  /* Sizing */
   --dock-button-size: 36px;
   --dock-padding-block: 4px;
   --control-height: 34px;
@@ -64,16 +57,17 @@
   --switch-width: 44px;
   --switch-height: 26px;
   --switch-thumb-size: 20px;
-  --radius-switch: 13px;
 
+  /* Layers */
   --layer-m: 560px;
   --layer-xl: 960px;
-  --layer-scrim: rgb(0 0 0 / 24%);
   --layer-side-margin: 16px;
   --layer-panel-bottom: 76px;
   --layer-top-desktop: 48px;
   --layer-top-browser: 20px;
   --layer-top: var(--layer-top-desktop);
+
+  /* Motion */
   --motion-fast: 120ms;
   --motion-base: 160ms;
   --motion-panel: 180ms;
@@ -81,6 +75,8 @@
   --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
 
+  /* Surfaces */
+  --layer-scrim: rgb(0 0 0 / 24%);
   --canvas: #f3eee7;
   --surface: #fffdfa;
   --surface-raised: #fffdfa;
@@ -88,17 +84,26 @@
   --surface-sunken: #ece4d9;
   --border: #e7ded2;
   --border-strong: #d6cabb;
+  --knob: #ffffff;
+
+  /* Text */
   --text: #2b2420;
   --text-secondary: #625952;
   --text-tertiary: #7a726b;
+
+  /* Action and accent */
   --accent: #d4663f;
   --accent-text: #b8532f;
   --on-accent: #ffffff;
   --action: #2b2420;
   --on-action: #fffaf4;
+
+  /* Status */
   --success: #398253;
   --warning: #a16717;
   --danger: #c2453b;
+
+  /* Roles and phases */
   --role-source: #d4663f;
   --role-agent: #6a5ad0;
   --phase-thinking: #7d63c9;
@@ -106,7 +111,23 @@
   --phase-text: #4a5bbd;
   --phase-command: #3e72c4;
   --phase-file: #2a816c;
-  --knob: #ffffff;
+
+  /* Theme swatches */
+  --theme-swatch-default-left: #5B5FF5;
+  --theme-swatch-default-right: #5B5FF5;
+  --theme-swatch-blue-left: #00a6c7;
+  --theme-swatch-blue-right: #007aff;
+  --theme-swatch-purple-left: #f8509e;
+  --theme-swatch-purple-right: #943d96;
+  --theme-swatch-orange-left: #e1393e;
+  --theme-swatch-orange-right: #f78218;
+  --theme-swatch-green-left: #e0b219;
+  --theme-swatch-green-right: #22b85c;
+
+  /* Elevation */
+  --shadow-hub-halo: 0 0 6px var(--stroke-ring) color-mix(in srgb, var(--hub-color) 45%, transparent);
+  --shadow-table-divider: inset 0 -1px var(--border);
+  --shadow-focus: 0 0 0 var(--stroke-ring) var(--surface), 0 0 0 4px var(--accent);
   --shadow-sm: 0 1px 2px rgb(74 52 36 / 8%);
   --shadow-md: 0 1px 3px rgb(74 52 36 / 5%), 0 6px 20px rgb(74 52 36 / 8%);
   --shadow-lg: 0 2px 4px rgb(74 52 36 / 5%), 0 18px 56px rgb(74 52 36 / 13%);

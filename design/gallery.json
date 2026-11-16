@@ -1,0 +1,156 @@
+{
+  "groups": [
+    {
+      "title": "Controls",
+      "assets": [
+        "components/button.tsx",
+        "components/icon-button.tsx",
+        "components/field.tsx",
+        "components/search.tsx",
+        "components/copy-field.tsx",
+        "components/switch.tsx",
+        "components/single-choice.tsx",
+        "components/tag.tsx",
+        "components/tooltip.tsx"
+      ]
+    },
+    {
+      "title": "Containers and display",
+      "assets": [
+        "components/panel.tsx",
+        "components/card.tsx",
+        "components/tile.tsx",
+        "components/settings-row.tsx",
+        "components/record-detail.tsx",
+        "components/entity-inventory.tsx",
+        "components/inspection-popover.tsx",
+        "components/project-path.tsx",
+        "components/notice.tsx",
+        "components/quota.tsx",
+        "components/update-about.tsx"
+      ]
+    },
+    {
+      "title": "Timeline",
+      "assets": [
+        "modules/timeline.tsx",
+        "components/task-card.tsx",
+        "components/dispatch-spec.tsx",
+        "components/request.tsx",
+        "modules/tasks.tsx",
+        "modules/task-relationships.tsx",
+        "modules/request.tsx",
+        "modules/agent-activity.tsx",
+        "modules/source-activity.tsx",
+        "modules/activity-source-mark.tsx"
+      ]
+    },
+    {
+      "title": "Accounts",
+      "assets": [
+        "modules/agent-account.tsx",
+        "modules/agent-account-add.tsx",
+        "modules/agent-settings.tsx",
+        "modules/model-configuration.tsx",
+        "modules/quota-detail.tsx"
+      ]
+    },
+    {
+      "title": "Connections",
+      "assets": [
+        "modules/connection-management.tsx",
+        "modules/connection-onboarding.tsx",
+        "modules/device-link.tsx",
+        "modules/device-facts.tsx",
+        "modules/connectors.tsx",
+        "modules/mcp-service.tsx",
+        "modules/relay-hosting.tsx"
+      ]
+    },
+    {
+      "title": "Onboarding",
+      "assets": [
+        "components/onboarding-fields.tsx",
+        "components/setup-choice.tsx",
+        "components/setup-flow.tsx",
+        "modules/onboarding.tsx",
+        "modules/welcome.tsx",
+        "modules/source-onboarding.tsx"
+      ]
+    },
+    {
+      "title": "Settings",
+      "assets": [
+        "components/theme-swatch.tsx",
+        "modules/general-settings.tsx",
+        "modules/display-settings.tsx",
+        "modules/permissions.tsx",
+        "modules/experimental.tsx",
+        "modules/pets.tsx",
+        "modules/updates.tsx",
+        "modules/layer-content.tsx"
+      ]
+    },
+    {
+      "title": "Homepage",
+      "assets": [
+        "modules/homepage-scene/index.tsx",
+        "components/brand-mark.tsx",
+        "modules/board.tsx",
+        "modules/board-record.tsx",
+        "modules/ax.tsx"
+      ]
+    },
+    {
+      "title": "Home",
+      "assets": [
+        "surfaces/homepage-topology.tsx",
+        "surfaces/homepage-topology-accounts.tsx",
+        "surfaces/homepage-topology-portrait.tsx",
+        "surfaces/homepage-tasks.tsx"
+      ]
+    },
+    {
+      "title": "Tasks",
+      "assets": [
+        "surfaces/task-detail.tsx",
+        "surfaces/coordination.tsx",
+        "surfaces/coordination-ax.tsx"
+      ]
+    },
+    {
+      "title": "Agents",
+      "assets": [
+        "surfaces/agent-panel.tsx",
+        "surfaces/agent-platform.tsx",
+        "surfaces/platforms.tsx",
+        "surfaces/quota-overview.tsx"
+      ]
+    },
+    {
+      "title": "Connectivity",
+      "assets": [
+        "surfaces/connections.tsx",
+        "surfaces/source-panel.tsx",
+        "surfaces/mcp-hub.tsx",
+        "surfaces/relay-hosting.tsx"
+      ]
+    },
+    {
+      "title": "Preferences",
+      "assets": [
+        "surfaces/settings.tsx",
+        "surfaces/permissions.tsx",
+        "surfaces/pets-settings.tsx",
+        "surfaces/updates.tsx",
+        "surfaces/layers.tsx"
+      ]
+    },
+    {
+      "title": "Setup",
+      "assets": [
+        "surfaces/setup.tsx"
+      ]
+    }
+  ]
+}
