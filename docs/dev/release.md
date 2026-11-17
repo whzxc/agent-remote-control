@@ -43,9 +43,11 @@ Only successful jobs upload their archive and a receipt binding the source SHA, 
 npm test
 ```
 
-Normal releases run the daily suite through `npm test`, including policy checks, frozen MCP catalog contracts, pure logic and bounded DOM fixtures. The complete test step has a 30-second wall-clock budget. It does not compile Rust or run process-recovery, notification, retry or browser-layout integration fixtures. See [Testing](testing.md) for the daily scope and explicit extended checks.
+Normal releases run `npm run test:extended` once as the first release step, before preflight, worker preparation, compilation, packaging or publication. It runs the full native library suite and all extended checks. The current measured duration is about 205 seconds on the Apple Silicon coordinator. A failure prints the failing test names and aborts the release before any build starts. The releasing agent fixes the cause in a separate commit and reruns the release. If the fix needs a product decision or changes the release contract, stop and ask the user.
 
-The daily suite runs once in the release command before platform compilation, so a test failure stops the run early and tests do not compete with compilers for CPU. Worker readiness may overlap this step. Do not run a separate daily suite immediately before release without changing its inputs. Desktop releases then run the cached browser smoke suite described in [Acceptance](acceptance.md). Add affected UI scenarios during development; a release does not require a full UI matrix. Passing layout cases survive retries while their inputs are unchanged. Tests use development version 0.0.0 inside and outside release; artifact validation separately checks the requested release version. `--skip-tests` remains an explicit override. Any failure or test-budget timeout blocks publication. Resume uses its verified publication checkpoint and does not run tests or builds.
+The release later runs the daily suite through `npm test`, including policy checks, frozen MCP catalog contracts, pure logic and bounded DOM fixtures. The complete daily step has a 30-second wall-clock budget. See [Testing](testing.md) for the daily scope and explicit extended checks.
+
+The daily suite runs once in the release command before platform compilation, so a test failure stops the run early and tests do not compete with compilers for CPU. Worker readiness may overlap this step. Do not run a separate daily suite immediately before release without changing its inputs. Desktop releases then run the cached browser smoke suite described in [Acceptance](acceptance.md). Add affected UI scenarios during development; a release does not require a full UI matrix. Passing layout cases survive retries while their inputs are unchanged. Tests use development version 0.0.0 inside and outside release; artifact validation separately checks the requested release version. Any failure or test-budget timeout blocks publication. Resume uses its verified publication checkpoint and does not run tests or builds.
 
 ## Commands and publication boundaries
 
@@ -56,7 +58,6 @@ Preflight validates the notes for the selected version before compilation. Final
 ```sh
 npm run release
 npm run release -- --version X.Y.Z
-npm run release -- --skip-tests
 npm run release -- --platforms mac
 npm run release -- --platforms mac,windows,linux
 npm run release -- --platforms linux
@@ -90,7 +91,7 @@ npm run release -- --dry-run --version X.Y.Z --platforms mac
 npm run release -- --dry-run --version X.Y.Z --platforms mac,windows,linux
 ```
 
-Rehearsals run the daily suite, cached desktop UI smoke checks and build every selected platform, collect receipts, verify selected Linux runtime checks from Actions, verify Mac package signatures, sign Windows on the Mac, verify updater signatures, and generate the complete local manifest and checksums. Linux jobs upload workflow artifacts for coordinator collection. No tag, source push, draft, public Release, Release asset upload, app installation, or replacement occurs. No publication checkpoint is created. --skip-tests explicitly bypasses tests when requested.
+Rehearsals run the extended gate, the daily suite, cached desktop UI smoke checks and build every selected platform, collect receipts, verify selected Linux runtime checks from Actions, verify Mac package signatures, sign Windows on the Mac, verify updater signatures, and generate the complete local manifest and checksums. Linux jobs upload workflow artifacts for coordinator collection. No tag, source push, draft, public Release, Release asset upload, app installation, or replacement occurs. No publication checkpoint is created.
 
 Each stage prints START/END, status, seconds, and timestamped JSONL under release-artifacts/.timings-<suffix>/. Platform wall and platform critical-path timers cover concurrent builds; build/test critical path covers daily tests and desktop UI smoke checks followed by concurrent platform builds. Worker readiness overlaps preflight/work, and cleanup is a separate background stage. Nested durations must not be added. Overall wall includes final cleanup; formal publication timings include tagging, upload, verification, publish, and readback. Windows sends its detailed dependency/Rust/NSIS timers back to the coordinator. Each asset records separate prepare and upload stages; prepare includes the draft check and any incomplete-asset deletion. Upload records the artifact byte size and, on success, bytesPerSecond measured over the binary HTTP request. Skipped transfers have a skipped upload stage and no transfer rate. These timings distinguish API overhead from transfer time; they do not predict a future network speed. Receipts and timings are not public assets.
 

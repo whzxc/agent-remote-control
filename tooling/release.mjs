@@ -96,8 +96,8 @@ if (mode === 'release') {
       const key = option.slice(2);
       if (!args[i + 1] || args[i + 1].startsWith('--') || options[key] !== undefined) throw new Error(`Invalid or repeated ${option}`);
       options[key] = args[++i];
-    } else if (['--skip-tests', '--dry-run'].includes(option) && !flags.has(option)) flags.add(option);
-    else throw new Error('release [--dry-run] [--skip-tests] [--version X.Y.Z] [--platforms mac,windows,linux] [--resume <artifact-dir>]');
+    } else if (option === '--dry-run' && !flags.has(option)) flags.add(option);
+    else throw new Error('release [--dry-run] [--version X.Y.Z] [--platforms mac,windows,linux] [--resume <artifact-dir>]');
   }
   const resume = options.resume !== undefined;
   const dryRun = flags.has('--dry-run');
@@ -108,6 +108,7 @@ if (mode === 'release') {
   const mac = platforms.includes('mac');
   const windows = platforms.includes('windows');
   const linux = platforms.includes('linux');
+  execFileSync('npm', ['run', 'test:extended'], { stdio: 'inherit' });
   await mkdir('release-artifacts', { recursive: true });
   const timingDir = await mkdtemp(path.join('release-artifacts', '.timings-'));
   const timingFile = path.resolve(timingDir, 'stages.jsonl');
@@ -189,12 +190,7 @@ if (mode === 'release') {
     } else {
       output = path.resolve(await mkdtemp(path.join('release-artifacts', `v${version}-`)));
       console.log(`Release artifacts: ${output}`);
-      const tests = async () => {
-        if (flags.has('--skip-tests')) {
-          console.log('Tests explicitly skipped.');
-          timer.skip('tests');
-        } else await timer.run('tests', () => runCommand('npm', ['test'], { env: testEnvironment(env) }));
-      };
+      const tests = async () => timer.run('tests', () => runCommand('npm', ['test'], { env: testEnvironment(env) }));
       await timer.run('build/test critical path', async () => {
         await tests();
         if (mac || windows) await timer.run('UI smoke', () => runCommand('npm', ['run', 'accept:ui'], { env: testEnvironment(env) }));
