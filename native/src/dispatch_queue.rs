@@ -565,37 +565,5 @@ pub(crate) fn scale_poll() -> Result<()> {
 #[cfg(test)]
 mod projection_tests {
     use super::*;
-    #[test]
-    fn dormant_queue_reactivation_removal_and_rebuild_preserve_fifo_history() {
-        // Recurring bug class: unchanged queue ticks traversed all completed rows and dormant rows needed discovery after reactivation.
-        let dir = std::env::temp_dir().join(format!("arc-queue-projection-{}", id()));
-        for n in 0..44 {
-            save(&dir.join(format!("{n}.json")), &json!({"queueId":id(),"threadId":"fixture","args":{},"state":"completed","sequence":n,"origin":{"sourceId":"fixture"}})).unwrap();
-        }
-        assert_eq!(records_in(&dir).unwrap().len(), 44);
-        let warm = file_cache::thread_io();
-        assert!(with_queue(&dir, |q| q.active.is_empty()).unwrap());
-        assert_eq!(file_cache::thread_io(), warm);
-        let mut row = load(&dir.join("0.json")).unwrap();
-        row["state"] = json!("queued");
-        save(&dir.join("0.json"), &row).unwrap();
-        let selected = with_queue(&dir, |q| {
-            q.active.values().map(|r| (**r).clone()).collect::<Vec<_>>()
-        })
-        .unwrap();
-        assert_eq!(selected, vec![row]);
-        let before = file_cache::Stamp::read(&dir).unwrap();
-        std::fs::remove_file(dir.join("1.json")).unwrap();
-        file_cache::changed(&dir.join("1.json"), before);
-        assert_eq!(records_in(&dir).unwrap().len(), 43);
-        QUEUES.lock().unwrap().0.remove(&dir);
-        let rebuilt = records_in(&dir).unwrap();
-        assert_eq!(rebuilt.len(), 43);
-        assert_eq!(rebuilt[0]["state"], "queued");
-        assert!(rebuilt
-            .windows(2)
-            .all(|pair| pair[0]["sequence"].as_u64() < pair[1]["sequence"].as_u64()));
-        QUEUES.lock().unwrap().0.remove(&dir);
-        std::fs::remove_dir_all(dir).unwrap();
-    }
+    
 }

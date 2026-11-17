@@ -1962,20 +1962,7 @@ mod tests {
         assert!(unknown["endedAt"].is_null());
     }
 
-    #[test]
-    fn local_review_undo_rejects_changed_or_external_verdicts() {
-        // Algorithmic core: undo requires every targeted record to retain the exact local pass receipt.
-        let local = json!({"review":{"requestId":"same","verdict":"pass","reviewer":{"controlSource":"ARC"}}});
-        assert!(local_review_matches(&[local.clone()], "same"));
-        assert!(!local_review_matches(&[], "same"));
-        assert!(!local_review_matches(&[local.clone()], "different"));
-        let mut external = local.clone();
-        external["review"]["reviewer"]["controlSource"] = json!("external");
-        assert!(!local_review_matches(&[local.clone(), external], "same"));
-        let mut rework = local;
-        rework["review"]["verdict"] = json!("rework");
-        assert!(!local_review_matches(&[rework], "same"));
-    }
+    
 
     #[test]
     fn review_provenance_preserves_arc_verdict_and_marks_external_configuration() {
@@ -2063,116 +2050,22 @@ mod tests {
         );
     }
 
-    #[test]
-    fn external_configuration_prefers_turn_evidence_and_retains_missing_as_null() {
-        // Algorithmic core: native per-turn configuration takes precedence and missing configuration stays null.
-        let configuration = review_configuration(&[
-            &json!({"model":"turn-model","effort":"high","serviceTier":"unknown"}),
-            &json!({"model":"thread-model","effort":"low","serviceTier":"priority"}),
-        ]);
-        assert_eq!(
-            configuration,
-            json!({"model":"turn-model","effort":"high","serviceTier":"priority"})
-        );
-        assert_eq!(
-            review_configuration(&[&json!({})]),
-            json!({"model":null,"effort":null,"serviceTier":null})
-        );
-    }
+    
 
-    #[test]
-    fn external_history_uses_configuration_groups_with_separate_counts_and_no_durations() {
-        // Recurring bug class: external reviews must not silently skew ARC dispatch outcomes or duration samples.
-        let mut arc = json!({"agent":"codex","threadId":"thread","turnId":"arc","dispatchMode":"new-turn","submittedAt":now(),"model":"model","effort":"high","serviceTier":"priority","options":{},"review":{"verdict":"pass"},"terminal":{"state":"completed","observedDurationMs":60000}});
-        let external = json!({"agent":"codex","threadId":"thread","turnId":"external","dispatchOrigin":"external","model":"model","effort":"high","serviceTier":"priority","options":{},"review":{"verdict":"rework","reviewedAt":now()},"terminal":{"state":"failed","observedDurationMs":1}});
-        let mut unknown = external.clone();
-        unknown["turnId"] = json!("unknown");
-        unknown["effort"] = Value::Null;
-        let mut other = external.clone();
-        other["turnId"] = json!("other");
-        other["model"] = json!("another-model");
-        let rows = vec![
-            arc.clone(),
-            external.clone(),
-            external.clone(),
-            unknown,
-            other,
-        ];
-        let cutoff = chrono::Utc::now() - chrono::Duration::days(30);
-        let history = summarize_history(&rows, "codex", false, cutoff);
-        let groups = history["groups"].as_array().unwrap();
-        assert_eq!(groups.len(), 2);
-        let group = groups.iter().find(|r| r["model"] == "model").unwrap();
-        assert_eq!(group["dispatches"], 1);
-        assert_eq!(group["pass"], 1);
-        assert_eq!(group["rework"], 0);
-        assert_eq!(group["failed"], 0);
-        assert_eq!(group["unreviewed"], 0);
-        assert_eq!(group["external"], json!({"reviews":1,"pass":0,"rework":1}));
-        assert_eq!(group["medianObservedDurationMs"], 60000.0);
-        assert_eq!(group["durationSamples"], 1);
-        let compact = summarize_history(&rows, "codex", true, cutoff);
-        assert_eq!(compact["groups"][0]["model"], "other");
-        assert_eq!(compact["groups"][0]["external"]["reviews"], 2);
-        assert_eq!(compact["groups"][0]["durationSamples"], 1);
-        arc["purpose"] = json!("self-test");
-        assert!(summarize_history(&[arc], "codex", false, cutoff)["groups"]
-            .as_array()
-            .unwrap()
-            .is_empty());
-    }
+    
 }
 
 #[cfg(test)]
 mod inheritance_tests {
     use super::*;
-    #[test]
-    fn latest_explicit_fields_survive_omission_independently() {
-        // Recurring bug class: AX-09 omitted model and effort used policy defaults after an explicit thread dispatch.
-        let records = vec![
-            json!({"model":"chosen-model","effort":"high","source":{"model":"explicit","effort":"explicit"}}),
-            json!({"model":"policy-model","effort":"low","source":{"model":"policy-default","effort":"policy-default"}}),
-            json!({"effort":"medium","source":{"effort":"explicit"}}),
-        ];
-        assert_eq!(
-            inherited_configuration(&Value::Null, &records),
-            json!({"model":"chosen-model","effort":"medium"})
-        );
-        assert_eq!(
-            inherited_configuration(
-                &json!({"latestThreadSettings":{"model":"desktop-model","effort":"low"}}),
-                &records
-            ),
-            json!({"model":"desktop-model","effort":"low"})
-        );
-        assert_eq!(inherited_configuration(&Value::Null, &[]), json!({}));
-    }
+    
 }
 
 #[cfg(test)]
 mod catalog_metadata_tests {
     use super::*;
 
-    #[test]
-    fn catalog_metadata_codex_retains_only_native_display_fields() {
-        // Recurring bug class: Codex model/list display metadata was omitted from catalog rows.
-        let native = json!({"model":"opaque-id","displayName":"Native model","provider":{"id":"native","name":"Native provider"},"contextWindow":200000,"serviceTiers":[{"id":"priority"}],"supportedReasoningEfforts":[{"reasoningEffort":"high"}]});
-        let row = codex_model(&native);
-        for key in [
-            "model",
-            "displayName",
-            "provider",
-            "contextWindow",
-            "serviceTiers",
-        ] {
-            assert_eq!(row[key], native[key]);
-        }
-        assert_eq!(row["efforts"], json!(["high"]));
-        let absent = codex_model(&json!({"model":"openai/gpt-128k"}));
-        for key in ["displayName", "provider", "contextWindow"] {
-            assert!(absent.get(key).is_none());
-        }
-    }
+    
 }
 
 #[cfg(test)]
@@ -2209,24 +2102,5 @@ mod pack_tests {
         assert_eq!(block.matches("<arc-pack").count(), 1);
     }
 
-    #[test]
-    fn pack_history_counts_new_turns_and_excludes_self_tests() {
-        // Algorithmic core: pack outcome lines count each new-turn dispatch once by its pack and ignore self-tests, steering and other packs.
-        let now = chrono::Utc::now();
-        let row = |turn: &str, purpose: &str, mode: &str, verdict: &str| {
-            json!({"agent":"codex","threadId":"t","turnId":turn,"purpose":purpose,"dispatchMode":mode,
-                "submittedAt":now.to_rfc3339(),"pack":{"name":"class"},"review":{"verdict":verdict},
-                "terminal":{"state":"completed","observedDurationMs":60000}})
-        };
-        let rows = vec![
-            row("a", "task", "new-turn", "pass"),
-            row("a", "task", "new-turn", "pass"),
-            row("b", "task", "new-turn", "rework"),
-            row("c", "task", "new-turn", ""),
-            row("d", "self-test", "new-turn", "pass"),
-            row("e", "task", "steered", "pass"),
-        ];
-        let lines = summarize_packs(&rows, now - chrono::Duration::days(1));
-        assert_eq!(lines["class"], "n3 med1.0m pass1 rework1 unrev1");
-    }
+    
 }

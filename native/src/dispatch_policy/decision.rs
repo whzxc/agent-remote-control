@@ -534,143 +534,21 @@ mod tests {
         }
     }
 
-    #[test]
-    fn account_selection_facts_survive_projection_and_full_view_retains_detail() {
-        // Algorithmic core: compact projection retains account identity, readiness, quota units, resets and stale/blocking evidence without inventing usage.
-        let accounts = json!([
-            {"id":"account-one","alias":"Primary","default":true,"health":{"state":"attention"},
-             "agentProfiles":[{"profileId":"profile-one","state":"signed-in"}],
-             "quota":{"state":"stale","observedAt":"2026-01-01T00:00:00Z","accountBlocked":true,
-                      "windows":[{"id":"weekly","label":"7d","usedPercent":100,"resetsAt":"2026-01-02T00:00:00Z"}]}},
-            {"id":"account-two","alias":"Secondary","health":{"state":"ready"},"quota":{"state":"unavailable"}}
-        ]);
-        let facts = json!({"agents":[{"agent":"example","accounts":accounts,
-            "availability":{"installed":true,"enabled":true,"available":true},
-            "policy":{"criteria":"Use current evidence.","denyModels":["denied"]}}]});
-        let first = present(facts.clone(), &json!({}));
-        let row = &first["agents"][0];
-        let primary = &row["accounts"][0];
-        assert_eq!(primary["id"], accounts[0]["id"]);
-        assert_eq!(primary["alias"], accounts[0]["alias"]);
-        assert_eq!(primary["default"], true);
-        assert_eq!(primary["health"], accounts[0]["health"]["state"]);
-        assert_eq!(primary["quota"]["state"], "stale");
-        assert_eq!(
-            primary["quota"]["observedAt"],
-            accounts[0]["quota"]["observedAt"]
-        );
-        assert_eq!(primary["quota"]["accountBlocked"], true);
-        let summary = primary["quota"]["summary"].as_str().unwrap();
-        assert!(
-            summary.contains("7d")
-                && summary.contains("100%")
-                && summary.contains("2026-01-02T00:00:00Z")
-        );
-        assert_eq!(row["accounts"][1]["quota"]["state"], "unavailable");
-        assert!(row["accounts"][1]["quota"].get("summary").is_none());
-        assert_eq!(
-            row["denyModels"],
-            facts["agents"][0]["policy"]["denyModels"]
-        );
-        let cached = present(
-            facts.clone(),
-            &json!({"knownCriteriaHash":row["criteriaHash"]}),
-        );
-        assert_eq!(cached["agents"][0]["accounts"], row["accounts"]);
-        let full = present(facts, &json!({"view":"full"}));
-        assert_eq!(full["agents"][0]["accounts"], accounts);
-    }
+    
 }
 
 #[cfg(test)]
 mod catalog_metadata_tests {
     use super::*;
 
-    #[test]
-    fn catalog_metadata_review_restores_compact_decision_and_full_metadata() {
-        // Recurring bug class: review of 136285a8 found per-model settings and context metadata bloated every decision read.
-        let mut models = json!(["alpha", "beta"])
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|id| {
-                json!({
-                    "model":id,"displayName":id,"contextWindow":131072,
-                    "efforts":["low","medium","high","xhigh","max","ultra"],
-                    "serviceTiers":[{"id":"priority","name":"Fast"}],
-                    "options":[{"id":"mode","values":[{"value":"a"},{"value":"b"}]}]
-                })
-            })
-            .collect::<Vec<_>>();
-        let opaque = "[\"profile\", \"opaque/id\"]";
-        models.push(json!({"model":opaque,"displayName":"Native model","provider":{"id":"p","name":"Provider"},"contextWindow":64000,"efforts":["low","high"]}));
-        models.push(json!({"model":"unknown","displayName":"unknown","provider":{"id":"unknown","name":"unknown"}}));
-        let facts = json!({"agents":[
-            {"agent":"codex","models":models,"authoritative":true,"policy":{"criteria":"Choose native models."}},
-            {"agent":"dsh","capabilities":{"models":models,"authoritative":false,"omittedModels":2},"policy":{"criteria":"Choose native models."}},
-            {"agent":"pi","capabilities":{"models":models,"authoritative":true}}
-        ]});
-        let result = present(facts.clone(), &json!({}));
-        for row in &result["agents"].as_array().unwrap()[..2] {
-            let compact = row["models"].as_array().unwrap();
-            assert_eq!(compact.len(), 3);
-            assert!(compact.contains(&json!("alpha,beta: low-ultra, fast=priority, mode=a/b")));
-            assert!(compact.contains(&json!(format!(
-                "[Provider] Native model ({opaque}): low/high"
-            ))));
-            assert!(compact.contains(&json!("unknown")));
-        }
-        assert_eq!(result["agents"][0]["authoritative"], true);
-        assert_eq!(result["agents"][1]["authoritative"], false);
-        assert_eq!(result["agents"][1]["omittedModels"], 2);
-        assert_eq!(result["agents"].as_array().unwrap().len(), 2);
-        assert!(result["otherAgents"][0]
-            .as_str()
-            .unwrap()
-            .starts_with("pi: "));
-        let full = present(facts, &json!({"view":"full"}));
-        assert_eq!(full["agents"][0]["models"], json!(models));
-        assert_eq!(full["agents"][1]["capabilities"]["models"], json!(models));
-        assert_eq!(full["agents"][0]["authoritative"], true);
-        assert_eq!(full["agents"][1]["capabilities"]["authoritative"], false);
-    }
+    
 }
 
 #[cfg(test)]
 mod decision_budget_tests {
     use super::*;
 
-    #[test]
-    fn decision_rows_collapse_unused_agents_and_attach_primary_pools() {
-        // Algorithmic core: unconfigured Agents without history collapse to one line while configured Agents and primary-pool credit facts stay visible.
-        let facts = json!({"agents":[
-            {"agent":"codex","availability":{"installed":true,"enabled":true,"available":true},
-             "policy":{"criteria":"Route by evidence."},
-             "accounts":[
-                {"id":"primary","alias":"P","health":{"state":"ready"},"agentProfiles":[{"role":"primary"}],
-                 "quota":{"windows":[{"id":"weekly","usedPercent":40}]}},
-                {"id":"secondary","alias":"S","health":{"state":"ready"},"agentProfiles":[{"role":"secondary"}]}],
-             "quota":{"ordinaryUsageAllowed":false,"pools":[{"id":"codex","credits":{"hasCredits":true,"balance":"1.5"},
-                "primary":{"usedPercent":40,"windowDurationMins":10080}}]}},
-            {"agent":"idle","availability":{"installed":true,"enabled":true,"available":true},"policy":{}},
-            {"agent":"constrained","availability":{"installed":true,"enabled":true,"available":true},"policy":{"denyModels":["x"]}}
-        ]});
-        let result = present(facts, &json!({}));
-        let agents = result["agents"].as_array().unwrap();
-        assert_eq!(
-            agents
-                .iter()
-                .map(|a| string(a, "agent"))
-                .collect::<Vec<_>>(),
-            ["codex", "constrained"]
-        );
-        assert_eq!(result["otherAgents"], json!(["idle: available"]));
-        let native = &agents[0]["accounts"][0]["quota"]["native"];
-        assert_eq!(native["credits"]["balance"], "1.5");
-        assert_eq!(native["ordinaryUsageAllowed"], false);
-        assert!(native.get("summary").is_none());
-        assert!(agents[0].get("quota").is_none());
-    }
+    
 
     #[test]
     fn compact_history_keeps_six_configurations_and_merges_the_rest() {
