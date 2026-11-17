@@ -2039,17 +2039,6 @@ mod tests {
     }
 
     #[test]
-    fn native_diff_counts_only_hunk_lines() {
-        // Property: diff headers do not contribute counts and missing hunks leave counts unknown.
-        let row = file_change(
-            &json!({"path":"example.txt","diff":"--- a/example.txt\n+++ b/example.txt\n@@ -1,1 +1,2 @@\n-old\n+new\n+extra\n"}),
-        );
-        assert_eq!(row["added"], 2);
-        assert_eq!(row["removed"], 1);
-        assert!(file_change(&json!({"path":"example.txt"}))["added"].is_null());
-    }
-
-    #[test]
     fn file_changes_preserve_native_operations() {
         // Property: native file-change operations remain explicit without guessing from diff counts.
         for (kind, operation) in [("add", "create"), ("update", "edit"), ("delete", "delete")] {

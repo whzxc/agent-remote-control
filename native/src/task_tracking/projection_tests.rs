@@ -266,10 +266,11 @@ fn codex_rollout_and_items_use_the_same_normalization() {
     for field in ["type", "command", "cwd", "input"] {
         assert_eq!(rollout.entries[0][field], history.entries[0][field]);
     }
-    history.codex_item(&json!({"id":"patch","type":"fileChange","changes":[{"path":"a","kind":{"type":"update"},"diff":"@@ -1 +1 @@\n-old\n+new"},{"path":"b","kind":{"type":"add"}}]}), "completed", AT);
+    history.codex_item(&json!({"id":"patch","type":"fileChange","changes":[{"path":"a","kind":{"type":"update"},"diff":"--- a/a\n+++ b/a\n@@ -1 +1 @@\n-old\n+new"},{"path":"b","kind":{"type":"add"}}]}), "completed", AT);
     assert_eq!(history.entries[1]["paths"], json!(["a", "b"]));
     assert_eq!(history.entries[1]["changes"][0]["added"], 1);
     assert_eq!(history.entries[1]["changes"][0]["removed"], 1);
+    assert!(history.entries[1]["changes"][1]["added"].is_null());
     let phase =
         history.session("fixture", &json!({"id":"fixture"}), "arc-task", None)["phase"].clone();
     for (method, params) in [

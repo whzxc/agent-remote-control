@@ -120,6 +120,15 @@ mod tests {
         }
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0]["aliases"].as_array().unwrap().len(), 2);
+
+        rows = serde_json::from_str(&serde_json::to_string(&rows).unwrap()).unwrap();
+        let later = "2026-01-01T13:00:00Z";
+        rows.push(chat("newer", "owner", json!(later)));
+        verified_target(&mut rows, &mut bindings, "owner", &target(), later);
+        assert_eq!(
+            resolve(&rows, "owner", string(&target(), "id")).unwrap()["id"],
+            original["id"]
+        );
     }
     #[test]
     fn zero_or_multiple_recent_chats_do_not_infer_an_alias() {
@@ -179,25 +188,5 @@ mod tests {
         assert!(bindings.values().all(|r| r["id"] == "one"));
         assert_eq!(bindings["codex:two"]["basis"], "notify-target");
         assert_eq!(bindings["agent:three"]["basis"], "manual");
-    }
-    #[test]
-    fn persisted_alias_is_stable_after_new_chat_activity() {
-        // Regression: rereading a verified target must not retarget a persisted alias to later activity.
-        let mut rows = vec![chat("one", "owner", json!(AT))];
-        let mut bindings = BTreeMap::new();
-        verified_target(&mut rows, &mut bindings, "owner", &target(), AT);
-        rows = serde_json::from_str(&serde_json::to_string(&rows).unwrap()).unwrap();
-        rows.push(chat("two", "owner", json!("2026-01-01T13:00:00Z")));
-        verified_target(
-            &mut rows,
-            &mut bindings,
-            "owner",
-            &target(),
-            "2026-01-01T13:00:00Z",
-        );
-        assert_eq!(
-            resolve(&rows, "owner", string(&target(), "id")).unwrap()["id"],
-            "one"
-        );
     }
 }
