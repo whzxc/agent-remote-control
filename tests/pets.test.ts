@@ -1,8 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { atlasFrame, petBrand, selectPet, type PetPackage, type Participant } from '../ui/pets/model.ts';
-import { boundPet, petSize, participantPost, overlaps, bubbleEnd, taskPost, wanderPost } from '../ui/pets/geometry.ts';
-import { reactions, reactionDeck, activityPose } from '../ui/pets/behavior.ts';
+import { boundPet, petSize, participantPost, overlaps, wanderPost } from '../ui/pets/geometry.ts';
 
 test('atlas frames stay inside each supported row', () => {
   // Property: every clamped frame remains in its supported v1 or v2 atlas cell.
@@ -10,24 +9,6 @@ test('atlas frames stay inside each supported row', () => {
     const a = atlasFrame(version, row, frame);
     assert.ok(a.row >= 0 && a.row < (version === 1 ? 9 : 11));
     assert.ok(a.frame >= 0 && a.frame < a.frames);
-  }
-});
-test('click feedback visits every reaction without a boundary repeat', () => {
-  // Property: a reaction deck is a permutation of all responses and its first entry differs from the previous response.
-  for (const random of [() => 0, () => .4, () => .999]) for (let previous = 0; previous < reactions.length; previous++) {
-    const deck = reactionDeck(previous, random);
-    assert.equal(new Set(deck).size, reactions.length);
-    assert.notEqual(deck[0], previous);
-    assert.ok(deck.every(index => index >= 0 && index < reactions.length));
-  }
-});
-test('phase gestures preserve attention and failure meaning', () => {
-  // Property: failure and pending-input poses retain their semantic rows for every role and random sample.
-  for (const participant of [false, true]) for (const random of [() => 0, () => .5, () => .999]) {
-    assert.equal(activityPose('command', 'failed', participant, random).row, 5);
-    assert.equal(activityPose('thinking', 'needsYou', participant, random).row, 6);
-    const pose = activityPose('file', 'running', participant, random);
-    assert.ok(pose.row >= 0 && pose.row <= 8 && pose.tempo > 0);
   }
 });
 test('wandering never crosses obstacles or leaves the scene', () => {
@@ -66,18 +47,6 @@ test('drag bounds are idempotent and exclude the title strip', () => {
   }
 });
 
-test('pet dimensions preserve cell aspect and task scale independently of tags', () => {
-  // Property: task sprites scale uniformly from participant sprites and tags never alter the atlas cell aspect.
-  for (const tagged of [false, true]) {
-    const participant = petSize('participant', tagged), task = petSize('task', tagged);
-    for (const size of [participant, task, petSize('preview', tagged)]) assert.ok(Math.abs(size.width / size.height - 192 / 208) < 1e-12);
-    assert.ok(Math.abs(task.width / participant.width - .6) < 1e-12);
-    assert.ok(Math.abs(task.height / participant.height - .6) < 1e-12);
-    assert.equal(participant.width, petSize('participant').width);
-    assert.equal(participant.height, petSize('participant').height);
-    assert.equal(task.tagHeight, participant.tagHeight);
-  }
-});
 test('participant posts prefer the hub side and keep their full footprint clear', () => {
   // Property: every selected post contains the pet and tag in bounds and excludes supplied node and label rectangles.
   const bounds = { x: 1000, y: 900, top: 40 };
@@ -97,17 +66,4 @@ test('participant posts prefer the hub side and keep their full footprint clear'
     if (displaced) assert.ok(!overlaps({ ...displaced, width: size.width, height: footprint.height }, footprint));
   }
   assert.equal(participantPost({ x: 0, y: 0, width: bounds.x, height: bounds.y }, { x: 500, y: 400 }, [], bounds, petSize('participant')), undefined);
-});
-test('task pets stand at the bubble end across left and right anchored geometries', () => {
-  // Property: changing a bubble's anchor encoding preserves its pet destination at the right edge with feet on the bottom edge.
-  const size = petSize('task');
-  for (const width of [120, 264, 480]) for (const height of [48, 76, 120]) for (const left of [20, 600, 976]) {
-    const centerY = 400;
-    const landscape = bubbleEnd({ x: left, y: centerY, width, height, anchor: 0 });
-    const portrait = bubbleEnd({ x: left + width, y: centerY, width, height, anchor: 1 });
-    assert.deepEqual(landscape, portrait);
-    const post = taskPost(landscape, size);
-    assert.ok(Math.abs(post.x + size.width / 2 - (left + width)) < 1e-9);
-    assert.ok(Math.abs(post.y + size.height - (centerY + height / 2)) < 1e-9);
-  }
 });

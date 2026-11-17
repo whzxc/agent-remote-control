@@ -19,17 +19,14 @@ function snapshot(scene: Scene, orientation: Orientation) {
     position: nodes.find(n => n.id === g.id && n.side === g.side)!.position })) };
 }
 
-const position = { presence: 1 };
-test('acceptance counts the real dense fixture including grouped roots', () => {
-  // Regression: an unsupported dense fixture limit hid an Agent; supported fixture data must represent all five Agents, including grouped roots.
-  const { fixture, scene } = denseTopologyScene();
-  const topology = snapshot(scene, 'landscape');
-  assert.deepEqual(representedTopologyRoots(topology, 1), fixture.agents);
-  assert.deepEqual(representedTopologyRoots(topology, -1), scene.left.map(n => n.id));
-});
-
 test('coverage retains root identity across unfolding and side collapse', () => {
   // Property: folded root membership and unfolded real roots cover the same identities without counting child groups, dormant groups or the opposite wing.
+  const { fixture, scene } = denseTopologyScene();
+  const dense = snapshot(scene, 'landscape');
+  assert.deepEqual(representedTopologyRoots(dense, 1), fixture.agents);
+  assert.deepEqual(representedTopologyRoots(dense, -1), scene.left.map(n => n.id));
+
+  const position = { presence: 1 };
   const members = ['a', 'b', 'c'];
   for (const side of [-1, 1]) {
     const group = { side, members, folded: true, position };

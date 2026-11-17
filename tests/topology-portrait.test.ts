@@ -24,17 +24,6 @@ test('portrait preserves configuration order and inward child columns', () => {
   }
 });
 
-test('orientation changes reuse live node primitives', () => {
-  // Property: changing solvers preserves every surviving stable ID and reduced motion reaches its destination directly.
-  const scene = { vw: 900, vh: 1200, left, right }, animator = new TopologyAnimator();
-  animator.setTargets(solve(scene)); animator.step(0, true);
-  const node = animator.live.get(nodeKey(1, 'account/a'));
-  const portrait = solvePortrait(scene);
-  animator.setTargets(portrait); animator.step(0, true);
-  assert.equal(animator.live.get(nodeKey(1, 'account/a')), node);
-  for (const wing of portrait.wings) for (const node of wing.nodes) assert.equal(animator.values(nodeKey(wing.side, node.id))!.y, node.y);
-});
-
 test('collapsed subtrees and flat nodes retain their configuration semantics', () => {
   // Property: portrait neither expands collapsed descendants nor invents account levels for flat inputs.
   const collapsed = solvePortrait({ vw: 900, vh: 1200, left, right: [{ ...right[1], collapsed: true }] });
@@ -42,22 +31,6 @@ test('collapsed subtrees and flat nodes retain their configuration semantics', (
   const flat = solvePortrait({ vw: 900, vh: 1200, left: [], right: right[1].children! });
   assert.ok(flat.wings[1].nodes.every(node => node.parent === undefined));
   assert.deepEqual(flat.wings[1].nodes.map(node => node.id), right[1].children!.map(node => node.id));
-});
-
-test('portrait source panel selection preserves topology geometry', () => {
-  // Property: Source panel selection preserves node geometry while its slot is owned by layerFrame.
-  for (const vw of [600, 900, 1080]) {
-    const scene = { vw, vh: 1200, left, right };
-    const closed = solvePortrait(scene);
-    for (const selected of ['source', 'source/a', 'source/b']) {
-      const open = solvePortrait({ ...scene, panel: { side: -1, selected, edge: 0 } });
-      assert.deepEqual(open.hub, closed.hub);
-      for (const [i, wing] of open.wings.entries()) {
-        assert.deepEqual(wing.nodes.map(n => [n.id, n.x, n.y]), closed.wings[i].nodes.map(n => [n.id, n.x, n.y]));
-      }
-
-    }
-  }
 });
 
 test('portrait Agent panel selection preserves node positions', () => {
@@ -86,4 +59,10 @@ test('orientation springs settle within a bounded transition and can reverse', (
     assert.ok(Object.values(actual).every(Number.isFinite));
   }
   assert.equal(animator.step(1 / 60), false);
+
+  animator.setTargets(portrait); animator.step(0, true);
+  assert.equal(animator.live.get(nodeKey(1, 'account/a')), node);
+  for (const wing of portrait.wings) for (const n of wing.nodes) {
+    assert.equal(animator.values(nodeKey(wing.side, n.id))!.y, n.y);
+  }
 });

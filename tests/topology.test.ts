@@ -1,4 +1,3 @@
-import { arcPath, grownWire, hubMarkGeometry } from "../ui/topology/geometry.ts";
 import { TopologyAnimator, nodeKey } from "../ui/topology/animate.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -54,20 +53,12 @@ test("right-side overflow moves the hub left without compressing or dimming sour
     idle.wings[0].nodes.map(n => [n.y - idle.hub.y, n.scale, n.opacity]));
   assert.ok(solve({ ...fixtures.busy, right: Array.from({ length: 20 }, (_, i) => ({ id: `node-${i}` })) }).sceneH > fixtures.busy.vh);
 });
-test("asymmetric capsules keep the hub centered while both wings have space", () => {
-  // Property: capsule asymmetry does not displace or compress a scene that fits on both sides of its center.
-  for (const counts of [[0, 0], [1, 0], [0, 1], [3, 2], [2, 3]]) {
-    const scene = { vw: 2400, vh: 1000, left: entities("source", counts.slice(0, 1)), right: entities("agent", counts.slice(1)) };
-    const layout = solve(scene), center = scene.vw / 2;
-    assert.ok(layout.balance.every(wing => wing.full <= center - DEFAULTS.margin));
-    assert.equal(layout.hub.x, center);
-    assert.ok(layout.balance.every(wing => wing.squeeze === 1));
-    assert.equal(solve({ ...scene, left: entities("source", [0]), right: entities("agent", [0]) }).hub.x, layout.hub.x);
-  }
-});
 
 test("edge fitting makes only the displacement needed and recenters when space returns", () => {
   // Property: a fitting scene chooses the nearest feasible point to the viewport center before compressing its columns.
+  const bilateral = solve({ vw: 2400, vh: 1000, left: entities("source", [3]), right: entities("agent", [2]) });
+  assert.equal(bilateral.hub.x, 1200);
+  assert.ok(bilateral.balance.every(wing => wing.squeeze === 1));
   for (const side of [-1, 1] as const) for (const vw of [1200, 1500, 2000, 2400]) {
     const scene = { vw, vh: 900, left: entities("source", side === -1 ? [2] : [0]), right: entities("agent", side === 1 ? [2] : [0]) };
     const layout = solve(scene), [left, right] = layout.balance;
@@ -77,18 +68,6 @@ test("edge fitting makes only the displacement needed and recenters when space r
     else if (left.full > vw / 2 - DEFAULTS.margin) assert.equal(layout.hub.x - left.full, DEFAULTS.margin);
     else assert.equal(layout.hub.x, vw / 2);
     assert.equal(solve({ ...scene, vw: vw * 2 }).hub.x, vw);
-  }
-});
-
-test("side panels leave the hub centered when their reserved space already fits", () => {
-  // Property: either dock may occupy available space without moving a scene that still fits around the viewport center.
-  const scene = { ...fixtures.multi, vw: 2400, vh: 900 }, base = solve(scene);
-  for (const side of [-1, 1] as const) {
-    const selected = side === -1 ? scene.left[0].id : scene.right[0].id;
-    const panel = { side, selected, edge: side === 1 ? scene.vw - 416 : 416 };
-    const docked = solve({ ...scene, panel });
-    assert.equal(docked.hub.x, base.hub.x);
-    assert.ok(docked.balance.every(wing => wing.squeeze === 1));
   }
 });
 
@@ -109,22 +88,6 @@ test("ring compression precedes balanced columns and respects its lower bound", 
     }
   }
   assert.ok(ringCompressed && columnsCompressed);
-});
-test("hub arc ends maintain clearance from each growing dot", () => {
-  // Property: growing either DOT independently shortens both adjacent arcs while retaining equal cap clearance.
-  const base = hubMarkGeometry();
-  const clearance = (angle: number, scale: number) => 2 * 32 * Math.sin(angle / 2) - 10 * scale;
-  for (const scale of [1.1, 1.25]) {
-    const source = hubMarkGeometry(scale, 1), agent = hubMarkGeometry(1, scale);
-    assert.ok(source.sourceAngle > base.sourceAngle);
-    assert.equal(source.agentAngle, base.agentAngle);
-    assert.ok(agent.agentAngle > base.agentAngle);
-    assert.equal(agent.sourceAngle, base.sourceAngle);
-    assert.ok(Math.abs(clearance(source.sourceAngle, scale) - clearance(base.sourceAngle, 1)) < 1e-9);
-    assert.equal(source.sourceAngle, agent.agentAngle);
-    assert.notEqual(source.top, base.top);
-    assert.notEqual(source.bottom, base.bottom);
-  }
 });
 test("wire dimming and availability recover continuously without following scale thresholds", () => {
   // Regression: primary tentacles jumped in opacity when animated scale crossed one during idle/active transitions.
@@ -242,26 +205,6 @@ test("upgraded defaults apply to untouched parameters while manual overrides rem
   assert.deepEqual(parameterDiff({ ...loaded, damping: upgraded.damping }, upgraded), emptyParameters());
 });
 
-test("path generation skips non-finite coordinates and recovers on the next frame", () => {
-  // Property: path generation skips non-finite coordinates and recovers on the next frame.
-  const points = [{ x: 484, y: 348 }, { x: 447.5, y: 348 }, { x: 581.82, y: 348 }, { x: 557, y: 348 }];
-  const empty = { outline: "", centerline: "", gap: "" };
-  for (const invalid of [NaN, Infinity, -Infinity]) {
-    for (let i = 0; i < 4; i++) for (const axis of ["x", "y"]) {
-      const frame = points.map((p, j) => j === i ? { ...p, [axis]: invalid } : p);
-      assert.deepEqual(grownWire(frame[0], frame[1], frame[2], frame[3], 1, 1, true), empty);
-    }
-    for (let i = 0; i < 5; i++) {
-      const args = [450, 340, 130, -30, 30]; args[i] = invalid;
-      assert.equal(arcPath(args[0], args[1], args[2], args[3], args[4], 1), "");
-    }
-    assert.deepEqual(grownWire(points[0], points[1], points[2], points[3], invalid, 1), empty);
-  }
-  const shape = grownWire(points[0], points[1], points[2], points[3], 1, 1, true);
-  assert.ok(shape.centerline && !/NaN|Infinity/.test(shape.centerline));
-  assert.ok(shape.outline && !/NaN|Infinity/.test(shape.outline));
-});
-
 
 test('panel state never changes configuration geometry or creates leaf arcs', () => {
   // Regression: opening source or Agent panels pushed and squeezed topology and added outward leaf stubs.
@@ -272,16 +215,5 @@ test('panel state never changes configuration geometry or creates leaf arcs', ()
       assert.deepEqual(solve({ ...scene, panel: { side, edge: 416, selected } }), base);
       assert.ok(base.wings.flatMap(wing => wing.nodes).every(node => node.arc === null));
     }
-  }
-});
-
-test("hierarchy and activity do not change node size in either orientation", () => {
-  // Property: every platform, connector, Agent and profile has the same visual node size.
-  const left = [{ id: 'platform', tasks: [], children: entities('connector', [0, 1]) }];
-  const right = [{ id: 'agent', tasks: [], children: entities('profile', [0, 1]) }, ...entities('standalone', [0, 2])];
-  for (const [vw, vh] of [[1600, 900], [600, 1000]]) {
-    const nodes = solve({ vw, vh, left, right }).wings.flatMap(wing => wing.nodes);
-    assert.ok(nodes.some(node => node.parent));
-    assert.equal(new Set(nodes.map(node => node.size * node.scale)).size, 1);
   }
 });

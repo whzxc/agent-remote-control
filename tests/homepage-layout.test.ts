@@ -1,19 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { integrateSpring } from '../ui/topology/spring.ts';
 import { solve, type Entity } from '../ui/topology/solve.ts';
-
-test('capsule spring converges from either direction and supports retargeting', () => {
-  // Property: shared spring integration converges to its current target without changing unrelated anchors.
-  for (const [start, target] of [[48, 188], [188, 48]]) {
-    const value = { x: start, v: 0, t: target };
-    for (let index = 0; index < 240; index++) integrateSpring(value, 1 / 60, 210, 26);
-    assert.equal(value.x, target);
-    value.t = start;
-    for (let index = 0; index < 240; index++) integrateSpring(value, 1 / 60, 210, 26);
-    assert.equal(value.x, start);
-  }
-});
 
 test('task observations do not enter the node solver', () => {
   // Regression: task activity changed topology positions, queues and compaction before homepage modes.

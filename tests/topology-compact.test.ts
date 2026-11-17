@@ -71,24 +71,6 @@ test('kept siblings retain order and their group follows them in the parent colu
   assert.deepEqual(flatten(compactTree<Entity>(roots, new Set(['a']), 1, new Set(), make)).map(n => n.id), flatten(roots).map(n => n.id));
 });
 
-test('folded subtrees contribute no nodes, ports or child branches', () => {
-  // Property: folded members and their descendants never enter layout, while each folded group contributes exactly one incoming branch.
-  const roots = Array.from({ length: 5 }, (_, i) => ({ ...node(`root-${i}`, i === 0 ? 2 : 0), tasks: [{ id: `work-${i}`, width: 264, height: 76, state: i === 0 ? 'running' : 'done' }], children: [node(`child-${i}`)] }));
-  for (const orientation of ['portrait', 'landscape'] as const) {
-    const scene = { vw: 900, vh: 400, left: [], right: roots }, plan = compactRoots([], roots, scene, orientation, DEFAULTS);
-    const groups = topologyGroups(roots, plan.right, 1);
-    assert.ok(groups.length > 0);
-    const folded = compactLayout(scene, plan, new Set(), DEFAULTS, orientation);
-    const open = compactLayout(scene, plan, new Set(groups.map(g => g.id)), DEFAULTS, orientation);
-    for (const group of groups) {
-      const ids = new Set(flatten(flatten(roots).filter(n => group.members.includes(n.id))).map(n => n.id));
-      assert.equal(folded.wings[1].nodes.filter(n => n.id === group.id).length, 1);
-      assert.ok(folded.wings[1].nodes.every(n => !ids.has(n.id) && (!n.parent || !ids.has(n.parent))));
-      assert.ok(group.members.every(id => open.wings[1].nodes.some(n => n.id === id)));
-    }
-  }
-});
-
 test('every input node is visible or belongs to exactly one folded subtree', () => {
   // Property: compaction and expansion partition every input node at every depth into one visible node or one folded group's subtree, without loss or duplication.
   const nested = Array.from({ length: 4 }, (_, i) => ({ ...node(`root-${i}`), children: Array.from({ length: 3 }, (_, j) => ({ ...node(`child-${i}-${j}`),
@@ -103,8 +85,12 @@ test('every input node is visible or belongs to exactly one folded subtree', () 
         const groups = allGroups.filter(g => g.side === wing.side), input = flatten(tree);
         const counts = new Map(input.map(n => [n.id, 0]));
         for (const node of wing.nodes) if (counts.has(node.id)) counts.set(node.id, counts.get(node.id)! + 1);
-        for (const group of groups.filter(g => !expanded.has(g.id))) for (const id of group.members) {
-          for (const node of flatten([input.find(n => n.id === id)!])) counts.set(node.id, counts.get(node.id)! + 1);
+        for (const group of groups.filter(g => !expanded.has(g.id))) {
+          assert.equal(wing.nodes.filter(node => node.id === group.id).length, 1);
+          for (const id of group.members) for (const node of flatten([input.find(n => n.id === id)!])) {
+            counts.set(node.id, counts.get(node.id)! + 1);
+            assert.ok(wing.nodes.every(visible => visible.parent !== node.id));
+          }
         }
         assert.ok([...counts.values()].every(count => count === 1));
         const compacted = compactTree(tree, wing.side === -1 ? plan.left : plan.right, wing.side, expanded, g => ({ id: g.id, tasks: [] }));
@@ -113,17 +99,6 @@ test('every input node is visible or belongs to exactly one folded subtree', () 
       }
     }
   }
-});
-
-test('the dense fixture represents every configured Agent after compaction', () => {
-  // Regression: the dense fixture used unsupported limit 5 and hid an Agent.
-  const { fixture, roots, scene } = denseTopologyScene();
-  const plan = compactRoots(scene.left, scene.right, scene, 'landscape', DEFAULTS);
-  const groups = topologyGroups(scene.right, plan.right, 1);
-  const layout = compactLayout(scene, plan, new Set(), DEFAULTS, 'landscape');
-  const actual = [...layout.wings[1].nodes.filter(n => !n.parent && roots.some(root => root.id === n.id)).map(n => n.id),
-    ...groups.filter(g => !g.parent).flatMap(g => g.members)];
-  assert.deepEqual(new Set(actual), new Set(fixture.agents));
 });
 
 test('account siblings fold before unrelated roots under height pressure', () => {

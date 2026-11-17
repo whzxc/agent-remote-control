@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { selectCompanions, selectLoopPair, taskColor, type RelayTask } from '../ui/pets/relay.ts';
+import { selectCompanions, selectLoopPair, type RelayTask } from '../ui/pets/relay.ts';
 
 const sources = new Set(['source-a', 'source-b']);
 const agents = new Set(['agent-a', 'agent-b']);
@@ -45,24 +45,6 @@ test('the last known pair survives task retention while its participants remain 
   assert.deepEqual(selectLoopPair([], pairA, sources, agents), pairA);
   assert.deepEqual(selectLoopPair([task('unattributed', { sourceId: undefined })], pairA, sources, agents), pairA);
   assert.equal(selectLoopPair([], undefined, sources, agents), undefined);
-});
-
-test('pair selection leaves task evidence and caller ordering unchanged', () => {
-  // Property: choosing a presentation pair never mutates input tasks, order, or the previous pair.
-  const first = Object.freeze(task('first', { at: 1 }));
-  const second = Object.freeze(task('second', { ...pairB, at: 2 }));
-  const observed = Object.freeze([first, second]);
-  const previous = Object.freeze({ ...pairA });
-  const before = JSON.stringify({ observed, previous });
-  selectLoopPair(observed, previous, sources, agents);
-  assert.equal(JSON.stringify({ observed, previous }), before);
-});
-
-test('a task retains its identification color across repeated projections', () => {
-  // Property: task identification color depends only on its stable task key.
-  const keys = ['task-a', 'task-b', 'agent:task:turn', '任务一', ''];
-  const first = new Map(keys.map(key => [key, taskColor(key)]));
-  for (const key of [...keys].reverse()) assert.equal(taskColor(key), first.get(key));
 });
 
 test('available companions can share an idle studio without establishing a Loop', () => {

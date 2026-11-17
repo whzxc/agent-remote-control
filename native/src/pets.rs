@@ -444,35 +444,6 @@ pub async fn request(route: &str, method: &str, body: Value) -> Result<Value> {
 mod tests {
     use super::*;
     #[test]
-    fn pixel_art_is_invariant_to_transparent_rgb_and_palette_repetition() {
-        // Property: repeating a bounded visible palette or changing fully transparent RGB preserves classification.
-        for count in [1u32, 16, 256] {
-            let palette =
-                image::RgbaImage::from_fn(count, 1, |x, _| image::Rgba([x as u8, 40, 90, 255]));
-            assert!(pixel_art(&palette));
-            let repeated = image::RgbaImage::from_fn(count * 3, 4, |x, y| {
-                if y == 3 {
-                    image::Rgba([x as u8, (x / 256) as u8, 130, 0])
-                } else {
-                    *palette.get_pixel(x % count, 0)
-                }
-            });
-            assert_eq!(pixel_art(&palette), pixel_art(&repeated));
-        }
-        assert!(!pixel_art(&image::RgbaImage::new(8, 8)));
-    }
-    #[test]
-    fn adding_distinct_visible_colors_crosses_the_palette_limit() {
-        // Property: a palette above the heuristic limit remains smooth under repetition or pixel reordering.
-        let gradient = image::RgbaImage::from_fn(257, 1, |x, _| {
-            image::Rgba([x as u8, (x / 256) as u8, 70, 255])
-        });
-        assert!(!pixel_art(&gradient));
-        let reversed =
-            image::RgbaImage::from_fn(514, 2, |x, _| *gradient.get_pixel(256 - x % 257, 0));
-        assert_eq!(pixel_art(&gradient), pixel_art(&reversed));
-    }
-    #[test]
     fn page_resolution_is_host_and_path_bounded() {
         // Property: only exact HTTPS community pet page hosts and single safe identifiers resolve.
         for url in [

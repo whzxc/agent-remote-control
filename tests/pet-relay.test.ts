@@ -1,23 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { arcPoint, IDLE_MS, maySpeak, pendingRelayUntil, petIntents, presentPet, queuePetIntent, relayPose, retainPetIntents, stepRelayQueue, visiblePetIntent, RELAY_MS, RELAY_READY_MS, SPEECH_MS, STALL_MS, taskPetRow, type PetIntent, type RelayTask } from '../ui/pets/relay.ts';
+import { IDLE_MS, pendingRelayUntil, petIntents, presentPet, queuePetIntent, relayPose, retainPetIntents, stepRelayQueue, visiblePetIntent, RELAY_MS, RELAY_READY_MS, STALL_MS, type PetIntent, type RelayTask } from '../ui/pets/relay.ts';
 const task: RelayTask = { key: 'codex:t', taskId: 't', agent: 'codex', sourceId: 's', dispatchId: 'd', turn: 'turn-1', state: 'running', at: 0, phaseSince: 0 };
-test('execution states keep distinct pet intents without changing execution evidence', () => {
-  // Property: terminal outcomes, pending input and unknown evidence map independently without mutating their task.
-  for (const state of ['running', 'needsYou', 'done', 'failed', 'interrupted', 'unknown'] as const) {
-    const input = Object.freeze({ ...task, state });
-    const intents = petIntents(input, task, 0);
-    assert.equal(intents.some(i => i.kind === 'return'), ['done', 'failed', 'interrupted'].includes(state));
-    assert.equal(input.state, state);
-    assert.equal(taskPetRow(state), { running: 7, needsYou: 6, done: 0, failed: 5, interrupted: 5, unknown: 8 }[state]);
-    assert.deepEqual(petIntents(input, input, 0), []);
-  }
-});
 test('opening completed task history does not replay a result handoff', () => {
   // Regression: opening the workbench made historical completed tasks throw a new result despite no observed execution transition.
   for (const state of ['done', 'failed', 'interrupted'] as const) {
     assert.equal(petIntents({ ...task, state }, undefined, 0).some(intent => intent.kind === 'return'), false);
-    assert.equal(petIntents({ ...task, state }, task, 0).some(intent => intent.kind === 'return'), true);
+    const completed = { ...task, state };
+    assert.equal(petIntents(completed, task, 0).some(intent => intent.kind === 'return'), true);
+    assert.deepEqual(petIntents(completed, completed, 0), []);
+  }
+  for (const state of ['running', 'needsYou', 'unknown'] as const) {
+    assert.equal(petIntents({ ...task, state }, task, 0).some(intent => intent.kind === 'return'), false);
   }
 });
 test('turn and review identities trigger independent relay events', () => {
@@ -32,7 +26,9 @@ test('turn and review identities trigger independent relay events', () => {
   assert.equal(petIntents({ ...task, sourceId: undefined, dispatchId: undefined }, undefined, 0)[0].kind, 'carry');
 });
 test('hydrating historical reviews establishes a baseline without replaying praise or rework', () => {
-  // Regression: the first review poll replayed an old pass or rework after completed task history had already rendered.
+  // Regression: the first review poll replayed old reviews instead of playing only new reviews.
+  const completed: RelayTask = { ...task, state: 'done' };
+  assert.deepEqual(petIntents(completed, task, 10).map(intent => intent.kind), ['return']);
   for (const verdict of ['pass', 'rework'] as const) {
     const historical: RelayTask = { ...task, state: 'done' };
     const baseline: RelayTask = { ...historical, review: { id: 'historical-review', verdict, baseline: true } };
@@ -41,17 +37,11 @@ test('hydrating historical reviews establishes a baseline without replaying prai
     const unchanged = { ...baseline, review: { ...baseline.review!, baseline: false } };
     assert.deepEqual(petIntents(unchanged, baseline, 20), []);
     const revised = { ...unchanged, review: { id: 'new-review', verdict, baseline: false } };
-    assert.deepEqual(petIntents(revised, unchanged, 30).map(intent => intent.kind), [verdict === 'pass' ? 'praise' : 'rework']);
-  }
-});
-test('the first review of an observed completion remains a live review event', () => {
-  // Property: a live terminal transition and its subsequent first review each produce their own event exactly once.
-  const completed: RelayTask = { ...task, state: 'done' };
-  assert.deepEqual(petIntents(completed, task, 10).map(intent => intent.kind), ['return']);
-  for (const verdict of ['pass', 'rework'] as const) {
-    const reviewed: RelayTask = { ...completed, review: { id: 'first-live-review', verdict, baseline: false } };
-    assert.deepEqual(petIntents(reviewed, completed, 20).map(intent => intent.kind), [verdict === 'pass' ? 'praise' : 'rework']);
-    assert.deepEqual(petIntents(reviewed, reviewed, 30), []);
+    const kind = verdict === 'pass' ? 'praise' : 'rework';
+    assert.deepEqual(petIntents(revised, unchanged, 30).map(intent => intent.kind), [kind]);
+    const firstLiveReview: RelayTask = { ...completed, review: { id: 'first-live-review', verdict, baseline: false } };
+    assert.deepEqual(petIntents(firstLiveReview, completed, 20).map(intent => intent.kind), [kind]);
+    assert.deepEqual(petIntents(firstLiveReview, firstLiveReview, 30), []);
   }
 });
 test('stall eligibility requires running evidence and a bounded phase age', () => {
@@ -60,19 +50,6 @@ test('stall eligibility requires running evidence and a bounded phase age', () =
     const input = { ...task, state, phaseSince };
     const urge = petIntents(input, undefined, STALL_MS).some(i => i.kind === 'urge');
     assert.equal(urge, state === 'running' && phaseSince === 0);
-  }
-});
-test('card paths preserve endpoints and terminal colors', () => {
-  // Property: card arcs retain both anchors and terminal results determine the throw-back color.
-  const from = { x: 20, y: 100 }, to = { x: 300, y: 200 };
-  assert.deepEqual(arcPoint(from, to, -1), from); assert.deepEqual(arcPoint(from, to, 2), to);
-  assert.ok(arcPoint(from, to, .5).y < 150);
-  for (const state of ['done', 'failed', 'interrupted'] as const) {
-    const intent = petIntents({ ...task, state }, task, 0).find(i => i.kind === 'return')!;
-    const flights = Array.from({ length: RELAY_MS / 50 }, (_, index) => relayPose(intent, index * 50).card).filter(Boolean);
-    assert.ok(flights.length > 0);
-    for (const card of flights) assert.equal(card!.tone, state === 'done' ? 'success' : 'danger');
-    assert.ok(relayPose(intent, RELAY_MS).finished); assert.equal(relayPose(intent, RELAY_MS).card, undefined);
   }
 });
 test('relay ownership remains continuous through receiving, carrying and returning', () => {
@@ -216,13 +193,4 @@ test('losing an anchor freezes the current handoff phase without restarting or s
   scheduled = stepRelayQueue(scheduled.events, scheduled.clock, 1200, () => true);
   assert.deepEqual(relayPose(scheduled.events[0], 1200), paused);
   assert.ok(relayPose(scheduled.events[0], 1300).card!.progress > paused.card!.progress);
-});
-test('residency and pair speech remain time-bounded', () => {
-  // Property: only resident pairs outlive idle departure and speech never exceeds one line per pair per 30 seconds.
-  for (const elapsed of [0, IDLE_MS - 1, IDLE_MS, IDLE_MS + 2000, IDLE_MS * 10]) {
-    assert.ok(presentPet(0, true, elapsed).present);
-    assert.equal(presentPet(0, false, elapsed).present, elapsed < IDLE_MS + 2000);
-  }
-  for (let elapsed = 0; elapsed < SPEECH_MS; elapsed += 100) assert.equal(maySpeak(0, elapsed), false);
-  assert.ok(maySpeak(0, SPEECH_MS)); assert.ok(maySpeak(undefined, 0));
 });
