@@ -682,6 +682,5 @@ pub(super) fn discover_in(name: &str, paths: &[PathBuf]) -> Vec<PathBuf> {
 
 #[cfg(test)]
 mod navigation_tests {
-    use super::*;
     
 }

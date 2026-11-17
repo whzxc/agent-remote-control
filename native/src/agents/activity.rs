@@ -940,16 +940,7 @@ mod tests {
             writeln!(file, "{record}").unwrap();
         }
     }
-    fn snapshot(directory: &Sandbox, agent: &str, now: SystemTime, cache: &mut ScanCache) -> Value {
-        let rows = scan_roots(
-            &[(agent.into(), directory.0.clone())],
-            &directory.0.join("index.jsonl"),
-            now,
-            cache,
-        );
-        assert_eq!(rows.len(), 1);
-        rows[0].session.clone()
-    }
+
     fn prompt(agent: &str, turn: &str, text: &str, at: &str) -> Vec<Value> {
         if agent == "claude" {
             vec![
@@ -971,17 +962,6 @@ mod tests {
         } else {
             vec![
                 json!({"timestamp":at,"type":"response_item","payload":{"type":"function_call_output","call_id":call,"output":output}}),
-            ]
-        }
-    }
-    fn tool_call(agent: &str, call: &str, at: &str) -> Vec<Value> {
-        if agent == "claude" {
-            vec![
-                json!({"uuid":call,"timestamp":at,"type":"assistant","message":{"role":"assistant","stop_reason":"tool_use","content":[{"type":"tool_use","id":call,"name":"Read","input":{"file_path":"src/example.rs"}}]}}),
-            ]
-        } else {
-            vec![
-                json!({"timestamp":at,"type":"response_item","payload":{"type":"function_call","call_id":call,"name":"exec_command","arguments":"{\"cmd\":\"cat src/example.rs\"}"}}),
             ]
         }
     }
@@ -1024,16 +1004,6 @@ mod tests {
         );
         assert!(read()["dispatchSummary"].is_null());
     }
-
-    
-
-    
-
-    
-
-    
-
-    
 
     
 
