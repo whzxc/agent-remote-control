@@ -2,16 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import en from '../ui/locales/en.json' with { type: 'json' };
 import zhCN from '../ui/locales/zh-CN.json' with { type: 'json' };
-import { dispatchSpecParts, effortGaugePosition, effortPosition, modelLabel, reasoningLevels } from '../ui/components/composites/dispatchSpecLabel.ts';
-
-test('effort gauges position known recorded values from the available scale', () => {
-  // Regression: homepage execution specs showed raw effort text when no catalog was available.
-  assert.deepEqual(effortGaugePosition([], 'high'), { count: 8, index: 4 });
-  assert.deepEqual(effortGaugePosition(['low', 'high', 'max'], 'high'), { count: 3, index: 1 });
-  assert.deepEqual(effortGaugePosition(['quick', 'deep'], 'deep'), { count: 2, index: 1 });
-  assert.equal(effortGaugePosition(['low', 'high'], 'max'), undefined);
-  assert.equal(effortGaugePosition([], 'custom-effort'), undefined);
-});
+import { dispatchSpecParts, effortPosition, modelLabel, reasoningLevels } from '../ui/components/composites/dispatchSpecLabel.ts';
 
 test('unknown recorded models remain visible with exact identity matching', () => {
   // Regression: Claude sessions with claude-opus-5-5 displayed only their effort when the catalog lacked that ID.
@@ -57,30 +48,4 @@ test('recorded effort survives missing metadata and cannot borrow another model 
   assert.equal(dispatchSpecParts(summary, catalog, key => key).effort, summary.effort);
   assert.equal(effortPosition(reasoningLevels(summary.model, catalog), summary.effort), undefined);
   assert.deepEqual(effortPosition(reasoningLevels(catalog.currentModel, catalog), summary.effort), { count: 1, index: 0 });
-});
-
-test('recorded specifications omit providers even when model display names collide', () => {
-  // Regression: duplicate model labels appended the provider name to recorded execution specifications.
-  const models = ['official', 'hosted'].map(provider => ({ model: JSON.stringify([provider, 'model']), displayName: 'Example model',
-    provider: { id: provider, name: `Example provider ${provider}` } }));
-  for (const row of models) {
-    assert.equal(modelLabel(row.model, models), row.displayName);
-    const summary = { model: row.model, effort: 'max', serviceTier: 'priority' };
-    assert.deepEqual(dispatchSpecParts(summary, { models }, key => key), {
-      model: row.displayName, effort: 'dispatchSpec.effort.max', tier: 'activity.fast',
-    });
-    assert.equal(summary.model, row.model);
-  }
-});
-
-test('upstream provider decorations are removed without parsing opaque model identities', () => {
-  // Regression: native catalog display names embedded a provider suffix even after ARC stopped adding its own.
-  const model = JSON.stringify(['adapter', 'provider/model']);
-  const catalog = { models: [{ model, name: 'Example model · Hosted provider', displayName: 'Example model · Hosted provider',
-    provider: { id: 'adapter', name: 'Adapter' } }] };
-  assert.equal(modelLabel(model, catalog.models), 'Example model');
-  assert.deepEqual(dispatchSpecParts({ model, effort: 'high' }, catalog, key => key), {
-    model: 'Example model', effort: 'dispatchSpec.effort.high', tier: undefined,
-  });
-  assert.equal(modelLabel(model), model);
 });

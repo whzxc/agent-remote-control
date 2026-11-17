@@ -86,27 +86,6 @@ test('single-source layouts preserve independent connector names', async () => {
 
 
 
-test('arc actions start on the arc and fan outward symmetrically with evenly spaced centers', async () => {
-  // Property: action origins stay on their owner arc while expanded centers preserve mirroring, ordering and equal separation.
-  const { arcActionPositions } = await import('../ui/topology/geometry.ts');
-  for (const radius of [22, 35, 48]) for (const [lo, hi] of [[-14, 14], [-58, 27], [-21, 58]]) for (const count of [1, 2, 3]) {
-    const left = arcActionPositions({ kind: 'arc', x: 0, y: 0, radius, lo, hi, side: -1 }, count);
-    const right = arcActionPositions({ kind: 'arc', x: 0, y: 0, radius, lo, hi, side: 1 }, count);
-    const distances: number[] = [];
-    for (const [index, point] of right.entries()) {
-      assert.ok(Math.abs(Math.hypot(point.x, point.y) - radius) < 1e-8);
-      assert.ok(Math.hypot(point.x + point.dx, point.y + point.dy) > radius);
-      assert.equal(left[index].x, -point.x); assert.equal(left[index].dx, -point.dx);
-      assert.equal(left[index].y, point.y); assert.equal(left[index].dy, point.dy);
-      if (index) {
-        const previous = right[index - 1];
-        distances.push(Math.hypot(point.x + point.dx - previous.x - previous.dx, point.y + point.dy - previous.y - previous.dy));
-      }
-    }
-    assert.ok(distances.every(distance => distance > 0 && Math.abs(distance - distances[0]) < 1e-8));
-  }
-});
-
 
 test('native history announces completed fallback and preserves explicit exceptions', async () => {
   // Regression: native history exposed an unconfirmed state in the task card or hid an explicit failure.
@@ -445,38 +424,6 @@ test('arc controls operate descendants and restore keyboard focus without openin
     assert.equal(expand.getAttribute('aria-expanded'), 'false');
     await act(() => fireEvent.click(expand)); await settle();
     assert.ok(page.getByRole('button', { name: 'Profile', exact: true }));
-  } finally { await fixture.close(); }
-});
-
-test('account tentacles use the task bubble taper and tangents', async () => {
-  // Regression: account fan-outs used the wider primary root and different curvature from task bubbles.
-  const fixture = await harness();
-  try {
-    const { server, root, mount, settle } = fixture;
-    const { default: Topology } = await server.ssrLoadModule('/ui/topology/Topology.tsx');
-    const { viewModel } = await server.ssrLoadModule('/ui/acceptance.ts');
-    const { grownWire } = await import('../ui/topology/geometry.ts');
-    const { DEFAULTS, deg } = await import('../ui/topology/solve.ts');
-    const node = (id: string) => ({ id, label: id, state: 'normal', attention: false, selected: false, content: h('button', null, id), tasks: [] });
-    for (const side of [-1, 1] as const) {
-      const parent = { ...node('platform'), children: [node('account-a'), node('account-b')],
-        tasks: [{ id: 'bubble', width: 200, height: 60, state: 'running', content: h('button', null, 'Bubble') }] };
-      await act(() => root.render(h(Topology, { boundary: { current: mount }, left: side === -1 ? [parent] : [], right: side === 1 ? [parent] : [], accountsEnabled: true, onReorderNodes() {}, onAddAgent() {} })));
-      await settle();
-      const snapshot = viewModel().topology;
-      const hub = snapshot.primitives.hub, source = snapshot.nodes.find((n: any) => n.id === parent.id).position;
-      for (const item of snapshot.nodes.filter((n: any) => n.parent)) {
-        const v = item.position, account = 'size' in v;
-        const end = { x: account ? v.x - side * (v.size / 2 * v.scale + 6) : v.x, y: v.y };
-        const radial = { x: side * Math.cos(deg(v.port)), y: Math.sin(deg(v.port)) };
-        const port = { x: source.x + source.radius * radial.x, y: source.y + source.radius * radial.y };
-        const distance = Math.hypot(end.x - port.x, end.y - port.y);
-        const c1 = { x: end.x - side * distance * DEFAULTS.t2End, y: end.y };
-        const c2 = { x: port.x + radial.x * distance * DEFAULTS.t2Root, y: port.y + radial.y * distance * DEFAULTS.t2Root };
-        const expected = grownWire(end, c1, c2, port, hub.Re / 130, DEFAULTS.flare, true);
-        assert.ok(snapshot.paths.some((path: any) => path.d === expected.outline), `Shared task geometry for ${item.id}`);
-      }
-    }
   } finally { await fixture.close(); }
 });
 

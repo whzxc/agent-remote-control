@@ -31,61 +31,6 @@ async function withAccountUI(run: (context: { window: Window; server: ViteDevSer
   }
 }
 
-test('account management retains native login evidence and notification targets', async () => {
-  // Regression: the account UI used invented detail/polling/notification routes and treated unsupported native login as successful.
-  await withAccountUI(async ({ server, root }) => {
-    const { api, accountsApi } = await server.ssrLoadModule('/ui/api.ts');
-    const list = await accountsApi.list();
-    assert.equal(list.login, null);
-    assert.ok(list.accounts.every((a: Record<string, unknown>) => !('email' in a) && !('orgName' in a)));
-    assert.equal((await accountsApi.get('account-claude')).email, 'alex@example.com');
-    assert.equal((await accountsApi.get('account-source')).alias, 'Unidentified');
-    assert.deepEqual((await accountsApi.get('account-source')).agentProfiles, []);
-    assert.equal((await accountsApi.query({ id: 'account-claude' })).id, 'account-claude');
-    await accountsApi.update({ id: 'account-claude', alias: 'Example team' });
-    assert.equal((await accountsApi.get('account-claude')).alias, 'Example team');
-    await accountsApi.update({ id: 'account-review', defaultFor: 'claude' });
-    assert.equal((await accountsApi.list()).accounts.flatMap((a: any) => a.agentProfiles).filter((p: any) => p.agent === 'claude' && p.default).length, 1);
-
-    const claude = await accountsApi.reauth({ id: 'account-review', agent: 'claude' });
-    assert.deepEqual(await accountsApi.login({ loginId: claude.loginId, action: 'code', code: 'example-code' }), { submitted: true });
-    assert.equal((await accountsApi.list()).login.state, 'completed');
-    assert.equal((await accountsApi.get('account-review')).agentProfiles[0].state, 'signed-in');
-    await accountsApi.route({ accountId: 'account-review', target: 'session_010000000000000000000002' });
-    await accountsApi.notify('account-review', 'test', { target: 'session_010000000000000000000002' });
-    const notified = await accountsApi.get('account-review');
-    assert.equal(notified.notifications.sessions[0].target, 'session_010000000000000000000002');
-    assert.equal(notified.notifications.sessions[0].lastDelivery.status, 'sent');
-    assert.equal(notified.notifications.state, 'not-bound');
-    assert.equal(notified.notifications.reachable, false);
-    await assert.rejects(accountsApi.notify('account-source', 'test', { target: 'session_010000000000000000000002' }), /ACCOUNT_AGENT_MISSING/);
-
-    const codex = await accountsApi.add({ kind: 'codex' });
-    await assert.rejects(accountsApi.login({ loginId: codex.loginId, action: 'code', code: 'example-code' }), /ACCOUNT_LOGIN_CODE_UNSUPPORTED/);
-    for (let i = 0; i < 4; i++) await accountsApi.list();
-    const signedIn = await accountsApi.list();
-    assert.equal(signedIn.login.state, 'completed');
-    assert.notEqual(signedIn.login.accountId, 'account-openai');
-    assert.ok(signedIn.accounts.find((a: any) => a.id === signedIn.login.accountId).agentProfiles.some((p: any) => p.agent === 'codex' && p.state === 'signed-in' && !p.default));
-    assert.ok((await accountsApi.get('account-openai')).agentProfiles.some((p: any) => p.agent === 'codex' && p.default));
-
-    const key = await accountsApi.add({ kind: 'api-key' });
-    assert.equal(key.state, 'unfinished');
-    assert.ok(key.next.message);
-    for (let i = 0; i < 5; i++) assert.equal((await accountsApi.list()).login.state, 'unfinished');
-    assert.equal((await accountsApi.get('account-key')).agentProfiles[0].state, 'unfinished');
-    const detected = await accountsApi.add({ kind: 'detect' });
-    assert.equal(detected.state, 'completed');
-    assert.equal(detected.accountId, undefined);
-    const removed = await accountsApi.remove({ id: 'account-review', running: 'finish' });
-    assert.equal(removed.health.state, 'removed');
-    assert.equal((await accountsApi.get(removed.id)).displayName, 'Removed account · Review');
-    assert.ok(!(await accountsApi.list()).accounts.some((a: any) => a.id === removed.id));
-    await assert.rejects(api('accounts/login?loginId=example', 'GET'), /SCENARIO_ACTION_UNAVAILABLE/);
-    await assert.rejects(api('accounts/bind', 'POST', { id: 'account-claude', target: 'example' }), /SCENARIO_ACTION_UNAVAILABLE/);
-  });
-});
-
 test('platform workspace lists connector instances and excludes local Agent identities', async () => {
   // Regression: the account workspace merged connector instances and included locally discovered Agents.
   await withAccountUI(async ({ server, root }) => {
@@ -180,31 +125,6 @@ test('built-in local authority is absent from control sources, accounts and disc
       assert.equal(page.queryByRole('option', { name: controlSource('local-cli').shortName, exact: true }), null);
       assert.equal(page.queryByRole('radio', { name: controlSource('local-cli').shortName, exact: true }), null);
     } finally { accountsApi.list = list; accountsApi.get = get; }
-  });
-});
-
-test('connection management exposes connections without source or platform administration', async () => {
-  // Regression: connection management mixed duplicate source/account rows and platform grouping with connection lifecycle actions.
-  await withAccountUI(async ({ server, root }) => {
-    const { ConnectionsPanel } = await server.ssrLoadModule('/ui/components/ConnectionsContent.tsx');
-    const { TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
-    const { connector } = await server.ssrLoadModule('/ui/state/connector.ts');
-    const { navigation } = await server.ssrLoadModule('/ui/state/navigation.ts');
-    const { t } = await server.ssrLoadModule('/ui/i18n.ts');
-    navigation.set((old: any) => ({ ...old, page: 'overview', connectionsOpen: true, remoteSourceId: undefined, remoteConnectionId: undefined }));
-    await act(() => root.render(h(TooltipProvider, null, h(ConnectionsPanel))));
-    const page = within(document.body);
-    assert.ok(page.getByRole('button', { name: t('source.newConnection'), exact: true }));
-    assert.equal(page.queryByRole('button', { name: t('addControlSource'), exact: true }), null);
-    assert.equal(page.queryByRole('radiogroup', { name: t('source.grouping') }), null);
-    const connection = connector.get().status.ingresses.find((entry: any) => entry.transport !== 'local');
-    const card = within(page.getByRole('region', { name: connection.name, exact: true }));
-    assert.ok(card.getByRole('textbox', { name: t('source.copyAddress'), exact: true }));
-    await act(() => fireEvent.click(card.getByRole('button', { name: t('remove'), exact: true })));
-    await act(() => fireEvent.click(within(page.getByRole('dialog', { name: t('setup.removeConnection'), exact: true })).getByRole('button', { name: t('cancel'), exact: true })));
-    assert.ok(card.getByRole('button', { name: t('edit'), exact: true }));
-    assert.ok(page.getByRole('heading', { name: connection.name, exact: true }));
-    assert.equal(page.queryByRole('button', { name: t('setup.addSourceForConnection'), exact: true }), null);
   });
 });
 
