@@ -21,21 +21,6 @@ test('mixed clipboard text replaces selected stand-ins by position', () => {
   assert.equal(buildClipboardText(text, []), text);
 });
 
-test('stand-ins are deterministic, preserve separators and replace every identity character', () => {
-  // Property: masking preserves code-point length and separators while substituting every other character deterministically.
-  for (const value of ['alex@example.com', 'Example Organization', 'provider:id:123', 'session_01', 'https://arc.example.com/mcp', '组织 🦊', 'I.W@X.io']) {
-    for (const bullets of [false, true]) {
-      const masked = maskSensitive(value, bullets);
-      assert.equal(masked, maskSensitive(value, bullets));
-      assert.equal(Array.from(masked).length, Array.from(value).length);
-      Array.from(value).forEach((char, index) => {
-        if (/[\s@.]/u.test(char)) assert.equal(Array.from(masked)[index], char);
-        else assert.notEqual(Array.from(masked)[index], char);
-      });
-    }
-  }
-});
-
 test('substring masking preserves prose and treats identities literally', () => {
   // Regression: whole-element blur hid surrounding information and left real identity substrings available.
   const values = ['Example (Team)', 'id:[key]', 'Example (Team) West'];

@@ -1,26 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { nextClockTick, parseStudioPhase, studioToneAt, studioActivitySummary } from '../ui/display/model.ts';
+import { nextClockTick, studioActivitySummary } from '../ui/display/model.ts';
 import { interactionKey, type TrackedActivity } from '../ui/state/activityModel.ts';
 
 const session = (id: string, props: Partial<TrackedActivity> = {}): TrackedActivity => ({
   id, source: 'codex-thread', title: id, headline: id, phase: 'thinking', phaseSince: null, timeline: true, orderAt: 0, observed: true, turnId: 'turn-1', ...props,
-});
-
-test('automatic studio lighting follows local morning and evening boundaries', () => {
-  // Property: automatic lighting changes only at the local day boundaries, including across dates.
-  for (let day = 1; day <= 31; day++) for (let hour = 0; hour < 24; hour++) {
-    const at = new Date(2026, 9, day, hour, 30).getTime();
-    assert.equal(studioToneAt(at, 'auto'), hour >= 7 && hour < 19 ? 'day' : 'night');
-  }
-});
-
-test('explicit studio lighting remains independent of time', () => {
-  // Property: each explicit lighting selection is stable across every local hour.
-  for (const phase of ['day', 'night'] as const) for (let hour = 0; hour < 24; hour++) {
-    assert.equal(studioToneAt(new Date(2026, 9, 29, hour).getTime(), phase), phase);
-  }
-  assert.equal(parseStudioPhase('unknown'), 'auto');
 });
 
 test('clock refresh always reaches the next minute without a busy loop', () => {

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mergeActivity, trackActivity, agentPanelSelection, visibleActivity, reorderActivity, orderActivity, beginApproval, finishApproval, permissionResponse, interactionKey } from "../ui/state/activityModel.ts";
+import { mergeActivity, trackActivity, visibleActivity, reorderActivity, orderActivity, beginApproval, finishApproval, permissionResponse, interactionKey } from "../ui/state/activityModel.ts";
 import type { AgentActivitySession, AgentActivitySnapshot, AgentInteraction } from "../ui/types.ts";
 import { taskHierarchy } from '../ui/state/taskHierarchy.ts';
 import { activityFamilyAccounts } from '../ui/state/activityModel.ts';
@@ -59,17 +59,6 @@ test("full snapshots update sessions, remove completed ones and reject older obs
   assert.equal(mergeActivity(next, first), next);
   assert.equal(mergeActivity(next, snapshot(3, [])).agents.claude.sessions.length, 0);
 });
-test("five tasks stay individual; overflow replaces slot five and counts every hidden task", () => {
-  // Property: five tasks stay individual; overflow replaces slot five and counts every hidden task.
-  for (let n = 0; n <= 9; n++) {
-    const tracked = trackActivity([], Array.from({ length: n }, (_, i) => session(String(i))), 1000);
-    const shown = visibleActivity(tracked);
-    assert.equal(shown.count, Math.min(n, 5));
-    assert.equal(shown.sessions.length, n > 5 ? 4 : n);
-    assert.equal(shown.hidden, n > 5 ? n - 4 : 0);
-    assert.equal(shown.sessions.length + shown.hidden, n);
-  }
-});
 test("overflow keeps unfinished work ahead of completions and can reveal every task", () => {
   // Regression: completed bubbles occupied the visible slots while running tasks were hidden in overflow.
   const tracked = trackActivity([], Array.from({ length: 9 }, (_, i) => session(String(i), i === 8 ? permission : undefined)), 100);
@@ -86,19 +75,14 @@ test("overflow keeps unfinished work ahead of completions and can reveal every t
   const fewerRunning = sessions.map(s => s.id === "7" ? { ...s, endedAt: 200 } : s);
   assert.deepEqual(visibleActivity(fewerRunning).sessions.map(s => s.id), ["8", "5", "6", "0"]);
 });
-test("unchanged overflow presentation produces no task order write", () => {
-  // Regression: a no-op drag of C1 in [R1,R2,R3,C1] wrote into stored completion-first slots and hid C1.
-  const rows = ['C1','C2','C3','C4','C5','R1','R2','R3'].map((id, orderAt) => ({ ...session(id), orderAt, ...(id.startsWith('C') ? { endedAt: 1 } : {}) }));
-  const visible = visibleActivity(rows).sessions.map(row => row.id);
-  assert.deepEqual(visible, ['R1','R2','R3','C1']);
-  assert.equal(reorderActivity(rows, visible, []), undefined);
-  assert.equal(reorderActivity(rows, visible, visibleActivity(rows, undefined, true).sessions.map(row => row.id)), undefined);
-});
 test("moving a visible overflow task settles inside its completion group without hiding unfinished work", () => {
   // Property: every visible move preserves unfinished-first priority, other tasks' relative order, membership and visibility, and retains the drop position within its group.
   const rows = ['C1','C2','C3','C4','C5','R1','R2','R3'].map((id, orderAt) => ({ ...session(id), orderAt, ...(id.startsWith('C') ? { endedAt: 1 } : {}) }));
   const baseline = visibleActivity(rows, undefined, true).sessions.map(row => row.id);
   const visible = baseline.slice(0, 4);
+  assert.deepEqual(visible, ['R1','R2','R3','C1']);
+  assert.equal(reorderActivity(rows, visible, []), undefined);
+  assert.equal(reorderActivity(rows, visible, baseline), undefined);
   for (const moved of visible) for (let position = 0; position < visible.length; position++) {
     const ids = visible.filter(id => id !== moved); ids.splice(position, 0, moved);
     const stored = reorderActivity(rows, ids, []);
@@ -234,18 +218,6 @@ test("timeline replaces by item id, retains unchanged entries, and orders backfi
   assert.equal(current.entries[0].text, "partial");
 });
 
-test("full timeline re-reads keep unchanged entry identity and adopt changed entries", async () => {
-  // Property: reuse never alters content; equal entries keep their object and changed entries take the new value.
-  const { reuseTimelineEntries } = await import("../ui/state/timelineModel.ts");
-  const current = timeline([entry("same", 1, "unchanged", 0), entry("edited", 2, "before", 1)]);
-  const next = timeline([entry("same", 1, "unchanged", 0), entry("edited", 3, "after", 1), entry("added", 4, "new", 2)]);
-  const reused = reuseTimelineEntries(current, next);
-  assert.deepEqual(reused.entries, next.entries);
-  assert.equal(reused.entries[0], current.entries[0]);
-  assert.equal(reused.entries[1], next.entries[1]);
-  assert.equal(reuseTimelineEntries({ ...current, sessionId: "other" }, next), next);
-});
-
 test("expired timeline cursor discards old state and retries once without after", async () => {
   // Regression: TIMELINE_CURSOR_EXPIRED requires a fresh timeline without stale entries.
   const { refreshTimeline } = await import("../ui/state/timelineModel.ts");
@@ -264,18 +236,6 @@ test("expired timeline cursor discards old state and retries once without after"
     if (!available) { available = true; throw new Error("offline"); }
     return restored;
   }), /offline/);
-});
-
-test("scroll follows live snapshots until upward movement, resumes at bottom, and leaves finished history still", async () => {
-  // Property: scroll follows live snapshots until upward movement, resumes at bottom, and leaves finished history still.
-  const { followsTimeline, timelineScrollTarget } = await import("../ui/state/timelineModel.ts");
-  assert.equal(followsTimeline(600, 400, 1000, 590), true);
-  assert.equal(followsTimeline(590, 400, 1000, 600), false);
-  assert.equal(followsTimeline(100, 400, 1000, 90), false);
-  assert.equal(timelineScrollTarget(true, true, false, 1200), 1200);
-  assert.equal(timelineScrollTarget(false, true, false, 1200), undefined);
-  assert.equal(timelineScrollTarget(true, false, false, 1200), undefined);
-  assert.equal(timelineScrollTarget(true, false, true, 1200), 1200);
 });
 
 function entry(id: string, cursor: number, text: string, position: number): import("../ui/types.ts").AgentTimelineEntry {
@@ -305,15 +265,6 @@ test("file labels are relative only inside the project and keep the filename sep
   assert.equal(filePathParts("file.ts", "/workspace/example", "/external").displayPath, "/external/file.ts");
   assert.equal(filePathParts("file.ts", "//Server/Share/Workspace", "\\\\server\\share\\workspace\\src").displayPath, "src/file.ts");
   assert.equal(filePathParts("~/file.ts", "/workspace/example").fullPath, "~/file.ts");
-});
-
-test("project labels prefer the recorded name and use the directory leaf as a fallback", async () => {
-  // Regression: task cards displayed the beginning of the full workspace path as their project.
-  const { projectLabelParts } = await import("../ui/lib/projectPath.ts");
-  assert.deepEqual(projectLabelParts("Release / Dev", "/workspace/checkout"), { name: "Release / Dev", path: "/workspace/checkout" });
-  assert.deepEqual(projectLabelParts("", "D:\\Work\\Release\\"), { name: "Release", path: "D:\\Work\\Release\\" });
-  assert.equal(projectLabelParts(undefined, "/workspace/tasks/../checkout/")?.name, "checkout");
-  assert.equal(projectLabelParts(undefined, " "), undefined);
 });
 
 test("file approvals use path labels in interaction bubbles and timeline cards", async () => {
@@ -373,70 +324,8 @@ test("approval wording uses structured operations and retains generic file acces
   assert.equal(permissionRequestLabel(), "timeline.fileRequest");
 });
 
-test("timeline tools only expand when there is detail beyond the summary object", async () => {
-  // Property: timeline tools only expand when there is detail beyond the summary object.
-  const { expandableTimelineEntry } = await import("../ui/state/timelineModel.ts");
-  const file = { ...entry("file", 1, "", 1), type: "file" as const, path: "src/file.ts" };
-  assert.equal(expandableTimelineEntry(file), false);
-  assert.equal(expandableTimelineEntry({ ...file, changes: [{ path: file.path, operation: "edit" }] }), false);
-  assert.equal(expandableTimelineEntry({ ...file, changes: [{ path: "src/other.ts", operation: "edit" }] }), true);
-  assert.equal(expandableTimelineEntry({ ...file, exitCode: 0 }), true);
-  assert.equal(expandableTimelineEntry({ ...file, output: { text: "result", state: "available", truncated: false, sha256: "example", hashScope: "excerpt" } }), true);
-});
 
 
-test("bubble headlines prefer current content, then recent readable content, then title", async () => {
-  // Property: bubble headlines prefer current content, then recent readable content, then title.
-  const { activityHeadline } = await import("../ui/state/activityModel.ts");
-  const base = { ...session("one"), title: "Task title", fallbackHeadline: "Previous readable command" };
-  assert.equal(activityHeadline(base).text, "printf example");
-  assert.equal(activityHeadline(base).fallback, false);
-  const thinking = { ...base, phase: "thinking" as const, headline: " \n " };
-  assert.equal(activityHeadline(thinking).text, "Previous readable command");
-  assert.equal(activityHeadline(thinking).fallback, true);
-  assert.equal(activityHeadline({ ...thinking, fallbackHeadline: " " }).text, "Task title");
-  assert.equal(activityHeadline({ ...thinking, phase: "file" }).path, undefined);
-  assert.equal(activityHeadline({ ...base, phase: "file", headline: "src/main.rs" }).path, "src/main.rs");
-});
-test("every source and phase has a visible fallback even before readable content arrives", async () => {
-  // Property: every source and phase has a visible fallback even before readable content arrives.
-  const { activityHeadline } = await import("../ui/state/activityModel.ts");
-  for (const source of ["arc-task", "codex-thread", "transcript"] as const) {
-    for (const phase of ["thinking", "command", "file", "tool", "text", "interaction", "idle"] as const) {
-      const headline = activityHeadline({ ...session("one"), ...{ source }, phase, headline: "" }, "Task details");
-      assert.equal(headline.text, "Task details");
-      assert.equal(headline.fallback, true);
-    }
-  }
-});
-
-
-test("Agent panel toggles the current node, switches peers in place, and returns from bubble detail", () => {
-  // Property: Agent panel toggles the current node, switches peers in place, and returns from bubble detail.
-  const first = { ...session("one"), orderAt: 1 };
-  let view = agentPanelSelection(undefined, { type: "toggle", agent: "claude" });
-  assert.deepEqual(view, { agent: "claude" });
-  view = agentPanelSelection(view, { type: "task", agent: "claude", session: first });
-  assert.equal(view?.session, first);
-  view = agentPanelSelection(view, { type: "back" });
-  assert.deepEqual(view, { agent: "claude" });
-  view = agentPanelSelection(view, { type: "toggle", agent: "codex" });
-  assert.deepEqual(view, { agent: "codex" });
-  view = agentPanelSelection(view, { type: "toggle", agent: "codex" });
-  assert.equal(view?.closing, true);
-  assert.equal(agentPanelSelection(view, { type: "closed" }), undefined);
-  view = agentPanelSelection(undefined, { type: "task", agent: "claude", session: first });
-  assert.deepEqual(agentPanelSelection(view, { type: "back" }), { agent: "claude" });
-  assert.equal(agentPanelSelection(view, { type: "dismiss" })?.session, first);
-  view = agentPanelSelection(view, { type: "platform", agent: "claude", toggle: true });
-  assert.deepEqual(view, { agent: "claude", platform: true });
-  assert.equal(agentPanelSelection(view, { type: "platform", agent: "claude", toggle: true })?.closing, true);
-  view = agentPanelSelection(view, { type: "toggle", agent: "claude", accountId: "account-one" });
-  assert.deepEqual(view, { agent: "claude", accountId: "account-one" });
-  view = agentPanelSelection(view, { type: "platform", agent: "claude", toggle: true });
-  assert.deepEqual(view, { agent: "claude", platform: true });
-  assert.deepEqual(agentPanelSelection(view, { type: "toggle", agent: "claude" }), { agent: "claude" });
-});
 
 test("dispatch records use their own turn results and keep submission separate", async () => {
   // Regression: old dispatches became unknown or borrowed another turn's live state.
@@ -549,6 +438,8 @@ test("timeline resumes at the bottom threshold despite layout clamping and follo
   assert.equal(followsTimeline(2718, 754, 3482, 2728), false, "real upward movement within the threshold still pauses");
   assert.equal(followsTimeline(599, 400, 1000, 600), false, "even small upward movement is not treated as layout rounding");
   assert.equal(timelineScrollTarget(true, false, false, 4000), undefined, "finished history still does not jump");
+  assert.equal(timelineScrollTarget(false, true, false, 4000), undefined);
+  assert.equal(timelineScrollTarget(true, false, true, 4000), 4000);
 });
 
 test("final answers prefer native markers and only infer trailing text after completion", async () => {

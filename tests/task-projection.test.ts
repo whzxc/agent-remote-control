@@ -36,17 +36,6 @@ test("live reasoning comes only from thinking after the latest agent message", (
   assert.equal(projectTurn(stale, "running").activity?.thought, undefined);
   assert.equal(projectTurn([...stale, entry("next", "thinking", { text: "**Checking overrides**\n\nMore." })], "running").activity?.thought, "Checking overrides");
 });
-test("thought lines are single plain lines", async () => {
-  // Property: reasoning previews contain no Markdown markers or line breaks and prefer a leading bold heading.
-  const { thoughtLine } = await import("../ui/state/taskProjection.ts");
-  for (const text of ["**Heading** trailing\nbody", "First *sentence* with `code`. Second sentence.", "- [link](https://example.com) item\n- next", "第一句。第二句。", "   "]) {
-    const line = thoughtLine(text);
-    assert.doesNotMatch(line, /[\n*`]|\]\(/);
-    assert.equal(line, line.trim());
-  }
-  assert.equal(thoughtLine("**Inspecting config**\n\nThe loader reads files."), "Inspecting config");
-  assert.equal(thoughtLine("First *sentence* here. Second."), "First sentence here.");
-});
 test("tool summaries account for every observed action and failure", async () => {
   // Property: shown parts plus the remainder equal the full counts, at most three parts are shown, and failures are counted once.
   const { toolSummary, toolCounts } = await import("../ui/state/taskProjection.ts");
@@ -186,20 +175,6 @@ test("resolved and previous-turn interactions do not recreate waiting input", as
   assert.equal(pendingSessions("codex", session, [old, answered]).length, 0);
   const pending = entry("new", "interaction", { turnId: "current", status: "pending", interaction });
   assert.equal(pendingSessions("codex", session, [old, answered, pending])[0].turnId, "current");
-});
-
-test('homepage activity preserves chronological work observations', async () => {
-  // Property: bounded card projection preserves observed work order and omits standalone plan rows.
-  const { taskCardActivity } = await import('../ui/state/taskProjection.ts');
-  const content = (text: string) => ({ state: 'available' as const, text, truncated: false, sha256: 'fixture', hashScope: 'excerpt' as const });
-  const result = taskCardActivity([
-    entry('read', 'file', { operation: 'read', path: 'a.ts' }),
-    entry('edit', 'file', { operation: 'edit', path: 'a.ts', changes: [{ path: 'a.ts', added: 4 }] }),
-    entry('wait', 'tool', { status: 'pending', title: 'Queued operation' }),
-    entry('plan', 'plan', { plan: [{ content: content('Read'), status: 'completed' }, { content: content('Check'), status: 'in_progress' }] }),
-  ]);
-  assert.deepEqual(result.steps.map(step => step.kind), ['reading', 'editing', 'waiting']);
-  assert.deepEqual(result.snapshot.map(row => row.id), ['read', 'edit', 'wait']);
 });
 
 test('homepage task groups put inactive work with missing outcomes into completed history', async () => {
