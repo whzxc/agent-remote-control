@@ -26,7 +26,8 @@ for (const file of testFiles()) {
   const emit = (offset, rule, message) => report(file, locate(offset)?.name ?? '<harness>', source.slice(0, offset).split('\n').length, rule, message);
   for (const c of parsed.cases) {
     const tags = c.comments.filter(s => /^\/\/\s*(?:Contract|Algorithmic core|Recurring bug class)\s*:/.test(s));
-    if (tags.length !== 1 || !/^\/\/ (Contract|Algorithmic core|Recurring bug class): \S[^\n]*$/.test(tags[0] ?? ''))
+    const validTag = /^\/\/ (?:Contract|Algorithmic core): \S[^\n]*$|^\/\/ Recurring bug class: (?:concurrency|lifecycle|retry-replay|persistence|security): \S[^\n]*$/;
+    if (tags.length !== 1 || !validTag.test(tags[0] ?? ''))
       report(file, c.name, c.line, 'tag', 'Each case requires exactly one // an allowed test type tag with a reason.');
     if (c.comments.some(s => /^\/\/\s*(?:Contract|Algorithmic core|Recurring bug class)\b/.test(s) && !tags.includes(s)))
       report(file, c.name, c.line, 'tag', 'Malformed test tag.');

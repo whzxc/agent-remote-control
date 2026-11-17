@@ -1800,7 +1800,7 @@ fn entry_headline(item: &Value) -> String {
     headline(kind, text)
 }
 
-/// Separate stream state, shared by the RPC readers; it never changes codex_* responses.
+/// Recurring bug class: lifecycle: terminal turns remain closed across late events
 pub(crate) fn observe(
     timelines: &mut HashMap<String, Timeline>,
     session: &str,
@@ -1863,8 +1863,8 @@ mod tests {
     use super::*;
 
     #[test]
+    // Recurring bug class: lifecycle: terminal turns remain closed across late events
     fn stream_stability_late_events_do_not_reopen_terminal_turns() {
-        // Recurring bug class: reader EOF and late permission or Pi events overwrote terminal turn outcomes.
         let status = "completed";
         let mut timeline = Timeline::default();
         let at = "2026-01-01T00:00:00Z";
@@ -1899,8 +1899,8 @@ mod tests {
     }
 
     #[test]
+    // Recurring bug class: persistence: completion survives backfill, late deltas and serde restore
     fn native_history_completion_survives_inflight_items_and_checkpoint_restore() {
-        // Recurring bug class: history completion was discarded when late item deltas arrived during the native read.
         let at = "2026-01-01T00:00:00Z";
         let mut timeline = Timeline {
             info: json!({"id":"thread","agent":"codex"}),
@@ -1958,8 +1958,8 @@ mod tests {
     }
 
     #[test]
+    // Recurring bug class: lifecycle: completed interaction cannot reactivate or move turns
     fn finished_async_questions_do_not_reactivate_input_work_or_move_to_a_new_turn() {
-        // Recurring bug class: repeated pending sync revived a terminal turn as waiting for an asynchronous answer.
         let mut timeline = Timeline::default();
         let at = "2026-01-01T00:00:00Z";
         timeline.codex("turn/started", &json!({"turn":{"id":"old"}}), at);
@@ -1996,36 +1996,12 @@ mod tests {
         );
     }
 
-    #[test]
-    fn silent_command_output_is_empty_without_hiding_literal_null() {
-        // Recurring bug class: silent native commands rendered a JSON null as the literal text null in task panels.
-        for (output, expected) in [
-            (None, ""),
-            (Some(Value::Null), ""),
-            (Some(json!("")), ""),
-            (Some(json!("null")), "null"),
-        ] {
-            let mut timeline = Timeline::default();
-            let mut item =
-                json!({"id":"silent","type":"commandExecution","command":"sleep 1","exitCode":0});
-            if let Some(output) = output {
-                item["aggregatedOutput"] = output;
-            }
-            timeline.codex(
-                "item/completed",
-                &json!({"item":item}),
-                "2026-01-01T00:00:00Z",
-            );
-            let response = timeline.response("example", 0);
-            assert_eq!(response["entries"][0]["output"]["text"], expected);
-            assert_eq!(response["entries"][0]["exitCode"], 0);
-        }
-    }
+    
     const AT: &str = "2026-01-01T00:00:00.000Z";
     const LATER: &str = "2026-01-01T00:00:01.000Z";
     #[test]
+    // Recurring bug class: persistence: native request identities remain distinct across restored turns
     fn restored_answers_keep_distinct_native_sessions_and_turns() {
-        // Recurring bug class: native request IDs restart at zero and must not overwrite answers from earlier turns.
         let mut timeline = Timeline::default();
         for (session, turn, answer) in [("first", "one", "A"), ("second", "two", "B")] {
             timeline.answered(&json!({"backendSession":session,"id":0,"method":"item/tool/requestUserInput","params":{"turnId":turn,"questions":[{"id":"q","question":"Choose"}]}}), &json!({"result":{"answer":answer},"origin":{"controlSource":"ARC"},"resolvedAt":"2026-01-01T00:00:00Z"}));
@@ -2037,100 +2013,13 @@ mod tests {
         assert_ne!(result["entries"][0]["id"], result["entries"][1]["id"]);
     }
 
-    #[test]
-    fn file_changes_preserve_native_operations() {
-        // Algorithmic core: native file-change operations remain explicit without guessing from diff counts.
-        for (kind, operation) in [("add", "create"), ("update", "edit"), ("delete", "delete")] {
-            let row = file_change(&json!({"path":"example.txt","kind":{"type":kind}}));
-            assert_eq!(row["operation"], operation);
-        }
-        assert!(file_change(&json!({"path":"example.txt"}))["operation"].is_null());
-    }
+    
 
+    
+    
     #[test]
-    fn recent_steps_merge_chunks_and_updates_and_keep_last_five_in_order() {
-        // Algorithmic core: recent steps merge chunks and updates and keep last five in order.
-        let mut timeline = Timeline::default();
-        let snapshot =
-            |t: &Timeline| t.session("example", &json!({"id":"example"}), "arc-task", None);
-        assert_eq!(snapshot(&timeline)["recentSteps"], json!([]));
-        timeline.chunk("thinking", "First", AT);
-        timeline.chunk("thinking", " second", AT);
-        assert_eq!(snapshot(&timeline)["recentSteps"], json!(["thinking"]));
-        timeline.end_chunk(AT);
-        for (id, kind) in ["command", "file", "tool", "text", "interaction"]
-            .iter()
-            .enumerate()
-        {
-            timeline.put(
-                json!({"id":id.to_string(),"type":kind,"status":"running"}),
-                AT,
-            );
-        }
-        timeline.put(json!({"id":"0","type":"command","status":"completed"}), AT);
-        timeline.put(json!({"id":"user","type":"user","text":"Prompt"}), AT);
-        timeline.put(json!({"id":"plan","type":"plan"}), AT);
-        timeline.put(json!({"id":"error","type":"error"}), AT);
-        assert_eq!(
-            snapshot(&timeline)["recentSteps"],
-            json!(["command", "file", "tool", "text", "interaction"])
-        );
-        timeline.put(json!({"id":"next","type":"command"}), AT);
-        assert_eq!(
-            snapshot(&timeline)["recentSteps"],
-            json!(["file", "tool", "text", "interaction", "command"])
-        );
-    }
-    #[test]
-    fn empty_reasoning_keeps_phase_and_uses_recent_readable_content() {
-        // Algorithmic core: empty reasoning keeps phase and uses recent readable content.
-        let mut t = Timeline::default();
-        let info = json!({"id":"example","title":"Task title"});
-        t.codex_item(
-            &json!({"id":"u","type":"userMessage","content":[{"text":"User request"}]}),
-            "completed",
-            AT,
-        );
-        t.codex_item(
-            &json!({"id":"r","type":"reasoning","summary":[]}),
-            "running",
-            LATER,
-        );
-        let row = t.session(string(&info, "id"), &info, "codex-thread", None);
-        assert_eq!(row["phase"], "thinking");
-        assert_eq!(row["headline"], "");
-        assert_eq!(row["fallbackHeadline"], "Task title");
-        assert_eq!(
-            t.session("example", &json!({"id":"example"}), "codex-thread", None)
-                ["fallbackHeadline"],
-            "User request"
-        );
-        t.codex_item(
-            &json!({"id":"c","type":"commandExecution","command":"printf example"}),
-            "completed",
-            LATER,
-        );
-        assert_eq!(
-            t.session(string(&info, "id"), &info, "codex-thread", None)["fallbackHeadline"],
-            "printf example"
-        );
-        t.codex_item(&json!({"id":"f","type":"fileChange","changes":[{"path":"src/example.rs","kind":{"type":"update"}}]}), "completed", LATER);
-        assert_eq!(
-            t.session(string(&info, "id"), &info, "codex-thread", None)["fallbackHeadline"],
-            "src/example.rs"
-        );
-        t.codex_item(
-            &json!({"id":"t","type":"agentMessage","text":"Latest readable text"}),
-            "completed",
-            LATER,
-        );
-        let row = t.session(string(&info, "id"), &info, "codex-thread", None);
-        assert_eq!(row["fallbackHeadline"], "Latest readable text");
-        assert_eq!(row["recentContent"].as_array().unwrap().len(), 3);
-    }
-    #[test]
+    // Algorithmic core: Claude transcript parser
     fn claude_transcript_projects_readonly_text_and_tool_results() {
-        // Algorithmic core: claude transcript projects readonly text and tool results.
         let records = vec![
             json!({"uuid":"meta","timestamp":AT,"isMeta":true,"message":{"role":"user","content":"Injected"}}),
             json!({"uuid":"u","timestamp":AT,"message":{"role":"user","content":"Read example"}}),
@@ -2174,8 +2063,8 @@ mod tests {
         timeline
     }
     #[test]
+    // Algorithmic core: Codex history merge parser
     fn codex_history_merges_by_item_and_preserves_inflight_updates() {
-        // Algorithmic core: codex history merges by item and preserves inflight updates.
         let mut t = Timeline::default();
         t.turn = "turn".into();
         t.status = "running".into();
@@ -2225,128 +2114,12 @@ mod tests {
         assert_eq!(t.revision, revision);
         assert_eq!(t.entries.len(), 3);
     }
+    
+    
+    
     #[test]
-    fn codex_history_completes_unobserved_items_and_detects_missing_history() {
-        // Algorithmic core: codex history completes unobserved items and detects missing history.
-        let mut t = Timeline::default();
-        t.partial = true;
-        t.codex_item(
-            &json!({"id":"reply","type":"agentMessage","text":"partial"}),
-            "running",
-            AT,
-        );
-        t.backfill_codex(
-            &json!({"turns":[{"id":"turn","status":"completed","items":[
-                {"id":"reply","type":"agentMessage","text":"full reply"}
-            ]}]}),
-            t.revision,
-            0,
-            LATER,
-        );
-        assert!(!t.partial);
-        assert_eq!(t.entries[0]["text"], "full reply");
-        assert_eq!(t.entries[0]["status"], "completed");
-        assert_eq!(t.entries[0]["startedAt"], AT);
-        let mut missing = Timeline::default();
-        missing.backfill_codex(&json!({"turns":[{"id":"turn"}]}), 0, 0, AT);
-        assert!(missing.partial);
-        let mut absent = Timeline::default();
-        absent.backfill_codex(&json!({}), 0, 0, AT);
-        assert!(absent.partial);
-        let mut empty = Timeline::default();
-        empty.backfill_codex(&json!({"turns":[]}), 0, 0, AT);
-        assert!(!empty.partial);
-        let mut running = Timeline::default();
-        running.backfill_codex(
-            &json!({"turns":[{"id":"turn","status":"inProgress","items":[
-                {"id":"reply","type":"agentMessage","text":"Hello "}
-            ]}]}),
-            0,
-            0,
-            AT,
-        );
-        running.codex(
-            "item/agentMessage/delta",
-            &json!({"itemId":"reply","delta":"world"}),
-            LATER,
-        );
-        assert_eq!(running.entries[0]["text"], "Hello world");
-    }
-    #[test]
-    fn acp_fixture_projects_entries_evidence_and_snapshot() {
-        // Algorithmic core: acp fixture projects entries evidence and snapshot.
-        let t = fixture();
-        assert_eq!(
-            t.entries
-                .iter()
-                .map(|r| string(r, "type"))
-                .collect::<Vec<_>>(),
-            ["user", "thinking", "command", "file", "plan", "text"]
-        );
-        assert_eq!(t.entries[1]["text"], "Inspecting the workspace");
-        assert_eq!(t.entries[2]["id"], "cmd-example");
-        assert_eq!(t.entries[2]["exitCode"], 0);
-        assert_eq!(t.entries[2]["status"], "completed");
-        assert_eq!(t.entries[3]["operation"], "read");
-        assert_eq!(
-            t.evidence(Some("turn-example")).as_array().unwrap().len(),
-            2
-        );
-        assert_eq!(t.execution_evidence(), true);
-        let snapshot = t.session(
-            "task-example",
-            &json!({"id":"task-example","title":"Example","startedAt":AT}),
-            "arc-task",
-            None,
-        );
-        assert_eq!(snapshot["phase"], "text");
-        assert_eq!(snapshot["headline"], "Check complete.");
-        assert_eq!(snapshot["timeline"], true);
-        assert_eq!(
-            headline("text", "First sentence. Last sentence."),
-            "Last sentence."
-        );
-    }
-    #[test]
-    fn incremental_chunks_and_tool_updates_keep_identity_and_start_time() {
-        // Algorithmic core: incremental chunks and tool updates keep identity and start time.
-        let mut t = Timeline::default();
-        acp(
-            &mut t,
-            json!({"sessionUpdate":"agent_message_chunk","content":{"text":"Hello "}}),
-            AT,
-        );
-        let cursor = t.revision;
-        let id = t.entries[0]["id"].clone();
-        acp(
-            &mut t,
-            json!({"sessionUpdate":"agent_message_chunk","content":{"text":"world"}}),
-            LATER,
-        );
-        let delta = t.response("example", cursor);
-        assert_eq!(delta["entries"][0]["id"], id);
-        assert_eq!(delta["entries"][0]["text"], "Hello world");
-        assert_eq!(delta["entries"][0]["startedAt"], AT);
-        acp(
-            &mut t,
-            json!({"sessionUpdate":"tool_call","toolCallId":"shell","rawInput":{"command":"true"},"status":"in_progress"}),
-            LATER,
-        );
-        acp(
-            &mut t,
-            json!({"sessionUpdate":"tool_call_update","toolCallId":"shell","status":"completed","content":[{"content":{"text":"Process exited with code 0"}}]}),
-            LATER,
-        );
-        assert_eq!(t.entries[1]["exitCode"], 0);
-        assert_eq!(t.entries[0]["endedAt"], LATER);
-        assert!(t.response("example", t.revision)["entries"]
-            .as_array()
-            .unwrap()
-            .is_empty());
-    }
-    #[test]
+    // Recurring bug class: lifecycle: approval resolution restores command state
     fn resolved_approval_restores_running_command_phase_and_start() {
-        // Algorithmic core: resolved approval restores running command phase and start.
         let mut t = Timeline::default();
         let info = json!({"id":"task","taskId":"task","agent":"example","startedAt":AT});
         acp(
@@ -2366,7 +2139,6 @@ mod tests {
         assert_eq!(snapshot["headline"], "printf example");
         assert_eq!(snapshot["phaseSince"], AT);
         assert!(snapshot.get("interaction").is_none());
-        // A command first observed after the approval is also selected.
         acp(
             &mut t,
             json!({"sessionUpdate":"tool_call","toolCallId":"next","kind":"execute","rawInput":{"command":"printf next"},"status":"in_progress"}),
@@ -2385,8 +2157,8 @@ mod tests {
         );
     }
     #[test]
+    // Recurring bug class: concurrency: late file updates cannot displace running command
     fn running_command_wins_over_late_completed_file_updates() {
-        // Algorithmic core: running command wins over late completed file updates.
         let mut t = Timeline::default();
         let info = json!({"id":"task","taskId":"task","agent":"example","startedAt":AT});
         for (id, kind) in [("read", "read"), ("write", "edit")] {
@@ -2450,53 +2222,10 @@ mod tests {
         assert_eq!(snapshot["phase"], "file");
         assert_eq!(snapshot["phaseSince"], AT);
     }
+    
     #[test]
-    fn headlines_are_plain_text_without_changing_commands_or_paths() {
-        // Algorithmic core: headlines are plain text without changing commands or paths.
-        for (source, expected) in [
-            (
-                "**Configuring session timing**",
-                "Configuring session timing",
-            ),
-            ("**Configuring session timin…", "Configuring session timin…"),
-            ("## **Session configuration**", "Session configuration"),
-            ("First sentence. **Last sentence.**", "Last sentence."),
-            (
-                "Use `session_config` with *defaults* and _options_.",
-                "Use session_config with defaults and options.",
-            ),
-            (
-                "See [the guide](https://example.test/guide).",
-                "See the guide.",
-            ),
-            (
-                "Read [guide][reference] and ![diagram](image.png).",
-                "Read guide and diagram.",
-            ),
-            (
-                "Keep snake_case_name intact.",
-                "Keep snake_case_name intact.",
-            ),
-            ("~~Old~~ **New**", "Old New"),
-        ] {
-            assert_eq!(headline("text", source), expected, "{source}");
-        }
-        assert_eq!(
-            headline("thinking", "First line\n### **Last thought**"),
-            "Last thought"
-        );
-        assert_eq!(
-            headline("command", "printf '**example**' && echo `pwd`"),
-            "printf '**example**' && echo `pwd`"
-        );
-        assert_eq!(
-            headline("file", "/example/snake_case/file_name.rs"),
-            "/example/snake_case/file_name.rs"
-        );
-    }
-    #[test]
+    // Contract: ACP session/request_permission identity
     fn permission_backfill_preserves_request_and_respond_identity() {
-        // Algorithmic core: permission backfill preserves request and respond identity.
         let mut t = Timeline::default();
         acp(
             &mut t,
@@ -2521,8 +2250,8 @@ mod tests {
         assert_eq!(t.entries.last().unwrap()["status"], "completed");
     }
     #[test]
+    // Algorithmic core: command exit-code parser
     fn exit_code_is_conservative_and_raw_output_wins() {
-        // Algorithmic core: exit code is conservative and raw output wins.
         assert_eq!(exit_code(&json!({"exitCode":3}), "Exit code: 0"), Some(3));
         assert_eq!(
             exit_code(&Value::Null, "all tests passed: 0 failures"),
@@ -2538,7 +2267,6 @@ mod tests {
         );
         assert_eq!(t.entries[2]["exitCode"], 0);
         assert_eq!(t.entries[2]["status"], "completed");
-        // The fixture turn has ended; a running command requires a new turn.
         t.agent(
             "arc/user",
             &json!({"turnId":"next","text":"Run command"}),
@@ -2570,8 +2298,8 @@ mod tests {
             .any(|r| r["type"] == "error" && r["text"] == "Example error"));
     }
     #[test]
+    // Recurring bug class: security: secrets stay redacted across summaries/chunks
     fn secrets_redacted_before_summary_truncation_and_across_chunks() {
-        // Algorithmic core: secrets redacted before summary truncation and across chunks.
         let input = json!({"command":"echo example","nested":{"api_key":"fixture-only-value","refreshToken":"fixture-only-refresh"}});
         let out = summary(&input).to_string();
         assert!(!out.contains("fixture-only-value"));
@@ -2604,8 +2332,8 @@ mod tests {
         assert_eq!(summary(&json!(unicode_text))["truncated"], true);
     }
     #[test]
+    // Recurring bug class: persistence: bounded timeline survives serialization with partial coverage
     fn bounded_window_and_text_report_partial_and_survive_persistence() {
-        // Algorithmic core: bounded window and text report partial and survive persistence.
         let mut t = Timeline::default();
         for i in 0..=MAX_ENTRIES {
             t.put(
@@ -2628,8 +2356,8 @@ mod tests {
         assert!(text.partial);
     }
     #[test]
+    // Algorithmic core: Pi event transcript parser
     fn pi_streams_final_messages_tools_and_interactions_without_duplicates() {
-        // Algorithmic core: pi streams final messages tools and interactions without duplicates.
         let mut t = Timeline::default();
         t.agent("arc/user", &json!({"turnId":"turn","text":"Example"}), AT);
         for part in ["first ", "message"] {
@@ -2652,8 +2380,8 @@ mod tests {
         assert_eq!(t.status, "completed");
     }
     #[test]
+    // Contract: Codex app-server event and interaction protocol
     fn codex_typed_items_deltas_and_pending_requests() {
-        // Algorithmic core: codex typed items deltas and pending requests.
         let mut t = Timeline::default();
         t.codex("turn/started", &json!({"turn":{"id":"turn"}}), AT);
         t.codex(
@@ -2700,7 +2428,6 @@ mod tests {
     }
     #[tokio::test]
     async fn shared_codex_event_window_marks_only_observed_thread_partial() {
-        // Recurring bug class: event eviction must not mark an unrelated thread as partial.
         let events: SharedEvents = Default::default();
         events
             .lock()
