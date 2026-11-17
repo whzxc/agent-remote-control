@@ -25,10 +25,10 @@ for (const file of testFiles()) {
   const locate = offset => parsed.cases.filter(c => offset >= c.start && offset < c.end).at(-1);
   const emit = (offset, rule, message) => report(file, locate(offset)?.name ?? '<harness>', source.slice(0, offset).split('\n').length, rule, message);
   for (const c of parsed.cases) {
-    const tags = c.comments.filter(s => /^\/\/\s*(?:Contract|Regression|Property)\s*:/.test(s));
-    if (tags.length !== 1 || !/^\/\/ (Contract|Regression|Property): \S[^\n]*$/.test(tags[0] ?? ''))
-      report(file, c.name, c.line, 'tag', 'Each case requires exactly one // Contract, Regression or Property tag with a reason.');
-    if (c.comments.some(s => /^\/\/\s*(?:Contract|Regression|Property)\b/.test(s) && !tags.includes(s)))
+    const tags = c.comments.filter(s => /^\/\/\s*(?:Contract|Algorithmic core|Recurring bug class|Regression|Property)\s*:/.test(s));
+    if (tags.length !== 1 || !/^\/\/ (?:Contract|Algorithmic core|Recurring bug class|Regression|Property): \S[^\n]*$/.test(tags[0] ?? ''))
+      report(file, c.name, c.line, 'tag', 'Each case requires exactly one // test type tag with a reason.');
+    if (c.comments.some(s => /^\/\/\s*(?:Contract|Algorithmic core|Recurring bug class|Regression|Property)\b/.test(s) && !tags.includes(s)))
       report(file, c.name, c.line, 'tag', 'Malformed test tag.');
     for (const a of c.assertions) {
       if (mockCount.test(a.text)) emit(a.start, 'mock-count', 'Assert delivered facts or returned results, not mock invocation counts.');
