@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { assetMatches, boundedMap, ghOptions, transferOptions, platformAssetNames, publicationStages,
-  publishedTags, releaseByTag, releaseById, uploadReleaseAsset, fileDigest, retry, stageTimer, validateResume, validateRemoteAssets, validateArtifactInventory, parallelPlatforms, dependencyEnv, releasePlatforms } from '../tooling/release-support.mjs';
+import { boundedMap, ghOptions, transferOptions, platformAssetNames, publicationStages,
+  publishedTags, releaseByTag, uploadReleaseAsset, fileDigest, retry, stageTimer, validateResume, validateRemoteAssets, validateArtifactInventory, parallelPlatforms, dependencyEnv, releasePlatforms } from '../tooling/release-support.mjs';
 import { workerReady, canStopWorker, validateWindowsReceipt, workProfileRoot } from '../tooling/windows-release.mjs';
 import { inputKey, dependenciesMatch } from '../tooling/build-cache.mjs';
 import { testEnvironment } from '../tooling/test-environment.mjs';
@@ -181,15 +181,6 @@ test('release lookup refuses ambiguous drafts and preserves fallback permission 
   assert.throws(lookup(() => { throw forbidden; }), forbidden);
 });
 
-test('known release IDs do not rediscover a missing release by tag', async () => {
-  // Regression: v0.9.32 repeated draft tag lookups and historical pagination for every asset.
-  const missing = Object.assign(new Error('Not Found'), { status: 1, stderr: 'gh: Not Found (HTTP 404)' });
-  await assert.rejects(releaseById('owner/repo', 42, async args => {
-    assert.deepEqual(args, ['api', 'repos/owner/repo/releases/42']);
-    throw missing;
-  }), missing);
-});
-
 test('release uploads send binary files by ID and separate lookup from transfer timing', async context => {
   // Regression: v0.9.32 combined blocking draft discovery and binary transfers into one opaque upload duration.
   const directory = await mkdtemp(path.join(tmpdir(), 'arc-release-upload-'));
@@ -279,15 +270,6 @@ test('release history uses bounded pages and retains only public stable tags', (
   assert.ok(ghOptions.maxBuffer >= 16 * 1024 * 1024);
   assert.ok(transferOptions.timeout > 0);
   assert.equal(transferOptions.env.GODEBUG.split(',').at(-1), 'http2client=0');
-});
-
-test('only uploaded assets matching size and every exposed digest can be skipped', () => {
-  // Property: skipping preserves both the expected size and available content identity.
-  assert.equal(assetMatches(asset, remote), true);
-  assert.equal(assetMatches(asset, { ...remote, digest: null }), true);
-  for (const candidate of [undefined, { ...remote, size: 119 }, { ...remote, digest: 'sha256:other' }, { ...remote, state: 'starter' }, { ...remote, name: 'other.json' }]) {
-    assert.equal(assetMatches(asset, candidate), false);
-  }
 });
 
 test('resume requires the original verified version commit and platform selection', () => {

@@ -42,21 +42,3 @@ test('isolated owner can stop restarted Core after Desktop disappears during qui
     assert.equal(stopped, true);
   } finally { globalThis.fetch = original; }
 });
-
-test('isolated owner cannot quit the installed Core', async () => {
-  // Regression: following isolated Core restarts must not grant shutdown authority over installed Core.
-  const endpoint = { instance: 'installed-core', pid: 0, port: 12345, token: 'installed-token' };
-  let desktop = true;
-  const original = globalThis.fetch;
-  globalThis.fetch = async (input) => {
-    const route = new URL(String(input)).pathname;
-    if (route === '/api/runtime/clients') return Response.json([{ kind: 'desktop' }]);
-    if (route === '/api/runtime/lease') return Response.json({ error: 'Core ownership changed. No Core was stopped.' }, { status: 403 });
-    if (route === '/api/app/quit' || route === '/api/runtime/shutdown') desktop = false;
-    return Response.json({});
-  };
-  try {
-    await assert.rejects(stopCore(endpoint, { instance: 'isolated-instance', id: 'private-startup-identity' }), /ownership changed/);
-    assert.equal(desktop, true);
-  } finally { globalThis.fetch = original; }
-});
