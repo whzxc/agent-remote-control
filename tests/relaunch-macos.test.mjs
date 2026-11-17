@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { setTimeout } from 'node:timers/promises';
 
 test('macOS relaunch waits for the old Desktop before handing arguments to LaunchServices', { skip: process.platform !== 'darwin' }, async () => {
-  // Recurring bug class: app restart retained stale Core LAN state and relaunched before the old Desktop exited.
+  // Recurring bug class: lifecycle: macOS relaunch waits for the old Desktop process
   const oldDesktop = spawn(process.execPath, ['-e', 'process.stdin.resume()'], { stdio: ['pipe', 'ignore', 'inherit'] });
   const oldExit = once(oldDesktop, 'exit');
   const args = ['-a', '/Applications/Example App.app', '--args', '--state-dir', '/tmp/example state;$(echo unsafe)'];

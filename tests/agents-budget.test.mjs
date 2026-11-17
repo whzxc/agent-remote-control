@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-// Recurring bug class: per-turn repository instructions grew to 17,077 characters.
+// Contract: AGENTS.md character budget
 test('AGENTS.md stays within its 12,000-character budget', () => {
   const characters = [...readFileSync(new URL('../AGENTS.md', import.meta.url), 'utf8')].length;
   assert.ok(characters <= 12_000,
