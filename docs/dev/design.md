@@ -50,7 +50,9 @@ its single line exceeds the available width. Running detail cards use an Aurora
 border colored by the active phase. Reduced motion keeps the phase tint static. The controller shows its member dispatches.
 On the member, that controller is the source.
 
-Full previews follow the newest native rows. Consecutive tools in a turn form a
+Homepage grid cards are 256px tall. Show each origin step as an icon and name and end the chain at the executor. Running cards and child rows use the phase-colored Aurora border. Group explicit subagent relations under the available parent within the visible device and executor scope. Use the family’s latest activity date, surface pending input and failures on the parent, and keep unmatched children and side chats visible. The child list opens the selected task detail.
+
+Visible local cards read a missing preview even for a completed task. While loading, show available recorded text. Center empty and failed read states with the applicable detail or retry action. The homepage clips the latest excerpt to two lines. Other full previews follow the newest native rows. Consecutive tools in a turn form a
 single-line summary of recorded operations. Reasoning uses its icon and summary.
 Replies render inline. Clicking a card or pressing Enter opens its detail in the
 centered task layer. An older summary reads its timeline when opened.

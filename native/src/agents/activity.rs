@@ -719,7 +719,7 @@ pub(super) fn conversation_projection(records: &[Value], partial: bool) -> Value
     for record in records {
         observe_clock(record, "codex", &mut clock);
     }
-    json!({"dispatchSummary":clock.dispatch_summary,
+    json!({"parentSessionId":clock.parent_session_id,"relationKind":clock.relation_kind,"dispatchSummary":clock.dispatch_summary,
         "turnCount":if partial { None } else { Some(clock.turns.len()) },
         "turnId":clock.turn_id,"turnStartedAt":clock.started_at,"turnEndedAt":clock.ended_at,"turnDurationMs":clock.duration_ms,
         "status":clock.status,"metadataPartial":partial})

@@ -217,6 +217,32 @@ export function recentHomepageTasks(a: HomepageTask, b: HomepageTask) {
   return Number(activeHomepageTask(b)) - Number(activeHomepageTask(a))
     || (homepageTaskTime(b) ?? 0) - (homepageTaskTime(a) ?? 0) || a.key.localeCompare(b.key);
 }
+export type TaskFamily = { parent: HomepageTask; children: HomepageTask[]; latest: number };
+export function homepageTaskFamilies(tasks: readonly HomepageTask[]): TaskFamily[] {
+  const scopeKey = (task: HomepageTask, id: string) => JSON.stringify([task.deviceId, task.agent, id]);
+  const aliases = new Map<string, string>();
+  for (const task of tasks) {
+    aliases.set(scopeKey(task, task.session.id), task.key);
+    if (task.session.nativeSessionId) aliases.set(scopeKey(task, task.session.nativeSessionId), task.key);
+  }
+  const tree = taskHierarchy(tasks.map(task => ({
+    task, id: task.key, parentTaskId: task.session.relationKind === 'subagent' && task.session.parentSessionId
+      ? aliases.get(scopeKey(task, task.session.parentSessionId)) : undefined,
+  })));
+  const families: TaskFamily[] = [], byMember = new Map<string, TaskFamily>();
+  for (const { task: { task }, parentTaskId } of tree) {
+    const parent = parentTaskId && byMember.get(parentTaskId);
+    const time = homepageTaskTime(task) ?? 0;
+    const family = parent || { parent: task, children: [], latest: time };
+    if (parent) { parent.children.push(task); parent.latest = Math.max(parent.latest, time); }
+    else families.push(family);
+    byMember.set(task.key, family);
+  }
+  for (const family of families) family.children.sort((a, b) =>
+    Number(b.group === 'needs-me') - Number(a.group === 'needs-me') || recentHomepageTasks(a, b));
+  return families.sort((a, b) => Number([b.parent, ...b.children].some(activeHomepageTask)) - Number([a.parent, ...a.children].some(activeHomepageTask))
+    || b.latest - a.latest || a.parent.key.localeCompare(b.parent.key));
+}
 export function homepageTaskGroup(session: TrackedActivity, pending: boolean, status?: string, observedCompletion = true): HomepageTaskGroup {
   const state = presentTaskState(status, session.observed !== false && session.endedAt === undefined, pending);
   if (state === 'needsYou') return 'needs-me';

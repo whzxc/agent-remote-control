@@ -268,6 +268,16 @@ impl AgentHost {
                     "turnId":metadata["turnId"],"turnStartedAt":metadata["turnStartedAt"],"turnEndedAt":metadata["turnEndedAt"],
                     "turnDurationMs":metadata["turnDurationMs"],
                     "source":"codex-thread","agentAccountId":row["agentAccountId"]});
+                if let Some(parent) = row.pointer("/source/subAgent/thread_spawn/parent_thread_id").and_then(Value::as_str) {
+                    item["parentSessionId"] = json!(parent);
+                    item["relationKind"] = json!("subagent");
+                } else if metadata["parentSessionId"].is_string() {
+                    item["parentSessionId"] = metadata["parentSessionId"].clone();
+                    item["relationKind"] = metadata["relationKind"].clone();
+                }
+                if let Some(preview) = row["preview"].as_str() {
+                    item["preview"] = json!(preview.chars().take(240).collect::<String>());
+                }
                 item["dispatchSummary"] = metadata["dispatchSummary"].clone();
                 item["turnCount"] = metadata["turnCount"].clone();
                 let native_status = row["status"].as_str().or_else(|| row["status"]["type"].as_str());

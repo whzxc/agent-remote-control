@@ -75,3 +75,26 @@
 .task-snapshot-work-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .task-snapshot-file-actions { flex: none; max-width: 50%; }
 .task-snapshot-routing { display: flex; align-items: center; gap: 6px; color: var(--text-tertiary); font-size: var(--text-caption); }
+
+.task-card[data-grid] { height: 256px; box-sizing: border-box; }
+.task-card-origin-node, .task-excerpt-label, .task-empty-body > span { display: inline-flex; align-items: center; gap: 4px; }
+.task-card-origin-node { font-size: var(--text-caption); font-weight: 600; white-space: nowrap; }
+.task-card-excerpt, .task-card-history { flex: 1; min-height: 0; max-height: none; justify-content: flex-start; padding: 10px 12px; }
+.task-card-history { margin: 0 10px 10px; overflow: hidden; border-radius: var(--radius-field); background: var(--surface-subtle); font-size: var(--text-small); }
+.task-excerpt-label { flex: none; gap: 6px; color: var(--text-secondary); font-size: var(--text-caption); }
+.task-excerpt-text { max-height: 40px; white-space: pre-line; margin-top: 4px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; font-size: var(--text-small); line-height: 20px; }
+.task-empty-body { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; color: var(--text-secondary); font-size: var(--text-small); }
+.timeline-entries > .task-empty-body { min-height: 256px; }
+.task-card-footer { display: flex; margin: 0 12px 10px; }
+
+.task-grid-state, .task-child-heading > span, .task-child-description { color: var(--text-secondary); font-size: var(--text-caption); }
+.task-child-row { width: 100%; padding: 10px 12px; gap: 4px; text-align: start; cursor: pointer; }
+.task-child-heading { display: flex; align-items: center; gap: 8px; }
+.task-child-heading > strong, .task-child-description { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-child-heading > span, .task-child-heading > svg { flex: none; }
+.task-child-heading > svg { margin-inline-start: auto; }
+.task-card-footer .task-child-trigger { flex: 1; justify-content: start; color: var(--text); font-size: var(--text-small); }
+.task-child-trigger > span { color: var(--warning); font-size: var(--text-caption); }
+.task-child-trigger > span:first-of-type { margin-inline-start: auto; }
+.task-child-trigger > svg:last-child { margin-inline-start: auto; }
+.task-child-trigger > span + svg:last-child { margin-inline-start: 0; }

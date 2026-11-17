@@ -116,6 +116,9 @@ export interface AgentActivitySnapshot {
   agents: Record<string, { sessions: AgentActivitySession[] }>;
 }
 export interface AgentConversation {
+  parentSessionId?: string;
+  relationKind?: AgentActivitySession["relationKind"];
+  preview?: string;
   metadataPartial?: boolean;
   agentAccountId?: string | null;
   dispatchSummary?: DispatchSummary | null;

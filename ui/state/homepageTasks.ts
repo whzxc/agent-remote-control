@@ -84,7 +84,7 @@ export function useHomepageTasks(showHistory: boolean) {
       const status = executionStatus(execution, record.turnId) ?? record.runtime?.status ?? record.runtime?.runtimeStatus ?? 'unknown';
       const timing = execution?.turnTimings?.[record.turnId ?? execution.turnId ?? ''];
       const session = { id, source: 'arc-task' as const, title: record.runtime?.title ?? record.task.title ?? record.task.prompt,
-        headline: '', phase: 'idle' as const, phaseSince: null, timeline: true, observed: false, orderAt: Date.parse(record.createdAt), project, dispatchSummary: spec,
+        headline: '', fallbackHeadline: record.task.prompt, phase: 'idle' as const, phaseSince: null, timeline: true, observed: false, orderAt: Date.parse(record.createdAt), project, dispatchSummary: spec,
         turnId: record.turnId, startedAt: record.createdAt, status, origin: record.origin ?? record.task.origin, open: record.open,
         agentAccountId: record.agentAccountId, ...(timing?.endedAt ? { endedAt: Date.parse(timing.endedAt) } : {}) };
       (combined[agent] ??= new Map()).set(id, session);
@@ -94,15 +94,18 @@ export function useHomepageTasks(showHistory: boolean) {
       const previous = sessions.get(row.id);
       const key = JSON.stringify(['codex', row.id]);
       if (row.updatedAt) updates.set(key, row.updatedAt);
+      const parentSessionId = previous?.parentSessionId ?? row.parentSessionId;
+      const relationKind = previous?.relationKind ?? row.relationKind;
+      const fallbackHeadline = previous?.fallbackHeadline || row.preview;
       if (previous?.observed) {
         const projectName = previous.projectName ?? (row.project && row.project === previous.project ? row.projectName : undefined);
         const turnCount = previous.turnCount ?? row.turnCount ?? undefined;
-        if (projectName !== previous.projectName || turnCount !== previous.turnCount) sessions.set(row.id, { ...previous, projectName, turnCount });
+        if (projectName !== previous.projectName || turnCount !== previous.turnCount || parentSessionId !== previous.parentSessionId || relationKind !== previous.relationKind || fallbackHeadline !== previous.fallbackHeadline) sessions.set(row.id, { ...previous, projectName, turnCount, parentSessionId, relationKind, fallbackHeadline });
         continue;
       }
       const sameTurn = !row.turnId || row.turnId === previous?.turnId;
       sessions.set(row.id, {
-        ...previous, id: row.id, source: row.source === 'native' ? 'transcript' : row.source, conversation: true,
+        ...previous, parentSessionId, relationKind, fallbackHeadline, id: row.id, source: row.source === 'native' ? 'transcript' : row.source, conversation: true,
         title: row.title || previous?.title, turnCount: row.turnCount ?? previous?.turnCount, status: row.status ?? (sameTurn ? previous?.status : undefined),
         project: row.project ?? previous?.project,
         projectName: row.projectName ?? (!row.project || row.project === previous?.project ? previous?.projectName : undefined),
@@ -142,7 +145,7 @@ export function useHomepageTasks(showHistory: boolean) {
         accountId: session.agentAccountId ?? session.dispatchSummary?.agentAccountId,
         activity: { steps: [], snapshot: [] },
         startedAt: timing?.startedAt ?? session.turnStartedAt, endedAt: timing?.endedAt ?? session.turnEndedAt };
-      if (previewHomepageTask(task, showHistory ? today : undefined) && execution) task.activity = taskCardActivity(execution.entries);
+      if ((previewHomepageTask(task, showHistory ? today : undefined) || current.relationKind === 'subagent') && execution) task.activity = taskCardActivity(execution.entries);
       return task;
     }));
     projected.push(...pairedDevices(devices).flatMap(device => projectDeviceTasks(device, remote[device.id] ?? {}, remoteReads)));

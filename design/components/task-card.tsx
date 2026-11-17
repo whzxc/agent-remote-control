@@ -24,17 +24,18 @@ export function OriginChain({ steps }: { steps: readonly OriginStep[] }) {
   return <span class="inline-flex items-center gap-1 text-text-secondary"
     role="img" aria-label={steps.map(s => s.label).join(' → ')}>
     {steps.map((step, i) => <span class="inline-flex items-center gap-1" title={step.label}>
-      {i > 0 && <Icon name="chevron-right" size={10} />}
+      {i > 0 && <Icon name="arrow-right" size={12} />}
       <span class="flex size-5 items-center justify-center rounded-full bg-surface-sunken">
         {step.brand ? <BrandMark brand={step.brand} size={14} /> : <Icon name={step.icon!} size={14} />}
       </span>
+      <span class="whitespace-nowrap text-caption font-semibold">{step.label}</span>
     </span>)}
   </span>;
 }
 
 const scrollRow = 'min-w-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden';
 
-const aurora = 'border-transparent [background:linear-gradient(var(--surface),var(--surface))_padding-box,conic-gradient(from_24deg,var(--border)_0deg,var(--border)_25deg,var(--aurora-tint)_75deg,var(--border)_142deg,var(--border)_215deg,var(--aurora-tint)_275deg,var(--border)_360deg)_border-box] [box-shadow:var(--shadow-md),0_0_15px_color-mix(in_srgb,var(--aurora-tint)_24%,transparent)]';
+export const aurora = 'border-transparent [background:linear-gradient(var(--surface),var(--surface))_padding-box,conic-gradient(from_24deg,var(--border)_0deg,var(--border)_25deg,var(--aurora-tint)_75deg,var(--border)_142deg,var(--border)_215deg,var(--aurora-tint)_275deg,var(--border)_360deg)_border-box] [box-shadow:var(--shadow-md),0_0_15px_color-mix(in_srgb,var(--aurora-tint)_24%,transparent)]';
 
 
 export function TaskCardHeader({ task, heading = false }: { task: TaskSnapshotData; heading?: boolean }) {

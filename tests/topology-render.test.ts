@@ -430,8 +430,8 @@ test("task detail limits input to pending execution requests and consolidates he
     for (const language of ["en", "zh-CN"]) {
       await act(() => locale.set(language));
       await update();
-      assert.ok(page.getByText(source.label, { exact: true }));
-      assert.ok(page.getByRole("button", { name: t("back"), exact: true }));
+      const back = page.getByRole("button", { name: t("back"), exact: true });
+      assert.ok(within(back).getByText(source.label, { exact: true }));
       const question = { kind: "question", summary: "Question", method: "item/tool/requestUserInput", questions: [{ id: "choice", question: "Choose", options: [{ label: "A" }] }], respond: { op: "codex_respond", args: { respondToken: language } } };
       await update(question);
       assert.ok(page.getByRole("region", { name: t("detail.needsYou") }));

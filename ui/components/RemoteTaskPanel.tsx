@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { X } from 'lucide-react';
+import { ArrowLeft, X } from 'lucide-react';
 import { IconButton, Notice, Panel } from './ui';
 import { PanelHeader } from './ui/Panel';
 import { TaskCard, taskTitle } from './ui/TaskCard';
@@ -16,7 +16,7 @@ export default function RemoteTaskPanel({ tasks }: { tasks: HomepageTask[] }) {
   if (!task) return null;
   const close = () => remoteTaskPanel.set(undefined);
   return <Panel headerless snapshotKey={task.key} returnFocus={`[data-task-snapshot="${CSS.escape(task.key)}"] [data-task-open]`} size="m" title={taskTitle(task)} onClose={close}>
-    <PanelHeader><div className="actions"><IconButton icon={X} label={t('close')} onClick={close} /></div></PanelHeader>
+    <PanelHeader><div className="actions">{selected?.back && <IconButton icon={ArrowLeft} label={t('back')} onClick={() => { close(); selected.back?.(); }} />}<IconButton icon={X} label={t('close')} onClick={close} /></div></PanelHeader>
     <TaskCard task={task} form="detail" now={now} />
     <Notice layout="inline">{t('homepage.remoteDetailLimit')}</Notice>
   </Panel>;

@@ -10,7 +10,7 @@ import { observeTaskPanel } from "../state/taskPanel";
 import { useTaskQueue } from "../state/taskQueue";
 import { TaskContentCard } from "./ui/TaskPresentation";
 import { ReviewUnavailable, TaskBackButton, StatePill } from "./timeline/TaskPresentation";
-import { TaskCard as TaskListCard, TaskCardHeader, localTaskCard } from "./ui/TaskCard";
+import { EmptyTaskBody, TaskCard as TaskListCard, TaskCardHeader, localTaskCard } from "./ui/TaskCard";
 import TaskQueuedMessages from "./TaskQueuedMessages";
 import { useTaskReview } from "../state/taskReview";
 import { taskErrorText } from "../state/taskErrors";
@@ -360,7 +360,8 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
         }}>
           {loading ? <LoadingIndicator label={t("timeline.loading")} /> : <>
           {!validId && <Notice>{t("detail.taskUnavailable")}</Notice>}
-          {error && <Notice layout="stacked" actionBelow action={<Button onClick={() => retryTimeline.current?.()}>{t("retry")}</Button>}>{taskErrorText(error)}</Notice>}
+          {error && !timeline?.entries.length && <EmptyTaskBody state="error" action={t("retry")} onAction={() => retryTimeline.current?.()} />}
+          {error && !!timeline?.entries.length && <Notice layout="stacked" actionBelow action={<Button onClick={() => retryTimeline.current?.()}>{t("retry")}</Button>}>{taskErrorText(error)}</Notice>}
           {openError && <Notice>{taskErrorText(openError)}</Notice>}
           {timeline?.coverage.state === "partial" && !timeline.preview && !timeline.coverage.truncated && <p className="timeline-meta">{t("timeline.partial")}</p>}
           {!session.timeline && <section className="activity-session-summary">
@@ -368,7 +369,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
             {(nativeSession.recentContent?.length ? nativeSession.recentContent : [activityHeadline(nativeSession, t("timeline.title")).text])
               .map((text, index) => <p key={index}>{text}</p>)}
           </section>}
-          {timeline?.entries.length === 0 && <p className="timeline-meta">{t("timeline.empty")}</p>}
+          {!error && timeline?.entries.length === 0 && <EmptyTaskBody state="empty" action={t("homepage.reload")} onAction={() => retryTimeline.current?.()} />}
           <TimelineEntries narrow={narrow} key={session.id} entries={timeline?.entries ?? []} agent={agent} session={nativeSession} now={now} running={activeState} turnTimings={timeline?.turnTimings} status={status} turnStatuses={timeline?.turnStatuses} turnDispatchSummaries={timeline?.turnDispatchSummaries}
             onResume={!readOnlyBrowser && agent === "codex" && !external && !timeline?.readOnly && state === "interrupted" && turnId ? () => continueTurn("resume") : undefined}
             onRetry={!readOnlyBrowser && !external && !timeline?.readOnly && state === "failed" && turnId ? () => continueTurn("retry") : undefined} continuing={continuing} />

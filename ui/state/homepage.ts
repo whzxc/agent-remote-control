@@ -25,4 +25,4 @@ function readRemoteReads(): string[] {
   catch { return []; }
 }
 homepageRemoteReads.subscribe(() => { try { localStorage.setItem('arc.remote-task-reads', JSON.stringify(homepageRemoteReads.get())); } catch { /* Keep the current viewer's acknowledgements in memory. */ } });
-export const remoteTaskPanel = createStore<{ key: string } | undefined>(undefined);
+export const remoteTaskPanel = createStore<{ key: string; back?: () => void } | undefined>(undefined);

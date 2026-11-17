@@ -1,9 +1,7 @@
-import { Laptop, Monitor, Terminal, UserRound } from 'lucide-react';
+import { Laptop, Monitor, Terminal } from 'lucide-react';
 import { type ReactNode } from 'react';
 import { t } from '../../i18n';
 import { deviceSnapshot, pairedDevices } from '../../devices/state';
-import { accountOwns } from '../../accountPresentation';
-import { accounts } from '../../state/accounts';
 import { icons, name } from '../../state/agents';
 import { connector } from '../../state/connector';
 import type { HomepageTask } from '../../state/activityModel';
@@ -14,7 +12,7 @@ import { BrandMark, Icon } from './index';
 export type TaskOrigin = { label: string; graphic: ReactNode; description?: string };
 
 export function useTaskOrigins(task: Pick<HomepageTask, 'agent' | 'session' | 'deviceId' | 'controllerDeviceId' | 'accountId'> & { sourceIds?: string[] }) {
-  const snapshot = deviceSnapshot.use(), { sources } = connector.use(), { items: accountList } = accounts.use();
+  const snapshot = deviceSnapshot.use(), { sources } = connector.use();
   const { agent, session, deviceId } = task;
   const origin = session.origin, recorded = session.dispatchSummary?.controlSource;
   const source = sources.find(candidate => task.sourceIds?.includes(candidate.id) || candidate.id === (origin?.sourceId ?? recorded?.id));
@@ -34,10 +32,5 @@ export function useTaskOrigins(task: Pick<HomepageTask, 'agent' | 'session' | 'd
     result.push({ label: snapshot?.members.find(member => member.deviceId === deviceId)?.name ?? deviceId, graphic: <Icon icon={Laptop} size={14} />, description });
   }
   result.push({ label: name({ agent }), graphic: <BrandMark markup={icons[agent]} size={14} /> });
-  const accountId = task.accountId ?? session.agentAccountId ?? session.dispatchSummary?.agentAccountId;
-  if (accountId) {
-    const account = !deviceId && accountList.find(account => accountOwns(account, accountId));
-    result.push({ label: account ? account.alias : accountId, graphic: <Icon icon={UserRound} size={14} /> });
-  }
   return result;
 }

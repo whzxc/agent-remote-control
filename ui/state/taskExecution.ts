@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore, type RefObject } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore, type RefObject } from "react";
 import { api } from "../api";
 import type { AgentTimeline } from "../types";
 import { createStore } from "./store";
@@ -37,10 +37,10 @@ export function acceptTaskExecution(agent: string, id: string, timeline: AgentTi
     return changed ? { ...old, [agent]: restoreActivityReads(agent, sessions, Date.now(), selected?.agent === agent ? selected.session?.id : undefined) } : old;
   });
 }
-export function refreshTaskExecution(agent: string, id: string, recent = false): Promise<void> {
+export function refreshTaskExecution(agent: string, id: string, recent = false, force = false): Promise<void> {
   const identity = key(agent, id), pending = reads.get(identity);
   if (pending) return pending;
-  if (performance.now() - (lastRead.get(identity) ?? -Infinity) < 10000) return Promise.resolve();
+  if (!force && taskExecution(agent, id) && performance.now() - (lastRead.get(identity) ?? -Infinity) < 10000) return Promise.resolve();
   lastRead.set(identity, performance.now());
   const started = generation;
   const read = api<AgentTimeline>("agents/conversations/timeline", "POST", { agent, id, ...(recent ? { recent: true } : {}) })
@@ -61,17 +61,34 @@ export function useTaskExecution(agent: string, id: string, turnId: string | nul
 }
 
 /** Only mounted task snapshots request timeline previews. */
-export function useTaskPreview(agent: string, id: string, enabled: boolean, card: RefObject<HTMLElement | null>) {
+export function useTaskPreview(agent: string, id: string, enabled: boolean, card: RefObject<HTMLElement | null>, settled: boolean, turn?: string | null) {
+  const [failed, setFailed] = useState(false);
+  const retry = useCallback(() => {
+    setFailed(false);
+    void refreshTaskExecution(agent, id, true, true).catch(() => setFailed(true));
+  }, [agent, id]);
   useEffect(() => {
+    setFailed(false);
     if (!enabled || !card.current || typeof IntersectionObserver !== 'function') return;
-    let visible = false;
-    const read = () => { if (visible && !document.hidden) void refreshTaskExecution(agent, id, true).catch(() => {}); };
+    let visible = false, stopped = false, loaded = false;
+    const read = () => {
+      if (stopped || !visible || document.hidden) return;
+      const cached = taskExecution(agent, id);
+      if (settled && (loaded || cached?.entries.some(entry => !turn || entry.turnId === turn))) return;
+      const olderTurn = !!turn && !!cached?.turnId && turn !== cached.turnId;
+      void refreshTaskExecution(agent, id, !olderTurn, settled && !!cached).then(() => {
+        loaded = true;
+        if (!stopped) setFailed(false);
+      }, () => { if (!stopped) setFailed(true); });
+    };
     const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; read(); });
     observer.observe(card.current);
     document.addEventListener("visibilitychange", read);
-    const timer = setInterval(read, 10000);
+    const timer = settled ? undefined : setInterval(read, 10000);
     return () => {
+      stopped = true;
       observer.disconnect(); clearInterval(timer); document.removeEventListener("visibilitychange", read);
     };
-  }, [agent, id, enabled, card]);
+  }, [agent, id, enabled, card, settled, turn]);
+  return { failed, retry };
 }

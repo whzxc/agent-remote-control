@@ -307,6 +307,16 @@ fn fork_notice_is_not_a_native_conversation_title_or_preview() {
 }
 
 #[test]
+fn history_metadata_preserves_explicit_subagent_parent() {
+    // Regression: completed native subagents lost their parent when projected into history.
+    let meta = json!({"type":"session_meta","payload":{"id":"child",
+        "source":{"subagent":{"thread_spawn":{"parent_thread_id":"parent"}}}}});
+    let row = activity::conversation_projection(&[meta], false);
+    assert_eq!(row["parentSessionId"], "parent");
+    assert_eq!(row["relationKind"], "subagent");
+}
+
+#[test]
 fn conversation_metadata_uses_explicit_outcomes_and_discloses_partial_counts() {
     // Regression: opening a Codex list replayed full rollouts and then loaded a detail timeline for each row.
     let records = vec![

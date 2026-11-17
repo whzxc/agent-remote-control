@@ -3,8 +3,6 @@ import type { TaskStep } from '../modules/homepage-scene';
 import { recentSteps, activitySamples } from './task-activity';
 
 // Fictional task content and device identities. Native task storage stays runtime-owned.
-const studio: OriginStep = { label: 'Studio account', icon: 'user-round' };
-const work: OriginStep = { label: 'Work profile', icon: 'user-round' };
 const chatgpt: OriginStep = { label: 'ChatGPT', brand: 'openai' };
 const claude: OriginStep = { label: 'Claude', brand: 'claude' };
 const controller: OriginStep = { label: 'Anchor Mac · controller', icon: 'monitor' };
@@ -12,12 +10,12 @@ const member: OriginStep = { label: 'Cedar Mac · LAN · 4 ms', icon: 'laptop' }
 const codex: OriginStep = { label: 'Codex', brand: 'codex' };
 const cc: OriginStep = { label: 'Claude Code', brand: 'claude-code' };
 export const origins = {
-  local: [chatgpt, codex, studio],
-  localClaude: [claude, cc, work],
-  remote: [controller, member, codex, studio],
-  remoteClaude: [controller, member, cc, work],
-  member: [controller, codex, studio],
-  offline: [controller, { label: 'Moss Server · offline', icon: 'server' }, codex, work],
+  local: [chatgpt, codex],
+  localClaude: [claude, cc],
+  remote: [controller, member, codex],
+  remoteClaude: [controller, member, cc],
+  member: [controller, codex],
+  offline: [controller, { label: 'Moss Server · offline', icon: 'server' }, codex],
 } satisfies Record<string, OriginStep[]>;
 const baseTasks: TaskSnapshotData[] = [
   { id: 'window', node: 'cedar-codex', title: 'Choose the deployment window', group: 'needs-me',
@@ -102,7 +100,7 @@ tasks.splice(4, 0, {
   icon: 'terminal', elapsed: '01:08', path: 'Tunnel · 82 ms', partial: true,
   prompt: 'Validate the build configuration on the Tunnel machine.', snapshot: snapshots.tunnel,
   origin: [{ label: 'Anchor Mac · controller', icon: 'monitor' }, { label: 'Quartz PC · Tunnel', icon: 'monitor' },
-    { label: 'Codex', brand: 'codex' }, { label: 'Work account', icon: 'user-round' }],
+    { label: 'Codex', brand: 'codex' }],
   steps: [...recentSteps.slice(0, 3), { kind: 'command', text: 'cargo check --lib', status: 'running' }],
   change: { kind: 'command', summary: 'cargo check --lib', output: 'Checking workspace packages…' },
 });

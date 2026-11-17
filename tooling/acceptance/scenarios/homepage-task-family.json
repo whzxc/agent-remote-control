@@ -1,0 +1,253 @@
+{
+  "theme": "dark",
+  "language": "zh-CN",
+  "agents": [
+    "codex"
+  ],
+  "coldTaskPreviews": true,
+  "clock": "2026-11-17T03:35:00Z",
+  "timezone": "Asia/Shanghai",
+  "viewports": [
+    {
+      "width": 1040,
+      "height": 720
+    },
+    {
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "homepage": {
+    "mode": "tasks",
+    "check": "grouped"
+  },
+  "tasks": [
+    {
+      "agent": "codex",
+      "direct": false,
+      "phase": "thinking",
+      "headline": "已汇总读取和调度用例，正在核对重试边界。",
+      "completed": false,
+      "turnCount": 2,
+      "title": "审阅队列测试覆盖范围",
+      "elapsedSeconds": 258,
+      "projectName": "queue",
+      "spec": {
+        "model": "gpt-6.2-astra",
+        "effort": "high",
+        "serviceTier": "priority"
+      },
+      "entries": [
+        {
+          "type": "thinking",
+          "status": "running",
+          "text": "已汇总读取和调度用例，正在核对重试边界。"
+        }
+      ]
+    },
+    {
+      "agent": "codex",
+      "direct": true,
+      "phase": "text",
+      "headline": "",
+      "completed": true,
+      "historyDate": "2026-11-17T03:35:00Z",
+      "turnCount": 3,
+      "title": "验证安装后的升级流程",
+      "finalAnswer": "安装和升级均已通过。重启后保留了已有配置，也能继续打开之前的会话。",
+      "elapsedSeconds": 190,
+      "projectName": "desktop",
+      "spec": {
+        "model": "gpt-6.2-sol",
+        "effort": "high",
+        "serviceTier": "priority"
+      }
+    },
+    {
+      "agent": "codex",
+      "direct": false,
+      "phase": "command",
+      "headline": "正在对比最近两次构建的编译和链接耗时。",
+      "completed": false,
+      "turnCount": 1,
+      "title": "定位构建耗时增长",
+      "elapsedSeconds": 86,
+      "projectName": "build",
+      "spec": {
+        "model": "gpt-6.1-terra",
+        "effort": "high",
+        "serviceTier": "priority"
+      },
+      "entries": [
+        {
+          "type": "thinking",
+          "status": "running",
+          "text": "正在对比最近两次构建的编译和链接耗时。"
+        }
+      ]
+    },
+    {
+      "agent": "codex",
+      "direct": true,
+      "phase": "text",
+      "headline": "",
+      "completed": true,
+      "historyDate": "2026-11-17T03:35:00Z",
+      "turnCount": 1,
+      "title": "检查配置读取顺序",
+      "assignment": "检查默认配置和项目配置的覆盖顺序。",
+      "elapsedSeconds": 125,
+      "projectName": "desktop",
+      "spec": {
+        "model": "gpt-6.2-sol",
+        "effort": "high",
+        "serviceTier": "priority"
+      },
+      "finalAnswer": "项目配置会覆盖默认值。",
+      "previewDelayMs": 1200
+    },
+    {
+      "agent": "codex",
+      "direct": true,
+      "phase": "text",
+      "headline": "",
+      "completed": true,
+      "historyDate": "2026-11-17T03:35:00Z",
+      "turnCount": 2,
+      "title": "核对历史记录索引",
+      "previewFailure": true,
+      "finalAnswer": "索引读取完成。",
+      "elapsedSeconds": 43,
+      "projectName": "storage",
+      "spec": {
+        "model": "gpt-6.1-terra",
+        "effort": "high",
+        "serviceTier": "priority"
+      }
+    },
+    {
+      "agent": "codex",
+      "direct": true,
+      "phase": "text",
+      "headline": "",
+      "completed": true,
+      "historyDate": "2026-11-17T03:35:00Z",
+      "turnCount": 1,
+      "title": "检查新会话的初始状态",
+      "entries": [],
+      "elapsedSeconds": 8,
+      "projectName": "desktop",
+      "spec": {
+        "model": "gpt-6.2-sol",
+        "effort": "high",
+        "serviceTier": "priority"
+      }
+    },
+    {
+      "agent": "codex",
+      "direct": true,
+      "phase": "interaction",
+      "headline": "需要确认超时后允许的重试次数。",
+      "completed": false,
+      "turnCount": 1,
+      "title": "Curie",
+      "assignment": "核对重试上限",
+      "parent": 0,
+      "interaction": {
+        "kind": "question",
+        "method": "item/tool/requestUserInput",
+        "summary": "需要确认超时后允许的重试次数。",
+        "questions": [
+          {
+            "id": "limit",
+            "question": "需要确认超时后允许的重试次数。",
+            "options": [
+              {
+                "label": "2"
+              },
+              {
+                "label": "3"
+              }
+            ]
+          }
+        ],
+        "canRespond": true,
+        "respond": {
+          "via": "act",
+          "op": "codex_respond",
+          "args": {
+            "id": "fixture-interaction-6",
+            "backendSession": "fixture"
+          }
+        }
+      }
+    },
+    {
+      "agent": "codex",
+      "direct": true,
+      "phase": "thinking",
+      "headline": "正在比对同优先级任务的出队顺序。",
+      "completed": false,
+      "turnCount": 1,
+      "title": "Newton",
+      "assignment": "检查并发调度",
+      "parent": 0,
+      "entries": [
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "正在比对同优先级任务的出队顺序。"
+        }
+      ]
+    },
+    {
+      "agent": "codex",
+      "direct": true,
+      "phase": "command",
+      "headline": "已归类 12 个用例，剩余 3 个。",
+      "completed": false,
+      "turnCount": 1,
+      "title": "Russell",
+      "assignment": "整理回归用例",
+      "parent": 0,
+      "entries": [
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "已归类 12 个用例，剩余 3 个。"
+        }
+      ]
+    },
+    {
+      "agent": "codex",
+      "direct": true,
+      "phase": "text",
+      "headline": "已有用例覆盖空队列和重复读取。",
+      "completed": true,
+      "historyDate": "2026-11-17T03:35:00Z",
+      "turnCount": 1,
+      "title": "Poincare",
+      "assignment": "审阅读取路径",
+      "parent": 0,
+      "entries": [
+        {
+          "type": "text",
+          "status": "completed",
+          "text": "已有用例覆盖空队列和重复读取。"
+        }
+      ]
+    },
+    {
+      "agent": "codex",
+      "direct": true,
+      "phase": "text",
+      "headline": "",
+      "completed": true,
+      "historyDate": "2026-11-16T02:00:00Z",
+      "turnCount": 1,
+      "title": "检查队列边界",
+      "parent": 0,
+      "relationKind": "side-chat"
+    }
+  ]
+}

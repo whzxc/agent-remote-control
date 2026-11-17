@@ -23,6 +23,8 @@
     {
       "agent": "codex",
       "phase": "command",
+      "completed": true,
+      "historyDate": "2026-01-01T00:00:00Z",
       "title": "Load a native task preview",
       "headline": "exec",
       "entries": [

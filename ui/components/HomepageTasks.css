@@ -3,7 +3,7 @@
 .homepage-task-section { flex: none; min-width: 0; }
 .homepage-task-section h2 { margin: 0 0 8px; }
 .homepage-task-grid + .homepage-task-grid { margin-top: 16px; }
-.homepage-task-grid { display: grid; align-items: start; grid-template-columns: repeat(auto-fill, minmax(min(100%, 224px), 1fr)); gap: 24px 16px; }
+.homepage-task-grid { display: grid; align-items: start; grid-template-columns: repeat(auto-fill, minmax(min(100%, 242px), 1fr)); gap: 24px 16px; }
 .homepage-task-filter { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; padding-left: 12px; }
 .homepage-tasks-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
 @media (max-width: 499px) {
@@ -17,3 +17,4 @@
 .homepage-task-filter { border: var(--stroke-thin) solid color-mix(in srgb, var(--accent-text) 40%, transparent); background: color-mix(in srgb, var(--accent-text) 10%, transparent); color: var(--accent-text); border-radius: var(--radius-pill); font-size: var(--text-small); font-weight: var(--weight-strong); }
 .homepage-task-omitted { font-size: var(--text-caption); color: var(--text-secondary); }
 .homepage-tasks-empty { color: var(--text-secondary); }
+.homepage-child-list { display: flex; flex-direction: column; gap: 8px; }
