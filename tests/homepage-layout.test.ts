@@ -1,0 +1,24 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { solve, type Entity } from '../ui/topology/solve.ts';
+
+test('task observations do not enter the node solver', () => {
+  // Recurring bug class: task activity changed topology positions, queues and compaction before homepage modes.
+  const roots: Entity[] = [{ id: 'agent', children: [{ id: 'account-one' }, { id: 'account-two' }] }];
+  const scene = { vw: 1280, vh: 800, left: [], right: roots };
+  const before = solve(scene);
+  const observed = roots.map(node => ({ ...node, tasks: [{ id: 'unprojected-task', width: 400, height: 600 }], activityLevel: 3 }));
+  assert.deepEqual(solve({ ...scene, right: observed }), before);
+});
+
+test('capsule extent keeps child branches and controls beyond its task segment', () => {
+  // Recurring bug class: the old outer arc intercepted a working capsule task segment because its width was absent from node geometry.
+  for (const width of [48, 104, 160]) {
+    const layout = solve({ vw: 1920, vh: 1050, left: [], right: [{ id: 'agent', extent: width, children: [{ id: 'account' }] }] });
+    const [parent, child] = layout.wings[1].nodes;
+    assert.equal(parent.extent, width);
+    assert.ok(parent.arc!.R > (width - 24) * parent.size / 44);
+    assert.ok(child.x - child.size / 2 - 6 > parent.x + parent.arc!.R);
+    assert.ok(layout.hub.x + layout.balance[1].full <= layout.vw);
+  }
+});
