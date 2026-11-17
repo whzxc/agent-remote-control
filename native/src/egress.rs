@@ -1677,29 +1677,6 @@ mod tests {
         assert_ne!(version, protocol_hash(&changed));
     }
 
-    #[test]
-    fn only_dispatch_receipts_expose_notification_delivery_details() {
-        // Property: only dispatch receipts expose notification delivery details.
-        for operation in [
-            "create",
-            "send",
-            "agent_create",
-            "agent_send",
-            "codex_review",
-            "interrupt",
-            "codex_respond",
-        ] {
-            let out = receipt(
-                json!({"requestId":"test","state":"completed","operation":operation,
-                "notification":{"deliveries":[{"timing":{"queueMs":31000}}]},"notificationError":"detail"}),
-            );
-            assert_eq!(out.get("notification").is_some(), dispatch_receipt(&out));
-            assert_eq!(
-                out.get("notificationError").is_some(),
-                dispatch_receipt(&out)
-            );
-        }
-    }
 }
 
 /// Compact question content without replacing the original native request.

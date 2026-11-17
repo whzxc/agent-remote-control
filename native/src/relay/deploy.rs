@@ -604,11 +604,6 @@ mod tests {
             worker_missing_from_response(reqwest::StatusCode::OK, &json!({"success":true})),
             Ok(false)
         );
-    }
-
-    #[test]
-    fn unrelated_cloudflare_404_cannot_authorize_local_cleanup() {
-        // Regression: a generic HTTP 404 does not establish that the deployed Worker was removed.
         assert!(worker_missing_from_response(
             reqwest::StatusCode::NOT_FOUND,
             &json!({"success":false,"errors":[{"code":7003}]}),

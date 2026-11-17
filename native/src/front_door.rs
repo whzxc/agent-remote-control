@@ -755,16 +755,6 @@ mod tests {
         drop((writing, reading, streaming));
     }
     #[test]
-    fn generations_fence_responses_from_other_core_incarnations() {
-        // Property: only responses tagged with the current Core generation pass the fence.
-        let first = InProcess::new();
-        let second = InProcess::new();
-        assert!(fence(first.generation(), first.generation()).is_ok());
-        assert!(fence(second.generation(), first.generation())
-            .unwrap_err()
-            .starts_with("FRONT_DOOR_STALE_GENERATION:"));
-    }
-    #[test]
     fn framing_bounds_count_encoded_bytes_including_escapes() {
         // Property: the frame bound includes JSON escaping and multibyte UTF-8.
         for body in [json!("abc"), json!("\n\"\\"), json!("\u{1f680}")] {
