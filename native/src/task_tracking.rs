@@ -2426,6 +2426,7 @@ mod tests {
         assert_eq!(t.evidence(None)[0]["exitCode"], 0);
         assert_eq!(t.status, "completed");
     }
+    // Recurring bug class: concurrency: event eviction scopes partial state to observed thread
     #[tokio::test]
     async fn shared_codex_event_window_marks_only_observed_thread_partial() {
         let events: SharedEvents = Default::default();
