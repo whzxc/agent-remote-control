@@ -1,1 +1,27 @@
-[]
+[
+  {
+    "section": "features",
+    "en": "The Tasks view groups subagents under their parent task, with a list that opens each child task's details.",
+    "zh-CN": "任务页将子任务归到主任务下，可从子任务列表打开每个子任务的详情。"
+  },
+  {
+    "section": "improvements",
+    "en": "Today's task cards use a consistent height and show recent activity. Earlier tasks use compact cards and load details when opened.",
+    "zh-CN": "今日任务卡片高度统一并显示近期活动。历史任务使用小卡片，打开后再加载详情。"
+  },
+  {
+    "section": "improvements",
+    "en": "Dispatch chains show account names when a platform has multiple accounts, and ultrafast tasks use a double lightning icon.",
+    "zh-CN": "同一平台有多个账号时，派发链显示实际使用的账号。ultrafast 任务用双闪电标识。"
+  },
+  {
+    "section": "fixes",
+    "en": "Today's task previews load missing history and display full lines of text without extra Markdown spacing.",
+    "zh-CN": "今日任务会补载缺失的历史内容，预览按完整行显示，去除 Markdown 块之间多余的空白。"
+  },
+  {
+    "section": "fixes",
+    "en": "The Claude Code quota ring can show quota from its linked account in the topology view.",
+    "zh-CN": "拓扑中的 Claude Code 额度环可以显示关联账号的额度。"
+  }
+]
