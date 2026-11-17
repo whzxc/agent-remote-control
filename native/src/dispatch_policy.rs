@@ -1962,8 +1962,6 @@ mod tests {
         assert!(unknown["endedAt"].is_null());
     }
 
-    
-
     #[test]
     fn review_provenance_preserves_arc_verdict_and_marks_external_configuration() {
         // Recurring bug class: REVIEW_DISPATCH_NOT_FOUND rejected terminal turns started outside ARC.
@@ -2051,8 +2049,6 @@ mod tests {
     }
 
     
-
-    
 }
 
 #[cfg(test)]
@@ -2065,7 +2061,6 @@ mod inheritance_tests {
 mod catalog_metadata_tests {
     use super::*;
 
-    
 }
 
 #[cfg(test)]
@@ -2102,5 +2097,4 @@ mod pack_tests {
         assert_eq!(block.matches("<arc-pack").count(), 1);
     }
 
-    
 }

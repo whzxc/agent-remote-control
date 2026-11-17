@@ -413,7 +413,6 @@ mod tests {
         assert_eq!(file_cache::thread_io().file_opens, io.file_opens);
     }
 
-
     // Contract: persisted review-record migration and legacy import
     #[test]
     fn structured_counts_and_legacy_prefix_are_not_inferred_from_prose() {
