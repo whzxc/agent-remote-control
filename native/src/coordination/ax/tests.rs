@@ -367,21 +367,6 @@ fn ax_unique_evidence_merges_and_severity_authority() {
         1
     );
 }
-#[test]
-// Contract: fix closure requires available completed verification receipts; unavailable IDs cannot close a defect.
-fn ax_verification_evidence_required_for_closure() {
-    let mut f = Fixture::new();
-    let entry = f.report("Verification needed");
-    let mut args = json!({"requestId":id(),"id":entry["id"],"expectedRevision":entry["revision"],"action":"fix","reason":"Reviewed change and checks","commit":"abc123","evidenceIds":["verification-receipt"]});
-    let pending = f.call("ax_triage", args.clone())["entry"].clone();
-    assert_eq!(pending["status"], "triaged");
-    args["requestId"] = json!(id());
-    args["expectedRevision"] = pending["revision"].clone();
-    validate("ax_triage", &args).unwrap();
-    let verified=f.store.mutate("ax_triage",&args,&f.actor,vec![json!({"id":"verification-receipt","availability":"available","state":"completed","operation":"command"})],f.time).unwrap();
-    assert_eq!(verified["entry"]["status"], "closed");
-    assert_eq!(verified["entry"]["resolution"], "fix");
-}
 
 #[test]
 fn ax_followup_unclosed_triage_explains_missing_and_rejected_verification() {
@@ -453,6 +438,7 @@ fn ax_followup_unclosed_triage_explains_missing_and_rejected_verification() {
             .mutate("ax_triage", &args, &f.actor, facts, f.time)
             .unwrap();
         assert_eq!(closed["entry"]["status"], "closed");
+        assert_eq!(closed["entry"]["resolution"], action);
         assert!(closed.get("verification").is_none());
     }
 }
