@@ -27,10 +27,10 @@ const homepageSpecimen = () => <Frame name="idle" width={1280} height={800} fixt
   capture={{ page: true, origin: '0 0', viewport: '1280x800' }}><HomepageScene scene={topologyScenes.idle} /></Frame>;
 
 const capsuleSpecimens = () => [
-  ...capsuleForms.filter(form => !['unread', 'compact'].includes(form.name)).map(({ name, state, compact, wing, brand = 'codex', label = 'Codex' }) => {
+  ...capsuleForms.filter(form => !['unread', 'compact'].includes(form.name)).map(({ name, state, compact, wing, brand = 'codex', label = 'Codex' }, index) => {
     const model = nodeCapsuleLayout(state, compact);
     return <Frame name={`capsule-${name}`} width={model.width} height={48}
-      note="The quota ring is the capsule outline. Logo anchor stays fixed; width and the outer port use the topology spring 210/26; reduced motion is direct.">
+      note={index === 0 ? "The quota ring is the capsule outline. Logo anchor stays fixed; width and the outer port use the topology spring 210/26; reduced motion is direct." : undefined}>
       <div class="flex h-12" style={{ width: model.width }}>
         {wing === 'left' && <span class="flex-1" />}
         <NodeCapsule label={label} graphic={<AgentIcon brand={brand} readings={quotaReadings} />}

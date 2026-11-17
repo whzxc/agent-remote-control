@@ -35,11 +35,11 @@ Keep this file within 12,000 Unicode characters. Replace or move text to its own
 
 ## UI design
 
-- TSX in `design/` is the visual source of truth. [Design sources](docs/dev/design.md) owns ARC's direction and review procedure; `design/implementation.json` owns counterparts; [Asset status](docs/dev/design-assets.md) keeps proposals, exceptions and gaps.
-- Follow the [ADG asset rules](https://github.com/whzxc/agent-design-gallery/blob/main/docs/asset-rules.md) for ownership, strict assembly layers, frame admission, fixtures and lifecycle. They take precedence over conflicting local design guidance. The [toolkit contract](https://github.com/whzxc/agent-design-gallery/blob/main/docs/design-toolkit.md) owns syntax and checks. Use the global `adg` CLI >=0.14.1; `adg check` MUST pass before committing.
-- Layout and behavior changes MAY be implemented directly. After user acceptance, the same task MUST update the owning TSX source for a mapped appearance change. Removing or replacing implementation MUST delete or rebind its counterpart in the same commit.
-- New directions and redesigns SHOULD start as proposed frames. Render both themes for user approval before implementation; keep frames proposed until implemented and bound. `adg compare` differences are review notes, not a gate. See [Design review](docs/dev/design.md#review-procedure).
-- Browse current library layer pages and review branch proposals on Doop draft pages through `adg publish`. People comment and resolve threads; agents map comments through `data-specimen`, change the source, re-publish and reply. Keep `adg diff --base=<start> --impacted` for before/after review and account for every changed frame. Keep Doop endpoints, IDs and keys outside the repository. Follow the [review procedure](docs/dev/design.md#review-procedure).
+- `design/` TSX is the visual authority. [Design sources](docs/dev/design.md) owns direction and review; `design/implementation.json` owns counterparts; [Asset status](docs/dev/design-assets.md) owns proposals, exceptions and gaps.
+- Follow the [ADG asset rules](https://github.com/whzxc/agent-design-gallery/blob/main/docs/asset-rules.md); they override conflicting local guidance. The [toolkit contract](https://github.com/whzxc/agent-design-gallery/blob/main/docs/design-toolkit.md) owns syntax and checks. Use global `adg` >=0.14.1; `adg check` MUST pass before committing.
+- Layout and behavior changes MAY be implemented directly. After user acceptance, update the owning TSX source for mapped appearance changes in the same task. Implementation removal or replacement MUST delete or rebind its counterpart in the same commit.
+- New directions and redesigns SHOULD start as proposed frames. Render both themes for approval before implementation; keep frames proposed until implemented and bound. `adg compare` differences are review notes.
+- People browse library boards in the ADG viewer and annotate frames. Agents read `adg annotations --json`, map each annotation to its source and frame, edit that source, run `adg check` and report. People resolve annotations. Keep `adg diff --base=<start> --impacted` for before/after review of every changed frame. Follow the [review procedure](docs/dev/design.md#review-procedure).
 
 ## UI implementation
 
