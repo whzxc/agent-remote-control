@@ -227,7 +227,6 @@ pub(super) fn aggregate(
 #[cfg(test)]
 mod tests {
     use super::*;
-    
 
     #[test]
     fn outcomes_review_coverage_and_later_user_findings_are_independent() {
@@ -414,7 +413,103 @@ mod tests {
         assert_eq!(file_cache::thread_io().file_opens, io.file_opens);
     }
 
-    
 
-    
+    // Contract: persisted review-record migration and legacy import
+    #[test]
+    fn structured_counts_and_legacy_prefix_are_not_inferred_from_prose() {
+        for (note, by) in [
+            ("controller", "controller"),
+            ("acceptance", "acceptance"),
+            ("ci", "automation"),
+            ("user", "user"),
+        ] {
+            let mut row = json!({"review":{"verdict":"pass","note":format!("found-by: {note}; defects: 2; advisory: 3; details")}});
+            assert!(import(&mut row));
+            assert_eq!(row["review"]["foundBy"], by);
+            assert_eq!(row["review"]["defects"], 2);
+            assert_eq!(row["review"]["advisory"], 3);
+            assert!(!import(&mut row));
+        }
+        let mut legacy =
+            json!({"review":{"verdict":"pass","note":"User found two errors; tests passed"}});
+        import(&mut legacy);
+        assert_eq!(legacy["review"]["foundBy"], "unknown");
+        assert!(legacy["review"]["defects"].is_null());
+        let pass = review_record(
+            &json!({"verdict":"pass"}),
+            &Value::Null,
+            None,
+            &Value::Null,
+            "now",
+        );
+        assert_eq!(pass["foundBy"], "unknown");
+        assert_eq!(pass["defects"], 0);
+        let pass = review_record(
+            &json!({"verdict":"pass","foundBy":"installed","defects":2,"advisory":1}),
+            &Value::Null,
+            None,
+            &Value::Null,
+            "now",
+        );
+        assert_eq!(pass["defects"], 2);
+        assert_eq!(pass["foundBy"], "installed");
+        assert_eq!(pass["advisory"], 1);
+    }
+
+    // Recurring bug class: persistence: legacy review records import once and warm reads remain write-free
+    #[test]
+    fn legacy_file_import_writes_once_and_warm_reads_never_write() {
+        struct Sandbox(PathBuf);
+        impl Drop for Sandbox {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let dir = Sandbox(std::env::temp_dir().join(format!("arc-review-import-{}", id())));
+        for (name, note) in [
+            (
+                "structured",
+                "found-by: controller; defects: 2; advisory: 1",
+            ),
+            ("prose", "Tests passed"),
+        ] {
+            save(
+                &dir.0.join(format!("{name}.json")),
+                &json!({"turnId":name,"review":{"verdict":"pass","note":note}}),
+            )
+            .unwrap();
+        }
+        use crate::runtime_metrics::cost::{self, Owner, Reason};
+        let metrics = || crate::runtime_metrics::snapshot()["cost"]["taskRead"].clone();
+        let read = || {
+            cost::sync(Owner::TaskRead, Reason::Poll, || {
+                read_rows_limit(&dir.0, usize::MAX).unwrap()
+            })
+        };
+        let before = metrics();
+        let first = read();
+        assert_eq!(
+            metrics()["recordsChanged"].as_u64().unwrap()
+                - before["recordsChanged"].as_u64().unwrap(),
+            2
+        );
+        let stamps = || {
+            ["structured", "prose"]
+                .map(|name| file_cache::Stamp::read(&dir.0.join(format!("{name}.json"))).unwrap())
+        };
+        let imported = stamps();
+        assert_eq!(read(), first);
+        let warm = metrics();
+        for _ in 0..3 {
+            assert_eq!(read(), first);
+        }
+        let after = metrics();
+        assert_eq!(after["recordsChanged"], warm["recordsChanged"]);
+        assert_eq!(
+            after["recordsChanged"].as_u64().unwrap() - before["recordsChanged"].as_u64().unwrap(),
+            2
+        );
+        assert_eq!(after["bytesParsed"], warm["bytesParsed"]);
+        assert_eq!(stamps(), imported);
+    }
 }

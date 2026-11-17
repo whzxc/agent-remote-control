@@ -534,21 +534,17 @@ mod tests {
         }
     }
 
-    
 }
 
 #[cfg(test)]
 mod catalog_metadata_tests {
     use super::*;
 
-    
 }
 
 #[cfg(test)]
 mod decision_budget_tests {
     use super::*;
-
-    
 
     #[test]
     fn compact_history_keeps_six_configurations_and_merges_the_rest() {
@@ -584,5 +580,52 @@ mod decision_budget_tests {
             now - chrono::Duration::days(1),
         );
         assert_eq!(full["groups"].as_array().unwrap().len(), 9);
+    }
+
+    // Contract: dispatch policy decision view and account readiness fields
+    #[test]
+    fn account_selection_facts_survive_projection_and_full_view_retains_detail() {
+                let accounts = json!([
+            {"id":"account-one","alias":"Primary","default":true,"health":{"state":"attention"},
+             "agentProfiles":[{"profileId":"profile-one","state":"signed-in"}],
+             "quota":{"state":"stale","observedAt":"2026-01-01T00:00:00Z","accountBlocked":true,
+                      "windows":[{"id":"weekly","label":"7d","usedPercent":100,"resetsAt":"2026-01-02T00:00:00Z"}]}},
+            {"id":"account-two","alias":"Secondary","health":{"state":"ready"},"quota":{"state":"unavailable"}}
+        ]);
+        let facts = json!({"agents":[{"agent":"example","accounts":accounts,
+            "availability":{"installed":true,"enabled":true,"available":true},
+            "policy":{"criteria":"Use current evidence.","denyModels":["denied"]}}]});
+        let first = present(facts.clone(), &json!({}));
+        let row = &first["agents"][0];
+        let primary = &row["accounts"][0];
+        assert_eq!(primary["id"], accounts[0]["id"]);
+        assert_eq!(primary["alias"], accounts[0]["alias"]);
+        assert_eq!(primary["default"], true);
+        assert_eq!(primary["health"], accounts[0]["health"]["state"]);
+        assert_eq!(primary["quota"]["state"], "stale");
+        assert_eq!(
+            primary["quota"]["observedAt"],
+            accounts[0]["quota"]["observedAt"]
+        );
+        assert_eq!(primary["quota"]["accountBlocked"], true);
+        let summary = primary["quota"]["summary"].as_str().unwrap();
+        assert!(
+            summary.contains("7d")
+                && summary.contains("100%")
+                && summary.contains("2026-01-02T00:00:00Z")
+        );
+        assert_eq!(row["accounts"][1]["quota"]["state"], "unavailable");
+        assert!(row["accounts"][1]["quota"].get("summary").is_none());
+        assert_eq!(
+            row["denyModels"],
+            facts["agents"][0]["policy"]["denyModels"]
+        );
+        let cached = present(
+            facts.clone(),
+            &json!({"knownCriteriaHash":row["criteriaHash"]}),
+        );
+        assert_eq!(cached["agents"][0]["accounts"], row["accounts"]);
+        let full = present(facts, &json!({"view":"full"}));
+        assert_eq!(full["agents"][0]["accounts"], accounts);
     }
 }
