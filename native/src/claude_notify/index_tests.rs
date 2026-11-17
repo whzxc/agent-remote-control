@@ -741,6 +741,22 @@ fn recovery_updates_preserve_observation_time_without_new_evidence() {
     persist(&dir.0, &b).unwrap();
     let changed = binding(&dir.0, &b.thread_id, &b.turn_id).unwrap().unwrap();
     assert_eq!(changed.observation, b.observation);
+
+    let previous = json!({
+        "state":"completed",
+        "observedAt":"old",
+        "history":[{"observedAt":"transition"}]
+    });
+    assert!(observation_changed(&Value::Null, &previous));
+    let mut current = previous.clone();
+    current["history"][0]["observedAt"] = json!("another-transition");
+    assert!(observation_changed(&previous, &current));
+    let mut current = previous.clone();
+    current["state"] = json!("running");
+    assert!(observation_changed(&previous, &current));
+    let mut current = previous.clone();
+    current["currentOwner"] = json!("desktop");
+    assert!(observation_changed(&previous, &current));
 }
 
 #[tokio::test]

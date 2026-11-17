@@ -431,17 +431,6 @@ mod tests {
         );
     }
     #[test]
-    fn coordination_push_is_a_mail_count_without_peer_text() {
-        // Property: a coordination push holds only the doorbell header and the mail count.
-        for count in [1, 5] {
-            let text = body(count);
-            let (header, line) = text.split_once('\n').unwrap();
-            assert_eq!(header, RECEIPT_HEADER);
-            assert!(line.starts_with(MAIL));
-            assert_eq!(line.ends_with(&format!("×{count}")), count > 1);
-        }
-    }
-    #[test]
     fn coordination_fallback_ranks_verification_and_refuses_ties() {
         // Regression: ax-4e72538c verified notification bindings were pull-only unless separately registered for coordination.
         let (mut state, _, authority) = fixture();

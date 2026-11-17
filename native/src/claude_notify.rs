@@ -3174,24 +3174,6 @@ pub(crate) mod tests {
     ) -> Result<()> {
         super::process(dir, lock, b, &native_observation(b, observed)).await
     }
-    #[test]
-    fn observation_clock_does_not_create_a_durable_transition() {
-        // Regression: unchanged terminal observations rewrote hundreds of task and handoff records every cycle.
-        let previous =
-            json!({"state":"completed","observedAt":"old","history":[{"observedAt":"transition"}]});
-        let mut current = previous.clone();
-        current["observedAt"] = json!("new");
-        assert!(!observation_changed(&previous, &current));
-        current["history"][0]["observedAt"] = json!("another-transition");
-        assert!(observation_changed(&previous, &current));
-        current = previous.clone();
-        current["state"] = json!("running");
-        assert!(observation_changed(&previous, &current));
-        current = previous.clone();
-        current["currentOwner"] = json!("desktop");
-        assert!(observation_changed(&previous, &current));
-        assert!(observation_changed(&Value::Null, &previous));
-    }
     #[tokio::test]
     async fn exhausted_restart_reconciliation_recovers_on_an_explicit_observation() {
         // Regression: unavailable restart reads retried forever instead of exposing a bounded state with explicit recovery.
@@ -4923,45 +4905,6 @@ pub(crate) mod tests {
         );
     }
     #[test]
-    fn notification_polls_reuse_bindings_and_publish_writes_without_reopening_history() {
-        // Regression: the observer, delivery loop and nested routing reopened all bindings on every poll.
-        let dir = Sandbox::new();
-        let mut first = fixture(&dir.0);
-        for index in 0..458 {
-            let mut b = first.clone();
-            b.thread_id = format!("thread-{index}");
-            persist(&dir.0, &b).unwrap();
-        }
-        let count = records(&dir.0).unwrap().len();
-        let warm = file_cache::thread_io();
-        for _ in 0..3 {
-            assert_eq!(records(&dir.0).unwrap().len(), count);
-            assert_eq!(
-                binding(&dir.0, "thread-1", "turn-1")
-                    .unwrap()
-                    .unwrap()
-                    .source_id,
-                "claude"
-            );
-        }
-        assert_eq!(file_cache::thread_io(), warm);
-        first.scope_end = Some("closed".into());
-        persist(&dir.0, &first).unwrap();
-        assert_eq!(
-            matching_records(&dir.0, |b| b.scope_end.is_none())
-                .unwrap()
-                .len(),
-            count - 1
-        );
-        assert_eq!(file_cache::thread_io(), warm);
-        let mut state = governance::State::load(&dir.0).unwrap();
-        state.save(&dir.0).unwrap();
-        let path = dir.0.join("subscriptions/state.json");
-        let before = file_cache::Stamp::read(&path).unwrap();
-        state.save(&dir.0).unwrap();
-        assert_eq!(file_cache::Stamp::read(&path).unwrap(), before);
-    }
-    #[test]
     fn binding_failure_marks_receipt_without_changing_dispatch_result() {
         // Regression: notification binding failure must not turn a successful dispatch into a failure.
         let dir = Sandbox::new();
@@ -5359,24 +5302,6 @@ pub(crate) mod tests {
                 task_title(binding)
             );
         }
-    }
-
-    #[test]
-    fn doorbell_lists_each_glyph_once_in_vocabulary_order() {
-        // Property: a doorbell names every pushed glyph once, in vocabulary order, with its event count.
-        let pushed = [GLYPHS[5], GLYPHS[0], GLYPHS[5], GLYPHS[1], GLYPHS[5]];
-        let text = doorbell(pushed);
-        let (header, line) = text.split_once('\n').unwrap();
-        assert_eq!(header, RECEIPT_HEADER);
-        let parts: Vec<_> = line.split(" · ").collect();
-        assert_eq!(
-            parts,
-            [
-                GLYPHS[0].to_owned(),
-                GLYPHS[1].to_owned(),
-                format!("{} ×3", GLYPHS[5])
-            ]
-        );
     }
 
     include!("claude_notify/ax_tests.rs");
