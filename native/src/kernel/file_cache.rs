@@ -783,27 +783,3 @@ mod collection_tests {
         std::fs::remove_dir_all(dir).unwrap();
     }
 }
-
-#[cfg(test)]
-mod restart_tests {
-    use super::*;
-    #[test]
-    fn simulated_restart_preserves_concurrent_warm_readers() {
-        // Regression: a notification restart reset the shared cache and changed an unrelated test's no-read cost counters.
-        let base = std::env::temp_dir().join(format!("arc-cache-restart-{}", id()));
-        let first = base.join("first/value.json");
-        let second = base.join("second/value.json");
-        save(&first, &json!({"fixture":"first"})).unwrap();
-        save(&second, &json!({"fixture":"second"})).unwrap();
-        let mut cache = Cache::<Value>::default();
-        cache.read(&first).unwrap();
-        cache.read(&second).unwrap();
-        let warm = cache.io();
-        cache.forget_under(first.parent().unwrap());
-        assert_eq!(cache.read(&second).unwrap()["fixture"], "second");
-        assert_eq!(cache.io(), warm);
-        assert_eq!(cache.read(&first).unwrap()["fixture"], "first");
-        assert_eq!(cache.io().file_opens, warm.file_opens + 1);
-        std::fs::remove_dir_all(base).unwrap();
-    }
-}

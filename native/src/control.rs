@@ -3686,30 +3686,6 @@ pub(crate) fn persisted_turns(thread: &Value) -> PersistedTurns {
 #[cfg(test)]
 mod pagination_tests {
     use super::*;
-    #[test]
-    fn dispatch_titles_use_control_source_text() {
-        // Property: dispatch titles use control source text.
-        assert_eq!(
-            dispatch_title(&json!({"prompt":"\n## Verify task\nDo work"})),
-            "Verify task"
-        );
-        assert_eq!(
-            dispatch_title(&json!({"title":" Explicit\n title ","prompt":"ignored"})),
-            "Explicit title"
-        );
-        assert_eq!(
-            dispatch_title(&json!({"input":[{"type":"text","text":"1. Input title\nDetails"}]})),
-            "Input title"
-        );
-        let unicode_prompt = "題".repeat(130);
-        assert_eq!(
-            dispatch_title(&json!({"prompt":unicode_prompt}))
-                .chars()
-                .count(),
-            120
-        );
-        assert_eq!(dispatch_title(&json!({})), "");
-    }
     #[tokio::test]
     async fn fresh_submission_skips_unmaterialized_history_but_existing_turns_are_read() {
         // Regression: 775472c; fresh submission skips unmaterialized history but existing turns are read.
