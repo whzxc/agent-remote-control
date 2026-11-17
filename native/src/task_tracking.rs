@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 mod antigravity;
-#[cfg(test)]
 mod transcript_input;
 mod transcripts;
 pub(crate) use transcript_input::transcript_user_text;
