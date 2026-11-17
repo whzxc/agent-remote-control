@@ -157,9 +157,10 @@ function respondToScenario(path: string, method: string, body?: unknown): unknow
     throw new Error('SCENARIO_TIMELINE_UNAVAILABLE');
   }
   if (path === 'agents/conversations' && method === 'POST') {
-    const { agent, cursor, limit = 20 } = body as { agent: string; cursor?: string; limit?: number };
+    const { agent, cursor, limit = 20, includeSubagents } = body as { agent: string; cursor?: string; limit?: number; includeSubagents?: boolean };
     const start = Number(cursor?.replace('fixture-page-', '') ?? 0);
-    const rows = conversations[agent] ?? [], size = Math.max(1, Math.min(50, limit));
+    const rows = (conversations[agent] ?? []).filter(row => agent !== 'codex' || includeSubagents || row.relationKind !== 'subagent');
+    const size = Math.max(1, Math.min(50, limit));
     const page = { data: structuredClone(rows.slice(start, start + size)), nextCursor: start + size < rows.length ? `fixture-page-${start + size}` : null,
       scope: agent === 'codex' ? 'native-unarchived' : 'arc-tasks' };
     const delay = !cursor && responses.historyDelayMs;

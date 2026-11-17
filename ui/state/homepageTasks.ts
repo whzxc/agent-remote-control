@@ -26,7 +26,7 @@ function useRecentConversations(enabled: boolean) {
       if (document.hidden || reading) return;
       reading = true;
       try {
-        const result = await api<AgentConversationPage>("agents/conversations", "POST", { agent: 'codex', limit: 30, sort: 'updated' });
+        const result = await api<AgentConversationPage>("agents/conversations", "POST", { agent: 'codex', limit: 30, sort: 'updated', includeSubagents: true });
         if (!stopped) setRows(result.data);
       } catch { /* Keep the last native page through Core handoff. */ }
       finally { reading = false; }

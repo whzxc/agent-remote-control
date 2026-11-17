@@ -1702,6 +1702,10 @@
               "sort": {
                 "enum": ["created", "updated"]
               },
+              "includeSubagents": {
+                "type": "boolean",
+                "description": "Include spawned Codex subagent threads alongside interactive history."
+              },
               "limit": {
                 "type": "integer",
                 "minimum": 1,

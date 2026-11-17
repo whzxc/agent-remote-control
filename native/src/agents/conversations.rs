@@ -230,6 +230,9 @@ impl AgentHost {
         if agent == "codex" {
             let sort_key = if args["sort"] == "updated" { "updated_at" } else { "created_at" };
             let mut params = json!({"archived":false,"limit":limit,"sortKey":sort_key,"sortDirection":"desc"});
+            if args["includeSubagents"] == true {
+                params["sourceKinds"] = json!(["cli", "vscode", "exec", "appServer", "subAgentThreadSpawn"]);
+            }
             if let Some(cursor) = args.get("cursor") {
                 params["cursor"] = cursor.clone();
             }
