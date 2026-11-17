@@ -1,6 +1,5 @@
 import { TaskFilter, TaskFeedSection } from './timeline/TimelineSurface';
-import { taskSnapshotElement } from './timeline/taskSnapshotMotion';
-import { prepareTaskSnapshot } from "./timeline/taskSnapshotMotion";
+import { taskSnapshotElement } from './timeline/taskSnapshotElement';
 import { layers, captureLayerTrigger } from '../state/layers';
 import { deviceTasks } from '../devices/tasks';
 import { locale, t } from '../i18n';
@@ -11,7 +10,7 @@ import { TaskCard, taskTitle } from './ui/TaskCard';
 import { homepageTaskFocus, remoteTaskPanel } from '../state/homepage';
 import { panelBack, selectAgentPanel } from '../state/overviewPanels';
 import { markHomepageTaskRead } from '../state/homepageTasks';
-import { activeHomepageTask, homepageTaskFamilies, localTaskDay, previewHomepageTask, type TaskFamily, type HomepageTask } from '../state/activityModel';
+import { activeHomepageTask, homepageTaskFamilies, homepageTaskTime, localTaskDay, type TaskFamily, type HomepageTask } from '../state/activityModel';
 import { useAccounts } from '../state/accounts';
 import { accountOwns } from '../accountPresentation';
 import { useAppNow } from '../state/appEnvironment';
@@ -20,9 +19,9 @@ import { useTaskPreview } from '../state/taskExecution';
 import { PanelRoute } from './ui/Panel';
 import './HomepageTasks.css';
 
-function ChildTaskRow({ task, onOpen }: { task: HomepageTask; onOpen: () => void }) {
+function ChildTaskRow({ task, today, onOpen }: { today: number; task: HomepageTask; onOpen: () => void }) {
   const row = useRef<HTMLButtonElement>(null);
-  useTaskPreview(task.agent, task.session.id, !task.deviceId && task.session.timeline, row, !activeHomepageTask(task), task.session.turnId);
+  useTaskPreview(task.agent, task.session.id, localTaskDay(homepageTaskTime(task) ?? 0) === today && !task.deviceId && task.session.timeline, row, !activeHomepageTask(task), task.session.turnId);
   const state = presentTaskState(task.session.status ?? undefined, activeHomepageTask(task), task.group === 'needs-me');
   const title = taskTitle(task);
   const assignment = task.session.fallbackHeadline || title;
@@ -76,7 +75,6 @@ export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
       const back = from ? () => { setReturnChild(task.key); setFamilyKey(from.parent.key); } : undefined;
       if (from) setFamilyKey(undefined);
       if (back && !task.deviceId) panelBack.set({ label: t('homepage.subagents'), open: back });
-      prepareTaskSnapshot(task.key);
       if (task.group === 'unread') markHomepageTaskRead(task);
       if (task.deviceId) remoteTaskPanel.set({ key: task.key, back });
       else selectAgentPanel({ type: 'task', agent: task.agent, session: task.session });
@@ -103,20 +101,17 @@ export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
     {focus && <TaskFilter  role="status"><Icon icon={ListFilter} size={14} />{focus.label}<IconButton compact icon={X} label={t('homepage.clearFilter')} onClick={() => homepageTaskFocus.set(undefined)} /></TaskFilter>}
     {dates.length === 0 ? <div className="homepage-tasks-empty"><Icon icon={Inbox} size={32} /><h2>{t('homepage.empty')}</h2></div>
       : dates.map(([day, items]) => {
-        const previews = items.filter(family => day === today || [family.parent, ...family.children].some(task => previewHomepageTask(task, today)));
-        const summaries = items.filter(family => !previews.includes(family));
         const label = dateLabel(day);
         return <TaskFeedSection key={day ?? 'unknown'}  aria-label={label}>
           <h2>{label}</h2>
-          {grid(previews, true)}
-          {grid(summaries, false)}
+          {grid(items, day === today)}
         </TaskFeedSection>;
       })}
     <PanelRoute value={family} identity={item => item.parent.key}>{family => <Panel size="m" title={t('homepage.subagents')} description={taskTitle(family.parent)}
       returnFocus={`[data-task-snapshot="${CSS.escape(family.parent.key)}"] [data-children]`}
       initialFocus={returnChild ? `subagent-${returnChild}` : undefined}
       onClose={() => setFamilyKey(undefined)}>
-      <div className="homepage-child-list">{family.children.map(child => <ChildTaskRow task={child} key={child.key} onOpen={() => open(child, family)} />)}</div>
+      <div className="homepage-child-list">{family.children.map(child => <ChildTaskRow today={today} task={child} key={child.key} onOpen={() => open(child, family)} />)}</div>
     </Panel>}</PanelRoute>
     {omitted > 0 && <p className="homepage-task-omitted" role="status" aria-label={t('homepage.partial')}>{t('homepage.omitted', { count: omitted })}</p>}
   </main>;

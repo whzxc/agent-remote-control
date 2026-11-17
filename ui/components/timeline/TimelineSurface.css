@@ -57,7 +57,7 @@
 .relay-route { color: var(--text-secondary); font: var(--text-meta)/var(--line-body) var(--font-ui); }
 .relay-party { color: var(--text); }
 .relay-message { border-radius: var(--radius-card); background: var(--surface-subtle); }
-.relay-message .timeline-user { background: none; border: 0; border-radius: 0; }
+.relay-message .timeline-user { font-size: var(--text-small); background: none; border: 0; border-radius: 0; }
 .relay-queued { border: var(--stroke-thin) dashed var(--border-strong); }
 .task-turn { border: 0; background: none; }
 .task-turn[data-turn-collapsed] { border-radius: var(--radius-field); background: var(--surface-subtle); }
@@ -67,7 +67,7 @@
 .task-tool-run > .timeline-summary, .relay-thought > .timeline-summary { font-size: var(--text-small); }
 .relay-thought time { color: var(--text-tertiary); font-size: var(--text-meta); }
 .relay-thought .timeline-fold-content { color: var(--text-secondary); }
-.relay-narration { font-size: var(--text-body); line-height: var(--line-title); }
+.relay-narration { font-size: var(--text-small); line-height: var(--line-title); }
 .relay-narration[data-streaming] .timeline-markdown > :last-child::after { background: var(--role-agent); }
 .relay-error-line { border-radius: var(--radius-field); color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent); }
 

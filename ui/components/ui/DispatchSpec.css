@@ -22,3 +22,7 @@
 .effort-gauge, .dispatch-spec-fast { display: block; flex: none; }
 .dispatch-spec-fast { color: var(--warning); }
 .spec-picker-effort > strong { font-size: var(--text-small); line-height: 16px; font-weight: 600; }
+
+.dispatch-spec-ultrafast { position: relative; display: inline-flex; width: 16px; height: 14px; flex: none; align-items: flex-end; }
+.dispatch-spec-ultrafast > svg:first-child { position: absolute; top: 0; left: 0; fill: currentColor; }
+.dispatch-spec-ultrafast > svg:last-child { margin-left: 4px; }

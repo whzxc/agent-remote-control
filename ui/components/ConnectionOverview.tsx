@@ -201,7 +201,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   const agentViews: NodeView[] = agents.map(agent => {
     const selected = !selection?.closing && selection?.agent === agent.agent;
     const agentAccounts = accounts.filter(account => account.agentProfiles.some(profile => profile.agent === agent.agent));
-    const shared = agentAccounts.length === 1 && agentAccounts[0].quotaProviderId ? agentAccounts[0] : undefined;
+    const shared = agentAccounts.length === 1 && (agentAccounts[0].quotaProviderId || agentAccounts[0].quota.windows.length) ? agentAccounts[0] : undefined;
     const provider = shared ? accountQuotaProvider(agent.agent, shared.quota) : platformQuotaForAgent(snapshot, agent.agent);
     const icon = <AgentQuotaIcon agent={agent.agent} provider={provider} summary={agent.agent !== "claude"} />;
     return {

@@ -113,7 +113,10 @@ export function DispatchSpec({
       {model && <span>{model}</span>}
       {effort && <EffortGauge {...position} />}
       {tier &&
-        (fast ? (
+        (tier === 'ultrafast' ? <span class="relative inline-flex h-[14px] w-4 items-end">
+          <Icon name="zap" size={12} class="absolute left-0 top-0 fill-current" />
+          <Icon name="zap" size={12} class="ml-1" />
+        </span> : fast ? (
           <Icon name="zap" size={12} class="text-warning" />
         ) : (
           <span>{tier}</span>

@@ -17,7 +17,7 @@ export default function DispatchSpec({ id, model, effort, position, tier, fast }
   return <HoverHelp text={label}><span id={id} className="dispatch-spec" role="img" aria-label={label}>
     {model && <span className="dispatch-spec-model">{model}</span>}
     {effort && <EffortGauge {...position} />}
-    {tier && (fast ? <span className="dispatch-spec-fast"><Icon icon={Zap} size={12} /></span>
+    {tier && (tier === 'ultrafast' ? <span className="dispatch-spec-ultrafast" aria-hidden="true"><Icon icon={Zap} size={12} /><Icon icon={Zap} size={12} /></span> : fast ? <span className="dispatch-spec-fast"><Icon icon={Zap} size={12} /></span>
       : <span className="dispatch-spec-value">{tier}</span>)}
   </span></HoverHelp>;
 }

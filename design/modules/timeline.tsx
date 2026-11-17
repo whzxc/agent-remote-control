@@ -1,9 +1,9 @@
 import { Card } from '../components/card';
 export function TaskReplyCard({ children }: { children: unknown }) {
-  return <Card variant="reply" padded class="border border-border bg-transparent text-body leading-[22px]">{children}</Card>;
+  return <Card variant="reply" padded class="border border-border bg-transparent text-small leading-[22px]">{children}</Card>;
 }
 export function ContentProse({ children }: { children: unknown }) {
-  return <div class="min-w-0 text-body leading-[22px]">{children}</div>;
+  return <div class="min-w-0 text-small leading-[22px]">{children}</div>;
 }
 export function PlanContent({ children }: { children: unknown }) {
   return <section class="text-small text-text-secondary">{children}</section>;
@@ -127,7 +127,7 @@ export function RelayMessage({ kind = "followup", text = relayTurns.second.promp
           {relayCopy.kind.local}<span class="ml-auto tabular-nums text-text-tertiary">{time}</span>
         </div>
       ) : <RelayRoute label={relayCopy.kind[kind]} time={time} />}
-      <p class={`mt-2 text-body leading-6 ${queued ? "text-text-secondary" : "text-text"}`}>{text}</p>
+      <p class={`mt-2 text-small leading-6 ${queued ? "text-text-secondary" : "text-text"}`}>{text}</p>
     </article>
   );
 }
@@ -154,7 +154,7 @@ export function TimelineStep({ step }: { step: RelayStep }) {
       </span>
       <div class="flex min-w-0 flex-1 flex-col">
         {step.kind === "say" ? (
-          <p class="text-body leading-6 text-text">
+          <p class="text-small leading-6 text-text">
             {step.label}
             {step.streaming && <span aria-hidden="true"
               class="ml-[2px] inline-block h-[15px] w-[2px] translate-y-[2px] rounded-[1px] bg-role-agent" />}
@@ -250,7 +250,7 @@ export function RelayReply() {
         <RelayRoute from={agent} to={source} label={relayCopy.reply} />
         <IconButton icon="copy" label={relayCopy.copy} compact />
       </header>
-      <p class="mt-2 pr-1 text-body leading-6">{relayReply.lead}</p>
+      <p class="mt-2 pr-1 text-small leading-6">{relayReply.lead}</p>
       <div class="mt-3 mr-1 overflow-hidden rounded-field bg-surface-subtle">
         <table class="w-full text-small leading-4">
           <tbody>
@@ -262,7 +262,7 @@ export function RelayReply() {
           </tbody>
         </table>
       </div>
-      <ul class="mt-3 flex flex-col gap-1 pl-4 text-body leading-6">
+      <ul class="mt-3 flex flex-col gap-1 pl-4 text-small leading-6">
         {relayReply.bullets.map((line) => <li class="list-disc">{line}</li>)}
       </ul>
       <footer class="mt-3 mr-1 border-t border-border pt-3"><RelayChanges /></footer>
@@ -287,7 +287,7 @@ export function RelayFailure() {
   return (
     <article class="flex flex-col gap-3 overflow-hidden rounded-card border border-danger/35 px-4 py-3">
       <RelayRoute from={agent} to={source} label={relayCopy.failed} tone="danger" />
-      <p class="text-body leading-6">{relayFailure.message}</p>
+      <p class="text-small leading-6">{relayFailure.message}</p>
       <p class="text-small leading-5 text-text-secondary">{relayFailure.retained}</p>
       <RelayChanges />
       <div class="flex gap-2">
@@ -362,7 +362,7 @@ export function RelayTimeline({ state }: { state: "running" | "waiting" | "done"
         <RelayRoute />
         <IconButton icon="maximize-2" label="Expand" />
       </header>
-      <h2 class="mt-[10px] shrink-0 truncate text-title leading-6 font-[650]">{task.title}</h2>
+      <h2 class="mt-[10px] shrink-0 truncate text-body leading-6 font-[650]">{task.title}</h2>
       <div class="mt-[14px] flex shrink-0 items-center gap-2">
         <StatePill class="pr-[6px]" state={state}>{relayCopy.state[state]}</StatePill>
         <DispatchSpec {...taskDispatch} />

@@ -68,28 +68,21 @@ export function EmptyTaskBody({ state, detail = false }: { state: 'empty' | 'err
 export function GroupedTaskCard({ task }: { task: ListExample }) {
   const chain = task.viaClaude ? listOrigins.claudeToCodex : listOrigins.codex;
   const emptyState = !task.excerpt && (task.preview === 'error' || task.preview === 'empty' || task.preview === 'loading') ? task.preview : undefined;
-  const previewLabel = { reply: '最新回复', activity: '最近进展', loading: '正在加载正文', error: '正文加载失败', empty: '暂无正文记录' }[task.preview];
   const attention = task.children?.filter(child => child.state === 'needs-input').length;
   return <article aria-label={task.title} style={{ '--aurora-tint': 'var(--phase-thinking)' }}
-    class={`flex h-[256px] min-w-0 flex-col rounded-card border bg-surface p-[14px] shadow-md ${task.status === 'running' ? aurora : 'border-border'}`}>
+    class={`flex h-[224px] min-w-0 flex-col rounded-card border bg-surface p-[14px] shadow-md ${task.status === 'running' ? aurora : 'border-border'}`}>
     <div class="flex items-center gap-1">
       <div class="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none]"><div class="flex w-max"><OriginChain steps={chain} /></div></div>
-      <span class="shrink-0"><ListState state={task.status} /></span>
       <time class="shrink-0 text-caption tabular-nums text-text-tertiary">{task.time}</time>
     </div>
     <button class="mt-2 truncate text-left text-body font-semibold text-text">{task.title}</button>
     <div class="mt-2 flex h-6 items-center gap-[6px] overflow-hidden whitespace-nowrap">
-      <DispatchSpec model={task.model} position={{ count: 4, index: 2 }} fast />
+      <DispatchSpec model={task.model} position={{ count: 4, index: 2 }} tier={task.tier ?? "Fast"} fast />
       <ProjectLabel name={task.project} /><span class="text-caption text-text-tertiary">{task.turns} 轮</span>
     </div>
-    <div class="mt-3 flex min-h-0 flex-1 flex-col rounded-field bg-surface-subtle px-3 py-2">
-      {emptyState ? <EmptyTaskBody state={emptyState} /> : <>
-        <span class="inline-flex h-5 items-center gap-1.5 text-caption text-text-secondary">
-          <Icon name={task.preview === 'reply' ? 'message-square' : task.preview === 'loading' ? 'loader-circle' : 'activity'} size={13} />
-          {previewLabel}
-        </span>
-        {task.excerpt && <p class="mt-1 line-clamp-2 text-small leading-5 text-text">{task.preview === 'loading' && '任务要求 · '}{task.excerpt}</p>}
-      </>}
+    <div class="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-field bg-surface-subtle px-3 py-2">
+      {emptyState ? <EmptyTaskBody state={emptyState} />
+        : <p class={`text-meta leading-5 text-text whitespace-pre-line ${task.preview === 'activity' ? 'truncate' : task.children?.length ? 'line-clamp-3' : 'line-clamp-4'}`}>{task.excerpt}</p>}
     </div>
     {task.children && <button class="mt-2 flex h-6 shrink-0 items-center gap-2 text-small font-semibold text-text">
       <Icon name="git-fork" size={14} />{task.children.length} 个子任务

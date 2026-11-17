@@ -11,6 +11,7 @@
   min-height: var(--control-height); padding: 0; border: 0; background: none; cursor: default; touch-action: auto;
 }
 :is(.layer-dialog, .layer-panel) > .layer-content > .dialog-header h2 { margin: 0; font: 650 var(--text-title)/24px var(--font-ui); }
+.layer-panel > .layer-content > .task-detail-header h2.task-card-title { font-size: var(--text-body); }
 :is(.layer-dialog, .layer-panel) > .layer-content > .dialog-header .actions { margin: 0; gap: var(--control-gap); }
 :is(.layer-dialog, .layer-panel) > .layer-content > .dialog-header .icon-button { --icon-button-size: var(--control-height); }
 :is(.layer-dialog, .layer-panel) > .layer-content > .dialog-body { flex: 0 1 auto; min-height: 0; padding: 0; overflow: auto; overscroll-behavior: contain; }

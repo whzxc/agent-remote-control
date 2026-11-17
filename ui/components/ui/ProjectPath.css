@@ -1,4 +1,4 @@
-.project-label { display: inline-flex; align-items: center; gap: 4px; height: 20px; min-width: 0; max-width: 100%; overflow: hidden; padding-inline: 6px; border-radius: var(--radius-pill); background: var(--surface-sunken); color: var(--text-secondary); font: var(--text-caption)/20px var(--font-ui); white-space: nowrap; }
+.project-label { display: inline-flex; align-items: center; gap: 4px; height: 24px; min-width: 0; max-width: 100%; overflow: hidden; padding-inline: 9px; border-radius: var(--radius-pill); background: var(--surface-sunken); color: var(--text-secondary); font: var(--text-meta)/24px var(--font-ui); white-space: nowrap; }
 .project-label > strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--text); font-weight: 600; }
 .file-path { display: flex; min-width: 0; max-width: 100%; white-space: nowrap; font-family: var(--font-mono); }
 .file-path-directory { color: var(--text-tertiary); min-width: 0; overflow: hidden; text-overflow: ellipsis; }

@@ -41,8 +41,7 @@ labels, columns and branch rails stay fixed. Task activity in Topology appears i
 node capsules. The Tasks view owns execution previews and historical summaries.
 
 Tasks groups cards by the local date of their latest recorded activity. A grid adapts
-its column count to the available width. Today's tasks, active work and unread
-completions show detail cards. Older history uses summary cards. Homepage, Agent,
+its column count to the available width. Today's tasks show detail cards. Older history uses summary cards. Homepage, Agent,
 control-source and Board task entries use the shared card. Its three rows show
 the origin chain with time fixed at the right, the task title, then the recorded
 execution spec, project name and turn count. Each row scrolls horizontally when
@@ -50,9 +49,9 @@ its single line exceeds the available width. Running detail cards use an Aurora
 border colored by the active phase. Reduced motion keeps the phase tint static. The controller shows its member dispatches.
 On the member, that controller is the source.
 
-Homepage grid cards are 256px tall. Show each origin step as an icon and name and end the chain at the executor. Running cards and child rows use the phase-colored Aurora border. Group explicit subagent relations under the available parent within the visible device and executor scope. Use the family’s latest activity date, surface pending input and failures on the parent, and keep unmatched children and side chats visible. The child list opens the selected task detail.
+Today's grid cards are 224px tall. Earlier dates use compact metadata cards. Show platform icons on transparent backgrounds and identify the recorded account by alias when multiple accounts are available. End the chain at the executor. Running cards and child rows use the phase-colored Aurora border. Group explicit subagent relations under the available parent within the visible device and executor scope. Use the family’s latest activity date, surface pending input and failures on the parent, and keep unmatched children and side chats visible. The child list opens the selected task detail.
 
-Visible local cards read a missing preview even for a completed task. While loading, show available recorded text. Center empty and failed read states with the applicable detail or retry action. The homepage clips the latest excerpt to two lines. Other full previews follow the newest native rows. Consecutive tools in a turn form a
+Visible local cards read a missing preview even for a completed task. While loading, show available recorded text. Center empty and failed read states with the applicable detail or retry action. The homepage preview fills the card below its header and shows four lines of recent activity. A footer action reserves one of those lines. Replies may wrap, while tool and thinking entries occupy one line each. Other full previews follow the newest native rows. Consecutive tools in a turn form a
 single-line summary of recorded operations. Reasoning uses its icon and summary.
 Replies render inline. Clicking a card or pressing Enter opens its detail in the
 centered task layer. An older summary reads its timeline when opened.

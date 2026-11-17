@@ -6,7 +6,7 @@ import type { TaskStep, TaskPlan, TaskChange } from '../modules/homepage-scene';
 import { tasks, origins, snapshotForms, auroraForms, tasksCopy as copy, taskStatuses } from '../fixtures/tasks';
 
 
-export type OriginStep = { label: string; brand?: Brand; icon?: string };
+export type OriginStep = { label: string; caption?: string; brand?: Brand; icon?: string };
 
 export type TaskGroup = 'needs-me' | 'running' | 'unread' | 'recent';
 
@@ -25,10 +25,10 @@ export function OriginChain({ steps }: { steps: readonly OriginStep[] }) {
     role="img" aria-label={steps.map(s => s.label).join(' → ')}>
     {steps.map((step, i) => <span class="inline-flex items-center gap-1" title={step.label}>
       {i > 0 && <Icon name="arrow-right" size={12} />}
-      <span class="flex size-5 items-center justify-center rounded-full bg-surface-sunken">
+      <span class="flex size-5 items-center justify-center">
         {step.brand ? <BrandMark brand={step.brand} size={14} /> : <Icon name={step.icon!} size={14} />}
       </span>
-      <span class="whitespace-nowrap text-caption font-semibold">{step.label}</span>
+      {(step.icon || step.caption) && <span class="whitespace-nowrap text-caption font-semibold">{step.caption ?? step.label}</span>}
     </span>)}
   </span>;
 }
@@ -41,7 +41,7 @@ export const aurora = 'border-transparent [background:linear-gradient(var(--surf
 export function TaskCardHeader({ task, heading = false }: { task: TaskSnapshotData; heading?: boolean }) {
   const timing = task.elapsed ?? task.lastSeen;
   const title = 'block w-max whitespace-nowrap text-left text-body leading-5 font-semibold text-text';
-  return <header class="flex w-full min-w-0 flex-col gap-2 px-[14px] py-3">
+  return <header class={`flex w-full min-w-0 flex-col gap-2 py-3 ${heading ? "" : "px-[14px]"}`}>
     <div class="flex h-5 min-w-0 items-center justify-between gap-2">
       <div class={`flex-1 ${scrollRow}`}><div class="flex w-max"><OriginChain steps={task.origin} /></div></div>
       <div class="flex shrink-0 items-center gap-[6px]">

@@ -1,5 +1,5 @@
 import { Globe, Link, Monitor, Shield } from "lucide-react";
-import { controlSource } from "./controlSources";
+import { controlSource, controlSourcePlatform } from "./controlSources";
 import { locale, t } from "./i18n";
 import type { ControlSource, Ingress } from "./state/types";
 
@@ -38,4 +38,9 @@ export function connectionDisabledReason(ingress: Ingress, product: string, sour
 
 export function isLocalSource(source: ControlSource) {
   return source.ingressId === "local-cli" && source.credential.type === "local";
+}
+
+export function platformSources(sources: ControlSource[], ingresses: Ingress[], platform: string) {
+  return sources.filter(source => source.product && controlSourcePlatform(source.product).id === platform
+    && source.state !== 'revoked' && !isLocalSource(source) && !isPendingSource(source, ingresses));
 }

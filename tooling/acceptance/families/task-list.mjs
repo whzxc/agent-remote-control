@@ -75,9 +75,26 @@ async function verifyGroupedTasks(page, fixture) {
   const children = parent.getByRole('button', { name: /4 个子任务.*1 个待确认/ });
   await children.waitFor();
   if (await feed.getByRole('article').count() !== 7) throw new Error('Explicit subagents must group and side chats must stay visible.');
-  const heights = await feed.getByRole('article').evaluateAll(cards => cards.map(card => card.getBoundingClientRect().height));
-  if (heights.some(height => height !== 256)) throw new Error('Homepage card heights differ.');
+  const heights = await feed.getByRole('region', { name: '今天', exact: true }).getByRole('article').evaluateAll(cards => cards.map(card => card.getBoundingClientRect().height));
+  if (heights.some(height => height !== 224)) throw new Error('Homepage card heights differ.');
+  const previews = await feed.locator('.task-card-excerpt:has(.task-excerpt-lines)').evaluateAll(items => items.map(preview => {
+    const footer = preview.nextElementSibling;
+    const lines = getComputedStyle(preview.querySelector('.task-excerpt-lines'));
+    return {
+      budget: parseFloat(lines.maxHeight) / parseFloat(lines.lineHeight),
+      expected: footer || preview.querySelector('.task-excerpt-retry') ? 3 : 4,
+      bottomInset: preview.parentElement.getBoundingClientRect().bottom - (footer ?? preview).getBoundingClientRect().bottom,
+    };
+  }));
+  if (previews.some(item => item.budget !== item.expected || Math.round(item.bottomInset) !== 11)) throw new Error('Activity lines must fill the card above its footer or bottom inset.');
+
+  const past = feed.getByRole('region', { name: '昨天', exact: true }).getByRole('article');
+  if ((await past.boundingBox()).height >= heights[0] || await past.getByRole('region').count()) throw new Error('Earlier dates must use compact metadata cards.');
   if (!await parent.getAttribute('data-aurora') || await parent.getByText('进行中', { exact: true }).count()) throw new Error('Running task must use Aurora.');
+  const spec = parent.getByRole('img', { name: /ultrafast/ });
+  if (/ultrafast/i.test(await spec.innerText()) || await spec.locator('.dispatch-spec-ultrafast svg').count() !== 2) throw new Error('Ultrafast must display two bolts.');
+  const project = parent.locator('.project-label');
+  if ((await spec.boundingBox()).height !== (await project.boundingBox()).height) throw new Error('Metadata chips must share a height.');
   const history = feed.getByRole('article', { name: fixture.tasks[1].title, exact: true });
   await history.scrollIntoViewIfNeeded();
   await history.getByText(fixture.tasks[1].finalAnswer, { exact: true }).waitFor();

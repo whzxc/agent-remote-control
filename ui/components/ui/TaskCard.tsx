@@ -1,7 +1,7 @@
 import { memo, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Activity, ArrowRight, ArrowRightLeft, CircleAlert, LoaderCircle, MessageSquare, RotateCcw } from 'lucide-react';
+import { ArrowRight, ArrowRightLeft, CircleAlert, LoaderCircle, MessageSquare, RotateCcw } from 'lucide-react';
 import { Button, Icon, Notice, Tooltip } from './index';
 import { taskPhaseIcons } from './NodeCapsule';
 import { activeHomepageTask, homepageTaskGroup, type HomepageTask, type TrackedActivity } from '../../state/activityModel';
@@ -63,7 +63,7 @@ const SnapshotRows = memo(function SnapshotRows({ rows, project }: { rows: TaskS
 type CardHeaderProps = {
   task: TaskCardData; now: number; onOpen?: () => void; description?: string; titleId?: string; heading?: boolean;
   trigger?: Pick<ButtonHTMLAttributes<HTMLButtonElement>, 'disabled' | 'id'> & { 'data-activity-session'?: string };
-  gridState?: ReturnType<typeof presentTaskState>; spec?: ReactNode; duration?: number;
+  grid?: boolean; spec?: ReactNode; duration?: number;
 };
 
 function ScrollRow({ children, label }: { children: ReactNode; label?: string }) {
@@ -108,18 +108,17 @@ function TaskTime({ task, now, duration }: { task: TaskCardData; now: number; du
   </time>;
 }
 
-export function TaskCardHeader({ task, now, onOpen, trigger, description, titleId, heading, spec, duration, gridState }: CardHeaderProps) {
+export function TaskCardHeader({ task, now, onOpen, trigger, description, titleId, heading, spec, duration, grid }: CardHeaderProps) {
   const origins = useTaskOrigins(task), title = taskTitle(task);
   const exception = taskException(task.session.status);
   const originLabel = origins.map(origin => origin.label).join(' → ');
   return <header className="task-card-header">
     <div className="task-card-first-row">
       <ScrollRow label={originLabel}><span className="task-card-origins" role="img" aria-label={originLabel}>
-        {origins.map((origin, index) => <span key={`${index}:${origin.label}`}>{index > 0 && <Icon icon={ArrowRight} size={12} />}<Tooltip text={[origin.label, origin.description].filter(Boolean).join(' · ')}><span className="task-card-origin-node"><span className="task-card-origin">{origin.graphic}</span>{origin.label}</span></Tooltip></span>)}
+        {origins.map((origin, index) => <span key={`${index}:${origin.label}`}>{index > 0 && <Icon icon={ArrowRight} size={12} />}<Tooltip text={[origin.label, origin.description].filter(Boolean).join(' · ')}><span className="task-card-origin-node"><span className="task-card-origin">{origin.graphic}</span>{origin.caption}</span></Tooltip></span>)}
       </span></ScrollRow>
       <div className="task-card-state-time">
-        {exception && <span className="task-card-exception" data-state={exception} role="status">{t(`detail.state.${exception}`)}</span>}
-        {!exception && gridState && gridState !== 'running' && <span className="task-grid-state">{t(`detail.state.${gridState}`)}</span>}
+        {!grid && exception && <span className="task-card-exception" data-state={exception} role="status">{t(`detail.state.${exception}`)}</span>}
         <TaskTime task={task} now={now} duration={duration} />
       </div>
     </div>
@@ -145,7 +144,7 @@ export function EmptyTaskBody({ state, action, onAction }: { state: 'loading' | 
 }
 
 type CardNotice = { text: string; danger?: boolean };
-function TaskCardPreview({ task, now, rows, notice, compact, pending, failed, retry, onOpen }: { compact: boolean; pending: boolean; failed: boolean; retry: () => void; onOpen?: () => void; task: TaskCardData; now: number; rows: TaskSnapshotRow[]; notice?: CardNotice }) {
+function TaskCardPreview({ task, now, rows, notice, compact, lineCount, pending, failed, retry, onOpen }: { compact: boolean; lineCount: number; pending: boolean; failed: boolean; retry: () => void; onOpen?: () => void; task: TaskCardData; now: number; rows: TaskSnapshotRow[]; notice?: CardNotice }) {
   const waiting = task.group === 'needs-me';
   const { routing, error } = useRequestRouting(task.agent, task.session.id, !task.deviceId && waiting ? task.session.interaction : undefined);
   const source = task.session.origin?.sourceLabel || task.session.dispatchSummary?.controlSource?.label || t('homepage.controller');
@@ -153,17 +152,20 @@ function TaskCardPreview({ task, now, rows, notice, compact, pending, failed, re
     : routing.state === 'not-routable' ? 'routing.nextCheck' : 'routing.routed', { source, seconds: Math.max(0, Math.ceil(((routing.deferUntil ?? now) - now) / 1000)) }) : undefined;
   const headline = task.session.headline || task.session.fallbackHeadline;
   if (compact) {
-    const latest = rows.at(-1);
     const request = waiting && task.session.interaction?.summary;
-    const text = request || latest?.text || headline;
+    const lines = failed ? Math.min(3, lineCount) : lineCount;
+    const recent = rows.slice(-lines);
+    const fallback = request || (!recent.length && headline);
     const state = failed ? 'error' : pending ? 'loading' : 'empty';
-    const label = request ? t('detail.state.needsYou') : failed || pending ? t(`homepage.preview.${state}`)
-      : t(latest?.role === 'agent' ? 'homepage.latestReply' : latest?.role === 'source' ? 'homepage.taskRequest' : 'homepage.latestActivity');
-    return <div className="task-snapshot-timeline task-card-excerpt" role="region" aria-label={t('homepage.recentSteps')}>
-      {text ? <><div className="task-excerpt-label"><Icon icon={latest?.role === 'agent' ? MessageSquare : Activity} size={13} />{label}
-        {failed && <Button variant="link" onClick={retry}>{t('retry')}</Button>}</div>
-        <div className="task-excerpt-text">{text.trim()}</div></>
-        : <EmptyTaskBody state={state} action={failed ? t('retry') : pending ? undefined : t('homepage.viewDetail')} onAction={failed ? retry : onOpen} />}
+    return <div className="task-snapshot-timeline task-card-excerpt" style={{ '--excerpt-lines': lines } as CSSProperties} role="region" aria-label={t('homepage.recentSteps')}>
+      {!fallback && !recent.length
+        ? <EmptyTaskBody state={state} action={failed ? t('retry') : pending ? undefined : t('homepage.viewDetail')} onAction={failed ? retry : onOpen} />
+        : <><div className="task-excerpt-lines">
+          {fallback ? <div className="task-excerpt-text">{fallback}</div> : recent.map(row => row.role === 'step'
+            ? <div key={row.id} className="task-excerpt-step"><Icon icon={taskPhaseIcons[row.kind ?? 'running']} size={12} />
+              <span>{row.kind === 'thinking' ? thoughtLine(row.text) : row.text}</span></div>
+            : <div key={row.id} className="task-excerpt-text"><SnapshotMarkdown text={row.text.slice(0, 600)} /></div>)}
+        </div>{failed && <Button variant="link" className="task-excerpt-retry" onClick={retry}><Icon icon={RotateCcw} size={12} />{t('retry')}</Button>}</>}
     </div>;
   }
   return <div className="task-snapshot-timeline" role="region" aria-label={t('homepage.recentSteps')}>
@@ -211,10 +213,9 @@ export function TaskCard({ task, now, form, onOpen, trigger, description, snapsh
       if (!(event.target instanceof Element) || event.target.closest('button, [tabindex="0"], a') || window.getSelection()?.toString()) return;
       onOpen();
     } : undefined}>
-    <TaskCardHeader task={presentation} now={now} gridState={grid ? state : undefined} description={description ?? t(`detail.state.${state}`)} onOpen={onOpen} trigger={trigger} />
-    {detail && <TaskCardPreview task={presentation} now={now} rows={rows} notice={notice} compact={grid}
+    <TaskCardHeader task={presentation} now={now} grid={grid} description={description ?? t(`detail.state.${state}`)} onOpen={onOpen} trigger={trigger} />
+    {detail && <TaskCardPreview task={presentation} now={now} rows={rows} notice={notice} compact={grid} lineCount={footer ? 3 : 4}
       failed={preview.failed} retry={preview.retry} pending={canRead && !execution} onOpen={onOpen} />}
-    {!detail && grid && <div className="task-card-history">{task.session.headline || task.session.fallbackHeadline || t(`detail.state.${state}`)}</div>}
     {footer}
   </article>;
 }

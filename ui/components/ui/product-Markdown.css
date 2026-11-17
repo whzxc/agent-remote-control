@@ -1,5 +1,7 @@
 
 .markdown { font-size: 14px; line-height: 22px; overflow-wrap: anywhere; }
+.task-detail-layer .timeline-markdown { font-size: var(--text-small); }
+.task-detail-layer .timeline-markdown :is(h1, h2, h3) { font-size: var(--text-body); }
 .markdown h1, .markdown h2, .markdown h3 { font-size: 16px; margin: 16px 0 8px; }
 .markdown p { margin: 8px 0; white-space: pre-wrap; }
 .markdown pre { overflow: auto; padding: 12px; background: var(--hover); border-radius: var(--radius-tile); }

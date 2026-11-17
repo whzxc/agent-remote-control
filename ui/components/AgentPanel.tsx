@@ -1,5 +1,5 @@
 import { ActivityHeading } from './timeline/TimelineSurface';
-import { taskSnapshotElement } from './timeline/taskSnapshotMotion';
+import { taskSnapshotElement } from './timeline/taskSnapshotElement';
 import { Tooltip as HoverHelp } from "./ui/index";
 import { layerTrigger } from "../state/layers";
 import Panel, { PanelHeader, usePanelState } from "./ui/Panel";
@@ -138,7 +138,7 @@ export default function AgentPanel({ selection: selected, active, agent, onSetti
     return () => { current = false; };
   }, [agent.agent, panelId, shouldReadHistory]);
   if (!ready) return null;
-  return <Panel snapshotKey={session ? JSON.stringify([agent.agent, session.id]) : undefined} focusTrigger={focusTrigger.current} size="m" className="activity-panel" expanded={expanded} headerless title={selected.platform ? name(agent) : account?.alias ?? name(agent)} labelledBy={session ? taskTitleId : undefined}
+  return <Panel focusTrigger={focusTrigger.current} size="m" className="activity-panel" expanded={expanded} headerless title={selected.platform ? name(agent) : account?.alias ?? name(agent)} labelledBy={session ? taskTitleId : undefined}
     viewKey={`${panelId}:${session?.id ?? "overview"}`}
     onClose={() => { panelBack.set(undefined); agentPanel.set(undefined); }}
     returnFocus={session && taskSnapshotElement(JSON.stringify([agent.agent, session.id])) ? `[data-task-snapshot="${CSS.escape(JSON.stringify([agent.agent, session.id]))}"] [data-task-open]` : selected.platform ? `[data-agent-platform="${CSS.escape(agent.agent)}"] button` : `[data-agent-node="${CSS.escape(agent.agent)}"]${selected.accountId ? `[data-account-id="${CSS.escape(account?.id ?? selected.accountId)}"]` : ""} button`} onPanelFrame={onPanelFrame}>

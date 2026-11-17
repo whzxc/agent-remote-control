@@ -8,7 +8,7 @@ export const listOrigins: Record<'codex' | 'claudeToCodex', OriginStep[]> = {
 export type ChildState = 'needs-input' | 'running' | 'complete';
 export type Child = { name: string; assignment: string; latest: string; state: ChildState };
 export type ListExample = {
-  title: string; time: string; turns: number; viaClaude?: boolean; model: string; project: string;
+  title: string; time: string; turns: number; viaClaude?: boolean; model: string; tier?: string; project: string;
   status: ChildState; excerpt?: string; preview: 'reply' | 'activity' | 'loading' | 'error' | 'empty';
   children?: Child[];
 };
@@ -16,7 +16,7 @@ export type ListExample = {
 export const stateCopy = { 'needs-input': '等待输入', complete: '已完成' };
 export const taskListClock = { title: '公示牌', date: '11月17日 · 周二', time: '11:35' };
 export const examples: ListExample[] = [
-  { title: '审阅队列测试覆盖范围', time: '04:18', turns: 2, viaClaude: true, model: 'gpt-6.2-astra', project: 'queue', status: 'running',
+  { title: '审阅队列测试覆盖范围', time: '04:18', turns: 2, viaClaude: true, model: 'gpt-6.2-astra', tier: 'ultrafast', project: 'queue', status: 'running',
     preview: 'activity', excerpt: '已汇总读取和调度用例，正在核对重试边界。', children: [
       { name: 'Curie', assignment: '核对重试上限', latest: '需要确认超时后允许的重试次数。', state: 'needs-input' },
       { name: 'Newton', assignment: '检查并发调度', latest: '正在比对同优先级任务的出队顺序。', state: 'running' },
