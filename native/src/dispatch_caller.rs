@@ -119,4 +119,69 @@ mod tests {
             .is_none());
     }
 
+#[tokio::test]
+    async fn persisted_caller_projects_to_dispatch_summary() {
+        // Contract: persisted dispatch caller attribution in receipts
+        if isolated("persisted_caller_projects_to_dispatch_summary") {
+            return;
+        }
+        let caller = control_request("codex_create", &json!({}))["caller"].clone();
+        let origin = json!({"sourceId":"local-cli","controlSource":"local-cli","authType":"local"});
+        for agent in ["codex", "pi"] {
+            let session = id();
+            let turn = id();
+            let args = json!({"requestId":id(),"purpose":"self-test","notify":null});
+            let task = json!({"agent":agent,"taskId":session,"turnId":turn,"dispatch":{"model":"fixture-model","submittedAt":"2026-01-01T00:00:00Z"}});
+            crate::kernel::origin::ORIGIN.scope(origin.clone(), CALLER.scope(Some(caller.clone()), async {
+                if agent == "codex" {
+                    let mut receipt = json!({"requestId":args["requestId"],"threadId":session,"turnId":turn,"dispatchMode":"new-turn","origin":origin,"arguments":args,"task":task});
+                    attach_current(&mut receipt);
+                    crate::dispatch_policy::record(&receipt).unwrap();
+                } else {
+                    crate::dispatch_policy::agent_record(&task, &args).unwrap();
+                }
+            })).await;
+            let rows = crate::dispatch_policy::records(&session).unwrap();
+            assert_eq!(rows.len(), 1);
+            assert_eq!(rows[0]["caller"], caller);
+            assert_eq!(rows[0]["origin"], origin);
+            assert_eq!(rows[0]["purpose"], "self-test");
+            let mut timeline = crate::task_tracking::Timeline::default();
+            timeline.agent(
+                "arc/user",
+                &json!({"turnId":turn,"text":"Fixture dispatch"}),
+                "2026-01-01T00:00:00Z",
+            );
+            let history = timeline.response(&session, 0);
+            let activity = timeline.session(&session, &Value::Null, "arc-task", None);
+            for summary in [
+                &history["dispatchSummary"],
+                &history["turnDispatchSummaries"][&turn],
+                &activity["dispatchSummary"],
+            ] {
+                assert_eq!(summary["caller"], caller);
+                assert_eq!(summary["controlSource"]["kind"], "local-cli");
+            }
+            let next = id();
+            let mut receipt = json!({"requestId":id(),"threadId":session,"turnId":next,"dispatchMode":"new-turn","origin":origin,"task":{"dispatch":{"submittedAt":"2026-01-01T00:00:01Z"}},"arguments":{}});
+            // Neither previous dispatches nor origin metadata supply a missing caller.
+            receipt["origin"]["caller"] = caller.clone();
+            for invalid in [
+                Value::Null,
+                json!({"agent":"unknown","conversationId":"session"}),
+            ] {
+                receipt["caller"] = invalid;
+                crate::dispatch_policy::record(&receipt).unwrap();
+                let summaries =
+                    crate::task_tracking::dispatch_summaries(&session, &Default::default());
+                assert!(summaries[&next].get("caller").is_none());
+            }
+        }
+        let remote = crate::egress::dispatch_summary(
+            &json!({"origin":{"sourceId":"remote-source","controlSource":"claude"}}),
+        )
+        .unwrap();
+        assert_eq!(remote["controlSource"]["id"], "remote-source");
+        assert!(remote.get("caller").is_none());
+    }
 }
