@@ -1676,7 +1676,6 @@ mod tests {
         changed["guides"]["en"]["remote-push"] = json!("changed guide text");
         assert_ne!(version, protocol_hash(&changed));
     }
-
 }
 
 /// Compact question content without replacing the original native request.
