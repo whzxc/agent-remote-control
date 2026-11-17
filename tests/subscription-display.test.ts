@@ -19,7 +19,7 @@ const provider: ProviderSnapshot = { providerId: 'cursor', agentId: 'cursor', ag
     { id: 'cursorModels', poolId: 'cursorModels', label: 'cursorModels', usedPercent: 4 }] };
 
 test('non-weekly subscriptions retain a usable display window', () => {
-  // Regression: Cursor had monthly quota data but the weekly-only presentation selector removed its display window.
+  // Recurring bug class: Cursor had monthly quota data but the weekly-only presentation selector removed its display window.
   assert.equal(presentSubscription(provider).displayWindowId, provider.windows[0].id);
   assert.equal(presentSubscription({ ...provider, displayWindowId: 'cursorModels' }).displayWindowId, 'cursorModels');
   assert.equal(presentSubscription({ ...provider, displayWindowId: 'retired' }).displayWindowId, provider.windows[0].id);
@@ -27,7 +27,7 @@ test('non-weekly subscriptions retain a usable display window', () => {
   assert.equal(presentSubscription({ ...provider, windows: [{ ...provider.windows[0], usedPercent: NaN }, provider.windows[1]] }).displayWindowId, provider.windows[1].id);
 });
 test('weekly preference and Codex reserve filtering remain intact', () => {
-  // Regression: monthly fallback must preserve weekly preference and never reintroduce hidden Codex reserve quota.
+  // Recurring bug class: monthly fallback must preserve weekly preference and never reintroduce hidden Codex reserve quota.
   const weekly = { id: 'weekly', poolId: 'main', label: 'weekly', usedPercent: 20 };
   assert.equal(presentSubscription({ ...provider, windows: [...provider.windows, weekly] }).displayWindowId, weekly.id);
   const reserve = { ...provider.windows[0], poolId: 'base_model_inference' };
@@ -35,7 +35,7 @@ test('weekly preference and Codex reserve filtering remain intact', () => {
 });
 
 test('Core restart gaps preserve the last complete subscription snapshot', async () => {
-  // Regression: Core restart returned partial snapshots and crashed on old.revision or next.providers.map.
+  // Recurring bug class: Core restart returned partial snapshots and crashed on old.revision or next.providers.map.
   const { acceptSubscriptions, subscriptions } = await server.ssrLoadModule('/ui/state/subscriptions.ts');
   acceptSubscriptions(undefined);
   acceptSubscriptions({});

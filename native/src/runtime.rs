@@ -989,7 +989,7 @@ mod tests {
     use super::*;
     #[test]
     fn live_desktop_keeps_its_lease_after_a_delayed_heartbeat() {
-        // Regression: the Core could exit after a local bridge quit while Desktop's heartbeat was delayed.
+        // Recurring bug class: the Core could exit after a local bridge quit while Desktop's heartbeat was delayed.
         let state = State::default();
         let desktop = id();
         let cli = id();
@@ -1013,7 +1013,7 @@ mod tests {
 
     #[test]
     fn repeated_process_identity_reads_never_rehash_the_executable() {
-        // Regression: idle GET app repeatedly allocated and hashed the entire Desktop executable.
+        // Recurring bug class: idle GET app repeatedly allocated and hashed the entire Desktop executable.
         let started = Instant::now();
         let identity = process_build_id().unwrap().to_owned();
         let initialized = started.elapsed();
@@ -1031,7 +1031,7 @@ mod tests {
 
     #[test]
     fn streamed_build_identity_matches_sha256_and_observes_replaced_files() {
-        // Regression: whole-file build checks allocated entire binaries; streaming must retain fresh replacement evidence.
+        // Recurring bug class: whole-file build checks allocated entire binaries; streaming must retain fresh replacement evidence.
         let path = std::env::temp_dir().join(format!("arc-build-id-{}", id()));
         for size in [0, 3, 65536, 65537, 1024 * 1024 + 13] {
             let bytes: Vec<_> = (0..size).map(|i| (i % 251) as u8).collect();
@@ -1044,7 +1044,7 @@ mod tests {
 
     #[test]
     fn local_uninstall_stops_headless_core_without_granting_cli_shutdown() {
-        // Regression: uninstall of a running daemon failed the Desktop-only update shutdown check.
+        // Recurring bug class: uninstall of a running daemon failed the Desktop-only update shutdown check.
         let state = State::default();
         let cli = id();
         state
@@ -1065,7 +1065,7 @@ mod tests {
 
     #[tokio::test]
     async fn explicit_update_stops_core_with_other_local_clients_attached() {
-        // Regression: an idle Core request could restart Codex after shutdown released the server.
+        // Recurring bug class: an idle Core request could restart Codex after shutdown released the server.
         let control = crate::control::Control::new(PathBuf::from("unused-codex"));
         let state = State::with_launches(control.launches.clone());
         let desktop = id();
@@ -1099,7 +1099,7 @@ mod tests {
 
     #[test]
     fn restart_handoff_never_attaches_to_a_core_already_tearing_down() {
-        // Regression: 42f9056; restart handoff never attaches to a core already tearing down.
+        // Recurring bug class: 42f9056; restart handoff never attaches to a core already tearing down.
         let state = State::default();
         let old = id();
         let new = id();

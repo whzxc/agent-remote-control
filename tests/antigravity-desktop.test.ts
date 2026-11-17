@@ -60,7 +60,7 @@ async function until<T>(read: () => Promise<T>, ready: (value: T) => boolean): P
 }
 
 test('Antigravity local access accepts an empty configuration and preserves other servers on reinstall', { skip: process.platform === 'win32' }, async () => {
-  // Regression: a fresh zero-byte Antigravity mcp_config.json failed local installation with a JSON parse error.
+  // Recurring bug class: a fresh zero-byte Antigravity mcp_config.json failed local installation with a JSON parse error.
   const f = await setup();
   try {
     const before = await f.api('local-access/status');
@@ -108,7 +108,7 @@ test('Antigravity local access accepts an empty configuration and preserves othe
 });
 
 test('Antigravity verifies metadata before challenge and doorbell delivery and acknowledges the received code', { skip: process.platform === 'win32' }, async () => {
-  // Regression: agentapi send-message creates phantom conversation directories when metadata lookup fails.
+  // Recurring bug class: agentapi send-message creates phantom conversation directories when metadata lookup fails.
   const f = await setup();
   try {
     const absent = await f.call('notify_control', { action: 'bind', target: `conversation://${missing}` });
@@ -137,7 +137,7 @@ test('Antigravity verifies metadata before challenge and doorbell delivery and a
 });
 
 test('Antigravity Desktop submits creates and resumed messages and discovers both native transcript roots', { skip: process.platform === 'win32' }, async () => {
-  // Regression: Desktop-only Antigravity installations were unavailable and native transcript.jsonl conversations were omitted.
+  // Recurring bug class: Desktop-only Antigravity installations were unavailable and native transcript.jsonl conversations were omitted.
   const f = await setup(true);
   try {
     const rows = [

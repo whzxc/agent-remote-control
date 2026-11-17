@@ -324,7 +324,7 @@ mod tests {
 
     #[test]
     fn catalog_metadata_never_infers_from_ids_or_brands() {
-        // Property: opaque identities and brand-like names cannot supply absent native metadata.
+        // Algorithmic core: opaque identities and brand-like names cannot supply absent native metadata.
         for id in [
             "vendor/model-128k",
             "[\"profile\", \"gpt-model\"]",
@@ -348,7 +348,7 @@ mod tests {
 
     #[test]
     fn catalog_metadata_dsh_groups_keep_native_provider_and_opaque_id() {
-        // Regression: DSH provider groups and names were dropped while clients parsed JSON-array model IDs.
+        // Recurring bug class: DSH provider groups and names were dropped while clients parsed JSON-array model IDs.
         let id = "[\"profile\", \"upstream/model\"]";
         let group = json!({"group":"profile","name":"Native profile","options":[{"value":id,"name":"Native · model"}]});
         let rows = acp_models(&json!([group.clone()]), "dsh");
@@ -363,7 +363,7 @@ mod tests {
 
     #[test]
     fn catalog_metadata_acp_only_promotes_provider_groups_with_semantics() {
-        // Property: generic ACP grouping never implies a provider, while explicit provider metadata survives.
+        // Algorithmic core: generic ACP grouping never implies a provider, while explicit provider metadata survives.
         for agent in ["claude", "cursor", "grok"] {
             let mut group = json!({"group":"recommended","name":"Recommended","options":[{"value":"opaque","name":"Native name","_meta":{"contextWindows":[64000,128000]}}]});
             let rows = acp_models(&json!([group.clone()]), agent);
@@ -383,7 +383,7 @@ mod tests {
 
     #[test]
     fn catalog_metadata_pi_registry_and_rpc_use_explicit_fields() {
-        // Regression: Pi catalog rows discarded provider, human name and registry context size.
+        // Recurring bug class: Pi catalog rows discarded provider, human name and registry context size.
         let native = json!({"id":"opaque/model","provider":"native-key","name":"Native model","contextWindow":131072});
         let row = pi_model(&native, string(&native, "provider"));
         assert_eq!(row["model"], "native-key/opaque/model");
@@ -415,7 +415,7 @@ mod tests {
 
     #[test]
     fn catalog_metadata_grok_cache_preserves_explicit_capacity_and_options() {
-        // Regression: Grok model-cache human names and context windows were lost in display metadata.
+        // Recurring bug class: Grok model-cache human names and context windows were lost in display metadata.
         let cache = json!({"models":{
             "opaque":{"info":{"name":"Grok native name","context_window":256000,"reasoning_efforts":[{"value":"high","label":"High"}]}},
             "brand-128k":{"info":{"model_family":"xai"}},
@@ -439,7 +439,7 @@ mod tests {
 
     #[test]
     fn catalog_metadata_session_snapshots_preserve_fields_without_authority() {
-        // Property: snapshots preserve every model field but cannot establish current catalog completeness.
+        // Algorithmic core: snapshots preserve every model field but cannot establish current catalog completeness.
         let metadata = json!({"models":{"availableModels":[{"modelId":"opaque","name":"Native", "_meta":{"provider":{"id":"p","name":"Provider"},"totalContextTokens":128000}}]}});
         let task = json!({"agent":"grok","taskId":"fixture"});
         let live = catalog_facts(
@@ -476,7 +476,7 @@ mod tests {
 
     #[test]
     fn catalog_metadata_review_preserves_nonempty_snapshot_on_empty_observation() {
-        // Regression: review of 136285a8 found a newer empty session catalog could erase a saved nonempty catalog.
+        // Recurring bug class: review of 136285a8 found a newer empty session catalog could erase a saved nonempty catalog.
         let previous = snapshot(
             &json!({"models":[{"model":"opaque","displayName":"Native"}],"observedAt":"2026-01-01T00:00:00Z"}),
         );
@@ -490,7 +490,7 @@ mod tests {
 
     #[test]
     fn catalog_metadata_review_ignores_observation_time_for_unchanged_snapshots() {
-        // Regression: review of 136285a8 found observedAt defeated snapshot deduplication on every observation.
+        // Recurring bug class: review of 136285a8 found observedAt defeated snapshot deduplication on every observation.
         let previous = snapshot(
             &json!({"models":[{"model":"opaque","displayName":"Native"}],"observedAt":"2026-01-01T00:00:00Z"}),
         );

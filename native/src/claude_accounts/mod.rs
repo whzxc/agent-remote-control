@@ -737,7 +737,7 @@ mod tests {
     use super::*;
     #[test]
     fn current_claude_authorization_destination_is_supported() {
-        // Regression: Claude Code 2.1.310 login stayed in starting because claude.com/cai/oauth/authorize was rejected.
+        // Recurring bug class: Claude Code 2.1.310 login stayed in starting because claude.com/cai/oauth/authorize was rejected.
         assert!(authorization_url(
             "https://claude.com/cai/oauth/authorize?client_id=fixture&state=fixture"
         )
@@ -745,7 +745,7 @@ mod tests {
     }
     #[test]
     fn authorization_links_cannot_open_unrelated_destinations() {
-        // Property: authorization links require an official host, HTTPS, the authorization path, and no URL credentials.
+        // Algorithmic core: authorization links require an official host, HTTPS, the authorization path, and no URL credentials.
         for url in [
             "https://claude.com.example.org/cai/oauth/authorize",
             "http://claude.com/cai/oauth/authorize",
@@ -758,7 +758,7 @@ mod tests {
     }
     #[test]
     fn host_keychain_namespace_is_preserved() {
-        // Regression: Explicitly setting ~/.claude for the default account selected a different macOS Keychain entry and reported signed out.
+        // Recurring bug class: Explicitly setting ~/.claude for the default account selected a different macOS Keychain entry and reported signed out.
         let original = vec![(OsString::from("PATH"), OsString::from("tools"))];
         assert_eq!(isolated_environment(original.clone(), None), original);
         let configured = vec![
@@ -773,7 +773,7 @@ mod tests {
     }
     #[test]
     fn child_environment_keeps_profiles_separate() {
-        // Property: each child has exactly one explicit profile and no inherited authentication override.
+        // Algorithmic core: each child has exactly one explicit profile and no inherited authentication override.
         let env = vec![
             ("CLAUDE_CONFIG_DIR".into(), "old".into()),
             ("claude_config_dir".into(), "other".into()),

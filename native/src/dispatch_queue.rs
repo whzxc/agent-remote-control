@@ -476,7 +476,7 @@ mod tests {
     use super::*;
     #[test]
     fn interrupted_predecessor_requires_explicit_queue_resume() {
-        // Regression: a completed display status could admit a queue item whose native predecessor was interrupted.
+        // Recurring bug class: a completed display status could admit a queue item whose native predecessor was interrupted.
         let native = adapters::snapshot(
             crate::turn_lifecycle::TurnKey::new("codex", "thread", "old"),
             "interrupted",
@@ -507,7 +507,7 @@ mod tests {
 
     #[test]
     fn queue_poll_reuses_history_and_reads_only_the_changed_message() {
-        // Regression: the one-second send queue poll reread completed messages indefinitely.
+        // Recurring bug class: the one-second send queue poll reread completed messages indefinitely.
         struct Sandbox(PathBuf);
         impl Drop for Sandbox {
             fn drop(&mut self) {
@@ -540,7 +540,7 @@ mod tests {
 
     #[test]
     fn orphaned_panel_records_remain_cancellable_only_locally() {
-        // Regression: missing sourceId filtered a queued panel record out of every cancel path.
+        // Recurring bug class: missing sourceId filtered a queued panel record out of every cancel path.
         let orphan =
             json!({"origin":{"controlSource":"ARC","ingressId":"local-ui"},"state":"queued"});
         assert!(visible_to(
@@ -567,7 +567,7 @@ mod projection_tests {
     use super::*;
     #[test]
     fn dormant_queue_reactivation_removal_and_rebuild_preserve_fifo_history() {
-        // Regression: unchanged queue ticks traversed all completed rows and dormant rows needed discovery after reactivation.
+        // Recurring bug class: unchanged queue ticks traversed all completed rows and dormant rows needed discovery after reactivation.
         let dir = std::env::temp_dir().join(format!("arc-queue-projection-{}", id()));
         for n in 0..44 {
             save(&dir.join(format!("{n}.json")), &json!({"queueId":id(),"threadId":"fixture","args":{},"state":"completed","sequence":n,"origin":{"sourceId":"fixture"}})).unwrap();

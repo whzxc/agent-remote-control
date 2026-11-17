@@ -180,7 +180,7 @@ mod tests {
     use super::*;
     #[test]
     fn only_confirmed_capacity_without_tool_activity_is_retried_with_backoff() {
-        // Property: only confirmed capacity without tool activity is retried with backoff.
+        // Algorithmic core: only confirmed capacity without tool activity is retried with backoff.
         let mut t = json!({"status":"failed","error":{"codexErrorInfo":"serverOverloaded"},"items":[{"type":"userMessage"},{"type":"reasoning"}]});
         assert!(safe_turn(&t));
         t["items"]

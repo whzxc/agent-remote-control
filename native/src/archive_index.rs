@@ -141,7 +141,7 @@ mod tests {
     use super::*;
     #[test]
     fn indexed_search_is_fast_fresh_and_paginates_without_duplicates() {
-        // Regression: archived searches skipped enrichment but still took 7-30 seconds in native thread/list.
+        // Recurring bug class: archived searches skipped enrichment but still took 7-30 seconds in native thread/list.
         let mut db = Connection::open_in_memory().unwrap();
         db.execute_batch("CREATE TABLE threads(id TEXT PRIMARY KEY,archived INTEGER,updated_at INTEGER,cwd TEXT,title TEXT,source TEXT,model_provider TEXT); CREATE INDEX archive ON threads(archived,updated_at DESC,id DESC);").unwrap();
         let transaction = db.transaction().unwrap();

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { stopCore } from '../tooling/dev-core.mjs';
 
 test('isolated owner can stop restarted Core after Desktop disappears during quit', async () => {
-  // Regression: supervisor shutdown rejected a restarted isolated Core because its PID and token changed.
+  // Recurring bug class: supervisor shutdown rejected a restarted isolated Core because its PID and token changed.
   const initial = { instance: 'core-before-restart', pid: 123, port: 12344, token: 'old-token' };
   const endpoint = { ...initial, instance: 'core-after-restart', pid: 0, port: 12345, token: 'new-token' };
   const owner = { instance: 'isolated-instance', id: 'private-startup-identity' };

@@ -252,7 +252,7 @@ mod tests {
 
     #[test]
     fn unanswered_async_questions_retain_terminal_evidence_until_the_owner_records_a_reply() {
-        // Regression: Desktop history kept finished-turn async questions pending without exposing their terminal status.
+        // Recurring bug class: Desktop history kept finished-turn async questions pending without exposing their terminal status.
         let mut state = json!({"id":"thread","turnHistory":{"history":{"entitiesByKey":{
             "old":{"turnId":"old","status":"completed","items":[{"id":"message","type":"agentMessage","questions":[{"title":"Choose","options":["A","B"]}]}]},
             "new":{"turnId":"new","status":"inProgress","items":[]}

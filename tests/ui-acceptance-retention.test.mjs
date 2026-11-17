@@ -14,7 +14,7 @@ test('accept:ui omits screenshots by default and enables them only on --screensh
 });
 
 test('accept:ui retention keeps the latest two run directories per engine without evicting the screenshot baseline', async t => {
-  // Property: each engine retains at most two screenshot runs and two layout runs after creating the new run directory, leaving other engines and non-run entries untouched.
+  // Algorithmic core: each engine retains at most two screenshot runs and two layout runs after creating the new run directory, leaving other engines and non-run entries untouched.
   const entries = [
     '2026-11-15T01-00-00.000Z-chromium',
     '2026-11-15T02-00-00.000Z-chromium',

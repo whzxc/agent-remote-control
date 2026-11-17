@@ -9,7 +9,7 @@ import { within, fireEvent } from "@testing-library/dom";
 // Native task_panel and opened-session capture, with identities and content sanitized.
 const capture = JSON.parse(readFileSync(new URL("./fixtures/arc-source-pending.json", import.meta.url), "utf8"));
 test("ARC-local pending requests drive both the dock and header after an earlier answered turn", async () => {
-  // Regression: 1fa3ac0 excluded a native ARC-origin question from the footer and left the header running.
+  // Recurring bug class: 1fa3ac0 excluded a native ARC-origin question from the footer and left the header running.
   const window = new Window({ url: "http://localhost" });
   const media = Object.assign(new window.EventTarget(), { matches: true });
   window.matchMedia = () => media as unknown as MediaQueryList;

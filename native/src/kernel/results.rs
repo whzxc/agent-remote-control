@@ -314,7 +314,7 @@ mod schema_tests {
     use super::*;
     #[test]
     fn single_method_excludes_unrelated_definitions_and_keeps_recursion() {
-        // Regression: a simple method schema included every native definition and exceeded 125 KB.
+        // Recurring bug class: a simple method schema included every native definition and exceeded 125 KB.
         let schema = schema_closure(
             json!({"$ref":"#/definitions/A"}),
             &json!({"A":{"properties":{"b":{"$ref":"#/definitions/B"}}},"B":{"$ref":"#/definitions/A"},"Unrelated":{"type":"string"}}),

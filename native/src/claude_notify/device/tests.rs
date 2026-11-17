@@ -25,7 +25,7 @@ impl Drop for Fixture {
 
 #[tokio::test]
 async fn device_event_work_is_independent_of_retained_binding_count() {
-    // Regression: hundreds of retained, pending and unbound notification records must not be hydrated or rewritten for one member event.
+    // Recurring bug class: hundreds of retained, pending and unbound notification records must not be hydrated or rewritten for one member event.
     let fixture = Fixture::new();
     for i in 0..640 {
         let mut b = fixture.seed(

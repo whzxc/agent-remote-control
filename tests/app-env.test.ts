@@ -23,7 +23,7 @@ test("snapshot reports every effective environment value and its provenance", ()
 });
 
 test("expiry and clear restore system values even with a frozen clock", () => {
-  // Property: real-time expiry and absence of a sample override every simulated input.
+  // Algorithmic core: real-time expiry and absence of a sample override every simulated input.
   for (const [state, now] of [[sample, 100_000], [undefined, 2000]] as const) {
     const env = environmentModel(state, now, system);
     assert.equal(env.active, false);
@@ -36,7 +36,7 @@ test("expiry and clear restore system values even with a frozen clock", () => {
 });
 
 test("clock speed changes UI relative time without modifying the real clock", () => {
-  // Property: virtual time is an affine transformation of real time until real-time expiry.
+  // Algorithmic core: virtual time is an affine transformation of real time until real-time expiry.
   for (const speed of [0, 0.5, 1, 10, 100]) {
     const next = { ...sample, clock: { ...sample.clock, value: { nowMs: 7000, speed } } };
     assert.equal(clockNow(next, 2000), 7000 + 1000 * speed);

@@ -39,7 +39,7 @@ mod tests {
     use super::*;
     #[test]
     fn held_writer_is_detected_without_waiting_or_modifying_it() {
-        // Regression: external writers were discovered only after a 41-second Desktop load attempt.
+        // Recurring bug class: external writers were discovered only after a 41-second Desktop load attempt.
         let path = std::env::temp_dir().join(format!("arc-lock-probe-{}", id()));
         let writer = std::fs::File::create(&path).unwrap();
         writer.lock().unwrap();

@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import ts from "typescript";
 
 test("task detail messages exist in both supported locales, including every dynamic decision", () => {
-  // Regression: skipping a task question rendered the untranslated activity.cancel key.
+  // Recurring bug class: skipping a task question rendered the untranslated activity.cancel key.
   const config = ts.readConfigFile("ui/tsconfig.json", ts.sys.readFile);
   const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, "ui");
   const program = ts.createProgram(parsed.fileNames, parsed.options);

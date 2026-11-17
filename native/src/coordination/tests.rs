@@ -341,7 +341,7 @@ fn cross_account_sources_share_only_projected_metadata_and_revocation_is_checked
 }
 #[test]
 fn canonical_resources_resolve_parent_and_reject_ambiguous_lanes() {
-    // Property: resource projection never confuses duplicate lane names, paths or absent parent identity.
+    // Algorithmic core: resource projection never confuses duplicate lane names, paths or absent parent identity.
     let mut resources = Resources::default();
     assert!(resources.lane("p1", "fix").is_err());
     resources.project("p1").unwrap();
@@ -512,7 +512,7 @@ fn emit_observation(f: &mut Fixture, input: EventInput) {
 }
 #[test]
 fn owner_loss_alone_never_projects_a_terminal_turn() {
-    // Regression: stale completed status on an owner-loss snapshot fabricated a coordination terminal event.
+    // Recurring bug class: stale completed status on an owner-loss snapshot fabricated a coordination terminal event.
     use crate::turn_lifecycle::{adapters, advance, Evidence, LossReason, Transition, TurnKey};
     let key = TurnKey::new("pi", "thread-loss", "turn-loss");
     let lost = advance(
@@ -759,7 +759,7 @@ async fn registered_refs_report_creation_movement_deletion_and_non_fast_forward(
 }
 #[test]
 fn unchanged_git_polls_open_no_files_or_directories() {
-    // Regression: 2f77284 and 9e956a0 bounded idle polling; ref observation must not reopen unchanged files per poll.
+    // Recurring bug class: 2f77284 and 9e956a0 bounded idle polling; ref observation must not reopen unchanged files per poll.
     let fixture = Fixture::new();
     let directory = fixture.dir.join("git-cache-fixture");
     std::fs::create_dir_all(&directory).unwrap();
@@ -856,7 +856,7 @@ fn agent_dispatch_requires_observed_transport_submission() {
 
 #[tokio::test]
 async fn git_catalog_recovers_after_startup_and_watches_main_and_lanes() {
-    // Regression: installed Core retained project-catalog-unavailable after a successful upstream registry read.
+    // Recurring bug class: installed Core retained project-catalog-unavailable after a successful upstream registry read.
     let fixture = std::sync::Mutex::new(Fixture::new());
     let dir = fixture.lock().unwrap().dir.clone();
     let repository = dir.join("repository");
@@ -922,7 +922,7 @@ async fn git_catalog_recovers_after_startup_and_watches_main_and_lanes() {
 
 #[test]
 fn historical_receipts_preserve_unknown_origins_and_skip_invalid_records_individually() {
-    // Regression: installed historical OAuth receipts with empty sourceId marked the entire receipts observer invalid-metadata.
+    // Recurring bug class: installed historical OAuth receipts with empty sourceId marked the entire receipts observer invalid-metadata.
     let fixture = std::sync::Mutex::new(Fixture::new());
     let resource = ResourceKey::parse("host:fixture").unwrap();
     let rows: Vec<Value> =
@@ -1057,7 +1057,7 @@ fn historical_receipts_preserve_unknown_origins_and_skip_invalid_records_individ
 
 #[test]
 fn executing_command_is_not_a_stalled_submission() {
-    // Regression: AX-07 healthy foreground commands emitted receipt-stalled candidates after 30 seconds.
+    // Recurring bug class: AX-07 healthy foreground commands emitted receipt-stalled candidates after 30 seconds.
     let mut f = Fixture::new();
     let row = json!({"requestId":"foreground","operation":"command","state":"executing","updatedAt":types::timestamp(f.time)});
     for state in ["executing", "awaiting-approval", "unconfirmed"] {

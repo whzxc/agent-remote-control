@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { nativeControl } from './helpers/native-control.ts';
 
 test('browser ingress requires an independent key, exposes reads only, and revokes sessions on rotation', async () => {
-  // Regression: public HTTPS ingresses had no authenticated read-only browser surface.
+  // Recurring bug class: public HTTPS ingresses had no authenticated read-only browser surface.
   const fixture = await nativeControl('');
   try {
     const ingress = await fixture.api('ingress', { id: 'browser', name: 'Browser fixture', controlSource: 'custom', transport: 'https', auth: 'bearer', bearerToken: 'fixture-mcp-token'.padEnd(40, 'x'), toolPolicy: 'all', config: { httpsProvider: 'custom', httpsUrl: 'https://browser.example/mcp' } });

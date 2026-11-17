@@ -84,7 +84,7 @@ test('Account operations retain identity, defaults and removal tombstones', asyn
 });
 
 test('unchanged account reads reuse the index without account cost passes or row scans', async () => {
-  // Regression: ax-28de53a4 visible Desktop account polling rescanned unchanged rows tens of times per second.
+  // Recurring bug class: ax-28de53a4 visible Desktop account polling rescanned unchanged rows tens of times per second.
   const fixture = await nativeControl(server);
   try {
     const list = await fixture.api('accounts');
@@ -104,7 +104,7 @@ test('unchanged account reads reuse the index without account cost passes or row
 });
 
 test('account reads observe a replaced index and retain add remove default and quota changes', async () => {
-  // Regression: ax-28de53a4 account index caching must expose changed records on the next UI or op read.
+  // Recurring bug class: ax-28de53a4 account index caching must expose changed records on the next UI or op read.
   const { readFile, writeFile, rename } = await import('node:fs/promises');
   const fixture = await nativeControl(server);
   try {
@@ -142,7 +142,7 @@ test('account reads observe a replaced index and retain add remove default and q
 });
 
 test('Targeted credential import refuses a different Codex identity', async () => {
-  // Regression: replacing credentials from an account card could import a different provider identity.
+  // Recurring bug class: replacing credentials from an account card could import a different provider identity.
   const fixture = await nativeControl(server);
   try {
     const login = (id: string) => ({ auth: { tokens: { access_token: 'fixture-access', account_id: id } }, refreshOwner: 'none' });
@@ -157,7 +157,7 @@ test('Targeted credential import refuses a different Codex identity', async () =
 });
 
 test('Codex credentials remain independent while sessions use the native shared home', async () => {
-  // Regression: adding a Codex account replaced the system login; native subagents without thread/started also fell back to the default account.
+  // Recurring bug class: adding a Codex account replaced the system login; native subagents without thread/started also fell back to the default account.
   const { mkdtemp, writeFile, rm } = await import('node:fs/promises');
   const { tmpdir } = await import('node:os');
   const path = await import('node:path');
@@ -383,7 +383,7 @@ for await(const line of createInterface({input:process.stdin})) {
 }
 
 test('Codex dispatch picks up shared configuration while an existing task stays active', async () => {
-  // Regression: shared config change blocks dispatch while a task is active.
+  // Recurring bug class: shared config change blocks dispatch while a task is active.
   const { fixture, primary, config, pluginDirectory, pluginContents, writeFile, mkdir, rm } = await sharedCodexFixture();
   const path = await import('node:path');
   try {
@@ -450,7 +450,7 @@ test('Codex dispatch picks up shared configuration while an existing task stays 
 });
 
 test('Codex account and quota reads remain available after shared configuration changes', async () => {
-  // Regression: shared config changes made active-account quota unavailable in dispatch_policy.
+  // Recurring bug class: shared config changes made active-account quota unavailable in dispatch_policy.
   const { fixture, primary, config, writeFile, rm } = await sharedCodexFixture();
   const path = await import('node:path');
   try {
@@ -478,7 +478,7 @@ test('Codex account and quota reads remain available after shared configuration 
 });
 
 test('Claude credential profiles share native transcripts and retain legacy data for explicit migration', { skip: process.platform === 'win32' }, async () => {
-  // Regression: credential profiles kept separate Claude projects trees inside ARC state.
+  // Recurring bug class: credential profiles kept separate Claude projects trees inside ARC state.
   const { mkdtemp, mkdir, writeFile, readFile, realpath, unlink, rm } = await import('node:fs/promises');
   const { tmpdir } = await import('node:os');
   const path = await import('node:path');

@@ -320,7 +320,7 @@ mod tests {
     use super::*;
     #[tokio::test]
     async fn attribution_wrappers_bound_future_size() {
-        // Regression: D2a inline attribution futures overflowed the default Tokio worker stack in unoptimized Core startup.
+        // Recurring bug class: D2a inline attribution futures overflowed the default Tokio worker stack in unoptimized Core startup.
         fn payload() -> impl Future<Output = usize> {
             let bytes = [0u8; 64 * 1024];
             async move {

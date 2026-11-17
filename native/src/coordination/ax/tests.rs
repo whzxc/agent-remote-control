@@ -135,7 +135,7 @@ fn ax_retry_dedupe_and_similarity() {
 }
 #[test]
 fn ax_candidate_occurrences_reuse_signature_across_builds_and_sources() {
-    // Regression: ax-23f33aae repeated receipt stalls created separate candidates and lost cooldown occurrences.
+    // Recurring bug class: ax-23f33aae repeated receipt stalls created separate candidates and lost cooldown occurrences.
     let mut f = Fixture::new();
     let first = f.candidate("observation-one", "build-a")["entry"].clone();
     assert_eq!(first["occurrenceCount"], 1);
@@ -174,7 +174,7 @@ fn ax_candidate_rejection_is_build_scoped() {
 }
 #[test]
 fn imported_ax_entries_require_local_authority() {
-    // Regression: imported AX entries need local triage recovery without attributing unrelated candidate observations to a backlog ID.
+    // Recurring bug class: imported AX entries need local triage recovery without attributing unrelated candidate observations to a backlog ID.
     let mut f = Fixture::new();
     let imported = f
         .store
@@ -370,7 +370,7 @@ fn ax_unique_evidence_merges_and_severity_authority() {
 
 #[test]
 fn ax_followup_unclosed_triage_explains_missing_and_rejected_verification() {
-    // Regression: ax-a732f88f fix/document stayed triaged without identifying unsupported verification receipts or missing inputs.
+    // Recurring bug class: ax-a732f88f fix/document stayed triaged without identifying unsupported verification receipts or missing inputs.
     for (action, field) in [("fix", "commit"), ("document", "document")] {
         let mut f = Fixture::new();
         let entry = f.report("Verification explanation");
@@ -567,7 +567,7 @@ fn ax_issue_draft_sanitization() {
 
 #[test]
 fn ax_history_discloses_access_and_missing_reasons() {
-    // Regression: non-owner AX history silently discarded recorded triage reasons and references.
+    // Recurring bug class: non-owner AX history silently discarded recorded triage reasons and references.
     let mut f = Fixture::new();
     let entry = f.report("Fixture history projection");
     let closed = f.decide(&entry, "wontfix");
@@ -606,7 +606,7 @@ fn ax_history_discloses_access_and_missing_reasons() {
 
 #[test]
 fn ax_short_id_reads_the_unique_entry_and_rejects_ambiguity() {
-    // Regression: ax-9d1b45c5 short ids silently returned no AX entries.
+    // Recurring bug class: ax-9d1b45c5 short ids silently returned no AX entries.
     let mut f = Fixture::new();
     let first = f.report("Digest prefix fixture");
     let prefix = string(&first, "id").chars().take(11).collect::<String>();
@@ -639,7 +639,7 @@ fn ax_invalid_signature() {
 }
 
 #[test]
-// Regression: digest short AX ids failed in write operations with AX_NOT_FOUND.
+// Recurring bug class: digest short AX ids failed in write operations with AX_NOT_FOUND.
 fn ax_short_id_writes() {
     let mut f = Fixture::new();
     let first = f.report("Short write fixture");

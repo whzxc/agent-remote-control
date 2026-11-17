@@ -301,7 +301,7 @@ mod tests {
     }
     #[test]
     fn detects_magic_before_extension_and_rejects_invalid_images() {
-        // Property: detects magic before extension and rejects invalid images.
+        // Algorithmic core: detects magic before extension and rejects invalid images.
         let bytes = png(3, 2, false);
         assert_eq!(format(&bytes, "disguised.jpg"), Some(ImageFormat::Png));
         assert_eq!(
@@ -322,7 +322,7 @@ mod tests {
     }
     #[test]
     fn scales_and_limits_encoded_image_bytes() {
-        // Property: scales and limits encoded image bytes.
+        // Algorithmic core: scales and limits encoded image bytes.
         let prepared = prepare(&png(2400, 1200, false), "large.png", &json!({})).unwrap();
         assert_eq!(prepared.metadata["width"], 1568);
         assert_eq!(prepared.metadata["height"], 784);
@@ -339,7 +339,7 @@ mod tests {
     }
     #[test]
     fn preserves_bounded_originals_and_avoids_small_resize_inflation() {
-        // Property: preserves bounded originals and avoids small resize inflation.
+        // Algorithmic core: preserves bounded originals and avoids small resize inflation.
         for format in [
             ImageFormat::Png,
             ImageFormat::Jpeg,
@@ -389,7 +389,7 @@ mod tests {
     }
     #[test]
     fn thread_images_enforce_scope_and_default_is_unchanged() {
-        // Regression: out-of-scope image files are rejected even when their bytes are valid.
+        // Recurring bug class: out-of-scope image files are rejected even when their bytes are valid.
         let root = std::env::temp_dir().join(format!("arc-images-{}", id()));
         let project = root.join("project");
         std::fs::create_dir_all(&project).unwrap();

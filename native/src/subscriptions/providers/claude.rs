@@ -191,7 +191,7 @@ mod tests {
 
     #[test]
     fn native_usage_preserves_reported_windows_and_reset_times() {
-        // Regression: direct Claude quota requests returned 401 while the native CLI owned login renewal.
+        // Recurring bug class: direct Claude quota requests returned 401 while the native CLI owned login renewal.
         let now = chrono::DateTime::parse_from_rfc3339("2025-12-31T23:00:00Z")
             .unwrap()
             .with_timezone(&chrono::Utc);
@@ -219,7 +219,7 @@ mod tests {
 
     #[test]
     fn native_usage_without_readings_stays_unknown() {
-        // Regression: Claude /usage can succeed with a billing notice and no quota values.
+        // Recurring bug class: Claude /usage can succeed with a billing notice and no quota values.
         let reading = parse_usage(
             "You are currently using your subscription to power your Claude Code usage.",
             chrono::Utc::now(),

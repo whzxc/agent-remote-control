@@ -685,7 +685,7 @@ mod desktop_tests {
 
     #[tokio::test]
     async fn desktop_requests_are_bounded_and_abandoned_reads_release_their_work() {
-        // Regression: Desktop had no admission bound while synchronous executable hashing prevented cancellation.
+        // Recurring bug class: Desktop had no admission bound while synchronous executable hashing prevented cancellation.
         crate::init_crypto();
         let (started, mut starts) = tokio::sync::mpsc::unbounded_channel();
         let (finished, mut finishes) = tokio::sync::mpsc::unbounded_channel();

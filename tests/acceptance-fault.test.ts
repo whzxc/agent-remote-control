@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { nativeControl } from './helpers/native-control.ts';
 
 test('Isolated faults reject real reads, expire and require a self-test thread', async () => {
-  // Regression: acceptance could not deliberately exercise native read rejection on an isolated runtime path.
+  // Recurring bug class: acceptance could not deliberately exercise native read rejection on an isolated runtime path.
   const fixture = await nativeControl(`
     import {createInterface} from 'node:readline';import {randomUUID} from 'node:crypto';
     for await (const line of createInterface({input:process.stdin})) {

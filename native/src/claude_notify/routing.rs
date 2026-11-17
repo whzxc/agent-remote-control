@@ -454,7 +454,7 @@ mod tests {
     }
     #[test]
     fn routing_app_env_freezes_advances_and_resets_without_focus() {
-        // Property: virtual time and explicit presence control routing while clear cancels overridden delays.
+        // Algorithmic core: virtual time and explicit presence control routing while clear cancels overridden delays.
         let env = crate::app_env::transition(
             &Default::default(),
             &json!({"action":"set","presence":"present","clock":{"freeze":true}}),
@@ -489,7 +489,7 @@ mod tests {
     }
     #[test]
     fn routing_presence_only_delays_new_routable_requests() {
-        // Property: presence gates only newly observed requests with a verified push path.
+        // Algorithmic core: presence gates only newly observed requests with a verified push path.
         let deferred = initial(true, true, 1000, 15);
         assert_eq!(deferred.state, "deferred");
         assert_eq!(deferred.defer_until, Some(16000));
@@ -499,7 +499,7 @@ mod tests {
     }
     #[test]
     fn routing_presence_never_retroactively_delays() {
-        // Property: a routed request remains routed when presence begins later.
+        // Algorithmic core: a routed request remains routed when presence begins later.
         let mut e = entry(false, true);
         advance(&mut e, "first", true, true, 2000);
         assert_eq!(e.routing.state, "routed");
@@ -507,7 +507,7 @@ mod tests {
     }
     #[test]
     fn routing_pause_preserves_remaining_time_and_actor() {
-        // Property: pause freezes the remaining duration until explicit resume.
+        // Algorithmic core: pause freezes the remaining duration until explicit resume.
         let mut e = entry(true, true);
         change(&mut e, "pause", "user", 4000).unwrap();
         advance(&mut e, "first", true, true, 20000);
@@ -520,7 +520,7 @@ mod tests {
     }
     #[test]
     fn routing_handoff_is_immediate_and_idempotent() {
-        // Property: explicit handoff removes either a running or paused delay exactly once.
+        // Algorithmic core: explicit handoff removes either a running or paused delay exactly once.
         for paused in [false, true] {
             let mut e = entry(true, true);
             if paused {
@@ -537,7 +537,7 @@ mod tests {
     }
     #[test]
     fn routing_restart_and_absence_remove_defer() {
-        // Property: recovery cancels deferred and paused timers; absence cancels a running timer.
+        // Algorithmic core: recovery cancels deferred and paused timers; absence cancels a running timer.
         for paused in [false, true] {
             let mut e = entry(true, true);
             if paused {
@@ -555,7 +555,7 @@ mod tests {
     }
     #[test]
     fn routing_resolved_requests_cannot_be_handed_off() {
-        // Property: resolving a request during a countdown prevents later routing mutations.
+        // Algorithmic core: resolving a request during a countdown prevents later routing mutations.
         let mut e = entry(true, true);
         e.resolved = true;
         for action in ["pause", "resume", "handoff"] {

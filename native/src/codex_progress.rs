@@ -396,7 +396,7 @@ mod tests {
     }
     #[test]
     fn startup_and_midturn_silence_stall_after_three_minutes_without_token_samples() {
-        // Regression: ax-c8588c1e silence required six minutes and repeated token samples and could never detect mid-turn stalls.
+        // Recurring bug class: ax-c8588c1e silence required six minutes and repeated token samples and could never detect mid-turn stalls.
         let mut text = start();
         assert!(history(&text, "turn")
             .diagnostic("thread", "turn", at(179))
@@ -424,7 +424,7 @@ mod tests {
     }
     #[test]
     fn changed_counters_and_live_deltas_reset_the_activity_clock() {
-        // Regression: stalled native progress ignored streaming deltas and treated old output as a permanent exclusion.
+        // Recurring bug class: stalled native progress ignored streaming deltas and treated old output as a permanent exclusion.
         let mut text = start();
         for (seconds, total) in [(10, 100), (20, 100), (100, 101)] {
             text += &record(
@@ -455,7 +455,7 @@ mod tests {
     }
     #[test]
     fn unchanged_native_snapshots_preserve_the_clock_and_changed_items_reset_it() {
-        // Property: repeated native snapshots preserve inactivity while item content or status changes reset it.
+        // Algorithmic core: repeated native snapshots preserve inactivity while item content or status changes reset it.
         let mut states = HashMap::new();
         let mut metadata = json!({"id":"thread","turns":[{"id":"turn","startedAt":date(Some(at(0))),"status":"inProgress","items":[{"id":"message","type":"agentMessage","text":"first"}]}]});
         observe_snapshot(&mut states, &metadata, &date(Some(at(10))).unwrap());
@@ -479,7 +479,7 @@ mod tests {
 
     #[test]
     fn long_tools_suspend_stalls_and_completion_restarts_the_clock() {
-        // Regression: command and tool executions with no output must not be reported as stalled during long builds.
+        // Recurring bug class: command and tool executions with no output must not be reported as stalled during long builds.
         let mut text = start();
         text += &record(
             10,

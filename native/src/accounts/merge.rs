@@ -201,7 +201,7 @@ mod tests {
 
     #[test]
     fn confirmed_merge_retains_roles_history_and_retry_stability() {
-        // Property: explicit account merges retain all role memberships, identity evidence and old ID history, and replay without duplicating ownership.
+        // Algorithmic core: explicit account merges retain all role memberships, identity evidence and old ID history, and replay without duplicating ownership.
         let mut rows = vec![
             json!({"id":"target","provider":"xai","identityKey":"xai:id:example","alias":"Example","sources":[],"agentProfiles":[{"agent":"grok","profileId":"grok-home","default":true}],"quota":{"state":"unavailable","windows":[]}}),
             json!({"id":"source-one","provider":"xai","identityKey":"xai:unidentified:source-one","sources":["source-one"],"agentProfiles":[]}),

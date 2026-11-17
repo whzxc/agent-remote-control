@@ -323,7 +323,7 @@ mod tests {
     }
     #[tokio::test(start_paused = true)]
     async fn receipt_wait_returns_execution_progress_instead_of_a_pending_snapshot() {
-        // Regression: AX-07 Control timeout and Agent waits returned pending snapshots after the execution owner had accepted the operation.
+        // Recurring bug class: AX-07 Control timeout and Agent waits returned pending snapshots after the execution owner had accepted the operation.
         let fixture = Sandbox::new();
         for operation in [
             "command",
@@ -383,7 +383,7 @@ mod tests {
 
     #[tokio::test]
     async fn lost_execution_owner_retains_the_original_receipt_across_reads() {
-        // Regression: interrupted submission retained pending or task recovery advice instead of the original unconfirmed receipt.
+        // Recurring bug class: interrupted submission retained pending or task recovery advice instead of the original unconfirmed receipt.
         let fixture = Sandbox::new();
         let mut row = json!({"requestId":id(),"operation":"agent_send","taskId":"fixture-task","digest":"fixture-digest","origin":crate::kernel::origin::current_origin(),"state":"reserved","backendSession":"fixture-session","createdAt":"2000-01-01T00:00:00Z"});
         fixture.store.reserve(&row).unwrap();
@@ -436,7 +436,7 @@ mod tests {
 
     #[test]
     fn settled_receipts_keep_existing_outcomes_and_results_after_owner_restart() {
-        // Regression: shared progress migration must preserve completed/failed receipts and their original result/error payloads.
+        // Recurring bug class: shared progress migration must preserve completed/failed receipts and their original result/error payloads.
         let fixture = Sandbox::new();
         for state in ["completed", "failed"] {
             let row = json!({"requestId":id(),"operation":"command","state":state,"backendSession":"old-session","createdAt":"2000-01-01T00:00:00Z","result":{"stdout":"original output","exitCode":if state == "completed" {0} else {1}},"error":if state == "failed" {json!({"code":"OPERATION_FAILED","message":"original error"})} else {Value::Null}});
@@ -468,7 +468,7 @@ mod tests {
 
     #[tokio::test]
     async fn receipt_and_task_polls_read_only_changed_summaries_after_warmup() {
-        // Regression: task-record invalidations revisited every retained receipt and could evict unchanged summaries by payload size.
+        // Recurring bug class: task-record invalidations revisited every retained receipt and could evict unchanged summaries by payload size.
         let control = control::Control::new(PathBuf::new());
         let mut counts = Vec::new();
         for history in [4, 40] {
@@ -538,7 +538,7 @@ mod tests {
     }
     #[tokio::test]
     async fn restart_adopts_receipts_and_repairs_only_the_interrupted_key() {
-        // Regression: D2b reparsed every retained receipt at each Core restart and lost an interrupted projection update.
+        // Recurring bug class: D2b reparsed every retained receipt at each Core restart and lost an interrupted projection update.
         let control = control::Control::new(PathBuf::new());
         for history in [4, 40] {
             let fixture = Sandbox::new();
@@ -588,7 +588,7 @@ mod tests {
     }
     #[tokio::test]
     async fn invalid_receipt_index_rebuilds_once_and_partial_migration_is_not_adopted() {
-        // Regression: D2c index publication must recover missing, corrupt, incompatible and interrupted generations before reads.
+        // Recurring bug class: D2c index publication must recover missing, corrupt, incompatible and interrupted generations before reads.
         let fixture = Sandbox::new();
         let active = fixture.receipt(false);
         let control = control::Control::new(PathBuf::new());
@@ -624,7 +624,7 @@ mod tests {
     }
     #[tokio::test]
     async fn interrupted_owner_migration_rebuilds_changed_provenance_before_projection() {
-        // Regression: interrupted source conversion left a published index with stale canonical source references.
+        // Recurring bug class: interrupted source conversion left a published index with stale canonical source references.
         let fixture = Sandbox::new();
         let mut receipt = fixture.receipt(true);
         fixture.store.seed().unwrap();
@@ -653,7 +653,7 @@ mod tests {
     }
     #[tokio::test]
     async fn oversized_receipt_payload_does_not_evict_its_summary() {
-        // Regression: the 32 MiB source-byte cache limit forced unchanged large receipts to be decoded on every task poll.
+        // Recurring bug class: the 32 MiB source-byte cache limit forced unchanged large receipts to be decoded on every task poll.
         let fixture = Sandbox::new();
         let control = control::Control::new(PathBuf::new());
         let mut row = json!({"requestId":id(),"operation":"create","state":"completed","backendSession":"fixture-session","result":{"threadId":"fixture-thread","payload":"x".repeat(33*1024*1024)}});
@@ -693,7 +693,7 @@ mod tests {
     }
     #[tokio::test]
     async fn runtime_changes_refresh_the_dependent_task_without_reading_other_receipts() {
-        // Regression: changing one native task snapshot rebuilt all retained receipt projections.
+        // Recurring bug class: changing one native task snapshot rebuilt all retained receipt projections.
         let fixture = Sandbox::new();
         let control = control::Control::new(PathBuf::new());
         for _ in 0..40 {
@@ -744,7 +744,7 @@ mod tests {
     }
     #[test]
     fn receipt_updates_and_restart_preserve_neighbors_in_the_same_prefix() {
-        // Regression: ax-c398fbae per-receipt index files exceeded the migration budget; grouped updates must retain neighboring receipts.
+        // Recurring bug class: ax-c398fbae per-receipt index files exceeded the migration budget; grouped updates must retain neighboring receipts.
         let fixture = Sandbox::new();
         let mut first = json!({"requestId":"aa000000-0000-4000-8000-000000000001","state":"completed","operation":"send","backendSession":"fixture-session"});
         let second = json!({"requestId":"aa000000-0000-4000-8000-000000000002","state":"completed","operation":"send","backendSession":"fixture-session"});

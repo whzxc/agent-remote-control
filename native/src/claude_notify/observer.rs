@@ -126,7 +126,7 @@ mod tests {
 
     #[test]
     fn only_settled_terminal_observations_can_be_reused() {
-        // Regression: completed and cancelled bindings repeatedly hydrated unchanged native histories at idle.
+        // Recurring bug class: completed and cancelled bindings repeatedly hydrated unchanged native histories at idle.
         let mut b: Binding = serde_json::from_value(json!({
             "threadId":"thread","turnId":"turn","target":null,"project":"",
             "terminal":true,"createdAt":0,"waiting":[],"deliveries":[],

@@ -6,7 +6,7 @@ import {assertNodeIdentity} from './helpers/dom-assert.ts';
 import {withDialog} from './helpers/layers-ui.ts';
 
 test('external navigation waits as attention while a modal draft remains open', async () => {
-  // Regression: external tray and deep-link navigation replaced surfaces behind an active dialog.
+  // Recurring bug class: external tray and deep-link navigation replaced surfaces behind an active dialog.
   await withDialog(async ({ server, root, settle }) => {
     const { default: Dialog } = await server.ssrLoadModule('/ui/components/ui/Dialog.tsx');
     const { Button } = await server.ssrLoadModule('/ui/components/ui/index.tsx');

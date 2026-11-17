@@ -102,7 +102,7 @@ test('query carries one complete JSON text result and preserves error envelopes'
 });
 
 test('owner digests and oversized defaults expose every snapshot row through valid MCP actions',async()=>{
-  // Regression: ax-9d1b45c5 oversized list reads exposed raw JSON prefixes instead of actionable metadata.
+  // Recurring bug class: ax-9d1b45c5 oversized list reads exposed raw JSON prefixes instead of actionable metadata.
   for(const c of cases){
     await fixture(c.op,c.value);
     const initial=await control.call(c.op,{...c.args,view:'digest'});
@@ -154,7 +154,7 @@ test('digest owner pagination preserves filters and reaches the next native page
 });
 
 test('oversized opaque identities retain JSON, detail access and UTF-16 full continuation',async()=>{
-  // Regression: a single oversized list row overflowed into an unusable sliced JSON prefix.
+  // Recurring bug class: a single oversized list row overflowed into an unusable sliced JSON prefix.
   const value={projects:[{id:'oversized-'+ '🧪'.repeat(6000),status:'registered',payload}]};
   await fixture('projects',value);
   const digest=await control.call('projects',{view:'digest'});budget(digest);
@@ -213,7 +213,7 @@ function sizedOwner(value: any, bytes: number) {
 }
 for(const op of ['codex_tasks','ax_list','accounts','notify_status','board','agent_tasks']) {
   test(`${op} default measures the final wire result before choosing a digest`,async()=>{
-    // Regression: default codex_tasks returned 12926 bytes because overflow was measured before transport enrichment.
+    // Recurring bug class: default codex_tasks returned 12926 bytes because overflow was measured before transport enrichment.
     const c=cases.find(c=>c.op===op)!;
     const owner=structuredClone(c.value);
     if(op==='codex_tasks'){owner.view='compact';owner.tasks=owner.tasks.slice(0,20);}
@@ -233,7 +233,7 @@ for(const op of ['codex_tasks','ax_list','accounts','notify_status','board','age
 }
 
 test('isolated notify digest preserves full-row actions in MCP text',async()=>{
-  // Regression: isolated-source notify_status digest rows were reported without detail actions.
+  // Recurring bug class: isolated-source notify_status digest rows were reported without detail actions.
   const value={
     targets:[{channel:'mcp-events',target:'private-route',reachability:'failed',pending:[]}],
     threads:[{threadId:'task-one',diagnosis:{terminal:false,scope:{active:true},reasons:['pending-observation']}}],
@@ -254,14 +254,14 @@ test('isolated notify digest preserves full-row actions in MCP text',async()=>{
 });
 
  test('account digest summaries retain visible aliases',async()=>{
-  // Regression: D4a account digest summaries omitted the account alias.
+  // Recurring bug class: D4a account digest summaries omitted the account alias.
   await fixture('accounts',{accounts:[{id:'account-fixture',alias:'Research account',health:{state:'ready'},quota:{state:'ready'},agentProfiles:[{agent:'codex',state:'signed-in'}]}]});
   const result=await control.call('accounts',{view:'digest'});
   assert.ok(result.rows[0].summary.includes('Research account'));
  });
 
 test('digest wire size includes escaping and JSON-RPC framing',async t=>{
-  // Regression: ax-f60511f4 duplicated a 7.7 KB digest into a 16.6 KB JSON-RPC message.
+  // Recurring bug class: ax-f60511f4 duplicated a 7.7 KB digest into a 16.6 KB JSON-RPC message.
   const owner={projects:Array.from({length:37},(_,i)=>({id:`fixture-${i}`,status:'registered',title:'🧪"\\\n'.repeat(20)}))};
   await fixture('projects',owner);
   const digest=await control.sourceResponse('digest-local','projects',{view:'digest'},'query');

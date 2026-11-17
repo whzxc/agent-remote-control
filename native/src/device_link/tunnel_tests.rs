@@ -188,7 +188,7 @@ async fn challenge_sessions_are_bounded_and_revoked() {
 }
 #[tokio::test]
 async fn refused_addresses_finish_without_heartbeat_wait() {
-    // Regression: 33 s offline on real MacBook because stale virtual link-local addresses masked all-address refusal.
+    // Recurring bug class: 33 s offline on real MacBook because stale virtual link-local addresses masked all-address refusal.
     let directory = std::env::temp_dir().join(format!("arc-refusal-{}", id()));
     let identity = Identity::load_or_create(&directory).unwrap();
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();

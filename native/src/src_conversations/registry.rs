@@ -104,7 +104,7 @@ mod tests {
     }
     #[test]
     fn single_active_chat_keeps_canonical_identity_and_accumulates_aliases() {
-        // Regression: AX ax-8b883850 created a separate Cowork record for one active Chat.
+        // Recurring bug class: AX ax-8b883850 created a separate Cowork record for one active Chat.
         let original = chat("chat-one", "owner", json!(AT));
         let mut rows = vec![original.clone(), chat("peer", "other", json!(AT))];
         let mut bindings = BTreeMap::new();
@@ -132,7 +132,7 @@ mod tests {
     }
     #[test]
     fn zero_or_multiple_recent_chats_do_not_infer_an_alias() {
-        // Regression: ambiguous or missing active Chat evidence must leave the session separate.
+        // Recurring bug class: ambiguous or missing active Chat evidence must leave the session separate.
         for mut rows in [
             vec![],
             vec![
@@ -153,7 +153,7 @@ mod tests {
     }
     #[test]
     fn existing_cowork_merges_bindings_and_earliest_observation_only_for_this_session() {
-        // Regression: pre-existing session records split taskRefs and lost earlier observation times.
+        // Recurring bug class: pre-existing session records split taskRefs and lost earlier observation times.
         let mut cowork = target();
         cowork["accountId"] = json!("owner");
         cowork["firstSeenAt"] = json!("2025-12-01T00:00:00Z");

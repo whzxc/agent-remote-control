@@ -44,7 +44,7 @@ async fn wait_remote(client: &Client) {
 
 #[tokio::test]
 async fn desktop_recovers_core_and_remote_connections_independently() {
-    // Regression: a source disconnect stopped its remote transport, and Core replacement left intended connections offline.
+    // Recurring bug class: a source disconnect stopped its remote transport, and Core replacement left intended connections offline.
     let state =
         IsolatedCore(std::env::temp_dir().join(format!("arc-hub-{}", uuid::Uuid::new_v4())));
     std::env::set_var("ARC_STATE_DIR", &state.0);

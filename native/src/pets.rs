@@ -445,7 +445,7 @@ mod tests {
     use super::*;
     #[test]
     fn page_resolution_is_host_and_path_bounded() {
-        // Property: only exact HTTPS community pet page hosts and single safe identifiers resolve.
+        // Algorithmic core: only exact HTTPS community pet page hosts and single safe identifiers resolve.
         for url in [
             "https://codex-pets.net/#/pets/claude-maiden",
             "https://codex-pets.net/pets/claude-maiden",
@@ -473,7 +473,7 @@ mod tests {
     }
     #[test]
     fn atlas_dimensions_and_manifest_agree() {
-        // Property: a decoded atlas accepts exactly the two supported dimensions and matching declared versions.
+        // Algorithmic core: a decoded atlas accepts exactly the two supported dimensions and matching declared versions.
         for (w, h, v, valid) in [
             (1536, 1872, 1, true),
             (1536, 2288, 2, true),
@@ -492,7 +492,7 @@ mod tests {
     }
     #[test]
     fn archives_cannot_escape_or_add_files() {
-        // Property: ZIP imports reject traversal, duplicates, symlinks and unrelated files before extraction.
+        // Algorithmic core: ZIP imports reject traversal, duplicates, symlinks and unrelated files before extraction.
         use std::io::Write;
         for names in [
             ["../pet.json", "spritesheet.webp"],

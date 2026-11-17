@@ -896,7 +896,7 @@ mod tests {
     }
     #[test]
     fn claude_sequence_requires_remote_challenge_and_delivery() {
-        // Property: claude sequence requires remote challenge and delivery.
+        // Algorithmic core: claude sequence requires remote challenge and delivery.
         let (mut state, mut data) = fixture("claude-loop");
         assert_eq!(current(&state, &data), "choose-address");
         state["choices"]["choose-address"] = json!("cf-quick");
@@ -951,7 +951,7 @@ mod tests {
     }
     #[test]
     fn fixed_address_waits_for_saved_credential() {
-        // Property: fixed address waits for saved credential.
+        // Algorithmic core: fixed address waits for saved credential.
         let (mut state, mut data) = fixture("claude-loop");
         state["choices"]["choose-address"] = json!("fixed");
         let mut i = claude();
@@ -978,7 +978,7 @@ mod tests {
     }
     #[test]
     fn chatgpt_sequence_separates_credentials_mcp_and_challenge() {
-        // Property: chatgpt sequence separates credentials mcp and challenge.
+        // Algorithmic core: chatgpt sequence separates credentials mcp and challenge.
         let (state, mut data) = fixture("chatgpt-chat");
         assert_eq!(current(&state, &data), "tunnel-credentials");
         data["ingresses"] = json!([{"id":"default","controlSource":"chatgpt","transport":"openai-tunnel","config":{}}]);
@@ -1026,7 +1026,7 @@ mod tests {
     }
     #[test]
     fn decisions_and_login_are_not_inferred_from_other_readiness() {
-        // Property: decisions and login are not inferred from other readiness.
+        // Algorithmic core: decisions and login are not inferred from other readiness.
         let (mut state, mut data) = fixture("claude-loop");
         assert_eq!(current(&json!({"choices":{}}), &data), "choose-goal");
         data["login"]["state"] = json!("unauthenticated");
@@ -1057,7 +1057,7 @@ mod tests {
     }
     #[test]
     fn chatgpt_fallback_reuses_https_oauth_without_claude_notifications() {
-        // Property: chatgpt fallback reuses https oauth without claude notifications.
+        // Algorithmic core: chatgpt fallback reuses https oauth without claude notifications.
         let (mut state, mut data) = fixture("chatgpt-chat");
         state["choices"]["chatgpt-blocked"] = json!("platform-denied");
         assert_eq!(current(&state, &data), "chatgpt-fallback");

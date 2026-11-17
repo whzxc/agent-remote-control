@@ -64,7 +64,7 @@ async function until(read: () => Promise<any>, ready: (value: any) => boolean) {
 }
 
 test('agent archive refuses active work and interactions, then retains flushed evidence with durable replay', { skip: process.platform === 'win32' }, async () => {
-  // Regression: the AX self-test cleanup gap left non-Codex Agent tasks and processes behind with no archive operation.
+  // Recurring bug class: the AX self-test cleanup gap left non-Codex Agent tasks and processes behind with no archive operation.
   const f = await setup();
   try {
     const agent = 'opencode';
@@ -130,7 +130,7 @@ test('agent archive refuses active work and interactions, then retains flushed e
 });
 
 test('Pi archival hides native conversation duplicates and works while disabled without deleting upstream data', { skip: process.platform === 'win32' }, async () => {
-  // Regression: the AX cleanup gap had no Pi archive path and skipping ARC records alone resurfaced their native transcripts.
+  // Recurring bug class: the AX cleanup gap had no Pi archive path and skipping ARC records alone resurfaced their native transcripts.
   const f = await setup();
   try {
     const agent = 'pi';

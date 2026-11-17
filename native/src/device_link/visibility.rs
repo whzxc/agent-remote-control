@@ -92,7 +92,7 @@ mod tests {
     use super::*;
     #[test]
     fn visibility_requires_dispatch_from_the_authenticated_peer_device() {
-        // Property: remote dispatch ownership follows the controller device across peer source renewal.
+        // Algorithmic core: remote dispatch ownership follows the controller device across peer source renewal.
         let peer = json!({"sourceId":"controller-a","authType":"peer","deviceId":"device-a"});
         let other = json!({"sourceId":"controller-b","authType":"peer","deviceId":"device-b"});
         let local = json!({"sourceId":"controller-a","authType":"local"});
@@ -109,7 +109,7 @@ mod integration_tests {
     use super::*;
     #[tokio::test]
     async fn peer_receipts_keep_controller_attribution_and_hide_foreign_work() {
-        // Regression: peer receipt reads exposed member-local work without checking controller dispatch ownership.
+        // Recurring bug class: peer receipt reads exposed member-local work without checking controller dispatch ownership.
         if super::super::tunnel_fixture::isolate("device_link::visibility::integration_tests::peer_receipts_keep_controller_attribution_and_hide_foreign_work").await { return; }
         crate::init_crypto();
         crate::sources::initialize().unwrap();

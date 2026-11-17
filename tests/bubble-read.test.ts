@@ -5,7 +5,7 @@ import { createServer } from "vite";
 import { act, createElement as h } from "react";
 
 test("late terminal evidence preserves acknowledged completions after activity tracking resets", async () => {
-  // Regression: a reloaded completion reappeared unread when terminal evidence arrived after the activity snapshot.
+  // Recurring bug class: a reloaded completion reappeared unread when terminal evidence arrived after the activity snapshot.
   const window = new Window({ url: "http://localhost" });
   const media = { matches: true, addEventListener() {}, removeEventListener() {} };
   Object.assign(globalThis, { window, document: window.document, HTMLElement: window.HTMLElement, Element: window.Element,

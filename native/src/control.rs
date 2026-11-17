@@ -3688,7 +3688,7 @@ mod pagination_tests {
     use super::*;
     #[tokio::test]
     async fn fresh_submission_skips_unmaterialized_history_but_existing_turns_are_read() {
-        // Regression: 775472c; fresh submission skips unmaterialized history but existing turns are read.
+        // Recurring bug class: 775472c; fresh submission skips unmaterialized history but existing turns are read.
         let history = submission_history(true, |_| {
             std::future::ready(Err("thread is not materialized yet".into()))
         })
@@ -3708,7 +3708,7 @@ mod pagination_tests {
     }
     #[test]
     fn cleanup_ignores_only_unmaterialized_threads() {
-        // Property: cleanup ignores only unmaterialized threads.
+        // Algorithmic core: cleanup ignores only unmaterialized threads.
         assert_eq!(cleanup_result(Err("NATIVE_RPC_ERROR: thread example is not materialized yet; thread/archive is unavailable before first user message".into())).unwrap(), json!({"archived":false,"reason":"thread-not-materialized"}));
         assert_eq!(
             cleanup_result(Ok(json!({}))).unwrap(),
@@ -3721,7 +3721,7 @@ mod pagination_tests {
     }
     #[test]
     fn desktop_cursor_retains_binding_and_explains_restart() {
-        // Property: desktop cursor retains binding and explains restart.
+        // Algorithmic core: desktop cursor retains binding and explains restart.
         let mut args =
             json!({"threadId":"thread","turnId":"turn","sortDirection":"desc","limit":1});
         let data = vec![json!({"id":"one"}), json!({"id":"two"})];

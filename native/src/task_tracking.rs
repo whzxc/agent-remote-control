@@ -8,7 +8,6 @@ use std::collections::HashMap;
 
 mod antigravity;
 #[cfg(test)]
-mod projection_tests;
 mod transcript_input;
 mod transcripts;
 pub(crate) use transcript_input::transcript_user_text;
@@ -1865,7 +1864,7 @@ mod tests {
 
     #[test]
     fn stream_stability_late_events_do_not_reopen_terminal_turns() {
-        // Regression: reader EOF and late permission or Pi events overwrote terminal turn outcomes.
+        // Recurring bug class: reader EOF and late permission or Pi events overwrote terminal turn outcomes.
         let status = "completed";
         let mut timeline = Timeline::default();
         let at = "2026-01-01T00:00:00Z";
@@ -1901,7 +1900,7 @@ mod tests {
 
     #[test]
     fn native_history_completion_survives_inflight_items_and_checkpoint_restore() {
-        // Regression: history completion was discarded when late item deltas arrived during the native read.
+        // Recurring bug class: history completion was discarded when late item deltas arrived during the native read.
         let at = "2026-01-01T00:00:00Z";
         let mut timeline = Timeline {
             info: json!({"id":"thread","agent":"codex"}),
@@ -1960,7 +1959,7 @@ mod tests {
 
     #[test]
     fn finished_async_questions_do_not_reactivate_input_work_or_move_to_a_new_turn() {
-        // Regression: repeated pending sync revived a terminal turn as waiting for an asynchronous answer.
+        // Recurring bug class: repeated pending sync revived a terminal turn as waiting for an asynchronous answer.
         let mut timeline = Timeline::default();
         let at = "2026-01-01T00:00:00Z";
         timeline.codex("turn/started", &json!({"turn":{"id":"old"}}), at);
@@ -1999,7 +1998,7 @@ mod tests {
 
     #[test]
     fn silent_command_output_is_empty_without_hiding_literal_null() {
-        // Regression: silent native commands rendered a JSON null as the literal text null in task panels.
+        // Recurring bug class: silent native commands rendered a JSON null as the literal text null in task panels.
         for (output, expected) in [
             (None, ""),
             (Some(Value::Null), ""),
@@ -2026,7 +2025,7 @@ mod tests {
     const LATER: &str = "2026-01-01T00:00:01.000Z";
     #[test]
     fn restored_answers_keep_distinct_native_sessions_and_turns() {
-        // Regression: native request IDs restart at zero and must not overwrite answers from earlier turns.
+        // Recurring bug class: native request IDs restart at zero and must not overwrite answers from earlier turns.
         let mut timeline = Timeline::default();
         for (session, turn, answer) in [("first", "one", "A"), ("second", "two", "B")] {
             timeline.answered(&json!({"backendSession":session,"id":0,"method":"item/tool/requestUserInput","params":{"turnId":turn,"questions":[{"id":"q","question":"Choose"}]}}), &json!({"result":{"answer":answer},"origin":{"controlSource":"ARC"},"resolvedAt":"2026-01-01T00:00:00Z"}));
@@ -2040,7 +2039,7 @@ mod tests {
 
     #[test]
     fn file_changes_preserve_native_operations() {
-        // Property: native file-change operations remain explicit without guessing from diff counts.
+        // Algorithmic core: native file-change operations remain explicit without guessing from diff counts.
         for (kind, operation) in [("add", "create"), ("update", "edit"), ("delete", "delete")] {
             let row = file_change(&json!({"path":"example.txt","kind":{"type":kind}}));
             assert_eq!(row["operation"], operation);
@@ -2050,7 +2049,7 @@ mod tests {
 
     #[test]
     fn recent_steps_merge_chunks_and_updates_and_keep_last_five_in_order() {
-        // Property: recent steps merge chunks and updates and keep last five in order.
+        // Algorithmic core: recent steps merge chunks and updates and keep last five in order.
         let mut timeline = Timeline::default();
         let snapshot =
             |t: &Timeline| t.session("example", &json!({"id":"example"}), "arc-task", None);
@@ -2084,7 +2083,7 @@ mod tests {
     }
     #[test]
     fn empty_reasoning_keeps_phase_and_uses_recent_readable_content() {
-        // Property: empty reasoning keeps phase and uses recent readable content.
+        // Algorithmic core: empty reasoning keeps phase and uses recent readable content.
         let mut t = Timeline::default();
         let info = json!({"id":"example","title":"Task title"});
         t.codex_item(
@@ -2131,7 +2130,7 @@ mod tests {
     }
     #[test]
     fn claude_transcript_projects_readonly_text_and_tool_results() {
-        // Property: claude transcript projects readonly text and tool results.
+        // Algorithmic core: claude transcript projects readonly text and tool results.
         let records = vec![
             json!({"uuid":"meta","timestamp":AT,"isMeta":true,"message":{"role":"user","content":"Injected"}}),
             json!({"uuid":"u","timestamp":AT,"message":{"role":"user","content":"Read example"}}),
@@ -2176,7 +2175,7 @@ mod tests {
     }
     #[test]
     fn codex_history_merges_by_item_and_preserves_inflight_updates() {
-        // Property: codex history merges by item and preserves inflight updates.
+        // Algorithmic core: codex history merges by item and preserves inflight updates.
         let mut t = Timeline::default();
         t.turn = "turn".into();
         t.status = "running".into();
@@ -2228,7 +2227,7 @@ mod tests {
     }
     #[test]
     fn codex_history_completes_unobserved_items_and_detects_missing_history() {
-        // Property: codex history completes unobserved items and detects missing history.
+        // Algorithmic core: codex history completes unobserved items and detects missing history.
         let mut t = Timeline::default();
         t.partial = true;
         t.codex_item(
@@ -2275,7 +2274,7 @@ mod tests {
     }
     #[test]
     fn acp_fixture_projects_entries_evidence_and_snapshot() {
-        // Property: acp fixture projects entries evidence and snapshot.
+        // Algorithmic core: acp fixture projects entries evidence and snapshot.
         let t = fixture();
         assert_eq!(
             t.entries
@@ -2310,7 +2309,7 @@ mod tests {
     }
     #[test]
     fn incremental_chunks_and_tool_updates_keep_identity_and_start_time() {
-        // Property: incremental chunks and tool updates keep identity and start time.
+        // Algorithmic core: incremental chunks and tool updates keep identity and start time.
         let mut t = Timeline::default();
         acp(
             &mut t,
@@ -2347,7 +2346,7 @@ mod tests {
     }
     #[test]
     fn resolved_approval_restores_running_command_phase_and_start() {
-        // Property: resolved approval restores running command phase and start.
+        // Algorithmic core: resolved approval restores running command phase and start.
         let mut t = Timeline::default();
         let info = json!({"id":"task","taskId":"task","agent":"example","startedAt":AT});
         acp(
@@ -2387,7 +2386,7 @@ mod tests {
     }
     #[test]
     fn running_command_wins_over_late_completed_file_updates() {
-        // Property: running command wins over late completed file updates.
+        // Algorithmic core: running command wins over late completed file updates.
         let mut t = Timeline::default();
         let info = json!({"id":"task","taskId":"task","agent":"example","startedAt":AT});
         for (id, kind) in [("read", "read"), ("write", "edit")] {
@@ -2453,7 +2452,7 @@ mod tests {
     }
     #[test]
     fn headlines_are_plain_text_without_changing_commands_or_paths() {
-        // Property: headlines are plain text without changing commands or paths.
+        // Algorithmic core: headlines are plain text without changing commands or paths.
         for (source, expected) in [
             (
                 "**Configuring session timing**",
@@ -2497,7 +2496,7 @@ mod tests {
     }
     #[test]
     fn permission_backfill_preserves_request_and_respond_identity() {
-        // Property: permission backfill preserves request and respond identity.
+        // Algorithmic core: permission backfill preserves request and respond identity.
         let mut t = Timeline::default();
         acp(
             &mut t,
@@ -2523,7 +2522,7 @@ mod tests {
     }
     #[test]
     fn exit_code_is_conservative_and_raw_output_wins() {
-        // Property: exit code is conservative and raw output wins.
+        // Algorithmic core: exit code is conservative and raw output wins.
         assert_eq!(exit_code(&json!({"exitCode":3}), "Exit code: 0"), Some(3));
         assert_eq!(
             exit_code(&Value::Null, "all tests passed: 0 failures"),
@@ -2572,7 +2571,7 @@ mod tests {
     }
     #[test]
     fn secrets_redacted_before_summary_truncation_and_across_chunks() {
-        // Property: secrets redacted before summary truncation and across chunks.
+        // Algorithmic core: secrets redacted before summary truncation and across chunks.
         let input = json!({"command":"echo example","nested":{"api_key":"fixture-only-value","refreshToken":"fixture-only-refresh"}});
         let out = summary(&input).to_string();
         assert!(!out.contains("fixture-only-value"));
@@ -2606,7 +2605,7 @@ mod tests {
     }
     #[test]
     fn bounded_window_and_text_report_partial_and_survive_persistence() {
-        // Property: bounded window and text report partial and survive persistence.
+        // Algorithmic core: bounded window and text report partial and survive persistence.
         let mut t = Timeline::default();
         for i in 0..=MAX_ENTRIES {
             t.put(
@@ -2630,7 +2629,7 @@ mod tests {
     }
     #[test]
     fn pi_streams_final_messages_tools_and_interactions_without_duplicates() {
-        // Property: pi streams final messages tools and interactions without duplicates.
+        // Algorithmic core: pi streams final messages tools and interactions without duplicates.
         let mut t = Timeline::default();
         t.agent("arc/user", &json!({"turnId":"turn","text":"Example"}), AT);
         for part in ["first ", "message"] {
@@ -2654,7 +2653,7 @@ mod tests {
     }
     #[test]
     fn codex_typed_items_deltas_and_pending_requests() {
-        // Property: codex typed items deltas and pending requests.
+        // Algorithmic core: codex typed items deltas and pending requests.
         let mut t = Timeline::default();
         t.codex("turn/started", &json!({"turn":{"id":"turn"}}), AT);
         t.codex(
@@ -2701,7 +2700,7 @@ mod tests {
     }
     #[tokio::test]
     async fn shared_codex_event_window_marks_only_observed_thread_partial() {
-        // Regression: event eviction must not mark an unrelated thread as partial.
+        // Recurring bug class: event eviction must not mark an unrelated thread as partial.
         let events: SharedEvents = Default::default();
         events
             .lock()

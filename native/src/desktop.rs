@@ -964,7 +964,7 @@ mod tests {
     #[cfg(unix)]
     #[tokio::test]
     async fn cancelled_desktop_requests_release_pending_storage() {
-        // Regression: outer notification timeouts abandoned Desktop IPC pending requests indefinitely.
+        // Recurring bug class: outer notification timeouts abandoned Desktop IPC pending requests indefinitely.
         let (ipc, peer) = diagnostic_fixture().await;
         for _ in 0..32 {
             assert!(tokio::time::timeout(
@@ -985,7 +985,7 @@ mod tests {
     #[cfg(unix)]
     #[tokio::test]
     async fn desktop_snapshots_are_bounded_and_expire_without_rereading_old_threads() {
-        // Regression: visited Desktop histories accumulated because TTL cleanup only visited the requested key.
+        // Recurring bug class: visited Desktop histories accumulated because TTL cleanup only visited the requested key.
         let (ipc, peer) = diagnostic_fixture().await;
         let retained = ipc.read("retained-reader", true).await.unwrap();
         for n in 0..80 {
@@ -1011,7 +1011,7 @@ mod tests {
     }
     #[test]
     fn only_definite_missing_owner_allows_loading_fallback() {
-        // Property: only definite missing owner allows loading fallback.
+        // Algorithmic core: only definite missing owner allows loading fallback.
         assert!(owner_missing("DESKTOP_REJECTED:\"no-client-found\""));
         assert!(owner_missing("DESKTOP_OWNER_NOT_FOUND"));
         for error in [

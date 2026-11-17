@@ -263,7 +263,7 @@ mod tests {
 
     #[test]
     fn inherited_configuration_survives_policy_changes() {
-        // Regression: A policy edit after task creation replaced inherited Antigravity values and rejected follow-ups.
+        // Recurring bug class: A policy edit after task creation replaced inherited Antigravity values and rejected follow-ups.
         let mut policy = crate::dispatch_policy::AgentPolicy::default();
         policy.model = Some("policy-model".into());
         policy.options.insert("effort".into(), "low".into());

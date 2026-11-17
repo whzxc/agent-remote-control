@@ -9,7 +9,7 @@ import { checkTokens } from '../tooling/check-ui-tokens.mjs';
 import { lengthDifference, deltaE, valueDifference } from '../tooling/token-distance.mjs';
 
 test('feature presentation accepts tokens and rejects unowned literal paint', async () => {
-  // Regression: layout-only policy forced single-feature visuals into the shared library.
+  // Recurring bug class: layout-only policy forced single-feature visuals into the shared library.
   const root = await mkdtemp(path.join(tmpdir(), 'arc-style-policy-'));
   try {
     await mkdir(path.join(root, 'ui/components/ui'), { recursive: true });
@@ -28,7 +28,7 @@ test('feature presentation accepts tokens and rejects unowned literal paint', as
 });
 
 test('shared parts count feature boundaries through aliases without counting composition ancestors', async () => {
-  // Regression: feature-local wrappers appeared reusable when App ancestors were counted as consumers.
+  // Recurring bug class: feature-local wrappers appeared reusable when App ancestors were counted as consumers.
   const root = await mkdtemp(path.join(tmpdir(), 'arc-consumer-policy-'));
   try {
     for (const dir of ['ui/components/ui','ui/devices','ui/pets']) await mkdir(path.join(root,dir),{recursive:true});
@@ -45,7 +45,7 @@ test('shared parts count feature boundaries through aliases without counting com
 
 
 test('runtime paint tokens require semantic names and independent feature consumers', async () => {
-  // Regression: governance wrapped single-feature literals in globally named tokens.
+  // Recurring bug class: governance wrapped single-feature literals in globally named tokens.
   const root = await mkdtemp(path.join(tmpdir(), 'arc-token-policy-'));
   try {
     for (const dir of ['design', 'tooling', 'ui/components/ui', 'ui/devices', 'ui/pets']) await mkdir(path.join(root, dir), { recursive: true });
@@ -70,7 +70,7 @@ test('runtime paint tokens require semantic names and independent feature consum
 
 
 test('small token differences consolidate unless three declarations use the value', async () => {
-  // Regression: governance added a two-use 19px line token beside the 18px and 20px scale.
+  // Recurring bug class: governance added a two-use 19px line token beside the 18px and 20px scale.
   const root = await mkdtemp(path.join(tmpdir(), 'arc-token-distance-'));
   try {
     for (const dir of ['design', 'tooling', 'ui/components/ui']) await mkdir(path.join(root, dir), {recursive:true});
@@ -88,7 +88,7 @@ test('small token differences consolidate unless three declarations use the valu
 });
 
 test('normalization thresholds require both absolute and relative length differences', () => {
-  // Property: large lengths exceed both thresholds; equal colors have zero perceptual distance.
+  // Algorithmic core: large lengths exceed both thresholds; equal colors have zero perceptual distance.
   assert.equal(lengthDifference(22,24).large,false);
   assert.equal(lengthDifference(27,24).large,false);
   assert.equal(lengthDifference(42,28).large,true);

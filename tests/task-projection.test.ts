@@ -4,14 +4,14 @@ import { changedFiles, processRows, processOpen, projectTurn, taskState } from "
 import type { AgentTimelineEntry } from "../ui/types.ts";
 const entry = (id: string, type: AgentTimelineEntry["type"], extra: Partial<AgentTimelineEntry> = {}): AgentTimelineEntry => ({ id, type, status: "completed", turnId: "turn", startedAt: null, updatedAt: "", cursor: 1, ...extra });
 test("tool runs merge without absorbing narrative or interaction boundaries", () => {
-  // Property: grouping preserves tool order and narrative boundaries without duplicating entries.
+  // Algorithmic core: grouping preserves tool order and narrative boundaries without duplicating entries.
   const entries = [entry("a", "file"), entry("b", "command"), entry("c", "text"), entry("d", "tool"), entry("e", "interaction"), entry("f", "command")];
   const rows = processRows(entries);
   assert.deepEqual(rows.map(row => row.kind), ["tools", "entry", "tools", "entry", "tools"]);
   assert.deepEqual(rows.flatMap(row => row.kind === "tools" ? row.entries : [row.entry]), entries);
 });
 test("the plan has one dock projection and reasoning retains transcript order", () => {
-  // Property: plans project separately while reasoning summaries retain their original order.
+  // Algorithmic core: plans project separately while reasoning summaries retain their original order.
   const entries = [entry("p1", "plan"), entry("t1", "thinking", { text: "First" }), entry("p2", "plan"), entry("t2", "thinking", { text: "Latest" }), entry("answer", "text", { phase: "final_answer", text: "Result" })];
   const live = projectTurn(entries, "running");
   assert.equal(live.plan?.id, "p2");
@@ -21,7 +21,7 @@ test("the plan has one dock projection and reasoning retains transcript order", 
   assert.equal(projectTurn(entries, "done").final?.id, "answer");
 });
 test("live turns move running tools to the activity row and keep every other entry in order", () => {
-  // Property: each work entry appears exactly once, either in chronological process rows or in the live activity.
+  // Algorithmic core: each work entry appears exactly once, either in chronological process rows or in the live activity.
   const entries = [entry("prompt", "user"), entry("read", "command", { commandActions: [{ type: "read", path: "a" }] }), entry("note", "text"),
     entry("edit", "file", { operation: "edit", path: "a" }), entry("check", "command", { status: "running" }), entry("lookup", "tool", { status: "running" })];
   const { rows, activity } = projectTurn(entries, "running");
@@ -31,13 +31,13 @@ test("live turns move running tools to the activity row and keep every other ent
   assert.deepEqual(projectTurn(entries, "interrupted").rows.flatMap(row => row.kind === "tools" ? row.entries : [row.entry]).map(item => item.id), ["read", "note", "edit", "check", "lookup"]);
 });
 test("live reasoning comes only from thinking after the latest agent message", () => {
-  // Regression: an earlier reasoning summary was shown under a newer narrative as if it were current.
+  // Recurring bug class: an earlier reasoning summary was shown under a newer narrative as if it were current.
   const stale = [entry("think", "thinking", { text: "**Fixing the port type**\n\nDetails." }), entry("note", "text", { text: "Type checks pass." })];
   assert.equal(projectTurn(stale, "running").activity?.thought, undefined);
   assert.equal(projectTurn([...stale, entry("next", "thinking", { text: "**Checking overrides**\n\nMore." })], "running").activity?.thought, "Checking overrides");
 });
 test("tool summaries account for every observed action and failure", async () => {
-  // Property: shown parts plus the remainder equal the full counts, at most three parts are shown, and failures are counted once.
+  // Algorithmic core: shown parts plus the remainder equal the full counts, at most three parts are shown, and failures are counted once.
   const { toolSummary, toolCounts } = await import("../ui/state/taskProjection.ts");
   const kinds = [
     entry("search", "command", { commandActions: [{ type: "search" }] }), entry("read", "file", { operation: "read", path: "a" }),
@@ -56,7 +56,7 @@ test("tool summaries account for every observed action and failure", async () =>
   assert.deepEqual(toolSummary(kinds).parts.map(part => part.kind), ["edit", "command"]);
 });
 test("terminal state and process folding preserve explicit disclosure choices", () => {
-  // Regression: failed and interrupted process disclosures ignored user clicks after starting expanded.
+  // Recurring bug class: failed and interrupted process disclosures ignored user clicks after starting expanded.
   assert.equal(taskState("completed", false), "done");
   assert.equal(taskState("failed", false), "failed");
   assert.equal(taskState("cancelled", false), "interrupted");
@@ -74,7 +74,7 @@ test("terminal state and process folding preserve explicit disclosure choices", 
   assert.equal(projectTurn([entry("failed-command", "command", { status: "failed" }), entry("final", "text")], "done").final?.id, "final");
 });
 test("changed files omit failed writes and never invent missing counts", () => {
-  // Property: only completed writes contribute changes and unknown line counts stay unknown.
+  // Algorithmic core: only completed writes contribute changes and unknown line counts stay unknown.
   assert.deepEqual(changedFiles([entry("read", "file", { path: "a", operation: "read" }), entry("fail", "file", { path: "b", operation: "edit", status: "failed" })]), []);
   const files = changedFiles([entry("edit", "file", { changes: [{ path: "a", added: 2, removed: 1 }] }), entry("edit2", "file", { changes: [{ path: "a", added: 3, removed: 0 }, { path: "b" }] })]);
   assert.deepEqual(files, [{ path: "a", added: 5, removed: 1 }, { path: "b", added: undefined, removed: undefined }]);
@@ -90,7 +90,7 @@ test("changed files omit failed writes and never invent missing counts", () => {
 });
 
 test("questions preserve all IDs and explicit multi choice answers through the native respond path", async () => {
-  // Property: one synchronous question response covers every question ID and never dispatches a new task.
+  // Algorithmic core: one synchronous question response covers every question ID and never dispatches a new task.
   const { inputResponse, interactionQuestions } = await import("../ui/state/taskInteractions.ts");
   const interaction = { kind: "question" as const, summary: "Choose", method: "item/tool/requestUserInput", questions: [{ id: "one", question: "First", multiSelect: true, options: [{ label: "A" }, { label: "B" }] }, { id: "two", question: "Second" }], respond: { op: "codex_respond" as const, args: { respondToken: "example" } } };
   assert.equal(interactionQuestions(interaction)[0].multiple, true);
@@ -100,7 +100,7 @@ test("questions preserve all IDs and explicit multi choice answers through the n
   assert.equal(inputResponse({ ...interaction, method: "unsupported" }, {}, true), undefined);
 });
 test("asynchronous questions and Pi selectors keep distinct native answer formats", async () => {
-  // Property: asynchronous text and Pi choices retain their owner's response schema and selection constraints.
+  // Algorithmic core: asynchronous text and Pi choices retain their owner's response schema and selection constraints.
   const { inputResponse } = await import("../ui/state/taskInteractions.ts");
   const question = { kind: "question" as const, summary: "Choose", method: "request_user_input_async", respond: { op: "codex_respond" as const, args: { id: "question" } } };
   assert.deepEqual(inputResponse(question, { answer: ["Custom"] })?.args.result, { answer: "Custom" });
@@ -112,7 +112,7 @@ test("asynchronous questions and Pi selectors keep distinct native answer format
 });
 
 test("native command action metadata counts searches and reads without guessing from shell text", async () => {
-  // Property: structured command actions determine exploration counts while opaque commands remain commands.
+  // Algorithmic core: structured command actions determine exploration counts while opaque commands remain commands.
   const { toolCounts } = await import("../ui/state/taskProjection.ts");
   const counts = toolCounts([entry("a", "command", { commandActions: [{ type: "read", path: "a" }, { type: "search" }] }), entry("b", "command", { command: "cat hidden", status: "running" })]);
   assert.equal(counts.read, 1);
@@ -126,7 +126,7 @@ test("native command action metadata counts searches and reads without guessing 
 
 
 test('answered questions retain their transcript position', async () => {
-  // Property: answered interactions remain in transcript order and retain their response evidence.
+  // Algorithmic core: answered interactions remain in transcript order and retain their response evidence.
   const { interactionSummary }=await import('../ui/state/taskInteractions.ts');
   const interaction={kind:'question' as const,summary:'Interaction required',respond:{},questions:[{id:'q',question:'Pick one',options:[{label:'A'},{label:'B'}]}]};
   const result=projectTurn([entry('answer','interaction',{status:'completed',interaction})],'done');
@@ -137,7 +137,7 @@ test('answered questions retain their transcript position', async () => {
 
 
 test('lifecycle notices do not displace the final reply or create error rows', () => {
-  // Regression: a trailing lifecycle notice displaced an unmarked final reply and rendered as an error.
+  // Recurring bug class: a trailing lifecycle notice displaced an unmarked final reply and rendered as an error.
   const answer = entry('final', 'text', { text: 'Retained reply' });
   const notice = entry('notice', 'notice');
   const result = projectTurn([entry('request', 'user'), answer, notice], 'done');
@@ -147,7 +147,7 @@ test('lifecycle notices do not displace the final reply or create error rows', (
 
 
 test("task evidence is scoped to its turn and idle is not completion", async () => {
-  // Regression: idle and a newer turn's result were presented as successful execution.
+  // Recurring bug class: idle and a newer turn's result were presented as successful execution.
   const { executionStatus, activityState, executionPhase } = await import("../ui/state/taskExecutionModel.ts");
   const execution = { status: "completed", turnId: "new", turnStatuses: { old: "failed", new: "completed" }, interactions: [] };
   const session = { id: "task", source: "transcript" as const, turnId: "old", phase: "tool" as const, phaseSince: null, headline: "", timeline: true, observed: false };
@@ -166,7 +166,7 @@ test("task evidence is scoped to its turn and idle is not completion", async () 
 
 
 test("resolved and previous-turn interactions do not recreate waiting input", async () => {
-  // Regression: historical or answered pending entries disagreed with the task header's input state.
+  // Recurring bug class: historical or answered pending entries disagreed with the task header's input state.
   const { pendingSessions } = await import("../ui/state/taskInteractions.ts");
   const interaction = { kind: "question" as const, summary: "Choose", respond: { op: "codex_respond" as const, args: { id: "question" } } };
   const session = { id: "task", source: "codex-thread" as const, turnId: "current", phase: "text" as const, phaseSince: null, headline: "", timeline: true };
@@ -178,7 +178,7 @@ test("resolved and previous-turn interactions do not recreate waiting input", as
 });
 
 test('homepage task groups put inactive work with missing outcomes into completed history', async () => {
-  // Property: only observed live work contributes active counts and acknowledged completions enter recent history.
+  // Algorithmic core: only observed live work contributes active counts and acknowledged completions enter recent history.
   const { homepageTaskGroup, nodeTaskState, capsuleItems } = await import('../ui/state/activityModel.ts');
   const session = { id: 'sample', source: 'arc-task' as const, phase: 'thinking' as const, headline: '', phaseSince: null, timeline: false, orderAt: 0 };
   assert.equal(homepageTaskGroup({ ...session, observed: false }, false), 'recent');
@@ -196,7 +196,7 @@ test('homepage task groups put inactive work with missing outcomes into complete
 });
 
 test('remote cards preserve scope, recorded exceptions and offline freshness', async () => {
-  // Regression: remote records were unavailable to the homepage and receipt completion could be mistaken for task completion.
+  // Recurring bug class: remote records were unavailable to the homepage and receipt completion could be mistaken for task completion.
   const { projectDeviceTasks } = await import('../ui/state/activityModel.ts');
   const device = { id: 'member', state: 'online', lastSeen: '2026-01-01T00:00:00Z' };
   const snapshot = { observedAt: device.lastSeen, agents: { codex: { sessions: [{ id: 'running', source: 'arc-task', phase: 'thinking', headline: 'Inspect queue', phaseSince: null, timeline: false }] } }, records: [
@@ -213,7 +213,7 @@ test('remote cards preserve scope, recorded exceptions and offline freshness', a
 
 
 test('recorded timestamps preserve epoch units and omit unknown starts', async () => {
-  // Regression: a remote card displayed hundreds of thousands of elapsed minutes from an invalid start.
+  // Recurring bug class: a remote card displayed hundreds of thousands of elapsed minutes from an invalid start.
   const { recordedTimestamp } = await import('../ui/state/taskProjection.ts');
   const milliseconds = Date.parse('2026-01-01T00:00:00Z');
   assert.equal(recordedTimestamp(milliseconds / 1000), milliseconds);
@@ -226,7 +226,7 @@ test('recorded timestamps preserve epoch units and omit unknown starts', async (
 
 
 test('nodes show the latest recorded exception and omit a badge for unknown history', async () => {
-  // Regression: an online LAN device inherited the unconfirmed ring from a retained remote dispatch record.
+  // Recurring bug class: an online LAN device inherited the unconfirmed ring from a retained remote dispatch record.
   const { nodeTaskState, capsuleItems } = await import('../ui/state/activityModel.ts');
   const task = { key: 'remote', agent: 'codex', session: { id: 'remote', orderAt: 0 }, group: 'recent', sourceIds: [], activity: { steps: [] }, partial: true };
   const online = nodeTaskState([task], 'online');
@@ -242,7 +242,7 @@ test('nodes show the latest recorded exception and omit a badge for unknown hist
 });
 
 test("failed turns retain command evidence and leave the terminal message to the outcome", () => {
-  // Regression: relay-failed repeated its terminal error in both the work rail and failure card.
+  // Recurring bug class: relay-failed repeated its terminal error in both the work rail and failure card.
   const earlierError = entry("earlier", "error", { text: "A recovered warning" });
   const command = entry("check", "command", { status: "failed", output: { text: "Type error: expected a string." } });
   const terminal = entry("failure", "error", { text: "Verification failed" });
@@ -253,7 +253,7 @@ test("failed turns retain command evidence and leave the terminal message to the
 });
 
 test('task presentation prefers explicit exceptions and keeps the evidence state separate', async () => {
-  // Property: lack of evidence falls back to completion only in presentation, and same-turn exceptions take precedence.
+  // Algorithmic core: lack of evidence falls back to completion only in presentation, and same-turn exceptions take precedence.
   const { presentTaskState, taskState, taskStatusEvidence } = await import('../ui/state/taskProjection.ts');
   assert.equal(taskState(undefined, false), 'unknown');
   assert.equal(presentTaskState(undefined, false), 'done');

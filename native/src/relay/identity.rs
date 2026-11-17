@@ -97,7 +97,7 @@ mod tests {
     use super::*;
     #[test]
     fn signature_binds_origin_challenge_and_exact_payload() {
-        // Property: signature binds origin challenge and exact payload.
+        // Algorithmic core: signature binds origin challenge and exact payload.
         let key = Identity::from_bytes(&Identity::generate().unwrap()).unwrap();
         let e = key.envelope("https://relay.example", "nonce", &json!({"op":"list"}));
         let sig = STANDARD.decode(string(&e, "signature")).unwrap();
@@ -115,7 +115,7 @@ mod tests {
     }
     #[test]
     fn links_bind_origin_and_keep_token_in_fragment() {
-        // Property: links bind origin and keep token in fragment.
+        // Algorithmic core: links bind origin and keep token in fragment.
         let token = STANDARD.encode([7u8; 32]);
         let link = share_link("https://relay.example", &token);
         assert_eq!(

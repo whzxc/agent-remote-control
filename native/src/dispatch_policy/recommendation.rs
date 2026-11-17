@@ -863,7 +863,7 @@ mod tests {
     }
     #[test]
     fn standard_tier_selects_model_with_only_optional_native_tiers() {
-        // Regression: a pack with serviceTier default excluded every candidate as capability_unsupported when native tiers listed only priority.
+        // Recurring bug class: a pack with serviceTier default excluded every candidate as capability_unsupported when native tiers listed only priority.
         let mut input = facts();
         input["packs"]["review"]["serviceTier"] = json!("default");
         input["agents"][0]["models"][0]["serviceTiers"] = json!([{"id":"priority","name":"Fast"}]);
@@ -876,7 +876,7 @@ mod tests {
     }
     #[test]
     fn identical_inputs_keep_revisions_order_and_reasons() {
-        // Property: observation-only refreshes preserve input revisions, order and reasons while changed allowance values revise facts.
+        // Algorithmic core: observation-only refreshes preserve input revisions, order and reasons while changed allowance values revise facts.
         let input = facts();
         let first = compute(&input, true);
         for _ in 0..4 {
@@ -951,7 +951,7 @@ mod tests {
     }
     #[test]
     fn unavailable_quota_and_unsupported_capabilities_are_excluded() {
-        // Property: advisory eligibility excludes unavailable quota and unsupported configured capabilities with explicit reasons.
+        // Algorithmic core: advisory eligibility excludes unavailable quota and unsupported configured capabilities with explicit reasons.
         let mut input = facts();
         input["agents"][0]["accounts"][0]["quota"]["state"] = json!("unavailable");
         input["agents"][0]["accounts"][1]["quota"]["state"] = json!("unavailable");
@@ -975,7 +975,7 @@ mod tests {
     }
     #[test]
     fn absent_credit_permission_stays_unknown_and_never_selects_credit_only_work() {
-        // Property: credit-only recommendations require structured per-account permission and available credits without spend control.
+        // Algorithmic core: credit-only recommendations require structured per-account permission and available credits without spend control.
         let mut input = facts();
         for account in input["agents"][0]["accounts"].as_array_mut().unwrap() {
             account["quota"]["ordinaryUsageAllowed"] = json!(false);
@@ -1008,7 +1008,7 @@ mod tests {
     }
     #[test]
     fn shared_pools_all_constrain_selection_and_resets_require_fresh_evidence() {
-        // Property: a blocked shared allowance cannot be replaced with another pool or reset by elapsed time without a quota read.
+        // Algorithmic core: a blocked shared allowance cannot be replaced with another pool or reset by elapsed time without a quota read.
         let mut input = facts();
         input["agents"][0]["accounts"]
             .as_array_mut()
@@ -1047,7 +1047,7 @@ mod tests {
     }
     #[test]
     fn explicit_dispatch_arguments_win_over_pack_policy_and_advisory_choices() {
-        // Property: explicit authorized dispatch arguments override pack and policy defaults regardless of the advisory recommendation.
+        // Algorithmic core: explicit authorized dispatch arguments override pack and policy defaults regardless of the advisory recommendation.
         let input = facts();
         let recommendation = compute(&input, true);
         assert_eq!(
@@ -1069,7 +1069,7 @@ mod tests {
     }
     #[test]
     fn native_options_and_per_model_tiers_constrain_advisory_choices() {
-        // Property: native option values, allow/deny restrictions and per-model tier overrides constrain every eligible configuration.
+        // Algorithmic core: native option values, allow/deny restrictions and per-model tier overrides constrain every eligible configuration.
         let mut input = facts();
         input["agents"][0]["policy"]["serviceTiers"] = json!({"native-a":"priority"});
         input["packs"]["review"]["serviceTier"] = json!("default");
@@ -1121,7 +1121,7 @@ mod tests {
     }
     #[test]
     fn native_credit_projection_supports_unlimited_primary_allowances() {
-        // Property: the native quota projection preserves unlimited credits and primary account ownership for advisory eligibility.
+        // Algorithmic core: the native quota projection preserves unlimited credits and primary account ownership for advisory eligibility.
         let mut input = facts();
         input["agents"][0]["accounts"]
             .as_array_mut()
@@ -1152,7 +1152,7 @@ mod tests {
     }
     #[test]
     fn decision_contexts_keep_only_applicable_packs_and_selected_configuration() {
-        // Property: decision contexts retain only selected configurations and applicable Agent packs, with detailed evidence available in full view.
+        // Algorithmic core: decision contexts retain only selected configurations and applicable Agent packs, with detailed evidence available in full view.
         let input = synthetic_installation();
         let decision = compute(&input, false);
         let full = compute(&input, true);
@@ -1185,7 +1185,7 @@ mod tests {
     }
     #[test]
     fn decision_budget_retains_valid_json_and_a_full_read() {
-        // Property: bounded recommendations disclose omitted contexts and retain an actionable full read.
+        // Algorithmic core: bounded recommendations disclose omitted contexts and retain an actionable full read.
         let mut input = synthetic_installation();
         for n in 0..13 {
             input["packs"][format!("pack-{n}")] = json!({});
@@ -1209,7 +1209,7 @@ mod tests {
     }
     #[test]
     fn compact_missing_selection_keeps_actionable_credit_diagnostics() {
-        // Property: a compact missing selection retains credit permission diagnostics and an actionable account read.
+        // Algorithmic core: a compact missing selection retains credit permission diagnostics and an actionable account read.
         let mut input = facts();
         for account in input["agents"][0]["accounts"].as_array_mut().unwrap() {
             account["quota"]["ordinaryUsageAllowed"] = json!(false);
@@ -1223,7 +1223,7 @@ mod tests {
     }
     #[test]
     fn native_pool_projection_retains_compact_allowance_fields() {
-        // Regression: 848f7ea copied extra native window fields and null slots into public quota pool projections.
+        // Recurring bug class: 848f7ea copied extra native window fields and null slots into public quota pool projections.
         let projected = crate::subscriptions::codex_dispatch_quota(
             &json!({"ordinaryUsageAllowed":true,"rateLimitsByLimitId":{"shared":{
             "primary":{"usedPercent":20,"windowDurationMins":300,"resetsAt":1767312000,"extraNativeField":true},

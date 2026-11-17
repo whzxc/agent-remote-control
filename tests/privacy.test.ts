@@ -8,7 +8,7 @@ import { maskSensitive, sensitiveParts } from '../ui/privacyMask.ts';
 import { buildClipboardText } from '../ui/privacyClipboard.ts';
 
 test('mixed clipboard text replaces selected stand-ins by position', () => {
-  // Regression: AX-26 copying a mixed selection discarded ordinary text and other sensitive values.
+  // Recurring bug class: AX-26 copying a mixed selection discarded ordinary text and other sensitive values.
   const first = 'alex@example.com', second = 'Team 🦊';
   const maskedFirst = maskSensitive(first), maskedSecond = maskSensitive(second);
   const prefix = `Keep ${maskedFirst} / `, middle = ' belongs to ', suffix = ' today.';
@@ -22,7 +22,7 @@ test('mixed clipboard text replaces selected stand-ins by position', () => {
 });
 
 test('substring masking preserves prose and treats identities literally', () => {
-  // Regression: whole-element blur hid surrounding information and left real identity substrings available.
+  // Recurring bug class: whole-element blur hid surrounding information and left real identity substrings available.
   const values = ['Example (Team)', 'id:[key]', 'Example (Team) West'];
   const prose = 'Quota for Example (Team) West / alex@example.com / id:[key]: unavailable';
   const parts = sensitiveParts(prose, values);
@@ -33,7 +33,7 @@ test('substring masking preserves prose and treats identities literally', () => 
 });
 
 test('account privacy replaces DOM values, restores them exactly and preserves real copy actions', async () => {
-  // Regression: AX-26 mixed selections lost ordinary text; hidden identities must also remain absent from the DOM.
+  // Recurring bug class: AX-26 mixed selections lost ordinary text; hidden identities must also remain absent from the DOM.
   const window = new Window({ url: 'http://localhost/?scenario=accounts' });
   const media = Object.assign(new window.EventTarget(), { matches: true });
   window.matchMedia = () => media as unknown as MediaQueryList;

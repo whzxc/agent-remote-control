@@ -7,7 +7,7 @@ import {withDialog} from './helpers/layers-ui.ts';
 import {createLayerStore} from '../ui/state/layers.ts';
 
 test('Close and Cancel retain busy work until completion and the dialog stays closed after late results', async () => {
-  // Regression: B1 header Close orphaned busy work and job-driven owners could reopen their dialog on completion.
+  // Recurring bug class: B1 header Close orphaned busy work and job-driven owners could reopen their dialog on completion.
   await withDialog(async ({ server, root, settle, focused }) => {
     const { default: Dialog, DialogClose, useDialogCompletion } = await server.ssrLoadModule('/ui/components/ui/Dialog.tsx');
     const { Button } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
@@ -45,7 +45,7 @@ test('Close and Cancel retain busy work until completion and the dialog stays cl
 });
 
 test('stacked setup edits tools inside its owning dialog and Back and Escape preserve the draft and focus', async () => {
-  // Regression: Setup > Add connection > Tool list requested a forbidden third dialog and could not edit its tools.
+  // Recurring bug class: Setup > Add connection > Tool list requested a forbidden third dialog and could not edit its tools.
   await withDialog(async ({ server, root, settle, focused }) => {
     const { installScenario } = await server.ssrLoadModule('/ui/scenarios.ts');
     await installScenario('p3-stacked-secure-en@light');
@@ -80,7 +80,7 @@ test('stacked setup edits tools inside its owning dialog and Back and Escape pre
 });
 
 test('choosing a modal SingleChoice option applies it outside dialogs and retains its dialog owner in either position', async () => {
-  // Regression: dialog scrims intercepted options, item-aligned Select dismissed its owner, and an undefined pointerEvents override blocked modal choices outside dialogs.
+  // Recurring bug class: dialog scrims intercepted options, item-aligned Select dismissed its owner, and an undefined pointerEvents override blocked modal choices outside dialogs.
   await withDialog(async ({ server, root, settle }) => {
     const { default: Dialog } = await server.ssrLoadModule('/ui/components/ui/Dialog.tsx');
     const { SingleChoice, TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
@@ -117,7 +117,7 @@ test('choosing a modal SingleChoice option applies it outside dialogs and retain
 });
 
 test('workspaces replace on open and capsule switching preserves dirty drafts until discard', async () => {
-  // Regression: independent workspace stores could retain an older panel, and capsule input bypassed dirty dismissal.
+  // Recurring bug class: independent workspace stores could retain an older panel, and capsule input bypassed dirty dismissal.
   await withDialog(async ({ server, root, settle, focused }) => {
     const { default: Panel, usePanelState } = await server.ssrLoadModule('/ui/components/ui/Panel.tsx');
     const { layers } = await server.ssrLoadModule('/ui/state/layers.ts');
@@ -174,7 +174,7 @@ test('workspaces replace on open and capsule switching preserves dirty drafts un
 });
 
 test('a finished submitted attempt is clean until the user edits the value again', async () => {
-  // Regression: device pairing errors left the submitted code dirty and Escape could no longer close the finished attempt.
+  // Recurring bug class: device pairing errors left the submitted code dirty and Escape could no longer close the finished attempt.
   await withDialog(async ({ server, root, settle }) => {
     const { default: Dialog } = await server.ssrLoadModule('/ui/components/ui/Dialog.tsx');
     const { useSubmittedDirty } = await server.ssrLoadModule('/ui/components/ui/useSubmittedDirty.ts');
@@ -210,7 +210,7 @@ test('a finished submitted attempt is clean until the user edits the value again
 });
 
 test('deferred close focus restoration preserves the next action trigger', async () => {
-  // Regression: studio-connections at 640px reopened Connections when deferred restoration stole the recovery trigger before Enter.
+  // Recurring bug class: studio-connections at 640px reopened Connections when deferred restoration stole the recovery trigger before Enter.
   await withDialog(async ({ server, root, settle, focused }) => {
     const { default: Dialog } = await server.ssrLoadModule('/ui/components/ui/Dialog.tsx');
     const { Button } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
@@ -240,7 +240,7 @@ test('deferred close focus restoration preserves the next action trigger', async
 });
 
 test('cross-slot Back retains the originating panel detail and restores its control', async () => {
-  // Regression: an exiting Board shell ran its close callback again when the task slot entered, clearing the retained record and Back focus target.
+  // Recurring bug class: an exiting Board shell ran its close callback again when the task slot entered, clearing the retained record and Back focus target.
   await withDialog(async ({ server, root, settle, focused }) => {
     const { default: Panel } = await server.ssrLoadModule('/ui/components/ui/Panel.tsx');
     const { PanelProvider } = await server.ssrLoadModule('/ui/components/providers/PanelProvider.tsx');
@@ -264,7 +264,7 @@ test('cross-slot Back retains the originating panel detail and restores its cont
 });
 
 test('slot content retains its feature context across workspace replacement', async () => {
-  // Regression: the external panel registry moved content outside its feature provider.
+  // Recurring bug class: the external panel registry moved content outside its feature provider.
   await withDialog(async ({ server, root, settle }) => {
     const { createContext, useContext } = await import('react');
     const Context = createContext('Missing context');
@@ -291,7 +291,7 @@ test('slot content retains its feature context across workspace replacement', as
 });
 
 test('a third dialog request reports the stack limit instead of disappearing', () => {
-  // Regression: B1 silently ignored a third dialog request and left its trigger without a response.
+  // Recurring bug class: B1 silently ignored a third dialog request and left its trigger without a response.
   const store = createLayerStore();
   const request = (id: string) => ({ id, kind: 'dialog' as const, node: null, trigger: null, onClose() {} });
   store.open(request('parent'));

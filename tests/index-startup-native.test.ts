@@ -74,7 +74,7 @@ async function start(directory: string) {
 }
 
 test('real Core serves health, leases, guide and query before realistic retained-state migration publishes', { timeout: 120000 }, async () => {
-  // Regression: ax-c398fbae blocked guide and pending-owner queries during installed-scale migration and rewrote unchanged bindings on restart.
+  // Recurring bug class: ax-c398fbae blocked guide and pending-owner queries during installed-scale migration and rewrote unchanged bindings on restart.
   execFileSync('cargo', ['build', '--locked', '--quiet', '-p', 'contract-fixture', '--target-dir', target], { stdio: 'inherit' });
   const directory = await mkdtemp(path.join(tmpdir(), 'arc-index-runtime-'));
   const state = path.join(directory, 'state');

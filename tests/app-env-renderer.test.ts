@@ -4,7 +4,7 @@ import { Window } from "happy-dom";
 import { createServer } from "vite";
 
 test("environment API updates the live snapshot without changing saved preferences", async () => {
-  // Regression: acceptance changed host Reduce Motion because the live renderer had no environment control/read-back.
+  // Recurring bug class: acceptance changed host Reduce Motion because the live renderer had no environment control/read-back.
   const previousFetch = globalThis.fetch;
   const window = new Window({ url: "http://localhost" });
   Object.assign(globalThis, {

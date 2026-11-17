@@ -162,7 +162,7 @@ async fn unfinished_hello(
 
 #[tokio::test]
 async fn leaked_controller_connections_are_reaped_within_keepalive_bound() {
-    // Regression: eight half-open controller connections retained every paired LAN slot for hours.
+    // Recurring bug class: eight half-open controller connections retained every paired LAN slot for hours.
     let fixture = Fixture::new();
     let identity = fixture.controller();
     super::tunnel_tests::paired(&fixture.member, &identity);
@@ -238,7 +238,7 @@ async fn leaked_controller_connections_are_reaped_within_keepalive_bound() {
 
 #[tokio::test]
 async fn leaked_controller_connections_do_not_block_new_lan_connection() {
-    // Regression: a reconnecting paired controller was silently dropped after eight idle LAN connections filled admission.
+    // Recurring bug class: a reconnecting paired controller was silently dropped after eight idle LAN connections filled admission.
     let fixture = Fixture::new();
     let identity = fixture.controller();
     super::tunnel_tests::paired(&fixture.member, &identity);
@@ -298,7 +298,7 @@ async fn leaked_controller_connections_do_not_block_new_lan_connection() {
 
 #[test]
 fn link_local_timeout_does_not_mask_ipv4_error() {
-    // Regression: the last IPv6 link-local timeout hid the IPv4 TLS failure in controller LAN diagnostics.
+    // Recurring bug class: the last IPv6 link-local timeout hid the IPv4 TLS failure in controller LAN diagnostics.
     let ipv4 = "192.168.2.2:7143".parse().unwrap();
     let link_local = "[fe80::2%1]:7143".parse().unwrap();
     let tls = "DEVICE_TLS_FAILED: Peer handshake failed".to_owned();
@@ -335,7 +335,7 @@ fn link_local_timeout_does_not_mask_ipv4_error() {
 
 #[tokio::test]
 async fn leaked_lan_connections_do_not_starve_tunnel_requests() {
-    // Regression: eight retained LAN connections made every authenticated tunnel request return DEVICE_BUSY.
+    // Recurring bug class: eight retained LAN connections made every authenticated tunnel request return DEVICE_BUSY.
     if super::tunnel_fixture::isolate(
         "device_link::tests::leaked_lan_connections_do_not_starve_tunnel_requests",
     )
@@ -426,7 +426,7 @@ fn pairing_string_roundtrip_and_version() {
 }
 #[test]
 fn lan_policy_excludes_public_loopback_and_mapped_public() {
-    // Property: peer admission is restricted to private, unique-local and link-local addresses.
+    // Algorithmic core: peer admission is restricted to private, unique-local and link-local addresses.
     for address in [
         "10.1.2.3",
         "172.16.0.2",
@@ -487,7 +487,7 @@ fn device_cli_errors_preserve_json_codes() {
 #[cfg(target_os = "macos")]
 #[test]
 fn host_unreachable_dial_retains_os_evidence_and_app_recovery() {
-    // Regression: macOS LAN privacy denial surfaced only os error 65 with no quit-and-reopen recovery.
+    // Recurring bug class: macOS LAN privacy denial surfaced only os error 65 with no quit-and-reopen recovery.
     let os_error = std::io::Error::from_raw_os_error(libc::EHOSTUNREACH);
     let message = client::lan_connect_error(&os_error);
     let diagnostic =
@@ -536,7 +536,7 @@ fn peer_envelope_preserves_receipt_and_blocks_management() {
 }
 #[test]
 fn handshake_budget_is_bounded_and_recovers() {
-    // Regression: one global 32/min handshake bucket let a LAN host starve every paired controller.
+    // Recurring bug class: one global 32/min handshake bucket let a LAN host starve every paired controller.
     let mut budget = transport::HandshakeBudget::new();
     let start = Instant::now();
     let first = "192.168.1.10".parse().unwrap();
@@ -859,7 +859,7 @@ async fn approved_peer_uses_private_core_source_and_receipt() {
 
 #[tokio::test]
 async fn hello_refresh_replaces_stale_persisted_addresses_without_rewriting_unchanged() {
-    // Regression: successful hello left the stale 12-address list and null tunnel URL persisted across controller restart.
+    // Recurring bug class: successful hello left the stale 12-address list and null tunnel URL persisted across controller restart.
     let fixture = Fixture::new();
     let member = fixture.controller();
     let stale = Peer {
@@ -893,7 +893,7 @@ async fn hello_refresh_replaces_stale_persisted_addresses_without_rewriting_unch
 
 #[tokio::test]
 async fn desktop_snapshot_reads_identity_pairings_and_pending_deadline() {
-    // Regression: Desktop had no management read for identity, paired controller, or address overrides.
+    // Recurring bug class: Desktop had no management read for identity, paired controller, or address overrides.
     let fixture = Fixture::new();
     let identity = fixture.member.identity().unwrap();
     let controller = fixture.controller();
@@ -933,7 +933,7 @@ async fn desktop_snapshot_reads_identity_pairings_and_pending_deadline() {
 
 #[tokio::test]
 async fn cancelled_pairing_cannot_accept_a_late_member_approval() {
-    // Regression: the waiting-pair dialog had no stop action and could leave its native pairing attempt running after close.
+    // Recurring bug class: the waiting-pair dialog had no stop action and could leave its native pairing attempt running after close.
     let fixture = Fixture::new();
     let controller = Fixture::manager(fixture.directory.join("cancel-controller"));
     let listener = tokio::net::TcpListener::bind(lan_sockets(0).unwrap()[0])

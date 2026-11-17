@@ -871,7 +871,7 @@ mod tests {
     use super::*;
     #[test]
     fn startup_command_preserves_string_arguments_and_environment() {
-        // Regression: OsStr serialization encoded tagged values and panicked on environment map keys.
+        // Recurring bug class: OsStr serialization encoded tagged values and panicked on environment map keys.
         let mut command = std::process::Command::new("fixture-agent");
         command
             .args(["--mode", "rpc"])

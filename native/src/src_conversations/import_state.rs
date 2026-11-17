@@ -32,7 +32,7 @@ mod tests {
 
     #[test]
     fn ax_contracts_mismatch_recovery_stays_executable_for_the_calling_source() {
-        // Regression: ax-7e2730e0 import-mismatch instructed a source to import into an account rejected by SRC_ACCOUNT_SCOPE.
+        // Recurring bug class: ax-7e2730e0 import-mismatch instructed a source to import into an account rejected by SRC_ACCOUNT_SCOPE.
         let mut result = ImportState::mismatch("other-account".into()).response("calling-account");
         let local = result.clone();
         for_caller(&mut result, Some("calling-account"));

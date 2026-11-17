@@ -392,7 +392,7 @@ mod tests {
 
     #[test]
     fn repeated_configuration_reads_do_not_walk_unchanged_inputs() {
-        // Regression: ax-090844fd repeated account polls re-stamped the unchanged shared configuration tree.
+        // Recurring bug class: ax-090844fd repeated account polls re-stamped the unchanged shared configuration tree.
         let directory = Sandbox::new();
         let source = directory.0.join("home");
         std::fs::create_dir_all(source.join("skills/example")).unwrap();

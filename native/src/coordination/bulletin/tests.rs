@@ -9,7 +9,7 @@ fn observed_turn(thread: &str, turn: &str, status: &str) -> crate::turn_lifecycl
 
 #[test]
 fn board_notification_attention_keeps_source_owned_route_details_and_compact_next() {
-    // Regression: board notification items discarded the target/thread and linked to an unfiltered notification history read.
+    // Recurring bug class: board notification items discarded the target/thread and linked to an unfiltered notification history read.
     let target = "session_010000000000000000000001";
     let notifications = json!({"problems":[
         {"id":"mine","sourceId":"source-a","reason":"delivery-failed","channel":"claude-session","target":target,"threadId":"thread-a","threadCount":1,"next":{"via":"query","op":"notify_status","args":{"target":target,"threadId":"thread-a","all":false}}},
@@ -126,7 +126,7 @@ fn route_fixture() -> crate::claude_notify::coordination_delivery::Route {
     .unwrap()
 }
 #[test]
-// Regression: ax-ce733eee session registration and routing must commit and survive restart together.
+// Recurring bug class: ax-ce733eee session registration and routing must commit and survive restart together.
 fn coordination_registration_route_is_atomic_and_durable() {
     use crate::claude_notify::coordination_delivery::Outcome;
     let mut f = Fixture::new();
@@ -180,7 +180,7 @@ fn coordination_registration_route_is_atomic_and_durable() {
     assert_eq!(f.store.session_routes("source-a").len(), 4);
 }
 #[test]
-// Regression: ax-ce733eee invalid targets must register pull-only with the target-specific bind/verify next step.
+// Recurring bug class: ax-ce733eee invalid targets must register pull-only with the target-specific bind/verify next step.
 fn coordination_registration_repair_and_discovery_next() {
     use crate::claude_notify::coordination_delivery::Outcome;
     let mut f = Fixture::new();
@@ -235,7 +235,7 @@ fn coordination_registration_repair_and_discovery_next() {
     assert_eq!(next["args"]["sessionId"], result["session"]["id"]);
 }
 #[test]
-// Regression: a closed and rebound session could revive pending mail captured before explicit unbind.
+// Recurring bug class: a closed and rebound session could revive pending mail captured before explicit unbind.
 fn coordination_route_unbind_and_rebind_preserve_generation_boundaries() {
     let mut f = Fixture::new();
     let result = f.call("coordination_session", json!({"action":"register"}));
@@ -263,7 +263,7 @@ fn coordination_route_unbind_and_rebind_preserve_generation_boundaries() {
     assert!(f.store.route("source-a", session).is_none());
 }
 #[test]
-// Regression: moving route persistence to the session owner must preserve existing route and recovery binding identities.
+// Recurring bug class: moving route persistence to the session owner must preserve existing route and recovery binding identities.
 fn coordination_imports_existing_routes_once_without_overwriting_edits() {
     let mut f = Fixture::new();
     let result = f.call("coordination_session", json!({"action":"register"}));
@@ -405,7 +405,7 @@ fn notice_lifecycle_and_replay() {
     }
 }
 #[test]
-// Regression: board readers had to compare ownerSourceId UUIDs to find the notices they may update or close.
+// Recurring bug class: board readers had to compare ownerSourceId UUIDs to find the notices they may update or close.
 fn board_marks_only_the_readers_own_records() {
     let mut f = Fixture::new();
     f.post();
@@ -805,7 +805,7 @@ fn persistence_failure_and_event_size_bounds() {
 
 #[test]
 fn ax_contracts_lane_errors_offer_named_bounded_examples() {
-    // Regression: ax-327e2d84 lane shorthand errors omitted the registered project spelling.
+    // Recurring bug class: ax-327e2d84 lane shorthand errors omitted the registered project spelling.
     let projects: Vec<_> = (0..9)
         .map(|n| json!({"id":format!("project-{n}"),"name":format!("Workspace {n}")}))
         .collect();
@@ -820,7 +820,7 @@ fn ax_contracts_lane_errors_offer_named_bounded_examples() {
 }
 #[test]
 fn ax_contracts_invalid_resources_offer_forms_and_host_recovery() {
-    // Regression: ax-55f3a468 node/service resource errors and guides omitted accepted resource forms.
+    // Recurring bug class: ax-55f3a468 node/service resource errors and guides omitted accepted resource forms.
     let result = Fixture::new().call("notice_post", json!({"intent":"Deploy service","resources":["node:server/service"],"expectedDurationSeconds":60}));
     assert_eq!(result["error"]["code"], "INVALID_ARGUMENT");
     assert_eq!(result["next"]["op"], "guide");
@@ -878,7 +878,7 @@ fn ax_followup_peer_notice_overlap_tracks_recipient_board_ownership() {
 }
 #[test]
 fn linked_running_thread_is_observed_at_post() {
-    // Regression: ax-48eb2fbb a just-posted running-thread notice showed unknown liveness until the next tick.
+    // Recurring bug class: ax-48eb2fbb a just-posted running-thread notice showed unknown liveness until the next tick.
     let mut f = Fixture::new();
     let mut links = vec![Link {
         session_binding_id: None,
@@ -914,7 +914,7 @@ fn linked_running_thread_is_observed_at_post() {
 
 #[test]
 fn lifecycle_conflicts_exclude_only_core_verified_command_source() {
-    // Regression: ax-d7a7872f lane create/remove listed the initiating source's own notice as a conflict.
+    // Recurring bug class: ax-d7a7872f lane create/remove listed the initiating source's own notice as a conflict.
     let mut f = Fixture::new();
     let own = f.post();
     f.actor = Principal::Source {
@@ -951,7 +951,7 @@ fn lifecycle_conflicts_exclude_only_core_verified_command_source() {
 
 #[test]
 fn active_observation_cost_is_independent_of_closed_notice_history() {
-    // Regression: a live linked thread forced bulletin maintenance to traverse closed notices on every observer pass.
+    // Recurring bug class: a live linked thread forced bulletin maintenance to traverse closed notices on every observer pass.
     let mut costs = Vec::new();
     for history in [4, 240] {
         let mut f = Fixture::new();
@@ -1040,7 +1040,7 @@ fn derived_association() -> Value {
 
 #[test]
 fn accepted_dispatch_and_same_request_retry_project_one_board_notice() {
-    // Regression: accepted ARC dispatches required a second manual notice and had no dispatch-key dedupe.
+    // Recurring bug class: accepted ARC dispatches required a second manual notice and had no dispatch-key dedupe.
     let mut f = Fixture::new();
     let events = dispatch_fixture(
         "accepted-request",
@@ -1081,7 +1081,7 @@ fn accepted_dispatch_and_same_request_retry_project_one_board_notice() {
 
 #[test]
 fn dispatch_advisory_includes_notice_and_blocker_without_preventing_acceptance() {
-    // Regression: dispatch receipts omitted active overlapping notices and uncleared blockers.
+    // Recurring bug class: dispatch receipts omitted active overlapping notices and uncleared blockers.
     let mut f = Fixture::new();
     let notice = f.call("notice_post", json!({"intent":"Fixture work","resources":["lane:fixture-project/worker"],"expectedDurationSeconds":60}))["notice"].clone();
     let blocker = f.call("blocker_open", json!({"resources":["lane:fixture-project/worker"],"causeCode":"fixture","summary":"Fixture blocker"}))["blocker"].clone();
@@ -1132,7 +1132,7 @@ fn dispatch_advisory_includes_notice_and_blocker_without_preventing_acceptance()
 
 #[test]
 fn dispatch_missing_and_ambiguous_identity_never_guess_project_or_session() {
-    // Regression: dispatch coordination had no explicit coverage for missing or ambiguous associations.
+    // Recurring bug class: dispatch coordination had no explicit coverage for missing or ambiguous associations.
     let baseline = json!({"root":"/fixture/repo","ref":"refs/heads/wt/worker","prompt":"Use project:invented/main"});
     let absent = dispatch::dispatch_association(&baseline, &Value::Null);
     assert_eq!(absent["project"], "registry-unavailable");
@@ -1158,7 +1158,7 @@ fn dispatch_missing_and_ambiguous_identity_never_guess_project_or_session() {
 
 #[test]
 fn derived_notice_follows_successor_and_late_predecessor_cannot_reopen_it() {
-    // Regression: derived dispatch scopes need the same D1 terminal and successor authority as manual notices.
+    // Recurring bug class: derived dispatch scopes need the same D1 terminal and successor authority as manual notices.
     let mut f = Fixture::new();
     let event = dispatch_fixture(
         "successor-request",
@@ -1238,7 +1238,7 @@ fn dispatch_receipt_replay_refreshes_advisory_without_changing_identity_or_admis
 
 #[test]
 fn derived_notice_restart_and_inactivity_preserve_dispatch_dedupe() {
-    // Regression: replaying derived acceptance after restart must not renew six-hour inactive work.
+    // Recurring bug class: replaying derived acceptance after restart must not renew six-hour inactive work.
     let mut f = Fixture::new();
     let event = dispatch_fixture(
         "inactive-request",
@@ -1270,7 +1270,7 @@ fn derived_notice_restart_and_inactivity_preserve_dispatch_dedupe() {
 
 #[test]
 fn dispatch_resources_separate_lanes_from_main_and_match_only_the_same_scope() {
-    // Regression: 10953ca8 lane dispatches also claimed main and conflicted with unrelated lanes.
+    // Recurring bug class: 10953ca8 lane dispatches also claimed main and conflicted with unrelated lanes.
     let mut f = Fixture::new();
     let registry = json!({"projects":[{"id":"fixture-project","roots":[{"path":"/fixture/repo","commonDir":"/fixture/repo/.git"}]}]});
     let association = |root: &str, branch: &str| {
@@ -1341,7 +1341,7 @@ fn dispatch_resources_separate_lanes_from_main_and_match_only_the_same_scope() {
 
 #[test]
 fn manual_project_names_admit_canonical_keys_that_overlap_derived_dispatches() {
-    // Regression: 10953ca8 manual project-name resources never matched derived project-ID resources.
+    // Recurring bug class: 10953ca8 manual project-name resources never matched derived project-ID resources.
     let mut f = Fixture::new();
     let project = "00000000-0000-4000-8000-000000000001";
     let registry = json!({"projects":[{"id":project,"name":"Fixture Project","roots":[{"path":"/fixture/repo","commonDir":"/fixture/repo/.git"}]}]});
@@ -1376,7 +1376,7 @@ fn manual_project_names_admit_canonical_keys_that_overlap_derived_dispatches() {
 
 #[test]
 fn unattributed_dispatches_stay_visible_without_host_or_peer_conflicts() {
-    // Regression: installed unattributed dispatch notices inherited the host resource and conflicted with every peer dispatch.
+    // Recurring bug class: installed unattributed dispatch notices inherited the host resource and conflicted with every peer dispatch.
     let mut f = Fixture::new();
     let association = json!({"resources":[],"project":"unattributed","lane":"unattributed","source":"observed","session":"unattributed","registryObservedAt":null});
     for request in ["unattributed-first", "unattributed-second"] {
@@ -1449,7 +1449,7 @@ fn unattributed_dispatches_stay_visible_without_host_or_peer_conflicts() {
 
 #[test]
 fn startup_removes_pre_admission_notices_and_old_events_cannot_backfill_them() {
-    // Regression: the first observer pass after upgrade derived notices for dispatches accepted before coordination admission existed.
+    // Recurring bug class: the first observer pass after upgrade derived notices for dispatches accepted before coordination admission existed.
     let mut f = Fixture::new();
     let thread = id();
     let current_request = id();

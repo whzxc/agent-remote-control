@@ -34,7 +34,7 @@ mod tests {
 
     #[test]
     fn shutdown_rejects_queued_launches_and_adoptions() {
-        // Regression: an idle Core spawned an unrecorded Codex server after releasing its profile.
+        // Recurring bug class: an idle Core spawned an unrecorded Codex server after releasing its profile.
         let launches = Launches::default();
         assert_eq!(launches.run(|| Ok(7)).unwrap(), 7);
         launches.close();

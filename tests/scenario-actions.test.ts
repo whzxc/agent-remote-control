@@ -6,7 +6,7 @@ import { act, createElement as h } from 'react';
 import { within } from '@testing-library/dom';
 
 test('task scenarios execute panel actions with mock receipts and readable state without Core', async () => {
-  // Regression: SCENARIO_READ_ONLY rejected task review/queue POST reads and prevented every panel action in fixtures.
+  // Recurring bug class: SCENARIO_READ_ONLY rejected task review/queue POST reads and prevented every panel action in fixtures.
   const window = new Window({url:'http://localhost/?scenario=task-actions'});
   const media = Object.assign(new window.EventTarget(), {matches:true}); window.matchMedia = () => media as unknown as MediaQueryList;
   class Observer { observe() {} unobserve() {} disconnect() {} }

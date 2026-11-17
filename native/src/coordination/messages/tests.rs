@@ -52,7 +52,7 @@ impl Fixture {
 }
 
 #[test]
-// Regression: singleton negotiations made the entire Messages snapshot fail with COORDINATION_CORRUPT.
+// Recurring bug class: singleton negotiations made the entire Messages snapshot fail with COORDINATION_CORRUPT.
 fn singleton_history_is_preserved_without_inventing_a_peer() {
     let mut f = Fixture::new();
     for _ in 0..3 {
@@ -146,7 +146,7 @@ fn singleton_history_is_preserved_without_inventing_a_peer() {
 }
 
 #[test]
-// Regression: a missing participant must be recovered from consistent retained peer envelopes without resetting reply history.
+// Recurring bug class: a missing participant must be recovered from consistent retained peer envelopes without resetting reply history.
 fn singleton_reconstruction_preserves_reply_budget_and_replay() {
     let mut f = Fixture::new();
     let first = f.send("one", request());
@@ -175,7 +175,7 @@ fn singleton_reconstruction_preserves_reply_budget_and_replay() {
 }
 
 #[test]
-// Regression: incomplete or contradictory retained evidence must not manufacture a negotiation peer.
+// Recurring bug class: incomplete or contradictory retained evidence must not manufacture a negotiation peer.
 fn singleton_missing_or_conflicting_evidence_stays_unresolved() {
     for mode in ["missing", "conflicting", "initiator", "arc-only"] {
         let mut f = Fixture::new();
@@ -212,7 +212,7 @@ fn singleton_missing_or_conflicting_evidence_stays_unresolved() {
 }
 
 #[test]
-// Regression: singleton recovery must leave current two-participant negotiation behavior and history unchanged.
+// Recurring bug class: singleton recovery must leave current two-participant negotiation behavior and history unchanged.
 fn current_pairs_round_trip_without_recovery() {
     let mut f = Fixture::new();
     let first = f.send("one", request());
@@ -240,7 +240,7 @@ fn current_pairs_round_trip_without_recovery() {
 }
 
 #[test]
-// Regression: participant recovery must preserve malformed snapshots and never overwrite a different recovery archive.
+// Recurring bug class: participant recovery must preserve malformed snapshots and never overwrite a different recovery archive.
 fn participant_recovery_fails_closed_without_discarding_evidence() {
     let mut f = Fixture::new();
     f.send("one", request());
@@ -270,7 +270,7 @@ fn participant_recovery_fails_closed_without_discarding_evidence() {
 }
 
 #[test]
-// Regression: unresolved escalation history must retain its resource hold until explicit local resolution.
+// Recurring bug class: unresolved escalation history must retain its resource hold until explicit local resolution.
 fn unresolved_escalation_cannot_be_bypassed_with_a_new_peer_or_id() {
     let mut f = Fixture::new();
     let first = f.send("one", request());
@@ -615,7 +615,7 @@ fn recovery_mail_rechecks_completion_and_pages() {
 
 #[test]
 fn fallback_mail_coalesces_and_pull_only_reason_survives_replay() {
-    // Regression: ax-4e72538c accepted messages concealed missing recipient routes and fallback sends must retain destination coalescing.
+    // Recurring bug class: ax-4e72538c accepted messages concealed missing recipient routes and fallback sends must retain destination coalescing.
     let mut f = Fixture::new();
     let mut args = request();
     args["type"] = json!("notice");
@@ -663,7 +663,7 @@ fn fallback_mail_coalesces_and_pull_only_reason_survives_replay() {
 }
 
 #[test]
-// Regression: ax-ce733eee missing recipient targets sent the sender to generic guide instead of a recipient-side route fix.
+// Recurring bug class: ax-ce733eee missing recipient targets sent the sender to generic guide instead of a recipient-side route fix.
 fn missing_recipient_route_receipt_preserves_pullable_mail() {
     let mut f = Fixture::new();
     let mut args = request();
@@ -691,7 +691,7 @@ fn missing_recipient_route_receipt_preserves_pullable_mail() {
 
 #[test]
 fn ax_followup_unrelated_peer_notices_stay_pull_only_and_explain_delivery() {
-    // Regression: ax-cf4ffac3 unrelated peer notices consumed a recipient model turn despite having no held resource overlap.
+    // Recurring bug class: ax-cf4ffac3 unrelated peer notices consumed a recipient model turn despite having no held resource overlap.
     let mut f = Fixture::new();
     let mut args = request();
     args["type"] = json!("notice");
@@ -786,7 +786,7 @@ fn ax_followup_addressed_negotiations_and_relevant_notices_keep_route_governance
 }
 
 #[test]
-// Regression: notice inReplyTo incorrectly required a negotiation and returned NEGOTIATION_NOT_FOUND.
+// Recurring bug class: notice inReplyTo incorrectly required a negotiation and returned NEGOTIATION_NOT_FOUND.
 fn notice_replies_link_received_messages_without_negotiations() {
     let mut f = Fixture::new();
     let mut args = request();
@@ -820,7 +820,7 @@ fn notice_replies_link_received_messages_without_negotiations() {
 }
 
 #[test]
-// Regression: notice references must neither spend negotiation replies nor bypass an escalated resource hold.
+// Recurring bug class: notice references must neither spend negotiation replies nor bypass an escalated resource hold.
 fn notice_replies_do_not_advance_existing_negotiations_or_reset_holds() {
     let mut f = Fixture::new();
     let first = f.send("one", request());
@@ -847,7 +847,7 @@ fn notice_replies_do_not_advance_existing_negotiations_or_reset_holds() {
 }
 
 #[test]
-// Regression: message schemas and push truncation advertised different summary limits.
+// Recurring bug class: message schemas and push truncation advertised different summary limits.
 fn coordination_summary_limit_counts_unicode_characters_consistently() {
     let c = catalog();
     let spec = c["ops"]
@@ -871,7 +871,7 @@ fn coordination_summary_limit_counts_unicode_characters_consistently() {
 
 #[test]
 fn caller_message_snapshot_reuses_payload_and_reloads_external_changes() {
-    // Regression: every messages/board routing read parsed the complete retained message snapshot.
+    // Recurring bug class: every messages/board routing read parsed the complete retained message snapshot.
     let f = Fixture::new();
     let read = || {
         crate::runtime_metrics::cost::sync(
@@ -909,7 +909,7 @@ fn caller_message_snapshot_reuses_payload_and_reloads_external_changes() {
 
 #[test]
 fn message_admission_returns_canonical_project_resources_and_conditions() {
-    // Regression: project-name messages could not overlap project-ID board resources.
+    // Recurring bug class: project-name messages could not overlap project-ID board resources.
     let project = "00000000-0000-4000-8000-000000000001";
     let registry = json!({"projects":[{"id":project,"name":"Fixture"}]});
     let args = types::canonical_resources(&json!({"type":"request","summary":"Fixture request","toSourceId":"two","resources":[format!("lane:{project}/worker")],"conditions":[{"resource":"lane:Fixture/worker","predicate":"notice-closed"}]}), &registry).unwrap();

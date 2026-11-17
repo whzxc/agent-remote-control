@@ -1292,7 +1292,7 @@ mod tests {
 
     #[tokio::test]
     async fn git_show_rejects_path_with_a_file_diff_action() {
-        // Regression: ax-657a3da7 git show silently ignored path and returned the same whole-commit metadata.
+        // Recurring bug class: ax-657a3da7 git show silently ignored path and returned the same whole-commit metadata.
         let control = Control::new(PathBuf::new());
         let error = query(
             &control,
@@ -1308,7 +1308,7 @@ mod tests {
 
     #[test]
     fn ax_contracts_project_lookup_returns_discovery_and_basename_hint() {
-        // Regression: unknown root-basename project names returned CONTROL_ERROR and an unhelpful guide continuation.
+        // Recurring bug class: unknown root-basename project names returned CONTROL_ERROR and an unhelpful guide continuation.
         let catalog = vec![
             json!({"id":"workspace-id","name":"workspace","roots":[{"path":"/fixture/workspace-repository"}]}),
         ];

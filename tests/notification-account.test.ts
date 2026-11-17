@@ -7,7 +7,7 @@ import {nativeControl} from './helpers/native-control.ts';
 
 
 test('Cloud bind preserves a missing-session diagnosis and only safe routed profile identity', {skip:process.platform==='win32'},async()=>{
-  // Regression: CLI Session not found hid the host account and returned only generic transport recovery.
+  // Recurring bug class: CLI Session not found hid the host account and returned only generic transport recovery.
   const directory=await mkdtemp(path.join(tmpdir(),'arc-notify-cli-'));
   const binary=path.join(directory,'claude');
   await writeFile(binary,`#!${process.execPath}
@@ -52,7 +52,7 @@ else {throw new Error('Unexpected fixture CLI operation');}
 });
 
 test('Unrouted targets select only a uniquely visible profile and persist that choice', {skip:process.platform==='win32'},async()=>{
-  // Regression: unrouted cloud targets silently used the first imported account instead of the session owner.
+  // Recurring bug class: unrouted cloud targets silently used the first imported account instead of the session owner.
   const {createServer}=await import('node:http');
   const {readFile}=await import('node:fs/promises');
   const directory=await mkdtemp(path.join(tmpdir(),'arc-account-selection-'));

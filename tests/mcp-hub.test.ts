@@ -96,7 +96,7 @@ test('MCP hub exposes downstream tools to control sources through query and act'
 });
 
 test('Core restores enabled MCP hub services on restart without a discovery request', async () => {
-  // Regression: restarting ARC left saved, enabled MCP servers unchecked until a manual reconnect.
+  // Recurring bug class: restarting ARC left saved, enabled MCP servers unchecked until a manual reconnect.
   const target = process.env.CARGO_TARGET_DIR || path.resolve('target');
   await prepareCoreBinary(target);
   const work = await mkdtemp(path.join(tmpdir(), 'arc-mcp-restart-'));

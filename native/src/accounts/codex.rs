@@ -528,7 +528,7 @@ mod tests {
 
     #[test]
     fn inherited_managed_home_never_becomes_primary_configuration() {
-        // Regression: ARC launched from a spare Codex task inherited its CODEX_HOME and treated that account as the shared source.
+        // Recurring bug class: ARC launched from a spare Codex task inherited its CODEX_HOME and treated that account as the shared source.
         let profiles = Path::new("/state/accounts/codex/profiles");
         let managed = profiles.join("00000000-0000-4000-8000-000000000001/home");
         let user = Path::new("/user");

@@ -9,7 +9,7 @@ const empty = () => ({ left: new Set<string>(), right: new Set<string>() });
 const flatten = (list: readonly Entity[]): Entity[] => list.flatMap(n => [n, ...flatten(n.children ?? [])]);
 
 test('compaction preserves each nonempty side and its highest ranked root', () => {
-  // Property: attention and stable ID choose the protected root independently of input order and height pressure.
+  // Algorithmic core: attention and stable ID choose the protected root independently of input order and height pressure.
   for (const orientation of ['portrait', 'landscape'] as const) for (const vh of [200, 400, 800]) {
     for (const best of [node('best', 2), node('best', 1, 900), node('a')]) {
       const left = [node('z'), best, node('y'), node('x')], right = [...left].reverse();
@@ -21,7 +21,7 @@ test('compaction preserves each nonempty side and its highest ranked root', () =
 });
 
 test('groups never include pinned nodes or ancestors of pinned nodes', () => {
-  // Property: selection, attention and explicit node pins protect every ancestor against compaction.
+  // Algorithmic core: selection, attention and explicit node pins protect every ancestor against compaction.
   const pins: Partial<ActivityEntity>[] = [{ selected: true }, { attention: true }, { pinned: true }];
   for (const orientation of ['portrait', 'landscape'] as const) for (const pin of pins) {
     const tree = [{ ...node('ancestor'), children: [{ ...node('pinned'), ...pin }, node('child-a'), node('child-b')] }, node('a'), node('b'), node('c')];
@@ -31,7 +31,7 @@ test('groups never include pinned nodes or ancestors of pinned nodes', () => {
 });
 
 test('every parent has at most one nonsingleton group with stable identity', () => {
-  // Property: sibling compaction creates at most one group per parent, each with at least two members and identity derived only from parent and side.
+  // Algorithmic core: sibling compaction creates at most one group per parent, each with at least two members and identity derived only from parent and side.
   const tree = Array.from({ length: 5 }, (_, i) => ({ ...node(`root-${i}`), children: Array.from({ length: 5 }, (_, j) => node(`child-${i}-${j}`)) }));
   for (const orientation of ['portrait', 'landscape'] as const) for (const vh of [200, 500, 900]) {
     const plan = compactRoots(tree, tree, { vw: 900, vh }, orientation, DEFAULTS);
@@ -44,7 +44,7 @@ test('every parent has at most one nonsingleton group with stable identity', () 
 });
 
 test('idle siblings fold as a complete eligible set at every depth', () => {
-  // Property: any folded idle sibling implies all idle non-pinned peers are folded except the highest-ranked root of a nonempty side.
+  // Algorithmic core: any folded idle sibling implies all idle non-pinned peers are folded except the highest-ranked root of a nonempty side.
   const idle = (n: Entity): boolean => !(n as ActivityEntity).attention && !(n.children ?? []).some(c => !idle(c));
   for (const orientation of ['landscape', 'portrait'] as const) for (const count of [3, 5, 8]) for (const vh of [300, 600, 900, 1200]) {
     const roots = [{ ...node('busy', 2), tasks: [{ id: 'running', width: 264, height: 76, state: 'running' }], children: [
@@ -60,7 +60,7 @@ test('idle siblings fold as a complete eligible set at every depth', () => {
 });
 
 test('kept siblings retain order and their group follows them in the parent column', () => {
-  // Property: replacing folded siblings preserves the relative order and ancestry of kept siblings and appends one group at that depth.
+  // Algorithmic core: replacing folded siblings preserves the relative order and ancestry of kept siblings and appends one group at that depth.
   const roots = [{ ...node('parent'), children: ['a', 'b', 'c', 'd'].map(id => node(id)) }];
   const hidden = new Set(['a', 'c']);
   const make = (g: { id: string }): Entity => ({ id: g.id, tasks: [] });
@@ -72,7 +72,7 @@ test('kept siblings retain order and their group follows them in the parent colu
 });
 
 test('every input node is visible or belongs to exactly one folded subtree', () => {
-  // Property: compaction and expansion partition every input node at every depth into one visible node or one folded group's subtree, without loss or duplication.
+  // Algorithmic core: compaction and expansion partition every input node at every depth into one visible node or one folded group's subtree, without loss or duplication.
   const nested = Array.from({ length: 4 }, (_, i) => ({ ...node(`root-${i}`), children: Array.from({ length: 3 }, (_, j) => ({ ...node(`child-${i}-${j}`),
     children: [node(`leaf-${i}-${j}-0`), { ...node(`leaf-${i}-${j}-1`), selected: i === 0 && j === 0 }] })) }));
   const dense = denseTopologyScene().scene;
@@ -102,7 +102,7 @@ test('every input node is visible or belongs to exactly one folded subtree', () 
 });
 
 test('account siblings fold before unrelated roots under height pressure', () => {
-  // Regression: Codex account rows previously folded unrelated Agent roots before eligible children.
+  // Recurring bug class: Codex account rows previously folded unrelated Agent roots before eligible children.
   const children = Array.from({ length: 11 }, (_, i) => ({ ...node(`account-${i}`), attention: i < 3 }));
   const roots = [{ ...node('codex'), children }, ...['claude', 'opencode', 'dsh', 'cursor'].map(id => node(id))];
   const scene = { vw: 1280, vh: 800, left: [], right: roots };
@@ -113,7 +113,7 @@ test('account siblings fold before unrelated roots under height pressure', () =>
 });
 
 test('ample space restores all nodes without mutating input order', () => {
-  // Property: fitting scenes have no folded members and planning never mutates the input trees.
+  // Algorithmic core: fitting scenes have no folded members and planning never mutates the input trees.
   const roots = [{ ...node('root'), children: [node('b'), node('a')] }, node('other')], before = JSON.stringify(roots);
   compactRoots(roots, roots, { vw: 700, vh: 260 }, 'portrait', DEFAULTS);
   const roomy = compactRoots(roots, roots, { vw: 1400, vh: 2000 }, 'portrait', DEFAULTS);
@@ -121,7 +121,7 @@ test('ample space restores all nodes without mutating input order', () => {
 });
 
 test('landscape compacts only the overflowing wing', () => {
-  // Regression: globally ranked compaction hid fitting sources when only the Agent wing exceeded its height budget.
+  // Recurring bug class: globally ranked compaction hid fitting sources when only the Agent wing exceeded its height budget.
   const left = [node('source-a'), node('source-b')];
   const right = [{ ...node('busy'), attention: true, children: Array.from({ length: 12 }, (_, i) => ({ ...node(`account-${i}`), pinned: true })) }, node('idle-a'), node('idle-b')];
   const result = compactRoots(left, right, { vw: 1400, vh: 400 }, 'landscape', DEFAULTS);
@@ -129,7 +129,7 @@ test('landscape compacts only the overflowing wing', () => {
 });
 
 test('empty portrait wings release reserved height and budget', () => {
-  // Regression: a folded portrait wing left vacant space above the hub and unnecessarily folded the remaining wing.
+  // Recurring bug class: a folded portrait wing left vacant space above the hub and unnecessarily folded the remaining wing.
   const viewport = { vw: 700, vh: 1000 };
   for (const count of [1, 4, 8]) {
     const roots = Array.from({ length: count }, (_, i) => node(`root-${i}`));

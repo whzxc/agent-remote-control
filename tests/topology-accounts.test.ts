@@ -46,7 +46,7 @@ async function harness(readOnly = false) {
 }
 
 test('single-source layouts preserve independent connector names', async () => {
-  // Regression: connector instances were collapsed into account nodes and lost their custom names.
+  // Recurring bug class: connector instances were collapsed into account nodes and lost their custom names.
   const fixture = await harness();
   try {
     const { server, root, page } = fixture;
@@ -88,7 +88,7 @@ test('single-source layouts preserve independent connector names', async () => {
 
 
 test('native history announces completed fallback and preserves explicit exceptions', async () => {
-  // Regression: native history exposed an unconfirmed state in the task card or hid an explicit failure.
+  // Recurring bug class: native history exposed an unconfirmed state in the task card or hid an explicit failure.
   const fixture = await harness();
   try {
     const { server, root, page } = fixture;
@@ -105,7 +105,7 @@ test('native history announces completed fallback and preserves explicit excepti
 });
 
 test('single-account Agent panels retain native history and shared quota without weakening multi-account scope', async () => {
-  // Regression: single-account panels filtered out unattributed Codex/DeepSeek history and hid the shared Cursor quota source.
+  // Recurring bug class: single-account panels filtered out unattributed Codex/DeepSeek history and hid the shared Cursor quota source.
   const fixture = await harness();
   try {
     const { server, root } = fixture;
@@ -168,7 +168,7 @@ test('single-account Agent panels retain native history and shared quota without
 });
 
 test('conversation pagination retains loaded rows without repeating the loading status', async () => {
-  // Regression: loading another history page flashed the timeline loading message beside already loaded conversations.
+  // Recurring bug class: loading another history page flashed the timeline loading message beside already loaded conversations.
   const fixture = await harness(), originalObserver = globalThis.IntersectionObserver;
   try {
     const { server, root, page } = fixture;
@@ -209,7 +209,7 @@ test('conversation pagination retains loaded rows without repeating the loading 
 
 
 test('provider grouping keeps Grok and Grok Bot as separate connector entries', async () => {
-  // Regression: f8eebf3 hid both Grok entry points inside a single X account node.
+  // Recurring bug class: f8eebf3 hid both Grok entry points inside a single X account node.
   const fixture = await harness();
   try {
     const { server, root, page } = fixture;
@@ -252,7 +252,7 @@ test('provider grouping keeps Grok and Grok Bot as separate connector entries', 
 });
 
 test('connector activity does not combine other instances of the same account', async () => {
-  // Regression: source activity combined distinct connector histories through shared account membership.
+  // Recurring bug class: source activity combined distinct connector histories through shared account membership.
   const fixture = await harness();
   try {
     const { server, root, page } = fixture;
@@ -279,7 +279,7 @@ test('connector activity does not combine other instances of the same account', 
 });
 
 test('read-only Agent roots without provider accounts still expose their native task history', async () => {
-  // Regression: browser-readonly opened a native-account placeholder with no route to its running tasks.
+  // Recurring bug class: browser-readonly opened a native-account placeholder with no route to its running tasks.
   const fixture = await harness(true);
   try {
     const { server, root } = fixture;
@@ -302,7 +302,7 @@ test('read-only Agent roots without provider accounts still expose their native 
 });
 
 test('topology account labels survive reordering and animation frames settle after highlight and collapse', async () => {
-  // Regression: unidentified labels collided and path wires jumped while node opacity was still springing.
+  // Recurring bug class: unidentified labels collided and path wires jumped while node opacity was still springing.
   const fixture = await harness();
   try {
     const { server, root, mount, page, advance, settle, frames } = fixture;
@@ -392,7 +392,7 @@ test('topology account labels survive reordering and animation frames settle aft
 
 
 test('arc controls operate descendants and restore keyboard focus without opening task details', async () => {
-  // Regression: outer arc controls disappeared during navigation and completed tasks required individual read actions.
+  // Recurring bug class: outer arc controls disappeared during navigation and completed tasks required individual read actions.
   const fixture = await harness();
   try {
     const { server, root, mount, page, settle } = fixture;
@@ -429,7 +429,7 @@ test('arc controls operate descendants and restore keyboard focus without openin
 
 
 test('empty nodes hide disclosure controls even when an earlier collapse preference remains', async () => {
-  // Regression: a stale collapse preference left plus/minus buttons on nodes without children or tasks.
+  // Recurring bug class: a stale collapse preference left plus/minus buttons on nodes without children or tasks.
   const fixture = await harness();
   try {
     const { default: Topology } = await fixture.server.ssrLoadModule('/ui/topology/Topology.tsx');

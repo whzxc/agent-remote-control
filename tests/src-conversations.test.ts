@@ -26,7 +26,7 @@ for await (const line of createInterface({input:process.stdin})) {
 }`;
 
 test('Verified session aliases preserve Chat identity and task links through Core restart', {skip:process.platform !== 'darwin'}, async () => {
-  // Regression: AX ax-8b883850 split one Chat and its verified session into separate registry records with missing taskRefs.
+  // Recurring bug class: AX ax-8b883850 split one Chat and its verified session into separate registry records with missing taskRefs.
   const directory=await mkdtemp(path.join(tmpdir(),'arc-src-alias-'));
   const deliveries=path.join(directory,'deliveries.jsonl');
   await writeFile(path.join(directory,'claude'),`#!${process.execPath}
@@ -239,7 +239,7 @@ test('Source conversation ops isolate accounts and persist bindings through rest
 
 
 test('Source inventory includes other Claude accounts before a website container exists', {skip:process.platform !== 'darwin'}, async () => {
-  // Regression: src_conversations reused mutation ownership filtering and hid another known Claude SRC account.
+  // Recurring bug class: src_conversations reused mutation ownership filtering and hid another known Claude SRC account.
   const fixture=await nativeControl(server,{ARC_FIXTURE_SNAPSHOT:'src-conversations'});
   try {
     const owners:Array<{source:string;account:string}>=[];

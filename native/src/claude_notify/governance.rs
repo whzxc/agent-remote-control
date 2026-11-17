@@ -1216,7 +1216,7 @@ mod projection_tests {
     }
     #[test]
     fn status_projection_preserves_history_changes_and_clock_transitions() {
-        // Regression: polled notification diagnostics hydrated all old binding payloads and must keep full views after invalidation.
+        // Recurring bug class: polled notification diagnostics hydrated all old binding payloads and must keep full views after invalidation.
         let mut f = Fixture::new();
         assert_eq!(
             f.read(100, json!({}))["deliveries"]

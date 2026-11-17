@@ -211,7 +211,7 @@ mod tests {
     use super::*;
     #[test]
     fn later_fix_overlap_is_bounded_and_ambiguous_evidence_stays_unknown() {
-        // Regression: D4d later fixes need path overlap within fourteen days without attributing shared, dirty or renamed files.
+        // Recurring bug class: D4d later fixes need path overlap within fourteen days without attributing shared, dirty or renamed files.
         let row = json!({"commonDir":"/repo","ref":"refs/heads/wt/lane","threadId":"thread","turnId":"turn","capturedAt":"2026-01-01T00:00:00Z","endedAt":"2026-01-02T00:00:00Z","dirty":false,"files":[{"path":"a.rs"}]});
         let commit = json!({"commit":"fix-sha","committedAt":"2026-01-03T00:00:00Z","message":"fix(core): repair","files":[{"path":"a.rs"}]});
         let run = |rows: &[Value], c: &Value, continuous| {
@@ -245,7 +245,7 @@ mod tests {
     }
     #[tokio::test]
     async fn watched_commit_range_retains_overlap_and_ignores_unrelated_fix() {
-        // Regression: D4d watcher must parse real Git fix paths and expose bounded correlations without retaining paths.
+        // Recurring bug class: D4d watcher must parse real Git fix paths and expose bounded correlations without retaining paths.
         struct Sandbox(PathBuf);
         impl Drop for Sandbox {
             fn drop(&mut self) {

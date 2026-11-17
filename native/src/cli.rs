@@ -981,7 +981,7 @@ mod tests {
 
     #[test]
     fn runtime_failures_do_not_prescribe_argument_corrections() {
-        // Regression: relay.leave challenge HTTP 404 appended usage to a valid cli call invocation.
+        // Recurring bug class: relay.leave challenge HTTP 404 appended usage to a valid cli call invocation.
         let args = ["call", "relay.leave", "--stdin"];
         let usage = command_usage(&args).unwrap();
         let message = "Relay challenge HTTP 404 Not Found";

@@ -7,7 +7,7 @@ import { act, createElement as h } from 'react';
 import { within, fireEvent, waitFor } from '@testing-library/dom';
 
 test('Agent and task defaults retain pending edits across consecutive changes and settings remounts', { timeout: 10000 }, async () => {
-  // Regression: PR #15 lost pending defaults; d82ad4e hid the model button; autosaving task defaults lost pending edits across dialog dismissal.
+  // Recurring bug class: PR #15 lost pending defaults; d82ad4e hid the model button; autosaving task defaults lost pending edits across dialog dismissal.
   const originalFetch = globalThis.fetch;
   const window = new Window({ url: 'http://localhost' });
   const media = { matches: true, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} };

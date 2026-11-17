@@ -93,7 +93,7 @@ mod tests {
     use serde_json::json;
     #[test]
     fn imported_org_must_match_the_selected_source_account() {
-        // Regression: a Chrome profile for another Claude account was silently installed into the selected SRC.
+        // Recurring bug class: a Chrome profile for another Claude account was silently installed into the selected SRC.
         let org = uuid::Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap();
         let other = uuid::Uuid::parse_str("550e8400-e29b-41d4-a716-446655440001").unwrap();
         let accounts = vec![
@@ -124,7 +124,7 @@ mod tests {
     }
     #[test]
     fn cached_org_is_read_only_from_the_profile_pinned_by_a_confirmed_handshake() {
-        // Regression: handshake snapshots omitted orgId even though the pinned ARC profile retained it.
+        // Recurring bug class: handshake snapshots omitted orgId even though the pinned ARC profile retained it.
         let facts =
             json!({"accountId":"identity-one","orgId":"550e8400-e29b-41d4-a716-446655440000"});
         let accounts = vec![

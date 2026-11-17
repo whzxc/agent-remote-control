@@ -1175,7 +1175,7 @@ mod front_door_tests {
     use super::*;
     #[test]
     fn front_door_authority_loss_preserves_existing_grants() {
-        // Regression: treating unavailable Core authority as revoked would durably remove every OAuth grant during replacement.
+        // Recurring bug class: treating unavailable Core authority as revoked would durably remove every OAuth grant during replacement.
         let resource = "https://fixture.example/mcp";
         let mut oauth = OAuth {
             path: PathBuf::new(),

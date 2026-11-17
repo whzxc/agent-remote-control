@@ -1229,7 +1229,7 @@ mod stream_stability_tests {
 
     #[test]
     fn diagnostics_are_bounded_redacted_and_attached_to_failures() {
-        // Regression: non-JSON stdout either killed the reader or disappeared without diagnostic evidence.
+        // Recurring bug class: non-JSON stdout either killed the reader or disappeared without diagnostic evidence.
         let mut diagnostics = Value::Null;
         for _ in 0..100 {
             diagnostics = stdout_diagnostics(
@@ -1255,7 +1255,7 @@ mod stream_stability_tests {
 
     #[test]
     fn only_content_deltas_defer_persistence() {
-        // Regression: every ACP and Pi delta rewrote the full task snapshot and catalog.
+        // Recurring bug class: every ACP and Pi delta rewrote the full task snapshot and catalog.
         for update in ["agent_message_chunk", "agent_thought_chunk"] {
             assert!(streaming_delta(
                 false,
@@ -1395,7 +1395,7 @@ mod stream_stability_tests {
     #[cfg(unix)]
     #[test]
     fn detached_journal_rebuilds_pending_and_settles_without_original_waiter() {
-        // Regression: Core restart lost ACP prompt waiters, pending approvals and their final result.
+        // Recurring bug class: Core restart lost ACP prompt waiters, pending approvals and their final result.
         if !isolated("detached_journal_rebuilds_pending_and_settles_without_original_waiter") {
             return;
         }
@@ -1466,7 +1466,7 @@ mod stream_stability_tests {
     #[cfg(unix)]
     #[test]
     fn pi_interrupt_waits_for_native_settlement() {
-        // Regression: Pi abort acknowledgement was projected as cancelled before native interruption confirmation.
+        // Recurring bug class: Pi abort acknowledgement was projected as cancelled before native interruption confirmation.
         if !isolated("pi_interrupt_waits_for_native_settlement") {
             return;
         }
@@ -1518,7 +1518,7 @@ mod stream_stability_tests {
     #[cfg(unix)]
     #[test]
     fn host_exit_without_native_outcome_stays_unconfirmed() {
-        // Regression: a successful detached host exit fabricated a completed native turn.
+        // Recurring bug class: a successful detached host exit fabricated a completed native turn.
         if !isolated("host_exit_without_native_outcome_stays_unconfirmed") {
             return;
         }
@@ -1547,7 +1547,7 @@ mod stream_stability_tests {
     #[cfg(unix)]
     #[test]
     fn noisy_stdout_keeps_reading_and_survives_abnormal_exit() {
-        // Regression: one non-JSON stdout line ended the reader before subsequent protocol messages.
+        // Recurring bug class: one non-JSON stdout line ended the reader before subsequent protocol messages.
         if !isolated("noisy_stdout_keeps_reading_and_survives_abnormal_exit") {
             return;
         }
@@ -1575,7 +1575,7 @@ mod stream_stability_tests {
     #[cfg(unix)]
     #[test]
     fn oversize_stdout_records_task_and_timeline_error() {
-        // Regression: exceeding the stdout frame limit silently marked the task unknown without an error.
+        // Recurring bug class: exceeding the stdout frame limit silently marked the task unknown without an error.
         if !isolated("oversize_stdout_records_task_and_timeline_error") {
             return;
         }
@@ -1598,7 +1598,7 @@ mod stream_stability_tests {
     #[cfg(unix)]
     #[test]
     fn streaming_checkpoints_preserve_partial_frames_and_flush_on_close() {
-        // Regression: streaming rewrote snapshots per chunk and shutdown did not join the final stdout snapshot.
+        // Recurring bug class: streaming rewrote snapshots per chunk and shutdown did not join the final stdout snapshot.
         if !isolated("streaming_checkpoints_preserve_partial_frames_and_flush_on_close") {
             return;
         }

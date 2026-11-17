@@ -7,7 +7,7 @@ import { within, fireEvent } from '@testing-library/dom';
 import { assertNodeIdentity } from './helpers/dom-assert.ts';
 
 test('Board update attention opens a focused update panel and Escape returns to its row', { timeout: 10000 }, async () => {
-  // Regression: coordination-problems dismissed App updates during the Board focus handoff at 1280x800.
+  // Recurring bug class: coordination-problems dismissed App updates during the Board focus handoff at 1280x800.
   const window = new Window({ url: 'http://localhost/?scenario=coordination-problems' });
   const media = { matches: true, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} };
   window.matchMedia = () => media as unknown as MediaQueryList;

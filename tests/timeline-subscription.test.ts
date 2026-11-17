@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { nativeControl } from './helpers/native-control.ts';
 
 test('unsubscribed timelines refresh newer turns and disclose incomplete observation', async () => {
-  // Regression: explicit thread/unsubscribe left an old running turn cached with complete coverage after newer turns completed.
+  // Recurring bug class: explicit thread/unsubscribe left an old running turn cached with complete coverage after newer turns completed.
   const fixture = await nativeControl(`
     import {createInterface} from 'node:readline'; import {randomUUID} from 'node:crypto';
     const thread={id:randomUUID(),cwd:'/fixture',turns:[]}; let unsubscribed=false;

@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { nativeControl } from './helpers/native-control.ts';
 
 test('Codex activity keeps the native thread identity across a growing window rollout', async () => {
-  // Regression: window IDs at the end of long Codex rollout filenames became task IDs, breaking detail reads and completion reconciliation.
+  // Recurring bug class: window IDs at the end of long Codex rollout filenames became task IDs, breaking detail reads and completion reconciliation.
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'arc-window-rollout-')));
   const threadId = '00000000-0000-4000-8000-000000000031';
   const windowId = '00000000-0000-4000-8000-000000000032';
@@ -65,7 +65,7 @@ test('Codex activity keeps the native thread identity across a growing window ro
 });
 
 test('Initialized Codex side conversations become active only during a native turn', async () => {
-  // Regression: an idle side conversation's boundary message stayed active forever while its native detail was empty.
+  // Recurring bug class: an idle side conversation's boundary message stayed active forever while its native detail was empty.
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'arc-idle-fork-')));
   const threadId = '00000000-0000-4000-8000-000000000011';
   const turnId = '00000000-0000-4000-8000-000000000012';
@@ -111,7 +111,7 @@ test('Initialized Codex side conversations become active only during a native tu
 });
 
 test('native writer conflicts retain recovery guidance through send, load and read', async () => {
-  // Regression: native errors include the thread ID between thread and already, including nested load failures.
+  // Recurring bug class: native errors include the thread ID between thread and already, including nested load failures.
   const fixture = await nativeControl(`
     import { createInterface } from 'node:readline';
     for await (const line of createInterface({input:process.stdin})) {
@@ -142,7 +142,7 @@ test('native writer conflicts retain recovery guidance through send, load and re
 });
 
 test('Codex Desktop records Fast settings immediately after its first turn context', {skip:process.platform==='win32'}, async () => {
-  // Regression: a Codex Desktop bubble and timeline omitted Fast when thread settings followed the matching turn context.
+  // Recurring bug class: a Codex Desktop bubble and timeline omitted Fast when thread settings followed the matching turn context.
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'arc-late-tier-')));
   const threadId = '00000000-0000-4000-8000-000000000021';
   const turnId = '00000000-0000-4000-8000-000000000022';
@@ -180,7 +180,7 @@ test('Codex Desktop records Fast settings immediately after its first turn conte
 
 
 test('Held external writers allow all read views while mutations retain owner recovery', {skip:process.platform==='win32'}, async()=>{
-  // Regression: codex_read summary, compact, review and statusOnly were blocked by an external native writer after turn completion.
+  // Recurring bug class: codex_read summary, compact, review and statusOnly were blocked by an external native writer after turn completion.
   const directory=await realpath(await mkdtemp(path.join(tmpdir(),'arc-external-writer-')));
   const threadId='00000000-0000-4000-8000-000000000002';
   const turnId='00000000-0000-4000-8000-000000000004';
@@ -260,7 +260,7 @@ test('Held external writers allow all read views while mutations retain owner re
 
 
 test('Releasing an already unheld writer is a no-op before archive',async()=>{
-  // Regression: codex_archive release:true refused a confirmed unheld non-connector thread.
+  // Recurring bug class: codex_archive release:true refused a confirmed unheld non-connector thread.
   const fixture=await nativeControl(`import{createInterface}from'node:readline';for await(const line of createInterface({input:process.stdin})){const{id,method,params}=JSON.parse(line);if(id===undefined)continue;const result=method==='thread/read'?{thread:{id:params.threadId,status:{type:'idle'}}}:{};process.stdout.write(JSON.stringify({id,result})+'\\n');}`);
   try {
     const threadId='00000000-0000-4000-8000-000000000003';
@@ -271,7 +271,7 @@ test('Releasing an already unheld writer is a no-op before archive',async()=>{
 
 
 test('Archive release is a no-op for an idle connector retaining its native writer',{skip:process.platform==='win32'},async()=>{
-  // Regression: release:true returned RELEASE_UNCONFIRMED after unsubscribe while plain native archive could finish on the same idle connector.
+  // Recurring bug class: release:true returned RELEASE_UNCONFIRMED after unsubscribe while plain native archive could finish on the same idle connector.
   const directory=await mkdtemp(path.join(tmpdir(),'arc-idle-archive-'));
   const threadId='00000000-0000-4000-8000-000000000007';
   const turnId='00000000-0000-4000-8000-000000000008';
@@ -353,7 +353,7 @@ async function connectorReleaseFixture(mode = 'release') {
 }
 
 test('Connector release confirms asynchronous native unload for exactly one idle thread', {skip:process.platform==='win32'}, async()=>{
-  // Regression: AX fd337c9e unsubscribe retained the idle connector writer and returned OPERATION_UNCONFIRMED.
+  // Recurring bug class: AX fd337c9e unsubscribe retained the idle connector writer and returned OPERATION_UNCONFIRMED.
   const fixture=await connectorReleaseFixture();
   try {
     const threadId=await fixture.create();
@@ -393,7 +393,7 @@ test('Connector release returns a specific error and owner continuation when nat
 });
 
 test('Releasing the same connector thread twice succeeds after the writer is unheld', {skip:process.platform==='win32'}, async()=>{
-  // Regression: release retries must succeed after the connector has already unloaded the thread.
+  // Recurring bug class: release retries must succeed after the connector has already unloaded the thread.
   const fixture=await connectorReleaseFixture();
   try {
     const threadId=await fixture.create();

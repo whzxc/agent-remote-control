@@ -51,7 +51,7 @@ mod tests {
 
     #[test]
     fn task_wait_caps_and_continuations_follow_source_metadata() {
-        // Property: task wait caps and continuations follow source metadata.
+        // Algorithmic core: task wait caps and continuations follow source metadata.
         for source in presets().iter().map(|p| string(p, "id")).chain(["custom"]) {
             for op in ["codex_wait", "agent_wait"] {
                 for until in [

@@ -8,7 +8,7 @@ const left: Entity[] = [{ id: 'source', children: [{ id: 'source/a' }, { id: 'so
 const right: Entity[] = [{ id: 'idle/a' }, { id: 'agent', children: [{ id: 'account/a' }, { id: 'account/b' }] }, { id: 'single' }, { id: 'idle/b' }];
 
 test('portrait preserves configuration order and inward child columns', () => {
-  // Property: inward hierarchy preserves identity and input order without mutating configuration.
+  // Algorithmic core: inward hierarchy preserves identity and input order without mutating configuration.
   for (const vw of [320, 600, 900, 1400]) {
     const scene = { vw, vh: 1000, left, right }, before = JSON.stringify(scene);
     const layout = solvePortrait(scene), [sources, agents] = layout.wings;
@@ -25,7 +25,7 @@ test('portrait preserves configuration order and inward child columns', () => {
 });
 
 test('collapsed subtrees and flat nodes retain their configuration semantics', () => {
-  // Property: portrait neither expands collapsed descendants nor invents account levels for flat inputs.
+  // Algorithmic core: portrait neither expands collapsed descendants nor invents account levels for flat inputs.
   const collapsed = solvePortrait({ vw: 900, vh: 1200, left, right: [{ ...right[1], collapsed: true }] });
   assert.deepEqual(collapsed.wings[1].nodes.map(node => node.id), ['agent']);
   const flat = solvePortrait({ vw: 900, vh: 1200, left: [], right: right[1].children! });
@@ -34,7 +34,7 @@ test('collapsed subtrees and flat nodes retain their configuration semantics', (
 });
 
 test('portrait Agent panel selection preserves node positions', () => {
-  // Property: Agent panel selection preserves node order and identity independently of layer geometry.
+  // Algorithmic core: Agent panel selection preserves node order and identity independently of layer geometry.
   const scene = { vw: 900, vh: 1200, left, right };
   const closed = solvePortrait(scene);
   for (const id of ['agent', 'account/a', 'single']) {
@@ -43,7 +43,7 @@ test('portrait Agent panel selection preserves node positions', () => {
   }
 });
 test('orientation springs settle within a bounded transition and can reverse', () => {
-  // Property: reversing orientation retains primitives and converges to the latest solver without nonfinite coordinates.
+  // Algorithmic core: reversing orientation retains primitives and converges to the latest solver without nonfinite coordinates.
   const scene = { vw: 900, vh: 1200, left, right }, animator = new TopologyAnimator();
   const landscape = solve(scene), portrait = solvePortrait(scene);
   animator.setTargets(landscape); animator.step(0, true);

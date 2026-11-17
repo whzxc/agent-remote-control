@@ -111,7 +111,7 @@ mod tests {
 
     #[test]
     fn management_writes_share_execution_and_lost_submission_progress() {
-        // Regression: management writes used running/succeeded and suggested a new submission after Core loss.
+        // Recurring bug class: management writes used running/succeeded and suggested a new submission after Core loss.
         let row = json!({"requestId":"original-management-request","operation":"settings.patch","instance":"owner","state":"executing","startedAt":"2000-01-01T00:00:00Z","nextAction":"old recovery"});
         for elapsed in [45_000, 300_000, 3_600_000] {
             let live = project(row.clone(), "owner", 946_684_800_000 + elapsed);

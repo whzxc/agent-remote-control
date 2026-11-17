@@ -10,7 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { nativeControl } from './helpers/native-control.ts';
 
 test('Desktop and connector owners dispatch FIFO and steer only a confirmed native turn', { skip: process.platform !== 'darwin' }, async () => {
-  // Regression: connector restart lost the held Desktop owner; optimistic native turns also broke FIFO/steering.
+  // Recurring bug class: connector restart lost the held Desktop owner; optimistic native turns also broke FIFO/steering.
   const directory = await mkdtemp(path.join(tmpdir(), 'arc-owner-'));
   const dataFile = path.join(directory, 'native.json');
   const openFile = path.join(directory, "opened-url");
@@ -185,7 +185,7 @@ test('Desktop and connector owners dispatch FIFO and steer only a confirmed nati
 });
 
 test('AX unheld thread reads recover from silent Desktop discovery', {skip:process.platform!=='darwin'}, async()=>{
-  // Regression: AX-05 an unheld persisted thread could not be read when Desktop never answered owner discovery.
+  // Recurring bug class: AX-05 an unheld persisted thread could not be read when Desktop never answered owner discovery.
   const directory=await mkdtemp(path.join(tmpdir(),'arc-unheld-'));
   await mkdir(path.join(directory,'ipc'));
   const sockets=new Set<Socket>();
@@ -225,7 +225,7 @@ test('AX unheld thread reads recover from silent Desktop discovery', {skip:proce
 });
 
 test('Codex activity and timelines retain the active native turn', { skip: process.platform !== 'darwin' }, async () => {
-  // Regression: large tool output hid an active task, whose timeline could then report a utility terminal snapshot.
+  // Recurring bug class: large tool output hid an active task, whose timeline could then report a utility terminal snapshot.
   const directory = await mkdtemp(path.join(tmpdir(), 'arc-timeline-owner-'));
   await mkdir(path.join(directory, 'ipc'));
   const threadId = randomUUID(), turnId = randomUUID();
@@ -306,7 +306,7 @@ test('Codex activity and timelines retain the active native turn', { skip: proce
 });
 
 test('Missing Desktop endpoint falls back before create and send submission', {skip:process.platform!=='darwin'}, async()=>{
-  // Regression: credentials-only Codex homes failed at thread-submitting with an unnamed ENOENT.
+  // Recurring bug class: credentials-only Codex homes failed at thread-submitting with an unnamed ENOENT.
   const directory=await realpath(await mkdtemp(path.join(tmpdir(),'arc-missing-ipc-')));
   const threadId=randomUUID(), turnId=randomUUID(), existing=randomUUID();
   const fixture=await nativeControl(`

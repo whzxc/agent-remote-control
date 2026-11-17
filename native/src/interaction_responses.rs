@@ -54,7 +54,7 @@ mod tests {
     use super::*;
     #[test]
     fn answer_attribution_is_bounded_and_never_inferred_from_a_label() {
-        // Property: attribution uses explicit local UI ingress or a bounded source id, never a display label.
+        // Algorithmic core: attribution uses explicit local UI ingress or a bounded source id, never a display label.
         assert_eq!(
             answered_by(&json!({"ingressId":"local-ui","sourceId":"local"})),
             json!({"kind":"local-ui"})
@@ -73,7 +73,7 @@ mod tests {
     }
     #[test]
     fn timeline_read_keeps_the_answering_party() {
-        // Regression: answered timeline entries omitted the party that brokered the answer.
+        // Recurring bug class: answered timeline entries omitted the party that brokered the answer.
         let mut timeline = crate::task_tracking::Timeline::default();
         timeline.answered(&json!({"id":"approval","method":"item/commandExecution/requestApproval","params":{"turnId":"turn"}}),
             &json!({"result":{"decision":"accept"},"answeredBy":answered_by(&json!({"sourceId":"fixture-controller"})),"resolvedAt":"2026-01-01T00:00:00Z"}));
@@ -85,7 +85,7 @@ mod tests {
     }
     #[test]
     fn timeline_polls_reuse_answers_and_pick_up_a_new_response() {
-        // Regression: the one-second timeline poll enumerated and reread every persisted answer.
+        // Recurring bug class: the one-second timeline poll enumerated and reread every persisted answer.
         struct Sandbox(PathBuf);
         impl Drop for Sandbox {
             fn drop(&mut self) {

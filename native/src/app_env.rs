@@ -292,7 +292,7 @@ mod tests {
     }
     #[test]
     fn virtual_deadlines_map_to_the_first_reachable_real_millisecond() {
-        // Property: a real deadline cannot fire before its virtual deadline, and a paused future clock waits for a change.
+        // Algorithmic core: a real deadline cannot fire before its virtual deadline, and a paused future clock waits for a change.
         let mut env = Overrides::default();
         assert_eq!(env.real_deadline(1400, 1000), Some(1400));
         env.clock = Some(Clock {

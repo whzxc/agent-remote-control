@@ -605,7 +605,7 @@ mod tests {
 
     #[test]
     fn native_terminal_dominates_loss_activity_and_stale_evidence_in_every_order() {
-        // Property: native terminal knowledge is invariant under permutations of weaker evidence.
+        // Algorithmic core: native terminal knowledge is invariant under permutations of weaker evidence.
         for status in ["completed", "failed", "interrupted"] {
             let confirmed = terminal(status, Some(4));
             let expected = fold(&[confirmed.clone()]).state();
@@ -623,7 +623,7 @@ mod tests {
 
     #[test]
     fn protocol_terminal_adapters_share_the_monotonic_frontier() {
-        // Property: Pi, ACP and Antigravity native terminals dominate every permutation of owner and loss evidence.
+        // Algorithmic core: Pi, ACP and Antigravity native terminals dominate every permutation of owner and loss evidence.
         for native in [
             adapters::pi_settled(key(), "aborted"),
             adapters::acp_response(
@@ -647,7 +647,7 @@ mod tests {
 
     #[test]
     fn duplicate_evidence_is_idempotent() {
-        // Property: reapplying any observed evidence leaves the entire transition unchanged.
+        // Algorithmic core: reapplying any observed evidence leaves the entire transition unchanged.
         let evidence = [
             Evidence::owner_live(key(), LiveState::Active, 1),
             Evidence::loss(key(), LossReason::OwnerUnavailable, 2),
@@ -669,7 +669,7 @@ mod tests {
 
     #[test]
     fn evidence_cannot_cross_agent_thread_or_turn_boundaries() {
-        // Property: every evidence kind is inert outside its exact native turn key.
+        // Algorithmic core: every evidence kind is inert outside its exact native turn key.
         for state in [
             Transition::new(key()),
             fold(&[Evidence::owner_live(key(), LiveState::Active, 1)]),
@@ -693,7 +693,7 @@ mod tests {
 
     #[test]
     fn owner_loss_preserves_last_live_without_confirming_interruption() {
-        // Property: owner loss makes liveness unconfirmed until newer owner evidence or a native terminal.
+        // Algorithmic core: owner loss makes liveness unconfirmed until newer owner evidence or a native terminal.
         let live = Evidence::owner_live(key(), LiveState::Active, 1);
         let loss = Evidence::loss(key(), LossReason::OwnerUnavailable, 2);
         for order in permutations(&[live, loss]) {
@@ -736,7 +736,7 @@ mod tests {
 
     #[test]
     fn contradictory_native_outcomes_require_ordering_or_remain_conflicted() {
-        // Property: only a newer comparable native sequence resolves contradictory terminal records.
+        // Algorithmic core: only a newer comparable native sequence resolves contradictory terminal records.
         for sequences in [(None, None), (Some(4), Some(4)), (None, Some(4))] {
             let evidence = [
                 terminal("completed", sequences.0),
@@ -780,7 +780,7 @@ mod tests {
     }
     #[test]
     fn checkpoint_roundtrip_preserves_scoped_knowledge_and_conflicts() {
-        // Property: notification checkpoints preserve the entire authoritative knowledge frontier.
+        // Algorithmic core: notification checkpoints preserve the entire authoritative knowledge frontier.
         let evidence = [
             Evidence::owner_live(key(), LiveState::Active, 1),
             Evidence::loss(key(), LossReason::OwnerUnavailable, 2),

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { solve, type Entity } from '../ui/topology/solve.ts';
 
 test('task observations do not enter the node solver', () => {
-  // Regression: task activity changed topology positions, queues and compaction before homepage modes.
+  // Recurring bug class: task activity changed topology positions, queues and compaction before homepage modes.
   const roots: Entity[] = [{ id: 'agent', children: [{ id: 'account-one' }, { id: 'account-two' }] }];
   const scene = { vw: 1280, vh: 800, left: [], right: roots };
   const before = solve(scene);
@@ -12,7 +12,7 @@ test('task observations do not enter the node solver', () => {
 });
 
 test('capsule extent keeps child branches and controls beyond its task segment', () => {
-  // Regression: the old outer arc intercepted a working capsule task segment because its width was absent from node geometry.
+  // Recurring bug class: the old outer arc intercepted a working capsule task segment because its width was absent from node geometry.
   for (const width of [48, 104, 160]) {
     const layout = solve({ vw: 1920, vh: 1050, left: [], right: [{ id: 'agent', extent: width, children: [{ id: 'account' }] }] });
     const [parent, child] = layout.wings[1].nodes;

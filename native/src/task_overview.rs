@@ -436,7 +436,7 @@ mod tests {
     use super::*;
     #[test]
     fn statuses_are_evidence_based_and_compact_does_not_copy_prompts() {
-        // Regression: task summaries conflated idle threads with completed selected turns and copied full prompts.
+        // Recurring bug class: task summaries conflated idle threads with completed selected turns and copied full prompts.
         let thread = json!({"id":"t","name":"Title","cwd":"/project","preview":"large prompt","status":{"type":"idle"},"model":"m"});
         let turn = json!({"id":"turn","status":"completed"});
         let value = compact(

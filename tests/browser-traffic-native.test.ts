@@ -6,7 +6,7 @@ import path from 'node:path';
 import { nativeControl } from './helpers/native-control.ts';
 
 test('browser task polling sends compact metadata once and no body for unchanged reads', async () => {
-  // Regression: one open remote page uploaded 1.9 GB in ten minutes through repeated full snapshots and task inputs.
+  // Recurring bug class: one open remote page uploaded 1.9 GB in ten minutes through repeated full snapshots and task inputs.
   const fixture = await nativeControl('');
   try {
     await fixture.restart(async directory => {

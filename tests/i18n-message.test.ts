@@ -5,7 +5,7 @@ import { createServer } from "vite";
 import { formatMessage } from "../ui/i18nMessage.ts";
 
 test("numeric counts select their locale's plural category and retain interpolation", () => {
-  // Property: finite counts select the Intl cardinal category and preserve every supplied placeholder.
+  // Algorithmic core: finite counts select the Intl cardinal category and preserve every supplied placeholder.
   const messages = { value: "base:{count}:{name}", "value.one": "one:{count}:{name}", "value.other": "other:{count}:{name}" };
   for (const locale of ["en", "zh-CN"] as const) {
     const rules = new Intl.PluralRules(locale);
@@ -16,7 +16,7 @@ test("numeric counts select their locale's plural category and retain interpolat
 });
 
 test("known count messages translate across locales through their base key", async () => {
-  // Regression: plural variant keys and captured string counts bypassed the selected locale's count form.
+  // Recurring bug class: plural variant keys and captured string counts bypassed the selected locale's count form.
   const window = new Window({ url: "http://localhost" });
   Object.assign(globalThis, { window, document: window.document, localStorage: window.localStorage });
   const server = await createServer({ configFile: false, server: { middlewareMode: true, watch: null, ws: false } });
@@ -40,7 +40,7 @@ test("known count messages translate across locales through their base key", asy
 });
 
 test("single-form messages and nonnumeric parameters preserve base-message behavior", () => {
-  // Property: unavailable categories and absent or nonfinite counts use the base message without inventing translations.
+  // Algorithmic core: unavailable categories and absent or nonfinite counts use the base message without inventing translations.
   const messages = { value: "{count}:{name}:{missing}", "value.one": "singular" };
   for (const locale of ["en", "zh-CN"] as const) {
     for (const count of [undefined, "1", null, NaN, Infinity, -Infinity, 0, 2]) {

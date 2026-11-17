@@ -66,7 +66,7 @@ mod tests {
     use super::*;
     #[test]
     fn canonical_refs_remove_non_identity_url_data() {
-        // Property: Parsed conversation identities contain only the allowed origin and canonical path.
+        // Algorithmic core: Parsed conversation identities contain only the allowed origin and canonical path.
         let base = "https://claude.ai/chat/550e8400-e29b-41d4-a716-446655440000";
         assert_eq!(
             conversation(&format!("{base}?example=discard#discard")).unwrap()["url"],

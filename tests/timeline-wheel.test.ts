@@ -6,7 +6,7 @@ import { act, createElement as h } from "react";
 import { within, fireEvent } from "@testing-library/dom";
 
 test("nested timeline content sends vertical wheel deltas to the timeline and keeps horizontal scrolling local", async () => {
-  // Regression: tables contained vertical wheel scrolling until the pointer left the table.
+  // Recurring bug class: tables contained vertical wheel scrolling until the pointer left the table.
   const window = new Window({ url: "http://localhost" });
   window.localStorage.setItem("arc.privacy", "false");
   const media = Object.assign(new window.EventTarget(), { matches: true });

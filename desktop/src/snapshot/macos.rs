@@ -144,7 +144,7 @@ mod tests {
 
     #[test]
     fn png_encoding_releases_appkit_buffers_before_returning() {
-        // Regression: PNG capture buffers accumulated until the run-loop autorelease pool drained.
+        // Recurring bug class: PNG capture buffers accumulated until the run-loop autorelease pool drained.
         let (width, height) = (1680, 1156);
         autoreleasepool(|_| unsafe {
             for _ in 0..30 {
@@ -181,7 +181,7 @@ mod tests {
 
     #[tokio::test]
     async fn abandoned_capture_holds_capacity_until_native_completion() {
-        // Regression: request timeouts released the serial lock while WKWebView captures remained in flight.
+        // Recurring bug class: request timeouts released the serial lock while WKWebView captures remained in flight.
         let (capture, received) = Capture::begin().unwrap();
         let callback = capture.completion();
         assert!(tokio::time::timeout(Duration::ZERO, received)

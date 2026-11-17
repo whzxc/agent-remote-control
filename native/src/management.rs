@@ -376,7 +376,7 @@ mod device_read_tests {
 
     #[tokio::test]
     async fn management_device_tasks_restores_complete_peer_json() {
-        // Regression: blank desktop from paged device/tasks management response
+        // Recurring bug class: blank desktop from paged device/tasks management response
         let snapshot = json!({"observedAt":"2026-01-01T00:00:00Z","agents":{"codex":{"sessions":[{"id":"example","headline":"x".repeat(30000)}]}},"availableAgents":[],"records":[],"omittedRecords":0});
         let text = snapshot.to_string();
         let envelope = crate::egress::tool(

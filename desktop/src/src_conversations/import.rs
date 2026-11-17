@@ -296,7 +296,7 @@ mod tests {
     use aes::cipher::BlockModeEncrypt;
     #[test]
     fn encrypted_database_versions_and_host_integrity() {
-        // Regression: Chrome v24 prefixes decrypted values with a host digest before the cookie value.
+        // Recurring bug class: Chrome v24 prefixes decrypted values with a host digest before the cookie value.
         for version in [23, 24] {
             let temp = tempfile::tempdir().unwrap();
             let source = temp.path().join("Cookies");

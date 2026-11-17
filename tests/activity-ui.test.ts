@@ -12,7 +12,7 @@ function snapshot(at: number, sessions: AgentActivitySession[]): AgentActivitySn
   return { observedAt: `2026-01-01T00:00:0${at}Z`, activeAgents: [], agents: { claude: { sessions } } };
 }
 test('nested activity keeps ancestors visible and preserves session identity', () => {
-  // Regression: subagent activity was flattened onto its Agent and overflow could hide its parent.
+  // Recurring bug class: subagent activity was flattened onto its Agent and overflow could hide its parent.
   const parent = { ...session('parent'), nativeSessionId: 'native-parent', orderAt: 8, endedAt: 1 };
   const child = { ...session('child'), parentSessionId: 'native-parent', orderAt: 1 };
   const grandchild = { ...session('grandchild'), parentSessionId: 'child', orderAt: 0 };
@@ -26,7 +26,7 @@ test('nested activity keeps ancestors visible and preserves session identity', (
   assert.equal(shown.hidden + shown.sessions.length, 9);
 });
 test('parent tasks and descendants always resolve to the same account', () => {
-  // Property: every descendant resolves to its root's account regardless of its own attribution, depth, or input order.
+  // Algorithmic core: every descendant resolves to its root's account regardless of its own attribution, depth, or input order.
   for (const rootAccount of ['account-a', null, undefined]) for (const count of [1, 3, 8]) {
     const root = { ...session('root'), nativeSessionId: 'native-root', agentAccountId: rootAccount, orderAt: 0 };
     const children = Array.from({ length: count }, (_, i) => ({ ...session(`child-${i}`),
@@ -39,7 +39,7 @@ test('parent tasks and descendants always resolve to the same account', () => {
   }
 });
 test('task ancestry terminates for cycles and never invents missing parents', () => {
-  // Property: every input task appears exactly once and each emitted parent precedes its child.
+  // Algorithmic core: every input task appears exactly once and each emitted parent precedes its child.
   for (const rows of [
     [{ id: 'a', parentTaskId: 'b' }, { id: 'b', parentTaskId: 'a' }, { id: 'c', parentTaskId: 'b' }],
     [{ id: 'a', parentTaskId: 'a' }, { id: 'b', parentTaskId: 'missing' }],
@@ -51,7 +51,7 @@ test('task ancestry terminates for cycles and never invents missing parents', ()
   }
 });
 test("full snapshots update sessions, remove completed ones and reject older observations", () => {
-  // Property: full snapshots update sessions, remove completed ones and reject older observations.
+  // Algorithmic core: full snapshots update sessions, remove completed ones and reject older observations.
   const first = snapshot(1, [session("one"), session("two")]);
   const next = snapshot(2, [session("two", permission)]);
   assert.equal(mergeActivity(undefined, first), first);
@@ -60,7 +60,7 @@ test("full snapshots update sessions, remove completed ones and reject older obs
   assert.equal(mergeActivity(next, snapshot(3, [])).agents.claude.sessions.length, 0);
 });
 test("overflow keeps unfinished work ahead of completions and can reveal every task", () => {
-  // Regression: completed bubbles occupied the visible slots while running tasks were hidden in overflow.
+  // Recurring bug class: completed bubbles occupied the visible slots while running tasks were hidden in overflow.
   const tracked = trackActivity([], Array.from({ length: 9 }, (_, i) => session(String(i), i === 8 ? permission : undefined)), 100);
   const sessions = tracked.map(s => Number(s.id) < 5 ? { ...s, endedAt: 200 } : s);
   const shown = visibleActivity(sessions);
@@ -76,7 +76,7 @@ test("overflow keeps unfinished work ahead of completions and can reveal every t
   assert.deepEqual(visibleActivity(fewerRunning).sessions.map(s => s.id), ["8", "5", "6", "0"]);
 });
 test("moving a visible overflow task settles inside its completion group without hiding unfinished work", () => {
-  // Property: every visible move preserves unfinished-first priority, other tasks' relative order, membership and visibility, and retains the drop position within its group.
+  // Algorithmic core: every visible move preserves unfinished-first priority, other tasks' relative order, membership and visibility, and retains the drop position within its group.
   const rows = ['C1','C2','C3','C4','C5','R1','R2','R3'].map((id, orderAt) => ({ ...session(id), orderAt, ...(id.startsWith('C') ? { endedAt: 1 } : {}) }));
   const baseline = visibleActivity(rows, undefined, true).sessions.map(row => row.id);
   const visible = baseline.slice(0, 4);
@@ -103,7 +103,7 @@ test("moving a visible overflow task settles inside its completion group without
   }
 });
 test("later completions and new running tasks retain overflow priority after stored manual moves", () => {
-  // Regression: 45370de7 let a full stored list hide running R3 behind completed C1 and R2 after R2 completed and R4 started.
+  // Recurring bug class: 45370de7 let a full stored list hide running R3 behind completed C1 and R2 after R2 completed and R4 started.
   const rows = ['C1','C2','C3','C4','C5','R1','R2','R3'].map((id, orderAt) => ({ ...session(id), orderAt, ...(id.startsWith('C') ? { endedAt: 1 } : {}) }));
   const move = reorderActivity(rows, ['R2','R1','R3','C1'], []);
   assert.ok(move);
@@ -117,7 +117,7 @@ test("later completions and new running tasks retain overflow priority after sto
   }
 });
 test("start order is stable across phases, payload order and corrected timestamps; only attention reorders", () => {
-  // Property: start order is stable across phases, payload order and corrected timestamps; only attention reorders.
+  // Algorithmic core: start order is stable across phases, payload order and corrected timestamps; only attention reorders.
   const first = { ...session("first"), startedAt: "2026-01-01T00:00:01Z" };
   const second = { ...session("second"), startedAt: "2026-01-01T00:00:02Z" };
   let tracked = trackActivity([], [second, first], 10);
@@ -132,7 +132,7 @@ test("start order is stable across phases, payload order and corrected timestamp
   assert.deepEqual(trackActivity(fallback, [session("a"), session("b")], 200).map(s => s.orderAt), [100, 100]);
 });
 test("activity disappearance stays unconfirmed until terminal evidence arrives", () => {
-  // Regression: disappearing activity was marked successful without a terminal event.
+  // Recurring bug class: disappearing activity was marked successful without a terminal event.
   const active = trackActivity([], [session("one", permission)], 100);
   const missing = trackActivity(active, [], 500);
   assert.equal(missing[0].endedAt, undefined);
@@ -146,7 +146,7 @@ test("activity disappearance stays unconfirmed until terminal evidence arrives",
   assert.equal(trackActivity(ended, [session("one")], 1000)[0].orderAt, active[0].orderAt);
 });
 test("an open task keeps its origin and branch for focus restoration, even beyond the visible cap", () => {
-  // Property: an open task keeps its origin and branch for focus restoration, even beyond the visible cap.
+  // Algorithmic core: an open task keeps its origin and branch for focus restoration, even beyond the visible cap.
   const active = trackActivity([], Array.from({ length: 7 }, (_, i) => session(String(i))), 100);
   const shown = visibleActivity(active, "6");
   assert.deepEqual(shown.sessions.map(s => s.id), ["0", "1", "2", "6"]);
@@ -156,7 +156,7 @@ test("an open task keeps its origin and branch for focus restoration, even beyon
   assert.equal(trackActivity(ended, [], 5000).length, 0);
 });
 test("approvals use ACP single-use choices, Pi confirmation and Codex decisions; questions do not submit", () => {
-  // Property: approvals use ACP single-use choices, Pi confirmation and Codex decisions; questions do not submit.
+  // Algorithmic core: approvals use ACP single-use choices, Pi confirmation and Codex decisions; questions do not submit.
   assert.equal(permissionResponse(permission, "allow")?.args.optionId, "yes");
   assert.equal(permissionResponse(permission, "deny")?.args.optionId, "no");
   assert.equal(permissionResponse({ ...permission, options: [{ kind: "allow_always", optionId: "always" }] }, "allow"), undefined);
@@ -167,7 +167,7 @@ test("approvals use ACP single-use choices, Pi confirmation and Codex decisions;
   assert.equal(permissionResponse({ ...permission, canRespond: false }, "allow"), undefined);
 });
 test("submission locks immediately, survives snapshot refresh and retries only the identical UUID/payload", () => {
-  // Property: submission locks immediately, survives snapshot refresh and retries only the identical UUID/payload.
+  // Algorithmic core: submission locks immediately, survives snapshot refresh and retries only the identical UUID/payload.
   const payload = permissionResponse(permission, "allow")!;
   let ids = 0;
   const first = beginApproval(undefined, "allow", payload, () => `request-${++ids}`)!;
@@ -191,7 +191,7 @@ test("submission locks immediately, survives snapshot refresh and retries only t
 });
 
 test("Pi choice and input answers use the native response and stable retry payload", async () => {
-  // Property: Pi choice and input answers use the native response and stable retry payload.
+  // Algorithmic core: Pi choice and input answers use the native response and stable retry payload.
   const { questionResponse } = await import("../ui/state/activityModel.ts");
   const question: AgentInteraction = { kind: "question", summary: "Choose a branch", method: "select", options: ["One", "Two"], respond: { op: "agent_respond", args: { agent: "pi", interactionId: "question-1" } } };
   assert.equal(questionResponse(question, "Other"), undefined);
@@ -207,7 +207,7 @@ test("Pi choice and input answers use the native response and stable retry paylo
 });
 
 test("timeline replaces by item id, retains unchanged entries, and orders backfilled items", async () => {
-  // Property: timeline replaces by item id, retains unchanged entries, and orders backfilled items.
+  // Algorithmic core: timeline replaces by item id, retains unchanged entries, and orders backfilled items.
   const { mergeTimeline } = await import("../ui/state/timelineModel.ts");
   const current = timeline([entry("live", 1, "partial", 0)]);
   const next = timeline([entry("old", 2, "history", 0), entry("live", 3, "complete", 1)]);
@@ -219,7 +219,7 @@ test("timeline replaces by item id, retains unchanged entries, and orders backfi
 });
 
 test("expired timeline cursor discards old state and retries once without after", async () => {
-  // Regression: TIMELINE_CURSOR_EXPIRED requires a fresh timeline without stale entries.
+  // Recurring bug class: TIMELINE_CURSOR_EXPIRED requires a fresh timeline without stale entries.
   const { refreshTimeline } = await import("../ui/state/timelineModel.ts");
   const restored = timeline([entry("restored", 1, "restored", 0)]);
   const stale = timeline([entry("old", 50, "stale", 0)]);
@@ -246,7 +246,7 @@ function timeline(entries: import("../ui/types.ts").AgentTimelineEntry[]): impor
 }
 
 test("file labels are relative only inside the project and keep the filename separate from the elided directory", async () => {
-  // Property: file labels are relative only inside the project and keep the filename separate from the elided directory.
+  // Algorithmic core: file labels are relative only inside the project and keep the filename separate from the elided directory.
   const { filePathParts } = await import("../ui/lib/projectPath.ts");
   assert.deepEqual(filePathParts("/workspace/example/src/deep/file_name.ts", "/workspace/example"), {
     fullPath: "/workspace/example/src/deep/file_name.ts", displayPath: "src/deep/file_name.ts", directory: "src/deep/", filename: "file_name.ts",
@@ -268,7 +268,7 @@ test("file labels are relative only inside the project and keep the filename sep
 });
 
 test("file approvals use path labels in interaction bubbles and timeline cards", async () => {
-  // Property: file approvals use path labels in interaction bubbles and timeline cards.
+  // Algorithmic core: file approvals use path labels in interaction bubbles and timeline cards.
   const { activityHeadline } = await import("../ui/state/activityModel.ts");
   const { filePathParts } = await import("../ui/lib/projectPath.ts");
   const project = "/workspace/example";
@@ -296,7 +296,7 @@ test("file approvals use path labels in interaction bubbles and timeline cards",
 
 
 test("approval details match only an unambiguous preceding object in the same turn", async () => {
-  // Property: approval associations require the same turn and exact structured object.
+  // Algorithmic core: approval associations require the same turn and exact structured object.
   const { interactionTool } = await import("../ui/state/timelineModel.ts");
   const tool = { ...entry("write", 1, "", 1), type: "file" as const, status: "pending" as const, path: "/workspace/example/file.txt", operation: "write" as const };
   const interaction = { ...entry("approval", 2, "", 2), type: "interaction" as const, status: "pending" as const, interaction: { ...permission, path: tool.path } };
@@ -313,7 +313,7 @@ test("approval details match only an unambiguous preceding object in the same tu
 });
 
 test("approval wording uses structured operations and retains generic file access when unknown", async () => {
-  // Property: approval wording uses structured operations and retains generic file access when unknown.
+  // Algorithmic core: approval wording uses structured operations and retains generic file access when unknown.
   const { permissionRequestLabel } = await import("../ui/state/timelineModel.ts");
   const tool = { ...entry("file", 1, "", 1), type: "file" as const };
   assert.equal(permissionRequestLabel({ ...tool, operation: "read" }), "timeline.readRequest");
@@ -328,7 +328,7 @@ test("approval wording uses structured operations and retains generic file acces
 
 
 test("dispatch records use their own turn results and keep submission separate", async () => {
-  // Regression: old dispatches became unknown or borrowed another turn's live state.
+  // Recurring bug class: old dispatches became unknown or borrowed another turn's live state.
   const { sourceDispatches, dispatchState } = await import("../ui/state/sourceDispatch.ts");
   const row = (id: string, source: string, date: string) => ({ requestId: id, turnId: id, threadId: "thread", origin: { sourceId: source }, state: "completed", createdAt: date,
     updatedAt: date, approval: { decision: "allowed", source: "local", at: date }, task: { kind: "create", prompt: "Fixture", input: {}, settings: {} } });
@@ -350,7 +350,7 @@ test("dispatch records use their own turn results and keep submission separate",
 });
 
 test("timeline turns keep every work kind together and preserve steering requests", async () => {
-  // Property: each turn preserves every entry except its primary prompt and final response in one work block.
+  // Algorithmic core: each turn preserves every entry except its primary prompt and final response in one work block.
   const { timelineGroups, turnEntries } = await import("../ui/state/timelineGroups.ts");
   const prompt = { ...entry("prompt", 1, "Request", 1), type: "user" as const };
   const command = { ...entry("cmd", 2, "", 2), type: "command" as const };
@@ -367,7 +367,7 @@ test("timeline turns keep every work kind together and preserve steering request
 });
 
 test("work blocks preserve manual choices and count observed work without adding concurrent durations", async () => {
-  // Property: manual disclosure overrides live state and turn duration uses observed wall time.
+  // Algorithmic core: manual disclosure overrides live state and turn duration uses observed wall time.
   const { workState, workBlockOpen, entryDuration, turnDuration } = await import("../ui/state/timelineGroups.ts");
   const base = { ...entry("cmd", 1, "", 1), type: "command" as const, durationMs: 2000 };
   const running = { ...base, id: "running", status: "running" as const, durationMs: undefined, startedAt: "2026-01-01T00:00:00Z" };
@@ -386,7 +386,7 @@ test("work blocks preserve manual choices and count observed work without adding
 });
 
 test("task execution totals exclude gaps between turns and retain native lifecycle timing", async () => {
-  // Property: total execution is the sum of known turn spans, excluding idle gaps and never inventing missing time.
+  // Algorithmic core: total execution is the sum of known turn spans, excluding idle gaps and never inventing missing time.
   const { timelineDuration, turnDuration } = await import("../ui/state/timelineGroups.ts");
   const { mergeTimeline } = await import("../ui/state/timelineModel.ts");
   const time = (seconds: number) => new Date(Date.parse("2026-01-01T00:00:00Z") + seconds * 1000).toISOString();
@@ -407,7 +407,7 @@ test("task execution totals exclude gaps between turns and retain native lifecyc
 });
 
 test("incremental timeline backfill retains turn identities and updated entry content", async () => {
-  // Property: turn ids remain stable when earlier work and earlier turns are backfilled.
+  // Algorithmic core: turn ids remain stable when earlier work and earlier turns are backfilled.
   const { mergeTimeline } = await import("../ui/state/timelineModel.ts");
   const { timelineGroups } = await import("../ui/state/timelineGroups.ts");
   const first = { ...entry("first", 1, "", 1), type: "command" as const, status: "running" as const };
@@ -425,7 +425,7 @@ test("incremental timeline backfill retains turn identities and updated entry co
 
 
 test("timeline resumes at the bottom threshold despite layout clamping and follows the next increment", async () => {
-  // Property: timeline resumes at the bottom threshold despite layout clamping and follows the next increment.
+  // Algorithmic core: timeline resumes at the bottom threshold despite layout clamping and follows the next increment.
   const { followsTimeline, timelineScrollTarget } = await import("../ui/state/timelineModel.ts");
   let following = followsTimeline(100, 710, 3482, 2772); // User scrolls upward.
   assert.equal(following, false);
@@ -443,7 +443,7 @@ test("timeline resumes at the bottom threshold despite layout clamping and follo
 });
 
 test("final answers prefer native markers and only infer trailing text after completion", async () => {
-  // Property: native final markers win and unmarked live text remains work.
+  // Algorithmic core: native final markers win and unmarked live text remains work.
   const { turnEntries } = await import("../ui/state/timelineGroups.ts");
   const text = entry("text", 1, "Interim", 1);
   const tool = { ...entry("tool", 2, "", 2), type: "command" as const };
@@ -461,7 +461,7 @@ test("final answers prefer native markers and only infer trailing text after com
 });
 
 test("durable activity reads retain only recent unique agent-task acknowledgements within the capacity", async () => {
-  // Property: read retention keeps the newest unique agent-task records within both age and count limits.
+  // Algorithmic core: read retention keeps the newest unique agent-task records within both age and count limits.
   const { pruneActivityReads, activityReadRetention } = await import("../ui/state/activityModel.ts");
   const now = Date.now();
   const invalid = [null, {}, { agent: "codex", id: "expired", readAt: now - activityReadRetention.maxAge }, { agent: "codex", id: "future", readAt: now + 1 }];
@@ -478,7 +478,7 @@ test("durable activity reads retain only recent unique agent-task acknowledgemen
 });
 
 test('large families share overflow without hiding independent roots or pending children', () => {
-  // Regression: child overflow flattened related tasks into the Agent queue and concealed independent roots.
+  // Recurring bug class: child overflow flattened related tasks into the Agent queue and concealed independent roots.
   const parent = { ...session('parent'), orderAt: 0 };
   const children = Array.from({ length: 7 }, (_, index) => ({ ...session(`child-${index}`, index === 6 ? permission : undefined), parentSessionId: parent.id, relationKind: index === 0 ? 'side-chat' as const : 'subagent' as const, orderAt: index + 1 }));
   const root = { ...session('independent'), orderAt: 9 };

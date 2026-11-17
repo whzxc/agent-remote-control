@@ -3176,7 +3176,7 @@ pub(crate) mod tests {
     }
     #[tokio::test]
     async fn exhausted_restart_reconciliation_recovers_on_an_explicit_observation() {
-        // Regression: unavailable restart reads retried forever instead of exposing a bounded state with explicit recovery.
+        // Recurring bug class: unavailable restart reads retried forever instead of exposing a bounded state with explicit recovery.
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
         let lock = Mutex::new(());
@@ -3227,7 +3227,7 @@ pub(crate) mod tests {
     }
     #[test]
     fn delivery_clocks_schedule_only_the_next_transition() {
-        // Regression: historical notification batches and expiring subscriptions forced full delivery scans every second at idle.
+        // Recurring bug class: historical notification batches and expiring subscriptions forced full delivery scans every second at idle.
         let settings = json!({"notificationBucketCapacity":4,"notificationRefillSeconds":60});
         let mut state = State::default();
         state.target("source", Channel::ClaudeSession, "target", 100, &settings);
@@ -3288,7 +3288,7 @@ pub(crate) mod tests {
     }
     #[tokio::test]
     async fn registered_target_verifies_without_a_task_and_remains_source_scoped() {
-        // Regression: a cloud source with no turn binding could never start a reachability handshake.
+        // Recurring bug class: a cloud source with no turn binding could never start a reachability handshake.
         let dir = Sandbox::new();
         let settings = json!({"notificationsEnabled":true});
         let args = json!({"target":"session_010000000000000000000001"});
@@ -3360,7 +3360,7 @@ pub(crate) mod tests {
     }
     #[tokio::test]
     async fn missing_cloud_session_reports_safe_account_and_manual_recovery() {
-        // Regression: Session not found became generic handshake-delivery-failed and hid a likely host-account mismatch.
+        // Recurring bug class: Session not found became generic handshake-delivery-failed and hid a likely host-account mismatch.
         let dir = Sandbox::new();
         let settings = json!({"notificationsEnabled":true});
         let args = json!({"target":"session_010000000000000000000001"});
@@ -3527,7 +3527,7 @@ pub(crate) mod tests {
 
     #[test]
     fn historical_subscription_sync_preserves_scope_and_delivery_preferences() {
-        // Regression: 698 historical bindings caused subscription synchronization to repeatedly hash every binding for every subscription.
+        // Recurring bug class: 698 historical bindings caused subscription synchronization to repeatedly hash every binding for every subscription.
         let dir = Sandbox::new();
         let base = fixture(&dir.0);
         let mut bindings: Vec<_> = (0..1500)
@@ -3602,7 +3602,7 @@ pub(crate) mod tests {
     }
     #[tokio::test]
     async fn empty_async_completion_is_suppressed_and_changes_stay_out_of_message() {
-        // Regression: de629dd; empty async completion is suppressed and changes stay out of message.
+        // Recurring bug class: de629dd; empty async completion is suppressed and changes stay out of message.
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
         let fake = Fake::success();
@@ -3646,7 +3646,7 @@ pub(crate) mod tests {
     }
     #[test]
     fn idle_bucket_spending_waits_a_complete_refill_interval() {
-        // Regression: eliminating idle bucket writes must not refund the first spent token immediately.
+        // Recurring bug class: eliminating idle bucket writes must not refund the first spent token immediately.
         let mut state = State::default();
         let settings = json!({"notificationBucketCapacity":1,"notificationRefillSeconds":60});
         let target = state.target("source", Channel::ClaudeSession, "target", 100, &settings);
@@ -3659,7 +3659,7 @@ pub(crate) mod tests {
     }
     #[tokio::test]
     async fn bucket_refill_batches_interactions_and_survives_reload() {
-        // Regression: an empty bucket queues events until refill without losing their batch identity.
+        // Recurring bug class: an empty bucket queues events until refill without losing their batch identity.
         let dir = Sandbox::new();
         let fake = Fake::success();
         let lock = Mutex::new(());
@@ -3714,7 +3714,7 @@ pub(crate) mod tests {
     }
     #[tokio::test]
     async fn exponential_retries_keep_token_credit_and_event_id() {
-        // Regression: offline delivery retries retain event identity and do not charge another token.
+        // Recurring bug class: offline delivery retries retain event identity and do not charge another token.
         let dir = Sandbox::new();
         let failed = Fake::new(Err("offline".into()));
         let lock = Mutex::new(());
@@ -3774,7 +3774,7 @@ pub(crate) mod tests {
     }
     #[tokio::test]
     async fn breaker_and_starvation_escalate_once_then_rearm() {
-        // Regression: blocked delivery escalates and recovery rearms the target.
+        // Recurring bug class: blocked delivery escalates and recovery rearms the target.
         let dir = Sandbox::new();
         let fake = Fake::success();
         let lock = Mutex::new(());
@@ -3839,7 +3839,7 @@ pub(crate) mod tests {
     }
     #[tokio::test]
     async fn notification_controls_are_scoped_persistent_and_reversible() {
-        // Regression: cross-source mute is rejected and unmute restores delivery.
+        // Recurring bug class: cross-source mute is rejected and unmute restores delivery.
         let dir = Sandbox::new();
         let fake = Fake::success();
         let lock = Mutex::new(());
@@ -3934,7 +3934,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn notification_status_defaults_to_activity_and_expands_explicit_scope() {
-        // Regression: f3d8d3e; notification status defaults to activity and expands explicit scope.
+        // Recurring bug class: f3d8d3e; notification status defaults to activity and expands explicit scope.
         let dir = Sandbox::new();
         let settings = json!({});
         let now = 10000;
@@ -4040,7 +4040,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn compact_notification_status_omits_history_and_retired_recovery_rows() {
-        // Regression: default notify_status returned nine-day-old deliveries and retired recovery rows in a megabyte-scale response.
+        // Recurring bug class: default notify_status returned nine-day-old deliveries and retired recovery rows in a megabyte-scale response.
         let dir = Sandbox::new();
         let at = 2_000_000;
         let old = at - 9 * 86400;
@@ -4147,7 +4147,7 @@ pub(crate) mod tests {
 
     #[test]
     fn notification_attention_identifies_routes_and_retires_only_superseded_failures() {
-        // Regression: board permanently listed anonymous failures for historical targets after the source verified its replacement target.
+        // Recurring bug class: board permanently listed anonymous failures for historical targets after the source verified its replacement target.
         let dir = Sandbox::new();
         let b = fixture(&dir.0);
         let old = b.target.clone().unwrap();
@@ -4260,7 +4260,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn notification_preserves_interaction_and_scopes_recovery() {
-        // Regression: de629dd; response recovery must not cross source or backend-session boundaries.
+        // Recurring bug class: de629dd; response recovery must not cross source or backend-session boundaries.
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
         let fake = Fake::success();
@@ -4318,7 +4318,7 @@ pub(crate) mod tests {
     }
     #[tokio::test]
     async fn routing_countdown_keeps_inbox_answers_available_and_source_scoped() {
-        // Regression: proactive notification raced a user's pending dock answer; delaying push must not hide the request from its source.
+        // Recurring bug class: proactive notification raced a user's pending dock answer; delaying push must not hide the request from its source.
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
         b.thread_id = "routing-fixture".into();
@@ -4375,7 +4375,7 @@ pub(crate) mod tests {
     }
     #[tokio::test]
     async fn delivered_dispatches_hide_internal_lifecycle_checkpoints() {
-        // Regression: ax-5d204fc1 inbox_wait events exposed _turnLifecycle inside dispatches after D1c.
+        // Recurring bug class: ax-5d204fc1 inbox_wait events exposed _turnLifecycle inside dispatches after D1c.
         let dir = Sandbox::new();
         let mut binding = fixture(&dir.0);
         let checkpoint = turn_adapter::checkpoint(&binding.lifecycle());
@@ -4433,7 +4433,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn receipts_keep_thread_title_and_original_prompt_after_steering() {
-        // Regression: completion labels used the latest steer prompt instead of the thread title or original dispatch prompt.
+        // Recurring bug class: completion labels used the latest steer prompt instead of the thread title or original dispatch prompt.
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
         let thread_title = "Stable task title";
@@ -4458,7 +4458,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn quiet_receipts_health_and_ack_distinguish_consumed_events() {
-        // Regression: acknowledging a consumed or foreign event must not consume another event.
+        // Recurring bug class: acknowledging a consumed or foreign event must not consume another event.
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
         b.source_id = "claude".into();
@@ -4513,7 +4513,7 @@ pub(crate) mod tests {
     }
     #[tokio::test]
     async fn inbox_session_dedup_and_scoped_ack() {
-        // Regression: aab23a2; inbox session dedup and scoped ack.
+        // Recurring bug class: aab23a2; inbox session dedup and scoped ack.
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
         b.source_id = "claude".into();
@@ -4589,7 +4589,7 @@ pub(crate) mod tests {
     }
     #[tokio::test]
     async fn inbox_matches_caller_target_and_defers_subscribed_mcp_events() {
-        // Regression: 292260b; inbox matches caller target and defers subscribed mcp events.
+        // Recurring bug class: 292260b; inbox matches caller target and defers subscribed mcp events.
         let dir = Sandbox::new();
         let first = enqueue(
             &dir.0,
@@ -4670,7 +4670,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn explicit_inbox_poll_preserves_session_visibility_and_ack_state() {
-        // Regression: filtered polling must not expose another target or acknowledge unread events.
+        // Recurring bug class: filtered polling must not expose another target or acknowledge unread events.
         let dir = Sandbox::new();
         let first = enqueue(
             &dir.0,
@@ -4746,7 +4746,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn ordinary_notifications_flush_after_quiet_time_and_merge_bursts() {
-        // Regression: 292260b; ordinary notifications flush after quiet time and merge bursts.
+        // Recurring bug class: 292260b; ordinary notifications flush after quiet time and merge bursts.
         let dir = Sandbox::new();
         let fake = Fake::success();
         let lock = Mutex::new(());
@@ -4817,7 +4817,7 @@ pub(crate) mod tests {
 
     #[test]
     fn session_forms_and_turn_isolation() {
-        // Regression: session parsing must reject invalid targets and binding must not cross turns.
+        // Recurring bug class: session parsing must reject invalid targets and binding must not cross turns.
         for input in [
             "session_010000000000000000000001",
             "https://claude.ai/code/session_010000000000000000000001?x=y",
@@ -4884,7 +4884,7 @@ pub(crate) mod tests {
     }
     #[tokio::test]
     async fn steer_without_session_keeps_binding_and_new_turn_stays_unbound() {
-        // Regression: steering without a target must not erase the existing notification binding.
+        // Recurring bug class: steering without a target must not erase the existing notification binding.
         let dir = Sandbox::new();
         fixture(&dir.0);
         bind_in(&dir.0, None, "thread-1", "turn-1", "").unwrap();
@@ -4906,7 +4906,7 @@ pub(crate) mod tests {
     }
     #[test]
     fn binding_failure_marks_receipt_without_changing_dispatch_result() {
-        // Regression: notification binding failure must not turn a successful dispatch into a failure.
+        // Recurring bug class: notification binding failure must not turn a successful dispatch into a failure.
         let dir = Sandbox::new();
         std::fs::create_dir_all(&dir.0).unwrap();
         let blocked = dir.0.join("not-a-directory");
@@ -4931,7 +4931,7 @@ pub(crate) mod tests {
     }
     #[test]
     fn seven_day_cleanup_preserves_open_scopes_and_unfinished_records() {
-        // Regression: retention cleanup must preserve unfinished work and open thread-origin bindings; closed terminal records can expire.
+        // Recurring bug class: retention cleanup must preserve unfinished work and open thread-origin bindings; closed terminal records can expire.
         for terminal in [false, true] {
             let dir = Sandbox::new();
             let mut b = fixture(&dir.0);
@@ -4971,7 +4971,7 @@ pub(crate) mod tests {
     }
     #[tokio::test]
     async fn delivery_releases_lock_and_merges_result_without_overwriting_rebind() {
-        // Regression: delivery completion must not overwrite a concurrent rebind.
+        // Recurring bug class: delivery completion must not overwrite a concurrent rebind.
         struct Probe<'a> {
             lock: &'a Mutex<()>,
             dir: &'a Path,
@@ -5034,7 +5034,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn notification_diagnosis_explains_pending_restart_and_excluded_successors() {
-        // Regression: notify_status returned empty deliveries without explaining restart gaps or non-inherited continuations.
+        // Recurring bug class: notify_status returned empty deliveries without explaining restart gaps or non-inherited continuations.
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
         let pending = governance::status_in(
@@ -5103,7 +5103,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn handoff_stays_inbox_only_if_task_ends_before_delivery() {
-        // Regression: persisted handoff queues replayed idle-thread wakeups after restart.
+        // Recurring bug class: persisted handoff queues replayed idle-thread wakeups after restart.
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
         let handoff = json!({"state":"unconfirmed","handoffs":[{"eventId":"queued-handoff","from":"connector","to":"unheld","observedAt":now(),"evidence":null,"timeBasis":"observed-not-transition-time"}]});
@@ -5141,7 +5141,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn handoffs_retain_existing_inbox_coverage_without_push() {
-        // Regression: every ended bound thread emitted connector-to-unheld and desktop-to-unheld notices after restart.
+        // Recurring bug class: every ended bound thread emitted connector-to-unheld and desktop-to-unheld notices after restart.
         for (state, terminal, expected) in [
             ("completed", true, 0),
             ("running", false, 2),
@@ -5216,7 +5216,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn reconciled_interruption_reports_continued_outcome_once() {
-        // Regression: restart sent a bare interruption after Desktop Resume had already completed the work.
+        // Recurring bug class: restart sent a bare interruption after Desktop Resume had already completed the work.
         for state in ["completed", "running"] {
             let dir = Sandbox::new();
             let mut old = fixture(&dir.0);
@@ -5250,7 +5250,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn stalled_turn_push_retains_evidence_once_and_resolves_on_progress() {
-        // Regression: ax-c8588c1e an empty native turn never produced an actionable stall push.
+        // Recurring bug class: ax-c8588c1e an empty native turn never produced an actionable stall push.
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
         let fake = Fake::success();
@@ -5274,7 +5274,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn titled_completion_push_identifies_each_task() {
-        // Regression: ax-7718b0e3 the push body discarded task identity before the session renderer received it.
+        // Recurring bug class: ax-7718b0e3 the push body discarded task identity before the session renderer received it.
         let dir = Sandbox::new();
         let mut first = fixture(&dir.0);
         first.title = "Explicit task title".into();
@@ -5308,7 +5308,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn pending_interruption_refreshes_when_continuation_finishes() {
-        // Regression: an interruption waiting for bucket tokens lost the continuation's completed outcome.
+        // Recurring bug class: an interruption waiting for bucket tokens lost the continuation's completed outcome.
         let dir = Sandbox::new();
         let mut old = fixture(&dir.0);
         process_observation(
@@ -5353,7 +5353,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn restart_duration_uses_native_end_or_last_activity_without_downtime() {
-        // Regression: a ten-minute interrupted turn was reported as 146 minutes after restart.
+        // Recurring bug class: a ten-minute interrupted turn was reported as 146 minutes after restart.
         for (timing, last, expected, basis) in [
             (
                 json!({"startedAt":"2026-01-01T00:00:00Z","endedAt":"2026-01-01T00:10:00Z"}),
@@ -5392,7 +5392,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn downtime_terminal_reconciliation_is_idempotent_without_a_loaded_writer() {
-        // Regression: connector restart left interrupted/completed bound turns with zero deliveries forever.
+        // Recurring bug class: connector restart left interrupted/completed bound turns with zero deliveries forever.
         for (native, expected) in [
             ("interrupted", "interrupted"),
             ("completed", "completed"),
@@ -5436,7 +5436,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn request_dedup_survives_restart_and_terminal_follows_interaction() {
-        // Regression: replayed interaction after reload must not duplicate the pending event.
+        // Recurring bug class: replayed interaction after reload must not duplicate the pending event.
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
         let fake = Fake::success();
@@ -5496,7 +5496,7 @@ pub(crate) mod tests {
     }
     #[tokio::test]
     async fn steering_rebind_does_not_report_old_session_delivery() {
-        // Regression: a rebound receipt must not report delivery to the previous session.
+        // Recurring bug class: a rebound receipt must not report delivery to the previous session.
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
         let fake = Fake::success();
@@ -5537,7 +5537,7 @@ pub(crate) mod tests {
 
     #[tokio::test]
     async fn idless_waiting_uses_confirmed_state_entries() {
-        // Regression: unconfirmed idless waiting must not invent an actionable interaction.
+        // Recurring bug class: unconfirmed idless waiting must not invent an actionable interaction.
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
         let fake = Fake::success();
@@ -5562,7 +5562,7 @@ pub(crate) mod tests {
     }
     #[tokio::test]
     async fn failures_remain_pending_during_retry_backoff() {
-        // Regression: offline delivery remains pending during backoff.
+        // Recurring bug class: offline delivery remains pending during backoff.
         for result in [
             Err("timeout".into()),
             Err("not installed".into()),
@@ -5594,7 +5594,7 @@ pub(crate) mod tests {
     }
     #[tokio::test]
     async fn interrupted_delivery_recovers_with_same_event_id() {
-        // Regression: a crash during delivery must not replace the recovered event id.
+        // Recurring bug class: a crash during delivery must not replace the recovered event id.
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
         let fake = Fake::success();

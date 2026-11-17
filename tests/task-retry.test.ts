@@ -6,7 +6,7 @@ import { act, createElement as h } from "react";
 import { within, fireEvent } from "@testing-library/dom";
 
 test("latest failed cards offer keyboard retry in narrow panels and reuse uncertain receipts", async () => {
-  // Regression: 2d1f7d3 left failed outcome cards with Copy log only and no Retry action.
+  // Recurring bug class: 2d1f7d3 left failed outcome cards with Copy log only and no Retry action.
   const window = new Window({ url: "http://localhost" });
   const media = Object.assign(new window.EventTarget(), { matches: true });
   window.matchMedia = () => media as unknown as MediaQueryList;

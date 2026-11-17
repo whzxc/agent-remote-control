@@ -315,7 +315,7 @@ mod tests {
     use super::*;
     #[test]
     fn default_marker_matches_identity_not_profile_origin() {
-        // Property: system identity matching requires a signed-in Claude identity and the same organization.
+        // Algorithmic core: system identity matching requires a signed-in Claude identity and the same organization.
         let a = json!({"loggedIn":true,"authMethod":"claude.ai","accountId":"account-a","email":"a@example.com","orgId":"org-a"});
         assert!(same_identity(&a, &a));
         assert!(!same_identity(&json!({}), &json!({})));

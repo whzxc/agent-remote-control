@@ -7,7 +7,7 @@ import { act, createElement as h } from "react";
 import { within, fireEvent } from "@testing-library/dom";
 
 test("Agent panel keeps a nonmodal shell across task/back navigation and replaces peers and restores focus on Escape", { timeout: 10000 }, async () => {
-  // Regression: task/back navigation must not remount the nonmodal shell or lose return focus.
+  // Recurring bug class: task/back navigation must not remount the nonmodal shell or lose return focus.
   const beforeFetch = globalThis.fetch;
   const window = new Window({ url: "http://localhost" });
   window.localStorage.setItem("arc.privacy", "false");
@@ -122,7 +122,7 @@ test("Agent panel keeps a nonmodal shell across task/back navigation and replace
 });
 
 test("control source dock preserves editing, field navigation and cross-side dispatch paths", { timeout: 10000 }, async () => {
-  // Regression: editing or switching sources must preserve the panel and return focus.
+  // Recurring bug class: editing or switching sources must preserve the panel and return focus.
   const window = new Window({ url: "http://localhost" });
   window.localStorage.setItem("arc.privacy", "false");
   const frames = new Map<number, FrameRequestCallback>(); let sequence = 0;
@@ -286,7 +286,7 @@ test("control source dock preserves editing, field navigation and cross-side dis
 });
 
 test("timeline turn disclosures preserve choices through incremental work and render GFM", { timeout: 10000 }, async () => {
-  // Regression: backfilled turn work must not reset a manually expanded step.
+  // Recurring bug class: backfilled turn work must not reset a manually expanded step.
   const window = new Window({ url: "http://localhost" });
   const media = Object.assign(new window.EventTarget(), { matches: true });
   window.matchMedia = () => media as unknown as MediaQueryList;
@@ -380,7 +380,7 @@ test("timeline turn disclosures preserve choices through incremental work and re
 });
 
 test("task detail limits input to pending execution requests and consolidates header actions", { timeout: 10000 }, async () => {
-  // Regression: b5cf7c6 made ARC-origin questions answerable; obsolete absence assertions hung while inspecting Happy DOM nodes.
+  // Recurring bug class: b5cf7c6 made ARC-origin questions answerable; obsolete absence assertions hung while inspecting Happy DOM nodes.
   const window = new Window({ url: "http://localhost" });
   const media = Object.assign(new window.EventTarget(), { matches: true });
   window.matchMedia = () => media as unknown as MediaQueryList;
@@ -474,7 +474,7 @@ test("task detail limits input to pending execution requests and consolidates he
 });
 
 test("timeline UI and agent navigation restore follow mode and focus", { timeout: 10000 }, async () => {
-  // Regression: jump-to-latest and agent navigation must restore follow mode after manual scrolling.
+  // Recurring bug class: jump-to-latest and agent navigation must restore follow mode after manual scrolling.
   const window = new Window({ url: "http://localhost" });
   let top = 0, height = 3482, latestLabel = "";
   const media = Object.assign(new window.EventTarget(), { matches: true });

@@ -20,7 +20,7 @@ function snapshot(scene: Scene, orientation: Orientation) {
 }
 
 test('coverage retains root identity across unfolding and side collapse', () => {
-  // Property: folded root membership and unfolded real roots cover the same identities without counting child groups, dormant groups or the opposite wing.
+  // Algorithmic core: folded root membership and unfolded real roots cover the same identities without counting child groups, dormant groups or the opposite wing.
   const { fixture, scene } = denseTopologyScene();
   const dense = snapshot(scene, 'landscape');
   assert.deepEqual(representedTopologyRoots(dense, 1), fixture.agents);
@@ -39,7 +39,7 @@ test('coverage retains root identity across unfolding and side collapse', () => 
 });
 
 test('the portrait read path returns the snapshot rather than a function handle', async () => {
-  // Regression: portrait-topology-4 evaluated an arrow-function string as a truthy handle whose jsonValue was undefined.
+  // Recurring bug class: portrait-topology-4 evaluated an arrow-function string as a truthy handle whose jsonValue was undefined.
   const fixture = JSON.parse(readFileSync(new URL('../tooling/acceptance/scenarios/portrait-topology-4.json', import.meta.url), 'utf8'));
   const scene = { vw: fixture.viewports[0].width, vh: fixture.viewports[0].height,
     left: fixture.sourceProducts.map((id: string) => ({ id, tasks: [] })),

@@ -15,7 +15,7 @@ const fixtures: Record<string, Scene> = {
   narrow: { vw: 900, vh: 680, left: entities("source", [0, 0]), right: entities("agent", [3, 1, 0, 0]) },
 };
 for (const [name, scene] of Object.entries(fixtures)) test(`topology lab: ${name}`, () => {
-  // Property: `topology lab: each population`.
+  // Algorithmic core: `topology lab: each population`.
   for (const nodeSize of [DEFAULTS.nodeSize, PARAMETERS.find(p => p.key === "nodeSize")!.min, PARAMETERS.find(p => p.key === "nodeSize")!.max]) {
     const parameters = { ...DEFAULTS, nodeSize };
     const frozen = JSON.stringify(scene), layout = solve(scene, parameters), [left, right] = layout.wings;
@@ -44,7 +44,7 @@ for (const [name, scene] of Object.entries(fixtures)) test(`topology lab: ${name
   }
 });
 test("right-side overflow moves the hub left without compressing or dimming sources", () => {
-  // Property: right-side overflow moves the hub left without compressing or dimming sources.
+  // Algorithmic core: right-side overflow moves the hub left without compressing or dimming sources.
   const empty = { ...fixtures.multi, vw: 800, right: entities("agent", [0, 0, 0, 0]) };
   const idle = solve(empty), busy = solve({ ...empty, right: [{ id: "agent0", extent: 300 }] }), overflow = solve({ ...empty, right: [{ id: "agent0", extent: 400 }] });
   assert.ok(busy.hub.x < idle.hub.x);
@@ -55,7 +55,7 @@ test("right-side overflow moves the hub left without compressing or dimming sour
 });
 
 test("edge fitting makes only the displacement needed and recenters when space returns", () => {
-  // Property: a fitting scene chooses the nearest feasible point to the viewport center before compressing its columns.
+  // Algorithmic core: a fitting scene chooses the nearest feasible point to the viewport center before compressing its columns.
   const bilateral = solve({ vw: 2400, vh: 1000, left: entities("source", [3]), right: entities("agent", [2]) });
   assert.equal(bilateral.hub.x, 1200);
   assert.ok(bilateral.balance.every(wing => wing.squeeze === 1));
@@ -72,7 +72,7 @@ test("edge fitting makes only the displacement needed and recenters when space r
 });
 
 test("ring compression precedes balanced columns and respects its lower bound", () => {
-  // Property: fitting compresses the ring before equal column ratios, without shrinking the ring below its lower bound.
+  // Algorithmic core: fitting compresses the ring before equal column ratios, without shrinking the ring below its lower bound.
   let ringCompressed = false, columnsCompressed = false;
   for (let vw = 1600; vw >= 500; vw -= 10) {
     const scene = { ...fixtures.multi, vw, right: [{ id: "branch", children: [{ id: "account", extent: 160 }] }] }, layout = solve(scene);
@@ -90,7 +90,7 @@ test("ring compression precedes balanced columns and respects its lower bound", 
   assert.ok(ringCompressed && columnsCompressed);
 });
 test("wire dimming and availability recover continuously without following scale thresholds", () => {
-  // Regression: primary tentacles jumped in opacity when animated scale crossed one during idle/active transitions.
+  // Recurring bug class: primary tentacles jumped in opacity when animated scale crossed one during idle/active transitions.
   const scene = { vw: 1600, vh: 220, left: [], right: entities('agent', [0, 1]) };
   const animator = new TopologyAnimator(), key = nodeKey(1, 'agent0');
   const paintNodes = scene.right.map(node => ({ id: node.id, side: 1 as const, state: 'normal' as const, selected: false, attention: false }));
@@ -119,7 +119,7 @@ test("wire dimming and availability recover continuously without following scale
   assert.equal(animator.values(key)!.availability, 1);
 });
 test("ports fit the arc and drag is confined to its wing and item", () => {
-  // Property: ports fit the arc and drag is confined to its wing and item.
+  // Algorithmic core: ports fit the arc and drag is confined to its wing and item.
   const { earFollow: follow, earSep: sep, earMax: max } = DEFAULTS;
   for (const raw of [[], [0], [0, 0, 0], [-max, 0, max], [max, 0, -max], Array(30).fill(80)]) {
     const ports = distribute(raw, follow, sep, max);
@@ -139,7 +139,7 @@ test("ports fit the arc and drag is confined to its wing and item", () => {
 
 
 test("topology parameters persist only deviations and round-trip through JSON", () => {
-  // Property: topology parameters persist only deviations and round-trip through JSON.
+  // Algorithmic core: topology parameters persist only deviations and round-trip through JSON.
   assert.equal(new Set(PARAMETERS.map(p => p.key)).size, PARAMETERS.length);
   for (const spec of PARAMETERS) {
     assert.ok(spec.default >= spec.min && spec.default <= spec.max);
@@ -160,7 +160,7 @@ test("topology parameters persist only deviations and round-trip through JSON", 
 });
 
 test("topology parameter ranges clamp at input, save and load boundaries", () => {
-  // Property: topology parameter ranges clamp at input, save and load boundaries.
+  // Algorithmic core: topology parameter ranges clamp at input, save and load boundaries.
   for (const spec of PARAMETERS) {
     assert.equal(clampParameter(spec.key, spec.min - 1), spec.min);
     assert.equal(clampParameter(spec.key, spec.max + 1), spec.max);
@@ -174,7 +174,7 @@ test("topology parameter ranges clamp at input, save and load boundaries", () =>
 });
 
 test("topology imports validate the complete document before applying any values", () => {
-  // Property: topology imports validate the complete document before applying any values.
+  // Algorithmic core: topology imports validate the complete document before applying any values.
   for (const [json, error] of [
     ["{", "json"],
     ['{"schemaVersion":2,"overrides":{}}', "schema"],
@@ -191,7 +191,7 @@ test("topology imports validate the complete document before applying any values
 });
 
 test("upgraded defaults apply to untouched parameters while manual overrides remain", () => {
-  // Property: upgraded defaults apply to untouched parameters while manual overrides remain.
+  // Algorithmic core: upgraded defaults apply to untouched parameters while manual overrides remain.
   const saved = parameterDiff({ ...DEFAULTS, damping: 38 });
   const upgraded = { ...DEFAULTS, margin: 54, damping: 30, earFollow: 0.9 };
   const loaded = loadParameters(saved, upgraded);
@@ -207,7 +207,7 @@ test("upgraded defaults apply to untouched parameters while manual overrides rem
 
 
 test('panel state never changes configuration geometry or creates leaf arcs', () => {
-  // Regression: opening source or Agent panels pushed and squeezed topology and added outward leaf stubs.
+  // Recurring bug class: opening source or Agent panels pushed and squeezed topology and added outward leaf stubs.
   for (const vw of [390, 800, 1280, 1920]) {
     const scene = { ...fixtures.busy, vw }, base = solve(scene);
     for (const side of [-1, 1] as const) {

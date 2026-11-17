@@ -4,7 +4,7 @@ use super::*;
 
 #[test]
 fn associations_preserve_submission_source_for_event_routing() {
-    // Regression: a different receipt reader must not become the task's event destination after removing the extra source gate.
+    // Recurring bug class: a different receipt reader must not become the task's event destination after removing the extra source gate.
     let mut records = Records::default();
     records.associate(
         "member",
@@ -50,7 +50,7 @@ fn associations_preserve_submission_source_for_event_routing() {
 }
 #[test]
 fn forwarding_wait_bounds_follow_member_arguments() {
-    // Property: peer deadlines exceed the member's requested wait bound rather than a fixed short timeout.
+    // Algorithmic core: peer deadlines exceed the member's requested wait bound rather than a fixed short timeout.
     for op in ["codex_wait", "agent_wait", "inbox_wait"] {
         assert!(
             super::client::request_bound(op, &json!({"timeoutMs":1_800_000})).as_millis()

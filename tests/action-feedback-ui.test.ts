@@ -6,7 +6,7 @@ import {assertNodeIdentity} from './helpers/dom-assert.ts';
 import {withDialog} from './helpers/layers-ui.ts';
 
 test('action feedback stays in the open owner and late results use global feedback', async () => {
-  // Regression: Settings and relay action results appeared as global toasts while their initiating layer was still open.
+  // Recurring bug class: Settings and relay action results appeared as global toasts while their initiating layer was still open.
   await withDialog(async ({ server, root, settle }) => {
     const { default: Dialog, useDialogFeedback } = await server.ssrLoadModule('/ui/components/ui/Dialog.tsx');
     const { Button } = await server.ssrLoadModule('/ui/components/ui/index.tsx');

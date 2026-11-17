@@ -175,7 +175,7 @@ mod tests {
 
     #[tokio::test]
     async fn dropped_body_and_disconnected_socket_cancel_the_operation() {
-        // Regression: a disconnected wait must cancel the pending operation.
+        // Recurring bug class: a disconnected wait must cancel the pending operation.
         for drop_body in [true, false] {
             let (done_tx, done_rx) = tokio::sync::oneshot::channel();
             struct Guard(Option<tokio::sync::oneshot::Sender<()>>);

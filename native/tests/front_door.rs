@@ -507,7 +507,7 @@ mod unix {
     #[tokio::test]
     #[ignore = "Run serially with isolated state and test-fixture feature"]
     async fn changed_build_updates_only_front_door_and_preserves_active_executor() {
-        // Regression: protocol-compatible front doors retained their first build indefinitely after bundle replacement.
+        // Recurring bug class: protocol-compatible front doors retained their first build indefinitely after bundle replacement.
         let mut fixture = Fixture::new().await;
         let desktop = fixture.desktop().await;
         fixture.add_provider().await;
@@ -579,7 +579,7 @@ mod unix {
     #[tokio::test]
     #[ignore = "Run serially with isolated state and test-fixture feature"]
     async fn long_poll_and_snapshot_end_explicitly_during_bounded_image_update() {
-        // Regression: cf9cf2e waited for long-poll reads on every drain attempt and could postpone front-door updates indefinitely.
+        // Recurring bug class: cf9cf2e waited for long-poll reads on every drain attempt and could postpone front-door updates indefinitely.
         let mut fixture = Fixture::new().await;
         let core = fixture.core.as_ref().unwrap().id();
         let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
@@ -683,7 +683,7 @@ mod unix {
     #[tokio::test]
     #[ignore = "Run serially with isolated state and test-fixture feature"]
     async fn failed_readiness_rolls_back_without_restarting_core_or_executor() {
-        // Regression: a front-door image that never becomes ready must restore the previous serving image.
+        // Recurring bug class: a front-door image that never becomes ready must restore the previous serving image.
         let mut fixture = Fixture::new().await;
         fixture.add_provider().await;
         let executor = Executor::start(&fixture).await;
@@ -719,7 +719,7 @@ mod unix {
     #[tokio::test]
     #[ignore = "Run serially with isolated state and test-fixture feature"]
     async fn core_loss_without_desktop_keeps_owners_until_explicit_restart() {
-        // Regression: Core loss with Desktop closed leaves detached owners alive and business admissions waiting for an explicit Core start.
+        // Recurring bug class: Core loss with Desktop closed leaves detached owners alive and business admissions waiting for an explicit Core start.
         let mut fixture = Fixture::new().await;
         fixture.add_provider().await;
         let executor = Executor::start(&fixture).await;
@@ -765,7 +765,7 @@ mod unix {
     #[tokio::test]
     #[ignore = "Run serially with isolated state and test-fixture feature"]
     async fn uninstall_removes_front_door_children_images_sockets_and_indexes() {
-        // Regression: uninstall left front-door images and private sockets outside the stopped Core owner.
+        // Recurring bug class: uninstall left front-door images and private sockets outside the stopped Core owner.
         use sha2::{Digest, Sha256};
         let mut fixture = Fixture::new().await;
         fixture.add_provider().await;
@@ -815,7 +815,7 @@ mod unix {
     #[tokio::test]
     #[ignore = "Run serially with isolated state and test-fixture feature"]
     async fn incompatible_front_door_install_stops_core_before_replacement() {
-        // Regression: ax-327c543d stopped the v1 front door before app quit and stranded the live Core.
+        // Recurring bug class: ax-327c543d stopped the v1 front door before app quit and stranded the live Core.
         let mut fixture = Fixture::new().await;
         for fail_replacement in [false, true] {
             let desktop = fixture.desktop().await;
@@ -884,7 +884,7 @@ mod unix {
     #[tokio::test]
     #[ignore = "Run serially with isolated state and test-fixture feature"]
     async fn exited_front_door_is_relaunched_and_restores_providers() {
-        // Regression: ax-327c543d left a live Core without a front door or remote providers until Desktop restarted.
+        // Recurring bug class: ax-327c543d left a live Core without a front door or remote providers until Desktop restarted.
         let mut fixture = Fixture::new().await;
         let desktop = fixture.desktop().await;
         fixture.add_provider().await;
@@ -928,7 +928,7 @@ mod unix {
     #[tokio::test]
     #[ignore = "Run serially with isolated state: cargo test -p arc-core --features test-fixture --test front_door -- --ignored --test-threads=1"]
     async fn replacing_core_preserves_ingress_provider_and_live_authority() {
-        // Regression: replacing Core closed listener sockets, killed providers and allowed stale authority on transport reconnect.
+        // Recurring bug class: replacing Core closed listener sockets, killed providers and allowed stale authority on transport reconnect.
         let mut fixture = Fixture::new().await;
         fixture.add_provider().await;
         let provider = fixture.provider_pid();

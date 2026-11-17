@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { developmentConfig, developmentPort } from '../tooling/dev-identity.mjs';
 
 test('isolated development identities cannot collide with installed or ordinary development apps', () => {
-  // Regression: acceptance shared the ordinary Dev bundle ID and app name, making native targeting ambiguous.
+  // Recurring bug class: acceptance shared the ordinary Dev bundle ID and app name, making native targeting ambiguous.
   const ordinary=developmentConfig({});
   const first=developmentConfig({ARC_DEV_INSTANCE_ID:'1234abcd'});
   const second=developmentConfig({ARC_DEV_INSTANCE_ID:'abcd1234'});
@@ -13,7 +13,7 @@ test('isolated development identities cannot collide with installed or ordinary 
 });
 
 test('development port keeps the native web URL and CSP on the selected loopback listener', () => {
-  // Regression: isolated development could not coexist with an existing DEV WEB listener on port 5187.
+  // Recurring bug class: isolated development could not coexist with an existing DEV WEB listener on port 5187.
   assert.equal(developmentPort({}), 5187);
   for (const port of [1, 80, 5190, 65535]) {
     const env = { ARC_DEV_PORT: String(port), ARC_DEV_INSTANCE_ID: 'instance1234' };

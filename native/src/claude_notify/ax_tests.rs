@@ -1,6 +1,6 @@
 #[tokio::test]
 async fn ax_late_restart_interruption_after_resumed_completion_is_superseded() {
-    // Regression: AX-01 T1 interruption was delivered after resumed T2 and the whole thread completed.
+    // Recurring bug class: AX-01 T1 interruption was delivered after resumed T2 and the whole thread completed.
     for pending in [false, true] {
         let dir = Sandbox::new();
         let mut old = fixture(&dir.0);
@@ -102,7 +102,7 @@ async fn ax_late_restart_interruption_after_resumed_completion_is_superseded() {
 
 #[test]
 fn ax_same_origin_push_uses_effective_binding_and_source_scoped_breaker() {
-    // Regression: AX-02 omitted notify hid an inherited verified route and another source's breaker disabled it.
+    // Recurring bug class: AX-02 omitted notify hid an inherited verified route and another source's breaker disabled it.
     let notification = json!({"sourceId":"owner","channel":"claude-session","target":"session_010000000000000000000001","reachability":"verified"});
     let mut state = State::default();
     state
@@ -139,7 +139,7 @@ fn ax_same_origin_push_uses_effective_binding_and_source_scoped_breaker() {
 
 #[tokio::test]
 async fn ax_first_observed_terminal_reaches_delivery_or_bounded_failure() {
-    // Regression: AX-03 a first bound turn must deliver even when completion precedes its first observation, or expose bounded failure.
+    // Recurring bug class: AX-03 a first bound turn must deliver even when completion precedes its first observation, or expose bounded failure.
     for fail in [false, true] {
         let dir = Sandbox::new();
         let b = enqueue(
@@ -177,7 +177,7 @@ async fn ax_first_observed_terminal_reaches_delivery_or_bounded_failure() {
 
 #[tokio::test]
 async fn ax_transient_delivery_failure_preserves_verified_route_across_reload() {
-    // Regression: ax-364f9a4b replacement-time transport failures silently revoked an acknowledged notification route.
+    // Recurring bug class: ax-364f9a4b replacement-time transport failures silently revoked an acknowledged notification route.
     let dir = Sandbox::new();
     let b = enqueue(&dir.0, "first", json!({"state":"completed"}), 100).await;
     let mut state = State::load(&dir.0).unwrap();
@@ -224,7 +224,7 @@ async fn ax_transient_delivery_failure_preserves_verified_route_across_reload() 
 
 #[tokio::test]
 async fn ax_acquisition_retains_history_without_waking_any_source() {
-    // Regression: bfbcc64 ownership handoffs must retain history without waking either their initiating or another source.
+    // Recurring bug class: bfbcc64 ownership handoffs must retain history without waking either their initiating or another source.
     for own in [true, false] {
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
@@ -272,7 +272,7 @@ fn selected_native(b: &Binding, status: &str, runtime: &str) -> Value {
 
 #[tokio::test]
 async fn ax_halted_snapshot_uses_the_bound_turns_native_completion() {
-    // Regression: ax-1dda0f9e halted wake without inbox event
+    // Recurring bug class: ax-1dda0f9e halted wake without inbox event
     let dir = Sandbox::new();
     let mut b = fixture(&dir.0);
     let history = [
@@ -337,7 +337,7 @@ async fn ax_halted_snapshot_uses_the_bound_turns_native_completion() {
 
 #[tokio::test]
 async fn ax_unconfirmed_interruption_waits_for_its_own_native_terminal() {
-    // Regression: ax-1dda0f9e halted wake without inbox event
+    // Recurring bug class: ax-1dda0f9e halted wake without inbox event
     let dir = Sandbox::new();
     let mut b = fixture(&dir.0);
     let records = [
@@ -398,7 +398,7 @@ async fn ax_unconfirmed_interruption_waits_for_its_own_native_terminal() {
 
 #[tokio::test]
 async fn ax_sent_terminal_remains_readable_after_a_later_native_conflict() {
-    // Regression: ax-1dda0f9e halted wake without inbox event
+    // Recurring bug class: ax-1dda0f9e halted wake without inbox event
     let dir = Sandbox::new();
     let mut b = fixture(&dir.0);
     let interrupted = selected_native(&b, "interrupted", "active");
@@ -442,7 +442,7 @@ async fn ax_sent_terminal_remains_readable_after_a_later_native_conflict() {
 
 #[tokio::test]
 async fn ax_delayed_loss_and_stale_projection_push_agree_with_selected_native_completion() {
-    // Regression: ax-0d9fb1f7 and ax-27840e50 pushed interrupted/halted while the selected native turn was completed.
+    // Recurring bug class: ax-0d9fb1f7 and ax-27840e50 pushed interrupted/halted while the selected native turn was completed.
     for order in [
         [0, 1, 2],
         [0, 2, 1],
@@ -502,7 +502,7 @@ async fn ax_delayed_loss_and_stale_projection_push_agree_with_selected_native_co
 
 #[tokio::test]
 async fn ax_conflicting_native_outcomes_hold_delivery_and_explain_notify_status_after_restart() {
-    // Regression: the terminal latch hid contradictory native completion and retained a pending interrupted push.
+    // Recurring bug class: the terminal latch hid contradictory native completion and retained a pending interrupted push.
     for statuses in [["interrupted", "completed"], ["completed", "interrupted"]] {
         let dir = Sandbox::new();
         let mut b = fixture(&dir.0);
@@ -555,7 +555,7 @@ async fn ax_conflicting_native_outcomes_hold_delivery_and_explain_notify_status_
 
 #[tokio::test]
 async fn owner_loss_and_interrupt_intent_emit_no_terminal_notification() {
-    // Regression: synthesized cancelled state after owner loss or interrupt intent was accepted as native interruption.
+    // Recurring bug class: synthesized cancelled state after owner loss or interrupt intent was accepted as native interruption.
     let dir = Sandbox::new();
     let mut b = fixture(&dir.0);
     let running = selected_native(&b, "inProgress", "active");
@@ -597,7 +597,7 @@ async fn owner_loss_and_interrupt_intent_emit_no_terminal_notification() {
 
 #[tokio::test]
 async fn late_predecessor_cannot_replace_successor_lifecycle_or_payload() {
-    // Regression: a late predecessor observation must not relabel the completed successor or overwrite its final response.
+    // Recurring bug class: a late predecessor observation must not relabel the completed successor or overwrite its final response.
     let dir = Sandbox::new();
     let old = fixture(&dir.0);
     let predecessor = selected_native(&old, "interrupted", "idle");
@@ -641,7 +641,7 @@ async fn late_predecessor_cannot_replace_successor_lifecycle_or_payload() {
 
 #[test]
 fn notify_guide_defines_every_emittable_doorbell_label() {
-    // Regression: ax-27840e50 received halted but guide topic:notify did not define that label.
+    // Recurring bug class: ax-27840e50 received halted but guide topic:notify did not define that label.
     let guide = crate::control_profiles::guide(&json!({}), &json!({"topic":"notify"}), &[]);
     for label in GLYPHS {
         assert!(
@@ -654,7 +654,7 @@ fn notify_guide_defines_every_emittable_doorbell_label() {
 
 #[tokio::test]
 async fn conflict_arriving_after_reservation_blocks_the_next_transport() {
-    // Regression: a reserved terminal push could retain an obsolete outcome while another destination was sending.
+    // Recurring bug class: a reserved terminal push could retain an obsolete outcome while another destination was sending.
     struct DuringSend {
         directory: PathBuf,
     }
@@ -722,7 +722,7 @@ async fn conflict_arriving_after_reservation_blocks_the_next_transport() {
 
 #[tokio::test]
 async fn ordered_native_reconciliation_releases_a_conflicted_delivery() {
-    // Regression: notification projection must not erase native sequence ordering when reconciling a held terminal push.
+    // Recurring bug class: notification projection must not erase native sequence ordering when reconciling a held terminal push.
     use crate::turn_lifecycle::{advance, Transition};
     let dir = Sandbox::new();
     let mut b = fixture(&dir.0);
@@ -777,7 +777,7 @@ async fn ordered_native_reconciliation_releases_a_conflicted_delivery() {
 
 #[tokio::test]
 async fn selected_summary_read_retains_its_turn_acknowledgement_scope() {
-    // Regression: codex_read summary results have no turns array and were skipped by notification read tracking.
+    // Recurring bug class: codex_read summary results have no turns array and were skipped by notification read tracking.
     let control = control::Control::new(PathBuf::new());
     let thread = id();
     let turn = id();

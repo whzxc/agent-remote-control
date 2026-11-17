@@ -4,7 +4,7 @@ import { petPath, overlaps, type Rect } from '../ui/pets/geometry.ts';
 
 const bounds = { x: 800, y: 600, top: 30 }, size = { width: 40, height: 50, tagHeight: 0 };
 test('a displaced task pet routes around a blocking bubble', () => {
-  // Regression: a dragged task pet remained away from its bubble indefinitely.
+  // Recurring bug class: a dragged task pet remained away from its bubble indefinitely.
   const from = { x: 60, y: 200 }, to = { x: 650, y: 200 };
   const obstacle: Rect = { x: 300, y: 140, width: 180, height: 210 };
   const path = petPath(from, to, bounds, [obstacle], size);
@@ -21,12 +21,12 @@ test('a displaced task pet routes around a blocking bubble', () => {
   }
 });
 test('an impassable barrier does not cause a teleport', () => {
-  // Property: routing cannot cross an obstacle spanning the complete scene height.
+  // Algorithmic core: routing cannot cross an obstacle spanning the complete scene height.
   assert.equal(petPath({ x: 60, y: 200 }, { x: 650, y: 200 }, bounds,
     [{ x: 300, y: 0, width: 180, height: bounds.y }], size), undefined);
 });
 test('pets can leave an overlapping drop and dock at their own bubble edge', () => {
-  // Property: occupied start and goal positions permit only bounded departure and arrival legs.
+  // Algorithmic core: occupied start and goal positions permit only bounded departure and arrival legs.
   const from = { x: 310, y: 210 }, to = { x: 660, y: 250 };
   const path = petPath(from, to, bounds, [{ x: 300, y: 200, width: 80, height: 100 }, { x: 600, y: 200, width: 80, height: 100 }], size);
   assert.ok(path?.length);

@@ -634,7 +634,7 @@ mod tests {
 
     #[test]
     fn eviction_preserves_hot_snapshots_and_in_flight_readers() {
-        // Regression: a JSON cache at its byte ceiling must evict cold snapshots without invalidating current readers.
+        // Recurring bug class: a JSON cache at its byte ceiling must evict cold snapshots without invalidating current readers.
         let dir = Sandbox::new();
         for name in ["a", "b", "c"] {
             let mut bytes = serde_json::to_vec(&json!({"value":name})).unwrap();
@@ -657,7 +657,7 @@ mod tests {
 
     #[test]
     fn unchanged_polls_open_no_files_and_writes_refresh_only_the_changed_record() {
-        // Regression: receipt, dispatch and notification polls reopened every historical JSON record.
+        // Recurring bug class: receipt, dispatch and notification polls reopened every historical JSON record.
         for count in [24, 458, 3077] {
             let dir = Sandbox::new();
             for n in 0..count {
@@ -698,7 +698,7 @@ mod tests {
     }
     #[test]
     fn task_projection_invalidates_when_receipts_runtime_or_owner_change() {
-        // Regression: task/status polls rebuilt every receipt projection even when task facts were unchanged.
+        // Recurring bug class: task/status polls rebuilt every receipt projection even when task facts were unchanged.
         let dir = Sandbox::new();
         let dependencies = [
             dir.0.join("receipts"),
@@ -731,7 +731,7 @@ mod tests {
     }
     #[test]
     fn external_changes_and_failed_reads_are_not_hidden_by_cached_snapshots() {
-        // Regression: a cached collection must discover external creation, replacement, truncation and deletion.
+        // Recurring bug class: a cached collection must discover external creation, replacement, truncation and deletion.
         let dir = Sandbox::new();
         let mut cache = Cache::<Value>::default();
         assert!(cache.entries(&dir.0).unwrap().is_empty());
@@ -756,7 +756,7 @@ mod collection_tests {
     use super::*;
     #[test]
     fn failed_refresh_retains_remaining_keys_and_unpublished_changes() {
-        // Regression: a transient read failure during changed-key discovery could hide later retained records or partial queue updates.
+        // Recurring bug class: a transient read failure during changed-key discovery could hide later retained records or partial queue updates.
         let dir = std::env::temp_dir().join(format!("arc-collection-{}", id()));
         for n in 0..3 {
             save(&dir.join(format!("{n}.json")), &json!({"id":n})).unwrap();

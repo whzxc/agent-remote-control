@@ -1162,7 +1162,7 @@ mod tests {
 
     #[test]
     fn public_receipts_preserve_recorded_answer_attribution() {
-        // Property: receipt projection preserves explicit answer attribution and never invents missing attribution.
+        // Algorithmic core: receipt projection preserves explicit answer attribution and never invents missing attribution.
         let base = json!({"requestId":"fixture","state":"completed"});
         for by in [
             json!({"kind":"source","sourceId":"controller"}),
@@ -1180,7 +1180,7 @@ mod tests {
     }
     #[test]
     fn checkpoint_failure_preserves_observed_outcome_and_recovery() {
-        // Regression: a receipt save error replaced the command result with bare os error 5.
+        // Recurring bug class: a receipt save error replaced the command result with bare os error 5.
         for result in [
             json!({"exitCode":0,"stdout":"probe"}),
             json!({"error":{"code":"CONTROL_ERROR","message":"execution failed"}}),
@@ -1201,7 +1201,7 @@ mod tests {
 
     #[test]
     fn codex_dispatch_signatures_expose_account_and_service_tier() {
-        // Regression: ax-9b7062e2 compact signatures omitted accepted account and serviceTier arguments.
+        // Recurring bug class: ax-9b7062e2 compact signatures omitted accepted account and serviceTier arguments.
         for name in ["codex_create", "codex_send"] {
             let op = catalog()["ops"]
                 .as_array()
@@ -1218,7 +1218,7 @@ mod tests {
 
     #[test]
     fn image_review_is_discoverable_in_common_and_review_guides() {
-        // Regression: ax-eb961217 common discovery hid image reads during render review.
+        // Recurring bug class: ax-eb961217 common discovery hid image reads during render review.
         let ops = catalog()["ops"].as_array().unwrap().clone();
         for product in ["chatgpt", "custom"] {
             let origin = json!({"product": product});
@@ -1306,7 +1306,7 @@ mod tests {
 
     #[test]
     fn review_notes_accept_per_invariant_evidence() {
-        // Regression: review notes for multi-invariant turns exceeded the 1000-character bound.
+        // Recurring bug class: review notes for multi-invariant turns exceeded the 1000-character bound.
         let c = catalog();
         for name in ["codex_review", "agent_review"] {
             let spec = c["ops"]
@@ -1330,7 +1330,7 @@ mod tests {
 
     #[test]
     fn ax_followup_command_validation_points_to_its_field_contract() {
-        // Regression: command outputBudget/waitMs validation errors incorrectly suggested process lifetime recovery.
+        // Recurring bug class: command outputBudget/waitMs validation errors incorrectly suggested process lifetime recovery.
         let c = catalog();
         let spec = c["ops"]
             .as_array()
@@ -1362,7 +1362,7 @@ mod tests {
 
     #[test]
     fn ax_followup_triage_guide_names_accepted_verification_receipts() {
-        // Regression: ax-a732f88f ax_triage guidance omitted the accepted receipt operations.
+        // Recurring bug class: ax-a732f88f ax_triage guidance omitted the accepted receipt operations.
         let guide = guide_content(&Value::Null, &json!({"op":"ax_triage"}), "en", &[]);
         for op in ["command", "review", "native", "agent_review"] {
             assert!(string(&guide, "description").contains(op));
@@ -1376,7 +1376,7 @@ mod tests {
 
     #[test]
     fn ax_contracts_coordination_guides_disclose_resource_forms() {
-        // Regression: ax-55f3a468 resource validation linked guides whose schemas omitted all accepted key forms.
+        // Recurring bug class: ax-55f3a468 resource validation linked guides whose schemas omitted all accepted key forms.
         for (op, field) in [
             ("events", "resource"),
             ("ax_report", "resources"),
@@ -1415,7 +1415,7 @@ mod tests {
 
     #[test]
     fn creation_receipts_explain_missing_titles() {
-        // Regression: titleless dispatch receipts left callers unaware of prompt-derived task names.
+        // Recurring bug class: titleless dispatch receipts left callers unaware of prompt-derived task names.
         for operation in ["create", "agent_create"] {
             for title in [Value::Null, json!("  "), json!("Review project")] {
                 let out = receipt(
@@ -1503,7 +1503,7 @@ mod tests {
 
     #[test]
     fn self_test_archival_remains_optional_in_operation_and_full_guides() {
-        // Regression: 52f6618; the archival operation guide and full workflow keep self-test cleanup optional.
+        // Recurring bug class: 52f6618; the archival operation guide and full workflow keep self-test cleanup optional.
         let optional = regex::Regex::new(r"(?i)archiv[^.\n]*optional").unwrap();
         for source in ["claude", "chatgpt", "other"] {
             for view in ["op", "full"] {
@@ -1548,7 +1548,7 @@ mod tests {
 
     #[test]
     fn generated_continuations_validate_against_operation_schemas() {
-        // Regression: writer recovery next had an illegal statusOnly argument and waits emitted null optional IDs.
+        // Recurring bug class: writer recovery next had an illegal statusOnly argument and waits emitted null optional IDs.
         let catalog = catalog();
         for name in [
             "codex_read",
@@ -1605,7 +1605,7 @@ mod tests {
 
     #[test]
     fn interface_recovery_names_exact_operations() {
-        // Regression: AX-05 and AX-06 errors only suggested the generic guide.
+        // Recurring bug class: AX-05 and AX-06 errors only suggested the generic guide.
         let mut timeout =
             json!({"error":failure("DESKTOP_REQUEST_TIMEOUT: thread-owner-discovery")});
         next(
@@ -1638,7 +1638,7 @@ mod tests {
 
     #[test]
     fn writer_rejection_explains_owner_and_recovery() {
-        // Regression: native active-writer rejection gave control sources no reason or safe next step.
+        // Recurring bug class: native active-writer rejection gave control sources no reason or safe next step.
         for native in [
             "RPC_REJECTED:{\"message\":\"thread already has an active writer\"}",
             "RPC_REJECTED:{\"code\":-32600,\"message\":\"thread 00000000-0000-4000-8000-000000000001 already has an active writer\"}",
@@ -1654,7 +1654,7 @@ mod tests {
 
     #[test]
     fn protocol_version_tracks_visible_contract_not_internal_catalog_metadata() {
-        // Property: protocol version tracks visible contract not internal catalog metadata.
+        // Algorithmic core: protocol version tracks visible contract not internal catalog metadata.
         let original = catalog().clone();
         let version = protocol_hash(&original);
         let mut changed = original.clone();

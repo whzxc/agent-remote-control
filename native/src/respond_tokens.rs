@@ -122,7 +122,7 @@ mod tests {
     use super::*;
     #[test]
     fn tokens_survive_session_changes_but_reject_wrong_scope_expiry_and_reuse() {
-        // Regression: a reused, expired or wrong-scope response token is rejected.
+        // Recurring bug class: a reused, expired or wrong-scope response token is rejected.
         let dir = std::env::temp_dir().join(format!("arc-token-test-{}", id()));
         let mut request = json!({"owner":"desktop","id":"[desktop,thread,turn,question]","backendSession":"old","params":{"threadId":"thread","turnId":"turn"}});
         issue_in(&dir, "sourceId", &mut request, 100).unwrap();

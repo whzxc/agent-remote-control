@@ -32,7 +32,7 @@ async function withAccountUI(run: (context: { window: Window; server: ViteDevSer
 }
 
 test('platform workspace lists connector instances and excludes local Agent identities', async () => {
-  // Regression: the account workspace merged connector instances and included locally discovered Agents.
+  // Recurring bug class: the account workspace merged connector instances and included locally discovered Agents.
   await withAccountUI(async ({ server, root }) => {
     const { default: PlatformsPage } = await server.ssrLoadModule('/ui/components/PlatformsPage.tsx');
     const { connector } = await server.ssrLoadModule('/ui/state/connector.ts');
@@ -64,7 +64,7 @@ test('platform workspace lists connector instances and excludes local Agent iden
 });
 
 test('source dates treat zero and absent timestamps as never in every locale', async () => {
-  // Regression: Last seen displayed a date in 1970 when the native timestamp was zero.
+  // Recurring bug class: Last seen displayed a date in 1970 when the native timestamp was zero.
   await withAccountUI(async ({ server }) => {
     const { sourceDate } = await server.ssrLoadModule('/ui/sourcePresentation.ts');
     const { locale } = await server.ssrLoadModule('/ui/i18n.ts');
@@ -79,7 +79,7 @@ test('source dates treat zero and absent timestamps as never in every locale', a
 });
 
 test('built-in local authority is absent from control sources, accounts and disconnect actions', async () => {
-  // Regression: Local CLI appeared as an Unidentified account and its disconnect action revoked panel and CLI writes.
+  // Recurring bug class: Local CLI appeared as an Unidentified account and its disconnect action revoked panel and CLI writes.
   await withAccountUI(async ({ server, root }) => {
     const { connector, orderedSources } = await server.ssrLoadModule('/ui/state/connector.ts');
     const { accounts, refreshAccounts } = await server.ssrLoadModule('/ui/state/accounts.ts');
@@ -129,7 +129,7 @@ test('built-in local authority is absent from control sources, accounts and disc
 });
 
 test('connector removal revokes only the selected instance and retains the device connection', async () => {
-  // Regression: platform connector cards had no removal action for obsolete authorizations.
+  // Recurring bug class: platform connector cards had no removal action for obsolete authorizations.
   await withAccountUI(async ({ server, root }) => {
     const { default: PlatformsPage } = await server.ssrLoadModule('/ui/components/PlatformsPage.tsx');
     const { connector } = await server.ssrLoadModule('/ui/state/connector.ts');

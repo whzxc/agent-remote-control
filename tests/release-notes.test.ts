@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { groupedReleaseNotes, localizedReleaseNotes, releaseList, updateRange } from "../ui/state/releaseNotes.ts";
 
 test("update confirmation uses the downloaded version and includes only applicable notes", () => {
-  // Regression: an update could show just its own notes while skipping intermediate versions.
+  // Recurring bug class: an update could show just its own notes while skipping intermediate versions.
   const chineseHeading = "修复", chineseNote = "- 修复面板位置。";
   const target = { version: "0.9.50", notes: `## Fixes\n\n- Correct overview position.\n\n<!-- lang:zh-CN -->\n\n## ${chineseHeading}\n\n${chineseNote}` };
   const releases = [
@@ -22,7 +22,7 @@ test("update confirmation uses the downloaded version and includes only applicab
 });
 
 test("the archived MCP Events notice appears in its original release", () => {
-  // Regression: historical release bodies repeated the MCP Events notice after the migration.
+  // Recurring bug class: historical release bodies repeated the MCP Events notice after the migration.
   const notes = "- An update.\n\n## MCP Events / 事件升级\n\n- One-time instructions.\n\n## Fixes\n\n- A later section.";
   assert.equal(localizedReleaseNotes({ version: "0.9.50", notes }, "en"),
     "- An update.\n\n## Fixes\n\n- A later section.");

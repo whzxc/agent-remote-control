@@ -149,7 +149,7 @@ mod tests {
     use super::*;
     #[test]
     fn source_product_correction_reclassifies_only_its_unidentified_account() {
-        // Regression: correcting a source from ChatGPT to Claude left its unidentified account under OpenAI.
+        // Recurring bug class: correcting a source from ChatGPT to Claude left its unidentified account under OpenAI.
         let mut rows = vec![];
         let mut source = json!({"id":"source-one","platform":"openai"});
         let account_id = observe_source(&mut rows, &source);
@@ -175,7 +175,7 @@ mod tests {
 
     #[test]
     fn product_metadata_never_reclassifies_a_confirmed_account() {
-        // Property: client product metadata cannot overwrite a confirmed provider identity or detach its source.
+        // Algorithmic core: client product metadata cannot overwrite a confirmed provider identity or detach its source.
         let mut rows = vec![];
         let mut source = json!({"id":"source-confirmed","platform":"openai","authorizationFacts":{"accountId":"provider-account"}});
         let account_id = observe_source(&mut rows, &source);
@@ -190,7 +190,7 @@ mod tests {
 
     #[test]
     fn confirmed_identity_never_overwrites_another_provider_identity() {
-        // Property: conflicting handshake evidence preserves the authoritative source account and records the disagreement.
+        // Algorithmic core: conflicting handshake evidence preserves the authoritative source account and records the disagreement.
         let mut rows = vec![
             json!({"id":"source-account","identityKey":"anthropic:id:example-one","sources":["source"],"agentProfiles":[],"sourceIdentities":{"source":{"state":"resolved","authorization":{"kind":"authorization","identityKey":"anthropic:id:example-one"}}}}),
             json!({"id":"profile-account","identityKey":"anthropic:id:example-two","sources":[],"agentProfiles":[{"agent":"claude","profileId":"profile"}]}),
@@ -209,7 +209,7 @@ mod tests {
     }
     #[test]
     fn unidentified_source_links_only_to_the_proven_profile_identity() {
-        // Property: confirmed evidence moves only its source and stale profile evidence never links an account.
+        // Algorithmic core: confirmed evidence moves only its source and stale profile evidence never links an account.
         let mut rows = vec![
             json!({"id":"unknown","identityKey":"other:unidentified:source","sources":["source"],"agentProfiles":[]}),
             json!({"id":"owner","identityKey":"anthropic:id:example","sources":[],"agentProfiles":[{"agent":"claude","profileId":"profile"}]}),

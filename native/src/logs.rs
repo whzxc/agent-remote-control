@@ -297,7 +297,7 @@ mod since_tests {
     use super::*;
     #[test]
     fn duration_and_absolute_boundaries() {
-        // Regression: AX-12 logs since:2m exposed a premature-end parser error.
+        // Recurring bug class: AX-12 logs since:2m exposed a premature-end parser error.
         let now = chrono::DateTime::parse_from_rfc3339("2026-01-02T00:00:00Z")
             .unwrap()
             .with_timezone(&chrono::Utc);

@@ -86,7 +86,7 @@ mod tests {
     }
     #[test]
     fn unattributed_pending_and_paused_routes_have_no_retry_clock() {
-        // Regression: AX-23 a pending legacy delivery without sourceId kept the settled delivery loop running every second.
+        // Recurring bug class: AX-23 a pending legacy delivery without sourceId kept the settled delivery loop running every second.
         let state = State::default();
         let mut b = binding();
         b.deliveries.push(Delivery {
@@ -114,7 +114,7 @@ mod tests {
     }
     #[test]
     fn retries_and_mutes_use_their_recorded_deadlines() {
-        // Property: pending retries and finite mutes resume only at their next state transition.
+        // Algorithmic core: pending retries and finite mutes resume only at their next state transition.
         let mut state = State::default();
         let mut b = binding();
         b.source_id = "source".into();

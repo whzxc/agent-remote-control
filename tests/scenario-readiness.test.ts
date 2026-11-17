@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { beginScenario, finishScenario, missingScenarioRoute, scenarioReadiness } from '../ui/state/scenarioReadiness.ts';
 test('fixture readiness waits for its final task detail and loaded timeline', () => {
-  // Regression: fixture auto-open replaced list nodes after agents began interacting.
+  // Recurring bug class: fixture auto-open replaced list nodes after agents began interacting.
   beginScenario('task-actions','target');
   assert.equal(scenarioReadiness(null)?.ready,false);
   finishScenario();
@@ -13,7 +13,7 @@ test('fixture readiness waits for its final task detail and loaded timeline', ()
 });
 
 test('missing fixture routes fail readiness even after initialization finishes', () => {
-  // Regression: unsupported app/env and request-routing reads were swallowed while the fixture claimed ready.
+  // Recurring bug class: unsupported app/env and request-routing reads were swallowed while the fixture claimed ready.
   beginScenario('missing-routes');
   finishScenario();
   assert.equal(scenarioReadiness(null)?.ready, true);

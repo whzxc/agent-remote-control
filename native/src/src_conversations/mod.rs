@@ -686,7 +686,7 @@ mod tests {
     use super::*;
     #[test]
     fn correlation_requires_open_fresh_chat_and_recent_activity() {
-        // Property: Correlation never uses closed, stale, future-dated or non-Chat observations.
+        // Algorithmic core: Correlation never uses closed, stale, future-dated or non-Chat observations.
         let chat =
             refs::conversation("https://claude.ai/chat/550e8400-e29b-41d4-a716-446655440000")
                 .unwrap();

@@ -686,7 +686,7 @@ mod tests {
     #[cfg(target_os = "macos")]
     #[tokio::test]
     async fn maintenance_resumes_admissions_unless_shutdown_supersedes_it() {
-        // Regression: front-door maintenance must release queued admissions without reopening a shutting-down Core.
+        // Recurring bug class: front-door maintenance must release queued admissions without reopening a shutting-down Core.
         let endpoint = InProcess::new();
         let maintenance = endpoint.maintenance().unwrap();
         assert_eq!(
@@ -707,7 +707,7 @@ mod tests {
     #[cfg(target_os = "macos")]
     #[tokio::test]
     async fn maintenance_ends_reads_and_only_writes_can_expire_the_drain() {
-        // Regression: cf9cf2e included long reads in the maintenance drain and prevented compatible image updates.
+        // Recurring bug class: cf9cf2e included long reads in the maintenance drain and prevented compatible image updates.
         let endpoint = Arc::new(InProcess::new());
         let read = request(&endpoint);
         let (reading, mut interrupted) = endpoint.register(&read).unwrap();
@@ -756,7 +756,7 @@ mod tests {
     }
     #[test]
     fn framing_bounds_count_encoded_bytes_including_escapes() {
-        // Property: the frame bound includes JSON escaping and multibyte UTF-8.
+        // Algorithmic core: the frame bound includes JSON escaping and multibyte UTF-8.
         for body in [json!("abc"), json!("\n\"\\"), json!("\u{1f680}")] {
             let size = serde_json::to_vec(&body).unwrap().len();
             assert!(bounded(&body, size).is_ok());

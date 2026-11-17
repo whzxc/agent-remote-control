@@ -229,7 +229,7 @@ mod tests {
     use super::*;
     #[test]
     fn structured_counts_and_legacy_prefix_are_not_inferred_from_prose() {
-        // Regression: quality gates retained only prose and legacy passes were mistaken for zero defects.
+        // Recurring bug class: quality gates retained only prose and legacy passes were mistaken for zero defects.
         for (note, by) in [
             ("controller", "controller"),
             ("acceptance", "acceptance"),
@@ -271,7 +271,7 @@ mod tests {
 
     #[test]
     fn outcomes_review_coverage_and_later_user_findings_are_independent() {
-        // Regression: failed and interrupted executions disappeared from unreviewed coverage and a later user review erased controller findings.
+        // Recurring bug class: failed and interrupted executions disappeared from unreviewed coverage and a later user review erased controller findings.
         let at = chrono::Utc::now() - chrono::Duration::days(20);
         let mut controller = json!({"agent":"codex","threadId":"t","turnId":"reviewed","dispatchMode":"new-turn","submittedAt":at.to_rfc3339(),"terminal":{"state":"completed","endedAt":at.to_rfc3339()}});
         let first = review_record(
@@ -361,7 +361,7 @@ mod tests {
 
     #[test]
     fn retained_history_keeps_newest_window_rows_and_bounds_only_window_overflow() {
-        // Regression: an oldest-first retained-history cap discarded recent turns once retention exceeded 4096 records.
+        // Recurring bug class: an oldest-first retained-history cap discarded recent turns once retention exceeded 4096 records.
         struct Sandbox(PathBuf);
         impl Drop for Sandbox {
             fn drop(&mut self) {
@@ -456,7 +456,7 @@ mod tests {
 
     #[test]
     fn legacy_file_import_writes_once_and_warm_reads_never_write() {
-        // Regression: legacy found-by imports must persist once and leave repeated warm history reads write-free.
+        // Recurring bug class: legacy found-by imports must persist once and leave repeated warm history reads write-free.
         struct Sandbox(PathBuf);
         impl Drop for Sandbox {
             fn drop(&mut self) {
@@ -513,7 +513,7 @@ mod tests {
 
     #[test]
     fn installed_scale_history_cost_is_independent_of_receipts() {
-        // Regression: D4d quality aggregation must visit only dispatch/review owners after warming, regardless of receipt volume.
+        // Recurring bug class: D4d quality aggregation must visit only dispatch/review owners after warming, regardless of receipt volume.
         struct Sandbox(PathBuf);
         impl Drop for Sandbox {
             fn drop(&mut self) {

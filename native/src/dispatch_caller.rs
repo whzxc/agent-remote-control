@@ -86,7 +86,7 @@ mod tests {
 
     #[test]
     fn cli_dispatch_captures_caller() {
-        // Regression: local CLI dispatches lost the calling Agent conversation and appeared only as local-cli.
+        // Recurring bug class: local CLI dispatches lost the calling Agent conversation and appeared only as local-cli.
         if isolated("cli_dispatch_captures_caller") {
             for (agent, key) in SESSION_ENV {
                 assert_eq!(
@@ -121,7 +121,7 @@ mod tests {
 
     #[tokio::test]
     async fn persisted_caller_projects_to_dispatch_summary() {
-        // Regression: activity and timeline dispatch summaries could not link a local dispatcher conversation to its executor.
+        // Recurring bug class: activity and timeline dispatch summaries could not link a local dispatcher conversation to its executor.
         if isolated("persisted_caller_projects_to_dispatch_summary") {
             return;
         }

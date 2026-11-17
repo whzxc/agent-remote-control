@@ -64,7 +64,7 @@ test('shared action warnings survive lifecycle readback without blocking complet
 });
 
 test('lane lifecycle forwards its command origin through preflight and observation', async () => {
-  // Regression: ax-d7a7872f worktree handoff lost the command initiator and reported its own notices as conflicts.
+  // Recurring bug class: ax-d7a7872f worktree handoff lost the command initiator and reported its own notices as conflicts.
   const { beginLifecycle } = await import('../tooling/coordination-report.mjs');
   const previous = process.env.ARC_TOOLING_ORIGIN;
   process.env.ARC_TOOLING_ORIGIN = 'core-issued-command-token';

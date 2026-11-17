@@ -47,7 +47,7 @@ fn delta(before: &Value, after: &Value, owner: &str, key: &str) -> u64 {
 }
 #[tokio::test]
 async fn retained_history_has_flat_observation_cost_and_active_work_scales() {
-    // Regression: parallel claude_notify run shares cost counters
+    // Recurring bug class: parallel claude_notify run shares cost counters
     let control = control::Control::new(PathBuf::new());
     let mut totals = Vec::new();
     for (history, active) in [(4, 1), (40, 1), (40, 3), (40, 0)] {
@@ -101,7 +101,7 @@ async fn retained_history_has_flat_observation_cost_and_active_work_scales() {
 }
 #[tokio::test]
 async fn dormant_evidence_and_explicit_reads_reactivate_only_the_selected_scope() {
-    // Regression: exhausted notification reconciliation must remain idle until a selected read, native change, file change or successor arrives.
+    // Recurring bug class: exhausted notification reconciliation must remain idle until a selected read, native change, file change or successor arrives.
     let dir = Sandbox::new();
     let mut b = fixture(&dir.0, "dormant", "running");
     for _ in 0..observer::RECONCILIATION_ATTEMPTS {
@@ -213,7 +213,7 @@ async fn dormant_evidence_and_explicit_reads_reactivate_only_the_selected_scope(
 }
 #[tokio::test]
 async fn restart_seed_preserves_pending_delivery_and_latest_interrupted_scope() {
-    // Regression: retiring quiet observation must preserve pending delivery clocks and the latest interrupted resume scope across restart.
+    // Recurring bug class: retiring quiet observation must preserve pending delivery clocks and the latest interrupted resume scope across restart.
     let dir = Sandbox::new();
     let mut b = fixture(&dir.0, "interrupted", "cancelled");
     b.created_at -= RETENTION_SECONDS * 2;
@@ -296,7 +296,7 @@ fn restart(dir: &Path) {
 }
 #[tokio::test]
 async fn persisted_restart_keeps_delivery_resume_and_dormant_reactivation_without_seed_reads() {
-    // Regression: D2b reconstructed retained binding payloads at every restart instead of adopting derived scopes and deadlines.
+    // Recurring bug class: D2b reconstructed retained binding payloads at every restart instead of adopting derived scopes and deadlines.
     let control = control::Control::new(PathBuf::new());
     for history in [4, 40] {
         let dir = Sandbox::new();
@@ -416,7 +416,7 @@ async fn persisted_restart_keeps_delivery_resume_and_dormant_reactivation_withou
 }
 #[tokio::test]
 async fn interrupted_binding_write_repairs_one_key_and_invalid_indexes_rebuild_once() {
-    // Regression: a canonical binding written before an interrupted derived update must be repaired before restart observation.
+    // Recurring bug class: a canonical binding written before an interrupted derived update must be repaired before restart observation.
     let dir = Sandbox::new();
     let control = control::Control::new(PathBuf::new());
     for n in 0..40 {
@@ -483,7 +483,7 @@ async fn interrupted_binding_write_repairs_one_key_and_invalid_indexes_rebuild_o
 
 #[test]
 fn adopted_and_rebuilt_partitions_agree_for_mixed_canonical_states() {
-    // Property: adopting unchanged canonical metadata preserves every activity/deadline partition after the same scheduling inputs.
+    // Algorithmic core: adopting unchanged canonical metadata preserves every activity/deadline partition after the same scheduling inputs.
     let dir = Sandbox::new();
     for n in 0..24 {
         let state = ["completed", "cancelled", "running", "unconfirmed"][n % 4];
@@ -532,7 +532,7 @@ fn adopted_and_rebuilt_partitions_agree_for_mixed_canonical_states() {
 
 #[tokio::test]
 async fn observation_timestamp_and_owned_writes_do_not_reenter_the_owner() {
-    // Regression: reconciliation writes woke notification delivery through its recursive index-directory watch about 108 times in 31 seconds.
+    // Recurring bug class: reconciliation writes woke notification delivery through its recursive index-directory watch about 108 times in 31 seconds.
     let dir = Sandbox::new();
     let mut b = fixture(&dir.0, "owned", "running");
     index::initialize(&dir.0).unwrap();
@@ -581,7 +581,7 @@ async fn observation_timestamp_and_owned_writes_do_not_reenter_the_owner() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn published_owner_is_readable_while_another_owner_is_still_preparing() {
-    // Regression: current.json was published while every owner still returned INDEX_NOT_READY until the last rebuild finished.
+    // Recurring bug class: current.json was published while every owner still returned INDEX_NOT_READY until the last rebuild finished.
     let dir = Sandbox::new();
     let receipt_dir = dir.0.join("receipts");
     std::fs::create_dir_all(&receipt_dir).unwrap();
@@ -619,7 +619,7 @@ async fn published_owner_is_readable_while_another_owner_is_still_preparing() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn scale_rebuild_is_batched_and_never_gates_lease_or_query_readiness() {
-    // Regression: 1076 notification records took 40 seconds to migrate before readiness and exceeded the supervisor's 30-second timeout.
+    // Recurring bug class: 1076 notification records took 40 seconds to migrate before readiness and exceeded the supervisor's 30-second timeout.
     let dir = Sandbox::new();
     let root_receipts = dir.0.join("root");
     std::fs::create_dir_all(&root_receipts).unwrap();
@@ -688,7 +688,7 @@ async fn scale_rebuild_is_batched_and_never_gates_lease_or_query_readiness() {
 
 #[test]
 fn recovery_partition_changes_require_new_canonical_evidence() {
-    // Regression: installed restart counters changed during reconciliation and must distinguish owner transitions from index adoption drift.
+    // Recurring bug class: installed restart counters changed during reconciliation and must distinguish owner transitions from index adoption drift.
     let dir = Sandbox::new();
     let mut interrupted = fixture(&dir.0, "latest", "cancelled");
     let mut exhausted = fixture(&dir.0, "reconciling", "unconfirmed");
@@ -718,7 +718,7 @@ fn recovery_partition_changes_require_new_canonical_evidence() {
 
 #[test]
 fn recovery_updates_preserve_observation_time_without_new_evidence() {
-    // Regression: ax-c398fbae rewrote bindings with only observation.observedAt changed after idle recovery.
+    // Recurring bug class: ax-c398fbae rewrote bindings with only observation.observedAt changed after idle recovery.
     let dir = Sandbox::new();
     let mut b = fixture(&dir.0, "recovery-time", "completed");
     b.observation["reason"] = json!("native-terminal");
@@ -761,7 +761,7 @@ fn recovery_updates_preserve_observation_time_without_new_evidence() {
 
 #[tokio::test]
 async fn internal_receipts_and_notification_processing_do_not_maintain_the_bulletin() {
-    // Regression: 10953ca8 refreshed dispatch advisories during every internal receipt read.
+    // Recurring bug class: 10953ca8 refreshed dispatch advisories during every internal receipt read.
     let dir = Sandbox::new();
     let receipt_dir = dir.0.join("receipts");
     let receipts = crate::kernel::receipts::ReceiptStore::fixture(receipt_dir);

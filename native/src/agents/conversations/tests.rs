@@ -45,7 +45,7 @@ impl Drop for Sandbox {
 
 #[test]
 fn native_title_ignores_envelopes_and_tool_results() {
-    // Regression: native titles used injected reminders, slash commands and attachment placeholders instead of the user request.
+    // Recurring bug class: native titles used injected reminders, slash commands and attachment placeholders instead of the user request.
     let prompt = "Explain the parser";
     let records = vec![
         user("<system-reminder>context</system-reminder><local-command-caveat>ignore</local-command-caveat><command-name>/clear</command-name><command-message>clear</command-message><command-args></command-args>"),
@@ -64,7 +64,7 @@ fn native_title_ignores_envelopes_and_tool_results() {
 
 #[test]
 fn native_titles_prefer_explicit_names_and_preserve_unicode_bounds() {
-    // Regression: summaries displaced the first real prompt and activity titles ignored native custom names.
+    // Recurring bug class: summaries displaced the first real prompt and activity titles ignored native custom names.
     let custom = "Saved name";
     let summary = "Earlier summary";
     let head = vec![
@@ -97,7 +97,7 @@ fn native_titles_prefer_explicit_names_and_preserve_unicode_bounds() {
 
 #[test]
 fn sidechains_never_become_top_level_rows() {
-    // Regression: agent files and isSidechain records appeared as top-level Claude sessions.
+    // Recurring bug class: agent files and isSidechain records appeared as top-level Claude sessions.
     let ordinary = user("Top level");
     for (path, records, tail) in [
         (
@@ -142,7 +142,7 @@ fn sidechains_never_become_top_level_rows() {
 
 #[test]
 fn unchanged_transcripts_reuse_metadata_and_changed_files_refresh() {
-    // Regression: repeated conversation listings reparsed unchanged native transcripts and retained deleted sessions.
+    // Recurring bug class: repeated conversation listings reparsed unchanged native transcripts and retained deleted sessions.
     let sandbox = Sandbox::new();
     let path = sandbox.write(SESSION, &[user("Before")]);
     let mut index = native::Index::default();
@@ -159,7 +159,7 @@ fn unchanged_transcripts_reuse_metadata_and_changed_files_refresh() {
 
 #[test]
 fn bounded_samples_keep_head_title_and_tail_preview_without_exact_counts() {
-    // Regression: large transcripts required a full parse to display metadata and message counts implied complete coverage.
+    // Recurring bug class: large transcripts required a full parse to display metadata and message counts implied complete coverage.
     let sandbox = Sandbox::new();
     let path = sandbox.write(
         SESSION,
@@ -180,7 +180,7 @@ fn bounded_samples_keep_head_title_and_tail_preview_without_exact_counts() {
 
 #[test]
 fn merge_keeps_task_identity_native_metadata_and_deterministic_order() {
-    // Property: merging a task with its native session yields one row with task identity and native metadata, independent of input order.
+    // Algorithmic core: merging a task with its native session yields one row with task identity and native metadata, independent of input order.
     let native = row(&[user("Native title")], &[]);
     let task = json!({"id":OTHER,"agent":"claude","nativeSessionId":SESSION,"source":"arc-task","title":"Task title","createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-01T00:00:00Z","status":"completed"});
     let sessions = vec![native.clone()];
@@ -201,7 +201,7 @@ fn merge_keeps_task_identity_native_metadata_and_deterministic_order() {
 
 #[test]
 fn pi_v3_metadata_and_branch_history_stay_read_only() {
-    // Regression: Pi native sessions were absent from conversation pages and external branch history could mix sibling messages.
+    // Recurring bug class: Pi native sessions were absent from conversation pages and external branch history could mix sibling messages.
     let records = vec![
         json!({"type":"session","version":3,"id":SESSION,"cwd":"/workspace","timestamp":"2026-01-01T00:00:00Z"}),
         json!({"type":"message","id":"user","parentId":null,"timestamp":"2026-01-01T00:00:01Z","message":{"role":"user","content":"Question"}}),
@@ -232,7 +232,7 @@ fn pi_v3_metadata_and_branch_history_stay_read_only() {
 
 #[test]
 fn pi_history_retains_tool_positions_and_compaction_facts() {
-    // Regression: Pi history discarded compaction and reordered tool calls after all text blocks in a message.
+    // Recurring bug class: Pi history discarded compaction and reordered tool calls after all text blocks in a message.
     let records = vec![
         json!({"type":"message","id":"user","parentId":null,"timestamp":"2026-01-01T00:00:00Z","message":{"role":"user","content":"Edit config"}}),
         json!({"type":"message","id":"assistant","parentId":"user","timestamp":"2026-01-01T00:00:01Z","message":{"role":"assistant","content":[{"type":"text","text":"Starting"},{"type":"toolCall","id":"edit","name":"edit","arguments":{"path":"config.json","oldText":"false","newText":"true"}},{"type":"text","text":"Checking"}]}}),
@@ -256,7 +256,7 @@ fn pi_history_retains_tool_positions_and_compaction_facts() {
 
 #[test]
 fn native_conversation_titles_and_pi_requests_exclude_harness_inputs() {
-    // Property: native titles and Pi requests exclude harness inputs while preserving human text and branch ancestry.
+    // Algorithmic core: native titles and Pi requests exclude harness inputs while preserving human text and branch ancestry.
     let records = [
         json!({"type":"user","origin":{"kind":"task-notification"},"message":{"role":"user","content":"Background task finished"}}),
         json!({"type":"user","isCompactSummary":true,"message":{"role":"user","content":"Continuation summary"}}),
@@ -295,7 +295,7 @@ fn native_conversation_titles_and_pi_requests_exclude_harness_inputs() {
 
 #[test]
 fn fork_notice_is_not_a_native_conversation_title_or_preview() {
-    // Regression: a human-origin system-reminder fork notice became the native conversation title.
+    // Recurring bug class: a human-origin system-reminder fork notice became the native conversation title.
     let notice = "<system-reminder>\n## The user forked this session from another session.\n</system-reminder>";
     let fork =
         json!({"type":"user","origin":{"kind":"human"},"message":{"role":"user","content":notice}});
@@ -308,7 +308,7 @@ fn fork_notice_is_not_a_native_conversation_title_or_preview() {
 
 #[test]
 fn history_metadata_preserves_explicit_subagent_parent() {
-    // Regression: completed native subagents lost their parent when projected into history.
+    // Recurring bug class: completed native subagents lost their parent when projected into history.
     let meta = json!({"type":"session_meta","payload":{"id":"child",
         "source":{"subagent":{"thread_spawn":{"parent_thread_id":"parent"}}}}});
     let row = activity::conversation_projection(&[meta], false);
@@ -318,7 +318,7 @@ fn history_metadata_preserves_explicit_subagent_parent() {
 
 #[test]
 fn conversation_metadata_uses_explicit_outcomes_and_discloses_partial_counts() {
-    // Regression: opening a Codex list replayed full rollouts and then loaded a detail timeline for each row.
+    // Recurring bug class: opening a Codex list replayed full rollouts and then loaded a detail timeline for each row.
     let records = vec![
         json!({"type":"event_msg","timestamp":"2026-01-01T00:00:00Z","payload":{"type":"task_started","turn_id":"turn-one"}}),
         json!({"type":"turn_context","payload":{"turn_id":"turn-one","model":"model-one","effort":"high"}}),
@@ -353,7 +353,7 @@ fn conversation_metadata_uses_explicit_outcomes_and_discloses_partial_counts() {
 
 #[test]
 fn claude_list_metadata_confirms_only_the_latest_explicit_outcome() {
-    // Regression: native Claude list rows fetched full detail histories even when their latest record already confirmed completion.
+    // Recurring bug class: native Claude list rows fetched full detail histories even when their latest record already confirmed completion.
     let completed = json!({"type":"assistant","uuid":"reply","timestamp":"2026-01-01T00:00:01Z","message":{"role":"assistant","stop_reason":"end_turn","content":[{"type":"text","text":"Done"}]}});
     assert_eq!(
         row(&[user("Review project"), completed.clone()], &[])["status"],

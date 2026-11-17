@@ -254,7 +254,7 @@ mod tests {
 
     #[test]
     fn merged_plan_reports_one_included_window_with_its_period_and_reset() {
-        // Regression: Cursor Premium's merged weekly allowance was parsed as unlabeled monthly model pools.
+        // Recurring bug class: Cursor Premium's merged weekly allowance was parsed as unlabeled monthly model pools.
         let usage = json!({"billingCycleEnd":"1800000000000"});
         let quota = json!({"totalPercentUsed":12.5,"autoPercentUsed":12.5,"apiPercentUsed":0});
         for (period, label) in [

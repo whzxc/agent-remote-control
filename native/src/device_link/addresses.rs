@@ -108,7 +108,7 @@ mod tests {
     use super::*;
     #[test]
     fn only_up_lan_interfaces_survive() {
-        // Property: advertised addresses come only from up nonvirtual nonpoint-to-point LAN interfaces and are unique in preference order.
+        // Algorithmic core: advertised addresses come only from up nonvirtual nonpoint-to-point LAN interfaces and are unique in preference order.
         let base = if_addrs::Interface {
             name: "en0".into(),
             index: Some(1),

@@ -517,7 +517,7 @@ mod tests {
 
     #[test]
     fn criteria_tier_conflicts_survive_full_compact_and_cached_reads() {
-        // Regression: ax-9b7062e2 prose required default while the per-model override silently selected priority.
+        // Recurring bug class: ax-9b7062e2 prose required default while the per-model override silently selected priority.
         let facts = json!({"agents":[{"agent":"codex","policy":{"criteria":"Pass `serviceTier` `default` on every create and send.","serviceTiers":{"model-a":"priority","model-b":"default"}}}]});
         for args in [
             json!({}),
@@ -536,7 +536,7 @@ mod tests {
 
     #[test]
     fn account_selection_facts_survive_projection_and_full_view_retains_detail() {
-        // Property: compact projection retains account identity, readiness, quota units, resets and stale/blocking evidence without inventing usage.
+        // Algorithmic core: compact projection retains account identity, readiness, quota units, resets and stale/blocking evidence without inventing usage.
         let accounts = json!([
             {"id":"account-one","alias":"Primary","default":true,"health":{"state":"attention"},
              "agentProfiles":[{"profileId":"profile-one","state":"signed-in"}],
@@ -588,7 +588,7 @@ mod catalog_metadata_tests {
 
     #[test]
     fn catalog_metadata_review_restores_compact_decision_and_full_metadata() {
-        // Regression: review of 136285a8 found per-model settings and context metadata bloated every decision read.
+        // Recurring bug class: review of 136285a8 found per-model settings and context metadata bloated every decision read.
         let mut models = json!(["alpha", "beta"])
             .as_array()
             .unwrap()
@@ -642,7 +642,7 @@ mod decision_budget_tests {
 
     #[test]
     fn decision_rows_collapse_unused_agents_and_attach_primary_pools() {
-        // Property: unconfigured Agents without history collapse to one line while configured Agents and primary-pool credit facts stay visible.
+        // Algorithmic core: unconfigured Agents without history collapse to one line while configured Agents and primary-pool credit facts stay visible.
         let facts = json!({"agents":[
             {"agent":"codex","availability":{"installed":true,"enabled":true,"available":true},
              "policy":{"criteria":"Route by evidence."},
@@ -674,7 +674,7 @@ mod decision_budget_tests {
 
     #[test]
     fn compact_history_keeps_six_configurations_and_merges_the_rest() {
-        // Property: compact history never exceeds six configuration groups plus other and preserves total dispatch counts.
+        // Algorithmic core: compact history never exceeds six configuration groups plus other and preserves total dispatch counts.
         let now = chrono::Utc::now();
         let mut rows = vec![];
         for model in 0..9 {

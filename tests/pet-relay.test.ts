@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { IDLE_MS, pendingRelayUntil, petIntents, presentPet, queuePetIntent, relayPose, retainPetIntents, stepRelayQueue, visiblePetIntent, RELAY_MS, RELAY_READY_MS, STALL_MS, type PetIntent, type RelayTask } from '../ui/pets/relay.ts';
 const task: RelayTask = { key: 'codex:t', taskId: 't', agent: 'codex', sourceId: 's', dispatchId: 'd', turn: 'turn-1', state: 'running', at: 0, phaseSince: 0 };
 test('opening completed task history does not replay a result handoff', () => {
-  // Regression: opening the workbench made historical completed tasks throw a new result despite no observed execution transition.
+  // Recurring bug class: opening the workbench made historical completed tasks throw a new result despite no observed execution transition.
   for (const state of ['done', 'failed', 'interrupted'] as const) {
     assert.equal(petIntents({ ...task, state }, undefined, 0).some(intent => intent.kind === 'return'), false);
     const completed = { ...task, state };
@@ -15,7 +15,7 @@ test('opening completed task history does not replay a result handoff', () => {
   }
 });
 test('turn and review identities trigger independent relay events', () => {
-  // Property: changing a turn or review produces one corresponding intent while identical snapshots produce none.
+  // Algorithmic core: changing a turn or review produces one corresponding intent while identical snapshots produce none.
   const next = { ...task, turn: 'turn-2' };
   assert.deepEqual(petIntents(next, task, 0).map(i => i.kind), ['carry']);
   for (const verdict of ['pass', 'rework'] as const) {
@@ -26,7 +26,7 @@ test('turn and review identities trigger independent relay events', () => {
   assert.equal(petIntents({ ...task, sourceId: undefined, dispatchId: undefined }, undefined, 0)[0].kind, 'carry');
 });
 test('hydrating historical reviews establishes a baseline without replaying praise or rework', () => {
-  // Regression: the first review poll replayed old reviews instead of playing only new reviews.
+  // Recurring bug class: the first review poll replayed old reviews instead of playing only new reviews.
   const completed: RelayTask = { ...task, state: 'done' };
   assert.deepEqual(petIntents(completed, task, 10).map(intent => intent.kind), ['return']);
   for (const verdict of ['pass', 'rework'] as const) {
@@ -45,7 +45,7 @@ test('hydrating historical reviews establishes a baseline without replaying prai
   }
 });
 test('stall eligibility requires running evidence and a bounded phase age', () => {
-  // Property: only running tasks with a finite phase start at or beyond the stall threshold can urge.
+  // Algorithmic core: only running tasks with a finite phase start at or beyond the stall threshold can urge.
   for (const state of ['running', 'needsYou', 'done', 'failed', 'interrupted', 'unknown'] as const) for (const phaseSince of [undefined, NaN, 0, 1]) {
     const input = { ...task, state, phaseSince };
     const urge = petIntents(input, undefined, STALL_MS).some(i => i.kind === 'urge');
@@ -53,7 +53,7 @@ test('stall eligibility requires running evidence and a bounded phase age', () =
   }
 });
 test('relay ownership remains continuous through receiving, carrying and returning', () => {
-  // Property: every active handoff has exactly one holder or one in-flight card, and receiving follows the card destination.
+  // Algorithmic core: every active handoff has exactly one holder or one in-flight card, and receiving follows the card destination.
   for (const kind of ['dispatch', 'rework', 'return'] as const) {
     const event: PetIntent = { id: kind, kind, task: { ...task, state: kind === 'return' ? 'done' : 'running' }, at: 0 };
     const holders = new Set<string>(), flights = new Set<string>();
@@ -73,7 +73,7 @@ test('relay ownership remains continuous through receiving, carrying and returni
   }
 });
 test('native work returns to its real executor without an invented source', () => {
-  // Property: an unattributed task has no source-bound flight or source ownership during its result handoff.
+  // Algorithmic core: an unattributed task has no source-bound flight or source ownership during its result handoff.
   const event: PetIntent = { id: 'native', kind: 'return', task: { ...task, sourceId: undefined, state: 'done' }, at: 0 };
   for (let now = 0; now < RELAY_MS; now += 10) {
     const pose = relayPose(event, now);
@@ -84,7 +84,7 @@ test('native work returns to its real executor without an invented source', () =
   assert.equal(petIntents({ ...task, sourceId: undefined }, task, STALL_MS).some(intent => intent.kind === 'urge'), false);
 });
 test('a recorded source without a visible participant uses executor-only choreography', () => {
-  // Regression: local CLI tasks had a nonempty source ID but no source pet, so their relay waited for a nonexistent hand and timed out.
+  // Recurring bug class: local CLI tasks had a nonempty source ID but no source pet, so their relay waited for a nonexistent hand and timed out.
   const evidence = Object.freeze({ ...task, sourceId: 'builtin-local-cli' });
   const dispatch = Object.freeze({ id: 'cli-dispatch', kind: 'dispatch' as const, task: evidence, at: 0 });
   const sources = new Set(['visible-claude']);
@@ -105,7 +105,7 @@ test('a recorded source without a visible participant uses executor-only choreog
   assert.equal(visiblePetIntent(dispatch, new Set([evidence.sourceId])), dispatch);
 });
 test('simultaneous tasks serialize their cards and retain a quick result after its dispatch', () => {
-  // Regression: concurrent task cards overlapped and quick completion erased the dispatch before its receiver could catch it.
+  // Recurring bug class: concurrent task cards overlapped and quick completion erased the dispatch before its receiver could catch it.
   const dispatched: PetIntent = { id: 'dispatch', kind: 'dispatch', task, at: 0 };
   let queue = queuePetIntent([], dispatched, 0);
   queue = queuePetIntent(queue, { id: 'other', kind: 'dispatch', task: { ...task, key: 'other' }, at: 1 }, 1);
@@ -116,7 +116,7 @@ test('simultaneous tasks serialize their cards and retain a quick result after i
   assert.deepEqual(queuePetIntent(queue, dispatched, 2), queue);
 });
 test('a newer turn replaces stale choreography without changing unrelated work', () => {
-  // Property: a task can retain only events from its current turn while independent tasks retain their evidence.
+  // Algorithmic core: a task can retain only events from its current turn while independent tasks retain their evidence.
   const first: PetIntent = { id: 'first', kind: 'dispatch', task, at: 0 };
   const other: PetIntent = { id: 'other', kind: 'carry', task: { ...task, key: 'other' }, at: RELAY_MS };
   const next: PetIntent = { id: 'next', kind: 'dispatch', task: { ...task, turn: 'turn-2' }, at: 10 };
@@ -125,7 +125,7 @@ test('a newer turn replaces stale choreography without changing unrelated work',
   assert.equal(queue[0].task, other.task); assert.equal(queue[1].task, next.task);
 });
 test('queued task pets remain available after the ordinary idle deadline until their final relay finishes', () => {
-  // Regression: twelve dispatches followed by returns outlived the idle deadline, so later result cards had no task pet to throw them.
+  // Recurring bug class: twelve dispatches followed by returns outlived the idle deadline, so later result cards had no task pet to throw them.
   const tasks = Array.from({ length: 12 }, (_, index) => ({ ...task, key: `task-${index}`, taskId: `task-${index}` }));
   let queue: PetIntent[] = [];
   for (const task of tasks) queue = queuePetIntent(queue, { id: `${task.key}:dispatch`, kind: 'dispatch', task, at: 0 }, 0);
@@ -141,7 +141,7 @@ test('queued task pets remain available after the ordinary idle deadline until t
   assert.equal(pendingRelayUntil({ ...tasks[0], turn: 'another-turn' }, queue), 0);
 });
 test('a missing rendered task bubble or replaced turn cancels its pending choreography', () => {
-  // Property: only unexpired events whose exact task turn is still rendered can retain an actor or animate a card.
+  // Algorithmic core: only unexpired events whose exact task turn is still rendered can retain an actor or animate a card.
   const input = [
     { id: 'visible', kind: 'return' as const, task, at: 0 },
     { id: 'missing', kind: 'return' as const, task: { ...task, key: 'missing' }, at: RELAY_MS },
@@ -155,7 +155,7 @@ test('a missing rendered task bubble or replaced turn cancels its pending choreo
   assert.deepEqual(input.map(event => event.id), ['visible', 'missing', 'old-turn']);
 });
 test('an entering task keeps its queued handoff until real actor anchors are available', () => {
-  // Regression: an entering bubble had no frame at zero opacity, so dispatch was consumed before its task pet could receive the card.
+  // Recurring bug class: an entering bubble had no frame at zero opacity, so dispatch was consumed before its task pet could receive the card.
   const first: PetIntent = { id: 'entering', kind: 'dispatch', task, at: 0 };
   const second: PetIntent = { id: 'second', kind: 'dispatch', task: { ...task, key: 'second' }, at: RELAY_MS };
   for (const entryDelay of [20, 800, RELAY_READY_MS - 1]) {
@@ -172,7 +172,7 @@ test('an entering task keeps its queued handoff until real actor anchors are ava
   }
 });
 test('a scene that cannot place its actors releases the relay channel after bounded waiting', () => {
-  // Property: unavailable anchors cannot keep a task or later tasks in the choreography queue indefinitely.
+  // Algorithmic core: unavailable anchors cannot keep a task or later tasks in the choreography queue indefinitely.
   const unavailable: PetIntent = { id: 'unavailable', kind: 'dispatch', task, at: 0 };
   const retry: PetIntent = { id: 'return', kind: 'return', task: { ...task, state: 'done' }, at: RELAY_MS };
   const ready: PetIntent = { id: 'ready', kind: 'dispatch', task: { ...task, key: 'ready' }, at: RELAY_MS * 2 };
@@ -185,7 +185,7 @@ test('a scene that cannot place its actors releases the relay channel after boun
   assert.equal(pendingRelayUntil(task, scheduled.events), 0);
 });
 test('losing an anchor freezes the current handoff phase without restarting or skipping it', () => {
-  // Property: elapsed choreography time excludes intervals in which real actor anchors are unavailable.
+  // Algorithmic core: elapsed choreography time excludes intervals in which real actor anchors are unavailable.
   const event: PetIntent = { id: 'active', kind: 'dispatch', task, at: 0 };
   let scheduled = stepRelayQueue([event], undefined, 0, () => true);
   scheduled = stepRelayQueue(scheduled.events, scheduled.clock, 500, () => false);

@@ -67,7 +67,7 @@ async function withTopology(run: (context: any) => Promise<void>, reduced = true
 }
 
 test('environment dimensions drive the mounted topology after settling and defer while dragging', async () => {
-  // Regression: app_env width-only input could not drive portrait geometry or expose effective orientation in the live snapshot.
+  // Recurring bug class: app_env width-only input could not drive portrait geometry or expose effective orientation in the live snapshot.
   await withTopology(async ({ Topology, topologyLayout, viewModel, root, mount, settle, dimensions }) => {
     const source = { id: 'source', label: 'Example source', state: 'normal', attention: false, selected: false, reorderable: true, tasks: [], content: h('button', null, 'Example source') };
     function Harness() {
@@ -96,7 +96,7 @@ test('environment dimensions drive the mounted topology after settling and defer
 });
 
 test('activated groups persist through activity refresh and fold on outside input or Escape', async () => {
-  // Regression: automatic unfolding shifted the dense scene, and task refresh could replace an explicitly opened group's membership.
+  // Recurring bug class: automatic unfolding shifted the dense scene, and task refresh could replace an explicitly opened group's membership.
   await withTopology(async ({ Topology, topologyLayout, viewModel, t, root, mount, settle, flushFrames }) => {
     function Harness({ active = false }) {
       const boundary = useRef<HTMLElement>(null);
@@ -136,7 +136,7 @@ test('activated groups persist through activity refresh and fold on outside inpu
 });
 
 test('member portals and panels are inside the group and consume Escape first', async () => {
-  // Regression: DOM-only outside checks dismissed topology groups when users interacted with a member's portaled layers.
+  // Recurring bug class: DOM-only outside checks dismissed topology groups when users interacted with a member's portaled layers.
   await withTopology(async ({ Topology, D, P, topologyLayout, viewModel, t, root, mount, settle, flushFrames }) => {
     function Harness() {
       const boundary = useRef<HTMLElement>(null), handle = useRef<any>(null);
@@ -176,7 +176,7 @@ test('member portals and panels are inside the group and consume Escape first', 
 });
 
 test('native member clicks keep the group open through panel selection and layered Escape', async () => {
-  // Regression: document-capture microtasks folded members before their pointer handlers ran, and transition blur cancelled capsule focus restoration.
+  // Recurring bug class: document-capture microtasks folded members before their pointer handlers ran, and transition blur cancelled capsule focus restoration.
   await withTopology(async ({ Topology, D, topologyLayout, viewModel, t, root, mount, settle, flushFrames, browserPointerDown }) => {
     function Harness() {
       const boundary = useRef<HTMLElement>(null), handle = useRef<any>(null);
@@ -217,7 +217,7 @@ test('native member clicks keep the group open through panel selection and layer
 });
 
 test('portrait group rail input keeps the group open while canvas input folds it', async () => {
-  // Regression: the visible source rail between expanded Google and xAI members hit the canvas and folded their group.
+  // Recurring bug class: the visible source rail between expanded Google and xAI members hit the canvas and folded their group.
   await withTopology(async ({ Topology, topologyLayout, viewModel, t, root, mount, settle, flushFrames, browserPointerDown, dimensions }) => {
     function Harness() {
       const boundary = useRef<HTMLElement>(null);

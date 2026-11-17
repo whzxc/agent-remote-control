@@ -213,7 +213,7 @@ fn fixture() -> (PathBuf, i64) {
 #[tokio::test]
 #[ignore = "Installed-shape fixture; run explicitly in a disposable lane-local ARC_STATE_DIR"]
 async fn d2d_installed_shape() {
-    // Regression: installed near-idle owners repeatedly parsed retained bindings and traversed queue, Git and receipt history.
+    // Recurring bug class: installed near-idle owners repeatedly parsed retained bindings and traversed queue, Git and receipt history.
     let (base, time) = fixture();
     let mut reader = git_watch::RefReader::default();
     let service = crate::service::Service::new().unwrap();

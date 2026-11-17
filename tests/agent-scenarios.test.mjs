@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { createNormalizer, coverage, diffJSON, expandJSON, NOTIFICATION_KINDS, receiptRead } from '../tooling/agent-scenarios-lib.mjs';
 
 test('receipt reads separate transport identity from the original write identity', () => {
-  // Property: receipt reads follow catalog routing and retain their target across distinct transport request IDs.
+  // Algorithmic core: receipt reads follow catalog routing and retain their target across distinct transport request IDs.
   for (const readOnlyHint of [false, true]) {
     const catalog = { ops: [{ name: 'receipt', annotations: { readOnlyHint } }] };
     for (const requestId of ['read-one', 'read-two']) {
@@ -16,7 +16,7 @@ test('receipt reads separate transport identity from the original write identity
 });
 
 test('capture normalization preserves identities and behavior across independent runs', () => {
-  // Property: equivalent captures normalize equally while distinct identities and behavioral changes stay distinct.
+  // Algorithmic core: equivalent captures normalize equally while distinct identities and behavioral changes stay distinct.
   const response = (id, other, directory, stamp) => ({
     call: { threadId: id, project: directory },
     response: { content: [{ type: 'text', text: JSON.stringify({ threadId: id, turnId: other, at: stamp,
@@ -40,7 +40,7 @@ test('capture normalization preserves identities and behavior across independent
 });
 
 test('masks retain presence and do not hide unrelated hashes or primitive text', () => {
-  // Property: volatile values are ignored without ignoring field removal or unrelated content.
+  // Algorithmic core: volatile values are ignored without ignoring field removal or unrelated content.
   const normalize = createNormalizer();
   const before = normalize({ guideHash: 'one', next: { hash: 'two' }, hash: 'kept', cliPath: '/bin/arc', text: 'null' });
   const after = normalize({ guideHash: 'three', next: { hash: 'four' }, hash: 'changed', cliPath: '/other/arc', text: null });
@@ -51,7 +51,7 @@ test('masks retain presence and do not hide unrelated hashes or primitive text',
 });
 
 test('coverage is a partition and counts scenario approval separately from uncovered ops', () => {
-  // Property: every op has exactly one owner and capture states partition each capability's defined scenarios.
+  // Algorithmic core: every op has exactly one owner and capture states partition each capability's defined scenarios.
   const catalog = { ops: [{ name: 'alpha' }, { name: 'beta' }] };
   const capabilities = [{ id: 'one', ops: ['alpha', 'beta'], notificationKinds: NOTIFICATION_KINDS }];
   const scenarios = ['approved', 'pending', 'missing'].map(id => ({ id, capability: 'one', ops: ['alpha'] }));
@@ -65,7 +65,7 @@ test('coverage is a partition and counts scenario approval separately from uncov
 });
 
 test('structured diffs distinguish additions, removals and escaped JSON pointer keys', () => {
-  // Property: diff paths retain arbitrary JSON keys and additions/removals without losing primitive types.
+  // Algorithmic core: diff paths retain arbitrary JSON keys and additions/removals without losing primitive types.
   const changes = diffJSON({ 'a/b': { '~value': 1 }, removed: true, text: 'false' }, { 'a/b': { '~value': 2 }, added: true, text: false });
   assert.deepEqual(changes.map(({ path, change }) => ({ path, change })), [
     { path: '/a~1b/~0value', change: 'changed' }, { path: '/added', change: 'added' },

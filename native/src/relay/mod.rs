@@ -501,7 +501,7 @@ mod tests {
 
     #[tokio::test]
     async fn member_leaves_a_deleted_worker_and_removes_its_ingress() {
-        // Regression: 95b563ad left member records and ingress behind when the deleted Worker's challenge returned 404.
+        // Recurring bug class: 95b563ad left member records and ingress behind when the deleted Worker's challenge returned 404.
         if let Some(status) = isolated_leave_case() {
             assert!(status.success());
             return;
@@ -576,7 +576,7 @@ mod tests {
     }
     #[test]
     fn cancelled_creation_reuses_only_an_undeployed_draft() {
-        // Regression: 42f9056; cancelled creation reuses only an undeployed draft.
+        // Recurring bug class: 42f9056; cancelled creation reuses only an undeployed draft.
         let first = draft(None, &json!({"name":"First"})).unwrap();
         assert!(undeployed(&first));
         let retry = draft(Some(first.clone()), &json!({"name":"Retry"})).unwrap();
@@ -597,7 +597,7 @@ mod tests {
     }
     #[tokio::test]
     async fn cancellation_waits_for_job_drop_and_keeps_recovery_information() {
-        // Regression: cancelled deployment must retain recovery information until its job stops.
+        // Recurring bug class: cancelled deployment must retain recovery information until its job stops.
         let state = Arc::new(Mutex::new(
             json!({"phase":"connecting","relayId":"saved","ingressId":"local","loginUrl":"https://example.invalid"}),
         ));

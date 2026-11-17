@@ -128,7 +128,7 @@ mod tests {
     use super::*;
     #[test]
     fn crashed_core_children_are_reclaimed_without_signalling_reused_pids() {
-        // Regression: KillMode=process left a tunnel provider alive and Core restart started a duplicate.
+        // Recurring bug class: KillMode=process left a tunnel provider alive and Core restart started a duplicate.
         let record =
             json!({"pid":3,"processStart":"child","owner":{"pid":2,"processStart":"core"}});
         assert!(reclaimable(&record, Some("child"), None));

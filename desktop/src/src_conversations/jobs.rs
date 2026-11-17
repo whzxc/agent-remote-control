@@ -113,7 +113,7 @@ mod tests {
     }
     #[tokio::test]
     async fn fake_keychain_import_transitions_and_same_account_deduplication() {
-        // Regression: the first macOS password prompt outlived the synchronous 30-second import call.
+        // Recurring bug class: the first macOS password prompt outlived the synchronous 30-second import call.
         for installed in [true, false] {
             let jobs = Arc::new(Jobs::default());
             let (allow, waiting) = mpsc::channel();
@@ -157,7 +157,7 @@ mod tests {
     }
     #[tokio::test]
     async fn fake_keychain_denial_and_timeout_remain_pollable_blockers() {
-        // Regression: Keychain denial or a slow password prompt returned a request error without account progress.
+        // Recurring bug class: Keychain denial or a slow password prompt returned a request error without account progress.
         for denied in [true, false] {
             let jobs = Arc::new(Jobs::default());
             let (release, waiting) = mpsc::channel::<()>();

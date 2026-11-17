@@ -266,7 +266,7 @@ test('mutation receipts remain idempotent across domain and escape hatch, includ
 });
 
 test('receipt reads retain their target when the installed front door injects an outer ID', async () => {
-  // Regression: ax-8011a7fc D3b replaced the receipt target with the front door transport requestId.
+  // Recurring bug class: ax-8011a7fc D3b replaced the receipt target with the front door transport requestId.
   const original = await completed('fs', { action: 'writeFile', params: { path: '/tmp/receipt-target', dataBase64: '' }, requestId: randomUUID() });
   const response = await client.callTool({ name: 'act', arguments: { op: 'receipt', requestId: randomUUID(), args: { action: 'read', requestId: original.requestId } } });
   const read = toolResult(response);
@@ -296,7 +296,7 @@ test('native errors retain code/message/data for both direct reads and mutation 
 });
 
 test('deployment fingerprints ignore tool/property ordering and runtime changes but detect every published definition change', async () => {
-  // Property: canonical fingerprints ignore ordering and change with published definitions.
+  // Algorithmic core: canonical fingerprints ignore ordering and change with published definitions.
   const before = toolFingerprint(inventory.tools);
   const reorder = (value: any): any => Array.isArray(value) ? value.map(reorder) : value && typeof value === 'object'
     ? Object.fromEntries(Object.entries(value).reverse().map(([key, item]) => [key, reorder(item)])) : value;
@@ -326,7 +326,7 @@ async function management(route: string, method = 'GET', body?: unknown) {
   return result;
 }
 test('setup clipboard preserves unrelated content on extraction failure and clears only after saving', async () => {
-  // Regression: d983ff5; setup clipboard preserves unrelated content on extraction failure and clears only after saving.
+  // Recurring bug class: d983ff5; setup clipboard preserves unrelated content on extraction failure and clears only after saving.
   const clipboard = path.join(directory, 'fixtures/clipboard.txt');
   await mkdir(path.dirname(clipboard), { recursive: true });
   await management('setup/apply', 'POST', { stepId: 'choose-goal', input: { option: 'claude-loop' } });
@@ -362,7 +362,7 @@ async function ingressRpc(ingress: any, method: string, params?: any) {
 }
 
 test('setup rejects a short runtime key without saving or clearing; HTTPS fallback reuses the ingress', async () => {
-  // Regression: 3f0c5ea; setup rejects a short runtime key without saving or clearing; HTTPS fallback reuses the ingress.
+  // Recurring bug class: 3f0c5ea; setup rejects a short runtime key without saving or clearing; HTTPS fallback reuses the ingress.
   const clipboard = path.join(directory, 'fixtures/clipboard.txt');
   await mkdir(path.dirname(clipboard), { recursive: true });
   await management('setup/apply', 'POST', { stepId: 'choose-goal', input: { option: 'chatgpt-chat' } });
@@ -435,7 +435,7 @@ server.listen(0, '127.0.0.1', () => fs.writeFileSync(process.argv[process.argv.i
 });
 
 test('tool presets use the full registry, preserve exact allowlists and close only necessary read dependencies', async () => {
-  // Property: policy normalization preserves selected operations and closes only their required dependencies.
+  // Algorithmic core: policy normalization preserves selected operations and closes only their required dependencies.
   const config: ToolCatalog = await management('tool-catalog');
   assert.deepEqual(config.tools.filter(tool => tool.available !== false).map(tool => tool.name), operations.map(tool => tool.name));
   assert.deepEqual(Object.keys(catalog.toolExposure.tools).sort(), config.tools.map(tool => tool.name).sort());
@@ -541,7 +541,7 @@ test('real HTTP ingresses isolate discovery and direct execution; policy PUT pre
 // Simulate only the tunnel provider's loopback readiness API; ingress commit and
 // persistence still run through the compiled production Service implementation.
 test('managed draft commits the selected policy instead of publishing all tools', { skip: process.platform !== 'darwin' }, async () => {
-  // Regression: a committed restricted draft must not expose unselected operations.
+  // Recurring bug class: a committed restricted draft must not expose unselected operations.
   const dependency = path.join(directory, 'dependencies/cloudflare', `darwin-${process.arch === 'arm64' ? 'arm64' : 'amd64'}`);
   await mkdir(dependency, { recursive: true });
   const binary = path.join(dependency, 'cloudflared');
@@ -577,7 +577,7 @@ http.createServer((req, res) => { res.setHeader('Content-Type', 'application/jso
 
 
 test('Git writes use durable receipts, isolated identity and safe local workflows', async () => {
-  // Regression: invalid or escaping Git paths are rejected without modifying the worktree.
+  // Recurring bug class: invalid or escaping Git paths are rejected without modifying the worktree.
   const project = path.join(directory, 'git-write');
   await mkdir(project);
   const git = (...args: string[]) => execFileSync('git', ['-C', project, ...args], { encoding: 'utf8', env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: process.platform === 'win32' ? 'NUL' : '/dev/null' } }).trim();
@@ -696,7 +696,7 @@ test('latest items pin the newest turn and preserve explicit turn and native cur
 });
 
 test('creation starts its first turn without legacy history reads, cleans definite failures and retains uncertain submissions', async () => {
-  // Regression: 3abadc6; creation starts its first turn without legacy history reads, cleans definite failures and retains uncertain submissions.
+  // Recurring bug class: 3abadc6; creation starts its first turn without legacy history reads, cleans definite failures and retains uncertain submissions.
   const create = async (model: string) => completed('codex_create', {
     project: directory, prompt: 'ping', thread: { model }, requestId: randomUUID(), waitMs: 1000,
   });
@@ -763,7 +763,7 @@ async function dispatchFixture(model: string) {
 const fixtureRows = async () => JSON.parse(await readFile(path.join(directory,'dispatch-fixture.json'),'utf8'));
 
 test('guide exposes replay boundaries and durable writes survive concurrent retries and Core restart', async () => {
-  // Regression: a lost write response must not cause a repeated edit after concurrent retry or restart.
+  // Recurring bug class: a lost write response must not cause a repeated edit after concurrent retry or restart.
   const guide = toolResult((await client.callTool({name:'query',arguments:{op:'guide',args:{view:'full'}}})));
   assert.ok(guide.ops.every((op:any) => ['read-only','receipt','original-receipt','read-back'].includes(op.retry.mode)));
   assert.equal((await call('guide',{op:'edit'})).result.retry.mode,'receipt');
@@ -787,7 +787,7 @@ test('guide exposes replay boundaries and durable writes survive concurrent retr
 });
 
 test('HTTP ingress observations correlate failures and dropped streams without retaining content or credentials', async () => {
-  // Regression: ingress failures before dispatch and disconnected waits were absent from control-call metrics.
+  // Recurring bug class: ingress failures before dispatch and disconnected waits were absent from control-call metrics.
   const id = 'observed-http';
   const token = `test-${id}`.padEnd(40,'x');
   const ingress = await management('ingress','POST',{id,name:'Observed HTTP',controlSource:'custom',transport:'https',auth:'bearer',bearerToken:token,toolPolicy:'all',config:{httpsProvider:'custom',httpsUrl:'https://observed.example/mcp'}});
@@ -832,7 +832,7 @@ test('HTTP ingress observations correlate failures and dropped streams without r
 });
 
 test('OAuth diagnostics reveal supplied identity field structure without retaining their values or credentials', async () => {
-  // Regression: OAuth metadata was unobservable and Claude server/discover handshakes bypassed initialization diagnostics.
+  // Recurring bug class: OAuth metadata was unobservable and Claude server/discover handshakes bypassed initialization diagnostics.
   const id = 'observed-oauth';
   const ingress = await management('ingress', 'POST', { id, name: 'Observed OAuth', controlSource: 'claude', transport: 'https', auth: 'oauth', toolPolicy: 'all', config: { httpsProvider: 'custom', httpsUrl: `https://${id}.example/mcp` } });
   const url = (route: string) => `http://127.0.0.1:${ingress.config.httpsPort}${route}`;
@@ -907,7 +907,7 @@ test('OAuth diagnostics reveal supplied identity field structure without retaini
 });
 
 test('managed Cloudflare recovers an exited provider without status polling and stops supervision on disconnect', {skip:process.platform==='win32'}, async () => {
-  // Regression: managed provider recovery depended on UI or status reads and stopped in unattended Core sessions.
+  // Recurring bug class: managed provider recovery depended on UI or status reads and stopped in unattended Core sessions.
   const platform = process.platform === 'darwin' ? 'darwin' : 'linux';
   const dependency = path.join(directory,'dependencies/cloudflare',`${platform}-${process.arch==='arm64'?'arm64':'amd64'}`);
   await mkdir(dependency,{recursive:true});
@@ -950,7 +950,7 @@ server.listen(Number(endpoint.split(':')[1]),'127.0.0.1',()=>fs.writeFileSync(${
 });
 
 test('codex_pending retains terminal interaction ownership and staleness', async () => {
-  // Regression: a terminal turn question lost its native owner and stale status.
+  // Recurring bug class: a terminal turn question lost its native owner and stale status.
   const created = await dispatchFixture('fixture-dispatch-question-terminal');
   const readPending = async () => (await call('codex_pending', { threadId: created.threadId })).result;
   const initial = await eventually(readPending, value => value.requests?.length > 0);
@@ -966,7 +966,7 @@ test('codex_pending retains terminal interaction ownership and staleness', async
 });
 
 test('respond tokens preserve legacy responses, bind thread and reject reuse', async () => {
-  // Regression: reused or wrong-thread response tokens are rejected.
+  // Recurring bug class: reused or wrong-thread response tokens are rejected.
   const created=await dispatchFixture('fixture-dispatch-question');
   const pending=await eventually(async()=>(await call('codex_pending',{threadId:created.threadId})).result,v=>v.requests?.length>0);
   const request=pending.requests.find((r:any)=>r.params.threadId===created.threadId);
@@ -987,7 +987,7 @@ test('respond tokens preserve legacy responses, bind thread and reject reuse', a
 });
 
 test('FIFO queue never steers, pauses on failures, supports cancellation/resume and stores durable state', async () => {
-  // Regression: queued input must survive restart and remain blocked after a failed predecessor.
+  // Recurring bug class: queued input must survive restart and remain blocked after a failed predecessor.
   const created=await dispatchFixture('fixture-dispatch-queue');
   const steered=await completed('codex_send',{threadId:created.threadId,prompt:'steer',requestId:randomUUID()});assert.equal(steered.dispatchMode,'steered');assert.equal(steered.turnId,created.turnId);
   const activeInput = (await fixtureRows())[created.threadId].turns[0].input;
@@ -1011,7 +1011,7 @@ test('FIFO queue never steers, pauses on failures, supports cancellation/resume 
 });
 
 test('local panel queues have durable sources, dispatch after completion and promote or cancel once', async () => {
-  // Regression: local UI queues lacked sourceId, so dispatch and cancel silently ignored accepted messages.
+  // Recurring bug class: local UI queues lacked sourceId, so dispatch and cancel silently ignored accepted messages.
   const created = await dispatchFixture('fixture-dispatch-queue');
   const local = (op: string, args: Record<string, unknown>) => management('tasks/control', 'POST', { op, args });
   const queue = async (prompt: string) => local('codex_send', { threadId: created.threadId, prompt, sendMode: 'queue', approval: 'approved', requestId: randomUUID() });
@@ -1037,7 +1037,7 @@ test('local panel queues have durable sources, dispatch after completion and pro
 });
 
 test('ARC answers retain their content and answering source after reconnect', async () => {
-  // Regression: reopening a locally answered question lost both its answer and answering source.
+  // Recurring bug class: reopening a locally answered question lost both its answer and answering source.
   const created = await dispatchFixture('fixture-dispatch-question');
   const pending = await eventually(async () => (await call('codex_pending', { threadId: created.threadId })).result, r => r.requests?.length > 0);
   const request = pending.requests.find((r: any) => r.params.threadId === created.threadId);
@@ -1061,7 +1061,7 @@ test('ARC answers retain their content and answering source after reconnect', as
 });
 
 test('capacity failures retry same model without replaying input, suppress intermediate failure and stop after budget or side effects', async () => {
-  // Regression: serverOverloaded retries must stop after the budget or observed side effects.
+  // Recurring bug class: serverOverloaded retries must stop after the budget or observed side effects.
   const created=await dispatchFixture('fixture-dispatch-overload');
   await eventually(fixtureRows,v=>v[created.threadId].turns.length===3);
   let rows=await fixtureRows();assert.equal(rows[created.threadId].turns[2].status,'completed');
@@ -1079,7 +1079,7 @@ test('capacity failures retry same model without replaying input, suppress inter
 
 
 test('task overview defaults to compact live evidence and full view retains preview and cursor', async()=>{
-  // Regression: unloaded or unavailable owners must not appear as completed tasks.
+  // Recurring bug class: unloaded or unavailable owners must not appear as completed tasks.
   const compact=(await call('codex_tasks',{searchTerm:'fixture-overview'})).result;
   assert.equal(compact.view,'compact');assert.equal(compact.nextCursor,'native-cursor');
   assert.equal(compact.tasks[0].status,'running');assert.equal(compact.tasks[0].title,'Live');
@@ -1112,7 +1112,7 @@ test('Git change queries retain attribution and page through every commit',async
 });
 
 test('wait omits repeated nonterminal text and retains complete terminal replies', async () => {
-  // Regression: dbb25cf; concurrent fixture writes killed the native reader instead of observing wait progress and deduplication.
+  // Recurring bug class: dbb25cf; concurrent fixture writes killed the native reader instead of observing wait progress and deduplication.
   const created=await dispatchFixture('fixture-dispatch-queue');
   const threadId=created.threadId, turnId=created.turnId;
   const updateTurn=(patch:Record<string,unknown>)=>completed('codex_call',{method:'fixture/update-turn',params:{threadId,turnId,patch},requestId:randomUUID()});
@@ -1167,7 +1167,7 @@ async function readFinalText(summary: any, expected: string) {
 }
 
 test('final text continuation preserves long Codex messages and the selected turn', async () => {
-  // Regression: long final messages required parsing task-record JSON and could drift to a newer turn.
+  // Recurring bug class: long final messages required parsing task-record JSON and could drift to a newer turn.
   const task = await dispatchFixture('fixture-dispatch-completed');
   const text = '🧪报告 "quoted" \\path\n\t\u0000\r\n'.repeat(4000);
   await completed('codex_call', {method:'fixture/update-turn', params:{threadId:task.threadId, turnId:task.turnId,
@@ -1193,7 +1193,7 @@ test('final text continuation preserves long Codex messages and the selected tur
 });
 
 test('final text continuation restores ACP archives and survives task reuse', async () => {
-  // Regression: ACP summaries exposed only an excerpt or a 256 KiB tail with task-record JSON as continuation.
+  // Recurring bug class: ACP summaries exposed only an excerpt or a 256 KiB tail with task-record JSON as continuation.
   const agent = 'tracking-example';
   const text = '🧪报告 "quoted" \\path\n\t\u0000\r\n'.repeat(14000);
   const created = await completed('agent_create', {agent, cwd:directory, prompt:'fixture-final-text:' + text,
@@ -1364,7 +1364,7 @@ test('stdio bridge forwards negotiated progress, preserves final replies and can
 });
 
 test('non-object MCP args report their JSON type without exposing submitted content', async () => {
-  // Regression: act rejected non-object args with no received type in the validation error.
+  // Recurring bug class: act rejected non-object args with no received type in the validation error.
   const secret = 'private-argument-content';
   for (const [name,op] of [['query','read'],['act','write']] as const) {
     for (const [args,type] of [
@@ -1383,7 +1383,7 @@ test('non-object MCP args report their JSON type without exposing submitted cont
 });
 
 test('object MCP args preserve nested values, quotes and large multiline strings', async () => {
-  // Regression: cloud act calls with nested notify or long quoted content failed outer args validation.
+  // Recurring bug class: cloud act calls with nested notify or long quoted content failed outer args validation.
   const content='`code` {"quoted":"value"} | <tag> \'single\' (parentheses)\n'.repeat(1500);
   const file=path.join(directory,'large-args.md');
   const written=await completed('write',{path:file,content,requestId:randomUUID()});
@@ -1425,7 +1425,7 @@ test('argument errors are short, field-specific and leave unread inbox untouched
 });
 
 test('Git action and read limit aliases preserve behavior and search clamps its page size', async () => {
-  // Regression: 3df24a2; Git action and read limit aliases preserve behavior and search clamps its page size.
+  // Recurring bug class: 3df24a2; Git action and read limit aliases preserve behavior and search clamps its page size.
   const project=path.join(directory,'argument-aliases');await mkdir(project);
   execFileSync('git',['init',project],{stdio:'pipe'});
   await Promise.all(Array.from({length:60},(_,i)=>writeFile(path.join(project,`${i}.txt`),'needle\nsecond\nthird')));
@@ -1443,7 +1443,7 @@ test('Git action and read limit aliases preserve behavior and search clamps its 
 });
 
 test('cmd waitMs returns a pending receipt without changing the process timeout', async () => {
-  // Regression: 3df24a2; cmd waitMs returns a pending receipt without changing the process timeout.
+  // Recurring bug class: 3df24a2; cmd waitMs returns a pending receipt without changing the process timeout.
   const requestId=randomUUID();
   const first=await call('command',{cmd:'fixture-delayed',cwd:directory,waitMs:0,timeoutMs:2000,requestId});
   assert.equal(first.response.isError,false);assert.equal(first.result.state,'pending');
@@ -1452,7 +1452,7 @@ test('cmd waitMs returns a pending receipt without changing the process timeout'
 });
 
 test('MCP cmd default wait returns a receipt before the client deadline and preserves CLI and explicit waits', async () => {
-  // Regression: AX ax-e22612d0-aa1c-4b2f-808d-8e8006fd9868; long cmd defaults exceeded the remote MCP tool-call deadline and lost the receipt.
+  // Recurring bug class: AX ax-e22612d0-aa1c-4b2f-808d-8e8006fd9868; long cmd defaults exceeded the remote MCP tool-call deadline and lost the receipt.
   const args = {cmd:'fixture-mcp-deadline',cwd:directory,timeoutMs:120000};
   const [remote, explicit, local] = await Promise.all([
     call('command', args),
@@ -1475,7 +1475,7 @@ test('MCP cmd default wait returns a receipt before the client deadline and pres
 });
 
 test('multi-root projects preserve legacy selection and resolve project cwd alternatives', async () => {
-  // Regression: 68dea77; multi-root projects select a unique basename or Git root and list ambiguous candidates.
+  // Recurring bug class: 68dea77; multi-root projects select a unique basename or Git root and list ambiguous candidates.
   const base=path.join(directory,'multi-root');await mkdir(base);
   const dirs=['client','plain','repo','other'];await Promise.all(dirs.map(d=>mkdir(path.join(base,d))));
   execFileSync('git',['init',path.join(base,'repo')],{stdio:'pipe'});
@@ -1521,7 +1521,7 @@ test('multi-root projects preserve legacy selection and resolve project cwd alte
 });
 
 test('large non-Git tree returns a bounded first layer and a truncation marker', async () => {
-  // Regression: 68dea77; large non-Git tree returns a bounded first layer and a truncation marker.
+  // Recurring bug class: 68dea77; large non-Git tree returns a bounded first layer and a truncation marker.
   const base=path.join(directory,'large-tree');await mkdir(base);
   await mkdir(path.join(base,'deep'));await mkdir(path.join(base,'empty'));
   for(let batch=0;batch<101;batch++)await Promise.all(Array.from({length:100},(_,i)=>writeFile(path.join(base,'deep',`${batch*100+i}`),'')));
@@ -1534,7 +1534,7 @@ test('large non-Git tree returns a bounded first layer and a truncation marker',
 });
 
 test('Desktop seed is named before independent metadata read even with null rollout path', {skip:process.platform==='linux'}, async () => {
-  // Regression: 019e03c; Desktop seed is named before independent metadata read even with null rollout path.
+  // Recurring bug class: 019e03c; Desktop seed is named before independent metadata read even with null rollout path.
   const original=await management('task-settings');
   await management('task-settings','PUT',{autoOpenCodex:true,codexRetryMaxAttempts:0});
   try {
@@ -1605,7 +1605,7 @@ test('large Git diff is bounded and its immutable output pages retain text and f
 });
 
 test('external terminal reviews remain supplementary across dispatch and history', async()=>{
-  // Regression: REVIEW_DISPATCH_NOT_FOUND prevented reviewing turns started directly in Codex Desktop.
+  // Recurring bug class: REVIEW_DISPATCH_NOT_FOUND prevented reviewing turns started directly in Codex Desktop.
   await management('task-settings','PUT',{autoOpenCodex:false});
   const seed=async(known=true)=>{
     const native=(await call('codex_call',{method:'thread/start',params:{model:'fixture-dispatch-external',cwd:directory},requestId:randomUUID()})).result;
@@ -1679,7 +1679,7 @@ test('review receipts omit notification delivery details including replay',async
 
 
 test('ACP task tracking keeps approvals active and projects context, SSE and incremental timeline', async () => {
-  // Regression: an unresolved ACP approval must stay actionable while execution output arrives.
+  // Recurring bug class: an unresolved ACP approval must stay actionable while execution output arrives.
   const transcriptDir=path.join(directory,'home/.claude/projects/example');
   await mkdir(transcriptDir,{recursive:true});
   const transcriptIds=[randomUUID(),randomUUID()];
@@ -1747,7 +1747,7 @@ test('ACP task tracking keeps approvals active and projects context, SSE and inc
 
 // Local protocol acceptance uses production OAuth and management routes, without a provider.
 test('source connection switching binds consent and preserves disconnected identities', async () => {
-  // Regression: cross-source switch confirmation is rejected and cancellation retains the original connection.
+  // Recurring bug class: cross-source switch confirmation is rejected and cancellation retains the original connection.
   const create = (id: string, auth = 'oauth') => management('ingress', 'POST', { id, name: id, controlSource: 'claude', transport: 'https', auth, ...(auth === 'bearer' ? { bearerToken: 'fixture-switch-token'.padEnd(40, 'x') } : {}), toolPolicy: 'all', config: { httpsProvider: 'custom', httpsUrl: `https://${id}.example/mcp` } });
   const a = await create('switch-old'), b = await create('switch-next'), occupied = await create('switch-occupied', 'bearer');
   const url = (i: any, route: string) => `http://127.0.0.1:${i.config.httpsPort}${route}`;
@@ -1839,7 +1839,7 @@ test('source connection switching binds consent and preserves disconnected ident
 
 
 test('frozen guide tool redirects query-only topics to query guide', async () => {
-  // Regression: guide({topic:"context"}) failed with a generic schema error whose next did not name query guide.
+  // Recurring bug class: guide({topic:"context"}) failed with a generic schema error whose next did not name query guide.
   const {response,result}=await call('guide',{topic:'context'});
   assert.equal(response.isError,true);
   assert.equal(result.error.code,'WRONG_TOOL');
@@ -1912,7 +1912,7 @@ test('guide progressively discloses every enabled op and caches projected conten
 
 
 test('Local skill installation gives Codex the same dispatch skill as Claude Code', async () => {
-  // Regression: the codex skill target installed setup alone and could not discover the shared local dispatch workflow.
+  // Recurring bug class: the codex skill target installed setup alone and could not discover the shared local dispatch workflow.
   for (const target of ['codex', 'claude-code']) {
     const installed = JSON.parse(execFileSync(fixtureCommand, ['cli', 'skill', 'install', '--target', target], { env: fixtureEnv, encoding: 'utf8' }));
     assert.equal(installed.ok, true);
@@ -1922,7 +1922,7 @@ test('Local skill installation gives Codex the same dispatch skill as Claude Cod
 });
 
 test('Local Code exposes proactive AX reporting within the guide budget', async () => {
-  // Regression: the Local Code guide mentioned only AX listing and omitted proactive friction reporting.
+  // Recurring bug class: the Local Code guide mentioned only AX listing and omitted proactive friction reporting.
   const cli = (args: string[], input?: unknown) => JSON.parse(execFileSync(fixtureCommand, ['cli', ...args], {
     env: fixtureEnv, encoding: 'utf8', ...(input === undefined ? {} : { input: JSON.stringify(input) }),
   })).result;
@@ -1987,7 +1987,7 @@ test('control stats report byte baselines and waste candidates without call cont
 
 
 test('compact read defaults to the latest turn and item keys avoid duplicate complete items',async()=>{
-  // Regression: default history and repeated item reads duplicated already returned task content.
+  // Recurring bug class: default history and repeated item reads duplicated already returned task content.
   const read=(await call('codex_read',{threadId:'response-size',includeItemKeys:true})).result;
   assert.equal(read.turns.length,1);assert.equal(read.turns[0].turnId,'size-turn-5');assert.ok(read.nextCursor);
   const history=(await call('codex_read',{threadId:'response-size',limit:6})).result;
@@ -2086,7 +2086,7 @@ test('receipt next hashes omit repeated guidance only when explicitly supplied',
 
 
 test('review read returns complete outcomes without command outputs or intermediate messages',async()=>{
-  // Regression: compact review returned command output while truncating the final response.
+  // Recurring bug class: compact review returned command output while truncating the final response.
   const {result:r,response}=await call('codex_read',{threadId:'review-outcomes',view:'review',includeImages:true});
   assert.equal(response.isError,false);assert.equal(r.nextCursor,'history-cursor');assert.equal(r.arcInbox,undefined);
   const turn=r.turns[0];assert.equal(turn.recordedStatus,'completed');
@@ -2104,7 +2104,7 @@ test('review read returns complete outcomes without command outputs or intermedi
 
 
 test('historical review file counts stop at the next clean turn baseline',async()=>{
-  // Regression: live workspace diffs included changes made after the reviewed turn.
+  // Recurring bug class: live workspace diffs included changes made after the reviewed turn.
   const project=path.join(directory,'review-history');await mkdir(project);
   const git=(...args:string[])=>execFileSync('git',['-C',project,...args],{stdio:'pipe'});
   const commit=(subject:string)=>{git('add','.');git('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','-c','commit.gpgSign=false','commit','-m',subject);};
@@ -2127,7 +2127,7 @@ test('historical review file counts stop at the next clean turn baseline',async(
 });
 
 test('lane summaries retain committed paths and diffstat across CLI and MCP dispatch and workspace removal',async()=>{
-  // Regression: lane task summaries missed committed files and removed lanes returned GIT_QUERY_FAILED or empty reviews.
+  // Recurring bug class: lane task summaries missed committed files and removed lanes returned GIT_QUERY_FAILED or empty reviews.
   for(const source of ['cli','mcp']) {
     const project=path.join(directory,`summary-lane-${source}`);await mkdir(project);
     const common=path.join(directory,`summary-objects-${source}`);
@@ -2167,7 +2167,7 @@ test('lane summaries retain committed paths and diffstat across CLI and MCP disp
 });
 
 test('terminal snapshots preserve uncommitted text and binary statistics after workspace removal',async()=>{
-  // Regression: live-only lane evidence lost untracked changes when a terminal workspace was removed.
+  // Recurring bug class: live-only lane evidence lost untracked changes when a terminal workspace was removed.
   const project=path.join(directory,'dirty-summary-lane');await mkdir(project);
   execFileSync('git',['init',project],{stdio:'pipe'});
   const created=await completed('codex_create',{project,prompt:'harmless fixture',thread:{model:'fixture-dispatch-queue'},purpose:'self-test',notify:null,requestId:randomUUID()});
@@ -2184,7 +2184,7 @@ test('terminal snapshots preserve uncommitted text and binary statistics after w
 });
 
 test('removed lane without terminal evidence reports an explicit gap instead of an empty success',async()=>{
-  // Regression: querying a removed lane without a snapshot leaked GIT_QUERY_FAILED or silently reported zero files.
+  // Recurring bug class: querying a removed lane without a snapshot leaked GIT_QUERY_FAILED or silently reported zero files.
   const project=path.join(directory,'missing-summary-lane');await mkdir(project);
   execFileSync('git',['init',project],{stdio:'pipe'});
   const created=await completed('codex_create',{project,prompt:'harmless fixture',thread:{model:'fixture-dispatch-queue'},purpose:'self-test',notify:null,requestId:randomUUID()});
@@ -2199,7 +2199,7 @@ test('removed lane without terminal evidence reports an explicit gap instead of 
 });
 
 test('AX binary transfers verify bytes and reject duplicate append offsets', async () => {
-  // Regression: hand-copied base64 silently corrupted host files and append retries duplicated bytes.
+  // Recurring bug class: hand-copied base64 silently corrupted host files and append retries duplicated bytes.
   const file = path.join(directory, 'binary-transfer.bin');
   const sha = (data: Buffer) => createHash('sha256').update(data).digest('hex');
   const first = Buffer.from([0, 255, 128, 10]);
@@ -2228,7 +2228,7 @@ test('AX binary transfers verify bytes and reject duplicate append offsets', asy
 });
 
 test('AX omitted request IDs return reusable receipts', async () => {
-  // Regression: the live guide required agents to generate a UUID even though receipt owners already generate one.
+  // Recurring bug class: the live guide required agents to generate a UUID even though receipt owners already generate one.
   const params = {path:path.join(directory,'generated-id.bin'),dataBase64:'aGk=',append:true,offset:0};
   const first = (await call('fs',{action:'writeFile',params})).result;
   assert.match(first.requestId, /^[0-9a-f-]{36}$/);
@@ -2244,7 +2244,7 @@ test('AX omitted request IDs return reusable receipts', async () => {
 });
 
 test('AX status revisits and wait timeouts expose bounded progress evidence', async () => {
-  // Regression: statusOnly hid all progress during multi-hour tasks and wait timeouts offered no commit/check evidence.
+  // Recurring bug class: statusOnly hid all progress during multi-hour tasks and wait timeouts offered no commit/check evidence.
   const reviewed = (await call('codex_read',{threadId:'review-outcomes',statusOnly:true})).result;
   assert.equal(reviewed.turns,null);
   assert.equal(reviewed.progress.latestAgentMessage,'After final commentary');
@@ -2274,7 +2274,7 @@ test('AX status revisits and wait timeouts expose bounded progress evidence', as
 });
 
 test('AX CLI explicitly targets an isolated instance without installed fallback', async () => {
-  // Regression: CLI acceptance commands could not explicitly select a separate debug instance.
+  // Recurring bug class: CLI acceptance commands could not explicitly select a separate debug instance.
   const selected = JSON.parse(execFileSync(fixtureCommand,['cli','--state-dir',stateDir,'control','guide'],{env:fixtureEnv,encoding:'utf8'}));
   assert.equal(selected.ok,true);
   assert.ok(selected.result.ops.some((op:any)=>op.op==='codex_read'));
@@ -2289,7 +2289,7 @@ test('AX CLI explicitly targets an isolated instance without installed fallback'
 });
 
 test('AX topic guides return relevant operations and cache each view separately', async () => {
-  // Regression: every topic guide repeated the entire operation catalog during long control loops.
+  // Recurring bug class: every topic guide repeated the entire operation catalog during long control loops.
   const guide = async (args: Record<string,unknown>) => toolResult((await client.callTool({name:'query',arguments:{op:'guide',args}})));
   for (const [topic,required] of [['notify','notify_control'],['review','codex_review'],['approvals','codex_respond']]) {
     const scoped = await guide({topic});
@@ -2306,7 +2306,7 @@ test('AX topic guides return relevant operations and cache each view separately'
 });
 
 test('AX unbound cloud-session verification explains binding and its next call', async () => {
-  // Regression: notify_control verify returned a bare target-not-bound error with no usable recovery flow.
+  // Recurring bug class: notify_control verify returned a bare target-not-bound error with no usable recovery flow.
   const target = 'session_010000000000000000000010';
   const response = await call('notify_control',{action:'verify',target});
   assert.equal(response.response.isError,true);
@@ -2319,7 +2319,7 @@ test('AX unbound cloud-session verification explains binding and its next call',
 });
 
 test('AX2 failed receipts report failure through MCP and CLI without losing identity', async () => {
-  // Regression: a failed receipt returned CLI exit zero and ok:true while only its nested state showed failure.
+  // Recurring bug class: a failed receipt returned CLI exit zero and ok:true while only its nested state showed failure.
   const requestId = randomUUID();
   const params = {path:path.join(directory,'bad-transfer'),dataBase64:'aGk=',expectedSha256:'0'.repeat(64)};
   const response = await call('fs',{action:'writeFile',params,requestId});
@@ -2346,7 +2346,7 @@ test('AX2 failed receipts report failure through MCP and CLI without losing iden
 
 
 test('AX2 CLI guides accept full views and subcommands expose help without execution', async () => {
-  // Regression: CLI rejected query-guide view:full and treated subcommand --help as an invalid invocation.
+  // Recurring bug class: CLI rejected query-guide view:full and treated subcommand --help as an invalid invocation.
   const cli=(args:string[],input?:unknown)=>JSON.parse(execFileSync(fixtureCommand,['cli',...args],{env:fixtureEnv,input:input?JSON.stringify(input):undefined,encoding:'utf8',stdio:['pipe','pipe','pipe']}));
   const full=cli(['control','guide','--stdin'],{view:'full'});
   assert.equal(full.ok,true);
@@ -2360,7 +2360,7 @@ test('AX2 CLI guides accept full views and subcommands expose help without execu
 
 
 test('AX2 oversized results retain identity and can be completely continued', async () => {
-  // Regression: large native responses flooded compact calls instead of yielding a bounded continuation.
+  // Recurring bug class: large native responses flooded compact calls instead of yielding a bounded continuation.
   const response=await call('codex_call',{method:'fixture/large-response',params:{body:'x'.repeat(30000)},requestId:randomUUID()});
   const result=response.result;
   assert.ok(result.outputId);assert.ok(Buffer.byteLength(JSON.stringify(result))<12000);
@@ -2371,7 +2371,7 @@ test('AX2 oversized results retain identity and can be completely continued', as
 
 
 test('AX2 status reads agree with wait observations and nonterminal receipts have next steps', async () => {
-  // Regression: statusOnly omitted execution state while reserved and thread-created receipts had no actionable next.
+  // Recurring bug class: statusOnly omitted execution state while reserved and thread-created receipts had no actionable next.
   assert.equal((await call('inbox_wait',{timeoutMs:0})).response.isError,false);
   const task=await dispatchFixture('fixture-dispatch-queue');
   const status=(await call('codex_read',{threadId:task.threadId,statusOnly:true})).result;
@@ -2389,7 +2389,7 @@ test('AX2 status reads agree with wait observations and nonterminal receipts hav
 
 
 test('AX2 interrupt resolves the active turn and preserves explicit IDs and retry identity', async () => {
-  // Regression: interrupt required a separate native read solely to obtain the active turnId.
+  // Recurring bug class: interrupt required a separate native read solely to obtain the active turnId.
   const task=await dispatchFixture('fixture-dispatch-queue');
   const args={threadId:task.threadId,requestId:randomUUID()};
   const stopped=await completed('codex_interrupt',args);
@@ -2404,7 +2404,7 @@ test('AX2 interrupt resolves the active turn and preserves explicit IDs and retr
 
 
 test('AX2 pending progress and flat answered history expose question content', async () => {
-  // Regression: interaction previews only said Interaction required and answered history required nested expansion.
+  // Recurring bug class: interaction previews only said Interaction required and answered history required nested expansion.
   const created=await dispatchFixture('fixture-dispatch-question');
   const pending=await eventually(async()=>(await call('codex_pending',{threadId:created.threadId})).result,r=>r.requests?.length>0);
   const request=pending.requests[0];assert.equal(request.questionSummary.questions[0].question,'2+2?');
@@ -2419,7 +2419,7 @@ test('AX2 pending progress and flat answered history expose question content', a
 
 
 test('AX2 archive supports ended ARC threads and explains active or external writer blocks', async () => {
-  // Regression: Desktop-created self-test threads had no ARC archival path and writer errors did not explain cleanup recovery.
+  // Recurring bug class: Desktop-created self-test threads had no ARC archival path and writer errors did not explain cleanup recovery.
   const task=await dispatchFixture('fixture-dispatch');
   const archived=await completed('codex_archive',{threadId:task.threadId,requestId:randomUUID()});
   assert.equal(archived.state,'completed');assert.equal(archived.result.archived,true);
@@ -2438,7 +2438,7 @@ test('AX2 archive supports ended ARC threads and explains active or external wri
 
 
 test('AX2 local follow-ups accept self-test purpose and inherit it without binding notifications', async () => {
-  // Regression: UI follow-ups lost self-test purpose and could create normal dispatch samples or notification bindings.
+  // Recurring bug class: UI follow-ups lost self-test purpose and could create normal dispatch samples or notification bindings.
   const created=await dispatchFixture('fixture-dispatch');
   for(const purpose of ['self-test',undefined]) {
     const sent=await management('tasks/control','POST',{op:'codex_send',args:{threadId:created.threadId,prompt:'local self-test',sendMode:'next',purpose,requestId:randomUUID()}});
@@ -2448,7 +2448,7 @@ test('AX2 local follow-ups accept self-test purpose and inherit it without bindi
 
 
 test('AX3 release hands off an idle connector thread without closing another owner',async()=>{
-  // Regression: control sources had no supported per-thread release operation before archive.
+  // Recurring bug class: control sources had no supported per-thread release operation before archive.
   const task=await dispatchFixture('fixture-dispatch');
   const release=await completed('codex_release',{threadId:task.threadId,requestId:randomUUID()});
   assert.equal(release.result.released,true);
@@ -2458,7 +2458,7 @@ test('AX3 release hands off an idle connector thread without closing another own
 
 
 test('AX3 cloud binding is discoverable before dispatch and repairs an unbound task', async () => {
-  // Regression: cloud controls had no bound target or verification attempts and had to resubmit work to bind.
+  // Recurring bug class: cloud controls had no bound target or verification attempts and had to resubmit work to bind.
   const guide=await call('guide',{topic:'notify'});
   assert.ok(guide.result.ops.some((o:any)=>o.op==='notify_control'));
   const target='session_010000000000000000000008';
@@ -2494,7 +2494,7 @@ test('AX3 cloud binding is discoverable before dispatch and repairs an unbound t
 
 
 test('Public failures provide a usable next without serialized duplicate reasons',async()=>{
-  // Regression: verify failures emitted next:null and archive errors repeated serialized RPC errors.
+  // Recurring bug class: verify failures emitted next:null and archive errors repeated serialized RPC errors.
   const target='session_010000000000000000000009';
   const saved=await management('task-settings');
   try {
@@ -2537,7 +2537,7 @@ test('app_env persists per instance, reads back and clears without exporting pre
 
 
 test('AX interface sends inherit explicit thread choices and notices observe linked running turns', async () => {
-  // Regression: AX-09 lost model/effort on omitted sends and ax-48eb2fbb posted running-thread notices with unknown coverage.
+  // Recurring bug class: AX-09 lost model/effort on omitted sends and ax-48eb2fbb posted running-thread notices with unknown coverage.
   const created = await completed('codex_create', {model:'fixture-dispatch',effort:'high',prompt:'First',thread:{cwd:directory},notify:null,requestId:randomUUID()});
   assert.equal(created.state,'completed');
   const sent = await completed('codex_send', {threadId:created.threadId,prompt:'Continue',notify:null,requestId:randomUUID()});
@@ -2561,7 +2561,7 @@ test('AX interface sends inherit explicit thread choices and notices observe lin
 });
 
 test('AX foreground command receipts expose execution and process spawn supports session lifetime',async()=>{
-  // Regression: AX-07 foreground executions remained reserved; AX-06 did not name the supported managed-process path.
+  // Recurring bug class: AX-07 foreground executions remained reserved; AX-06 did not name the supported managed-process path.
   const pending=(await call('command',{cmd:'fixture-delayed',cwd:directory,timeoutMs:2000,waitMs:0,requestId:randomUUID()})).result;
   let receipt=pending;
   for(let i=0;i<20 && receipt.state==='reserved';i++) {
@@ -2590,7 +2590,7 @@ test('coordination guide discovers shared coordination in normal mode',async()=>
 });
 
 test('coordination registration exposes route repairs and current delivery consistently',async()=>{
-  // Regression: ax-ce733eee registration hid message_route and board sessions disagreed with current delivery capabilities.
+  // Recurring bug class: ax-ce733eee registration hid message_route and board sessions disagreed with current delivery capabilities.
   const sessions:string[]=[];
   try {
     const plain=(await call('coordination_session',{action:'register',requestId:randomUUID()})).result;
@@ -2625,7 +2625,7 @@ test('coordination registration exposes route repairs and current delivery consi
 });
 
 test('logs accepts relative durations through the public schema',async()=>{
-  // Regression: AX-12 since:2m reached an RFC3339-only parser and failed.
+  // Recurring bug class: AX-12 since:2m reached an RFC3339-only parser and failed.
   const result=await call('logs',{since:'2m'});
   assert.notEqual(result.response.isError,true,JSON.stringify(result.result));
 });
@@ -2747,7 +2747,7 @@ test('runtime diagnostics expose bounded content-free counters through query and
 });
 
 test('macOS runtime CPU milliseconds agree with native process accounting', async () => {
-  // Regression: Mach ticks were mislabeled as nanoseconds, understating Apple Silicon CPU by its timebase ratio.
+  // Recurring bug class: Mach ticks were mislabeled as nanoseconds, understating Apple Silicon CPU by its timebase ratio.
   if (process.platform !== 'darwin') return;
   const first = (await call('runtime_metrics')).result;
   const cpuMs = () => execFileSync('/bin/ps', ['-p', String(first.pid), '-o', 'time='], {encoding:'utf8'})

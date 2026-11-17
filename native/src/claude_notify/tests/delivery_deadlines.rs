@@ -2,7 +2,7 @@ use super::*;
 
 #[tokio::test]
 async fn control_change_during_transport_keeps_its_selected_wake() {
-    // Regression: 21077483 delivery deadline busy loop on unbound pending deliveries
+    // Recurring bug class: 21077483 delivery deadline busy loop on unbound pending deliveries
     struct UnmuteDuringSend<'a> {
         dir: &'a Path,
         now: i64,
@@ -66,7 +66,7 @@ async fn control_change_during_transport_keeps_its_selected_wake() {
 
 #[tokio::test]
 async fn parked_deliveries_do_not_spin_the_deadline_owner() {
-    // Regression: 21077483 delivery deadline busy loop on unbound pending deliveries
+    // Recurring bug class: 21077483 delivery deadline busy loop on unbound pending deliveries
     use crate::runtime_metrics::cost::{self, Owner, Reason};
     let dir = Sandbox::new();
     let at = chrono::Utc::now().timestamp();
@@ -219,7 +219,7 @@ async fn parked_deliveries_do_not_spin_the_deadline_owner() {
 
 #[tokio::test]
 async fn batch_retry_and_native_admission_wait_for_their_own_events() {
-    // Regression: 21077483 delivery deadline busy loop on unbound pending deliveries
+    // Recurring bug class: 21077483 delivery deadline busy loop on unbound pending deliveries
     use crate::runtime_metrics::cost::{self, Owner, Reason};
     let dir = Sandbox::new();
     let at = chrono::Utc::now().timestamp();

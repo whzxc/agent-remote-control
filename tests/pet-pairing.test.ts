@@ -11,28 +11,28 @@ function task(key: string, changes: Partial<RelayTask> = {}): RelayTask {
 }
 
 test('resident pets preserve an observed source and executor as one pair', () => {
-  // Regression: independently selected recent source and executor could represent unrelated Loops.
+  // Recurring bug class: independently selected recent source and executor could represent unrelated Loops.
   const observed = [task('first', { at: 2 }), task('second', { ...pairB, at: 4 })];
   assert.deepEqual(selectLoopPair(observed, undefined, sources, agents), pairB);
   assert.deepEqual(selectLoopPair(observed, undefined, new Set([...sources, 'unrelated-source']), new Set([...agents, 'unrelated-agent'])), pairB);
 });
 
 test('an active pair remains stable when an equally urgent Loop becomes newer', () => {
-  // Property: recency changes alone cannot replace a resident pair at the same execution priority.
+  // Algorithmic core: recency changes alone cannot replace a resident pair at the same execution priority.
   for (const at of [2, 100, 1_000_000]) {
     assert.deepEqual(selectLoopPair([task('current'), task('newer', { ...pairB, at })], pairA, sources, agents), pairA);
   }
 });
 
 test('a Loop needing user input takes precedence over ongoing work', () => {
-  // Property: a valid pending-input pair outranks a running pair regardless of recency.
+  // Algorithmic core: a valid pending-input pair outranks a running pair regardless of recency.
   const pending = task('pending', { ...pairB, state: 'needsYou', at: 0 });
   assert.deepEqual(selectLoopPair([task('running', { at: 1000 }), pending], pairA, sources, agents), pairB);
   assert.deepEqual(selectLoopPair([pending, task('running', { at: 1000 })], pairA, sources, agents), pairB);
 });
 
 test('unattributed or unavailable participants cannot manufacture a pair', () => {
-  // Property: a selected pair requires an observed source and two currently available participants.
+  // Algorithmic core: a selected pair requires an observed source and two currently available participants.
   assert.equal(selectLoopPair([task('native', { sourceId: undefined })], undefined, sources, agents), undefined);
   assert.equal(selectLoopPair([task('missing-source', { sourceId: 'removed-source' })], undefined, sources, agents), undefined);
   assert.equal(selectLoopPair([task('missing-agent', { agent: 'removed-agent' })], undefined, sources, agents), undefined);
@@ -41,14 +41,14 @@ test('unattributed or unavailable participants cannot manufacture a pair', () =>
 });
 
 test('the last known pair survives task retention while its participants remain available', () => {
-  // Property: removing completed task evidence does not erase an already established valid pair.
+  // Algorithmic core: removing completed task evidence does not erase an already established valid pair.
   assert.deepEqual(selectLoopPair([], pairA, sources, agents), pairA);
   assert.deepEqual(selectLoopPair([task('unattributed', { sourceId: undefined })], pairA, sources, agents), pairA);
   assert.equal(selectLoopPair([], undefined, sources, agents), undefined);
 });
 
 test('available companions can share an idle studio without establishing a Loop', () => {
-  // Regression: the studio showed only one or no main pets until a task had an attributed source and executor.
+  // Recurring bug class: the studio showed only one or no main pets until a task had an attributed source and executor.
   const participants = [
     { id: 'source:claude', kind: 'source' as const, brand: 'claude' },
     { id: 'agent:codex', kind: 'agent' as const, brand: 'codex' },
@@ -60,7 +60,7 @@ test('available companions can share an idle studio without establishing a Loop'
 });
 
 test('idle companions preserve their identities while those participants remain available', () => {
-  // Property: participant ordering and additional choices cannot replace an available resident of the same role.
+  // Algorithmic core: participant ordering and additional choices cannot replace an available resident of the same role.
   const participants = [
     { id: 'source:claude', kind: 'source' as const, brand: 'claude' }, { id: 'source:other', kind: 'source' as const, brand: 'other' },
     { id: 'agent:codex', kind: 'agent' as const, brand: 'codex' }, { id: 'agent:other', kind: 'agent' as const, brand: 'other' },

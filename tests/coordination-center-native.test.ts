@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { nativeControl } from './helpers/native-control.ts';
 
 test('desktop AX reads preserve pagination, closed decisions and local evidence', async () => {
-  // Regression: the Board could not read the AX owner list or inspect closed decision reasons and evidence.
+  // Recurring bug class: the Board could not read the AX owner list or inspect closed decision reasons and evidence.
   const fixture = await nativeControl('');
   try {
     const first = await fixture.call('ax_report', { symptom: 'Native task state remained stale', expected: 'Show the native terminal state', severity: 'workaround' });
@@ -30,7 +30,7 @@ test('desktop AX reads preserve pagination, closed decisions and local evidence'
 });
 
 test('desktop bulletin management uses local authority, owner revisions, replay and retained journal readback', async () => {
-  // Regression: desktop had no authenticated local adapter for bulletin edits and event reads.
+  // Recurring bug class: desktop had no authenticated local adapter for bulletin edits and event reads.
   const fixture = await nativeControl('');
   try {
     const requestId = randomUUID();
@@ -83,7 +83,7 @@ test('desktop bulletin management uses local authority, owner revisions, replay 
 
 
 test('board keeps AX attention structured without duplicate summary lines', async () => {
-  // Regression: AX-only attention repeated its kind and identifier in the board summary.
+  // Recurring bug class: AX-only attention repeated its kind and identifier in the board summary.
   const fixture = await nativeControl('');
   try {
     await fixture.call('ax_report', {symptom:'Fixture blocking control decision', expected:'Expose actionable AX attention', severity:'blocking'});

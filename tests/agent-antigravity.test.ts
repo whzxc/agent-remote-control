@@ -89,7 +89,7 @@ async function completeResult(fixture: Awaited<ReturnType<typeof setup>>, result
 }
 
 test('Antigravity timelines retain replies, tool failures and denied work across turns and restart', { skip: process.platform === 'win32' }, async () => {
-  // Regression: completed Antigravity timelines contained only user messages and hid assistant replies and denied work.
+  // Recurring bug class: completed Antigravity timelines contained only user messages and hid assistant replies and denied work.
   const fixture = await setup();
   try {
     const created = await fixture.completed('agent_create', {
@@ -131,7 +131,7 @@ test('Antigravity timelines retain replies, tool failures and denied work across
 });
 
 test('Antigravity native defaults survive policy edits while current deny rules still apply', { skip: process.platform === 'win32' }, async () => {
-  // Regression: changing policy defaults rejected follow-ups to Antigravity tasks created without model or effort overrides.
+  // Recurring bug class: changing policy defaults rejected follow-ups to Antigravity tasks created without model or effort overrides.
   const fixture = await setup();
   try {
     const created = await fixture.completed('agent_create', {

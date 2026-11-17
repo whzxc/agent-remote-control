@@ -534,7 +534,7 @@ fn file_digest(path: &Path) -> String {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn interrupted_owner_resumes_only_verified_bytes() {
-    // Regression: losing a streaming execution owner left its receipt executing and could resend its verified prefix.
+    // Recurring bug class: losing a streaming execution owner left its receipt executing and could resend its verified prefix.
     if isolated("device_link::transfer::tests::interrupted_owner_resumes_only_verified_bytes").await
     {
         return;
@@ -617,7 +617,7 @@ async fn interrupted_owner_resumes_only_verified_bytes() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn relay_multichunk_upload_does_not_expire_peer_body_deadline() {
-    // Regression: device_transfer via relay fails at 0 bytes with DEVICE_TUNNEL_LIMIT: Peer body deadline expired for a 64 KiB file.
+    // Recurring bug class: device_transfer via relay fails at 0 bytes with DEVICE_TUNNEL_LIMIT: Peer body deadline expired for a 64 KiB file.
     use base64::engine::general_purpose::STANDARD;
     use futures_util::{SinkExt, StreamExt};
     use tokio_tungstenite::{
@@ -727,7 +727,7 @@ async fn relay_multichunk_upload_does_not_expire_peer_body_deadline() {
 
 #[tokio::test]
 async fn relay_six_hundred_kb_survives_two_second_credit_rtt_in_both_directions() {
-    // Regression: 600 KB relay transfer fails at the 25 s deadline with approximately 2 s credit RTT.
+    // Recurring bug class: 600 KB relay transfer fails at the 25 s deadline with approximately 2 s credit RTT.
     if isolated("device_link::transfer::tests::relay_six_hundred_kb_survives_two_second_credit_rtt_in_both_directions").await { return; }
     let network = Network::new().await;
     let mut relay = relay_fixture::Relay::new(&network.member).await;

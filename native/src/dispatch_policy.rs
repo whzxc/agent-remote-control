@@ -1886,7 +1886,7 @@ mod tests {
     use super::*;
     #[test]
     fn history_uses_confirmed_native_outcome_over_a_contradictory_projection() {
-        // Regression: policy history counted a stale failed projection over a confirmed native completion.
+        // Recurring bug class: policy history counted a stale failed projection over a confirmed native completion.
         let native = turn_adapter::snapshot(
             TurnKey::new("pi", "thread", "turn"),
             "completed",
@@ -1906,7 +1906,7 @@ mod tests {
 
     #[test]
     fn dispatch_history_polls_read_only_changed_turns() {
-        // Regression: notification and timeline polls repeatedly opened every dispatch in a thread.
+        // Recurring bug class: notification and timeline polls repeatedly opened every dispatch in a thread.
         struct Sandbox(PathBuf);
         impl Drop for Sandbox {
             fn drop(&mut self) {
@@ -1941,7 +1941,7 @@ mod tests {
 
     #[test]
     fn reconciled_terminal_snapshot_uses_execution_evidence() {
-        // Regression: restart observation time inflated terminal dispatch duration by downtime.
+        // Recurring bug class: restart observation time inflated terminal dispatch duration by downtime.
         let row = json!({"submittedAt":"2026-01-01T00:00:00Z"});
         let turn = turn_adapter::snapshot(TurnKey::new("codex", "", ""), "cancelled", &Value::Null);
         let timing = json!({"startedAt":"2026-01-01T00:00:00Z","endedAt":"2026-01-01T00:10:00Z"});
@@ -1964,7 +1964,7 @@ mod tests {
 
     #[test]
     fn local_review_undo_rejects_changed_or_external_verdicts() {
-        // Property: undo requires every targeted record to retain the exact local pass receipt.
+        // Algorithmic core: undo requires every targeted record to retain the exact local pass receipt.
         let local = json!({"review":{"requestId":"same","verdict":"pass","reviewer":{"controlSource":"ARC"}}});
         assert!(local_review_matches(&[local.clone()], "same"));
         assert!(!local_review_matches(&[], "same"));
@@ -1979,7 +1979,7 @@ mod tests {
 
     #[test]
     fn review_provenance_preserves_arc_verdict_and_marks_external_configuration() {
-        // Regression: REVIEW_DISPATCH_NOT_FOUND rejected terminal turns started outside ARC.
+        // Recurring bug class: REVIEW_DISPATCH_NOT_FOUND rejected terminal turns started outside ARC.
         let args = json!({"verdict":"rework","note":"Check failed","requestId":"review-request"});
         let origin = json!({"sourceId":"source-id","controlSource":"claude","sessionId":"session","target":"target"});
         let dispatch = json!({"requestId":"dispatch-request"});
@@ -2007,7 +2007,7 @@ mod tests {
 
     #[test]
     fn terminal_selection_rejects_unknown_and_running_turns_and_skips_active_latest() {
-        // Regression: external review must retain native terminal-turn validation.
+        // Recurring bug class: external review must retain native terminal-turn validation.
         let turns = vec![
             json!({"id":"running","status":"inProgress"}),
             json!({"id":"done","status":"completed"}),
@@ -2065,7 +2065,7 @@ mod tests {
 
     #[test]
     fn external_configuration_prefers_turn_evidence_and_retains_missing_as_null() {
-        // Property: native per-turn configuration takes precedence and missing configuration stays null.
+        // Algorithmic core: native per-turn configuration takes precedence and missing configuration stays null.
         let configuration = review_configuration(&[
             &json!({"model":"turn-model","effort":"high","serviceTier":"unknown"}),
             &json!({"model":"thread-model","effort":"low","serviceTier":"priority"}),
@@ -2082,7 +2082,7 @@ mod tests {
 
     #[test]
     fn external_history_uses_configuration_groups_with_separate_counts_and_no_durations() {
-        // Regression: external reviews must not silently skew ARC dispatch outcomes or duration samples.
+        // Recurring bug class: external reviews must not silently skew ARC dispatch outcomes or duration samples.
         let mut arc = json!({"agent":"codex","threadId":"thread","turnId":"arc","dispatchMode":"new-turn","submittedAt":now(),"model":"model","effort":"high","serviceTier":"priority","options":{},"review":{"verdict":"pass"},"terminal":{"state":"completed","observedDurationMs":60000}});
         let external = json!({"agent":"codex","threadId":"thread","turnId":"external","dispatchOrigin":"external","model":"model","effort":"high","serviceTier":"priority","options":{},"review":{"verdict":"rework","reviewedAt":now()},"terminal":{"state":"failed","observedDurationMs":1}});
         let mut unknown = external.clone();
@@ -2128,7 +2128,7 @@ mod inheritance_tests {
     use super::*;
     #[test]
     fn latest_explicit_fields_survive_omission_independently() {
-        // Regression: AX-09 omitted model and effort used policy defaults after an explicit thread dispatch.
+        // Recurring bug class: AX-09 omitted model and effort used policy defaults after an explicit thread dispatch.
         let records = vec![
             json!({"model":"chosen-model","effort":"high","source":{"model":"explicit","effort":"explicit"}}),
             json!({"model":"policy-model","effort":"low","source":{"model":"policy-default","effort":"policy-default"}}),
@@ -2155,7 +2155,7 @@ mod catalog_metadata_tests {
 
     #[test]
     fn catalog_metadata_codex_retains_only_native_display_fields() {
-        // Regression: Codex model/list display metadata was omitted from catalog rows.
+        // Recurring bug class: Codex model/list display metadata was omitted from catalog rows.
         let native = json!({"model":"opaque-id","displayName":"Native model","provider":{"id":"native","name":"Native provider"},"contextWindow":200000,"serviceTiers":[{"id":"priority"}],"supportedReasoningEfforts":[{"reasoningEffort":"high"}]});
         let row = codex_model(&native);
         for key in [
@@ -2181,7 +2181,7 @@ mod pack_tests {
 
     #[test]
     fn pack_validation_rejects_unsafe_shapes_and_blocks_delimit_one_pack() {
-        // Property: invalid pack names, missing summaries, oversized text and too many packs fail as INVALID_DISPATCH_POLICY, and a block wraps exactly one prompt with its name and hash.
+        // Algorithmic core: invalid pack names, missing summaries, oversized text and too many packs fail as INVALID_DISPATCH_POLICY, and a block wraps exactly one prompt with its name and hash.
         let pack = |summary: &str, prompt: &str| Pack {
             summary: summary.into(),
             prompt: prompt.into(),
@@ -2211,7 +2211,7 @@ mod pack_tests {
 
     #[test]
     fn pack_history_counts_new_turns_and_excludes_self_tests() {
-        // Property: pack outcome lines count each new-turn dispatch once by its pack and ignore self-tests, steering and other packs.
+        // Algorithmic core: pack outcome lines count each new-turn dispatch once by its pack and ignore self-tests, steering and other packs.
         let now = chrono::Utc::now();
         let row = |turn: &str, purpose: &str, mode: &str, verdict: &str| {
             json!({"agent":"codex","threadId":"t","turnId":turn,"purpose":purpose,"dispatchMode":mode,

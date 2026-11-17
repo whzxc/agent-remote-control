@@ -23,8 +23,8 @@ Do not run the extended suite, mutation tests or acceptance by habit after a pas
 Every case carries exactly one English tag comment inside its body or immediately before its declaration:
 
 - `// Contract: <frozen surface or wire format>` protects guide/query/act, notification, CLI JSON envelopes, error codes or wire formats.
-- `// Regression: <fixing commit or observed failure>` identifies the defect being prevented.
-- `// Property: <invariant>` states an invariant of pure computation.
+- `// Algorithmic core: <solver, parser, diff or policy surface>` identifies the defect being prevented.
+- `// Recurring bug class: <concurrency, lifecycle, retry, persistence or security boundary>` states an invariant of pure computation.
 
 Assert public behavior through MCP, CLI, management operations, exported pure functions or accessible roles/names. Do not assert classes, DOM structure, styles, pixel constants, exact UI copy, internal file layouts or mock invocation counts. Rewrite or delete tests broken by intended changes; never align implementation snapshots. Delete tests that obstruct reasonable refactors and report the removal. Use `npm run accept:ui` for visual/layout acceptance.
 

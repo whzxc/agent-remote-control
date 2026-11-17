@@ -5,7 +5,7 @@ import path from 'node:path';
 import { nativeControl } from './helpers/native-control.ts';
 
 test('legacy negotiation recovery restores Messages, Board and session route operations', async () => {
-  // Regression: singleton participant snapshots blocked Messages and Board through the legacy route import.
+  // Recurring bug class: singleton participant snapshots blocked Messages and Board through the legacy route import.
   const fixture = await nativeControl('');
   try {
     const owners: Array<{ ingress: string; source: string }> = [];

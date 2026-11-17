@@ -355,7 +355,7 @@ mod tests {
 
     #[test]
     fn native_resume_is_recognized_after_downtime_with_environment_scaffolding() {
-        // Regression: restart recovery rejected native resume because environment context had role:user and recognition was late.
+        // Recurring bug class: restart recovery rejected native resume because environment context had role:user and recognition was late.
         for trigger in [
             "resume_interrupted_task",
             "capacity_retry_automatic",
@@ -377,7 +377,7 @@ mod tests {
 
     #[test]
     fn new_input_unknown_provenance_and_malformed_history_do_not_inherit() {
-        // Regression: native continuation must never inherit across genuinely new user content or unproven provenance.
+        // Recurring bug class: native continuation must never inherit across genuinely new user content or unproven provenance.
         let thread = json!({"id":"thread","cwd":"/project"});
         let next = json!({"id":"next","items":[]});
         for input in [

@@ -6,7 +6,7 @@ import { selectPet, type PetPackage } from '../ui/pets/model.ts';
 const imported: PetPackage = { key: 'arc:example', id: 'example', name: 'Example', version: 2, origin: 'arc', pixelArt: false, source: { site: 'zip' } };
 
 test('built-in companions survive empty refreshes without duplicating imported pets', () => {
-  // Property: merging built-in companions is idempotent, preserves external packages, and does not mutate the source catalog.
+  // Algorithmic core: merging built-in companions is idempotent, preserves external packages, and does not mutate the source catalog.
   for (const incoming of [[], [imported], [...builtinPets, imported], [...builtinPets, ...builtinPets, imported]]) {
     const before = [...incoming], merged = withBuiltinPets(incoming);
     assert.deepEqual(incoming, before);
@@ -18,7 +18,7 @@ test('built-in companions survive empty refreshes without duplicating imported p
 });
 
 test('brand companions respect every explicit skin assignment', () => {
-  // Property: a known brand selects its matching built-in mascot unless an installed participant, platform, or global assignment overrides it.
+  // Algorithmic core: a known brand selects its matching built-in mascot unless an installed participant, platform, or global assignment overrides it.
   const packages = withBuiltinPets([imported]);
   for (const brand of ['claude', 'codex'] as const) {
     const participant = { id: `agent:${brand}`, platform: 'example', brand };

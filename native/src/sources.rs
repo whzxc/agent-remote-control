@@ -1000,7 +1000,7 @@ mod label_tests {
 
     #[test]
     fn answer_attribution_resolves_current_source_identity() {
-        // Property: recorded source ids resolve current labels and brands without inventing absent attribution.
+        // Algorithmic core: recorded source ids resolve current labels and brands without inventing absent attribution.
         let mut value = json!({"response":{"answeredBy":{"kind":"source","sourceId":"fixture"}},"legacy":{"result":{"decision":"accept"}},"local":{"answeredBy":{"kind":"local-ui"}}});
         decorate_labels(
             &mut value,
@@ -1017,7 +1017,7 @@ mod label_tests {
     }
     #[test]
     fn receipt_batch_labels_fit_one_poll_budget_without_identity_reconciliation() {
-        // Regression: idle status polls resolved every source account for each of 3008 historical receipts.
+        // Recurring bug class: idle status polls resolved every source account for each of 3008 historical receipts.
         let mut sources: Vec<_> = (0..7)
             .map(|n| {
                 json!({"id":format!("source-{n}"),"label":format!("label-{n}"),
@@ -1670,7 +1670,7 @@ mod tests {
 
     #[test]
     fn grant_authority_ignores_account_projection_and_tracks_revocation() {
-        // Regression: OAuth status projected every account for every grant, amplifying idle CPU.
+        // Recurring bug class: OAuth status projected every account for every grant, amplifying idle CPU.
         let mut rows = vec![
             json!({"ingressId":"ingress","credential":{"grantId":"grant"},"state":"connected","accountId":"missing-account"}),
         ];
@@ -1690,7 +1690,7 @@ mod tests {
 
     #[test]
     fn local_authority_refuses_revocation() {
-        // Regression: disconnecting Local CLI revoked the shared CLI and panel authority.
+        // Recurring bug class: disconnecting Local CLI revoked the shared CLI and panel authority.
         let mut source = local();
         let before = source.clone();
         assert_eq!(
@@ -1704,7 +1704,7 @@ mod tests {
 
     #[test]
     fn local_authority_repairs_legacy_lifecycle_once() {
-        // Regression: ensure_ingress returned revoked or removed local rows forever after disconnect.
+        // Recurring bug class: ensure_ingress returned revoked or removed local rows forever after disconnect.
         for (state, removed) in [
             ("revoked", false),
             ("connected", true),
@@ -1728,7 +1728,7 @@ mod tests {
 
     #[test]
     fn external_sources_still_revoke_and_never_self_heal() {
-        // Regression: local recovery must not resurrect external grants or configured local transports.
+        // Recurring bug class: local recovery must not resurrect external grants or configured local transports.
         for credential in ["ingress", "oauth-grant", "local"] {
             let mut source = local();
             source["ingressId"] = json!("example-external");
@@ -1751,7 +1751,7 @@ mod product_tests {
 
     #[test]
     fn oauth_clients_on_shared_https_connections_keep_their_own_product() {
-        // Regression: a Claude OAuth client on a ChatGPT HTTPS connection inherited the ChatGPT product.
+        // Recurring bug class: a Claude OAuth client on a ChatGPT HTTPS connection inherited the ChatGPT product.
         for (configured, transport, client, expected) in [
             ("chatgpt", "https", "Claude", "claude"),
             ("claude", "https", "ChatGPT", "chatgpt"),

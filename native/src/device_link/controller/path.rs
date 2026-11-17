@@ -320,7 +320,7 @@ mod tests {
     }
     #[tokio::test]
     async fn relay_latency_does_not_flap_offline_or_delay_lan_recovery() {
-        // Regression: relay hellos taking 1.8–3.4 seconds missed the two-second deadline and flapped healthy members offline.
+        // Recurring bug class: relay hellos taking 1.8–3.4 seconds missed the two-second deadline and flapped healthy members offline.
         if crate::device_link::tunnel_fixture::isolate(
             "device_link::controller::path::tests::relay_latency_does_not_flap_offline_or_delay_lan_recovery",
         )

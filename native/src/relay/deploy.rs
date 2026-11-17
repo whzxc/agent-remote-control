@@ -592,7 +592,7 @@ mod tests {
     use super::*;
     #[test]
     fn cloudflare_confirms_when_a_worker_was_already_removed() {
-        // Regression: a missing Cloudflare Worker left its ARC relay undeletable after HTTP 404.
+        // Recurring bug class: a missing Cloudflare Worker left its ARC relay undeletable after HTTP 404.
         assert_eq!(
             worker_missing_from_response(
                 reqwest::StatusCode::NOT_FOUND,
@@ -620,7 +620,7 @@ mod tests {
     #[cfg(unix)]
     #[tokio::test]
     async fn exited_children_are_reaped_without_waiting_for_the_deadline() {
-        // Regression: 42f9056; exited children are reaped without waiting for the deadline.
+        // Recurring bug class: 42f9056; exited children are reaped without waiting for the deadline.
         let state = Mutex::new(json!({}));
         let output = tokio::time::timeout(
             Duration::from_secs(2),
@@ -648,7 +648,7 @@ mod tests {
     #[cfg(unix)]
     #[tokio::test]
     async fn non_tty_login_exposes_link_and_reports_occupied_callback_port() {
-        // Regression: Wrangler reports an occupied callback port without including EADDRINUSE.
+        // Recurring bug class: Wrangler reports an occupied callback port without including EADDRINUSE.
         let state = Mutex::new(json!({"loginUrl":null}));
         let error = tokio::time::timeout(Duration::from_secs(2), run_command(
             script("test ! -t 0 && test ! -t 1 || exit 1; printf 'Visit this link to authenticate: https://dash.cloudflare.com/oauth2/auth?state=test'; echo 'The OAuth callback server could not bind to localhost:8976 because the port is already in use.' >&2; exit 7"),
@@ -663,7 +663,7 @@ mod tests {
     #[cfg(unix)]
     #[tokio::test]
     async fn silent_login_is_bounded_and_descendant_pipes_do_not_stall_exit() {
-        // Regression: 42f9056; silent login is bounded and descendant pipes do not stall exit.
+        // Recurring bug class: 42f9056; silent login is bounded and descendant pipes do not stall exit.
         let state = Mutex::new(json!({}));
         assert!(run_command_until(
             script("sleep 10"),
@@ -684,7 +684,7 @@ mod tests {
     }
     #[test]
     fn extracts_only_cloudflare_login_and_exact_worker_address() {
-        // Property: extracts only cloudflare login and exact worker address.
+        // Algorithmic core: extracts only cloudflare login and exact worker address.
         assert!(login_url("Visit https://dash.cloudflare.com/oauth2/auth?state=test").is_some());
         assert!(login_url("https://evil.example/oauth2/auth").is_none());
         assert_eq!(

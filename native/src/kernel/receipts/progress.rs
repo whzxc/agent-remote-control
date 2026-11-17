@@ -219,7 +219,7 @@ mod tests {
 
     #[test]
     fn progress_transition_separates_submission_execution_and_owner_loss() {
-        // Property: execution requires confirmed submission; only reservations stall; owner loss and duplicate events preserve settled outcomes.
+        // Algorithmic core: execution requires confirmed submission; only reservations stall; owner loss and duplicate events preserve settled outcomes.
         let states = [
             State::Reserved,
             State::Executing,

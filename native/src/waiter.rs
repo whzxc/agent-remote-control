@@ -807,7 +807,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn conflicting_selected_records_do_not_choose_a_terminal_by_array_order() {
-        // Regression: contradictory selected native records must return unconfirmed rather than an arbitrary terminal.
+        // Recurring bug class: contradictory selected native records must return unconfirmed rather than an arbitrary terminal.
         for statuses in [["completed", "failed"], ["failed", "completed"]] {
             let observation = json!({"thread":{"id":"thread","status":{"type":"active"},"turns":[
                 {"id":"turn","status":statuses[0]}, {"id":"turn","status":statuses[1]},
@@ -823,7 +823,7 @@ mod tests {
 
     #[test]
     fn response_deduplication_preserves_metadata_and_terminal_bodies() {
-        // Property: response deduplication preserves metadata and terminal bodies.
+        // Algorithmic core: response deduplication preserves metadata and terminal bodies.
         for body in [
             json!("same reply"),
             json!({"text":"same reply","textHash":hash("same reply"),"itemId":"message","nextOffset":null}),
@@ -892,7 +892,7 @@ mod tests {
 
     #[test]
     fn nonterminal_messages_require_completion_but_terminal_and_interaction_keep_body() {
-        // Property: nonterminal messages require completion but terminal and interaction keep body.
+        // Algorithmic core: nonterminal messages require completion but terminal and interaction keep body.
         let mut observation = json!({"thread":{"id":"thread","status":{"type":"active"},"turns":[{"id":"turn","status":"inProgress","items":[
             {"id":"done","type":"agentMessage","status":"completed","text":"complete"},
             {"id":"stream","type":"agentMessage","status":"inProgress","text":"half sentence"}
@@ -940,7 +940,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn long_wait_retries_reads_past_ninety_seconds() {
-        // Regression: dbb25cf; long wait retries reads past ninety seconds.
+        // Recurring bug class: dbb25cf; long wait retries reads past ninety seconds.
         let mut reads = vec![(0, Ok(snapshot("running", "partial")))];
         reads.extend((0..10).map(|_| (11000, Ok(snapshot("running", "late")))));
         reads.push((0, Err("RPC_TIMEOUT: thread/turns/list".into())));
@@ -953,7 +953,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn wait_deadline_during_read_does_not_invent_read_failure() {
-        // Regression: dbb25cf; wait deadline during read does not invent read failure.
+        // Recurring bug class: dbb25cf; wait deadline during read does not invent read failure.
         let reads = (0..599)
             .map(|_| (1000, Ok(snapshot("running", "partial"))))
             .chain(std::iter::once((9000, Ok(snapshot("running", "late")))))
@@ -970,7 +970,7 @@ mod tests {
 
     #[test]
     fn old_turn_does_not_inherit_latest_interaction() {
-        // Property: old turn does not inherit latest interaction.
+        // Algorithmic core: old turn does not inherit latest interaction.
         let observation = json!({"thread":{"id":"thread","status":{"type":"active","activeFlags":["waitingOnApproval"]},"turns":[{"id":"old","status":"inProgress"},{"id":"new","status":"inProgress"}]},"pending":[{"id":1,"method":"item/commandExecution/requestApproval","params":{"threadId":"thread"}}]});
         let old = classify(&observation, &mut Some("old".into()));
         assert_eq!(old["state"], "running");
@@ -982,7 +982,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn read_timeouts_and_changed_content_wait_for_terminal() {
-        // Regression: 2a880bc; read timeouts and changed content wait for terminal.
+        // Recurring bug class: 2a880bc; read timeouts and changed content wait for terminal.
         let result = run(
             vec![
                 (0, Ok(snapshot("running", "first"))),
@@ -1004,7 +1004,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn deadline_preserves_read_failure_and_last_observation() {
-        // Regression: 2a880bc; deadline preserves read failure and last observation.
+        // Recurring bug class: 2a880bc; deadline preserves read failure and last observation.
         for (delay, error, reason) in [
             (0, "DESKTOP_SNAPSHOT_TIMEOUT", "DESKTOP_SNAPSHOT_TIMEOUT"),
             (0, "RPC_TIMEOUT: thread/read", "RPC_TIMEOUT: thread/read"),
@@ -1032,7 +1032,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn recovered_running_read_reaches_normal_deadline() {
-        // Regression: 2a880bc; recovered running read reaches normal deadline.
+        // Recurring bug class: 2a880bc; recovered running read reaches normal deadline.
         let result = run(
             vec![
                 (0, Err("DESKTOP_SNAPSHOT_TIMEOUT".into())),
@@ -1048,7 +1048,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn failures_disconnect_and_interaction_still_return_immediately() {
-        // Regression: 2a880bc; failures disconnect and interaction still return immediately.
+        // Recurring bug class: 2a880bc; failures disconnect and interaction still return immediately.
         for state in ["failed", "cancelled", "interaction-required", "unconfirmed"] {
             let result = run(vec![(0, Ok(snapshot(state, "")))], 90000).await;
             assert_eq!(result["state"], state);

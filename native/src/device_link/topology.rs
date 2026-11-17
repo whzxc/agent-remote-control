@@ -121,7 +121,7 @@ mod tests {
     }
     #[tokio::test]
     async fn descendant_pairing_rejects_three_device_cycle_before_approval() {
-        // Regression: a descendant could pair its root controller because pairing checked only the immediate parent.
+        // Recurring bug class: a descendant could pair its root controller because pairing checked only the immediate parent.
         if super::super::tunnel_fixture::isolate("device_link::topology::tests::descendant_pairing_rejects_three_device_cycle_before_approval").await { return; }
         crate::init_crypto();
         let directory = crate::root();

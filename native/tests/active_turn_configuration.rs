@@ -3,7 +3,7 @@ use serde_json::json;
 
 #[test]
 fn steer_restates_default_when_native_tier_is_unreported() {
-    // Regression: steer restating serviceTier default failed when the native active turn omitted its tier.
+    // Recurring bug class: steer restating serviceTier default failed when the native active turn omitted its tier.
     let active = json!({"id":"active"});
     let records = vec![
         json!({"turnId":"previous","serviceTier":"fast"}),
@@ -22,7 +22,7 @@ fn steer_restates_default_when_native_tier_is_unreported() {
 
 #[test]
 fn steer_rejects_a_known_configuration_change() {
-    // Regression: active-turn configuration changes must remain rejected when steering.
+    // Recurring bug class: active-turn configuration changes must remain rejected when steering.
     let mut dispatch = json!({"serviceTier":"fast","source":{"serviceTier":"explicit"}});
     let error = reconcile_active_configuration(
         &mut dispatch,

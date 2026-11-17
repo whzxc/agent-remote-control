@@ -12,7 +12,7 @@ import { validateLinuxElf, validateLinuxReceipt } from '../tooling/linux-release
 import { renderReleaseNotes } from '../tooling/release-notes.mjs';
 
 test('release notes generate both languages from the same version entries', () => {
-  // Regression: updater notes exposed commit subjects and repeated an obsolete migration notice.
+  // Recurring bug class: updater notes exposed commit subjects and repeated an obsolete migration notice.
   const fix = { section: 'fixes', en: 'Restore the task bubble.', 'zh-CN': '恢复任务气泡。' };
   const improvement = { section: 'improvements', en: 'Show update history.', 'zh-CN': '显示更新记录。' };
   const notes = renderReleaseNotes([fix, improvement]);
@@ -22,7 +22,7 @@ test('release notes generate both languages from the same version entries', () =
 });
 
 test('ordinary releases select desktops and Linux requires an explicit selection', () => {
-  // Regression: ordinary releases selected Linux and blocked on local Lima and Rosetta prerequisites.
+  // Recurring bug class: ordinary releases selected Linux and blocked on local Lima and Rosetta prerequisites.
   const platforms = releasePlatforms();
   assert.deepEqual(platforms, ['mac', 'windows']);
   assert.deepEqual(releasePlatforms('mac,windows,linux'), ['mac', 'windows', 'linux']);
@@ -40,7 +40,7 @@ test('ordinary releases select desktops and Linux requires an explicit selection
 });
 
 test('Linux receipts bind source version architecture bytes and native runtime checks', () => {
-  // Property: collected Linux payloads must match every requested identity and runtime invariant.
+  // Algorithmic core: collected Linux payloads must match every requested identity and runtime invariant.
   const request = { sourceSha: 'a'.repeat(40), version: '1.2.3', arch: 'aarch64', digest: 'sha256:abc' };
   const receipt = { ...request, file: 'agent-remote-control-v1.2.3-linux-aarch64.tar.gz', sha256: 'abc', glibcBaseline: '2.28', runtimeVersion: '1.2.3', runtimeHelp: true };
   assert.doesNotThrow(() => validateLinuxReceipt(receipt, request));
@@ -52,7 +52,7 @@ test('Linux receipts bind source version architecture bytes and native runtime c
 
 
 test('test execution has the same version-independent environment inside and outside release', () => {
-  // Property: packaging overrides cannot contaminate the source-tree test cache or mutate its caller.
+  // Algorithmic core: packaging overrides cannot contaminate the source-tree test cache or mutate its caller.
   const env = { ARC_BUILD_VERSION: '1.2.3', TAURI_CONFIG: '{}', ARC_RELEASE_TIMINGS_FILE: 'timings', ARC_RELEASE_PLATFORM: 'mac', RUSTFLAGS: '-C opt-level=1', PATH: '/tools' };
   const result = testEnvironment(env);
   assert.equal(result.ARC_BUILD_VERSION, '0.0.0');
@@ -65,7 +65,7 @@ test('test execution has the same version-independent environment inside and out
 });
 
 test('dependency passes invalidate on lock manifest runtime or platform changes', () => {
-  // Property: dependency installation is reusable only for identical effective inputs.
+  // Algorithmic core: dependency installation is reusable only for identical effective inputs.
   const inputs = { lock: 'lock', manifest: 'manifest', node: '24', npm: '11', platform: 'win32', arch: 'x64' };
   const receipt = { schema: 1, key: inputKey(inputs) };
   assert.equal(dependenciesMatch(receipt, inputs), true);
@@ -74,7 +74,7 @@ test('dependency passes invalidate on lock manifest runtime or platform changes'
 });
 
 test('Linux artifacts require an executable ELF64 matching the requested architecture', () => {
-  // Property: architecture class endianness and executable type are all bound to each Linux artifact.
+  // Algorithmic core: architecture class endianness and executable type are all bound to each Linux artifact.
   const binary = Buffer.alloc(64);
   Buffer.from('7f454c46', 'hex').copy(binary);
   binary[4] = 2; binary[5] = 1; binary.writeUInt16LE(3, 16); binary.writeUInt16LE(62, 18);
@@ -94,20 +94,20 @@ const remote = { ...asset, state: 'uploaded' };
 const state = { schema: 1, verified: true, version: '1.2.3', sourceSha: 'source', platforms: ['mac', 'linux'], assets: [asset] };
 
 test('dependency installs reread npmrc script policy without mutating the parent environment', () => {
-  // Regression: npm run exported allow-scripts and npm ci rejected it with EALLOWSCRIPTS.
+  // Recurring bug class: npm run exported allow-scripts and npm ci rejected it with EALLOWSCRIPTS.
   const env = { npm_config_allow_scripts: 'esbuild', NPM_CONFIG_ALLOW_SCRIPTS: 'esbuild', PATH: '/tools', npm_config_registry: 'https://example.com' };
   assert.deepEqual(dependencyEnv(env), { PATH: '/tools', npm_config_registry: 'https://example.com' });
   assert.equal(env.npm_config_allow_scripts, 'esbuild');
 });
 
 test('Windows worker uses the Work package profile or explicit override', () => {
-  // Regression: Work profiles live under its personal profile directory, not Enjoy's profile directory.
+  // Recurring bug class: Work profiles live under its personal profile directory, not Enjoy's profile directory.
   assert.equal(workProfileRoot('/work/dist'), path.join('/work/dist', 'profiles', 'personal'));
   assert.equal(workProfileRoot('/work/dist', '/custom/profiles'), '/custom/profiles');
 });
 
 test('worker readiness requires power SSH and ready signals together', () => {
-  // Property: running alone never authorizes SSH.
+  // Algorithmic core: running alone never authorizes SSH.
   const ready = { status: 'running', ssh_reachable: 'true', ready: 'true' };
   assert.equal(workerReady(ready), true);
   assert.equal(workerReady({ ...ready, ssh_reachable: true, ready: true }), true);
@@ -115,7 +115,7 @@ test('worker readiness requires power SSH and ready signals together', () => {
 });
 
 test('shutdown requires the original stopped worker and current ownership', () => {
-  // Property: another invocation or a previously running worker cannot be shut down.
+  // Algorithmic core: another invocation or a previously running worker cannot be shut down.
   const current = { owner: 'mine', owner_worker: 'windows' };
   assert.equal(canStopWorker({ status: 'stopped' }, current, 'mine'), true);
   assert.equal(canStopWorker({ status: 'running' }, current, 'mine'), false);
@@ -124,7 +124,7 @@ test('shutdown requires the original stopped worker and current ownership', () =
 });
 
 test('Windows receipts bind version full SHA architecture filename and transferred bytes', () => {
-  // Property: changing any artifact identity component invalidates the receipt.
+  // Algorithmic core: changing any artifact identity component invalidates the receipt.
   const request = { version: '1.2.3', sourceSha: 'a'.repeat(40), digest: 'sha256:abc' };
   const receipt = { ...request, file: 'agent-remote-control_1.2.3_x64-setup.exe', arch: 'x86_64', sha256: 'abc' };
   assert.doesNotThrow(() => validateWindowsReceipt(receipt, request));
@@ -135,7 +135,7 @@ test('Windows receipts bind version full SHA architecture filename and transferr
 });
 
 test('parallel platform failures drain every started build before returning', async () => {
-  // Property: independent platforms start concurrently and no writer outlives failure reporting.
+  // Algorithmic core: independent platforms start concurrently and no writer outlives failure reporting.
   const events = [];
   let release;
   const gate = new Promise(resolve => { release = resolve; });
@@ -148,7 +148,7 @@ test('parallel platform failures drain every started build before returning', as
 });
 
 test('exact release lookup treats only GitHub HTTP 404 as an absent tag', () => {
-  // Regression: historical release listing exhausted the synchronous gh output buffer before upload.
+  // Recurring bug class: historical release listing exhausted the synchronous gh output buffer before upload.
   assert.deepEqual(releaseByTag('owner/repo', 'v1.2.3', () => JSON.stringify({ id: 42, draft: false })), { id: 42, draft: false });
   assert.equal(releaseByTag('owner/repo', 'v1.2.3', args => {
     if (args[1].includes('/tags/')) throw Object.assign(new Error(), { status: 1, stderr: 'gh: Not Found (HTTP 404)' });
@@ -160,7 +160,7 @@ test('exact release lookup treats only GitHub HTTP 404 as an absent tag', () => 
 });
 
 test('release lookup recovers a draft omitted by the tag endpoint across bounded pages', () => {
-  // Regression: v0.9.29 created a draft, then stopped with Expected a draft release because its tag endpoint returned HTTP 404.
+  // Recurring bug class: v0.9.29 created a draft, then stopped with Expected a draft release because its tag endpoint returned HTTP 404.
   const draft = { id: 42, tag_name: 'v1.2.3', draft: true, assets: [remote] };
   const result = releaseByTag('owner/repo', 'v1.2.3', args => {
     if (args[1].includes('/tags/')) throw Object.assign(new Error(), { status: 1, stderr: 'gh: Not Found (HTTP 404)' });
@@ -171,7 +171,7 @@ test('release lookup recovers a draft omitted by the tag endpoint across bounded
 });
 
 test('release lookup refuses ambiguous drafts and preserves fallback permission failures', () => {
-  // Regression: a missing tag response must not create another draft when authenticated draft lookup fails or is ambiguous.
+  // Recurring bug class: a missing tag response must not create another draft when authenticated draft lookup fails or is ambiguous.
   const lookup = operation => () => releaseByTag('owner/repo', 'v1.2.3', args => {
     if (args[1].includes('/tags/')) throw Object.assign(new Error(), { status: 1, stderr: 'gh: Not Found (HTTP 404)' });
     return operation();
@@ -182,7 +182,7 @@ test('release lookup refuses ambiguous drafts and preserves fallback permission 
 });
 
 test('release uploads send binary files by ID and separate lookup from transfer timing', async context => {
-  // Regression: v0.9.32 combined blocking draft discovery and binary transfers into one opaque upload duration.
+  // Recurring bug class: v0.9.32 combined blocking draft discovery and binary transfers into one opaque upload duration.
   const directory = await mkdtemp(path.join(tmpdir(), 'arc-release-upload-'));
   context.after(() => rm(directory, { recursive: true, force: true }));
   const file = path.join(directory, 'archive with spaces.bin'), timingFile = path.join(directory, 'timings.jsonl');
@@ -217,7 +217,7 @@ test('release uploads send binary files by ID and separate lookup from transfer 
 });
 
 test('upload retries replace incomplete assets and reconcile a lost success response', async () => {
-  // Regression: upload recovery must reconcile persisted bytes without overwriting a completed asset after a lost response.
+  // Recurring bug class: upload recovery must reconcile persisted bytes without overwriting a completed asset after a lost response.
   const draft = { id: 42, tag_name: 'v1.2.3', draft: true, assets: [{ ...remote, id: 7, state: 'starter', size: 0 }], upload_url: 'https://uploads.github.com/repos/owner/repo/releases/42/assets{?name,label}' };
   const result = await retry(() => uploadReleaseAsset({ repo: 'owner/repo', releaseId: 42, tag: draft.tag_name, asset, file: 'latest.json', timer: stageTimer(null, () => {}) }, {
     query: async args => {
@@ -239,7 +239,7 @@ test('upload retries replace incomplete assets and reconcile a lost success resp
 });
 
 test('upload refuses a public release or a changed draft identity before any write', async () => {
-  // Regression: reusing a release ID must preserve the original draft and tag boundary before replacing assets.
+  // Recurring bug class: reusing a release ID must preserve the original draft and tag boundary before replacing assets.
   for (const patch of [{ draft: false }, { id: 43 }, { tag_name: 'v9.9.9' }]) {
     const draft = { id: 42, tag_name: 'v1.2.3', draft: true, assets: [{ ...remote, size: 0 }], ...patch };
     await assert.rejects(uploadReleaseAsset({ repo: 'owner/repo', releaseId: 42, tag: 'v1.2.3', asset, file: 'latest.json', timer: stageTimer(null, () => {}) }, {
@@ -254,7 +254,7 @@ test('upload refuses a public release or a changed draft identity before any wri
 });
 
 test('release history uses bounded pages and retains only public stable tags', () => {
-  // Regression: --paginate --slurp accumulated all historical release bodies and assets in one sync buffer.
+  // Recurring bug class: --paginate --slurp accumulated all historical release bodies and assets in one sync buffer.
   const result = publishedTags('owner/repo', args => {
     assert.equal(args.includes('--paginate'), false);
     assert.equal(args.includes('--slurp'), false);
@@ -273,7 +273,7 @@ test('release history uses bounded pages and retains only public stable tags', (
 });
 
 test('resume requires the original verified version commit and platform selection', () => {
-  // Property: artifacts from different source identities or platform selections cannot be resumed.
+  // Algorithmic core: artifacts from different source identities or platform selections cannot be resumed.
   const request = { version: state.version, sourceSha: state.sourceSha, platforms: ['linux', 'mac'] };
   assert.doesNotThrow(() => validateResume(state, request));
   for (const invalid of [{ ...state, verified: false }, { ...state, sourceSha: 'other' }, { ...state, version: '1.2.4' }, { ...state, platforms: ['mac'] }, { ...state, assets: [] }]) {
@@ -282,7 +282,7 @@ test('resume requires the original verified version commit and platform selectio
 });
 
 test('publication refuses missing extra corrupt or unfinished remote assets', () => {
-  // Property: every selected asset must be fully uploaded with matching size and exposed digest before publication.
+  // Algorithmic core: every selected asset must be fully uploaded with matching size and exposed digest before publication.
   assert.doesNotThrow(() => validateRemoteAssets([asset], [remote]));
   assert.doesNotThrow(() => validateRemoteAssets([asset], [{ ...remote, digest: null }]));
   for (const inventory of [[], [remote, { ...remote, name: 'unexpected.exe' }], [{ ...remote, size: 0 }], [{ ...remote, digest: 'sha256:other' }], [{ ...remote, state: 'starter' }]]) {
@@ -291,7 +291,7 @@ test('publication refuses missing extra corrupt or unfinished remote assets', ()
 });
 
 test('resume detects replaced artifact bytes and inconsistent checksums', () => {
-  // Regression: a retained artifact directory must not silently substitute files after verification.
+  // Recurring bug class: a retained artifact directory must not silently substitute files after verification.
   const sums = 'abc  latest.json\n';
   const inventory = [asset, { name: 'SHA256SUMS.txt', size: sums.length, digest: 'sha256:sums' }];
   assert.doesNotThrow(() => validateArtifactInventory(inventory, sums, inventory));
@@ -302,7 +302,7 @@ test('resume detects replaced artifact bytes and inconsistent checksums', () => 
 });
 
 test('publication resumes missing uploads and verifies a complete draft before publishing', () => {
-  // Regression: failed bulk uploads required manual draft creation and asset recovery.
+  // Recurring bug class: failed bulk uploads required manual draft creation and asset recovery.
   const draft = { id: 42, draft: true, assets: [remote] };
   assert.deepEqual(publicationStages(state, undefined), ['upload', 'remote verification', 'publish', 'readback']);
   assert.deepEqual(publicationStages(state, { ...draft, assets: [] }), ['upload', 'remote verification', 'publish', 'readback']);
@@ -311,7 +311,7 @@ test('publication resumes missing uploads and verifies a complete draft before p
 });
 
 test('a lost publish response allows read-only recovery only for the original publication attempt', () => {
-  // Regression: a successful publish followed by failed latest.json readback must not overwrite a public version.
+  // Recurring bug class: a successful publish followed by failed latest.json readback must not overwrite a public version.
   const release = { id: 42, draft: false, assets: [remote] };
   assert.deepEqual(publicationStages({ ...state, publishAttempted: true, releaseId: 42 }, release), ['remote verification', 'readback']);
   assert.throws(() => publicationStages(state, release));
@@ -319,7 +319,7 @@ test('a lost publish response allows read-only recovery only for the original pu
 });
 
 test('selected platforms require their complete updater and installer asset inventory', () => {
-  // Property: a platform cannot be published from an incomplete or unrelated updater manifest.
+  // Algorithmic core: a platform cannot be published from an incomplete or unrelated updater manifest.
   const manifest = { version: '1.2.3', platforms: { 'darwin-aarch64': { url: 'https://example.com/mac.app.tar.gz' } } };
   const names = platformAssetNames(manifest, '1.2.3', ['mac', 'linux']);
   assert.ok(names.includes('agent-remote-control-v1.2.3-linux-x86_64.tar.gz'));
@@ -335,7 +335,7 @@ test('selected platforms require their complete updater and installer asset inve
 });
 
 test('transient transfer failures recover after exponential backoff', async () => {
-  // Regression: gh upload timeouts and HTTP/2 failures previously aborted the entire release without retry.
+  // Recurring bug class: gh upload timeouts and HTTP/2 failures previously aborted the entire release without retry.
   const outcomes = [new Error('timeout'), new Error('connection reset'), 'uploaded'][Symbol.iterator]();
   const delays = [];
   const result = await retry(async () => {
@@ -348,7 +348,7 @@ test('transient transfer failures recover after exponential backoff', async () =
 });
 
 test('permanent transfer failures stop after the retry budget', async () => {
-  // Property: transfer recovery has a finite backoff budget and preserves the terminal failure.
+  // Algorithmic core: transfer recovery has a finite backoff budget and preserves the terminal failure.
   const error = new Error('unavailable');
   const delays = [];
   await assert.rejects(retry(async () => { throw error; }, { attempts: 3, delayMs: 2, sleep: async ms => { delays.push(ms); } }), error);
@@ -356,7 +356,7 @@ test('permanent transfer failures stop after the retry budget', async () => {
 });
 
 test('bounded uploads drain active transfers before returning a failure', async () => {
-  // Regression: parallel upload failure must not leave background writers racing a resumed publication.
+  // Recurring bug class: parallel upload failure must not leave background writers racing a resumed publication.
   let active = 0, maximum = 0;
   const delivered = [];
   await assert.rejects(boundedMap([1, 2, 3, 4, 5], async item => {

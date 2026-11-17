@@ -39,7 +39,7 @@ const fakeCodex = `
 `;
 
 test("task feed sends only changes and recovers when the client misses a revision", async () => {
-  // Regression: unchanged desktop polls transferred the entire task list every five seconds.
+  // Recurring bug class: unchanged desktop polls transferred the entire task list every five seconds.
   const fixture = await nativeControl(fakeCodex);
   try {
     await fixture.api("task-settings", { autoOpenCodex: false }, "PUT");
@@ -63,7 +63,7 @@ test("task feed sends only changes and recovers when the client misses a revisio
 });
 
 test("a cold Codex timeline previews recent items and keeps the older history available", async () => {
-  // Regression: opening a long Codex task delayed the first reply, and desktop timeline query strings were read as part of its ID.
+  // Recurring bug class: opening a long Codex task delayed the first reply, and desktop timeline query strings were read as part of its ID.
   const fixture = await nativeControl(fakeCodex);
   try {
     await fixture.api("task-settings", { autoOpenCodex: false }, "PUT");

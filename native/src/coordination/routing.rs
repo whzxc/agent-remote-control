@@ -135,7 +135,7 @@ mod tests {
         serde_json::from_value(json!({"sourceId":"peer","routeId":destination,"generation":"verified","bindingId":"binding"})).unwrap()
     }
     #[test]
-    // Regression: ax-ce733eee session routing and source-addressed mail disagreed when fallback targets were ambiguous.
+    // Recurring bug class: ax-ce733eee session routing and source-addressed mail disagreed when fallback targets were ambiguous.
     fn explicit_sessions_never_choose_an_arbitrary_conversation() {
         let mut sessions = vec![("first".into(), Some(route("one")), None)];
         assert_eq!(select(&sessions, Some("first")).route, Some(route("one")));
@@ -153,7 +153,7 @@ mod tests {
         assert_eq!(select(&sessions, Some("closed")).state, "session-closed");
     }
     #[test]
-    // Regression: ax-ce733eee invalid registration targets must stay pull-only even if a different fallback target is verified.
+    // Recurring bug class: ax-ce733eee invalid registration targets must stay pull-only even if a different fallback target is verified.
     fn failed_registration_does_not_fall_back_to_another_conversation() {
         for reason in ["invalid-claude-session", "no-verified-target"] {
             let sessions = vec![("session".into(), None, Some(reason.into()))];
@@ -167,7 +167,7 @@ mod tests {
         );
     }
     #[test]
-    // Regression: ax-ce733eee board sessions reported pull-only after message_route returned proactive.
+    // Recurring bug class: ax-ce733eee board sessions reported pull-only after message_route returned proactive.
     fn delivery_projection_and_recipient_fix_use_the_effective_route() {
         let mut session = json!({"id":"session","owner":{"sourceId":"peer"},"state":"active"});
         for outcome in [

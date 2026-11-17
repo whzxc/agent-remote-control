@@ -70,7 +70,7 @@ mod tests {
 
     #[test]
     fn isolated_copy_checks_accept_only_the_selected_instance_identity() {
-        // Regression: package-check rejected the official isolated bundle ID before validating the copied candidate.
+        // Recurring bug class: package-check rejected the official isolated bundle ID before validating the copied candidate.
         let instance = "abc123def456";
         let identifier = format!("{DEV_IDENTIFIER}.acceptance-{instance}");
         assert!(package_identifier_allowed(&identifier, Some(instance)));
@@ -85,7 +85,7 @@ mod tests {
 
     #[test]
     fn package_identity_profiles_never_broaden_to_arbitrary_bundle_ids() {
-        // Property: ordinary profiles admit only fixed ARC identities; isolated profiles admit only their exact valid generated identity.
+        // Algorithmic core: ordinary profiles admit only fixed ARC identities; isolated profiles admit only their exact valid generated identity.
         assert!(package_identifier_allowed(IDENTIFIER, None));
         assert!(package_identifier_allowed(DEV_IDENTIFIER, None));
         for instance in [

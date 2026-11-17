@@ -221,7 +221,7 @@ mod tests {
 
     #[test]
     fn only_completed_pi_messages_are_available_before_terminal_or_interaction() {
-        // Property: only completed pi messages are available before terminal or interaction.
+        // Algorithmic core: only completed pi messages are available before terminal or interaction.
         let mut task = json!({"output":"partial"});
         for protocol in ["pi-rpc", "acp-v1"] {
             assert!(final_response(&task, "running", protocol).is_null());

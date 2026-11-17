@@ -8,7 +8,7 @@ import { readFile } from "node:fs/promises";
 import { AjvJsonSchemaValidator } from "@modelcontextprotocol/sdk/validation/ajv";
 
 test("task execution questions retain executable agent operation arguments", async () => {
-  // Regression: task execution questions did not share discoverable agent operation paths.
+  // Recurring bug class: task execution questions did not share discoverable agent operation paths.
   const window = new Window({ url: "http://localhost" });
   const media = Object.assign(new window.EventTarget(), { matches: true });
   window.matchMedia = () => media as unknown as MediaQueryList;

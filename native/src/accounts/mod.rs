@@ -575,7 +575,7 @@ mod codex_attribution_tests {
 
     #[test]
     fn native_retry_without_account_keeps_retried_turn_attribution() {
-        // Regression: native interrupted-task successors without account fields cleared the thread's confirmed account after host restarts.
+        // Recurring bug class: native interrupted-task successors without account fields cleared the thread's confirmed account after host restarts.
         let records = vec![
             json!({"turnId":"original","agentAccountId":"account-a"}),
             json!({"turnId":"retry-1","dispatchSource":"native-retry","retryOf":"original","configurationEvidence":"inherited-dispatch-not-confirmed"}),
@@ -601,7 +601,7 @@ mod codex_attribution_tests {
 
     #[test]
     fn native_profile_account_is_authoritative_over_dispatch_history() {
-        // Property: a known execution profile determines attribution independently of missing or conflicting dispatch accounts.
+        // Algorithmic core: a known execution profile determines attribution independently of missing or conflicting dispatch accounts.
         for recorded in [Value::Null, json!("account-a"), json!("account-b")] {
             let records = vec![json!({"turnId":"turn","agentAccountId":recorded})];
             assert_eq!(
@@ -1169,7 +1169,7 @@ impl Manager {
 mod tests {
     #[test]
     fn claude_transcript_identity_requires_one_native_account_match() {
-        // Regression: Claude transcript tasks had no execution account and were placed on the platform node.
+        // Recurring bug class: Claude transcript tasks had no execution account and were placed on the platform node.
         let row = json!({"id":"account-a","identityKey":"anthropic:id:native-a","agentProfiles":[{"agent":"claude","default":false}]});
         let identity = json!({"accountUuid":"native-a"});
         assert_eq!(
@@ -1219,7 +1219,7 @@ mod tests {
     use super::*;
     #[test]
     fn legacy_local_accounts_retire_without_losing_agent_membership() {
-        // Regression: Local CLI created a removable Unidentified provider account.
+        // Recurring bug class: Local CLI created a removable Unidentified provider account.
         let sources = vec![
             json!({"id":"example-local","ingressId":"local-cli","credential":{"type":"local"}}),
         ];
@@ -1243,7 +1243,7 @@ mod tests {
     }
     #[test]
     fn identity_uses_provider_facts_and_normalized_email() {
-        // Property: unresolved identities never coalesce and normalized provider identities do.
+        // Algorithmic core: unresolved identities never coalesce and normalized provider identities do.
         assert_eq!(
             identity_key(
                 "openai",
@@ -1262,7 +1262,7 @@ mod tests {
     }
     #[test]
     fn source_profile_merge_and_single_default() {
-        // Property: equal identity keys share one live account and each Agent has at most one default.
+        // Algorithmic core: equal identity keys share one live account and each Agent has at most one default.
         let mut rows = vec![];
         let facts = json!({"email":"person@example.com"});
         let source = observe(&mut rows, "openai", &facts, "source", None, Some("source"));
@@ -1432,7 +1432,7 @@ mod notification_projection_tests {
     use super::*;
     #[test]
     fn inactive_routes_remain_diagnostics() {
-        // Regression: AX-13 whoami advertised empty routes and stale failed sessions as destinations.
+        // Recurring bug class: AX-13 whoami advertised empty routes and stale failed sessions as destinations.
         let rows = vec![
             json!({"target":"", "verified":true}),
             json!({"target":"old", "state":"failed"}),

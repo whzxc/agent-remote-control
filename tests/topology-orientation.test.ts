@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { resolveOrientation, type Orientation } from '../ui/topology/orientation.ts';
 
 test('orientation retains state inside the hysteresis band', () => {
-  // Property: threshold crossings are inclusive and intermediate aspect ratios retain the previous orientation.
+  // Algorithmic core: threshold crossings are inclusive and intermediate aspect ratios retain the previous orientation.
   for (const mode of ['portrait', 'landscape'] as Orientation[]) {
     assert.equal(resolveOrientation(mode, 'auto', 850, 1000), 'portrait');
     assert.equal(resolveOrientation(mode, 'auto', 1000, 1000), 'landscape');
@@ -12,7 +12,7 @@ test('orientation retains state inside the hysteresis band', () => {
   }
 });
 test('drag ownership takes precedence over automatic and manual orientation', () => {
-  // Property: no orientation request moves slots while a pointer drag owns them.
+  // Algorithmic core: no orientation request moves slots while a pointer drag owns them.
   for (const mode of ['portrait', 'landscape'] as Orientation[]) {
     for (const requested of ['auto', 'portrait', 'landscape'] as const) {
       for (const width of [400, 1800]) assert.equal(resolveOrientation(mode, requested, width, 1000, true), mode);

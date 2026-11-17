@@ -1591,7 +1591,7 @@ mod tests {
     }
     #[test]
     fn queued_admissions_retain_identity_and_release_both_bounds() {
-        // Property: rejected admissions cannot evict accepted identities and release restores count and byte capacity.
+        // Algorithmic core: rejected admissions cannot evict accepted identities and release restores count and byte capacity.
         let queue = AdmissionQueue::new();
         let request = waiting_request(
             management_context(),
@@ -1622,7 +1622,7 @@ mod tests {
     }
     #[tokio::test]
     async fn waiting_requests_expire_without_changing_identity_or_deadline() {
-        // Regression: swap-time waiting restarted deadlines and lost the identity before Core attachment.
+        // Recurring bug class: swap-time waiting restarted deadlines and lost the identity before Core attachment.
         let mut request = waiting_request(
             management_context(),
             Operation::LocalControl,
@@ -1674,7 +1674,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn fresh_front_door_launch_uses_the_installed_build_with_the_same_protocol() {
-        // Regression: 6dc72941 cached the first image for a protocol forever, so installing build B still launched build A.
+        // Recurring bug class: 6dc72941 cached the first image for a protocol forever, so installing build B still launched build A.
         let fixture = ImageFixture::new();
         fixture.install("build-A");
         let first = stage_image(&fixture.installed, &fixture.images).unwrap();
@@ -1720,7 +1720,7 @@ mod tests {
     }
     #[test]
     fn generated_write_identity_is_the_identity_sent_to_the_receipt_owner() {
-        // Regression: a lost response could expose a transport ID different from the receipt ID generated inside Core.
+        // Recurring bug class: a lost response could expose a transport ID different from the receipt ID generated inside Core.
         let request = request(
             &hello(),
             management_context(),

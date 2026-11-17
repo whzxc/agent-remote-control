@@ -8,7 +8,7 @@ import path from 'node:path';
 import {nativeControl} from './helpers/native-control.ts';
 
 test('Codex dispatch policy retains credit balance alongside exhausted subscription limits', async () => {
-  // Regression: dispatch_policy dropped native credits and made an exhausted subscription look unavailable despite a usable balance.
+  // Recurring bug class: dispatch_policy dropped native credits and made an exhausted subscription look unavailable despite a usable balance.
   const credits = { hasCredits: true, unlimited: false, balance: '12345.6789012345' };
   const fixture = await nativeControl(`
     import {createInterface} from 'node:readline';
@@ -38,7 +38,7 @@ test('Codex dispatch policy retains credit balance alongside exhausted subscript
 });
 
 test('Dispatch criteria hashes round-trip as strings or per-agent maps in both views',async()=>{
-  // Regression: passing the criteriaHash string returned by dispatch_policy failed with INVALID_ARGUMENTS.
+  // Recurring bug class: passing the criteriaHash string returned by dispatch_policy failed with INVALID_ARGUMENTS.
   const directory=await mkdtemp(path.join(tmpdir(),'arc-policy-hash-'));
   const state=path.join(directory,'state');
   const policy=path.join(state,'dispatch-policy.json');
@@ -71,7 +71,7 @@ for await(const line of createInterface({input:process.stdin})) {
 
 
 test('Decision policy folds sparse dispatches without losing full history or selection constraints',async()=>{
-  // Regression: review of 136285a8 found structured per-model decision rows regressed mandatory dispatch-read token budgets.
+  // Recurring bug class: review of 136285a8 found structured per-model decision rows regressed mandatory dispatch-read token budgets.
   const directory=await mkdtemp(path.join(tmpdir(),'arc-policy-decision-'));
   const state=path.join(directory,'state');
   const criteria='Selection guidance. '.repeat(145);
@@ -150,7 +150,7 @@ async function formattedPolicy(fixture:Awaited<ReturnType<typeof nativeControl>>
 }
 
 test('Criteria replacement preserves other scopes and settings and exposes the active policy and formatted backup',async()=>{
-  // Regression: agents could read criteria but had no write op or active policy path and nearly selected stale acceptance backups.
+  // Recurring bug class: agents could read criteria but had no write op or active policy path and nearly selected stale acceptance backups.
   const fixture=await nativeControl(policyServer);
   try {
     const initial=await fixture.call('dispatch_policy',{agent:'codex',all:true});
@@ -223,7 +223,7 @@ test('Policy update uses the act and CLI envelopes with guarded error codes and 
 });
 
 test('Concurrent policy replacements reject stale hashes without modifying policy or backup and backup failures preserve policy',async()=>{
-  // Regression: a read-then-manual-write workflow could overwrite concurrent criteria changes or lose the prior policy.
+  // Recurring bug class: a read-then-manual-write workflow could overwrite concurrent criteria changes or lose the prior policy.
   const fixture=await nativeControl(policyServer);
   try {
     const initial=await fixture.call('dispatch_policy',{agent:'pi',all:true});
@@ -278,7 +278,7 @@ test('Pack updates use guarded hashes and appear in both dispatch_policy views',
 });
 
 test('Pack dispatch appends its block once and ranks its defaults below explicit choices',async()=>{
-  // Property: a selected pack appends one delimited block after the caller prompt, supplies pack-default values only where arguments are omitted, and returns its review with the turn.
+  // Algorithmic core: a selected pack appends one delimited block after the caller prompt, supplies pack-default values only where arguments are omitted, and returns its review with the turn.
   const directory=await mkdtemp(path.join(tmpdir(),'arc-pack-'));
   const log=path.join(directory,'turns.jsonl');
   const fixture=await nativeControl(packServer,{ARC_PACK_LOG:log});

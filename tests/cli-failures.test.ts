@@ -4,7 +4,7 @@ import {nativeControl} from './helpers/native-control.ts';
 import {assertNextCalls} from './helpers/continuations.ts';
 
 test('Direct CLI failures retain schema-valid recovery and fail the process', {skip:process.platform==='win32'},async()=>{
-  // Regression: seven direct CLI failures discarded next while receipt failures preserved it.
+  // Recurring bug class: seven direct CLI failures discarded next while receipt failures preserved it.
   const fixture=await nativeControl(`import {createInterface} from 'node:readline';
 for await(const line of createInterface({input:process.stdin})) {
  const {id,method}=JSON.parse(line);if(id===undefined)continue;
@@ -38,7 +38,7 @@ for await(const line of createInterface({input:process.stdin})) {
 
 
 test('Resume guide and validation retain the interrupted-turn guard and receipt contract',async()=>{
-  // Regression: codex_resume described an optional active turn despite requiring an interrupted ID and retaining durable receipts.
+  // Recurring bug class: codex_resume described an optional active turn despite requiring an interrupted ID and retaining durable receipts.
   const fixture=await nativeControl('');
   try {
     const guide=await fixture.call('guide',{op:'codex_resume'});
@@ -52,7 +52,7 @@ test('Resume guide and validation retain the interrupted-turn guard and receipt 
 
 
 test('Interrupted task reads and waits succeed through the CLI envelope',async()=>{
-  // Regression: normal interruption was presented as OPERATION_FAILED with CLI exit 1.
+  // Recurring bug class: normal interruption was presented as OPERATION_FAILED with CLI exit 1.
   const threadId='00000000-0000-4000-8000-000000000005';
   const turnId='00000000-0000-4000-8000-000000000006';
   const fixture=await nativeControl(`import {createInterface} from 'node:readline';

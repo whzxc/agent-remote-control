@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { timelineLink, timelineUrl } from "../ui/state/timelineLinks.ts";
 
 test("message file references resolve without navigating to the UI origin", () => {
-  // Regression: local Markdown images and source links were treated as UI routes.
+  // Recurring bug class: local Markdown images and source links were treated as UI routes.
   for (const [source, target] of [
     ["/tmp/example%20image.png", "/tmp/example image.png"],
     ["src/main.rs:24:3", "src/main.rs"],
@@ -15,7 +15,7 @@ test("message file references resolve without navigating to the UI origin", () =
 });
 
 test("supported external protocols and fragments retain their destinations", () => {
-  // Property: supported message destinations are not rewritten as local paths.
+  // Algorithmic core: supported message destinations are not rewritten as local paths.
   for (const target of ["https://example.com/a?q=1#b", "http://localhost:1234/", "mailto:user@example.com", "codex://threads/example", "vscode://file/example", "agent-remote-control://example"]) {
     assert.deepEqual(timelineLink(target), { kind: "external", target });
     assert.equal(timelineUrl(target), target);
@@ -25,7 +25,7 @@ test("supported external protocols and fragments retain their destinations", () 
 });
 
 test("executable URLs and unsupported resource protocols are not activated", () => {
-  // Property: message URL mapping rejects executable and unsupported schemes.
+  // Algorithmic core: message URL mapping rejects executable and unsupported schemes.
   for (const value of ["javascript:alert(1)", "JaVaScRiPt:alert(1)", "vbscript:foo", "data:text/html,hello", "data:image/svg+xml,<svg/>", "sandbox:/mnt/data/image.png", "file://another-host/path", "java\tscript:alert(1)"]) {
     assert.equal(timelineLink(value), undefined);
     assert.equal(timelineUrl(value), "");

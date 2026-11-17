@@ -6,7 +6,7 @@ import { act, createElement as h } from "react";
 import { within, fireEvent } from "@testing-library/dom";
 
 test("dock interaction pauses routing and explicit controls preserve answering", async () => {
-  // Regression: pending questions routed during answering; stable routing labels appeared twice in DOM fixture captures.
+  // Recurring bug class: pending questions routed during answering; stable routing labels appeared twice in DOM fixture captures.
   const window = new Window({ url: "http://localhost" });
   const media = { matches: true, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} };
   window.matchMedia = () => media as unknown as MediaQueryList;

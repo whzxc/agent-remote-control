@@ -6,7 +6,7 @@ import { act, createElement as h } from "react";
 import { within } from "@testing-library/dom";
 
 test("invalid task identities stay local and valid identities recover detail requests", { timeout: 10000 }, async () => {
-  // Regression: id:null activity sessions sent invalid detail, queue, presence, review and routing requests before metadata loaded.
+  // Recurring bug class: id:null activity sessions sent invalid detail, queue, presence, review and routing requests before metadata loaded.
   const window = new Window({ url: "http://localhost" });
   window.localStorage.setItem("arc.privacy", "false");
   class Observer { observe() {} unobserve() {} disconnect() {} }

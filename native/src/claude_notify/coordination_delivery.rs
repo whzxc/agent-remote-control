@@ -432,7 +432,7 @@ mod tests {
     }
     #[test]
     fn coordination_fallback_ranks_verification_and_refuses_ties() {
-        // Regression: ax-4e72538c verified notification bindings were pull-only unless separately registered for coordination.
+        // Recurring bug class: ax-4e72538c verified notification bindings were pull-only unless separately registered for coordination.
         let (mut state, _, authority) = fixture();
         state.targets[0].registered = false;
         state.targets[0].reachability.verified_at = 10;
@@ -473,7 +473,7 @@ mod tests {
         assert!(resolve(&state, "peer", &authority, None).route.is_none());
     }
     #[test]
-    // Regression: ax-ce733eee registration could not select its verified conversation among several targets.
+    // Recurring bug class: ax-ce733eee registration could not select its verified conversation among several targets.
     fn registration_target_requires_source_ownership_and_current_verification() {
         let (mut state, first, authority) = fixture();
         let mut second = state.targets[0].clone();
@@ -501,7 +501,7 @@ mod tests {
             .is_none());
     }
     #[test]
-    // Regression: ax-ce733eee effective capability stayed proactive after its route lost verification.
+    // Recurring bug class: ax-ce733eee effective capability stayed proactive after its route lost verification.
     fn effective_route_revalidates_and_unbinding_restores_only_unique_fallback() {
         let (mut state, first, authority) = fixture();
         assert_eq!(

@@ -456,7 +456,7 @@ mod tests {
 
     #[tokio::test]
     async fn deployment_waits_for_the_current_worker_version_after_route_propagation() {
-        // Regression: 42f9056; deployment waits for the current worker version after route propagation.
+        // Recurring bug class: 42f9056; deployment waits for the current worker version after route propagation.
         crate::init_crypto();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
@@ -585,7 +585,7 @@ mod tests {
 
     #[tokio::test]
     async fn cancellation_drops_the_local_http_connection() {
-        // Regression: relay cancellation must close the outstanding local HTTP request.
+        // Recurring bug class: relay cancellation must close the outstanding local HTTP request.
         crate::init_crypto();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
@@ -629,7 +629,7 @@ mod tests {
     }
     #[tokio::test]
     async fn websocket_upgrade_uses_the_http_client_proxy() {
-        // Regression: WebSocket upgrade must follow the configured HTTP proxy.
+        // Recurring bug class: WebSocket upgrade must follow the configured HTTP proxy.
         crate::init_crypto();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();

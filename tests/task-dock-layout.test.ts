@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import copy from "../ui/locales/en.json" with { type: "json" };
 
 test("pending input actions and routing stay inside short panels and narrow sheets while content scrolls", { timeout: 30000 }, async () => {
-  // Regression: pending input clipped actions and previews; raw fixture snapshots exposed unnamed Radix form radios.
+  // Recurring bug class: pending input clipped actions and previews; raw fixture snapshots exposed unnamed Radix form radios.
   // Compile the DOM fixture with the app’s React and utility-CSS plugins. No app, dev server or Core is started.
   const built = await build({ configFile: false, logLevel: "error", plugins: [react(), tailwindcss()],
     define: { __CONNECTOR_VERSION__: JSON.stringify("test"), "process.env.NODE_ENV": JSON.stringify("production") },

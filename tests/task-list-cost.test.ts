@@ -5,7 +5,7 @@ import { mkdir, writeFile, appendFile, rename, rm, open, utimes, type FileHandle
 import path from 'node:path';
 import { nativeControl } from './helpers/native-control.ts';
 test('archived task filters are discoverable and listing never needs live enrichment by default', async () => {
-  // Regression: archived task listing spent the live enrichment budget and omitted its filters from the shorthand.
+  // Recurring bug class: archived task listing spent the live enrichment budget and omitted its filters from the shorthand.
   const f=await nativeControl(`import{createInterface}from'node:readline';for await(const l of createInterface({input:process.stdin})){const{id,method,params}=JSON.parse(l);if(id===undefined)continue;process.stdout.write(JSON.stringify(method==='thread/list'?{id,result:{data:[{id:'example',name:params.searchTerm,archived:params.archived}],nextCursor:null}}:method==='initialize'?{id,result:{}}:{id,error:{code:-1,message:'Live read must not be needed'}})+'\\n');}`);
   try {
     const page=await f.call('codex_tasks',{archived:true,searchTerm:'needle'});
@@ -25,7 +25,7 @@ async function eventually(read: () => Promise<boolean>) {
 }
 
 test('cached task and status projections follow receipt replacement, runtime updates and deletion', async () => {
-  // Regression: AX-23 idle projection reuse must preserve task freshness after real state changes.
+  // Recurring bug class: AX-23 idle projection reuse must preserve task freshness after real state changes.
   const f = await nativeControl('');
   const requestId = randomUUID(), threadId = randomUUID();
   let directory = '';
@@ -58,7 +58,7 @@ test('cached task and status projections follow receipt replacement, runtime upd
 });
 
 test('activity discovery finds a new transcript root and follows append and removal', async () => {
-  // Regression: AX-23 skipping unchanged historical directory walks must still discover newly created sessions and terminal changes.
+  // Recurring bug class: AX-23 skipping unchanged historical directory walks must still discover newly created sessions and terminal changes.
   const f = await nativeControl('');
   const thread = randomUUID();
   let sessions = '';
@@ -85,7 +85,7 @@ test('activity discovery finds a new transcript root and follows append and remo
 });
 
 test('activity rediscovers a resumed Codex session while its writer remains open', async () => {
-  // Regression: macOS defers append notifications for an open rollout that aged out of activity polling.
+  // Recurring bug class: macOS defers append notifications for an open rollout that aged out of activity polling.
   const f = await nativeControl('');
   const id = randomUUID();
   const event = (type: string, turn_id: string) => JSON.stringify({
@@ -120,7 +120,7 @@ test('activity rediscovers a resumed Codex session while its writer remains open
 });
 
 test('memoized task projections retain fallback metadata and recover repaired receipts', async () => {
-  // Regression: AX-23 one malformed historical receipt disabled task/status memoization until restart.
+  // Recurring bug class: AX-23 one malformed historical receipt disabled task/status memoization until restart.
   const f = await nativeControl('');
   const requestId = randomUUID(), repairedId = randomUUID(), threadId = randomUUID();
   let directory = '';

@@ -133,7 +133,7 @@ mod tests {
     use super::*;
     #[test]
     fn private_host_unreachable_results_explain_macos_execution_attribution() {
-        // Regression: ax-27b483b8 native Node LAN failures returned EHOSTUNREACH without a permission or execution-host hint.
+        // Recurring bug class: ax-27b483b8 native Node LAN failures returned EHOSTUNREACH without a permission or execution-host hint.
         let args = json!({"command":["node","-e","fetch('http://192.168.50.10/')"]});
         let output = json!({"stdout":"EHOSTUNREACH","stderr":"","exitCode":0});
         let hint = local_network_hint(&output, &args).unwrap();

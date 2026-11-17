@@ -6,7 +6,7 @@ import { act, createElement as h } from "react";
 import { within } from "@testing-library/dom";
 
 test("cancelled queue messages leave task details while pending and failed messages remain", async () => {
-  // Regression: cancelled follow-ups stayed below every later turn in task details.
+  // Recurring bug class: cancelled follow-ups stayed below every later turn in task details.
   const window = new Window({ url: "http://localhost" });
   Object.assign(globalThis, { window, document: window.document, localStorage: window.localStorage, IS_REACT_ACT_ENVIRONMENT: true });
   const server = await createServer({ configFile: false, server: { middlewareMode: true, watch: null, ws: false } });

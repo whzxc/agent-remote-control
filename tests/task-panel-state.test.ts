@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {nativeControl} from './helpers/native-control.ts';
 test('Small task-panel state stays inline when the transcript requires pagination',async()=>{
-  // Regression: reading follow and width required paging through a large task transcript.
+  // Recurring bug class: reading follow and width required paging through a large task transcript.
   const fixture=await nativeControl('',{ARC_FIXTURE_SNAPSHOT:'1'});
   const args={agent:'codex',id:'00000000-0000-4000-8000-000000000004'};
   try {

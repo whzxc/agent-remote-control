@@ -685,7 +685,7 @@ mod navigation_tests {
     use super::*;
     #[test]
     fn adapters_build_links_only_from_valid_task_ids() {
-        // Property: adapters build links only from valid task ids.
+        // Algorithmic core: adapters build links only from valid task ids.
         let task = "11111111-1111-4111-8111-111111111111";
         assert_eq!(
             AgentDriver::CodexNative.deep_link(task).as_deref(),

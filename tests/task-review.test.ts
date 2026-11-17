@@ -6,7 +6,7 @@ import { act, createElement as h } from "react";
 import { within, fireEvent } from "@testing-library/dom";
 
 test("terminal task reviews load automatically and retry without changing execution results", async () => {
-  // Regression: f368ed92 replaced automatic terminal review reads with a disclosure and an empty placeholder.
+  // Recurring bug class: f368ed92 replaced automatic terminal review reads with a disclosure and an empty placeholder.
   const window = new Window({ url: "http://localhost" });
   class Observer { observe() {} unobserve() {} disconnect() {} }
   Object.assign(globalThis, { window, document: window.document, location: window.location,

@@ -7,7 +7,7 @@ import { act, createElement as h } from 'react';
 import { within, fireEvent } from '@testing-library/dom';
 
 test('a downloaded update restarts directly from its button', { timeout: 10000 }, async () => {
-  // Regression: a downloaded update entered task settling and a countdown instead of installing when clicked.
+  // Recurring bug class: a downloaded update entered task settling and a countdown instead of installing when clicked.
   const previousFetch = globalThis.fetch;
   const window = new Window({ url: 'http://localhost' });
   const media = { matches: true, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} };

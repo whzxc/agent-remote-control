@@ -875,7 +875,7 @@ mod tests {
 
     #[test]
     fn codex_activity_ignores_terminal_questions_without_dropping_late_answers() {
-        // Regression: an unanswered async question kept a completed Codex task Responding forever.
+        // Recurring bug class: an unanswered async question kept a completed Codex task Responding forever.
         for status in ["completed", "failed", "cancelled", "interrupted"] {
             let mut events = Events::default();
             let mut timeline = Timeline::default();
@@ -988,7 +988,7 @@ mod tests {
 
     #[test]
     fn codex_list_recovers_the_exact_turn_context_beyond_the_tail() {
-        // Regression: long Codex turns kept their elapsed time but lost the execution spec in history.
+        // Recurring bug class: long Codex turns kept their elapsed time but lost the execution spec in history.
         let (_directory, path, _now, at) = fixture();
         append(
             &path,
@@ -1027,7 +1027,7 @@ mod tests {
 
     #[test]
     fn codex_preview_reads_history_before_large_tool_output_without_desktop() {
-        // Regression: task cards showed only the headline until opening detail loaded Desktop history.
+        // Recurring bug class: task cards showed only the headline until opening detail loaded Desktop history.
         let (directory, path, _now, at) = fixture();
         append(
             &path,
@@ -1064,7 +1064,7 @@ mod tests {
 
     #[test]
     fn discovered_codex_detail_reads_rollout_without_desktop() {
-        // Regression: a discovered Codex task showed a Desktop timeout when opened.
+        // Recurring bug class: a discovered Codex task showed a Desktop timeout when opened.
         let (_directory, path, _now, at) = fixture();
         append(&path, &[json!({"timestamp":at,"type":"session_meta","payload":{"id":"session"}})]);
         append(&path, &prompt("codex", "turn", "Inspect the native history", &at));
@@ -1080,7 +1080,7 @@ mod tests {
 
     #[test]
     fn codex_subagent_nickname_survives_missing_prompt_and_tail_sampling() {
-        // Regression: native subagent tasks arrived as agent_message records and displayed an empty title.
+        // Recurring bug class: native subagent tasks arrived as agent_message records and displayed an empty title.
         let (directory, path, now, at) = fixture();
         let id = "00000000-0000-4000-8000-000000000001";
         let nickname = "Kepler";
@@ -1123,7 +1123,7 @@ mod tests {
 
     #[test]
     fn codex_subagent_parent_survives_tail_sampling() {
-        // Regression: subagent sessions lost their native parent and appeared as independent Agent tasks.
+        // Recurring bug class: subagent sessions lost their native parent and appeared as independent Agent tasks.
         let (directory, path, now, at) = fixture();
         append(
             &path,
@@ -1159,7 +1159,7 @@ mod tests {
 
     #[test]
     fn codex_side_chat_keeps_its_relationship_after_tail_sampling() {
-        // Regression: attached Codex side chats appeared as independent tasks with no relationship type.
+        // Recurring bug class: attached Codex side chats appeared as independent tasks with no relationship type.
         let (directory, path, now, at) = fixture();
         append(
             &path,
@@ -1184,7 +1184,7 @@ mod tests {
 
     #[test]
     fn first_prompt_survives_large_initial_transcripts_and_appends() {
-        // Regression: f10de3bb selected a later prompt as the title after skipping the first 128 KiB of clock input.
+        // Recurring bug class: f10de3bb selected a later prompt as the title after skipping the first 128 KiB of clock input.
         for agent in ["claude", "codex"] {
             let (directory, path, now, at) = fixture();
             append(&path, &prompt(agent, "first", "Original request", &at));
@@ -1208,7 +1208,7 @@ mod tests {
 
     #[test]
     fn claude_titles_use_first_prompt_and_native_names_across_compaction() {
-        // Regression: multiline first prompts used their last line, and activity ignored custom titles and index cleaning.
+        // Recurring bug class: multiline first prompts used their last line, and activity ignored custom titles and index cleaning.
         let (directory, path, now, at) = fixture();
         append(
             &path,
@@ -1247,7 +1247,7 @@ mod tests {
 
     #[test]
     fn claude_history_retains_the_activity_dispatch_spec_for_each_turn() {
-        // Regression: external Claude detail lost the activity model after the timeline response loaded.
+        // Recurring bug class: external Claude detail lost the activity model after the timeline response loaded.
         let (directory, path, now, at) = fixture();
         for (turn, model, effort) in [
             ("first", "model-one", "high"),
@@ -1283,7 +1283,7 @@ mod tests {
 
     #[test]
     fn codex_early_thread_tier_survives_large_rollouts_and_later_turns() {
-        // Regression: f10de3bb skipped early thread_settings_applied and lost Fast tier from long Codex session summaries.
+        // Recurring bug class: f10de3bb skipped early thread_settings_applied and lost Fast tier from long Codex session summaries.
         let (directory, path, now, at) = fixture();
         append(
             &path,
@@ -1313,7 +1313,7 @@ mod tests {
 
     #[test]
     fn single_long_turn_keeps_session_and_turn_start_and_count() {
-        // Regression: f10de3bb cleared turn clocks and omitted turnCount after a single turn grew beyond 128 KiB.
+        // Recurring bug class: f10de3bb cleared turn clocks and omitted turnCount after a single turn grew beyond 128 KiB.
         for agent in ["claude", "codex"] {
             let (directory, path, now, at) = fixture();
             append(&path, &prompt(agent, "only-turn", "Inspect files", &at));
@@ -1335,7 +1335,7 @@ mod tests {
 
     #[test]
     fn codex_activity_keeps_its_sample_while_the_rollout_grows() {
-        // Regression: appends during activity sampling dropped the running turn from the snapshot.
+        // Recurring bug class: appends during activity sampling dropped the running turn from the snapshot.
         let (directory, path, now, at) = fixture();
         append(&path, &prompt("codex", "previous", "Inspect files", &at));
         let end = |turn: &str| json!({"timestamp":at,"type":"event_msg","payload":{"type":"task_complete","turn_id":turn}});
@@ -1361,7 +1361,7 @@ mod tests {
 
     #[test]
     fn activity_polls_preserve_unfinished_work_until_a_terminal_event() {
-        // Regression: the two-second activity poll reopened every recent rollout and the entire title index.
+        // Recurring bug class: the two-second activity poll reopened every recent rollout and the entire title index.
         let dir = Sandbox(std::env::temp_dir().join(format!("arc-activity-cache-{}", id())));
         let sessions = dir.0.join("sessions");
         std::fs::create_dir_all(sessions.join("day")).unwrap();

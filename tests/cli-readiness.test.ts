@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {nativeControl} from './helpers/native-control.ts';
 
 for(const surface of ['native','scenario']) test(`The documented ${surface} readiness command waits through POST model snapshots`, {skip:process.platform==='win32'}, async()=>{
-  // Regression: the documented scenario wait timed out on ordinary native pages where scenario is null.
+  // Recurring bug class: the documented scenario wait timed out on ordinary native pages where scenario is null.
   const fixture=await nativeControl('',{ARC_FIXTURE_SNAPSHOT:surface});
   try {
     const docs=await readFile('docs/reference/cli.md','utf8');
@@ -20,7 +20,7 @@ for(const surface of ['native','scenario']) test(`The documented ${surface} read
 
 
 test('Agents can invoke the absolute CLI path returned by guide and status without an arc shim', {skip:process.platform==='win32'},async()=>{
-  // Regression: agents had to guess the application bundle executable because arc was absent from PATH.
+  // Recurring bug class: agents had to guess the application bundle executable because arc was absent from PATH.
   const {isAbsolute}=await import('node:path');
   const {execFileSync}=await import('node:child_process');
   const fixture=await nativeControl('');
