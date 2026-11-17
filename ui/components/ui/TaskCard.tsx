@@ -30,8 +30,8 @@ const phaseInk: Partial<Record<AgentPhase, string>> = {
   thinking: 'var(--phase-thinking)', tool: 'var(--phase-tool)', text: 'var(--phase-text)',
   command: 'var(--phase-command)', file: 'var(--phase-file)',
 };
-const SnapshotMarkdown = memo(function SnapshotMarkdown({ text }: { text: string }) {
-  return <div className="task-snapshot-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml disallowedElements={['img']}
+const SnapshotMarkdown = memo(function SnapshotMarkdown({ text, excerpt = false }: { text: string; excerpt?: boolean }) {
+  return <div className={excerpt ? 'task-snapshot-markdown task-excerpt-text' : 'task-snapshot-markdown'}><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml disallowedElements={['img']}
     components={{ a: ({ children }) => <span>{children}</span> }}>{text}</ReactMarkdown></div>;
 });
 
@@ -164,7 +164,7 @@ function TaskCardPreview({ task, now, rows, notice, compact, lineCount, pending,
           {fallback ? <div className="task-excerpt-text">{fallback}</div> : recent.map(row => row.role === 'step'
             ? <div key={row.id} className="task-excerpt-step"><Icon icon={taskPhaseIcons[row.kind ?? 'running']} size={12} />
               <span>{row.kind === 'thinking' ? thoughtLine(row.text) : row.text}</span></div>
-            : <div key={row.id} className="task-excerpt-text"><SnapshotMarkdown text={row.text.slice(0, 600)} /></div>)}
+            : <SnapshotMarkdown key={row.id} excerpt text={row.text.slice(0, 600)} />)}
         </div>{failed && <Button variant="link" className="task-excerpt-retry" onClick={retry}><Icon icon={RotateCcw} size={12} />{t('retry')}</Button>}</>}
     </div>;
   }

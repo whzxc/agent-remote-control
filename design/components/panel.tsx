@@ -21,6 +21,7 @@ export function Panel({
   viewportWidth = 1280,
   headerless = false,
   roomyHeader = false,
+  transparent = false,
   headerHeight,
   height,
 }: {
@@ -39,13 +40,14 @@ export function Panel({
   viewportWidth?: number;
   headerless?: boolean;
   roomyHeader?: boolean;
+  transparent?: boolean;
   headerHeight?: number;
   height?: number;
 }) {
   return (
     <section
       style={{ height, width: viewportHeight && (viewportWidth < 760 || viewportHeight > viewportWidth) ? `calc(${viewportWidth}px - 2 * var(--layer-side-margin))` : `var(--layer-${size ?? (kind === "panel" ? "xl" : "m")})`, "--layer-retained-height": retainedHeight ? `${retainedHeight}px` : "0px", "--layer-viewport-height": viewportHeight ? `${viewportHeight}px` : undefined, "--layer-frame-top": "var(--layer-top-browser)", "--layer-frame-bottom": `var(${kind === "panel" ? "--layer-panel-bottom" : "--layer-side-margin"})` }}
-      class={`flex min-h-(--layer-retained-height) flex-col rounded-panel bg-surface-raised pb-6 px-6 text-text shadow-lg
+      class={`flex min-h-(--layer-retained-height) flex-col rounded-panel ${transparent ? "bg-transparent backdrop-blur-[24px]" : "bg-surface-raised"} pb-6 px-6 text-text shadow-lg
         mx-auto max-w-[calc(100%_-_2_*_var(--layer-side-margin))]! max-h-[calc(100%_-_var(--layer-top)_-_var(--layer-frame-bottom))]!
         ${viewportHeight ? "max-h-[calc(var(--layer-viewport-height)_-_var(--layer-frame-top)_-_var(--layer-frame-bottom))]!" : ""}
         max-w-full [&>header]:shrink-0

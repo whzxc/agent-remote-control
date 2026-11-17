@@ -107,7 +107,7 @@ export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
           {grid(items, day === today)}
         </TaskFeedSection>;
       })}
-    <PanelRoute value={family} identity={item => item.parent.key}>{family => <Panel size="m" title={t('homepage.subagents')} description={taskTitle(family.parent)}
+    <PanelRoute value={family} identity={item => item.parent.key}>{family => <Panel size="m" className="task-family-panel" title={taskTitle(family.parent)}
       returnFocus={`[data-task-snapshot="${CSS.escape(family.parent.key)}"] [data-children]`}
       initialFocus={returnChild ? `subagent-${returnChild}` : undefined}
       onClose={() => setFamilyKey(undefined)}>

@@ -23,6 +23,7 @@
 :is(.layer-dialog, .layer-panel) > .layer-content > .setup-steps { flex: none; margin: 0; }
 :is(.layer-dialog, .layer-panel) > .layer-content > .setup-return, :is(.layer-dialog, .layer-panel) > .layer-content > .setup-context { flex: none; margin: 0; }
 
+.dialog.layer-panel.task-family-panel { background: transparent; backdrop-filter: blur(24px); }
 .layer-panel > .layer-content > .dialog-header .panel-title { flex: 0 1 auto; }
 .layer-panel > .layer-content > .dialog-header .actions { margin-left: auto; }
 

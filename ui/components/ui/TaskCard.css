@@ -80,12 +80,15 @@
 .task-detail-header > .task-card-header { padding-inline: 0; }
 .task-card-origin-node, .task-empty-body > span { display: inline-flex; align-items: center; gap: 4px; }
 .task-card-origin-node { font-size: var(--text-caption); font-weight: 600; white-space: nowrap; }
-.task-card-excerpt { flex: 1; justify-content: flex-start; min-height: 0; box-sizing: border-box; padding: 8px 12px; }
+.task-card-excerpt { flex: 1; justify-content: flex-start; min-height: 0; box-sizing: border-box; padding: 12px; }
+.task-card[data-grid][data-form=detail]:not(:has(.task-card-footer)) > .task-card-header { padding-bottom: 16px; }
 .task-card-excerpt:has(+ .task-card-footer) { margin-bottom: 6px; }
 .task-excerpt-lines { display: flex; flex-direction: column; justify-content: flex-end; max-height: calc(var(--excerpt-lines) * 20px); overflow: hidden; font-size: var(--text-meta); line-height: 20px; }
 .task-excerpt-lines > * { flex: none; }
 .task-excerpt-text { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--excerpt-lines); max-height: calc(var(--excerpt-lines) * 20px); overflow: hidden; overflow-wrap: anywhere; white-space: pre-line; }
-.task-excerpt-text .task-snapshot-markdown > * + * { margin-top: 0; }
+.task-excerpt-text.task-snapshot-markdown { white-space: normal; }
+.task-excerpt-text.task-snapshot-markdown :is(p, h1, h2, h3, h4, h5, h6, ul, ol, pre, blockquote, table) { margin-block: 0; font-size: inherit; line-height: inherit; }
+.task-excerpt-text.task-snapshot-markdown :is(pre, code) { white-space: normal; }
 .task-excerpt-retry { align-self: flex-start; }
 .task-excerpt-step { display: flex; align-items: center; gap: 6px; }
 .task-excerpt-step > svg { flex: none; }
@@ -96,6 +99,7 @@
 
 .task-child-heading > span, .task-child-description { color: var(--text-secondary); font-size: var(--text-caption); }
 .task-child-row { width: 100%; padding: 10px 12px; gap: 4px; text-align: start; cursor: pointer; }
+.task-child-row:not([data-aurora]) { background: transparent; box-shadow: none; }
 .task-child-heading { display: flex; align-items: center; gap: 8px; }
 .task-child-heading > strong, .task-child-description { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .task-child-heading > span, .task-child-heading > svg { flex: none; }

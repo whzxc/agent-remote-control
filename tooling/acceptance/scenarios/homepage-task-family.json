@@ -54,7 +54,7 @@
       "historyDate": "2026-11-17T03:35:00Z",
       "turnCount": 3,
       "title": "验证安装后的升级流程",
-      "finalAnswer": "安装和升级均已通过。重启后保留了已有配置，也能继续打开之前的会话。",
+      "finalAnswer": "## 安装和升级均已通过。\n\n- 重启后保留了已有配置。\n- 可以继续打开之前的会话。",
       "elapsedSeconds": 190,
       "projectName": "desktop",
       "spec": {

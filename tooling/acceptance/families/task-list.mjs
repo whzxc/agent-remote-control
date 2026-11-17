@@ -81,12 +81,13 @@ async function verifyGroupedTasks(page, fixture) {
     const footer = preview.nextElementSibling;
     const lines = getComputedStyle(preview.querySelector('.task-excerpt-lines'));
     return {
+      padding: getComputedStyle(preview).padding,
       budget: parseFloat(lines.maxHeight) / parseFloat(lines.lineHeight),
       expected: footer || preview.querySelector('.task-excerpt-retry') ? 3 : 4,
       bottomInset: preview.parentElement.getBoundingClientRect().bottom - (footer ?? preview).getBoundingClientRect().bottom,
     };
   }));
-  if (previews.some(item => item.budget !== item.expected || Math.round(item.bottomInset) !== 11)) throw new Error('Activity lines must fill the card above its footer or bottom inset.');
+  if (previews.some(item => item.padding !== '12px' || item.budget !== item.expected || Math.round(item.bottomInset) !== 11)) throw new Error('Activity lines must fill the card above its footer or bottom inset.');
 
   const past = feed.getByRole('region', { name: '昨天', exact: true }).getByRole('article');
   if ((await past.boundingBox()).height >= heights[0] || await past.getByRole('region').count()) throw new Error('Earlier dates must use compact metadata cards.');
@@ -97,13 +98,19 @@ async function verifyGroupedTasks(page, fixture) {
   if ((await spec.boundingBox()).height !== (await project.boundingBox()).height) throw new Error('Metadata chips must share a height.');
   const history = feed.getByRole('article', { name: fixture.tasks[1].title, exact: true });
   await history.scrollIntoViewIfNeeded();
-  await history.getByText(fixture.tasks[1].finalAnswer, { exact: true }).waitFor();
+  const heading = history.getByRole('heading', { name: '安装和升级均已通过。', exact: true });
+  await heading.waitFor();
+  const list = history.locator('.task-excerpt-text ul');
+  const headingBox = await heading.boundingBox(), listBox = await list.boundingBox();
+  if (!listBox || Math.abs(listBox.y - headingBox.y - headingBox.height) > 1) throw new Error('Markdown headings and lists must occupy consecutive preview lines.');
   const failed = feed.getByRole('article', { name: fixture.tasks[4].title, exact: true });
   await failed.scrollIntoViewIfNeeded();
   await failed.getByRole('button', { name: '重试' }).click();
   await failed.getByText(fixture.tasks[4].finalAnswer, { exact: true }).waitFor();
   await children.click();
-  const panel = page.getByRole('dialog', { name: '子任务', exact: true });
+  const panel = page.getByRole('dialog', { name: fixture.tasks[0].title, exact: true });
+  await panel.getByRole('heading', { name: fixture.tasks[0].title, exact: true }).waitFor();
+  if (await panel.locator('.dialog-description').count() || await panel.evaluate(el => getComputedStyle(el).backgroundColor) !== 'rgba(0, 0, 0, 0)') throw new Error('Child list must use a transparent panel with a single parent title.');
   const row = panel.getByRole('button', { name: /核对重试上限/ });
   await row.click();
   const detail = page.getByRole('dialog', { name: 'Curie', exact: true });

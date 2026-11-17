@@ -80,7 +80,7 @@ export function GroupedTaskCard({ task }: { task: ListExample }) {
       <DispatchSpec model={task.model} position={{ count: 4, index: 2 }} tier={task.tier ?? "Fast"} fast />
       <ProjectLabel name={task.project} /><span class="text-caption text-text-tertiary">{task.turns} 轮</span>
     </div>
-    <div class="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-field bg-surface-subtle px-3 py-2">
+    <div class="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-field bg-surface-subtle p-3">
       {emptyState ? <EmptyTaskBody state={emptyState} />
         : <p class={`text-meta leading-5 text-text whitespace-pre-line ${task.preview === 'activity' ? 'truncate' : task.children?.length ? 'line-clamp-3' : 'line-clamp-4'}`}>{task.excerpt}</p>}
     </div>
@@ -93,12 +93,9 @@ export function GroupedTaskCard({ task }: { task: ListExample }) {
 }
 
 export function ChildTaskList({ task }: { task: ListExample }) {
-  return <Panel size="m" title="子任务" viewportHeight={640}>
-    <div class="mb-3 flex items-center gap-2 border-b border-border pb-4 text-small text-text-secondary">
-      <Icon name="git-fork" size={15} /><span>{task.title}</span>
-    </div>
+  return <Panel size="m" transparent title={task.title} viewportHeight={640}>
     <div class="flex flex-col gap-2">
-      {task.children?.map(child => <button style={{ '--aurora-tint': 'var(--phase-thinking)' }} class={`flex w-full items-center gap-3 rounded-card border px-3 py-2 text-left ${child.state === 'running' ? aurora : 'border-border bg-surface'}`}>
+      {task.children?.map(child => <button style={{ '--aurora-tint': 'var(--phase-thinking)' }} class={`flex w-full items-center gap-3 rounded-card border px-3 py-2 text-left ${child.state === 'running' ? aurora : 'border-border bg-transparent'}`}>
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2"><span class="truncate text-body font-semibold text-text">{child.assignment}</span><ListState state={child.state} /></div>
           <div class="mt-1 flex items-baseline gap-2 text-caption text-text-secondary">
