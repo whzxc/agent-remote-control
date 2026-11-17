@@ -35,11 +35,11 @@ Keep this file within 12,000 Unicode characters. Replace or move text to its own
 
 ## UI design
 
-- `design/` TSX is the visual authority. [Design sources](docs/dev/design.md) owns review; `design/implementation.json` owns counterparts; [Asset status](docs/dev/design-assets.md) owns proposals and gaps.
+- `design/` TSX is the visual authority. [Design sources](docs/dev/design.md) owns direction and review; `design/implementation.json` owns counterparts; [Asset status](docs/dev/design-assets.md) owns proposals, exceptions and gaps.
 - Follow the [ADG asset rules](https://github.com/whzxc/agent-design-gallery/blob/main/docs/asset-rules.md); they override conflicting local guidance. The [toolkit contract](https://github.com/whzxc/agent-design-gallery/blob/main/docs/design-toolkit.md) owns syntax and checks. Use global `adg` >=0.14.1; `adg check` MUST pass before committing.
 - Layout and behavior changes MAY be implemented directly. After user acceptance, update the owning TSX source for mapped appearance changes in the same task. Implementation removal or replacement MUST delete or rebind its counterpart in the same commit.
 - New directions and redesigns SHOULD start as proposed frames. Follow the [ADG review handoff](https://github.com/whzxc/agent-design-gallery/blob/main/docs/design-toolkit.md#review-handoff); keep proposals until implemented and bound. `adg compare` differences are review notes.
-- People annotate frames in ADG. Agents read `adg annotations --json`, map each annotation to its source and frame, edit that source, run `adg check` and report. People resolve annotations. Keep `adg diff --base=<start> --impacted` for before/after review of every changed frame. Follow the [review procedure](docs/dev/design.md#review-procedure).
+- People annotate ADG frames. Agents read `adg annotations --json`, map each to its source and frame, edit the source, run `adg check` and report. People resolve annotations. Keep `adg diff --base=<start> --impacted` for before/after review of every changed frame. Follow the [review procedure](docs/dev/design.md#review-procedure).
 
 ## UI implementation
 
