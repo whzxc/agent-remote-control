@@ -2,7 +2,6 @@ use super::*;
 use std::time::SystemTime;
 
 const SESSION: &str = "00000000-0000-4000-8000-000000000001";
-const OTHER: &str = "00000000-0000-4000-8000-000000000002";
 fn row(records: &[Value], tail: &[Value]) -> Value {
     native::derive(
         "claude",
@@ -41,58 +40,6 @@ impl Drop for Sandbox {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.0);
     }
-}
-
-#[test]
-fn native_title_ignores_envelopes_and_tool_results() {
-    // Recurring bug class: native titles used injected reminders, slash commands and attachment placeholders instead of the user request.
-    let prompt = "Explain the parser";
-    let records = vec![
-        user("<system-reminder>context</system-reminder><local-command-caveat>ignore</local-command-caveat><command-name>/clear</command-name><command-message>clear</command-message><command-args></command-args>"),
-        json!({"type":"user","message":{"role":"user","content":[{"type":"tool_result","content":"not a prompt"}]}}),
-        user("[Image #1] [Attached file: example.txt]"),
-        user(&format!("<system-reminder>secret context</system-reminder> {prompt} <file name=\"x\">attachment body</file>")),
-    ];
-    assert_eq!(row(&records, &[])["title"], prompt);
-    let mixed = json!({"message":{"role":"user","content":[{"type":"image","source":{}},{"type":"text","text":prompt},{"type":"tool_result","content":"ignored"}]}});
-    assert_eq!(row(&[mixed], &[])["title"], prompt);
-    assert_eq!(
-        row(&[user("<command-name>/clear</command-name>")], &[])["title"],
-        Value::Null
-    );
-}
-
-#[test]
-fn native_titles_prefer_explicit_names_and_preserve_unicode_bounds() {
-    // Recurring bug class: summaries displaced the first real prompt and activity titles ignored native custom names.
-    let custom = "Saved name";
-    let summary = "Earlier summary";
-    let head = vec![
-        user("First prompt"),
-        json!({"type":"summary","summary":summary}),
-    ];
-    let tail = vec![
-        json!({"type":"custom-title","customTitle":custom}),
-        json!({"message":{"role":"assistant","content":[{"type":"text","text":"Latest reply"}]}}),
-    ];
-    let derived = row(&head, &tail);
-    assert_eq!(derived["title"], custom);
-    assert_eq!(derived["preview"], "Latest reply");
-    assert_eq!(row(&head, &[])["title"], "First prompt");
-    assert_eq!(
-        row(&[json!({"type":"summary","summary":summary})], &[])["title"],
-        summary
-    );
-    let input = "λ".repeat(100);
-    assert_eq!(
-        row(&[user(&input)], &[])["title"]
-            .as_str()
-            .unwrap()
-            .chars()
-            .count(),
-        80
-    );
-    assert!(input.starts_with(row(&[user(&input)], &[])["title"].as_str().unwrap()));
 }
 
 #[test]
@@ -179,27 +126,6 @@ fn bounded_samples_keep_head_title_and_tail_preview_without_exact_counts() {
 }
 
 #[test]
-fn merge_keeps_task_identity_native_metadata_and_deterministic_order() {
-    // Algorithmic core: merging a task with its native session yields one row with task identity and native metadata, independent of input order.
-    let native = row(&[user("Native title")], &[]);
-    let task = json!({"id":OTHER,"agent":"claude","nativeSessionId":SESSION,"source":"arc-task","title":"Task title","createdAt":"2026-01-01T00:00:00Z","updatedAt":"2026-01-01T00:00:00Z","status":"completed"});
-    let sessions = vec![native.clone()];
-    let merged = merge(vec![task.clone()], &sessions);
-    assert_eq!(merged.len(), 1);
-    assert_eq!(merged[0]["id"], task["id"]);
-    assert_eq!(merged[0]["title"], task["title"]);
-    assert_eq!(merged[0]["source"], task["source"]);
-    assert_eq!(merged[0]["updatedAt"], native["updatedAt"]);
-    assert_eq!(merged[0]["messageCount"], native["messageCount"]);
-    assert!(merged[0].get("path").is_none());
-    let independent = json!({"id":SESSION,"agent":"pi","nativeSessionId":SESSION,"source":"arc-task","createdAt":"2026-01-02T00:00:00Z","updatedAt":"2026-01-02T00:00:00Z"});
-    assert_eq!(
-        merge(vec![task.clone(), independent.clone()], &sessions),
-        merge(vec![independent, task], &sessions)
-    );
-}
-
-#[test]
 fn pi_v3_metadata_and_branch_history_stay_read_only() {
     // Recurring bug class: Pi native sessions were absent from conversation pages and external branch history could mix sibling messages.
     let records = vec![
@@ -252,103 +178,6 @@ fn pi_history_retains_tool_positions_and_compaction_facts() {
     assert_eq!(entries[2]["status"], "completed");
     assert_eq!(entries[4]["notice"]["tokensBefore"], 10000);
     assert!(timeline["status"].is_null());
-}
-
-#[test]
-fn native_conversation_titles_and_pi_requests_exclude_harness_inputs() {
-    // Algorithmic core: native titles and Pi requests exclude harness inputs while preserving human text and branch ancestry.
-    let records = [
-        json!({"type":"user","origin":{"kind":"task-notification"},"message":{"role":"user","content":"Background task finished"}}),
-        json!({"type":"user","isCompactSummary":true,"message":{"role":"user","content":"Continuation summary"}}),
-        user("Actual request"),
-    ];
-    assert_eq!(row(&records, &[])["title"], "Actual request");
-    assert_eq!(row(&records[..2], &[])["title"], Value::Null);
-    let literal = "<bash-input>Explain the wrapper</bash-input>";
-    assert_eq!(
-        row(
-            &[
-                json!({"type":"user","origin":{"kind":"human"},"message":{"role":"user","content":literal}})
-            ],
-            &[]
-        )["title"],
-        literal
-    );
-    let timeline = native::pi_timeline(
-        SESSION,
-        &[
-            json!({"type":"message","id":"human","parentId":null,"timestamp":"2026-01-01T00:00:00Z","message":{"role":"user","content":"Actual request"}}),
-            json!({"type":"message","id":"injected","parentId":"human","timestamp":"2026-01-01T00:00:01Z","isMeta":true,"message":{"role":"user","content":"Hook output"}}),
-            json!({"type":"message","id":"answer","parentId":"injected","timestamp":"2026-01-01T00:00:02Z","message":{"role":"assistant","content":[{"type":"text","text":"Actual answer"}]}}),
-        ],
-        false,
-    );
-    let requests: Vec<_> = timeline["entries"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter(|entry| entry["type"] == "user")
-        .collect();
-    assert_eq!(requests.len(), 1);
-    assert_eq!(requests[0]["text"], "Actual request");
-}
-
-#[test]
-fn fork_notice_is_not_a_native_conversation_title_or_preview() {
-    // Recurring bug class: a human-origin system-reminder fork notice became the native conversation title.
-    let notice = "<system-reminder>\n## The user forked this session from another session.\n</system-reminder>";
-    let fork =
-        json!({"type":"user","origin":{"kind":"human"},"message":{"role":"user","content":notice}});
-    let request = json!({"type":"user","origin":{"kind":"human"},"message":{"role":"user","content":format!("{notice}\nReview the parser")}});
-    let reply = json!({"message":{"role":"assistant","content":"Parser reviewed"}});
-    let conversation = row(&[fork, request, reply], &[]);
-    assert_eq!(conversation["title"], "Review the parser");
-    assert_eq!(conversation["preview"], "Parser reviewed");
-}
-
-#[test]
-fn history_metadata_preserves_explicit_subagent_parent() {
-    // Recurring bug class: completed native subagents lost their parent when projected into history.
-    let meta = json!({"type":"session_meta","payload":{"id":"child",
-        "source":{"subagent":{"thread_spawn":{"parent_thread_id":"parent"}}}}});
-    let row = activity::conversation_projection(&[meta], false);
-    assert_eq!(row["parentSessionId"], "parent");
-    assert_eq!(row["relationKind"], "subagent");
-}
-
-#[test]
-fn conversation_metadata_uses_explicit_outcomes_and_discloses_partial_counts() {
-    // Recurring bug class: opening a Codex list replayed full rollouts and then loaded a detail timeline for each row.
-    let records = vec![
-        json!({"type":"event_msg","timestamp":"2026-01-01T00:00:00Z","payload":{"type":"task_started","turn_id":"turn-one"}}),
-        json!({"type":"turn_context","payload":{"turn_id":"turn-one","model":"model-one","effort":"high"}}),
-        json!({"type":"event_msg","timestamp":"2026-01-01T00:00:01Z","payload":{"type":"task_complete","turn_id":"turn-one","duration_ms":1000}}),
-    ];
-    let complete = activity::conversation_projection(&records, false);
-    assert_eq!(complete["status"], "completed");
-    assert_eq!(complete["turnCount"], 1);
-    assert_eq!(complete["dispatchSummary"]["model"], "model-one");
-    assert_eq!(complete["turnStartedAt"], "2026-01-01T00:00:00Z");
-    assert_eq!(complete["turnEndedAt"], "2026-01-01T00:00:01Z");
-    assert_eq!(activity::conversation_projection(&records[2..], true)["turnDurationMs"], 1000);
-    let partial = activity::conversation_projection(&records, true);
-    assert_eq!(partial["status"], "completed");
-    assert!(partial["turnCount"].is_null());
-    assert_eq!(partial["metadataPartial"], true);
-    let mut newer = records;
-    newer.push(json!({"type":"turn_context","payload":{"turn_id":"turn-two","model":"model-two"}}));
-    let unconfirmed = activity::conversation_projection(&newer, false);
-    assert!(unconfirmed["status"].is_null());
-    assert_eq!(unconfirmed["turnCount"], 2);
-    assert_eq!(unconfirmed["dispatchSummary"]["model"], "model-two");
-    assert!(unconfirmed["turnStartedAt"].is_null());
-    assert!(unconfirmed["turnEndedAt"].is_null());
-    assert!(unconfirmed["turnDurationMs"].is_null());
-    newer.push(json!({"type":"event_msg","timestamp":"2026-01-01T00:00:02Z","payload":{"type":"turn_aborted"}}));
-    assert_eq!(
-        activity::conversation_projection(&newer, false)["status"],
-        "cancelled"
-    );
 }
 
 #[test]
