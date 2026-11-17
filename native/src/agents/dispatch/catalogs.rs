@@ -321,10 +321,9 @@ pub(super) fn acp_models(options: &Value, agent: &str) -> Vec<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
     #[test]
     fn catalog_metadata_never_infers_from_ids_or_brands() {
-        // Algorithmic core: opaque identities and brand-like names cannot supply absent native metadata.
+        // Algorithmic core: catalog metadata inference policy
         for id in [
             "vendor/model-128k",
             "[\"profile\", \"gpt-model\"]",
@@ -345,14 +344,9 @@ mod tests {
             }
         }
     }
-
-    
-
-    
-
     #[test]
     fn catalog_metadata_review_preserves_nonempty_snapshot_on_empty_observation() {
-        // Recurring bug class: review of 136285a8 found a newer empty session catalog could erase a saved nonempty catalog.
+        // Recurring bug class: persistence: empty observation cannot erase durable catalog
         let previous = snapshot(
             &json!({"models":[{"model":"opaque","displayName":"Native"}],"observedAt":"2026-01-01T00:00:00Z"}),
         );
@@ -363,10 +357,9 @@ mod tests {
         populated["observedAt"] = json!("2026-01-03T00:00:00Z");
         assert!(catalog_update_needed(Some(&empty), &populated));
     }
-
     #[test]
     fn catalog_metadata_review_ignores_observation_time_for_unchanged_snapshots() {
-        // Recurring bug class: review of 136285a8 found observedAt defeated snapshot deduplication on every observation.
+        // Recurring bug class: persistence: unchanged catalog observations deduplicate
         let previous = snapshot(
             &json!({"models":[{"model":"opaque","displayName":"Native"}],"observedAt":"2026-01-01T00:00:00Z"}),
         );

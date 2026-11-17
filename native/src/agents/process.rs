@@ -1226,10 +1226,9 @@ pub(super) async fn probe(binary: &Path, args: &[String]) -> Result<String> {
 #[cfg(test)]
 mod stream_stability_tests {
     use super::*;
-
     #[test]
     fn diagnostics_are_bounded_redacted_and_attached_to_failures() {
-        // Recurring bug class: non-JSON stdout either killed the reader or disappeared without diagnostic evidence.
+        // Recurring bug class: security: subprocess diagnostics stay bounded and redact sensitive output
         let mut diagnostics = Value::Null;
         for _ in 0..100 {
             diagnostics = stdout_diagnostics(
@@ -1252,10 +1251,9 @@ mod stream_stability_tests {
             !stdout_read_error("broken pipe password=fixture-secret").contains("fixture-secret")
         );
     }
-
     #[test]
     fn only_content_deltas_defer_persistence() {
-        // Recurring bug class: every ACP and Pi delta rewrote the full task snapshot and catalog.
+        // Recurring bug class: persistence: native snapshots persist only meaningful deltas
         for update in ["agent_message_chunk", "agent_thought_chunk"] {
             assert!(streaming_delta(
                 false,
@@ -1395,7 +1393,7 @@ mod stream_stability_tests {
     #[cfg(unix)]
     #[test]
     fn detached_journal_rebuilds_pending_and_settles_without_original_waiter() {
-        // Recurring bug class: Core restart lost ACP prompt waiters, pending approvals and their final result.
+        // Recurring bug class: lifecycle: restart rebuilds pending interactions and settles them
         if !isolated("detached_journal_rebuilds_pending_and_settles_without_original_waiter") {
             return;
         }
@@ -1466,11 +1464,9 @@ mod stream_stability_tests {
     #[cfg(unix)]
 
     #[cfg(unix)]
-
-    #[cfg(unix)]
     #[test]
     fn noisy_stdout_keeps_reading_and_survives_abnormal_exit() {
-        // Recurring bug class: one non-JSON stdout line ended the reader before subsequent protocol messages.
+        // Contract: agent stdout JSON-lines protocol
         if !isolated("noisy_stdout_keeps_reading_and_survives_abnormal_exit") {
             return;
         }
