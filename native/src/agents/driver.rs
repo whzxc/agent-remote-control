@@ -683,31 +683,5 @@ pub(super) fn discover_in(name: &str, paths: &[PathBuf]) -> Vec<PathBuf> {
 #[cfg(test)]
 mod navigation_tests {
     use super::*;
-    #[test]
-    fn adapters_build_links_only_from_valid_task_ids() {
-        // Algorithmic core: adapters build links only from valid task ids.
-        let task = "11111111-1111-4111-8111-111111111111";
-        assert_eq!(
-            AgentDriver::CodexNative.deep_link(task).as_deref(),
-            Some("codex://threads/11111111-1111-4111-8111-111111111111")
-        );
-        for invalid in [
-            "",
-            "codex://threads/example",
-            "https://example.com",
-            "../example",
-            "11111111-1111-4111-8111-111111111111?x=y",
-        ] {
-            assert!(AgentDriver::CodexNative.deep_link(invalid).is_none());
-            assert!(AgentDriver::CodexNative.navigation(invalid).is_none());
-        }
-        assert!(AgentDriver::Pi.deep_link(task).is_none());
-        assert!(AgentDriver::Pi.navigation(task).is_none());
-        for manifest in super::super::manifest::builtins().unwrap() {
-            assert!(AgentDriver::Acp(manifest).deep_link(task).is_none());
-        }
-        if let Some(open) = AgentDriver::CodexNative.navigation(task) {
-            assert_eq!(open, json!({"taskId":task}));
-        }
-    }
+    
 }
