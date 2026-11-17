@@ -736,6 +736,10 @@ pub(super) fn diagnostics(dir: &Path) -> Value {
 pub(super) fn is_superseded(dir: &Path, b: &Binding) -> Result<bool> {
     with(dir, |i| Ok(i.superseded(b)))
 }
+#[cfg(test)]
+pub(super) fn revision(dir: &Path) -> Result<u64> {
+    with(dir, |i| Ok(i.revision))
+}
 pub(super) fn delivery_due(dir: &Path, now: i64) -> Result<Arc<Vec<Arc<Binding>>>> {
     with(dir, |i| {
         i.refresh(dir)?;

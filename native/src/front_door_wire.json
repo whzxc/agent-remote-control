@@ -1,6 +1,6 @@
 {
   "browser_allowed": {
-    "body": "{\"agents-max-visible\":\"4\",\"language\":\"auto\",\"maintainer-mode\":\"off\",\"mcp-services\":\"off\",\"notifications\":\"on\",\"quota-display\":\"remaining\",\"quota-reset-display\":\"countdown\",\"theme\":\"system\",\"theme-color\":\"arc\",\"update-last-check\":\"0\",\"update-skipped-version\":\"\"}",
+    "body": "{\"agents-max-visible\":\"4\",\"device-link\":\"off\",\"language\":\"auto\",\"maintainer-mode\":\"off\",\"mcp-services\":\"off\",\"notifications\":\"on\",\"quota-display\":\"remaining\",\"quota-reset-display\":\"countdown\",\"theme\":\"system\",\"theme-color\":\"arc\",\"update-last-check\":\"0\",\"update-skipped-version\":\"\"}",
     "headers": {
       "cache-control": "no-store",
       "content-type": "application/json",
@@ -28,7 +28,7 @@
     "status": 403
   },
   "local_allowed": {
-    "body": "{\"agents-max-visible\":\"4\",\"language\":\"auto\",\"maintainer-mode\":\"off\",\"mcp-services\":\"off\",\"notifications\":\"on\",\"quota-display\":\"remaining\",\"quota-reset-display\":\"countdown\",\"theme\":\"system\",\"theme-color\":\"arc\",\"update-last-check\":\"0\",\"update-skipped-version\":\"\"}",
+    "body": "{\"agents-max-visible\":\"4\",\"device-link\":\"off\",\"language\":\"auto\",\"maintainer-mode\":\"off\",\"mcp-services\":\"off\",\"notifications\":\"on\",\"quota-display\":\"remaining\",\"quota-reset-display\":\"countdown\",\"theme\":\"system\",\"theme-color\":\"arc\",\"update-last-check\":\"0\",\"update-skipped-version\":\"\"}",
     "headers": {
       "cache-control": "no-store",
       "content-type": "application/json"

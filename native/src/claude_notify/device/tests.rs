@@ -43,7 +43,7 @@ async fn device_event_work_is_independent_of_retained_binding_count() {
     let local = fixture.seed("selected", false, "running", true);
     index::initialize(&fixture.0).unwrap();
     let before = BINDINGS.lock().unwrap().diagnostics();
-    let revision = index::diagnostics(&fixture.0)["revision"].as_u64().unwrap();
+    let revision = index::revision(&fixture.0).unwrap();
     let event = json!({"eventId":"native-event","kind":"completed","threadId":"selected","turnId":"turn","agent":"codex","title":"Synthetic result","finalResponse":"done"});
     receive_in(&fixture.0, &Mutex::new(()), "member", "origin", &event)
         .await
@@ -68,19 +68,16 @@ async fn device_event_work_is_independent_of_retained_binding_count() {
             .saturating_sub(before["fileOpens"].as_u64().unwrap())
             <= 4
     );
-    assert_eq!(
-        index::diagnostics(&fixture.0)["revision"].as_u64().unwrap() - revision,
-        1
-    );
+    assert_eq!(index::revision(&fixture.0).unwrap() - revision, 1);
     let notice = super::super::event(&result, &result.deliveries[0]);
     assert_eq!(notice["device"]["id"], "member");
     assert_eq!(notice["threadId"], "selected");
     assert_eq!(notice["next"]["op"], "device");
-    let revision = index::diagnostics(&fixture.0)["revision"].clone();
+    let revision = index::revision(&fixture.0).unwrap();
     receive_in(&fixture.0, &Mutex::new(()), "member", "origin", &event)
         .await
         .unwrap();
-    assert_eq!(index::diagnostics(&fixture.0)["revision"], revision);
+    assert_eq!(index::revision(&fixture.0).unwrap(), revision);
     let status = governance::status_in(
         &fixture.0,
         "origin",

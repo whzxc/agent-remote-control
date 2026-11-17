@@ -1297,7 +1297,7 @@ async fn process(dir: &Path, lock: &Mutex<()>, b: &mut Binding, observation: &Va
     }
     for delivery in &mut b.deliveries {
         if delivery.key.starts_with("progress-stalled")
-            && delivery.status == "pending"
+            && matches!(delivery.status.as_str(), "pending" | "delivered")
             && (observation["progressStalled"] != true
                 || delivery.progress["evidence"]["lastActivityAt"]
                     != observation["progress"]["evidence"]["lastActivityAt"])
