@@ -335,7 +335,7 @@ fn link_local_timeout_does_not_mask_ipv4_error() {
 
 #[tokio::test]
 async fn leaked_lan_connections_do_not_starve_tunnel_requests() {
-    // Recurring bug class: eight retained LAN connections made every authenticated tunnel request return DEVICE_BUSY.
+    // Recurring bug class: concurrency eight retained LAN connections made every authenticated tunnel request return DEVICE_BUSY.
     if super::tunnel_fixture::isolate(
         "device_link::tests::leaked_lan_connections_do_not_starve_tunnel_requests",
     )
@@ -389,7 +389,7 @@ async fn leaked_lan_connections_do_not_starve_tunnel_requests() {
         &url,
         "request",
         Some(&token),
-        json!({"version":VERSION,"tool":"query","body":{"op":"guide","args":{}},"origin":{}}),
+        json!({"version":VERSION,"tool":"query","body":{"op":"runtime_metrics","args":{}},"origin":{}}),
         Duration::from_secs(2),
     )
     .await
