@@ -4,7 +4,7 @@ import {assertNextCalls} from './helpers/continuations.ts';
 import {prepareCoreBinary} from './helpers/native-control.ts';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
-import { chmod, mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, mkdir, readFile, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { after, before, test } from 'node:test';
@@ -709,12 +709,12 @@ test('creation starts its first turn without legacy history reads, cleans defini
     const fresh = await create('fixture-dispatch-unmaterialized');
     assert.equal(fresh.state, 'completed', JSON.stringify(fresh));
     assert.equal(fresh.executionOwner, 'connector');
-    let rows = JSON.parse(await readFile(path.join(directory, 'dispatch-fixture.json'), 'utf8'));
+    let rows = await fixtureRows();
     assert.equal(rows[fresh.threadId].turns.length, 1);
     const rejected = await create('fixture-dispatch-unmaterialized-reject');
     assert.equal(rejected.failureStage, 'turn-submitting');
     assert.deepEqual(rejected.cleanup, {archived:false,reason:'thread-not-materialized'});
-    rows = JSON.parse(await readFile(path.join(directory, 'dispatch-fixture.json'), 'utf8'));
+    rows = await fixtureRows();
     assert.equal(rows[rejected.threadId].turns.length, 0);
   } finally {
     await management('task-settings', 'PUT', settingsBefore);
@@ -746,7 +746,7 @@ test('creation starts its first turn without legacy history reads, cleans defini
   const uncertain = await create('fixture-dispatch-uncertain');
   assert.equal(uncertain.state, 'unconfirmed');
   assert.equal(uncertain.cleanup, undefined);
-  const saved = JSON.parse(await readFile(path.join(directory, 'dispatch-fixture.json'), 'utf8'));
+  const saved = await fixtureRows();
   assert.equal(saved[accepted.threadId].turns.length, 3);
   assert.equal(saved[rejected.threadId].archived, true);
   assert.equal(saved[uncertain.threadId].turns.length, 1);
@@ -762,7 +762,14 @@ async function dispatchFixture(model: string) {
   await management('task-settings','PUT',{autoOpenCodex:false,codexRetryMaxAttempts:3,codexRetryInitialSeconds:1});
   const r=await completed('codex_create',{project:directory,prompt:'harmless fixture',thread:{model},purpose:'self-test',requestId:randomUUID(),waitMs:1000});assert.equal(r.state,'completed');return r;
 }
-const fixtureRows = async () => JSON.parse(await readFile(path.join(directory,'dispatch-fixture.json'),'utf8'));
+async function fixtureRows() {
+  const store = path.join(directory,'dispatch-threads');
+  const files = (await readdir(store)).filter(file => file.endsWith('.json'));
+  return Object.fromEntries(await Promise.all(files.map(async file => {
+    const row = JSON.parse(await readFile(path.join(store,file),'utf8'));
+    return [row.thread.id,row];
+  })));
+}
 
 test('guide exposes replay boundaries and durable writes survive concurrent retries and Core restart', async () => {
   // Recurring bug class: a lost write response must not cause a repeated edit after concurrent retry or restart.
@@ -1536,7 +1543,7 @@ test('large non-Git tree returns a bounded first layer and a truncation marker',
 });
 
 test('Desktop seed is named before independent metadata read even with null rollout path', {skip:process.platform==='linux'}, async () => {
-  // Recurring bug class: 019e03c; Desktop seed is named before independent metadata read even with null rollout path.
+  // Recurring bug class: persistence Desktop seed is named before independent metadata read even with null rollout path.
   const original=await management('task-settings');
   await management('task-settings','PUT',{autoOpenCodex:true,codexRetryMaxAttempts:0});
   try {

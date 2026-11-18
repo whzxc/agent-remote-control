@@ -1,12 +1,15 @@
 import {threadIds} from './codex-thread-ids.mjs';
 import { createInterface } from 'node:readline';
-import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-const fixtureState = process.env.ARC_FIXTURE_DATA + '/dispatch-fixture.json';
-const saveFixture = saved => {
-  const temporary = fixtureState + '.tmp';
-  writeFileSync(temporary, JSON.stringify(saved));
-  renameSync(temporary, fixtureState);
+const store = process.env.ARC_FIXTURE_DATA + '/dispatch-threads';
+mkdirSync(store, {recursive:true});
+const rows = () => readdirSync(store).filter(file => file.endsWith('.json')).map(file => JSON.parse(readFileSync(store+'/'+file,'utf8')));
+const save = row => {
+  const file = store + '/' + row.thread.id + '.json';
+  const temporary = file + '.' + process.pid + '.tmp';
+  writeFileSync(temporary, JSON.stringify(row));
+  renameSync(temporary, file);
 };
 const counts = new Map();
 let sizeRevision=0;
@@ -14,9 +17,8 @@ const emit = value => process.stdout.write(JSON.stringify(value) + '\n');
 for await (const line of createInterface({ input: process.stdin })) {
   const { id, method, params, result } = JSON.parse(line);
   if (!method && result) {
-    const saved = JSON.parse(readFileSync(fixtureState,'utf8'));
-    const row = Object.values(saved).find(r=>r.pendingId===id);
-    if(row){row.answer=result;row.turns.at(-1).status='completed';delete row.pendingId;saveFixture(saved);}
+    const row = rows().find(r=>r.pendingId===id);
+    if(row){row.answer=result;row.turns.at(-1).status='completed';delete row.pendingId;save(row);}
     continue;
   }
   if (id === undefined) continue;
@@ -28,64 +30,61 @@ for await (const line of createInterface({ input: process.stdin })) {
     if (method === 'fixture/counts') return emit({ id, result: Object.fromEntries(counts) });
     if (method === 'fixture/null') return emit({ id, result: null });
     if (method === 'fixture/array') return emit({ id, result: [null, 1, { native: true }] });
-    const saved = existsSync(fixtureState) ? JSON.parse(readFileSync(fixtureState, 'utf8')) : {};
+    const file = /^[0-9a-f-]{36}$/.test(params?.threadId) ? store+'/'+params.threadId+'.json' : null;
+    const row = file && existsSync(file) ? JSON.parse(readFileSync(file,'utf8')) : null;
     if (method === 'fixture/external-review') {
       const threadId=params.threadId,turnId=randomUUID();
       const configuration=params.known===false?{}:{model:'fixture-external-model',effort:'high',serviceTier:'priority'};
-      saved[threadId]={thread:{...saved[threadId].thread,...configuration},model:'fixture-dispatch-external',externalReview:true,turns:[{id:turnId,status:'completed',items:[]},{id:randomUUID(),status:'inProgress',items:[]}],metadataReads:0};
-      saveFixture(saved);return emit({id,result:{threadId,turnId,activeTurnId:saved[threadId].turns.at(-1).id}});
+      const updated={thread:{...row.thread,...configuration},model:'fixture-dispatch-external',externalReview:true,turns:[{id:turnId,status:'completed',items:[]},{id:randomUUID(),status:'inProgress',items:[]}]};
+      save(updated);return emit({id,result:{threadId,turnId,activeTurnId:updated.turns.at(-1).id}});
     }
-    if (method === 'thread/list' && params.searchTerm === 'fixture-external-review') return emit({id,result:{data:Object.values(saved).filter(r=>r.externalReview).map(r=>({...r.thread,status:{type:'active'}})),nextCursor:null}});
+    if (method === 'thread/list' && params.searchTerm === 'fixture-external-review') return emit({id,result:{data:rows().filter(r=>r.externalReview).map(r=>({...r.thread,status:{type:'active'}})),nextCursor:null}});
     if (method === 'thread/start' && params.model?.startsWith('fixture-dispatch')) {
       const thread = {id:randomUUID(),cwd:params.cwd,path:params.model.includes('lazy-seed')?null:process.env.ARC_FIXTURE_DATA+'/seed-'+randomUUID()+'.jsonl'};
       if(thread.path)writeFileSync(thread.path, '{}');
-      saved[thread.id] = {thread,model:params.model,turns:[],metadataReads:0,archived:false,creator:process.pid};
-      saveFixture(saved);
+      save({thread,model:params.model,turns:[],archived:false,creator:process.pid});
       return emit({id,result:{thread,model:params.model}});
     }
-    if (saved[params?.threadId]) {
-      const row = saved[params.threadId];
+    if (row) {
       if (row.model.includes('unmaterialized') && !row.turns.length && ['thread/turns/list','thread/archive'].includes(method)) {
-        row.prematureReads=(row.prematureReads||0)+1;saveFixture(saved);
+        row.prematureReads=(row.prematureReads||0)+1;save(row);
         return emit({id,error:{code:-32600,message:'thread '+params.threadId+' is not materialized yet; '+method+' is unavailable before first user message'}});
       }
       if (method === 'thread/name/set') {
-        row.named=true;row.thread.name=params.name;saveFixture(saved);return emit({id,result:{}});
+        row.named=true;row.thread.name=params.name;save(row);return emit({id,result:{}});
       }
       if (method === 'thread/unsubscribe') {
-        row.unsubscribed=true;saveFixture(saved);return emit({id,result:{}});
+        row.unsubscribed=true;save(row);return emit({id,result:{}});
       }
       if (method === 'thread/read') {
         if(row.model.includes('lazy-seed') && !row.named)return emit({id,error:{code:-32000,message:'seed not durable until named'}});
-        if(row.model.includes('lazy-seed'))row.independentReader=process.pid!==row.creator;
+        if(row.model.includes('lazy-seed') && process.pid!==row.creator && !row.independentReader){row.independentReader=true;save(row);}
         if (params.includeTurns && row.model.includes('question')) return emit({id,result:{thread:{...row.thread,turns:row.turns,status:{type:row.turns.at(-1)?.status==='inProgress'?'active':'idle'}}}});
         if (params.includeTurns) return emit({id,error:{code:-32601,message:'list_turns is not supported yet'}});
-        row.metadataReads++;
-        saveFixture(saved);
         return emit({id,result:{thread:{...row.thread,status:{type:row.turns.at(-1)?.status==='inProgress'?'active':'idle'}}}});
       }
       if (method === 'turn/start') {
         if (row.model === 'fixture-dispatch-reject' || row.model === 'fixture-dispatch-unmaterialized-reject') return emit({id,error:{code:-32602,message:'invalid turn configuration'}});
         const overload=row.model.includes('overload') && (row.model.includes('exhausted') || row.model.includes('side-effect') || row.turns.length<2);
         row.turns.push({id:randomUUID(),status:overload?'failed':(row.model.includes('queue')||(row.model.includes('question')&&row.turns.length===0))?'inProgress':'completed',error:overload?{codexErrorInfo:'serverOverloaded',message:'Selected model is at capacity'}:null,items:overload?(row.model.includes('side-effect')?[{type:'commandExecution',status:'completed'}]:[]):[{id:randomUUID(),type:'agentMessage',status:'completed',text:'pong'}],input:params.input,model:params.model||row.model,effort:params.effort});
-        saveFixture(saved);
+        save(row);
         if(row.model==='fixture-dispatch-question-terminal')emit({method:'turn/started',params:{threadId:params.threadId,turn:row.turns.at(-1)}});
         if(row.model.includes('queue'))emit({method:'item/completed',params:{threadId:params.threadId,turnId:row.turns.at(-1).id,item:row.turns.at(-1).items[0]}});
-        if(row.model.includes('question')&&row.turns.length===1) {row.pendingId='question:'+params.threadId;saveFixture(saved);emit({id:row.pendingId,method:'item/tool/requestUserInput',params:{threadId:params.threadId,turnId:row.turns.at(-1).id,questions:[{id:'q',question:'2+2?',options:[]}]}});}
+        if(row.model.includes('question')&&row.turns.length===1) {row.pendingId='question:'+params.threadId;save(row);emit({id:row.pendingId,method:'item/tool/requestUserInput',params:{threadId:params.threadId,turnId:row.turns.at(-1).id,questions:[{id:'q',question:'2+2?',options:[]}]}});}
         if (row.model === 'fixture-dispatch-uncertain') return process.exit(0);
         return emit({id,result:{turn:row.turns.at(-1)}});
       }
-      if (method === 'turn/steer') { row.turns.at(-1).input.push(...params.input);saveFixture(saved);return emit({id,result:{turnId:row.turns.at(-1).id}}); }
-      if (method === 'turn/interrupt') { if(row.turns.at(-1)?.id!==params.turnId)return emit({id,error:{code:-32600,message:'stale turn'}}); row.turns.at(-1).status='interrupted';saveFixture(saved);return emit({id,result:{}}); }
-      if (method === 'fixture/finish-turn') { row.turns.at(-1).status=params.status||'completed';saveFixture(saved);return emit({id,result:{}}); }
+      if (method === 'turn/steer') { row.turns.at(-1).input.push(...params.input);save(row);return emit({id,result:{turnId:row.turns.at(-1).id}}); }
+      if (method === 'turn/interrupt') { if(row.turns.at(-1)?.id!==params.turnId)return emit({id,error:{code:-32600,message:'stale turn'}}); row.turns.at(-1).status='interrupted';save(row);return emit({id,result:{}}); }
+      if (method === 'fixture/finish-turn') { row.turns.at(-1).status=params.status||'completed';save(row);return emit({id,result:{}}); }
       if (method === 'fixture/finish-with-pending') {
-        row.turns.at(-1).status='completed';saveFixture(saved);
+        row.turns.at(-1).status='completed';save(row);
         emit({method:'turn/completed',params:{threadId:params.threadId,turn:row.turns.at(-1)}});
         return emit({id,result:{}});
       }
       if (method === 'fixture/update-turn') {
         Object.assign(row.turns.find(turn=>turn.id===params.turnId),params.patch);
-        saveFixture(saved);return emit({id,result:{}});
+        save(row);return emit({id,result:{}});
       }
       if (method === 'thread/turns/list') {
         const rows = [...row.turns];
@@ -95,7 +94,7 @@ for await (const line of createInterface({ input: process.stdin })) {
       }
       if (method === 'thread/archive') {
         if(row.model.includes('archive-busy')) return emit({id,error:{code:-32600,message:'thread '+params.threadId+' already has an active writer'}});
-        row.archived=true;saveFixture(saved);
+        row.archived=true;save(row);
         return emit({id,result:{}});
       }
     }
