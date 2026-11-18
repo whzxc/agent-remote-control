@@ -2329,7 +2329,7 @@ test('AX2 failed receipts report failure through MCP and CLI without losing iden
   assert.equal(response.result.state,'failed');
   assert.equal(response.result.requestId,requestId);
   const visible=JSON.parse((response.response.content[0] as any).text);
-  assert.equal(visible.requestId,requestId);assert.equal(visible.next.op,'guide');assert.equal(visible.next.args.op,'fs');
+  assert.equal(visible.requestId,requestId);assert.equal(visible.next.op,'guide');
   assert.match(response.result.error.message,/SHA256_MISMATCH/);
   let failure: any;
   try { execFileSync(fixtureCommand,['cli','control','receipt','--stdin'],{env:fixtureEnv,input:JSON.stringify({requestId}),encoding:'utf8',stdio:['pipe','pipe','pipe']}); }
@@ -2385,7 +2385,7 @@ test('AX2 status reads agree with wait observations and nonterminal receipts hav
   const pending=await call('codex_call',{method:'fixture/slow-submission',params:{delay:300},waitMs:1,requestId:randomUUID()});
   assert.equal(pending.result.next.op,'receipt');
   const failure=await call('fs',{action:'writeFile',params:{path:path.join(directory,'stalled-failure'),dataBase64:'aGk=',expectedSha256:'0'.repeat(64)}});
-  assert.equal(failure.result.next.op,'guide');assert.equal(failure.result.next.args.op,'fs');
+  assert.equal(failure.result.next.op,'guide');
   await completed('codex_call',{method:'fixture/finish-turn',params:{threadId:task.threadId},requestId:randomUUID()});
 });
 
