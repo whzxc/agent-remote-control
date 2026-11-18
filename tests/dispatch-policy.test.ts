@@ -283,6 +283,7 @@ test('Pack dispatch appends its block once and ranks its defaults below explicit
   const log=path.join(directory,'turns.jsonl');
   const fixture=await nativeControl(packServer,{ARC_PACK_LOG:log});
   try {
+    await fixture.api('task-settings',{autoOpenCodex:false},'PUT');
     const pack={summary:'Fixture class.',agent:'codex',model:'fixture-pack-model',effort:'high',prompt:'Pack rule.',review:'Pack checklist.'};
     const created=await fixture.call('dispatch_pack_update',{name:'fixture-class',pack,expectedPackHash:null});
     const first=await fixture.completed('codex_create',{prompt:'Caller prompt',pack:'fixture-class',thread:{cwd:directory}});
