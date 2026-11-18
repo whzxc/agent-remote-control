@@ -8,7 +8,7 @@ import { interactionKey, permissionResponse } from "../state/activityModel";
 import { Button, Tooltip } from "./ui";
 import { taskErrorText } from "../state/taskErrors";
 
-export default function ActivityInteraction({ agent, session, routing }: { routing?: ReactNode; agent: string; session: AgentActivitySession }) {
+export default function ActivityInteraction({ agent, session, routing, sheet = false }: { routing?: ReactNode; sheet?: boolean; agent: string; session: AgentActivitySession }) {
   const feedback = useDialogFeedback();
   const submissions = activityApprovals.use();
   const submission = submissions[interactionKey(agent, session)];
@@ -20,16 +20,17 @@ export default function ActivityInteraction({ agent, session, routing }: { routi
     feedback(result?.status === "failed" ? taskErrorText(result.error) : t(result?.status === "submitted" ? "activity.submitted" : result?.status === "unconfirmed" ? "activity.unconfirmed" : "activity.checkResult"), result?.status === "failed");
   };
   const settled = submission?.status === "submitted" || submission?.status === "unconfirmed";
+  const buttons = <>
+    <Button variant="secondary" disabled={readOnlyBrowser || settled || !permissionResponse(interaction, "deny") || !!submission && submission.decision !== "deny"} busy={submission?.status === "submitting" && submission.decision === "deny"} onClick={() => void respond("deny")}>{t("detail.reject")}</Button>
+    <Tooltip text={t("detail.nativeBypassUnavailable")}><span tabIndex={0}><Button variant="secondary" disabled>{t("detail.bypass")}</Button></span></Tooltip>
+    <Button variant="primary" disabled={readOnlyBrowser || settled || !permissionResponse(interaction, "allow") || !!submission && submission.decision !== "allow"} busy={submission?.status === "submitting" && submission.decision === "allow"} onClick={() => void respond("allow")}>{t("detail.approve")}</Button>
+  </>;
   return <>
     {!permissionResponse(interaction, "allow") && <span className="timeline-meta">{t("timeline.responseUnavailable")}</span>}
     {settled && <span role="status">{t(submission.status === "submitted" ? "activity.submitted" : "activity.unconfirmed")}</span>}
     {submission?.status === "pending" && <span role="status">{t("activity.checkResult")}</span>}
     {submission?.status === "failed" && <span role="alert">{taskErrorText(submission.error)}</span>}
     {routing}
-    <DialogActions className="activity-actions">
-    <Button variant="secondary" disabled={readOnlyBrowser || settled || !permissionResponse(interaction, "deny") || !!submission && submission.decision !== "deny"} busy={submission?.status === "submitting" && submission.decision === "deny"} onClick={() => void respond("deny")}>{t("detail.reject")}</Button>
-    <Tooltip text={t("detail.nativeBypassUnavailable")}><span tabIndex={0}><Button variant="secondary" disabled>{t("detail.bypass")}</Button></span></Tooltip>
-    <Button variant="primary" disabled={readOnlyBrowser || settled || !permissionResponse(interaction, "allow") || !!submission && submission.decision !== "allow"} busy={submission?.status === "submitting" && submission.decision === "allow"} onClick={() => void respond("allow")}>{t("detail.approve")}</Button>
-    </DialogActions>
+    {sheet ? <DialogActions className="activity-actions">{buttons}</DialogActions> : <div className="activity-actions activity-actions-inline">{buttons}</div>}
   </>;
 }

@@ -10,8 +10,15 @@
 .choice-menu-label { padding: 8px; font-size: var(--text-meta); color: var(--text-secondary); }
 .choice-labelled-menu .select-item { min-height: 39px; padding: 8px; font-weight: 400; }
 .choice-labelled-menu .select-item[data-state="checked"] { font-weight: 500; }
-.request-routing-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: var(--text-meta); color: var(--text-secondary); }
-.request-routing-inline > span { overflow-wrap: anywhere; }
+.request-routing-stacked { padding-bottom: 6px; }
+.request-routing-inline { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; font-size: var(--text-meta); color: var(--text-secondary); }
+.request-routing-inline[data-inline] { flex-direction: row; flex-wrap: wrap; width: 100%; align-items: center; justify-content: space-between; }
+.request-routing-inline > span:not(.sr-only) { overflow-wrap: anywhere; }
+.request-routing-status { line-height: 28px; }
+.request-routing-status[data-actionable] { line-height: var(--line-title); }
+.request-routing-inline[data-inline] > .request-routing-status[data-actionable] { line-height: var(--control-height); margin-right: 1px; }
 .request-routing-inline > .actions { display: flex; align-items: center; gap: 8px; margin: 0; }
+.request-routing-inline > .actions .button.ghost { padding-inline: 20px; }
+.request-routing-inline > .actions .button.secondary { padding-inline: 18px; }
 
 .choice-dropdown .select-trigger { width: 100%; }

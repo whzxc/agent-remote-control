@@ -27,7 +27,7 @@ function QuestionField({ question, value, onChange, disabled }: { question: Ques
     {(question.other || !question.options.length) && <Field id={id} label={t(question.options.length ? "detail.other" : "timeline.answer")}><Input id={id} type={question.secret ? "password" : "text"} value={other} onFocus={() => { if (!question.multiple) onChange(other ? [other] : []); }} onChange={event => onChange([...(question.multiple ? value.filter(answer => question.options.some(option => option.label === answer)) : []), event.target.value])} disabled={disabled} /></Field>}
   </fieldset>;
 }
-export default function TaskQuestion({ agent, session, answers, onAnswersChange, routing }: { routing?: ReactNode; agent: string; session: AgentActivitySession; answers: Record<string, string[]>; onAnswersChange: (answers: Record<string, string[]>) => void }) {
+export default function TaskQuestion({ agent, session, answers, onAnswersChange, routing, sheet = false }: { routing?: ReactNode; sheet?: boolean; agent: string; session: AgentActivitySession; answers: Record<string, string[]>; onAnswersChange: (answers: Record<string, string[]>) => void }) {
   const feedback = useDialogFeedback();
   const submissions = activityApprovals.use();
   const submission = submissions[interactionKey(agent, session)];
@@ -42,13 +42,14 @@ export default function TaskQuestion({ agent, session, answers, onAnswersChange,
       feedback(result?.status === "failed" ? taskErrorText(result.error) : t(result?.status === "submitted" ? "activity.submitted" : result?.status === "unconfirmed" ? "activity.unconfirmed" : "activity.checkResult"), result?.status === "failed");
     });
   };
+  const actions = <><Button variant="ghost" disabled={readOnlyBrowser || !supported || locked && submission.decision !== "cancel" || submission?.status === "unconfirmed" || submission?.status === "submitted"} busy={submission?.status === "submitting" && submission.decision === "cancel"} onClick={() => send(true)}>{t("detail.skip")}</Button>
+    <Button type="submit" variant="primary" disabled={readOnlyBrowser || !inputResponse(interaction, answers) || locked && submission.decision !== "answer" || submission?.status === "unconfirmed" || submission?.status === "submitted"} busy={submission?.status === "submitting" && submission.decision === "answer"}>{t(submission?.status === "pending" || submission?.status === "failed" ? "activity.checkResult" : "detail.sendAnswer")}</Button></>;
   return <form className="task-question" onSubmit={event => { event.preventDefault(); send(false); }}>
     <div className="task-question-options">{questions.map(question => <QuestionField key={question.id} question={question} value={answers[question.id] ?? []} onChange={value => onAnswersChange({ ...answers, [question.id]: value })} disabled={readOnlyBrowser || locked || !supported} />)}</div>
     {!supported && <p className="timeline-meta">{t("timeline.responseUnavailable")}</p>}
     {submission?.status === "unconfirmed" && <p role="status">{t("activity.unconfirmed")}</p>}
     {submission?.status === "failed" && <p role="alert">{taskErrorText(submission.error)}</p>}
     {routing}
-    <DialogActions className="actions"><Button variant="ghost" disabled={readOnlyBrowser || !supported || locked && submission.decision !== "cancel" || submission?.status === "unconfirmed" || submission?.status === "submitted"} busy={submission?.status === "submitting" && submission.decision === "cancel"} onClick={() => send(true)}>{t("detail.skip")}</Button>
-      <Button type="submit" variant="primary" disabled={readOnlyBrowser || !inputResponse(interaction, answers) || locked && submission.decision !== "answer" || submission?.status === "unconfirmed" || submission?.status === "submitted"} busy={submission?.status === "submitting" && submission.decision === "answer"}>{t(submission?.status === "pending" || submission?.status === "failed" ? "activity.checkResult" : "detail.sendAnswer")}</Button></DialogActions>
+    {sheet ? <DialogActions className="actions">{actions}</DialogActions> : <div className="actions">{actions}</div>}
   </form>;
 }
