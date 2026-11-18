@@ -255,7 +255,7 @@ test('mutation receipts remain idempotent across domain and escape hatch, includ
   const requestId = randomUUID();
   const params = { path: '/tmp/retry', dataBase64: '', delay: 200 };
   const first = await call('fs', { action: 'writeFile', params, requestId, waitMs: 0 });
-  assert.equal(first.result.state, 'pending');
+  assert.equal(first.result.state, 'reserved');
   const original = await completed('fs', { action: 'writeFile', params, requestId });
   const replay = await completed('codex_call', { method: 'fs/writeFile', params, requestId });
   assert.equal(replay.requestId, requestId);
@@ -1445,16 +1445,16 @@ test('Git action and read limit aliases preserve behavior and search clamps its 
 });
 
 test('cmd waitMs returns a pending receipt without changing the process timeout', async () => {
-  // Recurring bug class: 3df24a2; cmd waitMs returns a pending receipt without changing the process timeout.
+  // Recurring bug class: lifecycle cmd waitMs returns a pending receipt without changing the process timeout.
   const requestId=randomUUID();
   const first=await call('command',{cmd:'fixture-delayed',cwd:directory,waitMs:0,timeoutMs:2000,requestId});
-  assert.equal(first.response.isError,false);assert.equal(first.result.state,'pending');
+  assert.equal(first.response.isError,false);assert.equal(first.result.state,'reserved');
   const done=await completed('command',{cmd:'fixture-delayed',cwd:directory,waitMs:1000,timeoutMs:2000,requestId});assert.equal(done.state,'completed');
 
 });
 
 test('MCP cmd default wait returns a receipt before the client deadline and preserves CLI and explicit waits', async () => {
-  // Recurring bug class: AX ax-e22612d0-aa1c-4b2f-808d-8e8006fd9868; long cmd defaults exceeded the remote MCP tool-call deadline and lost the receipt.
+  // Recurring bug class: lifecycle AX ax-e22612d0-aa1c-4b2f-808d-8e8006fd9868; long cmd defaults exceeded the remote MCP tool-call deadline and lost the receipt.
   const args = {cmd:'fixture-mcp-deadline',cwd:directory,timeoutMs:120000};
   const [remote, explicit, local] = await Promise.all([
     call('command', args),
@@ -1466,7 +1466,7 @@ test('MCP cmd default wait returns a receipt before the client deadline and pres
     management('cli/control', 'POST', {op:'command',args}),
   ]);
   assert.equal(remote.response.isError, false);
-  assert.equal(remote.result.state, 'pending');
+  assert.equal(remote.result.state, 'executing');
   assert.ok(remote.result.requestId);
   assert.equal(remote.result.next.op, 'receipt');
   assert.equal(remote.result.next.args.requestId, remote.result.requestId);
