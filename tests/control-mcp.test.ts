@@ -111,6 +111,18 @@ async function call(name: string, args: Record<string, unknown> = {}) {
   assertNextCalls(result);
   return { response, result };
 }
+async function completeQuery(name: string, args: Record<string, unknown> = {}) {
+  const {result} = await call(name, args);
+  if (!result.outputId) return result;
+  let text = result.text;
+  let offset = result.nextOffset;
+  while (offset !== null) {
+    const {result: page} = await call('control_output', {outputId: result.outputId, offset, length: 8192});
+    text += page.text;
+    offset = page.nextOffset;
+  }
+  return JSON.parse(text);
+}
 async function completed(name: string, args: Record<string, unknown>) {
   let { result } = await call(name, args);
   const deadline = Date.now() + 15000;
@@ -1233,17 +1245,7 @@ test('final text continuation restores ACP archives and survives task reuse', as
 
 test('inbox_wait filters unread events before limiting, isolates ingress and cooperates with ack', async () => {
   // Contract: inbox wait filters unread events before limiting, isolates ingress and cooperates with ack, including paged output.
-  const inbox = async (filters: Record<string, unknown>) => {
-    const {result} = await call('inbox_wait', filters);
-    if (!result.outputId) return result;
-    let text = '', offset: number | null = 0;
-    while (offset !== null) {
-      const {result: page} = await call('control_output', {outputId:result.outputId, offset, length:8192});
-      text += page.text;
-      offset = page.nextOffset;
-    }
-    return JSON.parse(text);
-  };
+  const inbox = (filters: Record<string, unknown>) => completeQuery('inbox_wait', filters);
   await completed('notification_ack', {all:true});
   const unrelated: string[] = [];
   for (let i = 0; i < 6; i++) {
@@ -2726,7 +2728,7 @@ test('Maintainer mode local import reads only the selected synthetic queue', asy
 
 test('runtime diagnostics expose bounded content-free counters through query and management', async () => {
   // Contract: runtime_metrics and runtime.inspect expose the same passive process instance and explicit units.
-  const first = (await call('runtime_metrics')).result;
+  const first = await completeQuery('runtime_metrics');
   const envelope = JSON.parse(execFileSync(fixtureCommand, ['cli','call','runtime.inspect'], {env:fixtureEnv,encoding:'utf8'}));
   const second = envelope.result;
   assert.equal(first.schemaVersion, 1);
@@ -2756,13 +2758,13 @@ test('runtime diagnostics expose bounded content-free counters through query and
 });
 
 test('macOS runtime CPU milliseconds agree with native process accounting', async () => {
-  // Recurring bug class: Mach ticks were mislabeled as nanoseconds, understating Apple Silicon CPU by its timebase ratio.
+  // Contract: macOS runtime CPU totals use milliseconds and agree with native process accounting.
   if (process.platform !== 'darwin') return;
-  const first = (await call('runtime_metrics')).result;
+  const first = await completeQuery('runtime_metrics');
   const cpuMs = () => execFileSync('/bin/ps', ['-p', String(first.pid), '-o', 'time='], {encoding:'utf8'})
     .trim().split(':').reduce((seconds, value) => seconds * 60 + Number(value), 0) * 1000;
   const before = cpuMs();
-  const report = (await call('runtime_metrics')).result;
+  const report = await completeQuery('runtime_metrics');
   const after = cpuMs();
   assert.equal(report.pid, first.pid);
   assert.ok(report.process.cpuTotalMs >= before - 10);
