@@ -389,7 +389,8 @@ pub(crate) async fn notify_status(args: &Value) -> Result<Value> {
     )
 }
 struct StatusProjection {
-    bindings: file_cache::Collection<Option<Arc<Binding>>>,
+    bindings: Vec<Arc<Binding>>,
+    revision: Option<u64>,
     owners: crate::kernel::file_changes::Watch,
     controls: Option<file_cache::Stamp>,
     views: std::collections::HashMap<String, (i64, Option<i64>, Value)>,
@@ -410,18 +411,21 @@ pub(super) fn status_in(
         let mut owners = crate::kernel::file_changes::Watch::default();
         owners.add(&root().join("execution/handoffs/.index-watch"));
         StatusProjection {
-            bindings: file_cache::Collection::new(&dir.join("tasks")),
+            bindings: Vec::new(),
+            revision: None,
             owners,
             controls: None,
             views: Default::default(),
         }
     });
-    let changed = projection
-        .bindings
-        .refresh(|path| Ok(Arc::new(shared_binding(path)?)))?;
+    if let Some((revision, bindings)) = index::status_snapshot(dir, projection.revision)? {
+        projection.bindings = bindings;
+        projection.revision = Some(revision);
+        projection.views.clear();
+    }
     let controls = file_cache::Stamp::read(&dir.join("subscriptions/state.json"))?;
     let (owners, failed) = projection.owners.drain();
-    if !changed.is_empty() || controls != projection.controls || !owners.is_empty() || failed {
+    if controls != projection.controls || !owners.is_empty() || failed {
         projection.views.clear();
     }
     projection.controls = controls;
@@ -435,9 +439,8 @@ pub(super) fn status_in(
     }
     let all: Vec<_> = projection
         .bindings
-        .rows
-        .values()
-        .filter_map(|b| b.as_ref().as_ref().map(|row| (**row).clone()))
+        .iter()
+        .map(|binding| (**binding).clone())
         .collect();
     let mut result = status_from(dir, source_id, args, now, settings, &all)?;
     crate::egress::strip_notification_internal(&mut result);

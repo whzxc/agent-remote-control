@@ -620,6 +620,19 @@ pub(super) fn all(dir: &Path) -> Result<Arc<Vec<Arc<Binding>>>> {
         ))
     })
 }
+// Status exposes delivery metadata. Full payload hydration belongs to event reads.
+pub(super) fn status_snapshot(
+    dir: &Path,
+    known_revision: Option<u64>,
+) -> Result<Option<(u64, Vec<Arc<Binding>>)>> {
+    with(dir, |index| {
+        index.refresh(dir)?;
+        Ok((known_revision != Some(index.revision)).then(|| {
+            let bindings = index.rows.values().map(|row| row.binding.clone()).collect();
+            (index.revision, bindings)
+        }))
+    })
+}
 pub(super) fn thread(dir: &Path, thread: &str) -> Result<Vec<Binding>> {
     with(dir, |index| {
         Ok(index
