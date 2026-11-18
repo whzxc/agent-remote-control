@@ -8,7 +8,7 @@ import { TaskMessage } from "./timeline/TaskPresentation";
 import { ChangedFiles } from "./TaskChanges";
 import TaskOutcome from "./TaskOutcome";
 import { memo, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { AlertCircle, Brain, Copy, ChevronRight, CircleCheck, CircleDot, CircleX, FilePenLine, FileSearch, FileText, ListChecks, LoaderCircle, MessageSquare, ShieldAlert, ShieldCheck, Terminal, UserRound, Wrench } from "lucide-react";
+import { AlertCircle, Brain, Copy, ChevronRight, CircleCheck, CircleDot, CirclePause, CircleX, FilePenLine, FileSearch, FileText, ListChecks, LoaderCircle, MessageSquare, ShieldAlert, ShieldCheck, Terminal, UserRound, Wrench } from "lucide-react";
 import { Collapsible } from "radix-ui";
 import { AnimatePresence, motion } from "motion/react";
 import { t } from "../i18n";
@@ -251,6 +251,7 @@ const TurnCard = memo(function TurnCard({ narrow, group, index, latest, current,
   const change = (id: string) => (open: boolean) => setExpanded(previous => ({ ...previous, [id]: open }));
   const pending = live && pendingSessions(agent, session, group.entries, submissions).length > 0;
   const state = presentTaskState(status, live, pending);
+  const outcomeIcon = state === "failed" ? CircleX : state === "interrupted" ? CirclePause : CircleCheck;
   const projection = projectTurn(group.entries, state);
   const { prompt, final, rows, activity } = projection;
   const duration = turnDuration(group.entries, now, live, latest && current ? session.turnStartedAt : undefined, timing);
@@ -269,17 +270,17 @@ const TurnCard = memo(function TurnCard({ narrow, group, index, latest, current,
   const processSummary = <span className="task-process-summary"><span>{processLabel(duration)}</span>
     <span>{t("detail.process.actions", { count: projection.actions })}</span>
     {!!projection.failed && state !== "failed" && <span data-failed>{t("detail.tools.failed", { count: projection.failed })}</span>}</span>;
-  const processTrigger = <Collapsible.Trigger className="timeline-summary task-process-trigger" data-failed={state === "failed" || undefined} type="button"><Icon icon={state === "failed" ? CircleX : CircleCheck} size={14} />{processSummary}<Icon icon={ChevronRight} size={12} className="timeline-chevron" /></Collapsible.Trigger>;
+  const processTrigger = <Collapsible.Trigger className="timeline-summary task-process-trigger" data-state-outcome={state} type="button"><Icon icon={outcomeIcon} size={14} />{processSummary}<Icon icon={ChevronRight} size={12} className="timeline-chevron" /></Collapsible.Trigger>;
   const hasProcess = !!visibleRows.length || !!activity;
   return <Collapsible.Root open={live || processOpen(state, expanded[workId])} onOpenChange={change(workId)} asChild><section className="task-turn" data-timeline-id={group.id} data-turn-collapsed={!turnOpen || undefined} onClick={event => {
     if (!turnOpen && !(event.target as Element).closest("button, a, input")) change("turn")(true);
   }}>
     {!latest && <div className="task-turn-heading">
-      <button type="button" className="task-previous-turn" aria-expanded={turnOpen} onClick={() => change("turn")(!turnOpen)}>
+      <button type="button" className="task-previous-turn" data-state={state} aria-expanded={turnOpen} onClick={() => change("turn")(!turnOpen)}>
         <span className="task-previous-turn-badge">{t("relay.turn", { count: index + 1 })}</span>
         <RelayRoute source={source} agent={agent} marksOnly />
         {!turnOpen && <span className="task-previous-turn-result">{final?.text?.trim().split("\n")[0] || [...group.entries].reverse().find(entry => entry.type === "error" || entry.status === "failed")?.text?.split("\n")[0] || t(`detail.state.${state}`)}</span>}
-        {!turnOpen && <Icon icon={state === "failed" ? CircleX : CircleCheck} size={14} className="task-previous-turn-status" data-state={state} />}
+        {!turnOpen && <Icon icon={outcomeIcon} size={14} className="task-previous-turn-status" />}
         <time>{duration !== undefined && durationText(duration)}</time>
         <Icon icon={ChevronRight} size={14} className="timeline-chevron" />
       </button>

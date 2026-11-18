@@ -10,7 +10,7 @@ import { observeTaskPanel } from "../state/taskPanel";
 import { useTaskQueue } from "../state/taskQueue";
 import { TaskContentCard } from "./ui/TaskPresentation";
 import { ReviewUnavailable, TaskBackButton, StatePill } from "./timeline/TaskPresentation";
-import { EmptyTaskBody, TaskCard as TaskListCard, TaskCardHeader, localTaskCard } from "./ui/TaskCard";
+import { EmptyTaskBody, TaskCard as TaskListCard, TaskCardHeader, TaskCardScrollRow, localTaskCard } from "./ui/TaskCard";
 import TaskQueuedMessages from "./TaskQueuedMessages";
 import { useTaskReview } from "../state/taskReview";
 import { taskErrorText } from "../state/taskErrors";
@@ -323,7 +323,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
         {parentSession && <TaskListCard task={localTaskCard(agent, parentSession)} now={now} form="summary" description={t("activity.parentThread")}
           onOpen={() => selectAgentPanel({ type: "task", agent, session: parentSession })} />}
       </> : <>
-        <h2 id={titleId} className="activity-panel-title">{title}</h2>
+        <TaskCardScrollRow label={title}><h2 id={titleId} className="task-card-title task-detail-title">{title}</h2></TaskCardScrollRow>
         <div className="task-detail-chips">
           <StatePill state={state}>{t(`detail.state.${state}`)}</StatePill>
           {specChoice}

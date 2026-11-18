@@ -10,7 +10,7 @@
 .task-detail-navigation { display: flex; justify-content: space-between; gap: 8px; min-width: 0; margin-bottom: 8px; }
 .task-detail-chips { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; margin-bottom: 12px; }
 .task-detail-header:not([data-related]) .task-detail-navigation { align-items: center; min-height: 34px; margin-bottom: 0; }
-.task-detail-header.dialog-header:not([data-related]) .activity-panel-title, .task-detail-header:not([data-related]) .activity-panel-title { display: block; margin-top: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-detail-header > .task-card-scroll { margin-top: 10px; }
 .task-detail-header:not([data-related]) .task-detail-chips { margin: 12px 0 0; }
 .task-detail-duration { margin-left: auto; flex: none; }
 .task-detail-header > .task-turn-progress { margin-top: 12px; }

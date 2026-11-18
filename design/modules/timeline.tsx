@@ -390,22 +390,29 @@ export function TimelinePlanDock({ expanded = false }: { expanded?: boolean }) {
 }
 
 /** Earlier turns collapse to one row: route, outcome and duration. */
-export function TimelineEarlierTurn() {
+export function TimelineEarlierTurn({ state = "done", turn = relayCopy.turn }: { state?: "done" | "failed" | "interrupted"; turn?: string } = {}) {
+  const outcome = {
+    done: { icon: "circle-check", color: "text-success", result: relayTurns.first.result },
+    failed: { icon: "circle-x", color: "text-danger", result: relayTurns.first.failed },
+    interrupted: { icon: "circle-pause", color: "text-warning", result: relayCopy.state.interrupted },
+  } as const;
+  const { icon, color, result } = outcome[state];
+  const time = state === "interrupted" ? relayCopy.interruptedTurnTime : relayCopy.turnTime;
   return (
     <button aria-expanded="false"
       class="flex w-full items-center gap-[10px] rounded-field border border-border/70 bg-surface-subtle/80 px-3 py-[9px] text-left">
       <span class="shrink-0 rounded-disclosure bg-surface-sunken px-[6px] py-[2px]
         text-caption font-semibold tabular-nums text-text-secondary">
-        {relayCopy.turn}
+        {turn}
       </span>
       <span class="flex shrink-0 items-center gap-[3px]" aria-label={`${source.name} → ${agent.name}`}>
         <BrandMark brand={source.brand} size={12} />
         <Icon name="arrow-right" size={10} class="text-text-tertiary" />
         <BrandMark brand={agent.brand} size={12} />
       </span>
-      <span class="min-w-0 flex-1 truncate text-small text-text">{relayTurns.first.result}</span>
-      <Icon name="circle-check" size={14} class="shrink-0 text-success" />
-      <span class="shrink-0 text-meta tabular-nums text-text-tertiary">{relayCopy.turnTime}</span>
+      <span class="min-w-0 flex-1 truncate text-small text-text">{result}</span>
+      <Icon name={icon} size={14} class={`shrink-0 ${color}`} />
+      <span class="shrink-0 text-meta tabular-nums text-text-tertiary">{time}</span>
       <Icon name="chevron-right" size={14} class="shrink-0 text-text-secondary" />
     </button>
   );
@@ -423,7 +430,9 @@ export function RelayTimeline({ state }: { state: "running" | "waiting" | "done"
         <RelayRoute />
         <IconButton icon="maximize-2" label="Expand" />
       </header>
-      <h2 class="mt-[10px] shrink-0 truncate text-body leading-6 font-[650]">{task.title}</h2>
+      <div class="mt-[10px] shrink-0 overflow-x-auto [scrollbar-width:none]">
+        <h2 class="w-max whitespace-nowrap text-body leading-6 font-[650]">{task.title}</h2>
+      </div>
       <div class="mt-3 flex shrink-0 items-center gap-2">
         <StatePill class="pr-[10px]" state={state}>{relayCopy.state[state]}</StatePill>
         <DispatchSpec {...taskDispatch} />
@@ -498,5 +507,13 @@ export default () => [
   </Frame>,
   <Frame name="timeline-earlier-turn" width={512}>
     <div class="w-full bg-surface-raised"><TimelineEarlierTurn /></div>
+  </Frame>,
+  <Frame name="timeline-earlier-turn-failed" width={310} fixture="timeline-history-outcomes"
+    capture={{ selector: '.task-turn:has(.task-previous-turn[data-state="failed"])', viewport: "390x844" }}>
+    <div class="w-full bg-surface-raised"><TimelineEarlierTurn state="failed" /></div>
+  </Frame>,
+  <Frame name="timeline-earlier-turn-interrupted" width={310} fixture="timeline-history-outcomes"
+    capture={{ selector: '.task-turn:has(.task-previous-turn[data-state="interrupted"])', viewport: "390x844" }}>
+    <div class="w-full bg-surface-raised"><TimelineEarlierTurn state="interrupted" turn={relayCopy.secondTurn} /></div>
   </Frame>,
 ];

@@ -11,15 +11,16 @@ export const relayCopy = {
   working: "工作中", reply: "最终回复", failed: "本轮失败", request: "请求批准",
   routing: "18 秒后转给 Claude", pause: "暂停", handoff: "立即转给 Claude",
   worked: "用时 1 分 52 秒 · 6 项操作", failedFold: "用时 1 分 04 秒 · 5 项操作 · 1 项失败",
-  turn: "第 1 轮", turnTime: "37 秒", changes: "1 个文件有改动", plan: "计划", copy: "复制",
+  turn: "第 1 轮", secondTurn: "第 2 轮", turnTime: "37 秒", interruptedTurnTime: "33 秒", changes: "1 个文件有改动", plan: "计划", copy: "复制",
   retry: "重试本轮", copyLog: "复制日志",
-  state: { running: "运行中", waiting: "等待批准", done: "已完成", failed: "失败" },
+  state: { running: "运行中", waiting: "等待批准", done: "已完成", failed: "失败", interrupted: "已中断" },
   duration: { running: "22 分 31 秒", waiting: "23 分 02 秒", done: "24 分 18 秒", failed: "1 分 04 秒" },
 };
 export const relayTurns = {
   first: {
     prompt: "Review the project and check the configuration. Keep the existing behavior.",
     result: "The configuration review is complete; no behavior changes were needed.",
+    failed: "The sample verification command failed.",
   },
   second: {
     prompt: "Apply the changes and run the project checks. Report anything you could not verify.",

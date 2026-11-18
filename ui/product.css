@@ -548,6 +548,8 @@ button.timeline-summary { appearance: none; cursor: pointer; }
 .hub-arc-bridge, .hub-arc-action { position: absolute; left: 50%; }
 .hub-arc-bridge { width: var(--control-height-compact); height: 36%; transform: translateX(-50%); }
 .hub-arc[data-paired] .hub-arc-bridge { width: calc(2 * var(--control-height-compact) + var(--space-2)); }
+.hub-arc-top .hub-arc-bridge { top: calc(-1 * var(--space-1)); }
+.hub-arc-bottom .hub-arc-bridge { bottom: calc(-1 * var(--space-1)); }
 .hub-arc-action {
   display: flex;
   gap: var(--space-2);
@@ -556,6 +558,8 @@ button.timeline-summary { appearance: none; cursor: pointer; }
   transform: translateX(-50%) rotate(calc(0deg - var(--hub-rotation, 0deg)));
   transition: opacity var(--motion-fast) var(--ease-enter), translate var(--motion-base) var(--ease-enter);
 }
+.hub-arc-top .hub-arc-action { bottom: calc(90% + var(--space-1)); translate: 0 5px; }
+.hub-arc-bottom .hub-arc-action { top: calc(90% + var(--space-1)); translate: 0 -5px; }
 .hub-arc:is(:hover, :focus-within) .hub-arc-bridge { pointer-events: auto; }
 .hub-arc:is(:hover, :focus-within) .hub-arc-action { opacity: 1; translate: none; pointer-events: auto; }
 :root[data-reduced-motion="true"] .hub-arc-action { transition: none; }

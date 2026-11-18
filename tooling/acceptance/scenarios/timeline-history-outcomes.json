@@ -1,0 +1,17 @@
+{
+  "theme": "light",
+  "language": "zh-CN",
+  "agents": ["codex"],
+  "panel": { "kind": "agent", "id": "codex" },
+  "detailTask": 0,
+  "previousTurnOutcomes": ["failed", "cancelled"],
+  "viewports": [{ "width": 390, "height": 844 }, { "width": 1280, "height": 800 }],
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Review project configuration and verify the requested changes",
+      "headline": "npm run check"
+    }
+  ]
+}

@@ -79,7 +79,7 @@ type CardHeaderProps = {
   grid?: boolean; spec?: ReactNode; duration?: number; attention?: boolean;
 };
 
-function ScrollRow({ children, label }: { children: ReactNode; label?: string }) {
+export function TaskCardScrollRow({ children, label }: { children: ReactNode; label?: string }) {
   const row = useRef<HTMLDivElement>(null);
   const [overflow, setOverflow] = useState(false);
   useLayoutEffect(() => {
@@ -131,26 +131,26 @@ export function TaskCardHeader({ task, now, onOpen, trigger, description, titleI
   const originLabel = origins.map(origin => origin.label).join(' → ');
   return <header className="task-card-header">
     <div className="task-card-first-row">
-      <ScrollRow label={originLabel}><span className="task-card-origins" role="img" aria-label={originLabel}>
+      <TaskCardScrollRow label={originLabel}><span className="task-card-origins" role="img" aria-label={originLabel}>
         {origins.map((origin, index) => <span key={`${index}:${origin.label}`}>{index > 0 && <Icon icon={ArrowRight} size={11} className="task-card-origin-arrow" />}<Tooltip text={[origin.label, origin.description].filter(Boolean).join(' · ')}><span className="task-card-origin-node"><span className="task-card-origin">{origin.graphic}</span>{origin.caption}</span></Tooltip></span>)}
-      </span></ScrollRow>
+      </span></TaskCardScrollRow>
       <div className="task-card-state-time">
         {shownException && <span className="task-card-exception" data-state={shownException} role="status">{t(`detail.state.${shownException}`)}</span>}
         {dot && <span className="task-card-dot" data-tone={dot} aria-hidden="true" />}
         <TaskTime task={task} now={now} duration={duration} />
       </div>
     </div>
-    <ScrollRow label={title}>
+    <TaskCardScrollRow label={title}>
       {heading ? <h2 id={titleId} className="task-card-title">{title}</h2>
         : onOpen || trigger?.disabled ? <button {...trigger} type="button" data-task-open className="task-card-title" title={title}
           aria-label={`${t('homepage.openDetail')}: ${title}`} aria-description={description} onClick={onOpen}>{title}</button>
         : <strong className="task-card-title">{title}</strong>}
-    </ScrollRow>
-    {hasMeta && <ScrollRow label={t('homepage.taskMetadata')}><div className="task-card-execution" data-pills={hasPills || undefined}>
+    </TaskCardScrollRow>
+    {hasMeta && <TaskCardScrollRow label={t('homepage.taskMetadata')}><div className="task-card-execution" data-pills={hasPills || undefined}>
       {spec ?? <RecordedDispatchSpec agent={task.deviceId ? undefined : task.agent} summary={task.session.dispatchSummary} />}
       <ProjectLabel name={task.session.projectName} path={task.session.project} />
       {task.session.turnCount != null && <span className="task-card-turns">{t('timeline.turnCount', { count: task.session.turnCount })}</span>}
-    </div></ScrollRow>}
+    </div></TaskCardScrollRow>}
   </header>;
 }
 
