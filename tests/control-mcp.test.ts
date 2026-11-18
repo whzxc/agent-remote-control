@@ -1081,13 +1081,13 @@ test('capacity failures retry same model without replaying input, suppress inter
 
 
 test('task overview defaults to compact live evidence and full view retains preview and cursor', async()=>{
-  // Recurring bug class: lifecycle unloaded or unavailable owners must not appear as completed tasks.
+  // Recurring bug class: lifecycle active turns require live owners while explicit terminal history survives owner loss.
   const compact=(await call('codex_tasks',{searchTerm:'fixture-overview'})).result;
   assert.equal(compact.view,'compact');assert.equal(compact.nextCursor,'native-cursor');
   assert.equal(compact.tasks[0].status,'running');assert.equal(compact.tasks[0].title,'Live');
   assert.equal(compact.tasks[0].model,'fixture-model');assert.equal(compact.tasks[0].currentTurn.turnId,'current-turn');
-  assert.equal(compact.tasks[1].status,'unconfirmed');assert.match(compact.tasks[1].statusReason,/no live owner/);
-  assert.equal(compact.tasks[2].status,'unconfirmed');assert.match(compact.tasks[2].statusReason,/owner unavailable/);assert.equal(compact.tasks[2].currentTurn.turnId,'current-turn');assert.equal(compact.tasks[2].currentTurn.source,'persisted-history');
+  assert.equal(compact.tasks[1].status,'unconfirmed');assert.equal(compact.tasks[1].statusReason,'runtime-ownership-unknown');
+  assert.equal(compact.tasks[2].status,'completed');assert.equal(compact.tasks[2].currentTurn.turnId,'current-turn');assert.equal(compact.tasks[2].currentTurn.source,'persisted-history');
   const paged=(await call('codex_tasks',{searchTerm:'fixture-overview',view:'full'})).result;
   assert.ok(paged.outputId);let text=paged.text,offset=paged.nextOffset;
   while(offset!==null){const page=(await call('control_output',{outputId:paged.outputId,offset,length:30000})).result;text+=page.text;offset=page.nextOffset;}
@@ -2201,7 +2201,7 @@ test('removed lane without terminal evidence reports an explicit gap instead of 
 });
 
 test('AX binary transfers verify bytes and reject duplicate append offsets', async () => {
-  // Recurring bug class: hand-copied base64 silently corrupted host files and append retries duplicated bytes.
+  // Recurring bug class: retry-replay hand-copied base64 silently corrupted host files and append retries duplicated bytes.
   const file = path.join(directory, 'binary-transfer.bin');
   const sha = (data: Buffer) => createHash('sha256').update(data).digest('hex');
   const first = Buffer.from([0, 255, 128, 10]);

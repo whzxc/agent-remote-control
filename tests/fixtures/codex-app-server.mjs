@@ -155,7 +155,7 @@ for await (const line of createInterface({ input: process.stdin })) {
     if ([threadIds.overviewLive, threadIds.overviewUnloaded, threadIds.overviewUnavailable].includes(params?.threadId)) {
       if(params.threadId===threadIds.overviewUnavailable && method==='thread/read')return emit({id,error:{code:-32000,message:'owner unavailable'}});
       if(method==='thread/read')return emit({id,result:{thread:{id:params.threadId,cwd:'/fixture',updatedAt:124,model:'fixture-model',status:{type:params.threadId===threadIds.overviewLive?'active':'notLoaded'}}}});
-      if(method==='thread/turns/list')return emit({id,result:{data:[{id:'current-turn',status:params.threadId===threadIds.overviewLive?'inProgress':'completed'}],nextCursor:null}});
+      if(method==='thread/turns/list')return emit({id,result:{data:[{id:'current-turn',status:params.threadId===threadIds.overviewUnavailable?'completed':'inProgress'}],nextCursor:null}});
     }
     if (method === 'project/list' && existsSync(process.env.ARC_FIXTURE_DATA+'/projects-fixture.json')) return emit({id,result:{data:JSON.parse(readFileSync(process.env.ARC_FIXTURE_DATA+'/projects-fixture.json','utf8')),nextCursor:null}});
     if (method === 'model/list' || method === 'thread/list' || method === 'project/list') return emit({ id, result: { data: [], nextCursor: null } });
