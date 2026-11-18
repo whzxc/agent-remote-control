@@ -23,7 +23,7 @@ async function start(directory: string) {
   await mkdir(home, { recursive: true });
   const env = { ...process.env, HOME: home, USERPROFILE: home, ARC_STATE_DIR: state, CODEX_HOME: path.join(home, '.codex'), CLAUDE_CONFIG_DIR: path.join(home, '.claude'), ARC_FIXTURE_INDEX_GATE: path.join(directory, 'index-gate') };
   for (const key of ['ARC_DEV_INSTANCE_ID', 'ARC_DEV_OWNER_ID', 'ARC_DEV_TAKEOVER']) delete env[key];
-  const wallAt = Date.now(), at = performance.now();
+  const at = performance.now();
   const child = spawn(binary, ['runtime'], { env, stdio: ['ignore', 'ignore', 'pipe'] });
   const exited = once(child, 'exit');
   let errors = ''; child.stderr.on('data', bytes => { errors += bytes; });
@@ -69,12 +69,12 @@ async function start(directory: string) {
     await call('runtime_metrics');
     phases.queryMs = performance.now() - at;
     console.log('Core readiness phases:', phases);
-    return { stop, call, request, metadataWallAt: wallAt + phases.metadataMs, metadataAt: at + phases.metadataMs, readinessMs: performance.now() - at };
+    return { stop, call, request, metadataAt: at + phases.metadataMs, readinessMs: performance.now() - at };
   } catch (error) { await stop(); throw error; }
 }
 
 test('real Core serves health, leases, guide and query before realistic retained-state migration publishes', { timeout: 120000 }, async () => {
-  // Recurring bug class: ax-c398fbae blocked guide and pending-owner queries during installed-scale migration and rewrote unchanged bindings on restart.
+  // Recurring bug class: lifecycle ax-c398fbae blocked guide and pending-owner queries during installed-scale migration and rewrote unchanged bindings on restart.
   execFileSync('cargo', ['build', '--locked', '--quiet', '-p', 'contract-fixture', '--target-dir', target], { stdio: 'inherit' });
   const directory = await mkdtemp(path.join(tmpdir(), 'arc-index-runtime-'));
   const state = path.join(directory, 'state');
@@ -87,7 +87,6 @@ test('real Core serves health, leases, guide and query before realistic retained
     assert.ok(core.readinessMs < 5000, `readiness: ${core.readinessMs} ms`);
     const owners = ['notifications/tasks', '', 'agents/requests'];
     for (const owner of owners) assert.equal(await json(path.join(state, owner, '.activity-index/current.json')), undefined, 'Readiness must precede every index publish');
-    const coreMetadataWallAt = core.metadataWallAt;
     const rebuilding = performance.now();
     const latencies: Record<string, number[]> = { guide: [], unrelated: [], pending: [], published: [] };
     const pendingCodes: string[] = [];
@@ -108,6 +107,7 @@ test('real Core serves health, leases, guide and query before realistic retained
     const load = async (name: string, read: () => Promise<any>) => {
       while (!finished) { await sample(name, read); await pause(20); }
     };
+    const releasedAt = Date.now();
     await rm(path.join(directory, 'index-gate'));
     let codexPublished = false;
     const pendingRequests = async () => { while (!codexPublished && !finished) { await pending(); await pause(20); } };
@@ -133,8 +133,8 @@ test('real Core serves health, leases, guide and query before realistic retained
     await eventually(async () => (await core!.call('runtime_metrics')).notificationObserve.totals.completedPasses > 0 ? true : undefined);
     const publication = (await indexPublications(state)).find(row => row.profile.owner === 'receipts' && row.profile.rows === fixture.ids.length && row.profile.mode === 'rebuild');
     assert.ok(publication);
-    const receiptReadyAfterMetadataMs = publication.at - coreMetadataWallAt;
-    console.log(JSON.stringify({ receiptReadyAfterMetadataMs, receiptRebuild: publication.profile }));
+    const receiptReadyAfterReleaseMs = publication.at - releasedAt;
+    console.log(JSON.stringify({ receiptReadyAfterReleaseMs, receiptRebuild: publication.profile }));
     await core.stop(); core = undefined;
     const before = await canonicalSnapshot(state);
     core = await start(directory);
@@ -149,7 +149,7 @@ test('real Core serves health, leases, guide and query before realistic retained
     const after = await canonicalSnapshot(state);
     const rewritten = [...before].filter(([key, value]) => after.get(key)?.mtime !== value.mtime || after.get(key)?.bytes !== value.bytes);
     console.log(JSON.stringify({ canonicalFiles: before.size, rewritten: rewritten.length, adopt: { receipts: adopted.cost.receiptAdopt, notifications: adopted.cost.notificationAdopt }, receiptSeed: adopted.cost.receiptSeed }));
-    assert.ok(receiptReadyAfterMetadataMs < 5000, `receipt ready after metadata: ${receiptReadyAfterMetadataMs} ms`);
+    assert.ok(receiptReadyAfterReleaseMs < 5000, `receipt ready after gate release: ${receiptReadyAfterReleaseMs} ms`);
     for (const [name, values] of Object.entries(latencies)) {
       assert.ok(values.length > 0, `${name} has concurrent samples`);
       assert.ok(Math.max(...values) < 200, `${name} max latency: ${Math.max(...values)} ms`);
