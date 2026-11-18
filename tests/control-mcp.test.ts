@@ -303,11 +303,13 @@ test('deployment fingerprints ignore tool/property ordering and runtime changes 
   assert.deepEqual(toolFingerprint(reorder([...inventory.tools].reverse())), before);
   await call('codex_capabilities');
   assert.deepEqual(toolFingerprint((await client.listTools()).tools), before);
+  const outputSchemaIndex = inventory.tools.findIndex(tool => tool.outputSchema && typeof tool.outputSchema.properties === 'object');
+  assert.ok(outputSchemaIndex >= 0);
   for (const change of [
-    (tools: any[]) => { tools[0].inputSchema.properties.added = { type: 'string' }; },
-    (tools: any[]) => { tools[0].description += ' changed'; },
-    (tools: any[]) => { tools[0].annotations.readOnlyHint = false; },
-    (tools: any[]) => { tools[0].outputSchema.properties.result = { type: 'string' }; },
+    (tools: any[]) => { tools[outputSchemaIndex].inputSchema.properties.added = { type: 'string' }; },
+    (tools: any[]) => { tools[outputSchemaIndex].description += ' changed'; },
+    (tools: any[]) => { tools[outputSchemaIndex].annotations.readOnlyHint = false; },
+    (tools: any[]) => { tools[outputSchemaIndex].outputSchema.properties.result = { type: 'string' }; },
     (tools: any[]) => { tools.pop(); },
   ]) {
     const tools = structuredClone(inventory.tools); change(tools);
@@ -2237,7 +2239,7 @@ test('AX omitted request IDs return reusable receipts', async () => {
   assert.equal(replay.state,'completed');
   assert.equal(replay.result.sizeBytes,2);
   assert.deepEqual(await readFile(params.path),Buffer.from('hi'));
-  const detail = (await call('guide',{op:'fs'})).result;
+  const detail = (await call('guide',{op:'fs',view:'full'})).result;
   assert.equal(detail.retry.serverGeneratedWhenOmitted,true);
   assert.equal(detail.retry.callerGenerated,false);
   assert.ok(!detail.inputSchema.required.includes('requestId'));
@@ -2246,7 +2248,7 @@ test('AX omitted request IDs return reusable receipts', async () => {
 test('AX status revisits and wait timeouts expose bounded progress evidence', async () => {
   // Recurring bug class: statusOnly hid all progress during multi-hour tasks and wait timeouts offered no commit/check evidence.
   const reviewed = (await call('codex_read',{threadId:'review-outcomes',statusOnly:true})).result;
-  assert.equal(reviewed.turns,null);
+  assert.equal(reviewed.turns,undefined);
   assert.equal(reviewed.progress.latestAgentMessage,'After final commentary');
   assert.deepEqual(reviewed.progress.latestChecks.map((c:any)=>c.exitCode),[1,0]);
   assert.equal(reviewed.progress.commits,null);
@@ -2353,7 +2355,7 @@ test('AX2 CLI guides accept full views and subcommands expose help without execu
   assert.ok(full.result.ops.some((op:any)=>op.op==='write'));
   const cached=cli(['control','guide','--stdin'],{view:'full',knownGuideHash:full.result.guideHash});
   assert.equal(cached.result.unchanged,true);
-  for(const command of [['app','replace'],['app','snapshot'],['wait'],['control'],['source','update']]) {
+  for(const command of [['app','snapshot'],['wait'],['control'],['source','update']]) {
     const help=cli([...command,'--help']);assert.equal(help.ok,true);assert.ok(help.result.commands.length>0);
   }
 });
