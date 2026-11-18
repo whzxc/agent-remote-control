@@ -509,7 +509,7 @@ test('real HTTP ingresses isolate discovery and direct execution; policy PUT pre
     const allowed = await ingressRpc(a, 'tools/call', { name: 'codex_call', arguments: args });
     assert.equal(allowed.result.isError, false);
     // A restricted real read succeeds, not merely schema validation or list filtering.
-    const read = await ingressRpc(b, 'tools/call', { name: 'read', arguments: { project: directory, path: 'app-server.mjs' } });
+    const read = await ingressRpc(b, 'tools/call', { name: 'read', arguments: { project: directory, path: 'tracking-acp.mjs' } });
     assert.equal(read.result.isError, false, JSON.stringify(read));
     const identity = (await management(`ingress/${b.id}`)).verification;
     const verified = await ingressRpc(b, 'tools/call', { name: 'connector_verify', arguments: { code: identity.code } });
