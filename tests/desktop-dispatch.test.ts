@@ -10,8 +10,8 @@ import { randomUUID } from 'node:crypto';
 import { nativeControl } from './helpers/native-control.ts';
 
 test('Desktop and connector owners dispatch FIFO and steer only a confirmed native turn', { skip: process.platform !== 'darwin' }, async () => {
-  // Recurring bug class: connector restart lost the held Desktop owner; optimistic native turns also broke FIFO/steering.
-  const directory = await mkdtemp(path.join(tmpdir(), 'arc-owner-'));
+  // Recurring bug class: lifecycle connector restart lost the held Desktop owner; optimistic native turns also broke FIFO/steering.
+  const directory = await realpath(await mkdtemp('/tmp/arc-owner-'));
   const dataFile = path.join(directory, 'native.json');
   const openFile = path.join(directory, "opened-url");
   const desktopThread = randomUUID(), desktopTurn = randomUUID();
@@ -185,8 +185,8 @@ test('Desktop and connector owners dispatch FIFO and steer only a confirmed nati
 });
 
 test('AX unheld thread reads recover from silent Desktop discovery', {skip:process.platform!=='darwin'}, async()=>{
-  // Recurring bug class: AX-05 an unheld persisted thread could not be read when Desktop never answered owner discovery.
-  const directory=await mkdtemp(path.join(tmpdir(),'arc-unheld-'));
+  // Recurring bug class: lifecycle AX-05 an unheld persisted thread could not be read when Desktop never answered owner discovery.
+  const directory=await realpath(await mkdtemp('/tmp/arc-unheld-'));
   await mkdir(path.join(directory,'ipc'));
   const sockets=new Set<Socket>();
   const server=createServer(socket=>{
@@ -225,8 +225,8 @@ test('AX unheld thread reads recover from silent Desktop discovery', {skip:proce
 });
 
 test('Codex activity and timelines retain the active native turn', { skip: process.platform !== 'darwin' }, async () => {
-  // Recurring bug class: large tool output hid an active task, whose timeline could then report a utility terminal snapshot.
-  const directory = await mkdtemp(path.join(tmpdir(), 'arc-timeline-owner-'));
+  // Recurring bug class: lifecycle large tool output hid an active task, whose timeline could then report a utility terminal snapshot.
+  const directory = await realpath(await mkdtemp('/tmp/arc-timeline-owner-'));
   await mkdir(path.join(directory, 'ipc'));
   const threadId = randomUUID(), turnId = randomUUID();
   let status = 'inProgress', revision = 0;
