@@ -2320,7 +2320,7 @@ test('AX unbound cloud-session verification explains binding and its next call',
 });
 
 test('AX2 failed receipts report failure through MCP and CLI without losing identity', async () => {
-  // Recurring bug class: a failed receipt returned CLI exit zero and ok:true while only its nested state showed failure.
+  // Recurring bug class: lifecycle a failed receipt returned CLI exit zero and ok:true while only its nested state showed failure.
   const requestId = randomUUID();
   const params = {path:path.join(directory,'bad-transfer'),dataBase64:'aGk=',expectedSha256:'0'.repeat(64)};
   const response = await call('fs',{action:'writeFile',params,requestId});
@@ -2328,7 +2328,7 @@ test('AX2 failed receipts report failure through MCP and CLI without losing iden
   assert.equal(response.result.state,'failed');
   assert.equal(response.result.requestId,requestId);
   const visible=JSON.parse((response.response.content[0] as any).text);
-  assert.equal(visible.requestId,requestId);assert.equal(visible.next.op,'receipt');
+  assert.equal(visible.requestId,requestId);assert.equal(visible.next.op,'guide');assert.equal(visible.next.args.op,'fs');
   assert.match(response.result.error.message,/SHA256_MISMATCH/);
   let failure: any;
   try { execFileSync(fixtureCommand,['cli','control','receipt','--stdin'],{env:fixtureEnv,input:JSON.stringify({requestId}),encoding:'utf8',stdio:['pipe','pipe','pipe']}); }
@@ -2372,7 +2372,7 @@ test('AX2 oversized results retain identity and can be completely continued', as
 
 
 test('AX2 status reads agree with wait observations and nonterminal receipts have next steps', async () => {
-  // Recurring bug class: statusOnly omitted execution state while reserved and thread-created receipts had no actionable next.
+  // Recurring bug class: lifecycle statusOnly omitted execution state while reserved and thread-created receipts had no actionable next.
   assert.equal((await call('inbox_wait',{timeoutMs:0})).response.isError,false);
   const task=await dispatchFixture('fixture-dispatch-queue');
   const status=(await call('codex_read',{threadId:task.threadId,statusOnly:true})).result;
@@ -2384,7 +2384,7 @@ test('AX2 status reads agree with wait observations and nonterminal receipts hav
   const pending=await call('codex_call',{method:'fixture/slow-submission',params:{delay:300},waitMs:1,requestId:randomUUID()});
   assert.equal(pending.result.next.op,'receipt');
   const failure=await call('fs',{action:'writeFile',params:{path:path.join(directory,'stalled-failure'),dataBase64:'aGk=',expectedSha256:'0'.repeat(64)}});
-  assert.equal(failure.result.next.op,'receipt');
+  assert.equal(failure.result.next.op,'guide');assert.equal(failure.result.next.args.op,'fs');
   await completed('codex_call',{method:'fixture/finish-turn',params:{threadId:task.threadId},requestId:randomUUID()});
 });
 
@@ -2562,7 +2562,7 @@ test('AX interface sends inherit explicit thread choices and notices observe lin
 });
 
 test('AX foreground command receipts expose execution and process spawn supports session lifetime',async()=>{
-  // Recurring bug class: AX-07 foreground executions remained reserved; AX-06 did not name the supported managed-process path.
+  // Recurring bug class: lifecycle AX-07 foreground executions remained reserved; AX-06 did not name the supported managed-process path.
   const pending=(await call('command',{cmd:'fixture-delayed',cwd:directory,timeoutMs:2000,waitMs:0,requestId:randomUUID()})).result;
   let receipt=pending;
   for(let i=0;i<20 && receipt.state==='reserved';i++) {
@@ -2578,7 +2578,7 @@ test('AX foreground command receipts expose execution and process spawn supports
   assert.equal(spawned.result.echoedParams.timeoutMs,null);
   const failed=await completed('command',{action:'exec',params:{command:['fixture'],fail:'reject'},requestId:randomUUID()});
   assert.equal(failed.next.op,'guide');
-  assert.equal(failed.next.args.op,'process');
+  assert.equal(failed.next.args.op,'command');
 });
 
 
