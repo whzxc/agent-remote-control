@@ -10,8 +10,8 @@ const prepared = {
   'model-menu': { scenario: 'timeline-multi-turn', modelPicker: true, modelMenu: true },
   'board-ax-closed': { scenario: 'coordination-ax-light', axClosed: true },
   'board-ax-detail': { scenario: 'coordination-ax-light', axClosed: true },
-  'approval-permission': { scenario: 'approval', task: '打开任务详情: 阅读项目说明' },
-  'approval-question': { scenario: 'task-states', task: '打开任务详情: Waiting for input' },
+  'approval-permission': { scenario: 'request-sheet-permission', requestEntry: true },
+  'approval-question': { scenario: 'request-sheet-question', requestEntry: true },
   'agent-account-edit': { scenario: 'agent-platform-lifecycle', accountAction: 'edit' },
   'agent-account-remove': { scenario: 'agent-platform-lifecycle', accountAction: 'remove' },
   'agent-account-claude-add': { scenario: 'agent-platform-lifecycle', accountAction: 'add' },
@@ -76,6 +76,11 @@ export default {
         if (preparation.modelMenu) {
           await page.getByRole('button', { name: '默认模型: 跟随任务', exact: true }).click();
         }
+      }
+      if (preparation?.requestEntry) {
+        await page.locator('.task-detail-layer').waitFor();
+        await page.waitForFunction(() => window.__ARC_VIEW_MODEL__().taskDetail?.timeline, undefined, { timeout: 5000 });
+        await page.locator('.request-entry').getByRole('button', { name: '打开', exact: true }).waitFor();
       }
       if (preparation?.task) {
         // Scope panel rows so an identically named topology bubble cannot win.
