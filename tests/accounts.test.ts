@@ -490,7 +490,8 @@ test('Claude credential profiles share native transcripts and retain legacy data
   const observed = path.join(directory, 'observed.jsonl');
   const cli = path.join(directory, 'claude');
   await writeFile(cli, `#!${process.execPath}
-const fs=require('node:fs'),path=require('node:path'),args=process.argv.slice(2),config=process.env.CLAUDE_CONFIG_DIR;
+import fs from 'node:fs'; import path from 'node:path';
+const args=process.argv.slice(2),config=process.env.CLAUDE_CONFIG_DIR;
 if(args[0]==='auth'&&args[1]==='login')process.exitCode=0;
 else if(args[0]==='auth'&&args[1]==='status')console.log(JSON.stringify({loggedIn:true,authMethod:'claude.ai',accountId:path.basename(path.dirname(config)),email:path.basename(path.dirname(config))+'@example.test',orgName:'Fixture'}));
 else if(args[0]==='-p'){fs.appendFileSync(${JSON.stringify(observed)},JSON.stringify({profile:path.basename(path.dirname(config)),projects:fs.realpathSync(path.join(config,'projects'))})+'\\n');console.log(JSON.stringify({ok:true,session_id:args[3]}));}

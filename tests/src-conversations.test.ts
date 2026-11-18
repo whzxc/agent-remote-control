@@ -30,7 +30,7 @@ test('Verified session aliases preserve Chat identity and task links through Cor
   const directory=await mkdtemp(path.join(tmpdir(),'arc-src-alias-'));
   const deliveries=path.join(directory,'deliveries.jsonl');
   await writeFile(path.join(directory,'claude'),`#!${process.execPath}
-const {appendFileSync}=require('node:fs');
+import {appendFileSync} from 'node:fs';
 const args=process.argv.slice(2);
 if(args[0]==='auth' && args[1]==='status') console.log(JSON.stringify({loggedIn:true,email:'alias@example.com',authMethod:'claude.ai',orgId:'550e8400-e29b-41d4-a716-446655440000'}));
 else if(args[0]==='auth' && args[1]==='login') process.exitCode=0;

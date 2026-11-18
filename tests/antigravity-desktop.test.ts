@@ -19,7 +19,7 @@ async function setup(desktop = false) {
   await writeFile(log, '');
   const binary = path.join(home, 'agentapi');
   await writeFile(binary, `#!${process.execPath}
-const {appendFileSync}=require('node:fs');
+import {appendFileSync} from 'node:fs';
 const args=process.argv.slice(2);
 appendFileSync(${JSON.stringify(log)},JSON.stringify(args)+'\\n');
 const emit=value=>console.log(JSON.stringify({response:value}));
@@ -33,7 +33,7 @@ if(args[0]==='get-conversation-metadata') {
 else { console.log('new-conversation get-conversation-metadata send-message'); }
 `, { mode: 0o755 });
   await writeFile(path.join(home, 'agy'), `#!${process.execPath}
-const {createInterface}=require('node:readline');
+import {createInterface} from 'node:readline';
 if(process.argv.includes('--version')) { console.log('1.4.12');process.exit(); }
 if(process.argv.includes('--help')) { console.log('stream-json --conversation');process.exit(); }
 createInterface({input:process.stdin}).on('line',()=>console.log(JSON.stringify({event:'result',result:{conversation_id:'fixture-conversation',status:'SUCCESS',response:'Finished',num_turns:1}})));

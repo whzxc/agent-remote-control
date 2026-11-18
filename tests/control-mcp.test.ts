@@ -371,11 +371,11 @@ test('setup rejects a short runtime key without saving or clearing; HTTPS fallba
   const tunnel = path.join(directory, 'tunnel-fixture');
   await writeFile(poll, '0');
   await writeFile(tunnel, `#!${process.execPath}
-const fs = require('node:fs');
+import fs from 'node:fs'; import http from 'node:http';
 if (process.argv[2] === '--version') { console.log('tunnel-client v0.0.16'); process.exit(0); }
 if (process.argv[2] === 'init') process.exit(0);
 if (process.argv[process.argv.indexOf('--mcp.connection-max-ttl') + 1] !== '31m') process.exit(42);
-const server = require('node:http').createServer((req, res) => {
+const server = http.createServer((req, res) => {
   if (req.url === '/readyz') return res.end('ready');
   const code = JSON.parse(fs.readFileSync(${JSON.stringify(poll)}, 'utf8'));
   res.setHeader('Content-Type', 'application/json');
@@ -546,7 +546,7 @@ test('managed draft commits the selected policy instead of publishing all tools'
   await mkdir(dependency, { recursive: true });
   const binary = path.join(dependency, 'cloudflared');
   const script = `#!/usr/bin/env node
-const http = require('node:http');
+import http from 'node:http';
 const endpoint = process.argv[process.argv.indexOf('--metrics') + 1];
 http.createServer((req, res) => { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(req.url === '/quicktunnel' ? {hostname:'policy-draft.trycloudflare.com'} : {})); }).listen(Number(endpoint.split(':')[1]), '127.0.0.1');
 `;
@@ -913,7 +913,7 @@ test('managed Cloudflare recovers an exited provider without status polling and 
   await mkdir(dependency,{recursive:true});
   const readyAddress = path.join(directory,'provider-ready-address.txt');
   const script = `#!${process.execPath}
-const http = require('node:http'), fs = require('node:fs');
+import http from 'node:http'; import fs from 'node:fs';
 const endpoint = process.argv[process.argv.indexOf('--metrics')+1];
 if(process.argv[process.argv.indexOf('--protocol')+1]!=='http2')process.exit(42);
 const server = http.createServer((req,res)=>{res.setHeader('Content-Type','application/json');res.end(JSON.stringify({readyConnections:2}));});

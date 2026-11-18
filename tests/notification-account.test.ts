@@ -68,8 +68,7 @@ test('Unrouted targets select only a uniquely visible profile and persist that c
   const binary=path.join(directory,'claude');
   const deliveries=path.join(directory,'deliveries.jsonl');
   await writeFile(binary,`#!${process.execPath}
-const {writeFileSync,appendFileSync}=require('node:fs');
-const path=require('node:path');
+import {writeFileSync,appendFileSync} from 'node:fs'; import path from 'node:path';
 const args=process.argv.slice(2),config=process.env.CLAUDE_CONFIG_DIR,id=path.basename(path.dirname(config));
 if(args[0]==='auth' && args[1]==='login') {
   writeFileSync(path.join(config,'.credentials.json'),JSON.stringify({claudeAiOauth:{accessToken:'fixture-secret-'+id}}));
