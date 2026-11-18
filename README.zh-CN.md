@@ -20,6 +20,8 @@ Claude 使用远程链接并在本机批准接入。自动回访还需要发起�
 
 GPT-6 Astra Pro 在 ChatGPT Chat 模式里可用，Codex 里没有。ARC 把两者接起来：Chat 负责深度推理，Codex 负责执行。使用已开放该选项的 ChatGPT Pro、Business 或 Enterprise 账号，默认使用远程链接并在本机批准。[接入 ChatGPT](docs/zh-CN/guides/chatgpt.md)。
 
+[真实案例：Codex 自己卡住了，ARC 把客户端救了回来](docs/zh-CN/stories/codex-client-login-recovery.md)。桌面端登录失败后，网页里的对话通过 ARC 继续诊断，帮助恢复访问。
+
 <details>
 <summary>查看 ARC 应用界面</summary>
 

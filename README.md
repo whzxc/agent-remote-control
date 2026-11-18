@@ -20,6 +20,8 @@ Connect Claude with a remote link and approve it locally. Automatic follow-ups a
 
 GPT-6 Astra Pro is available in ChatGPT Chat mode, but not in Codex. ARC connects them: Chat handles deep reasoning, and Codex executes. Use a ChatGPT Pro, Business, or Enterprise account with that option enabled. A remote link with local approval is the default connection. [Connect ChatGPT](docs/guides/chatgpt.md).
 
+[Read a real recovery story](docs/stories/codex-client-login-recovery.md). When the desktop client could not load its account, ChatGPT in the browser used ARC to diagnose the failure and help restore access.
+
 <details>
 <summary>Explore the ARC app</summary>
 
