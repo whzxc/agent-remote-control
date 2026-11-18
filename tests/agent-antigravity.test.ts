@@ -220,11 +220,11 @@ test('Antigravity discovery and stream transport preserve terminal evidence and 
     assert.ok(launches.some((launch: string[]) => launch.includes('--dangerously-skip-permissions')));
 
     const pending = await fixture.call('agent_send', { ...task, prompt: 'hold', purpose: 'self-test', notify: null, waitMs: 0 });
-    await until(() => fixture.call('agent_read', task), value => value.status === 'running');
+    await until(async () => completeResult(fixture, await fixture.call('agent_read', task)), value => value.status === 'running');
     const interrupted = await fixture.completed('agent_interrupt', task);
     assert.equal(interrupted.state, 'completed', JSON.stringify(interrupted));
     await until(() => fixture.call('receipt', { requestId: pending.requestId }), value => value.state === 'completed');
-    const stopped = await fixture.call('agent_read', task);
+    const stopped = await completeResult(fixture, await fixture.call('agent_read', task));
     assert.equal(stopped.status, 'cancelled');
 
     const resumed = await fixture.completed('agent_send', { ...task, prompt: 'recovered' });
