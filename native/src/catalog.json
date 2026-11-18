@@ -11785,20 +11785,26 @@
         "conditional": false
       },
       "devices": {
+        "group": "host",
+        "requires": [],
         "presets": [
           "profile-device"
         ]
       },
       "device": {
+        "group": "host",
+        "requires": [],
         "presets": [
           "profile-device"
         ]
       },
       "device_transfer": {
+        "group": "host",
+        "requires": ["receipt"],
         "presets": []
       },
       "task_activity": {
-        "group": "agents",
+        "group": "agent",
         "tier": "advanced",
         "conditional": false,
         "presets": [
