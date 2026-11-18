@@ -5,6 +5,7 @@
 
 .activity-source-mark { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 14px; height: 14px; }
 .activity-source-mark :is(.source-icon, svg, img) { width: 14px; height: 14px; }
+.relay-route[data-marks-only] .activity-source-mark, .relay-route[data-marks-only] .activity-source-mark :is(.source-icon, svg, img) { width: 12px; height: 12px; }
 .source-icon b {
   font-family: var(--font-lettermark);
   font-size: var(--text-display);

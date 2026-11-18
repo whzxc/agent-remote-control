@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { UserRound } from "lucide-react";
 import RelayRoute from "./RelayRoute";
+import { Icon } from "./ui";
 import { t } from "../i18n";
 import type { useTaskQueue } from "../state/taskQueue";
 import { taskErrorText } from "../state/taskErrors";
@@ -13,7 +15,7 @@ export default function TaskQueuedMessages({ queue, agent }: { agent: string; qu
   return <>
     <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</span>
     {[...queue.items].reverse().filter(row => row.state !== "sent" && row.state !== "cancelled").map(row => <article className="relay-message relay-queued" key={row.queueId} aria-label={t(`detail.queueState.${row.state}`)}>
-      {row.controlSource ? <RelayRoute source={row.controlSource} agent={agent} label={t("relay.queued")} /> : <span className="timeline-meta">{t("relay.prompt")} · {t("relay.queued")}</span>}<p>{row.text ?? row.preview}</p><span>{t(`detail.queueState.${row.state}`)}</span>
+      {row.controlSource ? <RelayRoute source={row.controlSource} agent={agent} tone="warning" label={t("relay.queued")} /> : <div className="relay-local-route"><Icon icon={UserRound} size={13} /><strong>{t("relay.prompt")}</strong><span className="relay-route-label" data-tone="warning">{t("relay.queued")}</span></div>}<p>{row.text ?? row.preview}</p><span>{t(`detail.queueState.${row.state}`)}</span>
       {!!row.error && <p role="alert">{taskErrorText(row.error, "detail.queueDeliveryFailed")}</p>}
     </article>)}
     {/* A revoked local panel identity is not an error in every observed task. */}

@@ -20,10 +20,9 @@ export default function TaskOutcome({ state, entries, project, onResume, onRetry
   return <>
     {state === "interrupted" && <div className="task-stop-divider">{t("detail.stoppedUnknown")}{ended && ` · ${new Date(ended).toLocaleTimeString(locale.get(), { hour: "2-digit", minute: "2-digit" })}`}</div>}
     <TaskContentCard reply role="article" className="task-outcome" data-state={state} aria-label={t(state === "failed" ? "detail.turnFailed" : "detail.leftAsIs")}>
-      <header>{agent ? <RelayRoute source={source} agent={agent} reverse label={t(state === "failed" ? "detail.turnFailed" : "detail.leftAsIs")} /> : <strong>{state === "failed" && <Icon icon={AlertCircle} size={18} />}{t(state === "failed" ? "detail.turnFailed" : "detail.leftAsIs")}</strong>}{failedTools}</header>
+      <header>{agent ? <RelayRoute source={source} agent={agent} reverse tone={state === "failed" ? "danger" : "warning"} label={t(state === "failed" ? "detail.turnFailed" : "detail.leftAsIs")} /> : <strong>{state === "failed" && <Icon icon={AlertCircle} size={18} />}{t(state === "failed" ? "detail.turnFailed" : "detail.leftAsIs")}</strong>}{failedTools}</header>
       {state === "failed" && <><p>{taskErrorText(failure?.text || failure?.output?.text, "detail.failureUnknown")}</p>{(failure?.command || failure?.cwd || failure?.path) && <pre>{[failure.command, failure.cwd, failure.path].filter(Boolean).join("\n")}</pre>}</>}
-      <p>{t(changes.length ? "detail.recordedChanges" : "detail.changesUnknown")}</p>
-      <ChangedFiles entries={entries} project={project} />
+      <div className="task-outcome-changes"><p>{t(changes.length ? "detail.recordedChanges" : "detail.changesUnknown")}</p><ChangedFiles entries={entries} project={project} /></div>
       <div className="actions">
       {state === "interrupted" && onResume && <Button variant="secondary" disabled={continuing} busy={continuing} onClick={onResume}>{t("detail.resumeInterrupted")}</Button>}
       {state === "failed" && onRetry && <Button variant="secondary" disabled={continuing} busy={continuing} onClick={onRetry}>{t("detail.retry")}</Button>}

@@ -1,2 +1,3 @@
 .task-relation { display: inline-flex; align-items: center; gap: 6px; flex: none; color: var(--text-secondary); font-size: var(--text-meta); white-space: nowrap; }
 .task-relation .icon { width: 14px; height: 14px; }
+.task-relation-separator { color: var(--text-tertiary); }

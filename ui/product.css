@@ -297,9 +297,9 @@ button.timeline-summary { appearance: none; cursor: pointer; }
 .timeline-image-placeholder { display: inline-flex; vertical-align: middle; }
 .timeline-link-error { display: block; overflow-wrap: anywhere; }
 
-.timeline-table { max-width: 100%; overflow-x: auto; padding: 0 12px; }
+.timeline-table { max-width: 100%; overflow: hidden; overflow-x: auto; padding: 0; }
 .timeline-table table { border-collapse: collapse; width: max-content; min-width: 100%; }
-.timeline-table th, .timeline-table td { padding: 4px 0; text-align: left; }
+.timeline-table th, .timeline-table td { padding: 8px 12px; text-align: left; }
 
 :root[data-reduced-motion="true"] {
   .timeline-chevron { transition: none; }

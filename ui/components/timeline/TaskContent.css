@@ -1,14 +1,15 @@
-.task-final { font-size: var(--text-small); line-height: var(--line-reading); overflow-wrap: anywhere; }
-.task-plan { font-size: var(--text-small); }
+.task-final { position: relative; overflow: hidden; border: var(--stroke-thin) solid var(--border); background: var(--surface); box-shadow: var(--shadow-sm); font-size: var(--text-small); line-height: var(--line-title); overflow-wrap: anywhere; }
+.task-plan { border-radius: var(--radius-field); border: var(--stroke-thin) solid var(--border); background: color-mix(in srgb, var(--surface-subtle) 70%, transparent); padding: 10px 12px; font-size: var(--text-small); }
 .task-plan > header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: var(--text-meta); line-height: var(--line-body); color: var(--text-secondary); }
 .task-plan > header > span:last-child { font-variant-numeric: tabular-nums; color: var(--text-tertiary); }
-.task-plan ul { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
-.task-plan li { display: flex; align-items: baseline; gap: 8px; padding-block: 4px; color: var(--text-secondary); line-height: var(--line-body); }
+.task-plan ol, .task-plan ul { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.task-plan li { display: flex; align-items: center; gap: 8px; padding: 0; color: var(--text-secondary); line-height: var(--line-body); }
 .task-plan li > .icon { flex: none; align-self: center; }
 .task-plan li[data-state=completed] .icon { color: var(--success); }
-.task-plan:not([data-settled]) li:is([data-state=in_progress], [data-state=inProgress], [data-state=running]) { color: var(--accent-text); font-weight: var(--weight-strong); }
+.task-plan li:not([data-state=completed]) > .icon { color: var(--role-agent); }
+.task-plan:not([data-settled]) li:not([data-state=completed]) { color: var(--text); font-weight: var(--weight-strong); }
 .task-final > header { display: flex; align-items: center; gap: 8px; min-height: 16px; font-size: var(--text-meta); color: var(--success); }
-.task-final { border: var(--stroke-thin) solid var(--border); background: none; }
+.task-final:not(.task-review-info) > header { color: var(--text-secondary); }
 .task-final > footer:not(:empty) { border-top: var(--stroke-thin) solid var(--border); padding-top: 12px; }
 .timeline-markdown { min-width: 0; }
 .timeline-markdown > :first-child { margin-top: 0; }

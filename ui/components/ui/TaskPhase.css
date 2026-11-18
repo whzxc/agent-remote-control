@@ -15,4 +15,5 @@
 :root[data-reduced-motion="true"] .phase-shimmer, :root[data-reduced-motion="true"] .phase-shimmer > span { animation: none !important; will-change: auto; }
 :root[data-reduced-motion="true"] .phase-shimmer { display: none; }
 
-.task-detail-chips > .phase-label { display: inline-flex; align-items: center; height: 24px; font-size: var(--text-meta); color: var(--phase-color); }
+.task-detail-chips > .phase-label { display: inline-flex; align-items: center; height: 24px; font-size: var(--text-meta); font-weight: 600; color: var(--phase-color); }
+.task-detail-header[data-related] .task-detail-chips > .phase-label { height: auto; line-height: 16px; }
