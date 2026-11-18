@@ -100,7 +100,7 @@ async fn main() {
     let service =
         arc_core::service::Service::fixture(std::env::var("ARC_FIXTURE_BINARY").unwrap().into())
             .unwrap();
-    let _listener = arc_core::transport::listen(
+    let listener = arc_core::transport::listen(
         service.clone(),
         std::env::var_os("ARC_FIXTURE_SNAPSHOT").map(|_| {
             Arc::new(SnapshotDesktop(AtomicUsize::new(0), Default::default()))
@@ -115,25 +115,23 @@ async fn main() {
             serde_json::json!({"port":service.port.load(std::sync::atomic::Ordering::SeqCst),"token":service.token})
         );
         let _ = BufReader::new(tokio::io::stdin()).lines().next_line().await;
-        service.control.close().await;
-        arc_core::front_door::process::stop_for_fixture()
-            .await
-            .unwrap();
-        return;
-    }
-    let mut lines = BufReader::new(tokio::io::stdin()).lines();
-    let mut out = tokio::io::stdout();
-    while let Some(line) = lines.next_line().await.unwrap() {
-        let request = serde_json::from_str(&line).unwrap();
-        let response = arc_core::front_door::mcp(&service, request).await.unwrap();
-        if !response.is_null() {
-            out.write_all(format!("{response}\n").as_bytes())
-                .await
-                .unwrap();
-            out.flush().await.unwrap();
+    } else {
+        let mut lines = BufReader::new(tokio::io::stdin()).lines();
+        let mut out = tokio::io::stdout();
+        while let Some(line) = lines.next_line().await.unwrap() {
+            let request = serde_json::from_str(&line).unwrap();
+            let response = arc_core::front_door::mcp(&service, request).await.unwrap();
+            if !response.is_null() {
+                out.write_all(format!("{response}\n").as_bytes())
+                    .await
+                    .unwrap();
+                out.flush().await.unwrap();
+            }
         }
     }
     service.control.close().await;
+    listener.abort();
+    let _ = listener.await;
     arc_core::front_door::process::stop_for_fixture()
         .await
         .unwrap();
