@@ -57,7 +57,11 @@ async function main() {
       await run('cargo', ['test', '--locked', '--manifest-path', 'native/Cargo.toml', '--lib']);
       if (process.platform === 'darwin') await run('cargo', ['test', '--locked', '-p', 'agent-remote-control', '--bin', 'agent-remote-control-desktop', 'src_conversations']);
       await run('cargo', ['build', '--locked', '-p', 'arc-core', '--bin', 'arc']);
-      await run(process.execPath, ['--test', '--test-concurrency=4', ...await testFiles(true)]);
+      // Measure startup and request latency without other process fixtures competing for CPU.
+      const startupBenchmark = 'tests/index-startup-native.test.ts';
+      const files = await testFiles(true);
+      await run(process.execPath, ['--test', startupBenchmark]);
+      await run(process.execPath, ['--test', '--test-concurrency=4', ...files.filter(file => file !== startupBenchmark)]);
     } finally { await run(process.execPath, ['tooling/prune-build-cache.mjs', '--keep=target/debug']); }
   } else {
     await run(process.execPath, ['--test', '--test-concurrency=4', ...await testFiles()]);
