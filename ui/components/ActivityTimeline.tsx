@@ -328,6 +328,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
           <StatePill state={state}>{t(`detail.state.${state}`)}</StatePill>
           {specChoice}
           <ProjectLabel name={projectName} path={projectPath} />
+          {card.session.turnCount != null && <span className="task-card-turns">{t("timeline.turnCount", { count: card.session.turnCount })}</span>}
           {selectedTurnTag}
           <TaskOwnership ownership={timeline?.ownership} />
           {duration !== undefined && <time className="task-detail-duration">{durationText(duration)}</time>}
