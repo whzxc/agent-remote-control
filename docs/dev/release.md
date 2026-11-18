@@ -43,7 +43,7 @@ Only successful jobs upload their archive and a receipt binding the source SHA, 
 npm test
 ```
 
-Normal releases run `npm run test:extended` once as the first release step, before preflight, worker preparation, compilation, packaging or publication. It runs the full native library suite and all extended checks. The current measured duration is about 205 seconds on the Apple Silicon coordinator. A failure prints the failing test names and aborts the release before any build starts. The releasing agent fixes the cause in a separate commit and reruns the release. If the fix needs a product decision or changes the release contract, stop and ask the user.
+Normal releases run `npm run test:extended` once as the first release step, before preflight, worker preparation, compilation, packaging or publication. It runs the full native library suite and all extended checks. The current measured duration is about 420 seconds on the Apple Silicon coordinator. A failure prints the failing test names and aborts the release before any build starts. The releasing agent fixes the cause in a separate commit and reruns the release. If the fix needs a product decision or changes the release contract, stop and ask the user.
 
 The release later runs the daily suite through `npm test`, including policy checks, frozen MCP catalog contracts, pure logic and bounded DOM fixtures. The complete daily step has a 30-second wall-clock budget. See [Testing](testing.md) for the daily scope and explicit extended checks.
 
