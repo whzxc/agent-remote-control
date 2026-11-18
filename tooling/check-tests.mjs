@@ -3,10 +3,13 @@ import { execFileSync } from 'node:child_process';
 import { ESLint } from 'eslint';
 import { parseTests, testFiles, ts, walk } from './test-cases.mjs';
 
+const base = process.env.ARC_TEST_POLICY_BASE ?? 'HEAD';
 const allowlist = JSON.parse(readFileSync('tooling/test-policy-allowlist.json', 'utf8'));
 const legacyPath = 'tooling/test-policy-legacy.txt';
 const legacy = new Set(readFileSync(legacyPath, 'utf8').split(/\r?\n/).filter(Boolean));
 const seenCases = new Set();
+const allowedTag = /^\/\/ (?:Contract|Algorithmic core|Recurring bug class): \S[^\n]*$/;
+const namedRecurringTag = /^\/\/ Recurring bug class: (?:concurrency|lifecycle|retry-replay|persistence|security)\b\S*/;
 const used = new Set(), failures = [], inventory = new Map();
 for (const entry of allowlist) {
   if (!entry.file || !entry.test || !entry.reason?.trim() || !entry.rules?.length
@@ -30,9 +33,14 @@ for (const file of testFiles()) {
   for (const c of parsed.cases) {
     const caseKey = `${file}\t${c.name}`;
     seenCases.add(caseKey);
-    const tags = c.comments.filter(s => /^\/\/\s*(?:Contract|Algorithmic core|Recurring bug class|Regression|Property)\s*:/.test(s));
-    if (tags.length !== 1 || !/^\/\/ (?:Contract|Algorithmic core|Recurring bug class|Regression|Property): \S[^\n]*$/.test(tags[0] ?? ''))
-      report(file, c.name, c.line, 'tag', 'Each case requires exactly one // test type tag with a reason.');
+    const tags = c.comments.filter(s => /^\/\/\s*(?:Contract|Algorithmic core|Recurring bug class)\s*:/.test(s));
+    const legacyCase = legacy.has(caseKey);
+    const validTag = tags.length === 1 && allowedTag.test(tags[0])
+      && (legacyCase || !tags[0].startsWith('// Recurring bug class:') || namedRecurringTag.test(tags[0]));
+    if (!validTag)
+      report(file, c.name, c.line, 'tag', legacyCase
+        ? 'Each case requires exactly one // Contract: <reason>, // Algorithmic core: <reason>, or // Recurring bug class: <reason> tag.'
+        : 'Each non-legacy case requires exactly one allowed tag: // Contract: <reason>, // Algorithmic core: <reason>, or // Recurring bug class: <concurrency|lifecycle|retry-replay|persistence|security> <reason>.');
     if (c.comments.some(s => /^\/\/\s*(?:Contract|Algorithmic core|Recurring bug class|Regression|Property)\b/.test(s) && !tags.includes(s)))
       report(file, c.name, c.line, 'tag', 'Malformed test tag.');
     for (const a of c.assertions) {
@@ -98,11 +106,10 @@ for (const result of await eslint.lintFiles(['tests/**/*.{ts,tsx,js,mjs}'])) {
 }
 for (const key of legacy) if (!seenCases.has(key)) failures.push(`Stale legacy test-policy entry: ${key}`);
 let baselineLegacy = new Set();
-try { baselineLegacy = new Set(execFileSync('git', ['show', `HEAD:${legacyPath}`], { encoding: 'utf8' }).split(/\r?\n/).filter(Boolean)); } catch {}
+try { baselineLegacy = new Set(execFileSync('git', ['show', `${base}:${legacyPath}`], { encoding: 'utf8' }).split(/\r?\n/).filter(Boolean)); } catch {}
 for (const key of legacy) if (baselineLegacy.size && !baselineLegacy.has(key)) failures.push(`Legacy test-policy list may only shrink: ${key}`);
 for (const [index, entry] of allowlist.entries()) if (!used.has(index)) failures.push(`Stale allowlist entry: ${entry.file} [${entry.test}]`);
 // The dispatch owner must grant this capability explicitly. CI can compare the full PR base.
-const base = process.env.ARC_TEST_POLICY_BASE ?? 'HEAD';
 const protectedPaths = ['tests/contract', 'tooling/test-policy-allowlist.json'];
 const changed = execFileSync('git', ['diff', '--name-only', base, '--', ...protectedPaths], { encoding: 'utf8' })
   + execFileSync('git', ['ls-files', '--others', '--exclude-standard', '--', ...protectedPaths], { encoding: 'utf8' });
