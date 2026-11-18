@@ -4,6 +4,9 @@ import { ESLint } from 'eslint';
 import { parseTests, testFiles, ts, walk } from './test-cases.mjs';
 
 const allowlist = JSON.parse(readFileSync('tooling/test-policy-allowlist.json', 'utf8'));
+const legacyPath = 'tooling/test-policy-legacy.txt';
+const legacy = new Set(readFileSync(legacyPath, 'utf8').split(/\r?\n/).filter(Boolean));
+const seenCases = new Set();
 const used = new Set(), failures = [], inventory = new Map();
 for (const entry of allowlist) {
   if (!entry.file || !entry.test || !entry.reason?.trim() || !entry.rules?.length
@@ -25,6 +28,8 @@ for (const file of testFiles()) {
   const locate = offset => parsed.cases.filter(c => offset >= c.start && offset < c.end).at(-1);
   const emit = (offset, rule, message) => report(file, locate(offset)?.name ?? '<harness>', source.slice(0, offset).split('\n').length, rule, message);
   for (const c of parsed.cases) {
+    const caseKey = `${file}\t${c.name}`;
+    seenCases.add(caseKey);
     const tags = c.comments.filter(s => /^\/\/\s*(?:Contract|Algorithmic core|Recurring bug class|Regression|Property)\s*:/.test(s));
     if (tags.length !== 1 || !/^\/\/ (?:Contract|Algorithmic core|Recurring bug class|Regression|Property): \S[^\n]*$/.test(tags[0] ?? ''))
       report(file, c.name, c.line, 'tag', 'Each case requires exactly one // test type tag with a reason.');
@@ -91,6 +96,10 @@ for (const result of await eslint.lintFiles(['tests/**/*.{ts,tsx,js,mjs}'])) {
     report(file, name, m.line, m.ruleId ?? 'syntax', m.message);
   }
 }
+for (const key of legacy) if (!seenCases.has(key)) failures.push(`Stale legacy test-policy entry: ${key}`);
+let baselineLegacy = new Set();
+try { baselineLegacy = new Set(execFileSync('git', ['show', `HEAD:${legacyPath}`], { encoding: 'utf8' }).split(/\r?\n/).filter(Boolean)); } catch {}
+for (const key of legacy) if (baselineLegacy.size && !baselineLegacy.has(key)) failures.push(`Legacy test-policy list may only shrink: ${key}`);
 for (const [index, entry] of allowlist.entries()) if (!used.has(index)) failures.push(`Stale allowlist entry: ${entry.file} [${entry.test}]`);
 // The dispatch owner must grant this capability explicitly. CI can compare the full PR base.
 const base = process.env.ARC_TEST_POLICY_BASE ?? 'HEAD';

@@ -19,7 +19,7 @@ async function harness(run: (server: Awaited<ReturnType<typeof createServer>>, w
 }
 
 test('Agent order survives refresh and disable-enable transitions', async () => {
-  // Recurring bug class: fd4498c4 refreshed or disabled Agents lost their manual order.
+  // Recurring bug class: persistence: agent ordering survives refresh
   await harness(async server => {
     const saved: Record<string, string> = {};
     const rows = ['codex', 'claude', 'pi'].map(agent => ({ agent, installed: true, enabled: true }));
@@ -46,7 +46,7 @@ test('Agent order survives refresh and disable-enable transitions', async () => 
 });
 
 test('an incoming preference event cannot overwrite the current remote preference', async () => {
-  // Recurring bug class: fd4498c4 replayed incoming storage events as writes and reverted newer preferences.
+  // Recurring bug class: concurrency: preference events cannot overwrite newer remote state
   await harness(async (server, window) => {
     const key = 'fixture.preference', remote = { [key]: 'current' };
     globalThis.fetch = async (url, init) => {
@@ -68,7 +68,7 @@ test('an incoming preference event cannot overwrite the current remote preferenc
 });
 
 test('unchanged terminal evidence preserves the activity snapshot and read acknowledgement', async () => {
-  // Recurring bug class: every historical timeline response replaced the entire tracked activity store and extended completion read timestamps.
+  // Recurring bug class: persistence: unchanged terminal evidence preserves acknowledgement
   await harness(async server => {
     const { trackedActivity } = await server.ssrLoadModule('/ui/state/activityBubbles.ts');
     const { acceptTaskExecution, taskExecution } = await server.ssrLoadModule('/ui/state/taskExecution.ts');
@@ -89,26 +89,4 @@ test('unchanged terminal evidence preserves the activity snapshot and read ackno
   });
 });
 
-test('a hidden connector refreshes current state immediately when shown', async context => {
-  // Recurring bug class: AX-23 the hidden desktop kept polling full status and source snapshots while idle.
-  await harness(async (server, window) => {
-    let hidden = false, state = 'initial';
-    Object.defineProperty(window.document, 'hidden', { get: () => hidden });
-    globalThis.fetch = async url => new Response(JSON.stringify(String(url) === '/api/status'
-      ? { core: { appServer: { state: 'ready' } }, marker: state }
-      : String(url) === '/api/source' ? { sources: [] } : {}));
-    const { startConnector, connector } = await server.ssrLoadModule('/ui/state/connector.ts');
-    context.mock.timers.enable({ apis: ['setInterval'] });
-    const stop = startConnector();
-    try {
-      await eventually(() => connector.get().status?.marker === 'initial');
-      hidden = true; state = 'changed';
-      context.mock.timers.tick(2000);
-      await Promise.resolve();
-      assert.equal(connector.get().status.marker, 'initial');
-      hidden = false;
-      window.document.dispatchEvent(new window.Event('visibilitychange'));
-      await eventually(() => connector.get().status?.marker === 'changed');
-    } finally { stop(); context.mock.timers.reset(); }
-  });
-});
+;

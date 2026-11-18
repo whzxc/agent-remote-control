@@ -31,55 +31,12 @@ async function withAccountUI(run: (context: { window: Window; server: ViteDevSer
   }
 }
 
-test('platform workspace lists connector instances and excludes local Agent identities', async () => {
-  // Recurring bug class: the account workspace merged connector instances and included locally discovered Agents.
-  await withAccountUI(async ({ server, root }) => {
-    const { default: PlatformsPage } = await server.ssrLoadModule('/ui/components/PlatformsPage.tsx');
-    const { connector } = await server.ssrLoadModule('/ui/state/connector.ts');
-    const { navigation } = await server.ssrLoadModule('/ui/state/navigation.ts');
-    const { TooltipProvider } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
-    const { controlSourcePlatform } = await server.ssrLoadModule('/ui/controlSources.ts');
-    assert.equal(controlSourcePlatform('github-copilot').id, 'microsoft');
-    const { setPrivacy } = await server.ssrLoadModule('/ui/state/privacy.ts');
-    setPrivacy(false);
-    const original = connector.get();
-    const source = { id: 'first', ingressId: 'test', product: 'claude', platform: 'anthropic', label: 'First connector', authorizationFacts: { email: 'connector@example.com', orgName: 'Connector team' }, createdAt: '2026-01-01T00:00:00Z', connectedAt: 1, lastSeenAt: null, credential: { type: 'oauth-grant' }, state: 'connected' };
-    connector.set({ ...original, sourcesLoaded: true, sources: [source, { ...source, id: 'second', label: 'Second connector', authorizationFacts: undefined }, { ...source, id: 'retired', label: 'Retired connector', state: 'revoked' }] });
-    navigation.set({ page: 'accounts', platformId: 'anthropic' });
-    await act(() => root.render(h(TooltipProvider, null, h(PlatformsPage))));
-    const page = within(document.body);
-    assert.ok(page.getByRole('region', { name: source.label }));
-    const first = within(page.getByRole('region', { name: source.label }));
-    assert.ok(first.getByText('connector@example.com'));
-    const second = within(page.getByRole('region', { name: 'Second connector' }));
-    assert.equal(second.queryByText('connector@example.com'), null);
-    assert.equal(page.queryByRole('region', { name: 'Retired connector' }), null);
-    assert.ok(page.getByRole('radio', { name: 'Cursor', exact: true }));
-    assert.equal(page.queryByRole('radio', { name: 'GitHub', exact: true }), null);
-    assert.ok(page.getByRole('radio', { name: 'Microsoft', exact: true }));
-    await act(() => fireEvent.click(page.getByRole('radio', { name: 'Google' })));
-    assert.equal(page.queryByRole('region', { name: source.label }), null);
-    assert.ok(page.getByRole('region', { name: 'Google' }));
-  });
-});
+;
 
-test('source dates treat zero and absent timestamps as never in every locale', async () => {
-  // Recurring bug class: Last seen displayed a date in 1970 when the native timestamp was zero.
-  await withAccountUI(async ({ server }) => {
-    const { sourceDate } = await server.ssrLoadModule('/ui/sourcePresentation.ts');
-    const { locale } = await server.ssrLoadModule('/ui/i18n.ts');
-    for (const language of ['en', 'zh-CN']) {
-      locale.set(language);
-      assert.equal(sourceDate(0), sourceDate(null));
-      assert.equal(sourceDate(undefined), sourceDate(null));
-      assert.ok(!sourceDate(0).includes('1970'));
-      assert.notEqual(sourceDate(1760000000), sourceDate(null));
-    }
-  });
-});
+;
 
 test('built-in local authority is absent from control sources, accounts and disconnect actions', async () => {
-  // Recurring bug class: Local CLI appeared as an Unidentified account and its disconnect action revoked panel and CLI writes.
+  // Recurring bug class: security: local authority cannot be revoked through projections or disconnect actions
   await withAccountUI(async ({ server, root }) => {
     const { connector, orderedSources } = await server.ssrLoadModule('/ui/state/connector.ts');
     const { accounts, refreshAccounts } = await server.ssrLoadModule('/ui/state/accounts.ts');

@@ -8,7 +8,7 @@ const session = (id: string, props: Partial<TrackedActivity> = {}): TrackedActiv
 });
 
 test('clock refresh always reaches the next minute without a busy loop', () => {
-  // Algorithmic core: each clock deadline is positive, within one minute, and aligned to a minute boundary.
+  // Algorithmic core: studio clock scheduling
   for (const time of [-60_001, -1, 0, 1, 59_999, 60_000, 123_456_789]) {
     const delay = nextClockTick(time);
     assert.ok(delay > 0 && delay <= 60_000);
@@ -17,7 +17,7 @@ test('clock refresh always reaches the next minute without a busy loop', () => {
 });
 
 test('studio counts only running and actionable pending tasks across agents', () => {
-  // Algorithmic core: active and pending task totals are disjoint and exclude retained terminal or unconfirmed observations.
+  // Algorithmic core: studio actionable task counting
   const pending = session('pending', { interaction: { kind: 'permission', summary: 'Read project files', canRespond: true, respond: { op: 'codex_respond', args: { id: 'request-1' } } } });
   const activity = { codex: [session('running'), pending, session('done', { observed: false, endedAt: 1, status: 'completed' }),
     session('unconfirmed', { observed: false }), session('failed', { observed: false, status: 'failed' })], claude: [session('another-running')] };
