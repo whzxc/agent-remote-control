@@ -102,16 +102,19 @@ export function DispatchSpec({
   fast?: boolean;
   width?: number;
 }) {
+  const hasTelemetry = Boolean(effort || tier);
   return (
     <span
       id={id}
       style={width ? { width } : undefined}
       role="img"
       aria-label={[model, effort, tier].filter(Boolean).join(" · ")}
-      class="inline-flex shrink-0 items-center gap-[5px] h-6 px-[9px] rounded-(--radius-pill) bg-surface-sunken text-text text-meta font-semibold"
+      class="inline-flex shrink-0 items-center gap-[6px] h-6 px-[9px] rounded-(--radius-pill)
+        border border-border-strong/60 bg-surface-subtle text-text text-meta font-semibold"
     >
       {model && <span>{model}</span>}
-      {effort && <EffortGauge {...position} />}
+      {model && hasTelemetry && <span aria-hidden="true" class="h-3 w-px bg-border-strong/70" />}
+      {effort && <EffortGauge {...position} size={18} />}
       {tier &&
         (tier === 'ultrafast' ? <span class="relative inline-flex h-[14px] w-4 items-end">
           <Icon name="zap" size={12} class="absolute left-0 top-0 fill-current" />
@@ -119,7 +122,7 @@ export function DispatchSpec({
         </span> : fast ? (
           <Icon name="zap" size={12} class="text-warning" />
         ) : (
-          <span>{tier}</span>
+          <span class="text-text-secondary">{tier}</span>
         ))}
     </span>
   );

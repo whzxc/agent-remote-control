@@ -42,15 +42,23 @@ export default () => [
 ];
 
 const stateStyle = {
-  'needs-input': { icon: 'circle-help', ink: 'text-warning' },
-  complete: { icon: 'circle-check', ink: 'text-text-secondary' },
+  'needs-input': {
+    icon: 'circle-help',
+    ink: 'border border-warning/25 bg-warning/10 text-warning',
+  },
+  complete: {
+    icon: 'circle-check',
+    ink: 'bg-surface-subtle text-text-secondary',
+  },
 };
 
 function ListState({ state }: { state: ChildState }) {
   if (state === 'running') return null;
-  return <span class={`inline-flex shrink-0 items-center gap-1 text-caption ${stateStyle[state].ink}`}>
-    <Icon name={stateStyle[state].icon} size={13} />{stateCopy[state]}
-  </span>;
+  return (
+    <span class={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-[2px] text-caption font-semibold ${stateStyle[state].ink}`}>
+      <Icon name={stateStyle[state].icon} size={12} />{stateCopy[state]}
+    </span>
+  );
 }
 
 export function EmptyTaskBody({ state, detail = false }: { state: 'empty' | 'error' | 'loading'; detail?: boolean }) {
@@ -67,42 +75,80 @@ export function EmptyTaskBody({ state, detail = false }: { state: 'empty' | 'err
 
 export function GroupedTaskCard({ task }: { task: ListExample }) {
   const chain = task.viaClaude ? listOrigins.claudeToCodex : listOrigins.codex;
-  const emptyState = !task.excerpt && (task.preview === 'error' || task.preview === 'empty' || task.preview === 'loading') ? task.preview : undefined;
+  const emptyState = !task.excerpt && (task.preview === 'error' || task.preview === 'empty' || task.preview === 'loading')
+    ? task.preview
+    : undefined;
   const attention = task.children?.filter(child => child.state === 'needs-input').length;
-  return <article aria-label={task.title} style={{ '--aurora-tint': 'var(--phase-thinking)' }}
-    class={`flex h-[224px] min-w-0 flex-col rounded-card border bg-surface p-[14px] shadow-md ${task.status === 'running' ? aurora : 'border-border'}`}>
-    <div class="flex items-center gap-1">
-      <div class="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none]"><div class="flex w-max"><OriginChain steps={chain} /></div></div>
-      <time class="shrink-0 text-caption tabular-nums text-text-tertiary">{task.time}</time>
-    </div>
-    <button class="mt-2 truncate text-left text-body font-semibold text-text">{task.title}</button>
-    <div class="mt-2 flex h-6 items-center gap-[6px] overflow-hidden whitespace-nowrap">
-      <DispatchSpec model={task.model} position={{ count: 4, index: 2 }} tier={task.tier ?? "Fast"} fast />
-      <ProjectLabel name={task.project} /><span class="text-caption text-text-tertiary">{task.turns} 轮</span>
-    </div>
-    <div class="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-field bg-surface-subtle p-3">
-      {emptyState ? <EmptyTaskBody state={emptyState} />
-        : <p class={`text-meta leading-5 text-text whitespace-pre-line ${task.preview === 'activity' ? 'truncate' : task.children?.length ? 'line-clamp-3' : 'line-clamp-4'}`}>{task.excerpt}</p>}
-    </div>
-    {task.children && <button class="mt-2 flex h-6 shrink-0 items-center gap-2 text-small font-semibold text-text">
-      <Icon name="git-fork" size={14} />{task.children.length} 个子任务
-      {Boolean(attention) && <span class="ml-auto text-caption font-medium text-warning">{attention} 个待确认</span>}
-      <Icon name="chevron-right" size={14} />
-    </button>}
-  </article>;
+  const previewMargin = task.children ? 'mb-[6px]' : 'mb-2';
+  return (
+    <article aria-label={task.title} style={{ '--aurora-tint': 'var(--phase-thinking)' }}
+      class={`flex h-[224px] min-w-0 flex-col rounded-card border bg-surface shadow-md ${
+        task.status === 'running' ? aurora : 'border-border'
+      }`}>
+      <div class="flex flex-col gap-2 px-[14px] pt-3 pb-[10px]">
+        <div class="flex h-5 items-center gap-1">
+          <div class="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none]">
+            <div class="flex w-max"><OriginChain steps={chain} /></div>
+          </div>
+          {Boolean(attention) && <span class="size-[6px] shrink-0 rounded-full bg-warning" aria-hidden="true" />}
+          <time class="shrink-0 text-caption tabular-nums text-text-tertiary">{task.time}</time>
+        </div>
+        <button class="truncate text-left text-body leading-5 font-semibold text-text">{task.title}</button>
+        <div class="flex h-6 items-center gap-[6px] overflow-hidden whitespace-nowrap">
+          <DispatchSpec model={task.model} position={{ count: 4, index: 2 }} tier={task.tier ?? "Fast"} fast />
+          <ProjectLabel name={task.project} />
+          <span class="text-caption tabular-nums text-text-tertiary">{task.turns} 轮</span>
+        </div>
+      </div>
+      <div class={`mx-2 ${previewMargin} flex min-h-0 flex-1 flex-col overflow-hidden rounded-tile bg-surface-subtle p-3`}>
+        {emptyState ? <EmptyTaskBody state={emptyState} /> : (
+          <p class={`text-meta leading-5 text-text whitespace-pre-line ${
+            task.preview === 'activity' ? 'truncate' : task.children?.length ? 'line-clamp-3' : 'line-clamp-4'
+          }`}>{task.excerpt}</p>
+        )}
+      </div>
+      {task.children && (
+        <button class="mx-2 mb-2 flex h-8 shrink-0 items-center gap-2 rounded-tile border border-border/70
+          bg-surface-subtle/60 px-[10px] text-small font-semibold text-text">
+          <Icon name="git-fork" size={14} class="text-text-secondary" />
+          <span>{task.children.length} 个子任务</span>
+          {Boolean(attention) && (
+            <span class="ml-auto rounded-full border border-warning/25 bg-warning/10 px-[7px] py-[1px]
+              text-caption font-semibold text-warning">
+              {attention} 个待确认
+            </span>
+          )}
+          <Icon name="chevron-right" size={14} class={attention ? 'text-text-secondary' : 'ml-auto text-text-secondary'} />
+        </button>
+      )}
+    </article>
+  );
 }
 
 export function ChildTaskList({ task }: { task: ListExample }) {
   return <Panel size="m" transparent title={task.title} viewportHeight={640}>
     <div class="flex flex-col gap-2">
-      {task.children?.map(child => <button style={{ '--aurora-tint': 'var(--phase-thinking)' }} class={`flex w-full items-center gap-3 rounded-card border px-3 py-2 text-left ${child.state === 'running' ? aurora : 'border-border bg-transparent'}`}>
-        <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-2"><span class="truncate text-body font-semibold text-text">{child.assignment}</span><ListState state={child.state} /></div>
-          <div class="mt-1 flex items-baseline gap-2 text-caption text-text-secondary">
-            <span class="truncate">{child.name} · {child.latest}</span>
+      {task.children?.map(child => (
+        <button style={{ '--aurora-tint': 'var(--phase-thinking)' }}
+          class={`flex w-full items-center gap-3 rounded-card border px-3 py-[10px] text-left ${
+            child.state === 'running'
+              ? aurora
+              : child.state === 'needs-input'
+                ? 'border-warning/40 bg-warning/5'
+                : 'border-border bg-transparent'
+          }`}>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <span class="truncate text-body font-semibold text-text">{child.assignment}</span>
+              <ListState state={child.state} />
+            </div>
+            <div class="mt-1 flex items-baseline gap-2 text-caption text-text-secondary">
+              <span class="truncate">{child.name} · {child.latest}</span>
+            </div>
           </div>
-        </div><Icon name="chevron-right" size={14} />
-      </button>)}
+          <Icon name="chevron-right" size={14} class="shrink-0 text-text-secondary" />
+        </button>
+      ))}
     </div>
   </Panel>;
 }

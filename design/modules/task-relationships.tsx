@@ -53,15 +53,15 @@ export function TaskDetailHeader({
         {agent}
       </div>
       <TaskCardHeader task={relatedTask(title)} heading />
-      <div class="mt-[14px] px-1 flex items-center gap-5 text-meta leading-4">
+      <div class="mt-1 flex items-center gap-5 text-meta leading-4">
         <TaskRelation kind={kind} />
         <span
-          class={tone === "thinking" ? "text-phase-thinking" : "text-success"}
+          class={tone === "thinking" ? "text-phase-thinking font-semibold" : "text-success font-semibold"}
         >
           {phase}
         </span>
       </div>
-      <div class="mt-4">
+      <div class="mt-3">
         <TaskCard task={relatedTask(parentTitle)} form="summary" />
       </div>
     </section>

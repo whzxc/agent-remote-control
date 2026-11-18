@@ -24,11 +24,13 @@ export function OriginChain({ steps }: { steps: readonly OriginStep[] }) {
   return <span class="inline-flex items-center gap-1 text-text-secondary"
     role="img" aria-label={steps.map(s => s.label).join(' → ')}>
     {steps.map((step, i) => <span class="inline-flex items-center gap-1" title={step.label}>
-      {i > 0 && <Icon name="arrow-right" size={12} />}
-      <span class="flex size-5 items-center justify-center">
-        {step.brand ? <BrandMark brand={step.brand} size={14} /> : <Icon name={step.icon!} size={14} />}
+      {i > 0 && <Icon name="arrow-right" size={11} class="text-text-tertiary" />}
+      <span class="flex size-4 items-center justify-center">
+        {step.brand ? <BrandMark brand={step.brand} size={14} /> : <Icon name={step.icon!} size={13} />}
       </span>
-      {(step.icon || step.caption) && <span class="whitespace-nowrap text-caption font-semibold">{step.caption ?? step.label}</span>}
+      {(step.icon || step.caption) && (
+        <span class="whitespace-nowrap text-caption font-semibold">{step.caption ?? step.label}</span>
+      )}
     </span>)}
   </span>;
 }
@@ -40,32 +42,61 @@ export const aurora = 'border-transparent [background:linear-gradient(var(--surf
 
 export function TaskCardHeader({ task, heading = false }: { task: TaskSnapshotData; heading?: boolean }) {
   const timing = task.elapsed ?? task.lastSeen;
+  const hasMeta = Boolean(task.dispatch || task.project || task.turns !== undefined);
+  const hasPills = Boolean(task.dispatch || task.project);
   const title = 'block w-max whitespace-nowrap text-left text-body leading-5 font-semibold text-text';
+  const attentionDot = task.group === 'needs-me' ? 'bg-warning' : task.group === 'unread' ? 'bg-accent' : '';
   return <header class={`flex w-full min-w-0 flex-col gap-2 py-3 ${heading ? "" : "px-[14px]"}`}>
     <div class="flex h-5 min-w-0 items-center justify-between gap-2">
       <div class={`flex-1 ${scrollRow}`}><div class="flex w-max"><OriginChain steps={task.origin} /></div></div>
       <div class="flex shrink-0 items-center gap-[6px]">
-        {task.exception && <span class={`whitespace-nowrap rounded-full px-[6px] text-caption leading-5 font-semibold ${task.exception === 'failed' ? 'bg-danger/10 text-danger' : 'bg-warning/10 text-warning'}`}>
-          {task.exception === 'failed' ? 'Failed' : 'Interrupted'}
-        </span>}
+        {task.exception && (
+          <span class={`whitespace-nowrap rounded-full border px-[7px] text-caption leading-[18px] font-semibold ${
+            task.exception === 'failed'
+              ? 'border-danger/25 bg-danger/10 text-danger'
+              : 'border-warning/25 bg-warning/10 text-warning'
+          }`}>
+            {task.exception === 'failed' ? 'Failed' : 'Interrupted'}
+          </span>
+        )}
+        {!task.exception && attentionDot && <span class={`size-[6px] rounded-full ${attentionDot}`} aria-hidden="true" />}
         {timing && <time class="whitespace-nowrap text-caption tabular-nums text-text-tertiary">{timing}</time>}
       </div>
     </div>
     <div class={scrollRow}>{heading ? <h2 class={title}>{task.title}</h2>
       : <button aria-label={`${copy.open}: ${task.title}`} class={title}>{task.title}</button>}</div>
-    <div class={scrollRow}><div class="flex h-6 w-max items-center gap-[6px] whitespace-nowrap">
-      {task.dispatch && <DispatchSpec {...task.dispatch} />}
-      {task.project && <ProjectLabel {...task.project} />}
-      {task.turns !== undefined && <span class="text-caption tabular-nums text-text-tertiary">{task.turns} {task.turns === 1 ? 'turn' : 'turns'}</span>}
-    </div></div>
+    {hasMeta && (
+      <div class={scrollRow}>
+        <div class={`flex w-max items-center gap-[6px] whitespace-nowrap ${hasPills ? 'h-6' : 'h-4'}`}>
+          {task.dispatch && <DispatchSpec {...task.dispatch} />}
+          {task.project && <ProjectLabel {...task.project} />}
+          {task.turns !== undefined && (
+            <span class="text-caption tabular-nums text-text-tertiary">
+              {task.turns} {task.turns === 1 ? 'turn' : 'turns'}
+            </span>
+          )}
+        </div>
+      </div>
+    )}
   </header>;
 }
 
 
 function SnapshotNote({ tone, label, text }: { tone: 'source' | 'request'; label?: string; text?: string }) {
-  return <div class="shrink-0 overflow-hidden rounded-[10px] bg-surface p-2">
-    {label && <span class="block text-caption font-semibold leading-4 text-text-secondary">{label}</span>}
-    <p class={`text-caption leading-4 ${tone === 'source' ? 'text-text-secondary' : 'text-text'}`}>{text}</p>
+  if (tone === 'source') {
+    return (
+      <p class="border-l-2 border-border-strong pl-2 text-caption leading-4 text-text-tertiary line-clamp-2">
+        {text}
+      </p>
+    );
+  }
+  return <div class="shrink-0 rounded-[8px] border border-warning/30 bg-surface px-[10px] py-2">
+    {label && (
+      <span class="flex items-center gap-[5px] text-caption font-semibold leading-4 text-warning">
+        <Icon name="shield-alert" size={12} />{label}
+      </span>
+    )}
+    <p class="mt-[2px] text-caption leading-4 font-medium text-text line-clamp-2">{text}</p>
   </div>;
 }
 
@@ -77,8 +108,8 @@ export function TaskCard({ task, form }: {
   const preview = form === 'detail';
   const phase = task.phase ?? (task.icon === 'brain' ? 'thinking' : task.icon === 'terminal' ? 'command' : undefined);
   const active = preview && task.group === 'running';
-  const tint = phase ? `var(--phase-${phase})` : 'var(--role-agent)';
   const waiting = task.group === 'needs-me', done = task.group === 'unread';
+  const tint = phase ? `var(--phase-${phase})` : 'var(--role-agent)';
   const steps = (task.snapshot ?? task.steps ?? []).slice(-10), route = taskStatuses[task.id];
   const categories = [
     ['editing', 'Edited', 'file'], ['reading', 'Read', 'file'], ['command', 'Ran', 'command'],
@@ -87,20 +118,31 @@ export function TaskCard({ task, form }: {
     const count = steps.filter(step => step.kind === kind).length;
     return count ? [`${verb} ${count} ${unit}${count === 1 ? '' : 's'}`] : [];
   }).join(' · ');
+  const shell = active ? aurora
+    : preview && waiting ? 'border-warning/45 bg-surface shadow-md'
+    : 'border-border bg-surface shadow-md';
   return <article aria-label={task.title} style={{ '--aurora-tint': active ? tint : undefined }}
-    class={`flex w-full min-w-0 flex-col rounded-card border ${active ? aurora : 'border-border bg-surface shadow-md'}`}>
+    class={`flex w-full min-w-0 flex-col rounded-card border ${shell}`}>
     <TaskCardHeader task={task} />
-    {preview && <div class="mx-[10px] mb-[10px] flex min-h-10 max-h-[180px] flex-col justify-end gap-2 overflow-hidden rounded-field bg-surface-subtle px-3 py-[10px]">
-      {task.prompt && <SnapshotNote tone="source" text={task.prompt} />}
-      {work && <div class="flex items-center gap-[6px] text-caption text-text-secondary">
-        <Icon name="wrench" size={12} /><span class="min-w-0 truncate">{work}</span>
-      </div>}
-      {steps.some(step => step.kind === 'thinking') && <div class="flex items-center gap-[6px] text-caption text-text-secondary">
-        <Icon name="brain" size={12} /><span class="min-w-0 truncate">{steps.findLast(step => step.kind === 'thinking')?.text}</span>
-      </div>}
-      {waiting && <SnapshotNote tone="request" label={`Request → ${route?.route ?? ''}`} text={task.detail} />}
-      {(done || task.activity) && <p class="text-caption leading-4 text-text">{task.change?.output ?? task.activity}</p>}
-    </div>}
+    {preview && (
+      <div class="mx-2 mb-2 flex min-h-10 flex-col gap-2 rounded-tile bg-surface-subtle p-[10px]">
+        {task.prompt && <SnapshotNote tone="source" text={task.prompt} />}
+        {work && <div class="flex items-center gap-[6px] text-caption leading-4 text-text-secondary">
+          <Icon name="wrench" size={12} class="shrink-0 text-phase-file" />
+          <span class="min-w-0 truncate tabular-nums">{work}</span>
+        </div>}
+        {steps.some(step => step.kind === 'thinking') && (
+          <div class="flex items-center gap-[6px] text-caption leading-4 text-text-secondary">
+            <Icon name="brain" size={12} class="shrink-0 text-phase-thinking" />
+            <span class="min-w-0 truncate">{steps.findLast(step => step.kind === 'thinking')?.text}</span>
+          </div>
+        )}
+        {waiting && <SnapshotNote tone="request" label={`Request → ${route?.route ?? ''}`} text={task.detail} />}
+        {(done || task.activity) && (
+          <p class="text-caption leading-4 text-text line-clamp-2">{task.change?.output ?? task.activity}</p>
+        )}
+      </div>
+    )}
   </article>;
 }
 

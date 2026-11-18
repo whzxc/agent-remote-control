@@ -26,19 +26,20 @@ export function PermissionCard({
   sheet = false,
 }: { title?: string; scope?: string; command?: string; sheet?: boolean } = {}) {
   return (
-    <Card padded class="gap-4">
+    <Card padded class="gap-3 border border-border bg-surface shadow-sm">
       <div class="flex flex-col gap-1">
-        <strong class={`text-body ${sheet ? "leading-[18px]" : "leading-4"} font-semibold`}>
+        <strong class={`text-body ${sheet ? "leading-5" : "leading-5"} font-semibold text-text`}>
           {title}
         </strong>
-        <span class={`text-meta ${sheet ? "leading-4" : "leading-3"} text-text-secondary`}>
+        <span class="text-meta leading-4 text-text-secondary">
           {scope}
         </span>
       </div>
-      <pre class="flex h-11 items-center rounded-field bg-surface-sunken px-[14px] text-meta font-mono">
+      <pre class="flex min-h-10 items-center overflow-x-auto rounded-field border border-border/70
+        bg-surface-sunken px-3 py-2 text-meta leading-5 font-mono text-text">
         {command}
       </pre>
-      {!sheet && <PermissionActions />}
+      {!sheet && <div class="pt-1"><PermissionActions /></div>}
     </Card>
   );
 }
@@ -60,7 +61,9 @@ export function RoutingRow({
 }) {
   return (
     <div
-      class={`flex gap-2 text-meta text-text-secondary ${inline ? "items-center" : "flex-col items-start"}`}
+      class={`flex gap-2 text-meta text-text-secondary ${
+        inline ? "w-full items-center justify-between" : "flex-col items-start"
+      }`}
     >
       {children}
     </div>
