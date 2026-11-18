@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { nativeControl } from './helpers/native-control.ts';
 
 test('Codex activity keeps the native thread identity across a growing window rollout', async () => {
-  // Recurring bug class: window IDs at the end of long Codex rollout filenames became task IDs, breaking detail reads and completion reconciliation.
+  // Recurring bug class: persistence window IDs at the end of long Codex rollout filenames became task IDs, breaking detail reads and completion reconciliation.
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), 'arc-window-rollout-')));
   const threadId = '00000000-0000-4000-8000-000000000031';
   const windowId = '00000000-0000-4000-8000-000000000032';
@@ -51,7 +51,8 @@ test('Codex activity keeps the native thread identity across a growing window ro
     assert.equal((await timeline()).turnStatuses[turnId], 'running');
     await fixture.restart();
     assert.deepEqual((await sessions()).map((s: any) => s.id), [threadId]);
-    await appendFile(rollout, record('event_msg', { type: 'task_complete', turn_id: turnId }));
+    await appendFile(rollout, record('response_item', { type: 'message', role: 'assistant', phase: 'final_answer', content: [{ type: 'output_text', text: 'Inspection complete' }] })
+      + record('event_msg', { type: 'task_complete', turn_id: turnId }));
     await new Promise(resolve => setTimeout(resolve, 2100));
     assert.deepEqual(await sessions(), []);
     const completed = await timeline();
