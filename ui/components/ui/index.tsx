@@ -11,7 +11,7 @@ import ChoiceTrigger from "./ChoiceTrigger";
 export { HoverScope };
 export { SetupAction } from "./SetupChoice";
 export { LoadingIndicator } from "./Feedback";
-export type IconSize = 10 | 12 | 13 | 14 | 16 | 18 | 20 | 24 | 26 | 28 | 32;
+export type IconSize = 10 | 11 | 12 | 13 | 14 | 16 | 18 | 20 | 24 | 26 | 28 | 32;
 /** A compact label. `spec` names a choice, `fact` states a property and `danger` flags a risk. */
 export function Tag({ children, title, id, form = "spec", tone }: {
   children: ReactNode; title?: string; id?: string; form?: "spec" | "fact" | "danger" | "resource" | "status" | "claim" | "compact-status" | "workflow-status";
