@@ -56,10 +56,11 @@ else throw new Error('Unexpected fixture CLI operation');
     const confirm=async(target:string,threadId?:string)=>{
       const bound=await call('notify_control',{action:'bind',target,accountId:login.accountId,...(threadId?{threadId}:{})});
       assert.equal(bound.verification.deliveryStatus,'delivered',JSON.stringify(bound));
-      const delivered=(await readFile(deliveries,'utf8')).trim().split('\n').map(row=>JSON.parse(row)).filter(row=>row.target===target && row.message.includes('notification_ack')).at(-1);
+      const delivered=(await readFile(deliveries,'utf8')).trim().split('\n').map(row=>JSON.parse(row)).filter(row=>row.target===target).at(-1);
       assert.ok(delivered);
-      const challenge=JSON.parse(delivered.message.slice(delivered.message.indexOf('{'),delivered.message.lastIndexOf('}')+1));
-      assert.equal((await call('notification_ack',challenge.args)).reachability,'verified');
+      const code = delivered.message.match(/[0-9a-f]{8}-[0-9a-f-]{27}/)?.[0];
+      assert.ok(code);
+      assert.equal((await call('notification_ack',{target,code})).reachability,'verified');
     };
     // No active Chat: keep a separate session record, then establish the source identity.
     const standalone='session_010000000000000000000031';
