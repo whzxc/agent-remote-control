@@ -4,7 +4,7 @@ import { layers, captureLayerTrigger } from '../state/layers';
 import { deviceTasks } from '../devices/tasks';
 import { locale, t } from '../i18n';
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { ChevronRight, CircleCheck, CircleHelp, CirclePause, CircleX, GitFork, Inbox, ListFilter, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronUp, CircleCheck, CircleHelp, CirclePause, CircleX, GitFork, Inbox, ListFilter, X } from 'lucide-react';
 import { Icon, IconButton, Panel } from './ui';
 import { TaskCard, taskTitle } from './ui/TaskCard';
 import { homepageTaskFocus, remoteTaskPanel } from '../state/homepage';
@@ -40,6 +40,57 @@ function ChildTaskRow({ task, today, onOpen }: { today: number; task: HomepageTa
     </span>
     <Icon icon={ChevronRight} size={14} />
   </button>;
+}
+
+function TaskDayGrid({ items, preview, now, open, openChildren }: {
+  items: TaskFamily[]; preview: boolean; now: number;
+  open: (task: HomepageTask) => void; openChildren: (key: string, trigger: HTMLButtonElement) => void;
+}) {
+  const grid = useRef<HTMLDivElement>(null), toggle = useRef<HTMLButtonElement>(null);
+  const focusAfterToggle = useRef<string | null | undefined>(undefined);
+  const [columns, setColumns] = useState(1);
+  const [expanded, setExpanded] = useState(false);
+  useLayoutEffect(() => {
+    const node = grid.current!;
+    const measure = () => setColumns(getComputedStyle(node).gridTemplateColumns.trim().split(/\s+/).length);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  useLayoutEffect(() => {
+    const key = focusAfterToggle.current;
+    if (key === undefined) return;
+    focusAfterToggle.current = undefined;
+    const target = key ? taskSnapshotElement(key)?.querySelector<HTMLElement>('[data-task-open]') : toggle.current;
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView({ block: 'nearest' });
+  }, [expanded]);
+
+  const limit = columns * 2;
+  const shown = items.length > limit ? limit - 1 : items.length;
+  const overflow = items.length - shown;
+  const visible = expanded ? items : items.slice(0, shown);
+  const form = preview ? 'detail' : 'summary';
+  return <div ref={grid} className="homepage-task-grid" role="list">
+    {visible.map(({ parent: task, children }) => {
+      const attention = children.filter(child => child.group === 'needs-me').length;
+      const failed = children.filter(child => taskException(child.session.status) === 'failed').length;
+      return <TaskCard key={task.key} task={task} grid form={form} now={now} attention={attention > 0} snapshotKey={task.key} onOpen={() => open(task)}
+        footer={preview && children.length > 0 && <div className="task-card-footer"><button type="button" className="task-child-trigger" data-children onClick={event => openChildren(task.key, event.currentTarget)}>
+        <Icon icon={GitFork} size={14} /><span className="task-child-count">{t('homepage.childCount', { count: children.length })}</span>
+        {attention > 0 && <span className="task-child-badge">{t('homepage.childAttention', { count: attention })}</span>}
+        {failed > 0 && <span className="task-child-badge" data-tone="danger">{t('homepage.childFailures', { count: failed })}</span>}
+        <Icon icon={ChevronRight} size={14} /></button></div>} />;
+    })}
+    {overflow > 0 && <button ref={toggle} type="button" className="homepage-task-overflow" data-form={form} aria-expanded={expanded} onClick={() => {
+      focusAfterToggle.current = expanded ? null : items[shown].parent.key;
+      setExpanded(!expanded);
+    }}><span className="homepage-task-overflow-face">
+      <strong>{t(expanded ? 'homepage.collapseTasks' : 'homepage.expandTasks', { count: overflow })}</strong>
+      <Icon icon={expanded ? ChevronUp : ChevronDown} size={16} />
+    </span></button>}
+  </div>;
 }
 
 export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
@@ -87,19 +138,10 @@ export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
       else selectAgentPanel({ type: 'task', agent: task.agent, session: task.session });
     });
   }
-  function grid(items: TaskFamily[], preview: boolean) {
-    if (!items.length) return null;
-    return <div className="homepage-task-grid" role="list">{items.map(({ parent: task, children }) => {
-      const attention = children.filter(child => child.group === 'needs-me').length;
-      const failed = children.filter(child => taskException(child.session.status) === 'failed').length;
-      return <TaskCard key={task.key} task={task} grid form={preview ? 'detail' : 'summary'} now={now} attention={attention > 0} snapshotKey={task.key} onOpen={() => open(task)}
-        footer={children.length > 0 && <div className="task-card-footer"><button type="button" className="task-child-trigger" data-children onClick={event => {
-          captureLayerTrigger(event.currentTarget); setReturnChild(undefined); layers.switchPanel(() => setFamilyKey(task.key));
-        }}><Icon icon={GitFork} size={14} /><span className="task-child-count">{t('homepage.childCount', { count: children.length })}</span>
-        {attention > 0 && <span className="task-child-badge">{t('homepage.childAttention', { count: attention })}</span>}
-        {failed > 0 && <span className="task-child-badge" data-tone="danger">{t('homepage.childFailures', { count: failed })}</span>}
-        <Icon icon={ChevronRight} size={14} /></button></div>} />;
-    })}</div>;
+  function openChildren(key: string, trigger: HTMLButtonElement) {
+    captureLayerTrigger(trigger);
+    setReturnChild(undefined);
+    void layers.switchPanel(() => setFamilyKey(key));
   }
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
@@ -112,7 +154,7 @@ export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
         const label = dateLabel(day);
         return <TaskFeedSection key={day ?? 'unknown'}  aria-label={label}>
           <h2>{label}</h2>
-          {grid(items, day === today)}
+          <TaskDayGrid items={items} preview={day === today} now={now} open={open} openChildren={openChildren} />
         </TaskFeedSection>;
       })}
     <PanelRoute value={family} identity={item => item.parent.key}>{family => <Panel size="m" className="task-family-panel" title={taskTitle(family.parent)}

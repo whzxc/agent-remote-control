@@ -128,11 +128,14 @@
 .task-snapshot-routing { display: flex; align-items: center; gap: 6px; color: var(--text-tertiary); font-size: var(--text-caption); }
 
 .task-card[data-grid][data-form=detail] { height: 224px; box-sizing: border-box; }
+.task-card[data-grid][data-form=summary] { height: 106px; box-sizing: border-box; }
 .task-card[data-grid][data-form=detail] > .task-card-header { padding: 12px 14px 10px; }
+.task-card[data-grid][data-form=detail]:has(> .task-card-footer):has(> .task-card-excerpt > .task-excerpt-lines) > .task-card-header { padding-bottom: 0; }
 .task-detail-header > .task-card-header { padding-inline: 0; }
 .task-card-origin-node, .task-empty-body > span { display: inline-flex; align-items: center; gap: 4px; }
 .task-card-origin-node { font-size: var(--text-caption); font-weight: 600; white-space: nowrap; }
 .task-card-excerpt { flex: 1; justify-content: flex-start; min-height: 0; box-sizing: border-box; padding: 12px; }
+.task-card-excerpt:has(.task-excerpt-lines) { flex: 0 1 auto; margin-top: auto; }
 .task-card-excerpt:has(+ .task-card-footer) { margin-bottom: 6px; }
 .task-excerpt-lines { display: flex; flex-direction: column; justify-content: flex-end; max-height: calc(var(--excerpt-lines) * 20px); overflow: hidden; font-size: var(--text-meta); line-height: 20px; }
 .task-excerpt-lines > * { flex: none; }

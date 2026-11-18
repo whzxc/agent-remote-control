@@ -32,3 +32,27 @@ export const examples: ListExample[] = [
   { title: '核对历史记录索引', time: '00:43', turns: 2, model: 'gpt-6.1-terra', project: 'storage', status: 'complete', preview: 'error' },
   { title: '检查新会话的初始状态', time: '00:08', turns: 1, model: 'gpt-6.2-sol', project: 'desktop', status: 'complete', preview: 'empty' },
 ];
+
+export const dayGridExample = {
+  today: [
+    { ...examples[2], title: '回归检查桌面端升级流程', excerpt: '已完成安装和升级验收。重启后保留了已有配置与登录状态，也可以从任务列表继续打开升级前的会话。接下来会复核安装包在其他设备上的表现。' },
+    { ...examples[2], title: '整理任务反馈和修复进度', time: '02:04', project: 'tasks', excerpt: '已把反馈按影响范围分组，并逐项核对修复状态。高频问题均有明确的验证结果，剩余几项已补充能稳定复现的操作步骤，并记录在对应任务里。' },
+    { ...examples[2], title: '验证新版本安装产物', time: '01:40', project: 'release', excerpt: '安装包签名检查和启动验证均已通过。桌面端可以正常打开原有任务，配置和记录也已逐项核对。验收记录及对应安装包已保留在本次运行目录。' },
+    { ...examples[2], title: '核对命令行能力覆盖', time: '01:08', project: 'cli', excerpt: '已核对开发版和安装版的命令入口，并用实际任务验证打开、切换和读取操作。需要补充的参数说明已经按命令分组，整理到各自的命令参考中。' },
+  ],
+  yesterday: [
+    { ...examples[0], status: 'complete' as const, children: examples[0].children?.map(child => ({ ...child, state: 'complete' as const })) },
+    ...[
+      ['汇总版本验收结果', '03:56', 'release'],
+      ['核对历史记录索引', '00:43', 'storage'],
+      ['整理任务面板文案', '01:09', 'desktop'],
+      ['定位构建耗时增长', '01:26', 'build'],
+      ['校验模型切换状态', '02:10', 'agents'],
+      ['检查配置读取顺序', '02:05', 'desktop'],
+      ['验证连接状态恢复', '03:04', 'relay'],
+      ['核对回归用例清单', '01:32', 'test'],
+      ['整理发布说明', '00:52', 'release'],
+      ['检查新会话的初始状态', '00:08', 'desktop'],
+    ].map(([title, time, project], index) => ({ ...examples[2], title, time, project, viaClaude: index % 3 === 0 })),
+  ],
+};

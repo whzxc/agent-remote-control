@@ -1831,6 +1831,8 @@
   "homepage.reload": "重新加载",
   "homepage.subagents": "子任务",
   "homepage.childCount": "{count} 个子任务",
+  "homepage.expandTasks": "展开 {count} 个任务",
+  "homepage.collapseTasks": "收起 {count} 个任务",
   "homepage.childAttention": "{count} 个待确认",
   "homepage.childFailures": "{count} 个失败",
   "homepage.openDetail": "打开任务详情",

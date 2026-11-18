@@ -172,7 +172,7 @@ function TaskCardPreview({ task, now, rows, notice, compact, lineCount, pending,
   const headline = task.session.headline || task.session.fallbackHeadline;
   if (compact) {
     const request = waiting && task.session.interaction?.summary;
-    const lines = failed ? Math.min(3, lineCount) : lineCount;
+    const lines = failed ? lineCount - 1 : lineCount;
     const recent = rows.slice(-lines);
     const fallback = request || (!recent.length && headline);
     const state = failed ? 'error' : pending ? 'loading' : 'empty';

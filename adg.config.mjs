@@ -4,6 +4,7 @@ import path from 'node:path';
 // Compare preparations use the same fixture data and public controls as accept:ui.
 const prepared = {
   'grouped-task-children': { scenario: 'homepage-task-family', children: true },
+  'daily-task-groups-expanded': { scenario: 'homepage-task-daily-overflow', expandYesterday: true },
   'task-detail-empty-body': { scenario: 'homepage-task-family', emptyTask: true },
   'model-dialog': { scenario: 'timeline-multi-turn', modelDialog: true },
   'model-picker': { scenario: 'timeline-multi-turn', modelPicker: true },
@@ -57,6 +58,7 @@ export default {
       await page.waitForFunction(name => document.documentElement.dataset.scenarioError || document.documentElement.dataset.scenarioReady === name, scenario, { timeout: 15000 });
       const error = await page.evaluate(() => document.documentElement.dataset.scenarioError);
       if (error) throw new Error(`ARC fixture ${name}: ${error}`);
+      if (preparation?.expandYesterday) await page.getByRole('region', { name: '昨天', exact: true }).getByRole('button', { name: '展开 4 个任务', exact: true }).click();
       if (preparation?.children) await page.getByRole('button', { name: /4 个子任务/ }).click();
       if (preparation?.emptyTask) await page.getByRole('article', { name: '检查新会话的初始状态' }).getByRole('button', { name: /打开任务详情:/ }).click();
       if (['agent-panel-loading', 'agent-platform-loading', 'source-panel-loading'].includes(name)) {

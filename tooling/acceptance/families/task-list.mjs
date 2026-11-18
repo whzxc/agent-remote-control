@@ -1,8 +1,12 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-export const bothThemes = fixture => fixture.homepage?.check === 'task-list';
-export const checks = [{ stage: 'verify', order: 19, visual: true, async run({ fixture, page, root, width }) {
+export const bothThemes = fixture => ['task-list', 'daily-overflow'].includes(fixture.homepage?.check);
+export const checks = [{ stage: 'verify', order: 19, visual: true, async run({ fixture, page, root, width, height }) {
+  if (fixture.homepage?.check === 'daily-overflow') {
+    await verifyDailyOverflow(page, { width, height });
+    return;
+  }
   if (fixture.homepage?.check === 'grouped') {
     await verifyGroupedTasks(page, fixture);
     return;
@@ -23,6 +27,11 @@ export const checks = [{ stage: 'verify', order: 19, visual: true, async run({ f
   const feed = page.getByRole('main', { name: text['homepage.tasks'], exact: true });
   const today = feed.getByRole('region', { name: text['agentPanel.today'], exact: true });
   const yesterday = feed.getByRole('region', { name: text['agentPanel.yesterday'], exact: true });
+  const cards = await today.getByRole('article').evaluateAll(items => items.map(item => item.getBoundingClientRect().top));
+  const firstRow = cards.filter(top => top === cards[0]).length;
+  if (width < 450 && firstRow !== 1 || width === 820 && firstRow !== 3) throw new Error('Task columns did not adapt to the available width.');
+  await expandDay(today);
+  await expandDay(yesterday);
   const name = 'Verify the release checklist';
   const history = yesterday.getByRole('article', { name, exact: true });
   const preview = article => article.getByRole('region', { name: text['homepage.recentSteps'], exact: true });
@@ -51,9 +60,6 @@ export const checks = [{ stage: 'verify', order: 19, visual: true, async run({ f
   const turns = text['timeline.turnCount'].replace('{count}', '3');
   await history.getByText(turns, { exact: true }).waitFor();
   if (await preview(history).count()) throw new Error('Historical summary rendered timeline content.');
-  const cards = await today.getByRole('article').evaluateAll(items => items.map(item => item.getBoundingClientRect().top));
-  const firstRow = cards.filter(top => top === cards[0]).length;
-  if (width < 450 && firstRow !== 1 || width === 820 && firstRow !== 3) throw new Error('Task columns did not adapt to the available width.');
   await history.evaluate(article => article.scrollIntoView({ block: 'end' }));
   if (width === 1280 && fixture.theme === 'light') {
     await historyProject.hover();
@@ -68,9 +74,72 @@ export const checks = [{ stage: 'verify', order: 19, visual: true, async run({ f
   await detail.waitFor({ state: 'hidden' });
 } }];
 
+async function expandDay(day) {
+  const toggle = day.locator('.homepage-task-overflow[aria-expanded=false]');
+  if (await toggle.count()) await toggle.click();
+}
+
+async function verifyDailyOverflow(page, viewport) {
+  const feed = page.getByRole('main', { name: '任务', exact: true });
+  const today = feed.getByRole('region', { name: '今天', exact: true });
+  const yesterday = feed.getByRole('region', { name: '昨天', exact: true });
+  const singleColumn = viewport.width === 390;
+  const visible = singleColumn ? 1 : 7;
+  const label = (action, count) => `${action} ${count} 个任务`;
+  const expand = count => yesterday.getByRole('button', { name: label('展开', count), exact: true });
+  const count = 11 - visible;
+  const toggle = expand(count);
+  await toggle.waitFor();
+  if (await yesterday.getByRole('article').count() !== visible || await today.getByRole('article').count() !== (singleColumn ? 1 : 4)) {
+    throw new Error('Each date must use its own two-row budget.');
+  }
+  await today.locator('.task-excerpt-lines').first().waitFor();
+  if (!await today.locator('.task-card-excerpt').evaluateAll(previews => previews.every(preview => {
+    const bounds = preview.getBoundingClientRect();
+    const body = preview.querySelector('.task-excerpt-lines')?.getBoundingClientRect();
+    return body && [body.top - bounds.top, bounds.bottom - body.bottom, body.left - bounds.left, bounds.right - body.right]
+      .every(inset => Math.abs(inset - 12) < 1);
+  }))) throw new Error('Preview text must have 12px of padding on every side.');
+  if (!await toggle.evaluate(node => {
+    const row = node.getBoundingClientRect().top;
+    const previousRows = new Set([...node.parentElement.children].map(card => card.getBoundingClientRect().top));
+    return node === node.parentElement.lastElementChild && previousRows.size === 2 && row === Math.max(...previousRows)
+      && getComputedStyle(node, '::before').content !== 'none' && getComputedStyle(node, '::after').content !== 'none';
+  })) throw new Error('The stacked expansion card must end the second row.');
+
+  await toggle.press('Enter');
+  const collapse = yesterday.getByRole('button', { name: label('收起', count), exact: true });
+  await collapse.waitFor();
+  if (await yesterday.getByRole('article').count() !== 11 || await today.getByRole('article').count() !== (singleColumn ? 1 : 4)
+    || !await collapse.evaluate(node => node === node.parentElement.lastElementChild && node.previousElementSibling?.matches('article')
+      && getComputedStyle(node, '::before').content === 'none' && getComputedStyle(node, '::after').content === 'none')) {
+    throw new Error('The single-layer collapse card must follow the last task of the expanded date.');
+  }
+  const focused = await yesterday.getByRole('article').nth(visible).locator('[data-task-open]').evaluate(node => node === document.activeElement);
+  if (!focused) throw new Error('Expansion must focus the first revealed task.');
+  if (await yesterday.locator('[data-children]').count() || !await yesterday.getByRole('article').evaluateAll(cards => cards.every(card => card.getBoundingClientRect().height === 106))) {
+    throw new Error('Compact task cards must have equal heights and omit subtask counts.');
+  }
+  await collapse.press('Enter');
+  await toggle.waitFor();
+  if (!await toggle.evaluate(node => node === document.activeElement)) throw new Error('Collapse must return focus to the stack.');
+
+  if (!singleColumn) {
+    await page.setViewportSize({ width: 820, height: viewport.height });
+    await expand(6).waitFor();
+    await page.setViewportSize({ width: 1600, height: viewport.height });
+    await yesterday.locator('.homepage-task-overflow').waitFor({ state: 'detached' });
+    if (await yesterday.getByRole('article').count() !== 11) throw new Error('Tasks that fit in two rows need no disclosure.');
+    await page.setViewportSize(viewport);
+    await toggle.waitFor();
+  }
+  await feed.evaluate(node => { node.scrollTop = 0; });
+}
+
 async function verifyGroupedTasks(page, fixture) {
   page.setDefaultTimeout(8000);
   const feed = page.getByRole('main', { name: '任务', exact: true });
+  await expandDay(feed.getByRole('region', { name: '今天', exact: true }));
   const parent = feed.getByRole('article', { name: fixture.tasks[0].title, exact: true });
   const children = parent.getByRole('button', { name: /4 个子任务.*1 个待确认/ });
   await children.waitFor();
@@ -83,7 +152,7 @@ async function verifyGroupedTasks(page, fixture) {
     return {
       padding: getComputedStyle(preview).padding,
       budget: parseFloat(lines.maxHeight) / parseFloat(lines.lineHeight),
-      expected: footer || preview.querySelector('.task-excerpt-retry') ? 3 : 4,
+      expected: 4 - Number(Boolean(footer)) - Number(Boolean(preview.querySelector('.task-excerpt-retry'))),
       bottomInset: preview.parentElement.getBoundingClientRect().bottom - (footer ?? preview).getBoundingClientRect().bottom,
     };
   }));

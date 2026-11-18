@@ -11,6 +11,8 @@ import { ProjectLabel } from '../components/project-path';
 import { DispatchSpec } from '../components/dispatch-spec';
 import { tasksCopy as copy } from '../fixtures/tasks';
 
+const taskGrid = 'grid grid-cols-[repeat(auto-fill,minmax(min(100%,242px),1fr))]';
+
 export function NodeTaskFilter({ label = copy.filter }: { label?: string }) {
   return <div class="inline-flex items-center gap-2 self-start rounded-full border border-accent-text/40
     bg-accent-text/10 pl-3 text-small font-semibold text-accent-text" aria-label={`Tasks for ${label}`}>
@@ -23,8 +25,32 @@ export function TasksEmpty() {
   </div>;
 }
 
-export function TaskGrid({ items }: { items: readonly ListExample[] }) {
-  return <div class="grid grid-cols-[repeat(auto-fill,minmax(min(100%,242px),1fr))] gap-4">{items.map(task => <GroupedTaskCard task={task} />)}</div>;
+export function TaskGrid({ items, day }: {
+  items: readonly ListExample[];
+  day: { columns: number; form: 'detail' | 'summary'; expanded?: boolean };
+}) {
+  const limit = day.columns * 2;
+  const split = items.length > limit ? limit - 1 : items.length;
+  const overflow = items.length - split;
+  const visible = day.expanded ? items : items.slice(0, split);
+  return <div class={`${taskGrid} items-start gap-x-4 gap-y-6`}>
+    {visible.map(task => <GroupedTaskCard task={task} form={day.form} />)}
+    {overflow > 0 && <DayOverflowCard count={overflow} form={day.form} expanded={day.expanded} />}
+  </div>;
+}
+
+function DayOverflowCard({ count, form, expanded = false }: { count: number; form: 'detail' | 'summary'; expanded?: boolean }) {
+  return <button type="button" aria-expanded={expanded}
+    class={`relative isolate flex w-full min-w-0 flex-col text-left focus-visible:outline-2 focus-visible:outline-accent ${expanded ? '' : 'pt-3'} ${form === 'detail' ? 'h-[224px]' : 'h-[106px]'}`}>
+    {!expanded && <>
+      <span aria-hidden="true" class="absolute inset-x-3 inset-y-0 rounded-card border border-border-strong bg-surface-subtle" />
+      <span aria-hidden="true" class="absolute inset-x-1.5 top-1.5 bottom-0 rounded-card border border-border-strong bg-surface-subtle" />
+    </>}
+    <span class={`relative flex w-full flex-1 items-center justify-between gap-2 rounded-card border px-[14px] shadow-md ${expanded ? 'border-border bg-surface-subtle' : 'border-border-strong bg-surface'}`}>
+      <strong class="text-body font-semibold text-text">{expanded ? '收起' : '展开'} {count} 个任务</strong>
+      <Icon name={expanded ? 'chevron-up' : 'chevron-down'} size={16} class="shrink-0 text-text-secondary" />
+    </span>
+  </button>;
 }
 
 export default () => [
@@ -73,19 +99,22 @@ export function EmptyTaskBody({ state, detail = false }: { state: 'empty' | 'err
   </div>;
 }
 
-export function GroupedTaskCard({ task }: { task: ListExample }) {
+export function GroupedTaskCard({ task, form = 'detail' }: { task: ListExample; form?: 'detail' | 'summary' }) {
   const chain = task.viaClaude ? listOrigins.claudeToCodex : listOrigins.codex;
+  const detail = form === 'detail';
+  const children = detail ? task.children : undefined;
   const emptyState = !task.excerpt && (task.preview === 'error' || task.preview === 'empty' || task.preview === 'loading')
     ? task.preview
     : undefined;
   const attention = task.children?.filter(child => child.state === 'needs-input').length;
-  const previewMargin = task.children ? 'mb-[6px]' : 'mb-2';
+  const previewMargin = children ? 'mb-[6px]' : 'mb-2';
+  const previewSize = emptyState ? 'flex-1' : 'mt-auto';
   return (
     <article aria-label={task.title} style={{ '--aurora-tint': 'var(--phase-thinking)' }}
-      class={`flex h-[224px] min-w-0 flex-col rounded-card border bg-surface shadow-md ${
-        task.status === 'running' ? aurora : 'border-border'
+      class={`flex min-w-0 flex-col rounded-card border bg-surface shadow-md ${detail ? 'h-[224px]' : 'h-[106px]'} ${
+        detail && task.status === 'running' ? aurora : 'border-border'
       }`}>
-      <div class="flex flex-col gap-2 px-[14px] pt-3 pb-[10px]">
+      <div class={`flex flex-col gap-2 px-[14px] pt-3 ${children && !emptyState ? 'pb-0' : 'pb-[10px]'}`}>
         <div class="flex h-5 items-center gap-1">
           <div class="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none]">
             <div class="flex w-max"><OriginChain steps={chain} /></div>
@@ -95,23 +124,23 @@ export function GroupedTaskCard({ task }: { task: ListExample }) {
         </div>
         <button class="truncate text-left text-body leading-5 font-semibold text-text">{task.title}</button>
         <div class="flex h-6 items-center gap-[6px] overflow-hidden whitespace-nowrap">
-          <DispatchSpec model={task.model} position={{ count: 4, index: 2 }} tier={task.tier ?? "Fast"} fast />
+          <DispatchSpec model={task.model} effort="High" position={{ count: 4, index: 2 }} tier={task.tier ?? "Fast"} fast />
           <ProjectLabel name={task.project} />
           <span class="text-caption tabular-nums text-text-tertiary">{task.turns} 轮</span>
         </div>
       </div>
-      <div class={`mx-2 ${previewMargin} flex min-h-0 flex-1 flex-col overflow-hidden rounded-tile bg-surface-subtle p-3`}>
+      {detail && <div class={`mx-2 ${previewMargin} ${previewSize} flex min-h-0 flex-col overflow-hidden rounded-tile bg-surface-subtle p-3`}>
         {emptyState ? <EmptyTaskBody state={emptyState} /> : (
           <p class={`text-meta leading-5 text-text whitespace-pre-line ${
-            task.preview === 'activity' ? 'truncate' : task.children?.length ? 'line-clamp-3' : 'line-clamp-4'
+            task.preview === 'activity' ? 'truncate' : children?.length ? 'line-clamp-3' : 'line-clamp-4'
           }`}>{task.excerpt}</p>
         )}
-      </div>
-      {task.children && (
+      </div>}
+      {children && (
         <button class="mx-2 mb-2 flex h-8 shrink-0 items-center gap-2 rounded-tile border border-border/70
           bg-surface-subtle/60 px-[10px] text-small font-semibold text-text">
           <Icon name="git-fork" size={14} class="text-text-secondary" />
-          <span>{task.children.length} 个子任务</span>
+          <span>{children.length} 个子任务</span>
           {Boolean(attention) && (
             <span class="ml-auto rounded-full border border-warning/25 bg-warning/10 px-[7px] py-[1px]
               text-caption font-semibold text-warning">
