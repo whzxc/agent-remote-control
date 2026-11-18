@@ -1530,7 +1530,7 @@ test('multi-root projects preserve legacy selection and resolve project cwd alte
 });
 
 test('large non-Git tree returns a bounded first layer and a truncation marker', async () => {
-  // Recurring bug class: 68dea77; large non-Git tree returns a bounded first layer and a truncation marker.
+  // Contract: a non-Git tree reports partial coverage when the traversal budget is exhausted.
   const base=path.join(directory,'large-tree');await mkdir(base);
   await mkdir(path.join(base,'deep'));await mkdir(path.join(base,'empty'));
   for(let batch=0;batch<101;batch++)await Promise.all(Array.from({length:100},(_,i)=>writeFile(path.join(base,'deep',`${batch*100+i}`),'')));

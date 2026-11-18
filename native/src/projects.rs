@@ -291,6 +291,7 @@ async fn git_bytes(root: &str, args: Vec<String>, identity: bool) -> Result<Vec<
         "HOME",
         "USERPROFILE",
         "XDG_CONFIG_HOME",
+        "GIT_CEILING_DIRECTORIES",
         "SYSTEMROOT",
         "TEMP",
         "TMP",
@@ -346,9 +347,7 @@ async fn git_bytes(root: &str, args: Vec<String>, identity: bool) -> Result<Vec<
     if !status.success() {
         return Err(
             if String::from_utf8_lossy(&stderr).contains("not a git repository")
-                && !Path::new(root)
-                    .ancestors()
-                    .any(|p| p.join(".git").symlink_metadata().is_ok())
+                && !has_git_marker(Path::new(root))
             {
                 "NOT_GIT_REPOSITORY".into()
             } else if missing_ref_check && status.code() == Some(1) {
@@ -577,11 +576,17 @@ pub async fn write(c: &Control, args: &Value) -> Result<Value> {
 fn strings(v: &[&str]) -> Vec<String> {
     v.iter().map(|s| s.to_string()).collect()
 }
+fn has_git_marker(root: &Path) -> bool {
+    let ceilings = std::env::var_os("GIT_CEILING_DIRECTORIES")
+        .map(|paths| std::env::split_paths(&paths).collect::<Vec<_>>())
+        .unwrap_or_default();
+    root.ancestors()
+        .take_while(|path| *path == root || !ceilings.iter().any(|ceiling| ceiling == *path))
+        .any(|path| path.join(".git").symlink_metadata().is_ok())
+}
 async fn state(p: &Value) -> Result<Value> {
     let root = string(p, "root");
-    if !Path::new(root)
-        .ancestors()
-        .any(|path| path.join(".git").symlink_metadata().is_ok())
+    if !has_git_marker(Path::new(root))
         && !(Path::new(root).join("HEAD").is_file() && Path::new(root).join("objects").is_dir())
     {
         return Ok(
