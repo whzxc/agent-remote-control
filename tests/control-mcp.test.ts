@@ -2255,7 +2255,7 @@ test('AX omitted request IDs return reusable receipts', async () => {
 test('AX status revisits and wait timeouts expose bounded progress evidence', async () => {
   // Recurring bug class: lifecycle statusOnly hid all progress during multi-hour tasks and wait timeouts offered no commit/check evidence.
   const reviewed = (await call('codex_read',{threadId:threadIds.reviewOutcomes,statusOnly:true})).result;
-  assert.equal(reviewed.turns,undefined);
+  assert.equal(reviewed.turns,null);
   assert.equal(reviewed.progress.latestAgentMessage,'After final commentary');
   assert.deepEqual(reviewed.progress.latestChecks.map((c:any)=>c.exitCode),[1,0]);
   assert.equal(reviewed.progress.commits,null);
