@@ -8,7 +8,7 @@ import { TaskMessage } from "./timeline/TaskPresentation";
 import { ChangedFiles } from "./TaskChanges";
 import TaskOutcome from "./TaskOutcome";
 import { memo, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { AlertCircle, Brain, Copy, Check, ChevronRight, CircleCheck, CircleX, ShieldCheck, Circle, FileText, ListChecks, MessageSquare, ShieldAlert, Terminal, UserRound, Wrench } from "lucide-react";
+import { AlertCircle, Brain, Copy, ChevronRight, CircleCheck, CircleDot, CircleX, FilePenLine, FileSearch, FileText, ListChecks, LoaderCircle, MessageSquare, ShieldAlert, ShieldCheck, Terminal, UserRound, Wrench } from "lucide-react";
 import { Collapsible } from "radix-ui";
 import { AnimatePresence, motion } from "motion/react";
 import { t } from "../i18n";
@@ -16,9 +16,10 @@ import { durationText } from "../lib/duration";
 import { useMedia } from "../state/hooks";
 import type { AgentActivitySession, AgentTimelineEntry, DispatchSummary, TurnTiming } from "../types";
 import { activityApprovals } from "../state/activity";
+import { icons, name, orderedAgents } from "../state/agents";
 import { interactionKey } from "../state/activityModel";
 import { entryDuration, timelineGroups, turnDuration, type TimelineGroup } from "../state/timelineGroups";
-import { Button, Icon, IconButton } from "./ui";
+import { BrandMark, Button, Icon, IconButton } from "./ui";
 import { SourceBadge, dispatchSourceLabel } from "./activity";
 import { PhaseLabel } from "./ui/TaskPhase";
 import RelayRoute from "./RelayRoute";
@@ -38,7 +39,7 @@ function Fold({ open, onChange, summary, children, className = "", expandable = 
   if (!expandable) return <div className={`timeline-fold ${className}`}><div className="timeline-summary">{summary}</div></div>;
   return <Collapsible.Root open={open} onOpenChange={onChange} className={`timeline-fold ${className}`}>
     <Collapsible.Trigger className="timeline-summary" type="button">
-      {summary}<Icon icon={ChevronRight} className="timeline-chevron" />
+      {summary}<Icon icon={ChevronRight} size={12} className="timeline-chevron" />
     </Collapsible.Trigger>
     {reduced ? open && <Collapsible.Content className="timeline-fold-content">{children}</Collapsible.Content> : <AnimatePresence initial={false}>
       {open && <Collapsible.Content forceMount asChild>
@@ -78,7 +79,7 @@ function UserMessage({ text, truncated, open, onChange }: { text: string; trunca
 function ToolTitle({ entry, project }: { entry: AgentTimelineEntry; project?: string | null }) {
   const title = toolTitle(entry);
   if (entry.path && !entry.command) return <span className="timeline-entry-title">
-    <FilePath path={entry.path} project={project || entry.cwd} cwd={entry.cwd} />
+    <span className="task-file-chip"><FilePath path={entry.path} project={project || entry.cwd} cwd={entry.cwd} /></span>
   </span>;
   return <HoverHelp text={title}><span className="timeline-entry-title mono">
     {title || t(entry.type === "command" ? "activity.phase.command" : entry.type === "file" ? "activity.phase.file" : "activity.phase.tool")}
@@ -128,8 +129,7 @@ function InteractionAnchor({ entry, agent, session }: { entry: AgentTimelineEntr
 function PlanEntry({ entry, settled }: { entry: AgentTimelineEntry; settled: boolean }) {
   const steps = entry.plan ?? [];
   return <PlanContent label={t("timeline.plan")} settled={settled}>
-    <header><Icon icon={ListChecks} /><span>{t("timeline.plan")}</span><span>{steps.filter(step => step.status === "completed").length}/{steps.length}</span></header>
-    <ul>{steps.map((step, index) => <li key={index} data-state={step.status}><Icon icon={step.status === "completed" ? Check : Circle} /><span>{step.content.text}</span></li>)}</ul>
+    <ol>{steps.map((step, index) => <li key={index} data-state={step.status}><Icon icon={step.status === "completed" ? CircleCheck : CircleDot} size={14} /><span>{step.content.text}</span></li>)}</ol>
   </PlanContent>;
 }
 function ThoughtEntry({ entry }: { entry: AgentTimelineEntry }) {
@@ -141,7 +141,7 @@ function ThoughtEntry({ entry }: { entry: AgentTimelineEntry }) {
 function Prompt({ entry, agent, followup = false }: { entry: AgentTimelineEntry; agent: string; followup?: boolean }) {
   const [open, setOpen] = useState(false);
   return <div className="relay-message">
-    {entry.controlSource ? <RelayRoute source={entry.controlSource} agent={agent} label={t(followup ? "relay.followup" : "relay.dispatch")} /> : <span className="timeline-meta">{t("relay.prompt")}</span>}
+    {entry.controlSource ? <RelayRoute source={entry.controlSource} agent={agent} label={t(followup ? "relay.followup" : "relay.dispatch")} /> : <div className="relay-local-route"><Icon icon={UserRound} size={13} /><strong>{t("relay.prompt")}</strong></div>}
     <UserMessage text={entry.text ?? ""} truncated={entry.truncated} open={open} onChange={setOpen} />
   </div>;
 }
@@ -159,8 +159,8 @@ export function TimelinePlanDock({ entry }: { entry: AgentTimelineEntry }) {
   const current = steps.find(step => ["in_progress", "inProgress", "running"].includes(step.status)) ?? steps.find(step => step.status !== "completed");
   return <Collapsible.Root className="relay-plan-dock" open={open} onOpenChange={setOpen}>
     <Collapsible.Content><PlanEntry entry={entry} settled={false} /></Collapsible.Content>
-    <Collapsible.Trigger className="timeline-summary"><Icon icon={ListChecks} /><span>{t("timeline.plan")} {completed}/{steps.length}</span><span className="relay-plan-current">{current?.content.text}</span>
-      <progress aria-label={t("timeline.plan")} value={completed} max={steps.length} /><Icon icon={ChevronRight} className="timeline-chevron" /></Collapsible.Trigger>
+    <Collapsible.Trigger className="timeline-summary" type="button"><Icon icon={ListChecks} size={14} /><span className="relay-plan-count">{t("timeline.plan")} {completed}/{steps.length}</span><span className="relay-plan-current">{current?.content.text}</span>
+      <span role="progressbar" aria-label={t("timeline.plan")} aria-valuemin={0} aria-valuenow={completed} aria-valuemax={steps.length} className="relay-plan-progress"><span style={{ width: `${steps.length ? (completed / steps.length) * 100 : 0}%` }} /></span><Icon icon={ChevronRight} size={14} className="timeline-chevron" /></Collapsible.Trigger>
   </Collapsible.Root>;
 }
 function ToolEntry({ entry, rail = false, project }: { entry: AgentTimelineEntry; rail?: boolean; project?: string | null }) {
@@ -190,7 +190,11 @@ function ToolSummary({ entries }: { entries: AgentTimelineEntry[] }) {
 // A lone tool is its own row; consecutive tools fold behind one summary line.
 function ToolRun({ entries, project }: { entries: AgentTimelineEntry[]; project?: string | null }) {
   const [open, setOpen] = useState(false);
-  if (entries.length === 1) return <RailStep icon={entries[0].status === "failed" ? CircleX : stepIcons[entries[0].type]} phase={entries[0].status === "failed" ? "failed" : entries[0].type}><ToolEntry entry={entries[0]} project={project} rail /></RailStep>;
+  if (entries.length === 1) {
+    const single = entries[0];
+    const icon = single.status === "failed" ? CircleX : single.type === "file" ? (single.operation === "read" ? FileSearch : FilePenLine) : stepIcons[single.type];
+    return <RailStep icon={icon} phase={single.status === "failed" ? "failed" : single.type}><ToolEntry entry={single} project={project} rail /></RailStep>;
+  }
   return <RailStep icon={Wrench} phase="tool"><Fold className="task-tool-run" open={open} onChange={setOpen} summary={<ToolSummary entries={entries} />}>
     <div className="task-tool-rows">{entries.map(entry => <ToolEntry key={entry.id} entry={entry} project={project} />)}</div>
   </Fold></RailStep>;
@@ -204,9 +208,9 @@ function LiveTool({ entry, now, project }: { entry: AgentTimelineEntry; now: num
   const output = (entry.output?.text || entry.text || "").split("\n").slice(-8).join("\n").trim();
   const elapsed = entryDuration(entry, now);
   const phase = entry.type as "command" | "file" | "tool";
-  return <RailStep icon={stepIcons[phase]} phase={phase} live><div className="task-live-row" data-phase={phase}><Fold open={open} onChange={setOpen} expandable={!!output}
-    summary={<><span className="task-live-label mono"><PhaseLabel phase={phase} running>{liveToolLabel(entry, project)}</PhaseLabel></span>
-      {elapsed !== undefined && <time className="timeline-meta">{durationText(elapsed)}</time>}</>}>
+  return <RailStep icon={LoaderCircle} phase={phase} live><div className="task-live-row" data-phase={phase}><Fold open={open} onChange={setOpen} expandable={!!output}
+    summary={<><span className="task-live-label mono"><PhaseLabel phase={phase}>{liveToolLabel(entry, project)}</PhaseLabel></span>
+      {elapsed !== undefined && <time className="task-live-meta">{durationText(elapsed)}</time>}</>}>
     <pre className="task-live-log">{output}</pre>
   </Fold></div></RailStep>;
 }
@@ -221,7 +225,7 @@ function LiveActivity({ activity, now, project, elapsed }: { activity: NonNullab
     return <LiveTool entry={entry} now={now} project={project} />;
   }
   return <RailStep icon={Brain} phase="thinking" live><div className="task-live-row" data-phase="thinking"><div className="timeline-fold"><div className="timeline-summary">
-    <span className="task-live-label" role="status"><PhaseLabel phase="thinking" running>{activity.thought || t("activity.phase.thinking")}</PhaseLabel></span>{elapsed !== undefined && <time>{durationText(elapsed)}</time>}</div></div></div></RailStep>;
+    <span className="task-live-label" role="status"><PhaseLabel phase="thinking">{activity.thought || t("activity.phase.thinking")}</PhaseLabel></span>{elapsed !== undefined && <time className="task-live-meta">{durationText(elapsed)}</time>}</div></div></div></RailStep>;
 }
 function processLabel(duration?: number) {
   return duration === undefined ? t("detail.worked") : t("detail.workedFor", { duration: durationText(duration) });
@@ -260,20 +264,24 @@ const TurnCard = memo(function TurnCard({ narrow, group, index, latest, current,
     if (row.kind !== "tools") { blocks.push(<ProcessEntry key={row.id} entry={row.entry} agent={agent} session={session} streaming={live && row.entry === newestNarration && row.entry.status === "running"} />); continue; }
     blocks.push(<ToolRun key={row.id} entries={row.entries} project={session.project} />);
   }
-  const process = <section className="relay-work">{live && <header><RelayRoute agent={agent} label={`${t(`detail.state.${state}`)}${duration !== undefined ? ` · ${durationText(duration)}` : ""}`} /></header>}<ol className="task-process-rows">{blocks}{activity && !pending && <LiveActivity activity={activity} now={now} project={session.project} elapsed={duration} />}</ol></section>;
+  const agentLabel = name(orderedAgents().find(row => row.agent === agent) ?? { agent });
+  const process = <section className="relay-work">{live && <header className="relay-work-header"><span className="relay-work-brand">{icons[agent] && <BrandMark markup={icons[agent]} size={16} />}</span><span className="relay-work-status"><strong>{agentLabel}</strong>{state === "running" && <span className="relay-work-dot" aria-hidden="true" />}<span>{`${t(`detail.state.${state}`)}${duration !== undefined ? ` · ${durationText(duration)}` : ""}`}</span></span></header>}<ol className="task-process-rows">{blocks}{activity && !pending && <LiveActivity activity={activity} now={now} project={session.project} elapsed={duration} />}</ol></section>;
   const processSummary = <span className="task-process-summary"><span>{processLabel(duration)}</span>
     <span>{t("detail.process.actions", { count: projection.actions })}</span>
     {!!projection.failed && state !== "failed" && <span data-failed>{t("detail.tools.failed", { count: projection.failed })}</span>}</span>;
-  const processTrigger = <Collapsible.Trigger className="timeline-summary task-process-trigger" data-failed={state === "failed" || undefined} type="button"><Icon icon={state === "failed" ? CircleX : CircleCheck} size={14} />{processSummary}<Icon icon={ChevronRight} className="timeline-chevron" /></Collapsible.Trigger>;
+  const processTrigger = <Collapsible.Trigger className="timeline-summary task-process-trigger" data-failed={state === "failed" || undefined} type="button"><Icon icon={state === "failed" ? CircleX : CircleCheck} size={14} />{processSummary}<Icon icon={ChevronRight} size={12} className="timeline-chevron" /></Collapsible.Trigger>;
   const hasProcess = !!visibleRows.length || !!activity;
   return <Collapsible.Root open={live || processOpen(state, expanded[workId])} onOpenChange={change(workId)} asChild><section className="task-turn" data-timeline-id={group.id} data-turn-collapsed={!turnOpen || undefined} onClick={event => {
     if (!turnOpen && !(event.target as Element).closest("button, a, input")) change("turn")(true);
   }}>
     {!latest && <div className="task-turn-heading">
       <button type="button" className="task-previous-turn" aria-expanded={turnOpen} onClick={() => change("turn")(!turnOpen)}>
-        <span>{t("relay.turn", { count: index + 1 })}</span><RelayRoute source={source} agent={agent} marksOnly /><time>{duration !== undefined && durationText(duration)}</time>
-        {!turnOpen && <span>{final?.text?.trim().split("\n")[0] || [...group.entries].reverse().find(entry => entry.type === "error" || entry.status === "failed")?.text?.split("\n")[0] || t(`detail.state.${state}`)}</span>}
-        <Icon icon={ChevronRight} size={12} className="timeline-chevron" />
+        <span className="task-previous-turn-badge">{t("relay.turn", { count: index + 1 })}</span>
+        <RelayRoute source={source} agent={agent} marksOnly />
+        {!turnOpen && <span className="task-previous-turn-result">{final?.text?.trim().split("\n")[0] || [...group.entries].reverse().find(entry => entry.type === "error" || entry.status === "failed")?.text?.split("\n")[0] || t(`detail.state.${state}`)}</span>}
+        {!turnOpen && <Icon icon={state === "failed" ? CircleX : CircleCheck} size={14} className="task-previous-turn-status" data-state={state} />}
+        <time>{duration !== undefined && durationText(duration)}</time>
+        <Icon icon={ChevronRight} size={14} className="timeline-chevron" />
       </button>
       {turnOpen && !!visibleRows.length && processTrigger}
     </div>}
@@ -283,7 +291,7 @@ const TurnCard = memo(function TurnCard({ narrow, group, index, latest, current,
       {pending && <TaskNeedsYou agent={agent} session={session} entries={group.entries} source={source} narrow={!!narrow} inline />}
       {(state === "failed" || state === "interrupted") && <TaskOutcome state={state} entries={group.entries} project={session.project} onResume={latest && current ? onResume : undefined} onRetry={latest && current ? onRetry : undefined} continuing={continuing} agent={agent} source={source} />}
       <TaskReceiptHistory agent={agent} id={session.id} turnId={group.turnId} latest={latest} />
-      {final && state !== "failed" && state !== "interrupted" && <TaskReplyCard><header><RelayRoute source={source} agent={agent} reverse label={t("relay.reply")} /><CopyReply text={final.text ?? ""} /></header><TimelineMarkdown text={final.text ?? ""} />{final.truncated && <span className="timeline-meta">{t("timeline.truncated")}</span>}<footer><ChangedFiles entries={group.entries} project={session.project} /></footer></TaskReplyCard>}
+      {final && state !== "failed" && state !== "interrupted" && <TaskReplyCard><header><RelayRoute source={source} agent={agent} reverse tone="success" label={t("relay.reply")} /><CopyReply text={final.text ?? ""} /></header><TimelineMarkdown text={final.text ?? ""} />{final.truncated && <span className="timeline-meta">{t("timeline.truncated")}</span>}<footer><ChangedFiles entries={group.entries} project={session.project} /></footer></TaskReplyCard>}
     </div>}
   </section></Collapsible.Root>;
 }, sameTurn);

@@ -26,6 +26,8 @@ import { Button, Icon, IconButton, LoadingIndicator, Menu, Notice, Tag } from ".
 import TimelineEntries, { TimelinePlanDock } from "./TimelineEntries";
 import { PhaseLabel } from "./ui/TaskPhase";
 import { TaskSpecChoice } from "./AgentDispatchDefaults";
+import { durationText } from "../lib/duration";
+import { ProjectLabel } from "./ui/ProjectPath";
 import { isTaskId, presentTaskState, taskException, taskState, taskStatusEvidence } from "../state/taskProjection";
 import { acceptTaskExecution } from "../state/taskExecution";
 import { executionStatus, executionSnapshot, executionPhase, terminalState } from "../state/taskExecutionModel";
@@ -285,6 +287,15 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
     project: projectPath, projectName, dispatchSummary: latestSummary, status,
     turnCount: nativeSession.turnCount ?? session.turnCount },
     state === 'running' ? 'running' : state === 'needsYou' ? 'needs-me' : 'recent');
+  const editableSpec = !readOnlyBrowser && !external && agent === "codex" && validId && !timeline?.readOnly;
+  const hasLatestSpec = Boolean(latestSummary?.model || latestSummary?.effort?.trim()
+    || (latestSummary?.serviceTier?.trim() && latestSummary.serviceTier.trim() !== "default"));
+  const specChoice = editableSpec || hasLatestSpec
+    ? <TaskSpecChoice agent={agent} threadId={session.id} taskId={session.source === "arc-task" ? session.id : undefined}
+        summary={latestSummary} editable={editableSpec} />
+    : null;
+  const selectedTurnIndex = session.selectedTurnId ? groups.findIndex(group => group.turnId === session.selectedTurnId) : -1;
+  const selectedTurnTag = selectedTurnIndex >= 0 ? <Tag>{t("detail.selectedTurn", { count: selectedTurnIndex + 1 })}</Tag> : null;
   const parentSession = parentId ? parent ?? {
     id: parentId, nativeSessionId: parentId, source: "codex-thread" as const, title: parentTitle || undefined,
     phase: "idle" as const, phaseSince: null, headline: "", timeline: true, orderAt: 0, observed: false,
@@ -292,7 +303,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   usePanelState({ busy: continuing });
   useLayerNaturalContent(content, true, { version: `${loading ? 'loading' : 'ready'}:${title}`, flexibleFooter: true, resetHeight: true });
   return <TimelineSurface ref={detail} className="agent-panel-layer" data-related={!!relationKind || undefined} data-narrow={narrow || undefined}>
-    <PanelHeader><div className="dialog-header task-detail-header" role="banner">
+    <PanelHeader><div className="dialog-header task-detail-header" data-related={!!relationKind || undefined} role="banner">
       <div className="task-detail-navigation"><TaskBackButton aria-label={t("back")} title={backLabel ?? agentName} onClick={onBack}><Icon icon={ArrowLeft} /><RelayRoute source={source} agent={agent} /></TaskBackButton>
         {!narrow && <div className="actions">{!readOnlyBrowser && validId && nativeSession.open && <IconButton icon={ArrowUpRight} label={t("activity.open")} onClick={() => { setOpenError(""); void openActivitySession(agent, nativeSession).catch(error => setOpenError(String(error))); }} />}
           {resizable && <IconButton icon={expanded ? Minimize2 : Maximize2} label={t(expanded ? "restorePanelWidth" : "expandPanelWidth")} aria-pressed={expanded} onClick={onToggleWidth} />}</div>}
@@ -301,17 +312,27 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
           ...(resizable ? [{ label: t(expanded ? "restorePanelWidth" : "expandPanelWidth"), action: onToggleWidth }] : []),
         ]} /></div>}
       </div>
-      <TaskCardHeader task={card} now={now} heading titleId={titleId} duration={duration}
-        spec={<TaskSpecChoice agent={agent} threadId={session.id} taskId={session.source === "arc-task" ? session.id : undefined} summary={latestSummary}
-          editable={!readOnlyBrowser && !external && agent === "codex" && validId && !timeline?.readOnly} />} />
-      <div className="task-detail-chips"><TaskRelation kind={relationKind} />{detailPhase
-        ? <PhaseLabel phase={detailPhase} running>{t(`activity.phase.${detailPhase}`)}</PhaseLabel>
-        : !taskException(state) && <StatePill state={state}>{t(`detail.state.${state}`)}</StatePill>}
-        {session.selectedTurnId && groups.some(group => group.turnId === session.selectedTurnId) && <Tag>{t("detail.selectedTurn", { count: groups.findIndex(group => group.turnId === session.selectedTurnId) + 1 })}</Tag>}
-        <TaskOwnership ownership={timeline?.ownership} />
-      </div>
-      {parentSession && <TaskListCard task={localTaskCard(agent, parentSession)} now={now} form="summary" description={t("activity.parentThread")}
-        onOpen={() => selectAgentPanel({ type: "task", agent, session: parentSession })} />}
+      {relationKind ? <>
+        <TaskCardHeader task={card} now={now} heading titleId={titleId} duration={duration} spec={specChoice ?? undefined} />
+        <div className="task-detail-chips"><TaskRelation kind={relationKind} />{detailPhase
+          ? <PhaseLabel phase={detailPhase} running>{t(`activity.phase.${detailPhase}`)}</PhaseLabel>
+          : !taskException(state) && <StatePill state={state}>{t(`detail.state.${state}`)}</StatePill>}
+          {selectedTurnTag}
+          <TaskOwnership ownership={timeline?.ownership} />
+        </div>
+        {parentSession && <TaskListCard task={localTaskCard(agent, parentSession)} now={now} form="summary" description={t("activity.parentThread")}
+          onOpen={() => selectAgentPanel({ type: "task", agent, session: parentSession })} />}
+      </> : <>
+        <h2 id={titleId} className="activity-panel-title">{title}</h2>
+        <div className="task-detail-chips">
+          <StatePill state={state}>{t(`detail.state.${state}`)}</StatePill>
+          {specChoice}
+          <ProjectLabel name={projectName} path={projectPath} />
+          {selectedTurnTag}
+          <TaskOwnership ownership={timeline?.ownership} />
+          {duration !== undefined && <time className="task-detail-duration">{durationText(duration)}</time>}
+        </div>
+      </>}
       {!!groups.length && <TurnProgress>{groups.map((group, index) => {
         const current = index === groups.length - 1 && (!nativeSession.turnId || nativeSession.turnId === group.turnId);
         const turnStatus = (group.turnId && timeline?.turnStatuses?.[group.turnId]) || (current ? status : undefined);
