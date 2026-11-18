@@ -2684,7 +2684,7 @@ test('Maintainer mode gates source triage and keeps normal AX reads reports and 
   })).result;
   assert.equal(draft.submission,'manual');
   assert.equal(draft.summaryMode,'fixed-category');
-  assert.equal(draft.arcBuildVersion,'0.0.0');
+  assert.equal(draft.arcBuildVersion,version);
   assert.ok(draft.os);
   for (const privateValue of ['prompt-secret','person@example.invalid','/Users/private','abc-secret','private.invalid','token-secret']) {
     assert.ok(!JSON.stringify(draft).includes(privateValue));
