@@ -800,6 +800,7 @@ impl Service {
             let catalog = catalog();
             let exposure = &catalog["toolExposure"];
             let agents_available = self.execution.available("agents").await;
+            let devices_available = crate::device_link::enabled();
             let tools: Vec<_> = catalog["ops"]
                 .as_array()
                 .unwrap()
@@ -813,7 +814,9 @@ impl Service {
                     item["name"] = json!(name);
                     item["description"] = tool["description"].clone();
                     item["via"] = json!(crate::egress::via(tool));
-                    item["available"] = json!(if crate::mcp_hub::OPS.contains(&name) {
+                    item["available"] = json!(if crate::device_link::transport::forbidden(name) {
+                        devices_available
+                    } else if crate::mcp_hub::OPS.contains(&name) {
                         crate::mcp_hub::enabled()
                     } else {
                         name == "agent_archive"
