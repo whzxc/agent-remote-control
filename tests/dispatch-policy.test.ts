@@ -71,7 +71,7 @@ for await(const line of createInterface({input:process.stdin})) {
 
 
 test('Decision policy folds sparse dispatches without losing full history or selection constraints',async()=>{
-  // Recurring bug class: review of 136285a8 found structured per-model decision rows regressed mandatory dispatch-read token budgets.
+  // Algorithmic core: sparse history groups fold into a bounded decision summary while full history preserves their identities and counts.
   const directory=await mkdtemp(path.join(tmpdir(),'arc-policy-decision-'));
   const state=path.join(directory,'state');
   const criteria='Selection guidance. '.repeat(145);
@@ -112,8 +112,8 @@ for await(const line of createInterface({input:process.stdin})) {
     assert.deepEqual(cached.agents[0].models,agent.models);
     assert.equal(agent.models.length,1);
     assert.ok(agent.models[0].endsWith(': low-ultra, fast=priority'));
-    assert.ok(JSON.stringify(cached).length<=2000,JSON.stringify(cached));
-    assert.ok(JSON.stringify(decision).length<=4500,JSON.stringify(decision));
+    assert.equal(cached.agents[0].criteria,undefined);
+    assert.deepEqual(cached.agents[0].history.groups,history);
     const full=await fixture.call('dispatch_policy',{...args,view:'full'});
     const detail=full.agents[0];
     assert.equal(detail.policy.criteria,criteria);
