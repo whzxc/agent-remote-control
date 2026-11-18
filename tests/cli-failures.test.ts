@@ -52,16 +52,24 @@ test('Resume guide and validation retain the interrupted-turn guard and receipt 
 
 
 test('Interrupted task reads and waits succeed through the CLI envelope',async()=>{
-  // Recurring bug class: normal interruption was presented as OPERATION_FAILED with CLI exit 1.
+  // Recurring bug class: lifecycle normal interruption was presented as OPERATION_FAILED with CLI exit 1.
   const threadId='00000000-0000-4000-8000-000000000005';
   const turnId='00000000-0000-4000-8000-000000000006';
   const fixture=await nativeControl(`import {createInterface} from 'node:readline';
+import {mkdirSync,realpathSync,writeFileSync} from 'node:fs';
+import path from 'node:path';
+const sessions=path.join(process.env.CODEX_HOME,'sessions');
+mkdirSync(sessions,{recursive:true});
+const rollout=path.join(realpathSync(sessions),'rollout-${threadId}.jsonl');
 for await(const line of createInterface({input:process.stdin})) {
  const {id,method,params}=JSON.parse(line);if(id===undefined)continue;
  const turn={id:'${turnId}',status:'interrupted',items:[]};
  let result={};
- if(method==='thread/start'||method==='thread/read')result={thread:{id:'${threadId}',cwd:params.cwd||'/tmp',status:{type:'notLoaded'}}};
- if(method==='turn/start')result={turn};
+ if(method==='thread/start'||method==='thread/read')result={thread:{id:'${threadId}',path:rollout,cwd:params.cwd||'/tmp',status:{type:'notLoaded'}}};
+ if(method==='turn/start'){
+   writeFileSync(rollout,[{type:'session_meta',payload:{id:'${threadId}'}},{type:'event_msg',payload:{type:'turn_aborted',turn_id:'${turnId}'}}].map(row=>JSON.stringify(row)).join('\\n')+'\\n');
+   result={turn};
+ }
  if(method==='thread/turns/list')result={data:[turn],nextCursor:null};
  process.stdout.write(JSON.stringify({id,result})+'\\n');
 }`);
