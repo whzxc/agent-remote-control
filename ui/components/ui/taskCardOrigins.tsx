@@ -29,20 +29,20 @@ export function useTaskOrigins(task: Pick<HomepageTask, 'agent' | 'session' | 'd
   const controllerLabel = deviceId ? snapshot?.name || label || t('homepage.controller') : controller?.name;
   if (controllerLabel) result.push({
     label: controllerLabel, caption: controllerLabel,
-    graphic: <Icon icon={Monitor} size={14} />,
+    graphic: <Icon icon={Monitor} size={13} />,
   });
   else if (label) {
     const sourceIds = new Set(platformSources(sources, status?.ingresses ?? [], controlSourcePlatform(platform).id).map(s => s.id));
     const linked = items.filter(a => a.sources.some(id => sourceIds.has(id)));
     const account = linked.find(a => accountOwns(a, recorded?.accountId ?? origin?.accountId))
       ?? linked.find(a => !!source && a.sources.includes(source.id));
-    result.push({ label, caption: linked.length > 1 ? account?.alias : undefined, graphic: platform === 'local-cli' ? <Icon icon={Terminal} size={14} /> : <SourceIcon platform={platform} size={14} /> });
+    result.push({ label, caption: linked.length > 1 ? account?.alias : undefined, graphic: platform === 'local-cli' ? <Icon icon={Terminal} size={13} /> : <SourceIcon platform={platform} size={14} iconSize={13} /> });
   }
   if (deviceId) {
     const device = pairedDevices(snapshot).find(device => device.id === deviceId);
     const description = device?.state === 'online' ? `${device.path === 'lan' ? 'LAN' : 'Tunnel'}${device.latency === null ? '' : ` · ${device.latency} ms`}` : undefined;
     const deviceName = snapshot?.members.find(member => member.deviceId === deviceId)?.name ?? deviceId;
-    result.push({ label: deviceName, caption: deviceName, graphic: <Icon icon={Laptop} size={14} />, description });
+    result.push({ label: deviceName, caption: deviceName, graphic: <Icon icon={Laptop} size={13} />, description });
   }
   const linked = deviceId ? [] : items.filter(a => a.agentProfiles.some(profile => profile.agent === agent));
   const account = linked.find(a => accountOwns(a, task.accountId ?? session.agentAccountId ?? session.dispatchSummary?.agentAccountId));

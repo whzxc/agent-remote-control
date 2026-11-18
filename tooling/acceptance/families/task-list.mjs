@@ -87,7 +87,7 @@ async function verifyGroupedTasks(page, fixture) {
       bottomInset: preview.parentElement.getBoundingClientRect().bottom - (footer ?? preview).getBoundingClientRect().bottom,
     };
   }));
-  if (previews.some(item => item.padding !== '12px' || item.budget !== item.expected || Math.round(item.bottomInset) !== 11)) throw new Error('Activity lines must fill the card above its footer or bottom inset.');
+  if (previews.some(item => item.padding !== '12px' || item.budget !== item.expected || Math.round(item.bottomInset) !== 9)) throw new Error('Activity lines must fill the card above its footer or bottom inset.');
 
   const past = feed.getByRole('region', { name: '昨天', exact: true }).getByRole('article');
   if ((await past.boundingBox()).height >= heights[0] || await past.getByRole('region').count()) throw new Error('Earlier dates must use compact metadata cards.');

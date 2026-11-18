@@ -7,11 +7,13 @@ export default function SourceIcon({
   add = false,
   panelVisual = false,
   size,
+  iconSize,
 }: {
   platform: string;
   add?: boolean;
   panelVisual?: boolean;
   size?: IconSize;
+  iconSize?: IconSize;
 }) {
   const icon = sourcePlatforms.find(p => p.id === platform)?.icon || controlSource(platform)?.icon || platform;
   const raw = sourceVectors[icon], image = sourceImages[icon];
@@ -19,7 +21,7 @@ export default function SourceIcon({
     if (add) return <Icon icon={Plus} size={size} />;
     if (raw) return <BrandMark markup={raw} size={size} />;
     if (image) return <img src={image} alt="" draggable={false} style={{ width: size, height: size, objectFit: 'contain' }} />;
-    return <Icon icon={Plug} size={size} />;
+    return <Icon icon={Plug} size={iconSize ?? size} />;
   }
   return (
     <span className="source-icon" data-panel-visual={panelVisual || undefined} aria-hidden="true">

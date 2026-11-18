@@ -4,8 +4,8 @@ import { layers, captureLayerTrigger } from '../state/layers';
 import { deviceTasks } from '../devices/tasks';
 import { locale, t } from '../i18n';
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { ChevronRight, GitFork, Inbox, ListFilter, X } from 'lucide-react';
-import { Button, Icon, IconButton, Panel } from './ui';
+import { ChevronRight, CircleCheck, CircleHelp, CirclePause, CircleX, GitFork, Inbox, ListFilter, X } from 'lucide-react';
+import { Icon, IconButton, Panel } from './ui';
 import { TaskCard, taskTitle } from './ui/TaskCard';
 import { homepageTaskFocus, remoteTaskPanel } from '../state/homepage';
 import { panelBack, selectAgentPanel } from '../state/overviewPanels';
@@ -26,12 +26,19 @@ function ChildTaskRow({ task, today, onOpen }: { today: number; task: HomepageTa
   const title = taskTitle(task);
   const assignment = task.session.fallbackHeadline || title;
   const activity = task.session.interaction?.summary || task.activity.snapshot.at(-1)?.text || task.session.headline;
+  const stateIcon = state === 'needsYou' ? CircleHelp : state === 'failed' ? CircleX : state === 'interrupted' ? CirclePause : CircleCheck;
   return <button ref={row} type="button" className="task-card task-child-row" id={`subagent-${task.key}`} data-child={task.key}
-    data-aurora={state === 'running' ? task.session.phase : undefined}
+    data-state={state} data-aurora={state === 'running' ? task.session.phase : undefined}
     style={{ '--task-aurora-ink': `var(--phase-${task.session.phase}, var(--role-agent))` } as CSSProperties}
     aria-description={t(`detail.state.${state}`)} onClick={onOpen}>
-    <span className="task-child-heading"><strong>{assignment}</strong>{state !== 'running' && <span>{t(`detail.state.${state}`)}</span>}<Icon icon={ChevronRight} size={14} /></span>
-    <span className="task-child-description">{[assignment !== title ? title : undefined, activity !== assignment ? activity : undefined].filter(Boolean).join(' · ')}</span>
+    <span className="task-child-body">
+      <span className="task-child-heading">
+        <strong>{assignment}</strong>
+        {state !== 'running' && <span className="task-child-state" data-state={state}><Icon icon={stateIcon} size={12} />{t(`detail.state.${state}`)}</span>}
+      </span>
+      <span className="task-child-description">{[assignment !== title ? title : undefined, activity !== assignment ? activity : undefined].filter(Boolean).join(' · ')}</span>
+    </span>
+    <Icon icon={ChevronRight} size={14} />
   </button>;
 }
 
@@ -85,12 +92,13 @@ export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
     return <div className="homepage-task-grid" role="list">{items.map(({ parent: task, children }) => {
       const attention = children.filter(child => child.group === 'needs-me').length;
       const failed = children.filter(child => taskException(child.session.status) === 'failed').length;
-      return <TaskCard key={task.key} task={task} grid form={preview ? 'detail' : 'summary'} now={now} snapshotKey={task.key} onOpen={() => open(task)}
-        footer={children.length > 0 && <div className="task-card-footer"><Button variant="link" className="task-child-trigger" data-children onClick={event => {
+      return <TaskCard key={task.key} task={task} grid form={preview ? 'detail' : 'summary'} now={now} attention={attention > 0} snapshotKey={task.key} onOpen={() => open(task)}
+        footer={children.length > 0 && <div className="task-card-footer"><button type="button" className="task-child-trigger" data-children onClick={event => {
           captureLayerTrigger(event.currentTarget); setReturnChild(undefined); layers.switchPanel(() => setFamilyKey(task.key));
-        }}><Icon icon={GitFork} size={14} />{t('homepage.childCount', { count: children.length })}
-        {attention > 0 && <span>{t('homepage.childAttention', { count: attention })}</span>}
-        {failed > 0 && <span>{t('homepage.childFailures', { count: failed })}</span>}<Icon icon={ChevronRight} size={14} /></Button></div>} />;
+        }}><Icon icon={GitFork} size={14} /><span className="task-child-count">{t('homepage.childCount', { count: children.length })}</span>
+        {attention > 0 && <span className="task-child-badge">{t('homepage.childAttention', { count: attention })}</span>}
+        {failed > 0 && <span className="task-child-badge" data-tone="danger">{t('homepage.childFailures', { count: failed })}</span>}
+        <Icon icon={ChevronRight} size={14} /></button></div>} />;
     })}</div>;
   }
   const yesterday = new Date(today);

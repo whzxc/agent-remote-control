@@ -1,7 +1,7 @@
 import { memo, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ArrowRight, ArrowRightLeft, CircleAlert, LoaderCircle, MessageSquare, RotateCcw } from 'lucide-react';
+import { ArrowRight, CircleAlert, LoaderCircle, MessageSquare, RotateCcw, ShieldAlert } from 'lucide-react';
 import { Button, Icon, Notice, Tooltip } from './index';
 import { taskPhaseIcons } from './NodeCapsule';
 import { activeHomepageTask, homepageTaskGroup, type HomepageTask, type TrackedActivity } from '../../state/activityModel';
@@ -11,6 +11,7 @@ import { presentTaskState, recordedTimestamp, taskCardActivity, taskException, t
 import { useRequestRouting } from '../../state/requestRouting';
 import RecordedDispatchSpec from '../composites/RecordedDispatchSpec';
 import { compactDuration } from '../../lib/duration';
+import { projectLabelParts } from '../../lib/projectPath';
 import { relativeTime } from '../../lib/relativeTime';
 import { FilePath, ProjectLabel } from './ProjectPath';
 import { useTaskOrigins } from './taskCardOrigins';
@@ -35,24 +36,36 @@ const SnapshotMarkdown = memo(function SnapshotMarkdown({ text, excerpt = false 
     components={{ a: ({ children }) => <span>{children}</span> }}>{text}</ReactMarkdown></div>;
 });
 
-const SnapshotRows = memo(function SnapshotRows({ rows, project }: { rows: TaskSnapshotRow[]; project?: string | null }) {
+function SnapshotNote({ tone, label, text }: { tone: 'source' | 'request'; label?: string; text: string }) {
+  if (tone === 'source') return <p className="task-snapshot-source">{text}</p>;
+  return <div className="task-snapshot-request">
+    {label && <span className="task-snapshot-request-label"><Icon icon={ShieldAlert} size={12} />{label}</span>}
+    <p className="task-snapshot-request-text">{text}</p>
+  </div>;
+}
+
+const SnapshotRows = memo(function SnapshotRows({ rows, project, requestLabel }: { rows: TaskSnapshotRow[]; project?: string | null; requestLabel?: string }) {
   const groups: TaskSnapshotRow[][] = [];
   for (const row of rows) {
     const group = groups.at(-1);
     if (row.tool && group?.[0].tool && group[0].turnId === row.turnId) group.push(row);
     else groups.push([row]);
   }
+  const latestRequest = requestLabel ? [...rows].reverse().find(row => row.role === 'request') : undefined;
   return groups.map(group => {
     const first = group[0];
+    if (first.role === 'source') return <SnapshotNote key={first.id} tone="source" text={first.text} />;
+    if (first.role === 'request') return <SnapshotNote key={first.id} tone="request" label={first === latestRequest ? requestLabel : undefined} text={first.text} />;
     if (first.role !== 'step') return <div key={first.id} className="task-snapshot-row" data-role={first.role}><SnapshotMarkdown text={first.text} /></div>;
     const latest = group.at(-1)!;
+    const kind = first.tool ? 'tool' : latest.kind ?? 'running';
     const text = latest.kind === 'thinking' ? thoughtLine(latest.text) : latest.text.trim().split('\n', 1)[0];
     const { parts, more } = toolSummary(group.flatMap(row => row.tool ? [row.tool] : []));
     const labels = parts.map(({ kind, count }) => t(`detail.tools.${kind}`, { count }));
     if (more) labels.push(t('detail.tools.more', { count: more }));
     const path = latest.tool?.command ? undefined : latest.tool?.path;
-    return <div key={first.id} className="task-snapshot-work">
-      <Icon icon={taskPhaseIcons[latest.kind ?? 'running']} size={12} />
+    return <div key={first.id} className="task-snapshot-work" data-kind={kind}>
+      <Icon icon={taskPhaseIcons[kind]} size={12} />
       {path ? <>
         {!!labels.length && <span className="task-snapshot-work-text task-snapshot-file-actions">{labels.join(' · ')} ·</span>}
         <FilePath path={path} project={project} cwd={latest.tool?.cwd} />
@@ -63,7 +76,7 @@ const SnapshotRows = memo(function SnapshotRows({ rows, project }: { rows: TaskS
 type CardHeaderProps = {
   task: TaskCardData; now: number; onOpen?: () => void; description?: string; titleId?: string; heading?: boolean;
   trigger?: Pick<ButtonHTMLAttributes<HTMLButtonElement>, 'disabled' | 'id'> & { 'data-activity-session'?: string };
-  grid?: boolean; spec?: ReactNode; duration?: number;
+  grid?: boolean; spec?: ReactNode; duration?: number; attention?: boolean;
 };
 
 function ScrollRow({ children, label }: { children: ReactNode; label?: string }) {
@@ -108,17 +121,22 @@ function TaskTime({ task, now, duration }: { task: TaskCardData; now: number; du
   </time>;
 }
 
-export function TaskCardHeader({ task, now, onOpen, trigger, description, titleId, heading, spec, duration, grid }: CardHeaderProps) {
+export function TaskCardHeader({ task, now, onOpen, trigger, description, titleId, heading, spec, duration, grid, attention }: CardHeaderProps) {
   const origins = useTaskOrigins(task), title = taskTitle(task);
-  const exception = taskException(task.session.status);
+  const shownException = !grid ? taskException(task.session.status) : undefined;
+  const dot = !shownException ? (task.group === 'needs-me' || attention ? 'warning' : task.group === 'unread' ? 'accent' : undefined) : undefined;
+  const summary = task.session.dispatchSummary, tier = summary?.serviceTier?.trim();
+  const hasPills = Boolean(spec || summary?.model?.trim() || summary?.effort?.trim() || (tier && tier !== 'default') || projectLabelParts(task.session.projectName, task.session.project));
+  const hasMeta = hasPills || task.session.turnCount != null;
   const originLabel = origins.map(origin => origin.label).join(' → ');
   return <header className="task-card-header">
     <div className="task-card-first-row">
       <ScrollRow label={originLabel}><span className="task-card-origins" role="img" aria-label={originLabel}>
-        {origins.map((origin, index) => <span key={`${index}:${origin.label}`}>{index > 0 && <Icon icon={ArrowRight} size={12} />}<Tooltip text={[origin.label, origin.description].filter(Boolean).join(' · ')}><span className="task-card-origin-node"><span className="task-card-origin">{origin.graphic}</span>{origin.caption}</span></Tooltip></span>)}
+        {origins.map((origin, index) => <span key={`${index}:${origin.label}`}>{index > 0 && <Icon icon={ArrowRight} size={11} className="task-card-origin-arrow" />}<Tooltip text={[origin.label, origin.description].filter(Boolean).join(' · ')}><span className="task-card-origin-node"><span className="task-card-origin">{origin.graphic}</span>{origin.caption}</span></Tooltip></span>)}
       </span></ScrollRow>
       <div className="task-card-state-time">
-        {!grid && exception && <span className="task-card-exception" data-state={exception} role="status">{t(`detail.state.${exception}`)}</span>}
+        {shownException && <span className="task-card-exception" data-state={shownException} role="status">{t(`detail.state.${shownException}`)}</span>}
+        {dot && <span className="task-card-dot" data-tone={dot} aria-hidden="true" />}
         <TaskTime task={task} now={now} duration={duration} />
       </div>
     </div>
@@ -128,11 +146,11 @@ export function TaskCardHeader({ task, now, onOpen, trigger, description, titleI
           aria-label={`${t('homepage.openDetail')}: ${title}`} aria-description={description} onClick={onOpen}>{title}</button>
         : <strong className="task-card-title">{title}</strong>}
     </ScrollRow>
-    <ScrollRow label={t('homepage.taskMetadata')}><div className="task-card-execution">
+    {hasMeta && <ScrollRow label={t('homepage.taskMetadata')}><div className="task-card-execution" data-pills={hasPills || undefined}>
       {spec ?? <RecordedDispatchSpec agent={task.deviceId ? undefined : task.agent} summary={task.session.dispatchSummary} />}
       <ProjectLabel name={task.session.projectName} path={task.session.project} />
       {task.session.turnCount != null && <span className="task-card-turns">{t('timeline.turnCount', { count: task.session.turnCount })}</span>}
-    </div></ScrollRow>
+    </div></ScrollRow>}
   </header>;
 }
 
@@ -150,6 +168,7 @@ function TaskCardPreview({ task, now, rows, notice, compact, lineCount, pending,
   const source = task.session.origin?.sourceLabel || task.session.dispatchSummary?.controlSource?.label || t('homepage.controller');
   const route = routing ? t(routing.state === 'deferred' ? 'routing.countdown' : routing.state === 'paused' ? 'routing.paused'
     : routing.state === 'not-routable' ? 'routing.nextCheck' : 'routing.routed', { source, seconds: Math.max(0, Math.ceil(((routing.deferUntil ?? now) - now) / 1000)) }) : undefined;
+  const requestLabel = waiting && task.session.interaction ? error || route || t('homepage.requestTo', { source }) : undefined;
   const headline = task.session.headline || task.session.fallbackHeadline;
   if (compact) {
     const request = waiting && task.session.interaction?.summary;
@@ -170,15 +189,14 @@ function TaskCardPreview({ task, now, rows, notice, compact, lineCount, pending,
   }
   return <div className="task-snapshot-timeline" role="region" aria-label={t('homepage.recentSteps')}>
     <div className="task-snapshot-tail">
-      {rows.length ? <SnapshotRows rows={rows} project={task.session.project} /> : headline && <div className="task-snapshot-row" data-role="agent"><SnapshotMarkdown text={headline} /></div>}
-      {waiting && task.session.interaction && !rows.some(row => row.role === 'request') && <div className="task-snapshot-row" data-role="request">{task.session.interaction.summary}</div>}
-      {waiting && task.session.interaction && <span className="task-snapshot-routing"><Icon icon={ArrowRightLeft} size={12} />{error || route || t('homepage.requestTo', { source })}</span>}
+      {rows.length ? <SnapshotRows rows={rows} project={task.session.project} requestLabel={requestLabel} /> : headline && <div className="task-snapshot-row" data-role="agent"><SnapshotMarkdown text={headline} /></div>}
+      {waiting && task.session.interaction && !rows.some(row => row.role === 'request') && <SnapshotNote tone="request" label={requestLabel} text={task.session.interaction.summary} />}
       {notice && (notice.danger ? <Notice layout="inline">{notice.text}</Notice> : <p className="task-snapshot-routing" role="status">{notice.text}</p>)}
     </div>
   </div>;
 }
 
-export function TaskCard({ task, now, form, onOpen, trigger, description, snapshotKey, notice, grid = false, footer }: Omit<CardHeaderProps, 'titleId' | 'heading' | 'spec' | 'duration'> & {
+export function TaskCard({ task, now, form, onOpen, trigger, description, snapshotKey, notice, grid = false, attention, footer }: Omit<CardHeaderProps, 'titleId' | 'heading' | 'spec' | 'duration'> & {
   form: 'summary' | 'detail'; snapshotKey?: string; notice?: CardNotice; grid?: boolean; footer?: ReactNode;
 }) {
   const card = useRef<HTMLElement>(null);
@@ -207,13 +225,13 @@ export function TaskCard({ task, now, form, onOpen, trigger, description, snapsh
   const title = taskTitle(task);
   const phaseDescription = aurora && phaseInk[phase] ? t(`activity.phase.${phase}`) : undefined;
   return <article ref={card} className="task-card" aria-label={title} aria-description={phaseDescription ?? description ?? t(`detail.state.${state}`)} data-task-snapshot={snapshotKey}
-    data-grid={grid || undefined} data-form={form} data-offline={task.stale || undefined} data-aurora={aurora ? phase : undefined}
+    data-grid={grid || undefined} data-form={form} data-offline={task.stale || undefined} data-waiting={!aurora && detail && presentation.group === 'needs-me' || undefined} data-aurora={aurora ? phase : undefined}
     style={aurora ? { '--task-aurora-ink': phaseInk[phase] ?? 'var(--role-agent)' } as CSSProperties : undefined}
     onClick={onOpen && !trigger?.disabled ? event => {
       if (!(event.target instanceof Element) || event.target.closest('button, [tabindex="0"], a') || window.getSelection()?.toString()) return;
       onOpen();
     } : undefined}>
-    <TaskCardHeader task={presentation} now={now} grid={grid} description={description ?? t(`detail.state.${state}`)} onOpen={onOpen} trigger={trigger} />
+    <TaskCardHeader task={presentation} now={now} grid={grid} attention={attention} description={description ?? t(`detail.state.${state}`)} onOpen={onOpen} trigger={trigger} />
     {detail && <TaskCardPreview task={presentation} now={now} rows={rows} notice={notice} compact={grid} lineCount={footer ? 3 : 4}
       failed={preview.failed} retry={preview.retry} pending={canRead && !execution} onOpen={onOpen} />}
     {footer}
