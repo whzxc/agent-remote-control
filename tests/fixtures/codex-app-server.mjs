@@ -1,4 +1,4 @@
-
+import {threadIds} from './codex-thread-ids.mjs';
 import { createInterface } from 'node:readline';
 import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
@@ -99,7 +99,7 @@ for await (const line of createInterface({ input: process.stdin })) {
         return emit({id,result:{}});
       }
     }
-    if(params?.threadId==='review-outcomes') {
+    if(params?.threadId===threadIds.reviewOutcomes) {
       const items=[
         {type:'agentMessage',phase:'commentary',text:'Working'},
         {type:'fileChange',status:'completed',changes:[{path:'src/example.rs',kind:{type:'update'},diff:'--- a/src/example.rs\n+++ b/src/example.rs\n@@ -1 +1 @@\n-old\n+new'}]},
@@ -114,8 +114,8 @@ for await (const line of createInterface({ input: process.stdin })) {
       if(method==='thread/read')return emit({id,result:{thread:{id:params.threadId,cwd:'/fixture',status:{type:'idle'}}}});
       if(method==='thread/turns/list')return emit({id,result:{data:[{id:'review-turn',status:'completed',items}],nextCursor:'history-cursor'}});
     }
-    if (params?.threadId === 'response-size') {
-      const thread={id:'response-size',name:'Response size fixture',cwd:'/fixture/response-size',status:{type:'idle'},model:'fixture-model'};
+    if (params?.threadId === threadIds.responseSize) {
+      const thread={id:threadIds.responseSize,name:'Response size fixture',cwd:'/fixture/response-size',status:{type:'idle'},model:'fixture-model'};
       const items=[{id:'user',type:'userMessage',content:[{type:'text',text:'Inspect this change and explain the result. '.repeat(3)}]},...Array.from({length:8},(_,i)=>({id:'reason-'+i,type:'reasoning',summary:[],content:[]})),{id:'command',type:'commandExecution',command:'git diff --stat',exitCode:0,aggregatedOutput:' src/example.rs | 4 ++--\n'.repeat(12),status:'completed'},{id:'change',type:'fileChange',status:'completed',changes:[{path:'src/example.rs',kind:{type:'update'},diff:'@@ -1 +1 @@\n-old\n+new'}]},{id:'agent',type:'agentMessage',text:'The change is complete and the checks passed. '.repeat(9)+(sizeRevision?'Changed':'')}];
       const turns=Array.from({length:6},(_,i)=>({id:'size-turn-'+i,status:'completed',items}));
       if(method==='thread/read')return emit({id,result:{thread}});
@@ -131,8 +131,8 @@ for await (const line of createInterface({ input: process.stdin })) {
         return emit({id,result:{data:rows.slice(offset,end).map(item=>({turnId:params.turnId||'size-turn-0',item})),nextCursor:end<rows.length?String(end):null}});
       }
     }
-    if (params?.threadId === 'image-pagination' || params?.threadId === 'empty-images') {
-      if (method === 'thread/turns/list') return emit({id,result:{data:params.threadId === 'empty-images' ? [] : [{id:'turn-latest',items:[]}],nextCursor:null}});
+    if (params?.threadId === threadIds.imagePagination || params?.threadId === threadIds.emptyImages) {
+      if (method === 'thread/turns/list') return emit({id,result:{data:params.threadId === threadIds.emptyImages ? [] : [{id:'turn-latest',items:[]}],nextCursor:null}});
       if (method === 'thread/items/list') {
         if ('view' in params || 'latest' in params || 'includeImages' in params || 'maxImages' in params) return emit({id,error:{message:'connector parameters leaked'}});
         const binding = (params.turnId || 'all') + ':' + params.sortDirection;
@@ -150,12 +150,12 @@ for await (const line of createInterface({ input: process.stdin })) {
     }
     if (method === 'thread/list' && params.searchTerm === 'fixture-overview') {
       if ('view' in params) return emit({id,error:{message:'ARC view leaked to native API'}});
-      return emit({id,result:{data:[{id:'overview-live',name:'Live',cwd:'/fixture',preview:'x'.repeat(77000),updatedAt:123,status:{type:'notLoaded'}},{id:'overview-unloaded',name:'Unloaded',cwd:'/fixture',preview:'history',status:{type:'notLoaded'}},{id:'overview-unavailable',name:'Unavailable',cwd:'/fixture',status:{type:'notLoaded'}}],nextCursor:'native-cursor'}});
+      return emit({id,result:{data:[{id:threadIds.overviewLive,name:'Live',cwd:'/fixture',preview:'x'.repeat(77000),updatedAt:123,status:{type:'notLoaded'}},{id:threadIds.overviewUnloaded,name:'Unloaded',cwd:'/fixture',preview:'history',status:{type:'notLoaded'}},{id:threadIds.overviewUnavailable,name:'Unavailable',cwd:'/fixture',status:{type:'notLoaded'}}],nextCursor:'native-cursor'}});
     }
-    if (params?.threadId?.startsWith('overview-')) {
-      if(params.threadId==='overview-unavailable' && method==='thread/read')return emit({id,error:{code:-32000,message:'owner unavailable'}});
-      if(method==='thread/read')return emit({id,result:{thread:{id:params.threadId,cwd:'/fixture',updatedAt:124,model:'fixture-model',status:{type:params.threadId==='overview-live'?'active':'notLoaded'}}}});
-      if(method==='thread/turns/list')return emit({id,result:{data:[{id:'current-turn',status:params.threadId==='overview-live'?'inProgress':'completed'}],nextCursor:null}});
+    if ([threadIds.overviewLive, threadIds.overviewUnloaded, threadIds.overviewUnavailable].includes(params?.threadId)) {
+      if(params.threadId===threadIds.overviewUnavailable && method==='thread/read')return emit({id,error:{code:-32000,message:'owner unavailable'}});
+      if(method==='thread/read')return emit({id,result:{thread:{id:params.threadId,cwd:'/fixture',updatedAt:124,model:'fixture-model',status:{type:params.threadId===threadIds.overviewLive?'active':'notLoaded'}}}});
+      if(method==='thread/turns/list')return emit({id,result:{data:[{id:'current-turn',status:params.threadId===threadIds.overviewLive?'inProgress':'completed'}],nextCursor:null}});
     }
     if (method === 'project/list' && existsSync(process.env.ARC_FIXTURE_DATA+'/projects-fixture.json')) return emit({id,result:{data:JSON.parse(readFileSync(process.env.ARC_FIXTURE_DATA+'/projects-fixture.json','utf8')),nextCursor:null}});
     if (method === 'model/list' || method === 'thread/list' || method === 'project/list') return emit({ id, result: { data: [], nextCursor: null } });

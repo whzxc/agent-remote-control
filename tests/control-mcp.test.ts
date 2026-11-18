@@ -1,3 +1,4 @@
+import {threadIds} from './fixtures/codex-thread-ids.mjs';
 import {toolResult} from '../tooling/mcp-result.mjs';
 import {assertNextCalls} from './helpers/continuations.ts';
 import {prepareCoreBinary} from './helpers/native-control.ts';
@@ -238,7 +239,7 @@ test('typical fs, PTY, downstream MCP and file search calls preserve native fiel
     ['fs', 'watch', { path: '/tmp/native.txt', watchId: 'watch-test' }],
     ['command', 'exec', { command: ['cat'], cwd: '/tmp', env: { LANG: null, EXAMPLE: 'yes' }, timeoutMs: 0, tty: true, size: { rows: 24, cols: 80 }, processId: 'command-test', streamStdin: true, streamStdoutStderr: true, sandboxPolicy: { type: 'readOnly' }, disableOutputCap: true }],
     ['process', 'spawn', { command: ['cat'], cwd: '/tmp', processHandle: 'process-test', timeoutMs: null, outputBytesCap: null, tty: true }],
-    ['mcp', 'tool/call', { server: 'local', threadId: 'existing-thread', tool: 'inspect', arguments: { input: [1, 2] }, _meta: { progressToken: 7 } }],
+    ['mcp', 'tool/call', { server: 'local', threadId: threadIds.existingThread, tool: 'inspect', arguments: { input: [1, 2] }, _meta: { progressToken: 7 } }],
   ];
   for (const [name, action, params] of cases) assertNativeInputPreserved((await completed(name, { action, params, requestId: randomUUID() })).result.echoedParams, params);
   const params = { query: 'ctrlmcp', roots: ['/tmp'], cancellationToken: null };
@@ -674,7 +675,7 @@ test('Git writes use durable receipts, isolated identity and safe local workflow
 
 test('latest items pin the newest turn and preserve explicit turn and native cursor semantics', async () => {
   // Contract: latest items pin the newest turn and preserve explicit turn and native cursor semantics.
-  const threadId = 'image-pagination';
+  const threadId = threadIds.imagePagination;
   const old = (await call('codex_items', {threadId,view:'full'})).result;
   assert.equal(old.items[0].itemId, 'old-first');
   assert.equal(old.turnId, undefined);
@@ -690,7 +691,7 @@ test('latest items pin the newest turn and preserve explicit turn and native cur
   const legacyNext = (await call('codex_items', {threadId, view:'full', cursor:old.nextCursor})).result;
   assert.equal(legacyNext.items[0].itemId, 'latest-first');
   assert.equal((await call('codex_items', {threadId,latest:true,cursor:first.nextCursor})).response.isError, true);
-  const empty = (await call('codex_items', {threadId:'empty-images',latest:true})).result;
+  const empty = (await call('codex_items', {threadId:threadIds.emptyImages,latest:true})).result;
   assert.deepEqual(empty.items, []);
   assert.equal(empty.nextCursor, null);
   assert.equal(empty.turnId, null);
@@ -1080,7 +1081,7 @@ test('capacity failures retry same model without replaying input, suppress inter
 
 
 test('task overview defaults to compact live evidence and full view retains preview and cursor', async()=>{
-  // Recurring bug class: unloaded or unavailable owners must not appear as completed tasks.
+  // Recurring bug class: lifecycle unloaded or unavailable owners must not appear as completed tasks.
   const compact=(await call('codex_tasks',{searchTerm:'fixture-overview'})).result;
   assert.equal(compact.view,'compact');assert.equal(compact.nextCursor,'native-cursor');
   assert.equal(compact.tasks[0].status,'running');assert.equal(compact.tasks[0].title,'Live');
@@ -1549,7 +1550,7 @@ test('Desktop seed is named before independent metadata read even with null roll
 
 test('item and search pagination reconstruct the complete result', async () => {
   // Contract: item and search pagination reconstruct the complete result.
-  const read = (await call('codex_read',{threadId:'response-size',limit:6})).result;
+  const read = (await call('codex_read',{threadId:threadIds.responseSize,limit:6})).result;
   assert.equal(read.turns.length, 6);
   for (const turn of read.turns) {
     assert.equal(turn.items.length, 4);
@@ -1558,13 +1559,13 @@ test('item and search pagination reconstruct the complete result', async () => {
     assert.equal(turn.items[1].exitCode, 0);
     assert.ok(Array.isArray(turn.items[2].changes));
   }
-  const fullRead = (await call('codex_read',{threadId:'response-size',limit:6,view:'full'})).result;
+  const fullRead = (await call('codex_read',{threadId:threadIds.responseSize,limit:6,view:'full'})).result;
   assert.ok(fullRead.turns[0].items.some((item:any) => item.type === 'reasoning'));
-  const first=(await call('codex_items',{threadId:'image-pagination',latest:true,length:3,view:'full'})).result;
-  const continued=(await call('codex_items',{threadId:'image-pagination',latest:true,turnId:first.turnId,view:'full',offset:first.items[0].nextOffset,expectedHash:first.items[0].textHash})).result;
+  const first=(await call('codex_items',{threadId:threadIds.imagePagination,latest:true,length:3,view:'full'})).result;
+  const continued=(await call('codex_items',{threadId:threadIds.imagePagination,latest:true,turnId:first.turnId,view:'full',offset:first.items[0].nextOffset,expectedHash:first.items[0].textHash})).result;
   assert.equal(first.items[0].text+continued.items[0].text,'latest last');
-  const compact=(await call('codex_items',{threadId:'image-pagination',latest:true})).result;
-  const next=(await call('codex_items',{threadId:'image-pagination',latest:true,turnId:compact.turnId,cursor:compact.nextCursor})).result;
+  const compact=(await call('codex_items',{threadId:threadIds.imagePagination,latest:true})).result;
+  const next=(await call('codex_items',{threadId:threadIds.imagePagination,latest:true,turnId:compact.turnId,cursor:compact.nextCursor})).result;
   assert.deepEqual([compact.items[0].text,next.items[0].text],['latest last','latest first']);
   const project=path.join(directory,'response-size');await mkdir(project);
   execFileSync('git',['init',project],{stdio:'pipe'});
@@ -1988,15 +1989,15 @@ test('control stats report byte baselines and waste candidates without call cont
 
 
 test('compact read defaults to the latest turn and item keys avoid duplicate complete items',async()=>{
-  // Recurring bug class: default history and repeated item reads duplicated already returned task content.
-  const read=(await call('codex_read',{threadId:'response-size',includeItemKeys:true})).result;
+  // Recurring bug class: lifecycle default history and repeated item reads duplicated already returned task content.
+  const read=(await call('codex_read',{threadId:threadIds.responseSize,includeItemKeys:true})).result;
   assert.equal(read.turns.length,1);assert.equal(read.turns[0].turnId,'size-turn-5');assert.ok(read.nextCursor);
-  const history=(await call('codex_read',{threadId:'response-size',limit:6})).result;
+  const history=(await call('codex_read',{threadId:threadIds.responseSize,limit:6})).result;
   assert.equal(history.turns.length,6);
-  const next=(await call('codex_read',{threadId:'response-size',cursor:read.nextCursor})).result;
+  const next=(await call('codex_read',{threadId:threadIds.responseSize,cursor:read.nextCursor})).result;
   assert.equal(next.turns[0].turnId,'size-turn-4');
   const keys=read.turns[0].items.map((i:any)=>i.itemKey);assert.ok(keys.every(Boolean));
-  const args={threadId:'response-size',turnId:read.turns[0].turnId,knownItemKeys:keys};
+  const args={threadId:threadIds.responseSize,turnId:read.turns[0].turnId,knownItemKeys:keys};
   const skipped=(await call('codex_items',args)).result;
   assert.deepEqual(skipped.items,[]);assert.equal(skipped.omittedKnownItems,1);assert.ok(skipped.nextCursor);
   const all=(await call('codex_items',{...args,limit:50})).result;
@@ -2006,7 +2007,7 @@ test('compact read defaults to the latest turn and item keys avoid duplicate com
   await completed('codex_call',{method:'fixture/change-size-item',params:{},requestId:randomUUID()});
   const changed=(await call('codex_items',{...args,includeItemKeys:true,limit:50})).result;
   assert.equal(changed.items.length,1);assert.ok(!keys.includes(changed.items[0].itemKey));
-  const short=(await call('codex_items',{threadId:'response-size',limit:50,length:2,includeItemKeys:true})).result;
+  const short=(await call('codex_items',{threadId:threadIds.responseSize,limit:50,length:2,includeItemKeys:true})).result;
   assert.ok(short.items.filter((i:any)=>i.truncated).every((i:any)=>!i.itemKey));
   assert.equal((await call('codex_items',{...args,view:'full'})).result.error.code,'INVALID_ARGUMENTS');
 });
@@ -2087,8 +2088,8 @@ test('receipt next hashes omit repeated guidance only when explicitly supplied',
 
 
 test('review read returns complete outcomes without command outputs or intermediate messages',async()=>{
-  // Recurring bug class: compact review returned command output while truncating the final response.
-  const {result:r,response}=await call('codex_read',{threadId:'review-outcomes',view:'review',includeImages:true});
+  // Recurring bug class: lifecycle compact review returned command output while truncating the final response.
+  const {result:r,response}=await call('codex_read',{threadId:threadIds.reviewOutcomes,view:'review',includeImages:true});
   assert.equal(response.isError,false);assert.equal(r.nextCursor,'history-cursor');assert.equal(r.arcInbox,undefined);
   const turn=r.turns[0];assert.equal(turn.recordedStatus,'completed');
   assert.equal(turn.finalResponse,'Complete final response. '.repeat(100));
@@ -2097,9 +2098,9 @@ test('review read returns complete outcomes without command outputs or intermedi
   assert.ok(turn.checks.every((c:any)=>typeof c.summary==='string'&&!c.summary.includes('\n')));
   assert.equal(turn.checks[1].command,'cargo check');assert.ok(!JSON.stringify(r).includes('PRIVATE_COMMAND_OUTPUT'));assert.ok(!JSON.stringify(r).includes('After final commentary'));
   assert.equal(turn.items,undefined);assert.equal(turn.externalUserInputs,undefined);
-  const compact=(await call('codex_read',{threadId:'review-outcomes',view:'compact'})).result;
+  const compact=(await call('codex_read',{threadId:threadIds.reviewOutcomes,view:'compact'})).result;
   assert.ok(compact.turns[0].items.some((i:any)=>i.output));
-  const full=(await call('codex_read',{threadId:'review-outcomes',view:'full'})).result;
+  const full=(await call('codex_read',{threadId:threadIds.reviewOutcomes,view:'full'})).result;
   assert.ok(full.turns[0].items.some((i:any)=>i.text.includes('PRIVATE_COMMAND_OUTPUT')));
 });
 
@@ -2245,8 +2246,8 @@ test('AX omitted request IDs return reusable receipts', async () => {
 });
 
 test('AX status revisits and wait timeouts expose bounded progress evidence', async () => {
-  // Recurring bug class: statusOnly hid all progress during multi-hour tasks and wait timeouts offered no commit/check evidence.
-  const reviewed = (await call('codex_read',{threadId:'review-outcomes',statusOnly:true})).result;
+  // Recurring bug class: lifecycle statusOnly hid all progress during multi-hour tasks and wait timeouts offered no commit/check evidence.
+  const reviewed = (await call('codex_read',{threadId:threadIds.reviewOutcomes,statusOnly:true})).result;
   assert.equal(reviewed.turns,undefined);
   assert.equal(reviewed.progress.latestAgentMessage,'After final commentary');
   assert.deepEqual(reviewed.progress.latestChecks.map((c:any)=>c.exitCode),[1,0]);
