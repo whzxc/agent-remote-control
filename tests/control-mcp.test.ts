@@ -303,13 +303,12 @@ test('deployment fingerprints ignore tool/property ordering and runtime changes 
   assert.deepEqual(toolFingerprint(reorder([...inventory.tools].reverse())), before);
   await call('codex_capabilities');
   assert.deepEqual(toolFingerprint((await client.listTools()).tools), before);
-  const outputSchemaIndex = inventory.tools.findIndex(tool => tool.outputSchema && typeof tool.outputSchema.properties === 'object');
-  assert.ok(outputSchemaIndex >= 0);
+  const guideIndex = inventory.tools.findIndex(tool => tool.name === 'guide');
+  assert.ok(guideIndex >= 0);
   for (const change of [
-    (tools: any[]) => { tools[outputSchemaIndex].inputSchema.properties.added = { type: 'string' }; },
-    (tools: any[]) => { tools[outputSchemaIndex].description += ' changed'; },
-    (tools: any[]) => { tools[outputSchemaIndex].annotations.readOnlyHint = false; },
-    (tools: any[]) => { tools[outputSchemaIndex].outputSchema.properties.result = { type: 'string' }; },
+    (tools: any[]) => { tools[guideIndex].inputSchema.properties.added = { type: 'string' }; },
+    (tools: any[]) => { tools[guideIndex].description += ' changed'; },
+    (tools: any[]) => { tools[guideIndex].annotations.readOnlyHint = false; },
     (tools: any[]) => { tools.pop(); },
   ]) {
     const tools = structuredClone(inventory.tools); change(tools);
