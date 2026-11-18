@@ -26,7 +26,7 @@ for await (const line of createInterface({input:process.stdin})) {
 }`;
 
 test('Verified session aliases preserve Chat identity and task links through Core restart', {skip:process.platform !== 'darwin'}, async () => {
-  // Recurring bug class: AX ax-8b883850 split one Chat and its verified session into separate registry records with missing taskRefs.
+  // Recurring bug class: persistence AX ax-8b883850 split one Chat and its verified session into separate registry records with missing taskRefs.
   const directory=await mkdtemp(path.join(tmpdir(),'arc-src-alias-'));
   const deliveries=path.join(directory,'deliveries.jsonl');
   await writeFile(path.join(directory,'claude'),`#!${process.execPath}

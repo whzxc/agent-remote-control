@@ -478,7 +478,7 @@ test('Codex account and quota reads remain available after shared configuration 
 });
 
 test('Claude credential profiles share native transcripts and retain legacy data for explicit migration', { skip: process.platform === 'win32' }, async () => {
-  // Recurring bug class: credential profiles kept separate Claude projects trees inside ARC state.
+  // Recurring bug class: persistence credential profiles kept separate Claude projects trees inside ARC state.
   const { mkdtemp, mkdir, writeFile, readFile, realpath, unlink, rm } = await import('node:fs/promises');
   const { tmpdir } = await import('node:os');
   const path = await import('node:path');

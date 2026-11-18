@@ -52,7 +52,7 @@ else {throw new Error('Unexpected fixture CLI operation');}
 });
 
 test('Unrouted targets select only a uniquely visible profile and persist that choice', {skip:process.platform==='win32'},async()=>{
-  // Recurring bug class: unrouted cloud targets silently used the first imported account instead of the session owner.
+  // Recurring bug class: security unrouted cloud targets silently used the first imported account instead of the session owner.
   const {createServer}=await import('node:http');
   const {readFile}=await import('node:fs/promises');
   const directory=await mkdtemp(path.join(tmpdir(),'arc-account-selection-'));

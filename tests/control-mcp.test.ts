@@ -364,7 +364,7 @@ async function ingressRpc(ingress: any, method: string, params?: any) {
 }
 
 test('setup rejects a short runtime key without saving or clearing; HTTPS fallback reuses the ingress', async () => {
-  // Recurring bug class: 3f0c5ea; setup rejects a short runtime key without saving or clearing; HTTPS fallback reuses the ingress.
+  // Recurring bug class: security 3f0c5ea; setup rejects a short runtime key without saving or clearing; HTTPS fallback reuses the ingress.
   const clipboard = path.join(directory, 'fixtures/clipboard.txt');
   await mkdir(path.dirname(clipboard), { recursive: true });
   await management('setup/apply', 'POST', { stepId: 'choose-goal', input: { option: 'chatgpt-chat' } });
@@ -543,7 +543,7 @@ test('real HTTP ingresses isolate discovery and direct execution; policy PUT pre
 // Simulate only the tunnel provider's loopback readiness API; ingress commit and
 // persistence still run through the compiled production Service implementation.
 test('managed draft commits the selected policy instead of publishing all tools', { skip: process.platform !== 'darwin' }, async () => {
-  // Recurring bug class: a committed restricted draft must not expose unselected operations.
+  // Recurring bug class: security a committed restricted draft must not expose unselected operations.
   const dependency = path.join(directory, 'dependencies/cloudflare', `darwin-${process.arch === 'arm64' ? 'arm64' : 'amd64'}`);
   await mkdir(dependency, { recursive: true });
   const binary = path.join(dependency, 'cloudflared');
@@ -698,7 +698,7 @@ test('latest items pin the newest turn and preserve explicit turn and native cur
 });
 
 test('creation starts its first turn without legacy history reads, cleans definite failures and retains uncertain submissions', async () => {
-  // Recurring bug class: 3abadc6; creation starts its first turn without legacy history reads, cleans definite failures and retains uncertain submissions.
+  // Recurring bug class: lifecycle 3abadc6; creation starts its first turn without legacy history reads, cleans definite failures and retains uncertain submissions.
   const create = async (model: string) => completed('codex_create', {
     project: directory, prompt: 'ping', thread: { model }, requestId: randomUUID(), waitMs: 1000,
   });
@@ -916,7 +916,7 @@ test('OAuth diagnostics reveal supplied identity field structure without retaini
 });
 
 test('managed Cloudflare recovers an exited provider without status polling and stops supervision on disconnect', {skip:process.platform==='win32'}, async () => {
-  // Recurring bug class: managed provider recovery depended on UI or status reads and stopped in unattended Core sessions.
+  // Recurring bug class: lifecycle managed provider recovery depended on UI or status reads and stopped in unattended Core sessions.
   const platform = process.platform === 'darwin' ? 'darwin' : 'linux';
   const dependency = path.join(directory,'dependencies/cloudflare',`${platform}-${process.arch==='arm64'?'arm64':'amd64'}`);
   await mkdir(dependency,{recursive:true});
@@ -2355,7 +2355,7 @@ test('AX2 failed receipts report failure through MCP and CLI without losing iden
 
 
 test('AX2 CLI guides accept full views and subcommands expose help without execution', async () => {
-  // Recurring bug class: CLI rejected query-guide view:full and treated subcommand --help as an invalid invocation.
+  // Contract: CLI rejected query-guide view:full and treated subcommand --help as an invalid invocation.
   const cli=(args:string[],input?:unknown)=>JSON.parse(execFileSync(fixtureCommand,['cli',...args],{env:fixtureEnv,input:input?JSON.stringify(input):undefined,encoding:'utf8',stdio:['pipe','pipe','pipe']}));
   const full=cli(['control','guide','--stdin'],{view:'full'});
   assert.equal(full.ok,true);
