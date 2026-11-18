@@ -14,9 +14,11 @@ export default function DispatchSpec({ id, model, effort, position, tier, fast }
 }) {
   const label = [model, effort, tier].filter(Boolean).join(" · ");
   if (!label) return null;
+  const hasTelemetry = Boolean(effort || tier);
   return <HoverHelp text={label}><span id={id} className="dispatch-spec" role="img" aria-label={label}>
     {model && <span className="dispatch-spec-model">{model}</span>}
-    {effort && <EffortGauge {...position} />}
+    {model && hasTelemetry && <span aria-hidden="true" className="dispatch-spec-divider" />}
+    {effort && <EffortGauge {...position} size={18} />}
     {tier && (tier === 'ultrafast' ? <span className="dispatch-spec-ultrafast" aria-hidden="true"><Icon icon={Zap} size={12} /><Icon icon={Zap} size={12} /></span> : fast ? <span className="dispatch-spec-fast"><Icon icon={Zap} size={12} /></span>
       : <span className="dispatch-spec-value">{tier}</span>)}
   </span></HoverHelp>;

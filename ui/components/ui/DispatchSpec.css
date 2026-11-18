@@ -1,17 +1,25 @@
 .dispatch-spec {
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   flex: 0 1 auto;
   min-width: 0;
   max-width: 100%;
   height: 24px;
+  border: 1px solid color-mix(in srgb, var(--border-strong) 60%, transparent);
   border-radius: var(--radius-pill);
   padding-inline: 9px;
-  background: var(--surface-sunken);
+  background: var(--surface-subtle);
   color: var(--text);
-  font: 600 var(--text-meta)/24px var(--font-ui);
+  font: 600 var(--text-meta)/var(--line-compact) var(--font-ui);
   white-space: nowrap;
+}
+.dispatch-spec-divider {
+  flex: none;
+  width: 1px;
+  height: 12px;
+  background: color-mix(in srgb, var(--border-strong) 70%, transparent);
 }
 .dispatch-spec-model, .dispatch-spec-value {
   min-width: 0;

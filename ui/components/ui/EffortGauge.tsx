@@ -10,7 +10,7 @@ function point(angle: number) {
 
 export type EffortPosition = { count: number; index: number };
 
-export default function EffortGauge({ count = 5, index = -1 }: Partial<EffortPosition>) {
+export default function EffortGauge({ count = 5, index = -1, size = 20 }: Partial<EffortPosition> & { size?: number }) {
   const step = count > 1 ? sweep / (count - 1) : 0;
   // Keep the dots and rounded arcs separate when a catalog has many levels.
   const scale = Math.min(1, step ? step / 43 : 1);
@@ -21,7 +21,7 @@ export default function EffortGauge({ count = 5, index = -1 }: Partial<EffortPos
     const inset = 2 * Math.asin((size + stroke / 2 + .65 * scale) / (2 * radius)) * 180 / Math.PI;
     return { angle, size, inset };
   });
-  return <svg className="effort-gauge" width="20" height="20" viewBox="0 0 32 32" focusable="false"
+  return <svg className="effort-gauge" width={size} height={size} viewBox="0 0 32 32" focusable="false"
     aria-hidden="true">
     {stops.slice(1).map((stop, i) => {
       const previous = stops[i];
