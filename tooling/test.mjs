@@ -48,7 +48,6 @@ async function main() {
   // Leave one second for npm startup and process teardown.
   const deadline = extended ? undefined : started + 29_000;
   const env = testEnvironment();
-  if (extended) env.ARC_TEST_BINARY = path.resolve(process.env.CARGO_TARGET_DIR || 'target', 'debug', process.platform === 'win32' ? 'arc.exe' : 'arc');
   const run = (file, argv) => runTestCommand(file, argv, { env, timeoutMs: deadline === undefined ? undefined : deadline - performance.now() });
   await run(process.execPath, ['tooling/check-tests.mjs']);
   await run(process.execPath, ['tooling/check-ui-styles.mjs']);
@@ -57,6 +56,11 @@ async function main() {
       await run('cargo', ['test', '--locked', '--manifest-path', 'native/Cargo.toml', '--lib']);
       if (process.platform === 'darwin') await run('cargo', ['test', '--locked', '-p', 'agent-remote-control', '--bin', 'agent-remote-control-desktop', 'src_conversations']);
       await run('cargo', ['build', '--locked', '-p', 'arc-core', '--bin', 'arc']);
+      await run('cargo', ['build', '--locked', '-p', 'contract-fixture']);
+      const debug = path.resolve(env.CARGO_TARGET_DIR || 'target', 'debug');
+      const suffix = process.platform === 'win32' ? '.exe' : '';
+      env.ARC_TEST_BINARY = path.join(debug, 'arc' + suffix);
+      env.ARC_TEST_FIXTURE_BINARY = path.join(debug, 'contract-fixture' + suffix);
       // Measure startup and request latency without other process fixtures competing for CPU.
       const startupBenchmark = 'tests/index-startup-native.test.ts';
       const files = await testFiles(true);

@@ -7,10 +7,10 @@ import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promis
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { prepareFixtureBinary } from './helpers/native-control.ts';
 import { canonicalSnapshot, indexPublications, writeRetainedState } from './helpers/index-state.ts';
 
 const target = process.env.CARGO_TARGET_DIR || path.resolve('target');
-const binary = path.join(target, 'debug', process.platform === 'win32' ? 'contract-fixture.exe' : 'contract-fixture');
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 async function eventually<T>(read: () => Promise<T | undefined>, limit = 12000): Promise<T> {
   const until = performance.now() + limit;
@@ -18,7 +18,7 @@ async function eventually<T>(read: () => Promise<T | undefined>, limit = 12000):
   throw new Error('Core startup did not finish within the fixture budget');
 }
 async function json(file: string): Promise<any> { try { return JSON.parse(await readFile(file, 'utf8')); } catch (e: any) { if (e.code !== 'ENOENT' && !(e instanceof SyntaxError)) throw e; } }
-async function start(directory: string) {
+async function start(directory: string, binary: string) {
   const state = path.join(directory, 'state'), home = path.join(directory, 'home');
   await mkdir(home, { recursive: true });
   const env = { ...process.env, HOME: home, USERPROFILE: home, ARC_STATE_DIR: state, CODEX_HOME: path.join(home, '.codex'), CLAUDE_CONFIG_DIR: path.join(home, '.claude'), ARC_FIXTURE_INDEX_GATE: path.join(directory, 'index-gate') };
@@ -75,7 +75,7 @@ async function start(directory: string) {
 
 test('real Core serves health, leases, guide and query before realistic retained-state migration publishes', { timeout: 120000 }, async () => {
   // Recurring bug class: lifecycle ax-c398fbae blocked guide and pending-owner queries during installed-scale migration and rewrote unchanged bindings on restart.
-  execFileSync('cargo', ['build', '--locked', '--quiet', '-p', 'contract-fixture', '--target-dir', target], { stdio: 'inherit' });
+  const binary = prepareFixtureBinary(target);
   const directory = await mkdtemp(path.join(tmpdir(), 'arc-index-runtime-'));
   const state = path.join(directory, 'state');
   let core: Awaited<ReturnType<typeof start>> | undefined;
@@ -83,7 +83,7 @@ test('real Core serves health, leases, guide and query before realistic retained
     const fixture = await writeRetainedState(state);
     await writeFile(path.join(directory, 'index-gate'), 'hold background migration');
     console.log('Retained fixture bytes:', fixture.totals);
-    core = await start(directory);
+    core = await start(directory, binary);
     assert.ok(core.readinessMs < 5000, `readiness: ${core.readinessMs} ms`);
     const owners = ['notifications/tasks', '', 'agents/requests'];
     for (const owner of owners) assert.equal(await json(path.join(state, owner, '.activity-index/current.json')), undefined, 'Readiness must precede every index publish');
@@ -137,7 +137,7 @@ test('real Core serves health, leases, guide and query before realistic retained
     console.log(JSON.stringify({ receiptReadyAfterReleaseMs, receiptRebuild: publication.profile }));
     await core.stop(); core = undefined;
     const before = await canonicalSnapshot(state);
-    core = await start(directory);
+    core = await start(directory, binary);
     await eventually(async () => (await core!.call('runtime_metrics')).notificationObserve.totals.completedPasses > 0 ? true : undefined);
     const adopted = await core.call('runtime_metrics');
     const tasks = await core.request('api/tasks');

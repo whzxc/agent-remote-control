@@ -1,7 +1,7 @@
 import {threadIds} from './fixtures/codex-thread-ids.mjs';
 import {toolResult} from '../tooling/mcp-result.mjs';
 import {assertNextCalls} from './helpers/continuations.ts';
-import {prepareCoreBinary} from './helpers/native-control.ts';
+import {prepareCoreBinary, prepareFixtureBinary} from './helpers/native-control.ts';
 import assert from 'node:assert/strict';
 import { createHash, randomUUID } from 'node:crypto';
 import { chmod, mkdtemp, mkdir, readFile, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
@@ -80,11 +80,8 @@ for await (const line of createInterface({input:process.stdin})) {
     await symlink(path.join(directory, name), path.join(stateDir, name), process.platform === 'win32' ? 'junction' : 'dir');
   }
   const target = process.env.CARGO_TARGET_DIR || fileURLToPath(new URL('../target', import.meta.url));
-  execFileSync('cargo', ['build', '--locked', '--quiet', '-p', 'contract-fixture', '--target-dir', target], {
-    cwd: fileURLToPath(new URL('../', import.meta.url)), stdio: 'inherit',
-  });
+  fixtureCommand = prepareFixtureBinary(target);
   await prepareCoreBinary(target);
-  fixtureCommand=path.join(target, 'debug', 'contract-fixture' + (process.platform === 'win32' ? '.exe' : ''));
   fixtureEnv={ ...process.env, HOME: home, USERPROFILE: home, XDG_CONFIG_HOME: home, ARC_STATE_DIR: stateDir, ARC_FIXTURE_DATA: directory, ARC_FIXTURE_SCRIPT: fixture, ARC_FIXTURE_BINARY: process.execPath } as Record<string,string>;
   await connectFixture();
   await management('task-settings', 'PUT', {autoOpenCodex:false});
