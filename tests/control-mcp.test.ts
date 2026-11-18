@@ -2223,13 +2223,13 @@ test('AX binary transfers verify bytes and reject duplicate append offsets', asy
   const invalid = await completed('fs', {action:'fetchFile', params:{path:file,url:'http://example.invalid/file'}, requestId:randomUUID()});
   assert.equal(invalid.state, 'failed');
   assert.match(invalid.error.message, /INVALID_URL/);
-  const guide = (await call('guide')).result;
+  const guide = toolResult(await client.callTool({name:'query', arguments:{op:'guide',args:{view:'full'}}}));
   assert.ok(guide.ops.some((op: any) => op.op === 'write'));
   assert.ok(guide.ops.some((op: any) => op.op === 'fs'));
 });
 
 test('AX omitted request IDs return reusable receipts', async () => {
-  // Recurring bug class: the live guide required agents to generate a UUID even though receipt owners already generate one.
+  // Recurring bug class: retry-replay the live guide required agents to generate a UUID even though receipt owners already generate one.
   const params = {path:path.join(directory,'generated-id.bin'),dataBase64:'aGk=',append:true,offset:0};
   const first = (await call('fs',{action:'writeFile',params})).result;
   assert.match(first.requestId, /^[0-9a-f-]{36}$/);
@@ -2238,7 +2238,7 @@ test('AX omitted request IDs return reusable receipts', async () => {
   assert.equal(replay.state,'completed');
   assert.equal(replay.result.sizeBytes,2);
   assert.deepEqual(await readFile(params.path),Buffer.from('hi'));
-  const detail = (await call('guide',{op:'fs',view:'full'})).result;
+  const detail = (await call('guide',{op:'fs'})).result;
   assert.equal(detail.retry.serverGeneratedWhenOmitted,true);
   assert.equal(detail.retry.callerGenerated,false);
   assert.ok(!detail.inputSchema.required.includes('requestId'));
