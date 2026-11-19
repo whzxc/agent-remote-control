@@ -15,8 +15,7 @@ pub struct Control {
     pub events: SharedEvents,
     pub(crate) shutdown: tokio::sync::watch::Sender<u64>,
     binary: PathBuf,
-    profile_rpcs: Mutex<HashMap<String, Arc<Rpc>>>,
-    auth_rpcs: Mutex<HashMap<String, Arc<Rpc>>>,
+    rpc: Mutex<Option<Arc<Rpc>>>,
     monitor: Mutex<Option<Arc<Ipc>>>,
     jobs: Mutex<HashMap<String, tokio::task::JoinHandle<()>>>,
     schemas: Mutex<Option<Value>>,
@@ -83,8 +82,7 @@ impl Control {
             monitor: Mutex::new(None),
             jobs: Default::default(),
             schemas: Mutex::new(None),
-            profile_rpcs: Mutex::new(HashMap::new()),
-            auth_rpcs: Mutex::new(HashMap::new()),
+            rpc: Mutex::new(None),
             requests: Default::default(),
             projects: Default::default(),
             task_records: Default::default(),
@@ -111,116 +109,30 @@ impl Control {
         result
     }
     pub async fn utility(&self) -> Result<Arc<Rpc>> {
-        self.profile_rpc("codex-home").await
-    }
-    pub(crate) async fn profile_rpc(&self, profile: &str) -> Result<Arc<Rpc>> {
-        let mut rpcs = self.profile_rpcs.lock().await;
+        let mut slot = self.rpc.lock().await;
         self.launches.check()?;
-        if let Some(cached) = rpcs.get(profile).filter(|cached| cached.alive()) {
+        if let Some(cached) = slot.as_ref().filter(|cached| cached.alive()) {
             return Ok(cached.clone());
-        }
-        let rpc = self.start_profile_rpc(profile).await?;
-        rpcs.insert(profile.into(), rpc.clone());
-        self.launches.check()?;
-        Ok(rpc)
-    }
-    // Codex reloads configuration for new threads and watches shared skills.
-    // Keep existing threads on their owning server across configuration changes.
-    async fn start_profile_rpc(&self, profile: &str) -> Result<Arc<Rpc>> {
-        if profile == "codex-home" {
-            return Rpc::attach(
-                &self.rpc_binary()?,
-                self.events.clone(),
-                &self.session,
-                None,
-                &self.launches,
-            )
-            .await;
         }
         let rpc = Rpc::attach(
             &self.rpc_binary()?,
             self.events.clone(),
             &self.session,
-            Some(profile),
             &self.launches,
         )
         .await?;
-        {
-            let mut login =
-                crate::accounts::codex::tokens(profile, None, &self.rpc_binary()?).await?;
-            login["type"] = json!("chatgptAuthTokens");
-            if let Err(error) = rpc.call("account/login/start", login, 10000).await {
-                if rpc.adopted() {
-                    rpc.close().await;
-                } else {
-                    rpc.stop().await;
-                }
-                return Err(error);
-            }
-        }
-        if rpc.adopted() {
-            rpc.resubscribe().await;
-        }
-        Ok(rpc)
-    }
-    pub(crate) async fn auth_rpc(&self, profile: &str) -> Result<Arc<Rpc>> {
-        if profile == "codex-home" {
-            return self.utility().await;
-        }
-        let mut rpcs = self.auth_rpcs.lock().await;
-        self.launches.check()?;
-        if let Some(rpc) = rpcs.get(profile).filter(|r| r.alive()) {
-            return Ok(rpc.clone());
-        }
-        let rpc = Rpc::start_auth(
-            &self.rpc_binary()?,
-            self.events.clone(),
-            &self.session,
-            profile,
-        )
-        .await?;
-        rpcs.insert(profile.into(), rpc.clone());
+        *slot = Some(rpc.clone());
         self.launches.check()?;
         Ok(rpc)
     }
-    pub(crate) async fn observe_thread_account(&self, thread: &str) -> Result<()> {
-        if uuid::Uuid::parse_str(thread).is_ok()
-            && crate::accounts::codex::bound_account(thread).is_null()
-            && !crate::accounts::codex::profiles()?.is_empty()
-        {
-            let native = self
-                .utility()
-                .await?
-                .call(
-                    "thread/read",
-                    json!({"threadId":thread,"includeTurns":false}),
-                    15000,
-                )
-                .await?;
-            crate::accounts::codex::observe_history(&native["thread"])?;
-        }
-        Ok(())
-    }
-    pub(crate) async fn profile_running(&self, profile: &str) -> bool {
-        let rpc = self.profile_rpcs.lock().await.get(profile).cloned();
-        let rpc = match rpc.filter(|r| r.alive()) {
-            Some(rpc) => rpc,
-            None if crate::codex_host::running(profile) => match self.profile_rpc(profile).await {
-                Ok(rpc) => rpc,
-                Err(_) => return true,
-            },
-            None => return false,
-        };
-        self.profile_rpc_running(profile, &rpc).await
-    }
-    async fn profile_rpc_running(&self, profile: &str, rpc: &Rpc) -> bool {
+    async fn rpc_running(&self, rpc: &Rpc) -> bool {
         if self
             .events
             .lock()
             .await
             .pending
             .values()
-            .any(|r| r["agentProfileId"].as_str().unwrap_or("codex-home") == profile)
+            .any(|r| r["owner"] != "desktop")
         {
             return true;
         }
@@ -252,40 +164,17 @@ impl Control {
         }
         false
     }
-    /// Reattach recorded servers before exposing Core to callers.
+    /// Reattach the recorded native server before exposing Core to callers.
     pub async fn reattach(&self) {
-        for profile in crate::codex_host::running_profiles() {
-            if let Err(error) = self.profile_rpc(&profile).await {
+        if crate::codex_host::running("codex-home") {
+            if let Err(error) = self.utility().await {
                 crate::logs::record(
                     "WARN",
-                    &format!("Codex app-server {profile} could not be reattached: {error}"),
+                    &format!("Codex app-server could not be reattached: {error}"),
                     None,
                 );
             }
         }
-    }
-    pub(crate) async fn close_profile(&self, profile: &str) {
-        if let Some(rpc) = self.auth_rpcs.lock().await.remove(profile) {
-            rpc.close().await;
-        }
-        if let Some(cached) = self.profile_rpcs.lock().await.remove(profile) {
-            cached.stop().await;
-        } else if let Err(error) = crate::codex_host::stop(profile).await {
-            crate::logs::record("WARN", &error, None);
-        }
-    }
-    pub(crate) async fn profile_account_rate_limits(&self, profile: &str) -> Result<Value> {
-        if profile == "codex-home" {
-            return self.account_rate_limits().await;
-        }
-        self.profile_rpc(profile)
-            .await?
-            .call("account/rateLimits/read", json!({}), 15000)
-            .await
-    }
-    pub(crate) async fn thread_rpc(&self, thread: &str) -> Result<Arc<Rpc>> {
-        self.profile_rpc(&crate::accounts::codex::thread_profile(thread)?)
-            .await
     }
     pub async fn account_rate_limits(&self) -> Result<Value> {
         // A short-lived reader follows the current native login on each refresh.
@@ -316,20 +205,14 @@ impl Control {
         threads: &[String],
     ) -> Vec<(String, crate::turn_lifecycle::Transition)> {
         let monitor = self.monitor.lock().await.clone();
-        let profiles = self.profile_rpcs.lock().await.clone();
-        let rpc = profiles.get("codex-home");
+        let rpc = self.rpc.lock().await.clone();
         let connected = (rpc.is_some() || monitor.is_some())
-            && rpc.is_none_or(|cached| cached.alive())
+            && rpc.as_ref().is_none_or(|cached| cached.alive())
             && monitor.as_ref().is_none_or(|m| m.alive());
         let events = self.events.lock().await;
         threads
             .iter()
             .filter_map(|thread| {
-                let connected = crate::accounts::codex::thread_profile(thread)
-                    .ok()
-                    .filter(|p| p != "codex-home")
-                    .map(|p| profiles.get(&p).is_some_and(|cached| cached.alive()))
-                    .unwrap_or(connected);
                 events.timelines.get(thread).map(|t| {
                     let mut turn = t.turn_lifecycle(&t.turn);
                     if !connected || t.observation_lost || t.observed_events == 0 {
@@ -349,7 +232,7 @@ impl Control {
     }
     pub async fn health(&self) -> Value {
         // Reading diagnostics never calls utility(), which can start app-server.
-        let rpc = self.profile_rpcs.lock().await.get("codex-home").cloned();
+        let rpc = self.rpc.lock().await.clone();
         let app_server = match rpc {
             Some(rpc) => rpc.health().await,
             None => {
@@ -364,13 +247,8 @@ impl Control {
     pub async fn close(&self) {
         self.launches.close();
         let mut retained = Vec::new();
-        for (_, rpc) in self.auth_rpcs.lock().await.drain() {
-            rpc.close().await;
-        }
-        for (profile, cached) in self.profile_rpcs.lock().await.drain() {
-            if cached.detached()
-                && (!cached.alive() || self.profile_rpc_running(&profile, &cached).await)
-            {
+        if let Some(cached) = self.rpc.lock().await.take() {
+            if cached.detached() && (!cached.alive() || self.rpc_running(&cached).await) {
                 if let Some(identity) = cached.host_identity() {
                     retained.push(identity);
                 }
@@ -417,9 +295,6 @@ impl Control {
             })
     }
     pub(crate) async fn effective_background(&self, thread: &str) -> Result<bool> {
-        if !thread.is_empty() && crate::accounts::codex::thread_profile(thread)? != "codex-home" {
-            return Ok(true);
-        }
         let background = self.background(thread)?;
         if !background || cfg!(target_os = "linux") {
             return Ok(background);
@@ -448,12 +323,8 @@ impl Control {
         let title = dispatch_title(
             &json!({"title":title,"prompt":receipt.as_deref().map(|r| &r["task"]["prompt"])}),
         );
-        let profile = receipt
-            .as_deref()
-            .and_then(|r| r["agentProfileId"].as_str())
-            .unwrap_or("codex-home");
-        let rpc = self.profile_rpc(profile).await?;
-        let selection = receipt.as_deref().map(|r|json!({"owner":"connector","agentProfileId":r["agentProfileId"],"agentAccountId":r["agentAccountId"]})).unwrap_or(json!({"owner":"connector"}));
+        let rpc = self.utility().await?;
+        let selection = json!({"owner":"connector"});
         let mut args = args;
         args["ephemeral"] = json!(false);
         let result = rpc.call("thread/start", args, 60000).await?;
@@ -486,7 +357,7 @@ impl Control {
         mut args: Value,
         timeout: u64,
     ) -> Result<Value> {
-        let rpc = self.thread_rpc(string(&args, "threadId")).await?;
+        let rpc = self.utility().await?;
         if method == "thread/resume" && args.get("excludeTurns").is_none() {
             args["excludeTurns"] = json!(true);
         }
@@ -643,7 +514,7 @@ impl Control {
         }
         if self.background(thread).unwrap_or(false) {
             let read = tokio::time::timeout(Duration::from_millis(1500), async {
-                self.thread_rpc(thread)
+                self.utility()
                     .await?
                     .call(
                         "thread/read",
@@ -704,7 +575,7 @@ impl Control {
         if ownership["owner"] != "connector" {
             return Err(json!({"code":"WRITER_RELEASE_REQUIRES_OWNER","message":"This writer is not owned by ARC's connector. The Desktop follower protocol exposes no safe per-thread release request. Use the exact owner step; ARC will not close another session.","ownership":ownership,"next":crate::writer::release_step(thread,&ownership)}).to_string());
         }
-        let rpc = self.thread_rpc(thread).await?;
+        let rpc = self.utility().await?;
         let metadata = rpc
             .call(
                 "thread/read",
@@ -850,7 +721,7 @@ impl Control {
         Ok(())
     }
     async fn archive_empty_creation(&self, thread: &str) -> Result<Value> {
-        let rpc = self.thread_rpc(thread).await?;
+        let rpc = self.utility().await?;
         let history = match rpc
             .call(
                 "thread/turns/list",
@@ -997,7 +868,7 @@ impl Control {
             // do not acquire their writer; lifecycle comes from the rollout,
             // since utility turn history can synthesize a terminal snapshot.
             let history = self
-                .thread_rpc(thread)
+                .utility()
                 .await?
                 .call(
                     "thread/read",
@@ -1268,11 +1139,7 @@ impl Control {
         {
             // Native metadata/history reads never resume or acquire the writer.
             crate::acceptance_fault::check_read(method, &args)?;
-            return self
-                .thread_rpc(thread)
-                .await?
-                .call(method, args, timeout)
-                .await;
+            return self.utility().await?.call(method, args, timeout).await;
         }
         if !thread.is_empty()
             && matches!(
@@ -1312,19 +1179,10 @@ impl Control {
     }
     async fn request_native_raw(&self, method: &str, args: Value, timeout: u64) -> Result<Value> {
         crate::acceptance_fault::check_read(method, &args)?;
-        let task_id = string(&args, "threadId");
-        if !task_id.is_empty() && crate::accounts::codex::thread_profile(task_id)? != "codex-home" {
-            return self.background_request(method, args, timeout).await;
-        }
         #[cfg(feature = "test-fixture")]
         {
             if std::env::var_os("ARC_FIXTURE_DESKTOP").is_none() {
-                let rpc = if matches!(method, "turn/start" | "turn/steer" | "thread/resume") {
-                    self.profile_rpc("codex-home").await?
-                } else {
-                    self.utility().await?
-                };
-                return rpc.call(method, args, timeout).await;
+                return self.utility().await?.call(method, args, timeout).await;
             }
         }
         #[allow(unreachable_code)]
@@ -1522,17 +1380,6 @@ impl Control {
             return Ok(receipt);
         }
         if matches!(operation, "create" | "send") {
-            let selected = if operation == "send" {
-                self.observe_thread_account(string(&args, "threadId"))
-                    .await?;
-                crate::accounts::select_codex_thread(
-                    string(&args, "threadId"),
-                    args["account"].as_str(),
-                )?
-            } else {
-                crate::accounts::select("codex", args["account"].as_str())?
-            };
-            crate::accounts::attach(&mut args, &selected);
             crate::dispatch_policy::apply_pack(&mut args, "codex", &format!("codex_{operation}"))?;
         }
         let dispatch = if matches!(operation, "create" | "send") {
@@ -1565,18 +1412,14 @@ impl Control {
         } else {
             Value::Null
         };
-        let mut receipt = json!({"agentAccountId":args["agentAccountId"],"agentProfileId":args["agentProfileId"],"origin":crate::kernel::origin::current_origin(),"requestId":request,"backendSession":self.session,"digest":digest,"operation":operation,"arguments":args,"state":ReceiptState::Reserved.wire(),"createdAt":now(),"updatedAt":now()});
+        let mut receipt = json!({"origin":crate::kernel::origin::current_origin(),"requestId":request,"backendSession":self.session,"digest":digest,"operation":operation,"arguments":args,"state":ReceiptState::Reserved.wire(),"createdAt":now(),"updatedAt":now()});
         if matches!(operation, "create" | "send") {
             crate::dispatch_caller::attach_current(&mut receipt);
             receipt["srcConversation"] = crate::src_conversations::capture(&args).await?;
         }
 
         if operation == "create" || (operation == "native" && args["method"] == "thread/start") {
-            receipt["executionOwner"] = json!(if args["agentProfileId"]
-                .as_str()
-                .is_none_or(|p| p == "codex-home")
-                && self.auto_open_codex()?
-            {
+            receipt["executionOwner"] = json!(if self.auto_open_codex()? {
                 "desktop"
             } else {
                 "connector"
@@ -1590,7 +1433,6 @@ impl Control {
                 _ => "automatic",
             };
             receipt["task"] = task;
-            receipt["task"]["agentAccountId"] = receipt["agentAccountId"].clone();
             if !dispatch.is_null() {
                 receipt["task"]["dispatch"] = dispatch;
             }
@@ -1840,7 +1682,7 @@ impl Control {
             _ => {
                 // Unloaded tasks still have native basic metadata; never load conversation items.
                 let result = self
-                    .thread_rpc(id)
+                    .utility()
                     .await?
                     .call(
                         "thread/read",
@@ -1969,7 +1811,7 @@ impl Control {
                 let state = self.ipc().await?.read(thread, true).await?;
                 crate::control::thread(&state, true)?
             } else {
-                let rpc = self.thread_rpc(thread).await?;
+                let rpc = self.utility().await?;
                 let mut state = rpc
                     .call(
                         "thread/read",
@@ -2073,7 +1915,7 @@ impl Control {
         if operation == "archive" {
             let thread = string(args, "threadId");
             r["threadId"] = json!(thread);
-            let rpc = self.thread_rpc(thread).await?;
+            let rpc = self.utility().await?;
             let native = rpc
                 .call(
                     "thread/read",
@@ -2259,15 +2101,10 @@ impl Control {
                 })?;
                 return Ok(result);
             }
-            let rpc = if let Some(profile) = pending["agentProfileId"].as_str() {
-                self.profile_rpc(profile).await?
-            } else {
-                self.utility().await?
-            };
+            let rpc = self.utility().await?;
             r["submissionStage"] = json!("responding");
             self.checkpoint(r)?;
-            let mut response =
-                json!({"id":pending.get("nativeResponseId").unwrap_or(&pending["id"])});
+            let mut response = json!({"id":pending["id"]});
             let field = if args.get("result").is_some() {
                 "result"
             } else {
@@ -2876,6 +2713,11 @@ impl Control {
                                 )
                             })
                             .unwrap_or(Value::Null);
+                        if let Some(usage) =
+                            crate::dispatch_policy::turn_usage(id, string(&status, "turnId"))
+                        {
+                            status["usage"] = usage;
+                        }
                     }
                     return Ok(project_read(status, &t));
                 }
@@ -2910,6 +2752,11 @@ impl Control {
                             crate::dispatch_policy::turn_pack(id, string(turn, "id"))
                         {
                             row["pack"] = pack;
+                        }
+                        if let Some(usage) =
+                            crate::dispatch_policy::turn_usage(id, string(turn, "id"))
+                        {
+                            row["usage"] = usage;
                         }
                         turns.push(row);
                     }
@@ -3056,6 +2903,11 @@ impl Control {
                         let retry = crate::claude_notify::retry_status(id, string(turn, "turnId"))?;
                         if !retry.is_null() {
                             turn["retry"] = retry;
+                        }
+                        if let Some(usage) =
+                            crate::dispatch_policy::turn_usage(id, string(turn, "turnId"))
+                        {
+                            turn["usage"] = usage;
                         }
                     }
                 }
@@ -3504,7 +3356,7 @@ pub(crate) fn item(v: &Value, offset: usize, len: usize) -> Value {
 }
 
 pub(crate) fn open_persisted_history(thread: &Value) -> Result<std::fs::File> {
-    let sessions = crate::accounts::codex::thread_home(string(thread, "id"))?
+    let sessions = crate::accounts::codex::default_home()?
         .join("sessions")
         .canonicalize()
         .map_err(|e| e.to_string())?;
@@ -3553,7 +3405,8 @@ pub(crate) fn persisted_history(thread: &Value) -> Result<String> {
 }
 
 fn persisted_timeline(thread: &Value) -> Result<crate::task_tracking::Timeline> {
-    let mut timeline = project_codex_rollout(open_persisted_history(thread)?, string(thread, "id"))?;
+    let mut timeline =
+        project_codex_rollout(open_persisted_history(thread)?, string(thread, "id"))?;
     let persisted = persisted_turns(thread);
     timeline.turn_timings.extend(persisted.timings);
     for (turn, configuration) in persisted.configurations {

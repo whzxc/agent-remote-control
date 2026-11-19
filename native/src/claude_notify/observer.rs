@@ -76,7 +76,7 @@ impl TerminalWatch {
             // Metadata reads neither acquire a writer nor discover Desktop owners.
             let metadata = async {
                 control
-                    .thread_rpc(&b.thread_id)
+                    .utility()
                     .await?
                     .call(
                         "thread/read",

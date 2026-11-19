@@ -5,7 +5,7 @@ import type { AgentActivitySession } from "../types";
 // Geometry remains renderer-scoped. Read acknowledgements use durable WebView
 // storage shared by UI and agent operations, including after window recreation.
 export const trackedActivity = createStore<Record<string, TrackedActivity[]>>({});
-export interface ActivityReadTarget { agent: string; id: string; agentAccountId?: string | null }
+export interface ActivityReadTarget { agent: string; id: string }
 const storageKey = "arc.activity-reads";
 const key = (agent: string, id: string) => JSON.stringify([agent, id]);
 function saveReads(rows: ActivityRead[], now = Date.now()) {

@@ -43,26 +43,6 @@ impl Frames {
         }
     }
 }
-/// Execution shares the native home; secondary credentials remain process-local.
-pub(crate) fn profile_arguments(profile: Option<&str>) -> Vec<&'static str> {
-    if profile.is_some() && !cfg!(feature = "test-fixture") {
-        vec!["-c", "cli_auth_credentials_store=\"ephemeral\""]
-    } else {
-        vec![]
-    }
-}
-pub(crate) fn profile_environment(
-    command: &mut std::process::Command,
-    profile: Option<&str>,
-) -> Result<()> {
-    command.env("CODEX_HOME", crate::accounts::codex::default_home()?);
-    if profile.is_some() {
-        for key in ["OPENAI_API_KEY", "CODEX_API_KEY", "OPENAI_BASE_URL"] {
-            command.env_remove(key);
-        }
-    }
-    Ok(())
-}
 type Pending = Arc<std::sync::Mutex<HashMap<String, oneshot::Sender<Result<Value>>>>>;
 struct PendingCall {
     pending: Pending,
@@ -88,64 +68,8 @@ pub struct Rpc {
 }
 impl Rpc {
     pub async fn start(binary: &Path, events: SharedEvents, session: &str) -> Result<Arc<Self>> {
-        Self::start_profile(binary, events, session, None).await
-    }
-    pub(crate) async fn start_profile(
-        binary: &Path,
-        events: SharedEvents,
-        session: &str,
-        profile: Option<&str>,
-    ) -> Result<Arc<Self>> {
-        Self::start_in_home(
-            binary,
-            events,
-            session,
-            profile,
-            crate::accounts::codex::default_home()?,
-            false,
-        )
-        .await
-    }
-    pub(crate) async fn start_auth(
-        binary: &Path,
-        events: SharedEvents,
-        session: &str,
-        profile: &str,
-    ) -> Result<Arc<Self>> {
-        Self::start_in_home(
-            binary,
-            events,
-            session,
-            Some(profile),
-            crate::accounts::codex::credential_home(profile)?,
-            true,
-        )
-        .await
-    }
-    async fn start_in_home(
-        binary: &Path,
-        events: SharedEvents,
-        session: &str,
-        profile: Option<&str>,
-        home: PathBuf,
-        auth_only: bool,
-    ) -> Result<Arc<Self>> {
         let mut command = command(binary);
-        command.env("CODEX_HOME", home);
-        if profile.is_some() {
-            #[cfg(not(feature = "test-fixture"))]
-            command.args([
-                "-c",
-                if auth_only {
-                    "cli_auth_credentials_store=\"file\""
-                } else {
-                    "cli_auth_credentials_store=\"ephemeral\""
-                },
-            ]);
-            for key in ["OPENAI_API_KEY", "CODEX_API_KEY", "OPENAI_BASE_URL"] {
-                command.env_remove(key);
-            }
-        }
+        command.env("CODEX_HOME", crate::accounts::codex::default_home()?);
         #[cfg(feature = "test-fixture")]
         command.arg(std::env::var("ARC_FIXTURE_SCRIPT").map_err(|_| "fixture script missing")?);
         #[cfg(not(feature = "test-fixture"))]
@@ -170,45 +94,37 @@ impl Rpc {
         let stderr = child.stderr.take().ok_or("missing stderr")?;
         forward_stderr(stderr);
         Self::run(
-            binary,
-            auth_only,
             child,
             Writer::Stdio(input),
             Frames::Lines(BufReader::new(stdout)),
             None,
             events,
             session,
-            profile,
             pid,
             started_at,
             inherited_nofile,
         )
         .await
     }
-    /// Connect to this profile's detached app-server, starting it when needed.
+    /// Connect to the native detached app-server, starting it when needed.
     /// Falls back to a Core-owned stdio server when detachment is unavailable.
     pub(crate) async fn attach(
         binary: &Path,
         events: SharedEvents,
         session: &str,
-        profile: Option<&str>,
         launches: &crate::launches::Launches,
     ) -> Result<Arc<Self>> {
         launches.check()?;
         if cfg!(feature = "test-fixture") {
-            return Self::start_profile(binary, events, session, profile).await;
+            return Self::start(binary, events, session).await;
         }
-        match Box::pin(Self::connect_host(
-            binary, &events, session, profile, launches,
-        ))
-        .await
-        {
+        match Box::pin(Self::connect_host(binary, &events, session, launches)).await {
             Ok(rpc) => Ok(rpc),
-            Err(error) if crate::codex_host::running(profile.unwrap_or("codex-home")) => Err(error),
+            Err(error) if crate::codex_host::running("codex-home") => Err(error),
             Err(error) => {
                 launches.check()?;
                 crate::logs::record("WARN", &format!("Detached Codex app-server unavailable; using a Core-owned app-server: {error}"), None);
-                Self::start_profile(binary, events, session, profile).await
+                Self::start(binary, events, session).await
             }
         }
     }
@@ -216,16 +132,14 @@ impl Rpc {
         binary: &Path,
         events: &SharedEvents,
         session: &str,
-        profile: Option<&str>,
         launches: &crate::launches::Launches,
     ) -> Result<Arc<Self>> {
-        let key = profile.unwrap_or("codex-home");
         loop {
-            let host = crate::codex_host::attach(binary, key, launches).await?;
+            let host = crate::codex_host::attach(binary, "codex-home", launches).await?;
             let mut failure = String::new();
             let mut connected = None;
             for _ in 0..3 {
-                match Self::bridge(binary, events.clone(), session, profile, host.clone()).await {
+                match Self::bridge(binary, events.clone(), session, host.clone()).await {
                     Ok(rpc) => {
                         connected = Some(rpc);
                         break;
@@ -242,9 +156,7 @@ impl Rpc {
                     rpc.stop().await;
                     continue;
                 }
-                if profile.is_none() {
-                    rpc.resubscribe().await;
-                }
+                rpc.resubscribe().await;
             }
             return Ok(rpc);
         }
@@ -253,11 +165,10 @@ impl Rpc {
         binary: &Path,
         events: SharedEvents,
         session: &str,
-        profile: Option<&str>,
         host: crate::codex_host::Host,
     ) -> Result<Arc<Self>> {
         let mut command = command(binary);
-        profile_environment(command.as_std_mut(), profile)?;
+        command.env("CODEX_HOME", crate::accounts::codex::default_home()?);
         command
             .args(["app-server", "proxy", "--sock"])
             .arg(&host.socket);
@@ -292,15 +203,12 @@ impl Rpc {
         let started_at = host.started_at.clone();
         let inherited_nofile = host.inherited_nofile.clone();
         Self::run(
-            binary,
-            false,
             child,
             Writer::Socket(sink),
             Frames::Socket(stream),
             Some(host),
             events,
             session,
-            profile,
             pid,
             started_at,
             inherited_nofile,
@@ -388,9 +296,6 @@ impl Rpc {
     pub(crate) fn detached(&self) -> bool {
         self.host.is_some()
     }
-    pub(crate) fn adopted(&self) -> bool {
-        self.host.as_ref().is_some_and(|h| h.adopted)
-    }
     /// End the server and its native turns. A stdio server ends with its connection.
     pub(crate) async fn stop(&self) {
         self.close().await;
@@ -402,15 +307,12 @@ impl Rpc {
     }
     #[allow(clippy::too_many_arguments)]
     async fn run(
-        binary: &Path,
-        auth_only: bool,
         child: tokio::process::Child,
         input: Writer,
         mut frames: Frames,
         host: Option<crate::codex_host::Host>,
         events: SharedEvents,
         session: &str,
-        profile: Option<&str>,
         pid: Option<u32>,
         started_at: String,
         inherited_nofile: Value,
@@ -430,70 +332,14 @@ impl Rpc {
             inherited_nofile,
         });
         let session = session.to_owned();
-        let profile = profile.map(str::to_owned);
-        let native_binary = binary.to_path_buf();
-        let response_input = Arc::downgrade(&rpc);
         tokio::spawn(async move {
             while let Some(bytes) = frames.next().await {
-                let Ok(mut msg) = serde_json::from_slice::<Value>(&bytes) else {
+                let Ok(msg) = serde_json::from_slice::<Value>(&bytes) else {
                     continue;
                 };
-                if let Some(profile) = profile.as_deref() {
-                    if msg["method"] == "thread/started" {
-                        if let Some(thread) = msg["params"]["thread"]["id"]
-                            .as_str()
-                            .filter(|s| uuid::Uuid::parse_str(s).is_ok())
-                        {
-                            if let Err(error) =
-                                crate::accounts::codex::observe_thread(profile, thread)
-                            {
-                                crate::logs::record("WARN", &error, None);
-                            }
-                        }
-                    }
-                    if msg["method"] == "account/chatgptAuthTokens/refresh"
-                        && msg.get("id").is_some()
-                    {
-                        let Some(rpc) = response_input.upgrade() else {
-                            break;
-                        };
-                        let profile = profile.to_owned();
-                        let native_binary = native_binary.clone();
-                        tokio::spawn(async move {
-                            let response = match crate::accounts::codex::tokens(
-                                &profile,
-                                Some(&msg["params"]),
-                                &native_binary,
-                            )
-                            .await
-                            {
-                                Ok(tokens) => json!({"id":msg["id"],"result":tokens}),
-                                Err(error) => {
-                                    json!({"id":msg["id"],"error":{"code":-32000,"message":error}})
-                                }
-                            };
-                            let _ = rpc.write(response).await;
-                        });
-                        continue;
-                    }
-                    if msg.get("method").is_some() {
-                        if let Some(key) = msg.get("id").cloned() {
-                            msg["nativeResponseId"] = key.clone();
-                            msg["id"] = json!(format!("{profile}:{}", key));
-                        }
-                        if msg["method"] == "serverRequest/resolved" {
-                            msg["params"]["requestId"] =
-                                json!(format!("{profile}:{}", msg["params"]["requestId"]));
-                        }
-                    }
-                }
                 if msg.get("method").is_some() {
                     if let Some(key) = msg.get("id") {
                         let mut request = json!({"id":key,"responseId":key.to_string(),"method":msg["method"],"params":msg["params"],"backendSession":session,"owner":"connector-app-server","canRespond":true,"next":{"via":"act","op":"codex_respond","args":{"id":key.to_string(),"backendSession":session},"hint":"Supply exactly one of result/error using the native response schema."}});
-                        request["agentProfileId"] = json!(profile);
-                        if msg.get("nativeResponseId").is_some() {
-                            request["nativeResponseId"] = msg["nativeResponseId"].clone();
-                        }
                         let task = string(&request["params"], "threadId").to_owned();
                         if let Err(error) =
                             crate::claude_notify::routing::observe("codex", &task, &mut request)
@@ -531,18 +377,10 @@ impl Rpc {
             for (_, tx) in pending.lock().unwrap().drain() {
                 let _ = tx.send(Err("TRANSPORT_CLOSED: execution state unknown".into()));
             }
-            if auth_only {
-                return;
-            }
             let mut events = events.lock().await;
-            events
-                .pending
-                .retain(|_, r| r["owner"] == "desktop" || r["agentProfileId"] != json!(profile));
-            for (thread, timeline) in events.timelines.iter_mut() {
-                let owner = crate::accounts::codex::thread_profile(thread).ok();
-                if timeline.info["runtimeSource"] == "connector-app-server"
-                    && owner.as_deref() == Some(profile.as_deref().unwrap_or("codex-home"))
-                {
+            events.pending.retain(|_, r| r["owner"] == "desktop");
+            for timeline in events.timelines.values_mut() {
+                if timeline.info["runtimeSource"] == "connector-app-server" {
                     timeline.lose_observation();
                 }
             }

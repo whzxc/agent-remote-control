@@ -15,7 +15,7 @@ Selection balances task quality, duration, and cost without preset task-count, v
 | Audience | Content | Owner | Delivery |
 | --- | --- | --- | --- |
 | Control source | Loop rules, op contracts, recovery | ARC catalog | [Profile](control-profiles.md) guide, `guide({op})`, error `next` |
-| Control source | Agent, model, effort, tier and account choice | User criteria | `dispatch_policy` |
+| Control source | Agent, model, effort and tier choice | User criteria | `dispatch_policy` |
 | Control source | Long workflows | User knowledge base | Read on demand |
 | Agent, every task | General execution conventions | Native global instructions | Loaded natively by each Agent |
 | Agent, one repository | Repository rules | Repository `AGENTS.md` or equivalent | Loaded natively |
@@ -77,7 +77,7 @@ printf '%s' '{"scope":"codex","criteria":"Use current task evidence.","expectedC
 
 Stdin is the args object. The frozen guide/query/act tool schemas and notification surface are unchanged.
 
-Model entries retain native IDs and supported effort ranges; identical choices share one row. Decision accounts retain selection IDs, aliases, defaults, health, saved used-quota windows and reset times. Decision responses omit unsolicited inbox attachments for every profile. A range abbreviates only contiguous known effort levels. Fast labels retain native tier IDs. Policy allow/deny constraints remain visible. Without an `agent` filter, Agents with no criteria, history, defaults or constraints collapse into one `otherAgents` string list of `agent: availability`. Codex pools read through the primary native login attach to the primary account as `quota.native`, keeping credits, `ordinaryUsageAllowed`, `rateLimitReachedType` and `spendControlReached`; their window summary is dropped when the account already reports one. Shared provider/pool quotas are shown once and referenced from subsequent Agents. Quota percentages are used percentages, never remaining percentages.
+Model entries retain native IDs and supported effort ranges; identical choices share one row. Decision responses omit unsolicited inbox attachments for every profile. A range abbreviates only contiguous known effort levels. Fast labels retain native tier IDs. Policy allow/deny constraints remain visible. Without an `agent` filter, Agents with no criteria, history, defaults or constraints collapse into one `otherAgents` string list of `agent: availability`. Shared provider/pool quotas are shown once and referenced from subsequent Agents. Quota percentages are used percentages, never remaining percentages. When Codex routes through an optional local Magpie gateway, ARC aggregates pool quota (`source: "magpie-pool"`, account room/credit counts, best-account usage, and pooled windows without exposing raw account emails) and falls back directly to native `account/rateLimits/read` whenever no gateway is active.
 
 view:full retains native capability details, quota pools/windows, policy, and individual history groups. Nulls, empty strings/arrays/objects, and unknown values are omitted from both views. observedAt is omitted for fresh data. Stale provider readings and persisted catalog snapshots retain observation timestamps. Missing facts are omitted rather than converted to zero. Read failures remain explicit.
 
@@ -152,7 +152,7 @@ The decision view merges every group with fewer than 10 ARC dispatches into othe
 
 purpose:"self-test" is excluded. A send without purpose inherits the previous dispatch's purpose. Explicit purpose overrides it. Reviews cannot change it. Empty groups are omitted. Reads use fresh records, so changed verdicts appear immediately.
 
-Current app-server Turn, turn/completed, and thread/turns/list lack reliable per-turn token totals. thread/tokenUsage/updated has turnId, but last is the latest model response and total is cumulative thread usage. account/usage/read threadUsage is a thread estimate. ARC therefore stores no per-turn token totals or averages. It does not difference, estimate, or replace missing usage with zero. Add usage only when upstream provides complete terminal-turn-associated data. See [native protocol](https://github.com/openai/codex/blob/main/codex-rs/protocol/src/protocol.rs).
+Current app-server Turn, turn/completed, and thread/turns/list lack reliable per-turn token totals. thread/tokenUsage/updated has turnId, but last is the latest model response and total is cumulative thread usage. account/usage/read threadUsage is a thread estimate. ARC never estimates or fabricates per-turn tokens from native app-server fields. When an optional local Magpie gateway is detected on loopback, turn completion queries Magpie's per-request usage endpoint for non-auxiliary gateway calls matching the turn's native session and time window, persists exact `usage` (`calls`, token counts, `costUsd`, `pricedCalls`, `durationMs`, `servedModels`, `servedProviders`) onto the dispatch record, surfaces it in `codex_read` (`summary`/`review`/turns), and aggregates optional usage summaries into 30-day history groups. Without a local gateway, `usage` is simply omitted. See [native protocol](https://github.com/openai/codex/blob/main/codex-rs/protocol/src/protocol.rs).
 
 ## Scope and limits
 

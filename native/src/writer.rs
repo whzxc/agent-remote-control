@@ -21,7 +21,7 @@ pub fn probe_path(path: &Path) -> Value {
 }
 pub(crate) fn lock_path(thread: &str) -> Result<PathBuf> {
     uuid::Uuid::parse_str(thread).map_err(|_| "INVALID_THREAD_ID")?;
-    let home = crate::accounts::codex::thread_home(thread)?;
+    let home = crate::accounts::codex::default_home()?;
     Ok(home
         .join("thread-writer-locks")
         .join(format!("{thread}.lock")))

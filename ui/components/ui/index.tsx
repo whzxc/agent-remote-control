@@ -2,7 +2,7 @@ import { useCopyState } from "./useCopyState";
 import { TransientLayer } from "./TransientLayer";
 import { Sensitive, useSensitiveText } from "../Sensitive";
 import { maskSensitive } from "../../privacyMask";
-import { createContext, useContext, type ComponentProps, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type TextareaHTMLAttributes, type ReactNode, type CSSProperties, type Ref } from "react";
+import { createContext, useContext, type ComponentProps, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type CSSProperties, type Ref } from "react";
 import { Select as S, RadioGroup, Switch as Sw, Checkbox as C, Tooltip as T, DropdownMenu as M } from "radix-ui";
 import { Bot, Check, ChevronDown, ChevronRight, ChevronUp, CircleAlert, LoaderCircle, Copy, Eye, Search, EyeOff, type LucideIcon } from "lucide-react";
 import { t } from "../../i18n";
@@ -120,9 +120,6 @@ export function SearchInput({ className = "", placeholder, ...props }: InputHTML
     <Icon icon={Search} size={14} />
     <input type="search" {...props} placeholder={placeholder} aria-label={props["aria-label"] ?? placeholder} className="input" />
   </label>;
-}
-export function Textarea({ className = "", ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea {...props} className={`input ${className}`} />;
 }
 export function Field({
   id,

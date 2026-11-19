@@ -21,7 +21,7 @@ chip clears that transient scope. Manual Tasks selection opens all tasks. Mode
 choice persists across restarts; jump scope does not. Returning to Topology restores
 its configuration-based arrangement.
 
-Tasks cards keep their source, optional remote device, Agent and account as a
+Tasks cards keep their source, optional remote device and Agent as a
 compact icon chain. Each icon exposes its identity by accessible name and tooltip.
 Controller-dispatched remote tasks show the controller device followed by its member.
 On that member, the controller device is the source and there is no extra local-device
@@ -54,7 +54,7 @@ The capsule holds 20px discs on a 28px step: the needs-me icon, one phase disc p
 running task, and an ellipsis overflow disc. Full capsules hold five items; compact hold two.
 Completed unread is a dot on the outline. The node can show the exception of its
 latest ended task. Offline nodes omit live counts and phases. Available quota stays visible
-for Agent accounts and their linked control source nodes. The logo opens its existing node panel;
+for Agent nodes and their linked control source nodes. The logo opens its existing node panel;
 the task area opens scoped Tasks. Narrow topology pans horizontally between reserved
 columns by explicit user input; the header/navigation stay fixed. Device management
 explicitly folds the child branch while its panel is open.

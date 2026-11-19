@@ -99,7 +99,6 @@ export default function SourceDispatches({ sourceId }: { sourceId: string }) {
             origin: observed?.origin ?? record.origin ?? record.task.origin,
             project: observed?.project ?? record.runtime?.project ?? record.task.project ?? record.task.directory,
             startedAt: observed?.startedAt ?? record.createdAt, orderAt: Date.parse(record.createdAt), selectedTurnId: record.turnId,
-            agentAccountId: observed?.agentAccountId ?? record.agentAccountId,
             dispatchSummary: {
               model: record.task.model ?? record.requested?.model, effort: record.task.effort ?? record.requested?.effort,
               serviceTier: record.requested?.serviceTier, ...observed?.dispatchSummary,

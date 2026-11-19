@@ -75,8 +75,7 @@ export function useHomepageTasks(showHistory: boolean) {
       if (existing) {
         combined[agent].set(id, { ...existing, origin: existing.origin ?? record.origin ?? record.task.origin,
           project: existing.project ?? project,
-          dispatchSummary: existing.turnId && existing.turnId === record.turnId ? { ...spec, ...existing.dispatchSummary } : existing.dispatchSummary,
-          agentAccountId: existing.agentAccountId ?? record.agentAccountId });
+          dispatchSummary: existing.turnId && existing.turnId === record.turnId ? { ...spec, ...existing.dispatchSummary } : existing.dispatchSummary });
         continue;
       }
       if (updates.size > 100) continue;
@@ -86,7 +85,7 @@ export function useHomepageTasks(showHistory: boolean) {
       const session = { id, source: 'arc-task' as const, title: record.runtime?.title ?? record.task.title ?? record.task.prompt,
         headline: '', fallbackHeadline: record.task.prompt, phase: 'idle' as const, phaseSince: null, timeline: true, observed: false, orderAt: Date.parse(record.createdAt), project, dispatchSummary: spec,
         turnId: record.turnId, startedAt: record.createdAt, status, origin: record.origin ?? record.task.origin, open: record.open,
-        agentAccountId: record.agentAccountId, ...(timing?.endedAt ? { endedAt: Date.parse(timing.endedAt) } : {}) };
+        ...(timing?.endedAt ? { endedAt: Date.parse(timing.endedAt) } : {}) };
       (combined[agent] ??= new Map()).set(id, session);
     }
     for (const row of history) {
@@ -110,7 +109,6 @@ export function useHomepageTasks(showHistory: boolean) {
         project: row.project ?? previous?.project,
         projectName: row.projectName ?? (!row.project || row.project === previous?.project ? previous?.projectName : undefined),
         dispatchSummary: sameTurn ? { ...previous?.dispatchSummary, ...row.dispatchSummary } : row.dispatchSummary ?? undefined,
-        agentAccountId: row.agentAccountId ?? previous?.agentAccountId,
         turnId: row.turnId || previous?.turnId, open: row.open ?? previous?.open,
         turnStartedAt: row.turnStartedAt ?? (sameTurn ? previous?.turnStartedAt : undefined),
         turnEndedAt: row.turnEndedAt ?? (sameTurn ? previous?.turnEndedAt : undefined),
@@ -142,7 +140,6 @@ export function useHomepageTasks(showHistory: boolean) {
         group: homepageTaskGroup(current, pending.length > 0, status, observed.has(key)),
         sourceIds: session.origin?.sourceId || session.dispatchSummary?.controlSource?.id ? [session.origin?.sourceId ?? session.dispatchSummary!.controlSource!.id!] : [],
         controllerDeviceId: session.origin?.deviceId ?? session.dispatchSummary?.controlSource?.deviceId, upstreamSourceId: session.origin?.peerOrigin?.sourceId,
-        accountId: session.agentAccountId ?? session.dispatchSummary?.agentAccountId,
         activity: { steps: [], snapshot: [] },
         startedAt: timing?.startedAt ?? session.turnStartedAt, endedAt: timing?.endedAt ?? session.turnEndedAt };
       if ((previewHomepageTask(task, showHistory ? today : undefined) || current.relationKind === 'subagent') && execution) task.activity = taskCardActivity(execution.entries);

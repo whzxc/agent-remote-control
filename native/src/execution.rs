@@ -160,7 +160,6 @@ impl Execution {
                 | "account_update"
                 | "account_merge"
                 | "account_add"
-                | "account_import"
                 | "account_login"
                 | "account_reauth"
                 | "account_remove"
@@ -182,10 +181,7 @@ impl Execution {
                 .op(&self.control, &self.agents, &self.subscriptions, name, args)
                 .await;
         }
-        if matches!(
-            name,
-            "codex_create" | "codex_send" | "agent_create" | "agent_send" | "dispatch_policy"
-        ) {
+        if name == "dispatch_policy" {
             self.accounts.refresh(&self.control, &self.agents).await?;
         }
         if matches!(

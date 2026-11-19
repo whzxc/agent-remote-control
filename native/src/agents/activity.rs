@@ -322,16 +322,6 @@ fn scan(selected: &[String], cache: &mut ScanCache) -> Vec<External> {
                 external.session["agentAccountId"] = json!(account);
             }
         }
-        if external.agent == "codex" {
-            match crate::accounts::codex::observe_native_thread(
-                string(&external.session, "id"),
-                external.session["creatorAccountId"].as_str(),
-                external.session["parentSessionId"].as_str(),
-            ) {
-                Ok(account) => external.session["agentAccountId"] = account,
-                Err(error) => crate::logs::record("WARN", &error, None),
-            }
-        }
     }
     sessions
 }
@@ -1004,16 +994,6 @@ mod tests {
         );
         assert!(read()["dispatchSummary"].is_null());
     }
-
-    
-
-    
-
-    
-
-    
-
-    
 
     #[test]
     fn codex_activity_keeps_its_sample_while_the_rollout_grows() {

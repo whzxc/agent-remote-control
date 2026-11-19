@@ -38,5 +38,5 @@ export const capsuleForms: { name: string; state: NodeTaskState; brand?: Brand; 
   { name: 'compact-interrupted', state: interrupted, compact: true },
 ];
 export const accountContrast = {
-  label: '3 accounts', members: [{ brand: 'codex', quota: 'ok' }, { brand: 'codex', quota: 'low' }, { brand: 'codex', quota: 'ok' }],
+  label: '3 accounts', members: [{ brand: 'anthropic', quota: 'ok' }, { brand: 'anthropic', quota: 'low' }, { brand: 'anthropic', quota: 'ok' }],
 } as const;

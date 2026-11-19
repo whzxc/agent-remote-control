@@ -128,7 +128,7 @@ export default function CoordinationCenter() {
       return { agent, session: { id: threadId, source: agent === 'codex' ? 'codex-thread' as const : 'arc-task' as const, phase: 'idle' as const, headline: '', phaseSince: null, timeline: true, orderAt: 0, observed: false, conversation: true, selectedTurnId: turnId } };
     }
     return { agent: record.agent, session: { id: threadId, title: record.runtime?.title ?? record.task.title, origin: record.origin ?? record.task.origin,
-      project: record.runtime?.project ?? record.task.project ?? record.task.directory, agentAccountId: record.agentAccountId,
+      project: record.runtime?.project ?? record.task.project ?? record.task.directory,
       dispatchSummary: { model: record.task.model ?? record.requested?.model, effort: record.task.effort ?? record.requested?.effort, serviceTier: record.requested?.serviceTier },
       source: record.agent === 'codex' ? 'codex-thread' as const : 'arc-task' as const, phase: 'idle' as const, headline: '', phaseSince: null, timeline: true, orderAt: 0, observed: false, conversation: true, selectedTurnId: turnId } };
   }

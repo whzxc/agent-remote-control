@@ -1,8 +1,6 @@
 import { deviceTasks } from '../devices/tasks';
 import { name as agentName } from '../state/agents';
 import { connector } from '../state/connector';
-import { accounts as accountStore } from '../state/accounts';
-import { accountOwns } from '../accountPresentation';
 import { layers } from '../state/layers';
 import { cloneElement, isValidElement, useCallback, useMemo } from 'react';
 import { Laptop, Monitor } from 'lucide-react';
@@ -28,7 +26,7 @@ export function tasksForNode(node: NodeView & { side: Side }, tasks: HomepageTas
     if (node.upstreamSourceId) return task.upstreamSourceId === node.upstreamSourceId;
     if (task.deviceId) return false;
     if (node.side === -1) return !!node.sourceIds?.some(source => task.sourceIds.includes(source));
-    return task.agent === node.platform && (!node.accountId || accountStore.get().items.some(account => account.id === node.accountId && accountOwns(account, task.accountId)));
+    return task.agent === node.platform;
   });
 }
 export function capsuleState(node: NodeView & { side: Side }, tasks: HomepageTask[]) {
@@ -47,7 +45,7 @@ export function CapsuleNode({ node, tasks, compact, onWidth }: { node: Positione
   return cloneElement(node.content as React.ReactElement<React.ComponentProps<typeof GraphNode>>, {
     capsule: state, neutralRing: !!node.deviceId, compact, wing: node.side === -1 ? 'left' : 'right', capsuleMark: node.capsuleMark ?? graphic, readings, used: display === 'used', hideLabel: node.selected,
     onWidth: widthChanged, onTasks: () => focusNodeTasks({ id: node.id, label: node.label ?? node.platformLabel ?? node.id,
-      agent: node.remoteAgent ?? (node.side === 1 && !node.deviceId ? node.platform ?? node.id : undefined), accountId: node.accountId,
+      agent: node.remoteAgent ?? (node.side === 1 && !node.deviceId ? node.platform ?? node.id : undefined),
       upstreamSourceId: node.upstreamSourceId, sourceIds: node.side === -1 && !node.upstreamSourceId ? node.sourceIds : undefined, deviceId: node.side === 1 ? node.deviceId : undefined }),
   });
 }

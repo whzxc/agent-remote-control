@@ -145,7 +145,7 @@ pub(crate) fn local_path(path: &str, thread: &str, cwd: &str) -> Result<PathBuf>
         )?;
         return Ok(actual);
     }
-    let home = crate::accounts::codex::thread_home(thread)?;
+    let home = crate::accounts::codex::default_home()?;
     let visuals = home
         .join("visualizations")
         .canonicalize()

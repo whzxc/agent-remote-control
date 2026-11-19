@@ -16,6 +16,9 @@ owners:
   - native/src/subscriptions/**
   - native/src/kernel/**
   - native/src/turn_lifecycle.rs
-status: Reviewed
+status: Approved
 ---
 mcp_hub is experimental, as on the system map. turn_lifecycle is pure classification shared by background work.
+accounts owns control-source identities, platforms, SRC containers and Claude CLI profiles for L1 notification push only; multi-account Agent dispatch and secondary Codex credentials are removed.
+dispatch_policy provides task-level criteria, defaults/constraints, packs and review/quality history without an advisory account load-balancing engine.
+subscriptions and Control optionally read a local Magpie-compatible gateway for pool quota aggregation and per-turn token/cost/served-route backfill, falling back to native reads when absent.

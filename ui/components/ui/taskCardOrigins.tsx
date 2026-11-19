@@ -15,7 +15,7 @@ import { BrandMark, Icon } from './index';
 
 export type TaskOrigin = { label: string; caption?: string; graphic: ReactNode; description?: string };
 
-export function useTaskOrigins(task: Pick<HomepageTask, 'agent' | 'session' | 'deviceId' | 'controllerDeviceId' | 'accountId'> & { sourceIds?: string[] }) {
+export function useTaskOrigins(task: Pick<HomepageTask, 'agent' | 'session' | 'deviceId' | 'controllerDeviceId'> & { sourceIds?: string[] }) {
   const snapshot = deviceSnapshot.use(), { sources, status } = connector.use();
   const { items } = accounts.use();
   const { agent, session, deviceId } = task;
@@ -44,9 +44,6 @@ export function useTaskOrigins(task: Pick<HomepageTask, 'agent' | 'session' | 'd
     const deviceName = snapshot?.members.find(member => member.deviceId === deviceId)?.name ?? deviceId;
     result.push({ label: deviceName, caption: deviceName, graphic: <Icon icon={Laptop} size={13} />, description });
   }
-  const linked = deviceId ? [] : items.filter(a => a.agentProfiles.some(profile => profile.agent === agent));
-  const account = linked.find(a => accountOwns(a, task.accountId ?? session.agentAccountId ?? session.dispatchSummary?.agentAccountId));
-  const caption = linked.length > 1 ? account?.alias : undefined;
-  result.push({ label: [name({ agent }), caption].filter(Boolean).join(' · '), caption, graphic: <BrandMark markup={icons[agent]} size={14} /> });
+  result.push({ label: name({ agent }), graphic: <BrandMark markup={icons[agent]} size={14} /> });
   return result;
 }

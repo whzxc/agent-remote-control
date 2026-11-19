@@ -34,7 +34,7 @@ export async function verifyPortraitTopology(page, fixture, messages) {
     const triggerLabel = await disclosure.getAttribute('aria-label');
     await disclosure.scrollIntoViewIfNeeded();
     await disclosure.focus(); await disclosure.press('Enter');
-    await page.getByRole('button', { name: /^Codex Pro/ }).first().waitFor();
+    await page.getByRole('button', { name: /^Claude Pro/ }).first().waitFor();
     await page.waitForFunction(() => document.activeElement?.classList.contains('node-capsule-logo'));
     await page.keyboard.press('Escape');
     if (await page.evaluate(() => window.__ARC_VIEW_MODEL__().topology.groups.some(group => !group.folded))) await page.keyboard.press('Escape');

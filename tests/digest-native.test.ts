@@ -26,7 +26,7 @@ const cases: {op: string; args?: any; value: any; count: number; actionable?: bo
   {op:'src_conversations',value:{accounts:entries.map(r=>({...r,accountId:r.id,status:r.status==='failed'?'import-blocked':'signed-in',conversations:[]}))},count:37,actionable:true},
   {op:'projects',value:{projects:entries.map(r=>({...r,roots:[{path:'/fictional'}]}))},count:37},
   {op:'mcp_tools',value:{servers:[{name:'fixture',state:'failed',tools:entries.map(r=>({...r,name:r.id,description:payload,annotations:{readOnlyHint:true}}))}]},count:38,actionable:true},
-  {op:'accounts',value:{accounts:entries.map(r=>({...r,health:{state:r.status==='failed'?'attention':'ready'},agentProfiles:[{agent:'codex',state:'signed-in',default:r.status==='failed'},{agent:'codex',state:'signed-in',default:false}],quota:{state:'available',windows:[{usedPercent:12.5}]},credentials:'secret-value',email:'private@example.invalid'}))},count:37,actionable:true},
+  {op:'accounts',value:{accounts:entries.map(r=>({...r,health:{state:r.status==='failed'?'attention':'ready'},agentProfiles:[{agent:'claude',state:'signed-in',default:r.status==='failed'},{agent:'claude',state:'signed-in',default:false}],quota:{state:'available',windows:[{usedPercent:12.5}]},credentials:'secret-value',email:'private@example.invalid'}))},count:37,actionable:true},
   {op:'codex_thread',args:{action:'search',params:{searchTerm:'fixture'}},value:{data:entries.map(r=>({thread:{...r,status:{type:r.status==='failed'?'systemError':'idle'}},snippet:payload})),nextCursor:null},count:37,actionable:true},
   {op:'codex_thread',args:{action:'timeline',params:{threadId:'thread-a'}},value:{data:entries.map((r,i)=>({...r,type:'turnCompleted',position:i,turn_id:r.id})),nextCursor:null},count:37,actionable:true},
   {op:'codex_thread',args:{action:'backgroundTerminals/list',params:{threadId:'thread-a'}},value:{data:entries.map(r=>({...r,processId:r.id,itemId:r.id,command:payload,cwd:'/fictional',cpuPercent:2.5,rssKb:512})),nextCursor:null},count:37},
@@ -255,7 +255,7 @@ test('isolated notify digest preserves full-row actions in MCP text',async()=>{
 
  test('account digest summaries retain visible aliases',async()=>{
   // Recurring bug class: D4a account digest summaries omitted the account alias.
-  await fixture('accounts',{accounts:[{id:'account-fixture',alias:'Research account',health:{state:'ready'},quota:{state:'ready'},agentProfiles:[{agent:'codex',state:'signed-in'}]}]});
+  await fixture('accounts',{accounts:[{id:'account-fixture',alias:'Research account',health:{state:'ready'},quota:{state:'ready'},agentProfiles:[{agent:'claude',state:'signed-in'}]}]});
   const result=await control.call('accounts',{view:'digest'});
   assert.ok(result.rows[0].summary.includes('Research account'));
  });

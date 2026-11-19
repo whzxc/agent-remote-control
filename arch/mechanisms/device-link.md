@@ -8,9 +8,7 @@ status: Approved
 The homepage keeps control sources on the left and executors on the right. Pairing adds
 one device tier to the existing hierarchy. Local Agents stay at tier 1 without a local
 device wrapper. A paired member is their tier-1 sibling, followed by its available
-Agents and accounts or profiles. Exactly one Agent merges into the device
-node; expansion continues with accounts or profiles. Remote account/profile
-siblings fold with TopologyGroup under height or width pressure. Device reachability,
+Agents. Exactly one Agent merges into the device node. Device reachability,
 LAN/Tunnel path, latency, last seen and errors appear only on the device node. Offline
 fades its entire branch.
 
@@ -35,7 +33,7 @@ homepage projection. LAN remains preferred; a sent request never changes path.
 
 
 The proposed topology is static within its viewport and configuration/disclosure state.
-Only sources, connections, Agents, accounts and paired-device configuration affect its
+Only sources, connections, Agents and paired-device configuration affect its
 layout. Task activity changes working node capsules only: running count, needs-input/approval
 attention and completed unread. Device capsules aggregate the visible task scope. Offline
 devices and their Agents retain recorded outcomes and omit live counts. Task bubbles,

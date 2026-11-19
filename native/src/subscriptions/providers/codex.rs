@@ -1,13 +1,10 @@
 use super::*;
 pub async fn read(control: &Control) -> std::result::Result<Reading, Failure> {
-    read_profile(control, "codex-home").await
-}
-pub(super) async fn read_profile(
-    control: &Control,
-    profile: &str,
-) -> std::result::Result<Reading, Failure> {
+    if let Some((reading, _)) = crate::local_gateway::fetch_codex_pool_quota().await {
+        return Ok(reading);
+    }
     let v = control
-        .profile_account_rate_limits(profile)
+        .account_rate_limits()
         .await
         .map_err(|message| Failure {
             code: "request-failed",

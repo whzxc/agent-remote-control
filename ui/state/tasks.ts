@@ -4,7 +4,6 @@ import { isDesktop, notifyNative } from "../platform";
 import { t } from "../i18n";
 import type { DispatchSummary, TaskOwnership } from "../types";
 export interface TaskRecord {
-  agentAccountId?: string | null;
   agent?: string;
   open?: { taskId: string };
   taskId?: string;

@@ -189,17 +189,13 @@ fn discard(profile: &str) -> Result<()> {
     Ok(())
 }
 
-fn server_command(binary: &Path, profile: &str, socket: &Path) -> Result<std::process::Command> {
-    let isolated = (profile != "codex-home").then_some(profile);
-    let mut words: Vec<std::ffi::OsString> = crate::rpc::profile_arguments(isolated)
-        .into_iter()
-        .map(Into::into)
-        .collect();
+fn server_command(binary: &Path, _profile: &str, socket: &Path) -> Result<std::process::Command> {
+    let mut words: Vec<std::ffi::OsString> = vec![];
     words.extend(["app-server", "-c", "thread_unload_delay_secs=0", "--listen"].map(Into::into));
     words.push(format!("unix://{}", socket.to_str().ok_or("Invalid socket path")?).into());
     let mut command = std::process::Command::new(binary);
     command.args(&words);
-    crate::rpc::profile_environment(&mut command, isolated)?;
+    command.env("CODEX_HOME", crate::accounts::codex::default_home()?);
     Ok(command)
 }
 

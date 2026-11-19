@@ -11,12 +11,12 @@ status: Approved
 ---
 The MCP hub is experimental. It is off by default and enabled from Experimental settings.
 
+Local Agents execute on their single native installation and login without ARC-managed multi-account execution pools or secondary Codex App Servers. Multi-account LLM routing is delegated to an optional local gateway (such as Magpie) when configured by the user; Core probes the gateway locally for aggregated pool quotas and per-turn usage backfill and falls back silently to native behavior when absent. Claude CLI profiles remain scoped strictly to L1 control-source notification push.
 
 Device link adds a device tier within the existing control-source/executor topology.
 Controller-side local Agents remain tier-1 executors without a local-device wrapper.
-Paired devices are tier-1 siblings, followed by Agents and accounts/profiles.
-Exactly one remote Agent merges with its device node. Accounts/profiles fold under
-space pressure. On a member, the controller device is a tier-1 control source;
+Paired devices are tier-1 siblings, followed by their Agents.
+Exactly one remote Agent merges with its device node. On a member, the controller device is a tier-1 control source;
 its upstream sources are optional tier-2 children, off by default.
 
 Remote dispatch addresses (device, agent). Ops gain a device target argument while

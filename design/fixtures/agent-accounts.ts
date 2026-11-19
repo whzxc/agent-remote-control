@@ -16,11 +16,6 @@ export const platformAccounts = {
       { alias: "Personal", email: "personal@example.com", state: "signed-in", windows: [] },
     ],
   },
-  codex: {
-    name: "Codex",
-    brand: "codex",
-    accounts: [{ alias: "Personal", email: "personal@example.com", removable: false, state: "signed-out", default: true }],
-  },
 } as const satisfies Record<string, Platform>;
 
 export const platformAccountCopy = {

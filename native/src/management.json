@@ -71,11 +71,18 @@
         "properties": {
           "body": {
             "type": "object",
-            "properties": { "revision": { "type": "string", "format": "uuid" } },
+            "properties": {
+              "revision": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
             "additionalProperties": false
           }
         },
-        "required": ["body"],
+        "required": [
+          "body"
+        ],
         "additionalProperties": false
       },
       "description": "Read task list metadata. Return the revision alone when unchanged, upserts and removed request IDs when the previous revision is available, or the full records otherwise.",
@@ -1700,7 +1707,10 @@
                 "maxLength": 4096
               },
               "sort": {
-                "enum": ["created", "updated"]
+                "enum": [
+                  "created",
+                  "updated"
+                ]
               },
               "includeSubagents": {
                 "type": "boolean",

@@ -1094,7 +1094,6 @@ mod tests {
             .err()
             .unwrap()
             .starts_with("CORE_SHUTTING_DOWN:"));
-        assert!(control.profile_rpc("secondary").await.is_err());
     }
 
     #[test]

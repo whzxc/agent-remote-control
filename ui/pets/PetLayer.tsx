@@ -7,8 +7,6 @@ import { t } from '../i18n';
 import { connector, orderedSources } from '../state/connector';
 import { agents, name } from '../state/agents';
 import { tasks } from '../state/tasks';
-import { accounts } from '../state/accounts';
-import { accountOwns } from '../accountPresentation';
 import { trackedActivity } from '../state/activityBubbles';
 import { activityApprovals } from '../state/activity';
 import { taskExecution, taskExecutions } from '../state/taskExecution';
@@ -33,7 +31,7 @@ export interface PetGeometry {
   taskFrame: (agent: string, id: string) => Rect | undefined;
   taskPresent: (agent: string, id: string) => boolean;
   route: (from: Point, to: Point, size: PetSize, occupied?: Rect[]) => Point[] | undefined;
-  participant: (p: Participant, accountId?: string, size?: PetSize) => Point | undefined; task: (agent: string, id: string, accountId?: string) => Point | undefined; bounds: Point & { top: number }; wander: (from: Point, size: PetSize, occupied: (Point & { width: number; height: number })[]) => Point | undefined }
+  participant: (p: Participant, size?: PetSize) => Point | undefined; task: (agent: string, id: string) => Point | undefined; bounds: Point & { top: number }; wander: (from: Point, size: PetSize, occupied: (Point & { width: number; height: number })[]) => Point | undefined }
 const requestedAction = import.meta.env.DEV && scenarioName ? new URLSearchParams(location.search).get('petAction') : null;
 const fixtureAction = requestedAction && ['sit', 'swing', 'pull'].includes(requestedAction) ? requestedAction as PetInteraction : undefined;
 export interface PetLayerHandle { layout: () => void }
@@ -64,7 +62,6 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
     ...sources.map(s => ({ id: `source:${s.id}`, nativeId: s.id, name: s.label, platform: controlSourcePlatform(s.product).id, kind: 'source' as const, brand: petBrand(s.product) })),
     ...agentState.items.filter(a => a.installed && a.enabled).map(a => ({ id: `agent:${a.agent}`, nativeId: a.agent, name: name(a), platform: controlSourcePlatform(a.agent).id, kind: 'agent' as const, brand: petBrand(a.agent) })),
   ];
-  const accountRows = accounts.use().items;
   const orderedRecords = [...records].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   const relayTasks: RelayTask[] = Object.entries(tracked).flatMap(([agent, sessions]) => sessions.map(session => {
     const record = orderedRecords.find(r => r.agent === agent && [r.taskId, r.threadId, r.open?.taskId].includes(session.id) && (!session.turnId || !r.turnId || r.turnId === session.turnId));
@@ -72,7 +69,7 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
     const state = activityState(session, execution, pendingSessions(agent, session, execution?.interactions ?? [], submissions).length > 0);
     const key = JSON.stringify([agent, session.id]), review = reviews[JSON.stringify([session.id, session.turnId])];
     return { key, title: session.title, taskId: session.id, agent, sourceId: session.origin?.sourceId ?? record?.origin?.sourceId ?? session.dispatchSummary?.controlSource?.id,
-      accountId: accountRows.find(account => account.agentProfiles.some(profile => profile.agent === agent) && accountOwns(account, session.agentAccountId))?.id ?? session.agentAccountId, dispatchId: record?.requestId, turn: session.turnId ?? session.turnStartedAt ?? '', state,
+      dispatchId: record?.requestId, turn: session.turnId ?? session.turnStartedAt ?? '', state,
       phaseSince: Date.parse(session.phaseSince ?? ''), at: Date.parse(record?.createdAt ?? session.turnStartedAt ?? session.startedAt ?? '') || 0,
       ...(review ? { review: { id: review.requestId, verdict: review.verdict, baseline: review.baseline } } : {}) };
   }));
@@ -237,7 +234,7 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
       const actor = actors.current.get(p.id); if (!actor || !assets[pet.key]) continue;
       const latest = [...poses].reverse().find(({ event }) => p.kind === 'source' ? event.task.sourceId === p.nativeId : event.task.agent === p.nativeId);
       const size = petSize('participant', p.brand === 'other');
-      let point = g.participant(p, undefined, size);
+      let point = g.participant(p, size);
       if (!point) { actor.hide(); continue; }
       const relatedTasks = relayTasks.filter(task => p.kind === 'agent' ? task.agent === p.nativeId : task.sourceId === p.nativeId);
       const activeTask = relatedTasks.find(task => task.state === 'needsYou') ?? relatedTasks.find(task => ['running', 'unknown'].includes(task.state));
@@ -339,10 +336,10 @@ export default function PetLayer({ geometry, ref }: { geometry: () => PetGeometr
       const size = petSize('task', p.brand === 'other');
       const main = actors.current.get(p.id)?.point();
       const returning = presentPet(engaged.current.get(`task:${task.key}`) ?? now, false, time, pendingRelayUntil(task, events.current)).returning;
-      const anchor = g.task(task.agent, task.taskId, task.accountId ?? undefined);
+      const anchor = g.task(task.agent, task.taskId);
       const mainSize = petSize('participant', p.brand === 'other');
       const neighbor = main ? { x: anchor && anchor.x < main.x ? main.x - mainSize.width / 2 - size.width - 16 : main.x + mainSize.width / 2 + 16,
-        y: main.y + mainSize.height / 2 - size.height } : g.participant(p, task.accountId ?? undefined, size);
+        y: main.y + mainSize.height / 2 - size.height } : g.participant(p, size);
       const start = neighbor && freePost(neighbor, size, !!pet.mascot);
       const feet = pet.mascot ? mascotAnchors(pet.mascot).feet.y : 1;
       const dock = anchor && taskPost({ x: anchor.x, y: anchor.y + size.height * (1 - feet) }, size);

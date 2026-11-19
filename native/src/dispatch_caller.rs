@@ -119,7 +119,7 @@ mod tests {
             .is_none());
     }
 
-#[tokio::test]
+    #[tokio::test]
     async fn persisted_caller_projects_to_dispatch_summary() {
         // Contract: persisted dispatch caller attribution in receipts
         if isolated("persisted_caller_projects_to_dispatch_summary") {

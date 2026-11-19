@@ -2,38 +2,26 @@
 
 [UI conventions](ui.md) · [Coding lanes](worktrees.md) · [Architecture](architecture.md) · [Tools](../reference/tools.md)
 
-This page describes account ownership, identity resolution and the separation between platform connectors and local Agent accounts.
+This page describes account ownership, identity resolution and the separation between platform connectors and local Claude L1 notification profiles.
 
 ## Model
 
-The platform UI uses Platform → Connector instance → Activity. Local Agents use Agent → Profile → Task. Native provider accounts retain identity and quota associations without merging connector instances in the UI.
+The platform UI uses Platform → Connector instance → Activity. Local Agents run directly through each Agent's native home; only Claude retains ARC-managed CLI profiles strictly for L1 cloud-session notification push and handshakes. Native provider accounts retain identity and quota associations without merging connector instances in the UI.
 
 - Platform: a supported product family such as OpenAI, Anthropic, Google, X, or Microsoft. GitHub products belong to Microsoft. Each authorized connector instance is a separate child, even when two instances share an upstream identity. Agents are not platform menu items.
-- Account: one provider identity, independent of side.
+- Account: one provider identity.
   - `id` (stable ARC ID), `provider` (provider family, including `anthropic`, `openai`, `deepseek`, `google`, `xai`, or another known platform), `identityKey` (provider account ID when known, else a hash of normalized email + organization), `alias` (user-editable; defaults to the organization name or `Personal`), optional `email`, `orgName`, `plan`, plus `createdAt` and `observedAt`.
   - `sources`: control-source IDs authorized as this account. Several connections or devices of one account may share one `accountId`; each source remains a separate connector instance in the platform UI.
-  - `agentProfiles`: list of `{ agent, profileId, kind, state, default }` with kind `cli-profile`, `codex-home` or `api-key` and state `signed-in`, `signed-out`, `unfinished` or `invalid`. The isolated Claude CLI profiles in `native/src/claude_accounts` become `claude` profiles. Codex retains the system `codex-home` profile and supports independent native or imported Codex credentials. Key-based Agents expose one `api-key` profile.
-  - `notifications`: Claude routes and bound cloud sessions move under the account. ChatGPT accounts report MCP Events reachability. Agent-only accounts report `n/a`.
-  - `quota`: subscription windows belong to the account. An account with both sources and agent profiles shows one shared quota. Optional `quotaProviderId` selects an existing shared SubscriptionService provider; otherwise detail reads use the native account profile.
+  - `agentProfiles`: list of `{ agent, profileId, kind, state, default }` with kind `cli-profile` (`agent: "claude"`) and state `signed-in`, `signed-out`, `unfinished` or `invalid`. The isolated Claude CLI profiles in `native/src/claude_accounts` become `claude` profiles for L1 notification push and handshake verification. One-time cleanup strips legacy non-Claude agent profiles on refresh.
+  - `notifications`: Claude routes and bound cloud sessions move under the account. ChatGPT accounts report MCP Events reachability. Accounts without sources report `n/a`.
+  - `quota`: subscription windows belong to the account. Optional `quotaProviderId` selects an existing shared SubscriptionService provider; otherwise detail reads use the Claude profile.
   - `identityAliases` retains identities explicitly confirmed to share ownership. `mergedAccountIds` lists previous ARC account IDs; retained tombstones point to the current owner with `mergedInto`.
-- Same identity: an account with both `sources` and `agentProfiles`. This includes a ChatGPT account and the Codex login of the same ChatGPT identity.
-- Default account: at most one default profile per Agent; dispatch without an explicit account uses it.
 
-## Codex accounts and native sessions
+## Codex execution and native sessions
 
-The native primary home is the configured external `CODEX_HOME`, or the user's `.codex` directory. Every execution process uses this same home, including its sessions, archived sessions, indexes, databases, locks, configuration and installed resources. ARC keeps account credentials and scheduling associations separately. It does not copy or partition conversation history.
+The native primary home is the configured external `CODEX_HOME`, or the user's `.codex` directory. Codex Desktop and ARC's single detached App Server share this same native home, including its sessions, archived sessions, indexes, databases, locks, configuration and installed resources. Multi-account routing and quota load balancing across Codex accounts belong to an optional local gateway (such as Magpie); ARC does not manage Codex secondary accounts, credential imports, or per-account App Servers.
 
-The Desktop login is the primary account (`profileId:codex-home`). Other credential profiles are secondary accounts. `agentProfiles.role` exposes this distinction and `desktopDispatch` reports whether Desktop dispatch is available. `defaultFor` selects the account used when a dispatch omits `account`; it does not promote secondary credentials to primary. Secondary work always uses its own App Server. Explicit Desktop opening and handoff are rejected even when a secondary account is the dispatch default.
-
-`account_add({kind:"codex"})` starts official CLI OAuth in a private credential home. That process performs account operations only. Execution starts another App Server in the shared native home and receives access credentials through native experimental `chatgptAuthTokens`. It never updates the primary credential file. `account_import` accepts native credentials and explicit `refreshOwner`: `codex`, `none`, or `external`. Reimport reuses a known provider account's profile. Active profiles reject credential replacement and reauthentication.
-
-With `codex`, the native credential process owns refresh tokens. Execution requests renewal through its external-token callback, and ARC asks the credential process to refresh before reading its access token. With `none`, ARC retains access credentials and requests reimport after expiration. With `external`, a local executable owns upstream authentication. It receives a JSON request on stdin with native `reason` and `previousAccountId`, then returns `accessToken`, `chatgptAccountId`, and optional `chatgptPlanType`. ARC invokes no shell and discards imported refresh tokens in `none` and `external` modes. Executable hooks require local CLI or panel authority.
-
-ARC persists task-to-account bindings for dispatch, send, resume, interrupt, approvals, writer diagnosis and archive. Native creator account metadata and explicit parent bindings identify subagents without creation notifications. Directory location no longer determines account ownership. Send without `account` keeps the original account; a different account returns `CODEX_THREAD_ACCOUNT_MISMATCH`. Native listings use one upstream cursor over the shared store. Reads never resume a session.
-
-Accounts and dispatch-policy reads expose `agentProfiles.parity` with `primary`, `shared`, or `error` and a configuration fingerprint. Execution processes load native settings directly. Codex loads configuration and global instructions for new threads and invalidates skills caches through its native file watcher. ARC keeps each profile on its existing server across configuration changes, preserving running turns and thread ownership. Configuration fingerprints are diagnostic only; dispatch, existing-thread operations, account reads and quota reads do not depend on them. There are no generated execution homes or startup projection records.
-
-Existing per-account session directories are not moved, merged or deleted at startup, login or refresh. Their history needs a separate explicit migration before it can be continued from the shared native store.
+Existing per-account session directories are not moved, merged or deleted at startup, login or refresh.
 
 ## Built-in local authority
 
@@ -69,20 +57,18 @@ Every UI action has an op; no account operation is UX-only. Ops join the frozen 
 
 Queries:
 
-- `whoami`: the calling control source's account (`id`, `alias`, `provider`, `email`, `orgName`, `plan`), its `sourceId` and platform, linked agent profiles and notification reachability. ARC resolves it from the connection's authorization facts or confirmed Claude session handshake; the source's platform, device or environment is not ARC's concern.
-- `accounts({ id?, agent? })`: accounts with sources, agent profiles, health, default flags and quota summaries. The list omits `email` and `orgName`; `id` returns full detail. Privacy mode never changes AX results.
-- `dispatch_policy` reports per-account quota and health for each Agent.
+- `whoami`: the calling control source's account (`id`, `alias`, `provider`, `email`, `orgName`, `plan`), its `sourceId` and platform, linked Claude L1 profiles and notification reachability. ARC resolves it from the connection's authorization facts or confirmed Claude session handshake; the source's platform, device or environment is not ARC's concern.
+- `accounts({ id?, agent? })`: accounts with sources, Claude L1 notification profiles, health and quota summaries. The list omits `email` and `orgName`; `id` returns full detail. Privacy mode never changes AX results.
 
 Actions:
 
-- `account_update({ id, alias?, defaultFor?, default? })`: rename; `defaultFor` names an Agent whose default becomes this account's profile. `default:false` with `defaultFor` clears only this account's default without selecting a replacement. `default` requires `defaultFor`; omission means true. Clearing survives refresh/restart. The first profile of a previously unconfigured Agent is initially default.
+- `account_update({ id, alias? })`: rename an account.
 - `account_merge({ into, ids, alias?, quotaProviderId? })`: merge explicitly confirmed active accounts into `into`. All references are checked before saving. Replay resolves previous IDs without duplicating memberships. A null `quotaProviderId` returns to native quota; omission retains the existing association.
-- `account_add({ kind, browserId? })` with kind `claude`, `codex`, `api-key` or `detect`: starts a login and returns `{ loginId, state, loginUrl? }`. Agents run the whole flow; only the sign-in itself needs the user.
-- `account_import({ auth, refreshOwner, refreshCommand?, alias? })` imports an independent Codex credential profile with explicit refresh ownership. External ownership requires a local executable hook.
+- `account_add({ kind, browserId? })` with kind `claude` or `detect`: starts a Claude L1 notification login and returns `{ loginId, state, loginUrl? }`, or detects existing Claude credentials. Agents run the whole flow; only the sign-in itself needs the user.
 - `account_login({ loginId, action, code? })` with action `code` or `cancel`.
-- `account_reauth({ id, agent })` restarts login for one profile.
+- `account_reauth({ id, agent })` restarts login for a Claude L1 notification profile.
 - `account_remove({ id, running })` with running `finish` or `cancel`.
-- `codex_create`, `codex_send`, `agent_create` and `agent_send` accept optional `account` (account ID or alias). Omitted means the Agent's default. Receipts, tasks and activity record `agentAccountId`; origins record `origin.accountId` beside `origin.sourceId`.
+- Origins record `origin.accountId` beside `origin.sourceId` when the calling control source resolves to an account.
 
 The management API mirrors these ops for the UI under `accounts/*` and replaces `claude-accounts/*`. Notification send/test stays under the account.
 
@@ -125,16 +111,15 @@ Homepage connector nodes open their own activity panel. Its header contains a pl
 
 Source platform panels show the same connector cards as the Platforms workspace, without Agent accounts, quota, notifications or a platform-wide connection switch. Connection configuration remains in Connection management.
 
-Local Agents are separate from platforms. An Agent with multiple profiles opens an account selector with email and quota; selecting an account opens its scoped activity. A single profile opens activity directly. These cards do not navigate to the Platforms workspace.
+Local Agents are separate from platforms. Clicking an Agent node opens its native activity panel directly; Claude opens its L1 notification account management view (with email, quota, reauth, and add/remove controls). These cards do not navigate to the Platforms workspace.
 
 ### Topology
 
 - Modes: Tree (default) and Flat, a persisted preference at the end of Settings > General. Switching never reorders nodes.
-- Tree: source-side L1 is a platform and L2 is one node per connector instance. Agent-side L1 is a local tool; multiple local accounts form L2 nodes with working capsules for their recorded tasks. A single-account Agent keeps its existing node.
-- Flat: connector instances retain their labels and stable source IDs. Agent accounts retain `Agent · Alias` labels. Nodes from the same group stay adjacent.
-- Connector marks identify the external product; platform roots use platform marks. Local Agent account nodes retain their own quota rings. No Agent account identity merges source-side nodes.
-- Account siblings fold through TopologyGroup based on configuration and viewport width. Explicit disclosure preserves keyboard focus and layered Escape.
-- Account panels open scoped activity with recorded attribution and available quota.
+- Tree: source-side L1 is a platform and L2 is one node per connector instance. Agent-side L1 is one node per local Agent (single native executor, no L2 Agent account nodes).
+- Flat: connector instances retain their labels and stable source IDs. Nodes from the same group stay adjacent.
+- Connector marks identify the external product; platform roots use platform marks. Local Agent nodes retain their native or gateway-aggregated quota rings. No Agent account identity merges source-side nodes.
+- Source account siblings fold through TopologyGroup based on configuration and viewport width. Explicit disclosure preserves keyboard focus and layered Escape.
 - Geometry stays in `ui/topology/solve.ts`, `compact.ts` and `portrait.ts`. Tasks use the separate card feed and working capsules.
 
 ## Fixtures

@@ -2,25 +2,6 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { escapeRegex } from './shared.mjs';
 export const checks = [
-    { stage: "prepare", order: 3, visual: true, async run(context) {
-            const { page, fixture, name, root } = context;
-            let { model } = context;
-            try {
-                if (fixture.accountAdd) {
-                    const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
-                    await page.getByRole('button', { name: messages['accounts.addAgentAccount'], exact: true }).click();
-                    const dialog = page.getByRole('dialog', { name: messages['accountAdd.title'], exact: true });
-                    await dialog.waitFor();
-                    if (fixture.accountAdd !== 'oauth')
-                        await dialog.getByRole('radio', { name: messages['accountAdd.credentials'], exact: true }).click();
-                    if (fixture.accountAdd === 'external')
-                        await dialog.getByRole('radio', { name: messages['accountAdd.external'], exact: true }).click();
-                }
-            }
-            finally {
-                context.model = model;
-            }
-        } },
     { stage: "afterCapture", order: 44, visual: false, async run(context) {
             const { page, fixture, name, width, key, root } = context;
             let { model } = context;
@@ -34,11 +15,6 @@ export const checks = [
                     await add.waitFor();
                     if (name === 'agent-platform-empty')
                         await page.getByText(messages['accounts.empty'], { exact: true }).waitFor();
-                    if (name === 'agent-platform-single') {
-                        await button(card('Personal'), 'accounts.reauth').waitFor();
-                        if (await button(card('Personal'), 'accounts.removeAction').count())
-                            throw new Error('Native account is removable');
-                    }
                     if (name === 'agent-platform-lifecycle') {
                         const team = card('Team'), personal = card('Personal'), studio = card('Studio');
                         await team.getByRole('meter').nth(1).waitFor();
@@ -82,43 +58,12 @@ export const checks = [
                         await added.waitFor({ state: 'hidden' });
                         await card('Renamed Team').waitFor();
                     }
-                    const platform = name === 'agent-platform-single' ? 'Codex' : 'Claude Code';
+                    const platform = 'Claude Code';
                     const panel = page.getByRole('dialog', { name: platform, exact: true });
                     await button(panel, 'close').click();
                     await panel.waitFor({ state: 'hidden' });
                     await page.getByRole('button', { name: new RegExp(`^${escapeRegex(platform)}(?::|$)`) }).press('Enter');
                     await add.waitFor();
-                }
-            }
-            finally {
-                context.model = model;
-            }
-        } },
-    { stage: "afterCapture", order: 45, visual: false, async run(context) {
-            const { page, fixture, name, width, root } = context;
-            let { model } = context;
-            try {
-                if (fixture.accountAdd && width === 1280) {
-                    const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
-                    const dialog = page.getByRole('dialog', { name: messages['accountAdd.title'], exact: true });
-                    if (fixture.accountAdd === 'oauth') {
-                        await dialog.getByRole('button', { name: messages['accountAdd.login'], exact: true }).click();
-                        await dialog.getByRole('status').waitFor();
-                        await dialog.waitFor({ state: 'hidden', timeout: 10000 });
-                    }
-                    else {
-                        await dialog.getByRole('button', { name: messages['accountAdd.import'], exact: true }).click();
-                        const credentials = dialog.getByRole('textbox', { name: messages['accountAdd.auth'], exact: true });
-                        await page.waitForFunction(node => document.activeElement === node && node.getAttribute('aria-invalid') === 'true', await credentials.elementHandle());
-                        await credentials.fill(JSON.stringify({ tokens: { access_token: 'fixture-access', account_id: 'fixture-imported' } }));
-                        if (fixture.accountAdd === 'external') {
-                            await dialog.getByRole('textbox', { name: messages['accountAdd.program'], exact: true }).fill('/usr/bin/credential-manager');
-                            await dialog.getByRole('textbox', { name: messages['accountAdd.args'], exact: true }).fill('["--account","fixture"]');
-                        }
-                        await dialog.getByRole('button', { name: messages['accountAdd.import'], exact: true }).click();
-                        await dialog.waitFor({ state: 'hidden' });
-                    }
-                    await page.getByRole('button', { name: messages['accounts.addAgentAccount'], exact: true }).waitFor();
                 }
             }
             finally {

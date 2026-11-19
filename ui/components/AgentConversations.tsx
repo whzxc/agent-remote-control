@@ -8,8 +8,7 @@ import { MessagesSquare } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { locale, t } from "../i18n";
-import type { AgentActivitySession, AgentConversation, AgentConversationPage, ProviderAccount } from "../types";
-import { accountOwns } from "../accountPresentation";
+import type { AgentActivitySession, AgentConversation, AgentConversationPage } from "../types";
 import { agentActivity } from "../state/activity";
 import { trackedActivity } from "../state/activityBubbles";
 import { selectAgentPanel } from "../state/overviewPanels";
@@ -28,8 +27,8 @@ export type InitialAgentHistory = {
   timedOut?: boolean;
 };
 
-export default function AgentConversations({ agent, account, accountId, active, initial }: {
-  agent: string; account?: ProviderAccount; accountId?: string; active: boolean; initial?: InitialAgentHistory;
+export default function AgentConversations({ agent, active, initial }: {
+  agent: string; active: boolean; initial?: InitialAgentHistory;
 }) {
   const language = locale.use();
   taskExecutions.use();
@@ -46,10 +45,7 @@ export default function AgentConversations({ agent, account, accountId, active, 
   const firstRead = useRef(initial);
   const loaded = useRef<string | undefined>(initialPage ? "" : undefined), marker = useRef<HTMLDivElement>(null);
   const pending = useRef<{ key: string; request: Promise<AgentConversationPage> } | undefined>(undefined);
-  const belongs = (session: Pick<TrackedActivity, "agentAccountId" | "dispatchSummary">) => !accountId || (account
-    ? accountOwns(account, session.agentAccountId ?? session.dispatchSummary?.agentAccountId)
-    : (session.agentAccountId ?? session.dispatchSummary?.agentAccountId) === accountId);
-  const live = new Map(snapshot?.agents[agent]?.sessions.filter(belongs).map(session => [session.id, { ...session, interaction: pendingSessions(agent, session, taskExecution(agent, session.id)?.interactions ?? [], submissions)[0]?.interaction }]) ?? []);
+  const live = new Map(snapshot?.agents[agent]?.sessions.map(session => [session.id, { ...session, interaction: pendingSessions(agent, session, taskExecution(agent, session.id)?.interactions ?? [], submissions)[0]?.interaction }]) ?? []);
   const now = useAppNow(active && live.size ? 1000 : 60000);
   useEffect(() => {
     const sessions = [...(tracked[agent] ?? []), ...(snapshot?.agents[agent]?.sessions ?? [])];
@@ -94,7 +90,6 @@ export default function AgentConversations({ agent, account, accountId, active, 
     headline: "", startedAt: conversation.createdAt, turnId: conversation.turnId, turnStartedAt: conversation.turnStartedAt, turnEndedAt: conversation.turnEndedAt,
     turnDurationMs: conversation.turnDurationMs, project: conversation.project, projectName: conversation.projectName,
     dispatchSummary: conversation.dispatchSummary ?? undefined, turnCount: conversation.turnCount ?? undefined,
-    agentAccountId: conversation.agentAccountId ?? conversation.dispatchSummary?.agentAccountId,
     nativeSessionId: conversation.nativeSessionId ?? undefined, open: conversation.open,
     timeline: true, orderAt: Date.parse(conversation.createdAt ?? "") || 0, conversation: true,
   }]));
@@ -108,13 +103,12 @@ export default function AgentConversations({ agent, account, accountId, active, 
       projectName: session.projectName ?? (!session.project || session.project === history?.project ? history?.projectName : undefined),
       status: current ? undefined : (remembered as TrackedActivity).status ?? history?.status,
       dispatchSummary: session.dispatchSummary ?? history?.dispatchSummary,
-      agentAccountId: session.agentAccountId ?? history?.agentAccountId,
       turnCount: session.turnCount === undefined ? history?.turnCount : Math.max(session.turnCount, history?.turnCount ?? 0),
       orderAt: history?.orderAt || Date.parse(session.startedAt ?? "") || 0,
       conversation: history?.conversation || session.source !== "transcript",
     });
   }
-  const visibleSessions = [...sessions.values()].filter(belongs).sort((a, b) => b.orderAt - a.orderAt || b.id.localeCompare(a.id));
+  const visibleSessions = [...sessions.values()].sort((a, b) => b.orderAt - a.orderAt || b.id.localeCompare(a.id));
   const sections = activitySections(visibleSessions, now, session => session.orderAt,
     session => live.has(session.id) ? session.interaction ? 'attention' : 'running' : unread.has(session.id) ? 'unread' : undefined);
   const today = localTaskDay(now);

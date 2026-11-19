@@ -228,15 +228,21 @@ impl AgentHost {
         }
         let limit = num(args, "limit", 20).clamp(1, 50);
         if agent == "codex" {
-            let sort_key = if args["sort"] == "updated" { "updated_at" } else { "created_at" };
-            let mut params = json!({"archived":false,"limit":limit,"sortKey":sort_key,"sortDirection":"desc"});
+            let sort_key = if args["sort"] == "updated" {
+                "updated_at"
+            } else {
+                "created_at"
+            };
+            let mut params =
+                json!({"archived":false,"limit":limit,"sortKey":sort_key,"sortDirection":"desc"});
             if args["includeSubagents"] == true {
-                params["sourceKinds"] = json!(["cli", "vscode", "exec", "appServer", "subAgentThreadSpawn"]);
+                params["sourceKinds"] =
+                    json!(["cli", "vscode", "exec", "appServer", "subAgentThreadSpawn"]);
             }
             if let Some(cursor) = args.get("cursor") {
                 params["cursor"] = cursor.clone();
             }
-            let page = control.profile_task_page(params).await?;
+            let page = control.request("thread/list", params, 60000).await?;
             let projects = crate::projects::catalog(control).await.unwrap_or_default();
             let rows = page["data"]
                 .as_array()
@@ -270,7 +276,7 @@ impl AgentHost {
                     "createdAt":timestamp(&row["createdAt"]),"updatedAt":timestamp(&row["updatedAt"]),
                     "turnId":metadata["turnId"],"turnStartedAt":metadata["turnStartedAt"],"turnEndedAt":metadata["turnEndedAt"],
                     "turnDurationMs":metadata["turnDurationMs"],
-                    "source":"codex-thread","agentAccountId":row["agentAccountId"]});
+                    "source":"codex-thread"});
                 if let Some(parent) = row.pointer("/source/subAgent/thread_spawn/parent_thread_id").and_then(Value::as_str) {
                     item["parentSessionId"] = json!(parent);
                     item["relationKind"] = json!("subagent");

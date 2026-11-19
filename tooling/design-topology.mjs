@@ -20,7 +20,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const cases = [
   ['nested-dialog', 'p3-stacked-method', 1280, 800],
   ['idle', 'portrait-topology-0', 1280, 800], ['working', 'topology-accounts', 1280, 800],
-  ['accounts', 'topology-accounts-dense', 1280, 800], ['portrait', 'portrait-topology-0', 640, 800],
+  ['portrait', 'portrait-topology-0', 640, 800],
   ['sources-folded', 'portrait-topology-sources-folded', 640, 800],
   ['agents-folded', 'portrait-topology-agents-folded', 640, 800],
   ['workspace-fit', 'relay-hosting-light', 1280, 800], ['workspace-cap', 'settings-about-light', 1280, 800],

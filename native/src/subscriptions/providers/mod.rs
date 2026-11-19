@@ -321,12 +321,11 @@ pub(super) fn credential_path(id: &str) -> PathBuf {
 }
 
 pub(crate) async fn account_read(
-    control: &Control,
+    _control: &Control,
     agent: &str,
     profile: &str,
 ) -> std::result::Result<Reading, Failure> {
     match agent {
-        "codex" => codex::read_profile(control, profile).await,
         "claude" => claude::read_profile(profile).await,
         _ => Err("provider-not-integrated".into()),
     }

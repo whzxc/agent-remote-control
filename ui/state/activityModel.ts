@@ -40,18 +40,17 @@ export function activityReadMatches(read: ActivityRead, session: AgentActivitySe
   if (read.turnStartedAt && session.turnStartedAt) return read.turnStartedAt === session.turnStartedAt;
   return true;
 }
-export type AgentPanelSelection = { agent: string; accountId?: string; platform?: true; session?: TrackedActivity; closing?: boolean } | undefined;
-export type AgentPanelAction = { type: "agent" | "toggle"; agent: string; accountId?: string } | { type: "platform"; agent: string; toggle?: boolean } | { type: "task"; agent: string; session: TrackedActivity; toggle?: boolean } | { type: "back" } | { type: "dismiss" } | { type: "closed" };
+export type AgentPanelSelection = { agent: string; platform?: true; session?: TrackedActivity; closing?: boolean } | undefined;
+export type AgentPanelAction = { type: "agent" | "toggle"; agent: string } | { type: "platform"; agent: string; toggle?: boolean } | { type: "task"; agent: string; session: TrackedActivity; toggle?: boolean } | { type: "back" } | { type: "dismiss" } | { type: "closed" };
 export function agentPanelSelection(current: AgentPanelSelection, action: AgentPanelAction): AgentPanelSelection {
   if (action.type === "closed") return undefined;
   if (action.type === "dismiss") return current && { ...current, closing: true };
   if (action.type === "task" && action.toggle && current?.agent === action.agent && current.session?.id === action.session.id) return { ...current, closing: true };
   if (action.type === "platform") return action.toggle && current?.agent === action.agent && current.platform
     ? { ...current, closing: true } : { agent: action.agent, platform: true };
-  if (action.type === "back") return current && { agent: current.agent, ...(current.accountId ? { accountId: current.accountId } : {}) };
-  if (action.type === "toggle" && !current?.platform && current?.agent === action.agent && current.accountId === action.accountId) return { ...current, closing: true };
-  const accountId = action.type === "task" ? action.session.agentAccountId ?? action.session.dispatchSummary?.agentAccountId : action.accountId;
-  return { agent: action.agent, ...(accountId ? { accountId } : {}), ...(action.type === "task" ? { session: action.session } : {}) };
+  if (action.type === "back") return current && { agent: current.agent };
+  if (action.type === "toggle" && !current?.platform && current?.agent === action.agent) return { ...current, closing: true };
+  return { agent: action.agent, ...(action.type === "task" ? { session: action.session } : {}) };
 }
 // Freeze the start order on first observation; changing phases/headlines never moves a task.
 export function trackActivity(previous: readonly TrackedActivity[], sessions: readonly AgentActivitySession[], now: number, pinnedId?: string): TrackedActivity[] {
@@ -128,14 +127,6 @@ export function activityHierarchy(sessions: readonly TrackedActivity[]) {
   const ids = new Map(sessions.flatMap(session => [[session.id, session.id], ...(session.nativeSessionId ? [[session.nativeSessionId, session.id]] : [])] as [string, string][]));
   return taskHierarchy(sessions.map(session => ({ ...session, parentTaskId: session.parentSessionId ? ids.get(session.parentSessionId) : undefined })));
 }
-// Resolve the complete family before account grouping or visibility limits.
-export function activityFamilyAccounts(sessions: readonly TrackedActivity[], accountGroup: (id: string | null | undefined) => string | undefined) {
-  const accounts = new Map<string, string | undefined>();
-  for (const { task, parentTaskId } of activityHierarchy(sessions)) {
-    accounts.set(task.id, parentTaskId ? accounts.get(parentTaskId) : accountGroup(task.agentAccountId ?? task.dispatchSummary?.agentAccountId));
-  }
-  return accounts;
-}
 export function interactionKey(agent: string, session: AgentActivitySession) {
   return JSON.stringify([agent, session.id, session.phaseSince, session.interaction?.respond]);
 }
@@ -188,7 +179,7 @@ export function activityHeadline(session: Pick<AgentActivitySession, "headline" 
 export type HomepageTaskGroup = 'needs-me' | 'running' | 'unread' | 'recent';
 export type HomepageTask = {
   key: string; agent: string; session: TrackedActivity; group: HomepageTaskGroup;
-  deviceId?: string; controllerDeviceId?: string; upstreamSourceId?: string; sourceIds: string[]; accountId?: string | null;
+  deviceId?: string; controllerDeviceId?: string; upstreamSourceId?: string; sourceIds: string[];
   activity: ReturnType<typeof import('./taskProjection.ts').taskCardActivity>;
   observedAt?: string; freshness?: string; stale?: boolean; startedAt?: string | null; endedAt?: string | null; updatedAt?: string | null;
 };
@@ -296,7 +287,7 @@ export function projectDeviceTasks(device: import('../devices/state').Device, ob
     if (!id || sessions.has(JSON.stringify([agent, id]))) continue;
     sessions.set(JSON.stringify([agent, id]), { agent, session: {
       id, source: 'arc-task', title: record.runtime?.title ?? record.task.title ?? record.task.prompt,
-      project: record.task.project ?? record.task.directory, agentAccountId: record.agentAccountId,
+      project: record.task.project ?? record.task.directory,
       headline: '', phase: 'idle', phaseSince: null, timeline: false, observed: false,
       orderAt: Date.parse(record.createdAt), startedAt: record.createdAt, turnId: record.turnId,
       dispatchSummary: { model: record.task.model ?? record.requested?.model, effort: record.task.effort ?? record.requested?.effort,
@@ -312,7 +303,6 @@ export function projectDeviceTasks(device: import('../devices/state').Device, ob
     return { key, agent, deviceId: device.id, controllerDeviceId: session.origin?.deviceId ?? session.dispatchSummary?.controlSource?.deviceId,
       session: current, group: homepageTaskGroup(current, !!current.interaction, current.status ?? undefined, !stale && session.observed === true),
       sourceIds: session.origin?.peerOrigin?.sourceId ? [session.origin.peerOrigin.sourceId] : [],
-      accountId: session.agentAccountId ?? session.dispatchSummary?.agentAccountId,
       activity: { steps: [], snapshot: [] }, startedAt: session.turnStartedAt, endedAt: session.turnEndedAt,
       observedAt: snapshot.observedAt, stale, freshness: device.lastSeen ?? snapshot.observedAt };
   });

@@ -2085,11 +2085,6 @@
             "minLength": 1,
             "description": "Root name, directory basename, or relative path ending at a registered root. Required when project roots are ambiguous."
           },
-          "account": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Account ID or unique alias. Omitted uses the Agent default. A running task retains its execution profile."
-          },
           "device": {
             "type": "string",
             "minLength": 1,
@@ -2280,11 +2275,6 @@
             "maxLength": 40,
             "pattern": "^[a-z0-9-]+$",
             "description": "Optional dispatch pack name from dispatch_policy. ARC appends the pack's Agent-facing text after the prompt as an <arc-pack> block and uses its defaults after explicit arguments. Resolved once at acceptance and recorded with the dispatch."
-          },
-          "account": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Account ID or unique alias. Omitted uses the Agent default. A running task retains its execution profile."
           },
           "device": {
             "type": "string",
@@ -2598,7 +2588,7 @@
     },
     {
       "name": "dispatch_policy",
-      "description": "External configuration groups require known model and effort. Quality aggregates retain external reviews separately, including unknown configurations. History classifies outcomes from scoped native lifecycle evidence; a recorded display status cannot override a confirmed terminal. History exposes reported findings by gate, independent review coverage, and 14-day maturity. Later fix-path overlap is bounded correlation; an exact ARC-Turn: <turnId> commit trailer explicitly links a turn. A pass never establishes defect absence. Return installed and enabled Agents by default. all:true includes the full inventory. The default decision view includes availability, quota summaries, defaults, criteria, compact grouped model strings, and 30-day history. Decision models share identical effort/tier/option settings, with distinct native displayName (id) labels and a native provider group label when informative; per-model contextWindow is omitted. Agents without criteria or history omit decision model summaries and report authoritative:false. view:full preserves structured model rows with opaque IDs and existing fields, optional native displayName, provider:{id,name}, and contextWindow (token count or native selectable counts). Missing metadata is omitted and MUST NOT be inferred from brands or ID syntax. Catalog authoritative is true only for complete live native lists; snapshots, partial catalogs, unavailable lists and truncated previews are false. Clients SHOULD flag missing stored selections only against authoritative catalogs. view:full includes detailed native facts and policy constraints. agent filters the result. taskId selects a non-Codex session. Queries never start sessions. Without a session, read a native catalog or persistent snapshot. Only needs-session requires creating a session once without a prompt. Dispatch relies on session readback. Top-level criteria guides cross-Agent selection. Returns policyPath for manual editing and criteriaHash for every scope, including empty criteria. Use act dispatch_policy_update for a guarded criteria replacement. Both views retain native Codex pool credits (hasCredits, unlimited, balance) alongside subscription exhaustion and spend controls. Consider credits before treating an exhausted subscription pool as unavailable. Balance retains native units and precision; missing credits stay unknown. recommendation is advisory per Agent and applicable pack, including the no-pack default. inputsRevision contains criteriaHash and factsRevision for comparing decision inputs. In view:decision, each context returns selected configuration or null, eligibleCount, reasonCodes, unknown fields and a next read. Follow returned reads when selected is null. Use view:full for ordered candidates, exclusions and timestamped quota/capability evidence. Prose criteria own risk, task complexity and judgment. Explicit authorized arguments win. Recommendations do not change omitted-field dispatch defaults. Unknown account credit permission excludes credit-only recommendations; configure accountCreditUse in the local policyPath file.",
+      "description": "External configuration groups require known model and effort. Quality aggregates retain external reviews separately, including unknown configurations. History classifies outcomes from scoped native lifecycle evidence; a recorded display status cannot override a confirmed terminal. History exposes reported findings by gate, independent review coverage, and 14-day maturity. Later fix-path overlap is bounded correlation; an exact ARC-Turn: <turnId> commit trailer explicitly links a turn. A pass never establishes defect absence. Return installed and enabled Agents by default. all:true includes the full inventory. The default decision view includes availability, quota summaries, defaults, criteria, compact grouped model strings, and 30-day history. Decision models share identical effort/tier/option settings, with distinct native displayName (id) labels and a native provider group label when informative; per-model contextWindow is omitted. Agents without criteria or history omit decision model summaries and report authoritative:false. view:full preserves structured model rows with opaque IDs and existing fields, optional native displayName, provider:{id,name}, and contextWindow (token count or native selectable counts). Missing metadata is omitted and MUST NOT be inferred from brands or ID syntax. Catalog authoritative is true only for complete live native lists; snapshots, partial catalogs, unavailable lists and truncated previews are false. Clients SHOULD flag missing stored selections only against authoritative catalogs. view:full includes detailed native facts and policy constraints. agent filters the result. taskId selects a non-Codex session. Queries never start sessions. Without a session, read a native catalog or persistent snapshot. Only needs-session requires creating a session once without a prompt. Dispatch relies on session readback. Top-level criteria guides cross-Agent selection. Returns policyPath for manual editing and criteriaHash for every scope, including empty criteria. Use act dispatch_policy_update for a guarded criteria replacement. Both views retain native Codex pool credits (hasCredits, unlimited, balance) alongside subscription exhaustion and spend controls. Consider credits before treating an exhausted subscription pool as unavailable. Balance retains native units and precision; missing credits stay unknown. When a local Magpie-compatible gateway serves an Agent, quota aggregates its pool and completed turns may carry gateway usage (tokens and cost); absent gateways fall back silently to native facts.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -3887,11 +3877,6 @@
             "minLength": 1,
             "description": "Root name, directory basename, or relative path ending at a registered root. Required when project roots are ambiguous."
           },
-          "account": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Account ID or unique alias. Omitted uses the Agent default. A running task retains its execution profile."
-          },
           "device": {
             "type": "string",
             "minLength": 1,
@@ -4277,11 +4262,6 @@
               "task",
               "self-test"
             ]
-          },
-          "account": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Account ID or unique alias. Omitted uses the Agent default. A running task retains its execution profile."
           },
           "device": {
             "type": "string",
@@ -7080,7 +7060,7 @@
     },
     {
       "name": "accounts",
-      "description": "List provider accounts, sources, Agent profiles, health, defaults, notification reachability and quota. Codex agentProfiles.parity reports primary, shared or error, fingerprint and lastSyncAt. It is diagnostic and does not gate operations or quota reads. id returns full detail; list omits email and orgName. Removed IDs return tombstones. One row per account and Agent describes quota, health and that Agent default. view:digest returns {view,revision,counts,rows,omitted,coverage,next}, at most 8 KiB and 20 rows. Counts carry kind:exact|bounded|unknown for the authorized filtered snapshot. Actionable rows sort first, then stable opaque ID. Every row has a detail action for its full snapshot row. Optional row.read reads fresh owner detail and may be absent. Follow row.detail, next or omitted.full (control_output with UTF-16 offsets). Digest snapshots share the one-hour temporary output cache. A missing/expired cursor returns a restart action; evicted snapshots may require reapplying filters.",
+      "description": "List control-source accounts and Claude L1 notification profiles, or read full detail for one id.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -7132,7 +7112,7 @@
     },
     {
       "name": "account_update",
-      "description": "Rename an account or set/clear its default profile for one Agent. default requires defaultFor.",
+      "description": "Update a control-source or Claude L1 notification account alias.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -7144,14 +7124,6 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 120
-          },
-          "defaultFor": {
-            "type": "string",
-            "minLength": 1
-          },
-          "default": {
-            "type": "boolean",
-            "description": "With defaultFor, true (omitted) selects this account; false clears only this account for that Agent without choosing a replacement."
           }
         },
         "required": [
@@ -7251,7 +7223,7 @@
     },
     {
       "name": "account_add",
-      "description": "Start official login or detect native authentication. Codex stores credentials separately and all execution processes use the native primary home for sessions and settings. The Desktop login is primary; other credentials are secondary and cannot dispatch to Desktop. Selecting a default account changes dispatch selection only. Read accounts to poll login progress. agentProfiles.parity reports the current shared configuration revision. Shared configuration changes do not restart active servers or block work; Codex loads current settings for new threads.",
+      "description": "Start official login for a Claude L1 notification profile or detect native Claude CLI authentication. Read accounts to poll login progress.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -7259,8 +7231,6 @@
             "type": "string",
             "enum": [
               "claude",
-              "codex",
-              "api-key",
               "detect"
             ]
           },
@@ -7298,87 +7268,8 @@
       }
     },
     {
-      "name": "account_import",
-      "description": "Import native Codex auth.json credentials into an independent credential profile. All accounts share native Codex session storage. Choose refreshOwner codex for native credential refresh, none for access-only credentials, or external with a local executable refresh hook. Imports preserve dispatch defaults and task-account bindings. Secondary tasks use their own App Server and cannot dispatch to Desktop. Reimporting a known provider account reuses its profile; active profiles reject replacement. External hooks require local authority.",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "auth": {
-            "type": "object",
-            "description": "Native auth.json object. Credential values are write-only and are never returned.",
-            "writeOnly": true
-          },
-          "refreshOwner": {
-            "type": "string",
-            "enum": [
-              "codex",
-              "none",
-              "external"
-            ]
-          },
-          "refreshCommand": {
-            "type": "object",
-            "properties": {
-              "program": {
-                "type": "string",
-                "minLength": 1
-              },
-              "args": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              }
-            },
-            "required": [
-              "program"
-            ],
-            "additionalProperties": false
-          },
-          "alias": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 120
-          }
-        },
-        "required": [
-          "auth",
-          "refreshOwner"
-        ],
-        "additionalProperties": false
-      },
-      "outputSchema": {
-        "type": "object",
-        "properties": {
-          "result": {}
-        },
-        "required": [
-          "result"
-        ],
-        "additionalProperties": false
-      },
-      "annotations": {
-        "readOnlyHint": false,
-        "destructiveHint": false,
-        "idempotentHint": true,
-        "openWorldHint": false
-      },
-      "execution": {
-        "taskSupport": "forbidden"
-      },
-      "example": {
-        "auth": {
-          "tokens": {
-            "access_token": "<access-token>",
-            "account_id": "<provider-account-id>"
-          }
-        },
-        "refreshOwner": "none"
-      }
-    },
-    {
       "name": "account_login",
-      "description": "Submit the Claude authorization code or cancel an active login. Codex uses its browser callback and cannot accept a pasted code.",
+      "description": "Submit an authorization code or cancel an active Claude L1 notification profile login.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -7430,7 +7321,7 @@
     },
     {
       "name": "account_reauth",
-      "description": "Restart native login for the selected account Agent profile.",
+      "description": "Restart OAuth login for an existing Claude L1 notification profile.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -11762,17 +11653,6 @@
         "tier": "default",
         "conditional": true
       },
-      "account_import": {
-        "group": "accounts",
-        "presets": [
-          "common"
-        ],
-        "requires": [
-          "accounts"
-        ],
-        "tier": "default",
-        "conditional": false
-      },
       "dispatch_pack_update": {
         "group": "codex",
         "presets": [
@@ -11800,7 +11680,9 @@
       },
       "device_transfer": {
         "group": "host",
-        "requires": ["receipt"],
+        "requires": [
+          "receipt"
+        ],
         "presets": []
       },
       "task_activity": {

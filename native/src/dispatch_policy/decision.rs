@@ -26,7 +26,7 @@ fn clean(value: &mut Value) {
                     v == "persistent-snapshot" || v == "persisted-session-snapshot"
                 });
             map.retain(|key, value| {
-                if key == "quality" || key == "recommendation" {
+                if key == "quality" {
                     return true;
                 }
                 if key == "models" {
@@ -184,6 +184,11 @@ fn history(row: &Value) -> Value {
                     s.push_str(&format!(" {short}{}", g[k]));
                 }
             }
+            if let Some(cost) = g["usage"]["costUsd"].as_f64() {
+                if let Some(n) = g["usage"]["samples"].as_u64().filter(|n| *n > 0) {
+                    s.push_str(&format!(" ${:.2}({n})", cost));
+                }
+            }
             s
         })
         .collect::<Vec<_>>();
@@ -227,10 +232,25 @@ fn quotas(row: &Value) -> Vec<(String, Value)> {
             })
             .collect();
         let mut v = json!({"summary":quota_summary(windows)});
-        for k in ["rateLimitReachedType", "spendControlReached"] {
+        if q["source"].as_str() == Some("local-gateway") {
+            v["source"] = q["source"].clone();
+            if q["gateway"].is_string() {
+                v["gateway"] = q["gateway"].clone();
+            }
+        }
+        for k in [
+            "rateLimitReachedType",
+            "spendControlReached",
+            "accountsTotal",
+            "accountsWithRoom",
+            "accountsWithCredits",
+        ] {
             if !pool[k].is_null() && pool[k] != false {
                 v[k] = pool[k].clone();
             }
+        }
+        if let Some(best) = pool["primary"]["bestAccountUsedPercent"].as_f64() {
+            v["bestAccountUsedPercent"] = json!(best);
         }
         if pool["credits"].is_object() {
             v["credits"] = pool["credits"].clone();
@@ -269,42 +289,6 @@ fn quotas(row: &Value) -> Vec<(String, Value)> {
         }
     }
     result
-}
-
-fn accounts(row: &Value) -> Value {
-    json!(row["accounts"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .map(|a| {
-            let mut out = json!({"id":a["id"],"alias":a["alias"],"health":a["health"]["state"]});
-            if a["default"] == true {
-                out["default"] = json!(true);
-            }
-            let q = &a["quota"];
-            let windows = q["windows"]
-                .as_array()
-                .into_iter()
-                .flatten()
-                .filter_map(|w| {
-                    let used = w["usedPercent"].as_f64()?;
-                    let label = w["label"].as_str().unwrap_or_else(|| string(w, "id"));
-                    let reset = w["resetsAt"]
-                        .as_str()
-                        .map(|at| format!(" reset={at}"))
-                        .unwrap_or_default();
-                    Some(format!("{label} {used}%{reset}"))
-                })
-                .collect::<Vec<_>>();
-            out["quota"] = json!({"state":q["state"],"summary":windows.join(", ")});
-            for key in ["observedAt", "error", "accountBlocked", "blockedPoolIds"] {
-                if q[key] != false {
-                    out["quota"][key] = q[key].clone();
-                }
-            }
-            out
-        })
-        .collect::<Vec<_>>())
 }
 
 // Only explicit field/value statements are machine-readable. Other prose stays with the controller.
@@ -385,7 +369,7 @@ pub(super) fn present(mut facts: Value, args: &Value) -> Value {
             others.push(format!("{agent}: {state}"));
             continue;
         }
-        let mut out = json!({"agent":agent,"policyMismatches":row["policyMismatches"],"accounts":accounts(row),"availability":if no_policy { format!("{status}, no policy") } else {status.into()}});
+        let mut out = json!({"agent":agent,"policyMismatches":row["policyMismatches"],"availability":if no_policy { format!("{status}, no policy") } else {status.into()}});
         if available["discoveryError"].is_string() {
             out["error"] = available["discoveryError"].clone();
         }
@@ -445,27 +429,7 @@ pub(super) fn present(mut facts: Value, args: &Value) -> Value {
             }
         }
         let mut quota = vec![];
-        // Codex pools come from the primary native login; show them on that account.
-        let primary = row["accounts"].as_array().and_then(|accounts| {
-            accounts.iter().position(|a| {
-                a["agentProfiles"]
-                    .as_array()
-                    .is_some_and(|p| p.iter().any(|p| p["role"] == "primary"))
-            })
-        });
         for (id, value) in quotas(row) {
-            if let (true, Some(index)) = (id.starts_with("codex/"), primary) {
-                let account = &mut out["accounts"][index]["quota"];
-                let mut native = value;
-                if !empty(&account["summary"]) {
-                    native.as_object_mut().map(|v| v.remove("summary"));
-                }
-                if !empty(&native) {
-                    native["id"] = json!(id);
-                    account["native"] = native;
-                }
-                continue;
-            }
             if let Some(owner) = seen.get(&id) {
                 quota.push(json!({"ref":format!("{owner}/{id}")}));
             } else {
@@ -533,13 +497,11 @@ mod tests {
             assert_eq!(conflicts[0]["code"], "CRITERIA_SERVICE_TIER_MISMATCH");
         }
     }
-
 }
 
 #[cfg(test)]
 mod catalog_metadata_tests {
     use super::*;
-
 }
 
 #[cfg(test)]
@@ -582,50 +544,37 @@ mod decision_budget_tests {
         assert_eq!(full["groups"].as_array().unwrap().len(), 9);
     }
 
-    // Contract: dispatch policy decision view and account readiness fields
+    // Contract: dispatch policy decision view projects local-gateway pool quotas and policy constraints
     #[test]
-    fn account_selection_facts_survive_projection_and_full_view_retains_detail() {
-                let accounts = json!([
-            {"id":"account-one","alias":"Primary","default":true,"health":{"state":"attention"},
-             "agentProfiles":[{"profileId":"profile-one","state":"signed-in"}],
-             "quota":{"state":"stale","observedAt":"2026-01-01T00:00:00Z","accountBlocked":true,
-                      "windows":[{"id":"weekly","label":"7d","usedPercent":100,"resetsAt":"2026-01-02T00:00:00Z"}]}},
-            {"id":"account-two","alias":"Secondary","health":{"state":"ready"},"quota":{"state":"unavailable"}}
-        ]);
-        let facts = json!({"agents":[{"agent":"example","accounts":accounts,
+    fn gateway_pool_quota_survives_projection_and_full_view_retains_detail() {
+        let quota = json!({
+            "source": "local-gateway",
+            "gateway": "magpie",
+            "ordinaryUsageAllowed": true,
+            "state": "ready",
+            "pools": [{
+                "id": "codex",
+                "accountsTotal": 3,
+                "accountsWithRoom": 2,
+                "accountsWithCredits": 1,
+                "primary": {"usedPercent": 34.3, "bestAccountUsedPercent": 0.0, "windowDurationMins": 10080}
+            }]
+        });
+        let facts = json!({"agents":[{"agent":"codex","quota":quota,
             "availability":{"installed":true,"enabled":true,"available":true},
             "policy":{"criteria":"Use current evidence.","denyModels":["denied"]}}]});
         let first = present(facts.clone(), &json!({}));
         let row = &first["agents"][0];
-        let primary = &row["accounts"][0];
-        assert_eq!(primary["id"], accounts[0]["id"]);
-        assert_eq!(primary["alias"], accounts[0]["alias"]);
-        assert_eq!(primary["default"], true);
-        assert_eq!(primary["health"], accounts[0]["health"]["state"]);
-        assert_eq!(primary["quota"]["state"], "stale");
-        assert_eq!(
-            primary["quota"]["observedAt"],
-            accounts[0]["quota"]["observedAt"]
-        );
-        assert_eq!(primary["quota"]["accountBlocked"], true);
-        let summary = primary["quota"]["summary"].as_str().unwrap();
-        assert!(
-            summary.contains("7d")
-                && summary.contains("100%")
-                && summary.contains("2026-01-02T00:00:00Z")
-        );
-        assert_eq!(row["accounts"][1]["quota"]["state"], "unavailable");
-        assert!(row["accounts"][1]["quota"].get("summary").is_none());
+        assert!(row.get("accounts").is_none());
+        assert_eq!(row["quota"][0]["source"], "local-gateway");
+        assert_eq!(row["quota"][0]["accountsTotal"], 3);
+        assert_eq!(row["quota"][0]["accountsWithRoom"], 2);
+        assert_eq!(row["quota"][0]["bestAccountUsedPercent"], 0.0);
         assert_eq!(
             row["denyModels"],
             facts["agents"][0]["policy"]["denyModels"]
         );
-        let cached = present(
-            facts.clone(),
-            &json!({"knownCriteriaHash":row["criteriaHash"]}),
-        );
-        assert_eq!(cached["agents"][0]["accounts"], row["accounts"]);
         let full = present(facts, &json!({"view":"full"}));
-        assert_eq!(full["agents"][0]["accounts"], accounts);
+        assert_eq!(full["agents"][0]["quota"]["source"], "local-gateway");
     }
 }

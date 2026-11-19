@@ -8,7 +8,7 @@ export const IDLE_MS = 60_000;
 export const RETURN_MS = 2_000;
 export const SPEECH_MS = 30_000;
 export interface RelayTask {
-  key: string; taskId: string; agent: string; sourceId?: string; accountId?: string | null;
+  key: string; taskId: string; agent: string; sourceId?: string;
   turn: string; title?: string; dispatchId?: string; state: TaskState; phaseSince?: number; at: number;
   review?: { id: string; verdict: 'pass' | 'rework'; baseline?: boolean };
 }

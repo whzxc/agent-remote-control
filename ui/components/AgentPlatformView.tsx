@@ -8,8 +8,6 @@ import { t } from '../i18n';
 import { refreshAccounts, useAccounts } from '../state/accounts';
 import { name, refreshAgents, type Agent } from '../state/agents';
 import { managesAgentAccounts, selectAgentPanel } from '../state/overviewPanels';
-import { topologyAccountOrder } from '../topology/accountState';
-import { orderedSubset } from '../topology/order';
 import { AgentQuotaIcon } from '../subscriptions/AgentQuotaIcon';
 import { AgentAccountCard } from './AccountCards';
 import AgentAccountAdd from './AgentAccountAdd';
@@ -23,10 +21,10 @@ export default function AgentPlatformView({ agent, onSettings, widthControl }: {
   const [refreshing, setRefreshing] = useState(false);
   const [login, setLogin] = useState<{ account?: ProviderAccount }>();
   const closeLogin = useCallback(() => setLogin(undefined), []);
-  const state = useAccounts(), orders = topologyAccountOrder.use();
+  const state = useAccounts();
   const kind = managesAgentAccounts(agent.agent) ? agent.agent : undefined;
   const canLogin = kind && agent.installed && !readOnlyBrowser;
-  const accounts = orderedSubset(state.items.filter(account => account.agentProfiles.some(profile => profile.agent === agent.agent)), orders[`1:${agent.agent}`] ?? []);
+  const accounts = state.items.filter(account => account.agentProfiles.some(profile => profile.agent === agent.agent));
   return <EntitySection as="section" className="agent-panel-layer agent-platform-view">
     <PanelHeader><header className="dialog-header agent-panel-header">
       <AgentQuotaIcon agent={agent.agent} />
@@ -44,7 +42,7 @@ export default function AgentPlatformView({ agent, onSettings, widthControl }: {
       {accounts.map(account => <AgentAccountCard key={account.id} account={account}
         profile={account.agentProfiles.find(profile => profile.agent === agent.agent)!}
         onReauth={canLogin ? () => setLogin({ account }) : undefined}
-        onSelect={() => selectAgentPanel({ type: 'agent', agent: agent.agent, accountId: account.id })} />)}
+        onSelect={() => selectAgentPanel({ type: 'agent', agent: agent.agent })} />)}
       {!accounts.length && !state.error && !state.loading && (canLogin ?
         <p className="agent-platform-empty">{t('accounts.empty')}</p> :
         <EntityCard className="native-agent-card">

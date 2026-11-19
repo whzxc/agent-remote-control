@@ -11,15 +11,15 @@ flowchart TB
     core["Core<br/>op catalog · receipts · dispatch<br/>notifications · coordination · accounts"]
   end
   subgraph EXEC["Agent execution"]
-    codexd["Codex Desktop<br/>primary account"]
-    appsrv["ARC App Server<br/>one per Codex account"]
+    codexd["Codex Desktop<br/>native login"]
+    appsrv["ARC App Server<br/>single native Codex host"]
     taskhost["task-host<br/>Claude Code · Cursor · Pi · dsh"]
   end
   native[("Native session stores<br/>CODEX_HOME · Claude projects")]
+  gateway["Optional local gateway<br/>Magpie API · quotas · per-turn usage<br/>auto-detected · native fallback"]
   subgraph MEMBERS["Member devices · Device link"]
     member["Paired member device · RIGHT tier 1<br/>peer listener · Core<br/>controller device = LEFT tier-1 source"]
     magent["Remote Agent · tier 2<br/>single Agent merges with device node"]
-    maccount["Account / profile tier<br/>fold under pressure"]
     mstates["Static anchors · outward NodeCapsule<br/>offline = unconfirmed · no live counts<br/>no task nodes / queues / task arcs"]
     mnative[("Member native session stores")]
     descendant["Further member devices<br/>nesting supported · cycle rejection<br/>one-hop render · protocol forwarding = false"]
@@ -37,13 +37,14 @@ flowchart TB
   appsrv --> native
   taskhost --> native
   core -.->|"observes turns"| native
-  core -.->|"push: L1 claude CLI · L2 webhook"| src
+  core -.->|"optional local HTTP"| gateway
+  core -.->|"push: L1 claude CLI profiles · L2 webhook"| src
   core -->|"dispatch (device, agent)<br/>LAN mutual TLS · Tunnel fallback"| member
   member -.->|"task events"| core
-  member --> magent --> maccount
+  member --> magent
   member -.-> mstates
   magent -.-> mstates
   magent --> mnative
   member -.->|"not rendered or forwarded here"| descendant
   class hub experimental
-  class member,magent,maccount,mstates,descendant experimental
+  class member,magent,mstates,descendant experimental

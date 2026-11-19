@@ -226,7 +226,6 @@ export async function installScenario(name: string) {
     Object.assign(preferences, { 'arc.topology-mode': JSON.stringify(fixture.expandedSources ? 'tree' : 'flat'),
       'arc.topology-collapsed': JSON.stringify(Object.fromEntries(collapsed)), 'arc.source-order': JSON.stringify(base.sources.map(source => source.id)) });
   }
-  if (name === 'topology-accounts-dense') Object.assign(preferences, { 'arc.topology-mode': JSON.stringify('tree'), 'arc.topology-collapsed': '{}', 'arc.topology-account-order': '{}' });
   homepageTaskFocus.set(undefined);
   homepageMode.set(fixture.homepage?.mode ?? 'topology');
   acceptPreferences(preferences);
@@ -277,7 +276,7 @@ export async function installScenario(name: string) {
     });
   });
   const portraitAccounts = fixture.topologyAccounts === 'dense';
-  const topologyAccounts = fixture.topologyAccounts === 'device-portrait' ? installDevicePortraitAccounts(status, activity) : portraitAccounts || name === 'topology-accounts-dense' ? installDenseTopologyAccounts(status, activity, portraitAccounts)
+  const topologyAccounts = fixture.topologyAccounts === 'device-portrait' ? installDevicePortraitAccounts(status, activity) : portraitAccounts ? installDenseTopologyAccounts(status, activity)
     : (fixture.topologyAccounts || name === 'topology-accounts') ? installTopologyAccounts(status, activity) : [];
   if (topologyAccounts.length) sources.splice(0, sources.length, ...status.ingresses.flatMap(i => i.sources ?? []));
   if (fixture.topologyAccounts === 'device-portrait') acceptPreferences({ 'arc.topology-mode': JSON.stringify('tree'), 'arc.source-order': JSON.stringify(sources.map(source => source.id)) });
@@ -364,7 +363,7 @@ export async function installScenario(name: string) {
     const session = activity.agents[task.agent].sessions.find(s => s.id === `fixture-task-${index}`)!;
     return [{ agent: task.agent, turnId: session.turnId ?? undefined, requestId: `fixture-request-${index}`, threadId: `fixture-task-${index}`, state: task.approval ? 'awaiting-approval' : 'completed', createdAt: session.startedAt ?? now, updatedAt: session.startedAt ?? now,
     origin: { ingressId: 'fixture-source', sourceId: 'fixture-source', ...(topologyAccounts.length ? session.origin : {}) },
-    ...(topologyAccounts.length ? { agentAccountId: session.agentAccountId } : {}), approval: { decision: 'automatic', source: 'remote', at: now }, task: { kind: 'create', title: task.title, prompt: task.headline, input: [], directory: '/workspace/acceptance', settings: {} } }];
+    approval: { decision: 'automatic', source: 'remote', at: now }, task: { kind: 'create', title: task.title, prompt: task.headline, input: [], directory: '/workspace/acceptance', settings: {} } }];
   });
   if (fixture.dispatchHistory && records[0]) {
     records.push({ ...records[0], requestId: 'fixture-historical-dispatch', turnId: 'fixture-turn-0-1', createdAt: new Date(Date.parse(now) - 86400000).toISOString(),
@@ -457,7 +456,7 @@ export async function installScenario(name: string) {
     if (task.previewDelayMs) responses[`preview-delay/fixture-task-${index}`] = task.previewDelayMs;
   });
   if (name.startsWith('agent-platform-') || fixture.deviceLink) setPrivacy(false);
-  accountResponse = (['accounts', 'source-panel'].includes(name) || name.startsWith('codex-account-add-') || name.startsWith('agent-platform-')) ? accountScenario(status, sources, name) : undefined;
+  accountResponse = (['accounts', 'source-panel'].includes(name) || name.startsWith('agent-platform-')) ? accountScenario(status, sources, name) : undefined;
   updates.set(old => ({ ...old, checked: true, error: '' }));
   responses['service'] = { supported: true, enabled: false };
   connector.set({ status, hubHealth: readOnlyBrowser ? undefined : hubHealth, sources, sourcesLoaded: true, busy: '', loading: false, error: fixture.statusUnavailable ? 'Connection status is unavailable in this fixture.' : '', feedback: { text: '', error: false } });

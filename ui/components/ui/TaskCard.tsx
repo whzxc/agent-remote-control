@@ -20,7 +20,7 @@ import type { AgentPhase } from '../../types';
 import './TaskCard.css';
 
 export type TaskCardData = Pick<HomepageTask, 'key' | 'agent' | 'session' | 'group'> &
-  Partial<Pick<HomepageTask, 'activity' | 'deviceId' | 'controllerDeviceId' | 'sourceIds' | 'accountId' | 'observedAt' | 'freshness' | 'stale' | 'startedAt' | 'endedAt'>>;
+  Partial<Pick<HomepageTask, 'activity' | 'deviceId' | 'controllerDeviceId' | 'sourceIds' | 'observedAt' | 'freshness' | 'stale' | 'startedAt' | 'endedAt'>>;
 export const taskTitle = ({ session }: Pick<TaskCardData, 'session'>) => session.title || session.headline || session.id;
 
 export function localTaskCard(agent: string, session: TrackedActivity, group = homepageTaskGroup(session, !!session.interaction, session.status ?? undefined, false)): TaskCardData {

@@ -41,10 +41,10 @@ impl Drop for Sandbox {
         let _ = std::fs::remove_dir_all(&self.0);
     }
 }
-    #[test]
+#[test]
 fn sidechains_never_become_top_level_rows() {
-        // Contract: Claude JSONL sidechain session schema
-        let ordinary = user("Top level");
+    // Contract: Claude JSONL sidechain session schema
+    let ordinary = user("Top level");
     for (path, records, tail) in [
         (
             format!("agent-{SESSION}.jsonl"),
@@ -85,10 +85,10 @@ fn sidechains_never_become_top_level_rows() {
     assert_eq!(mixed["title"], "Top level");
     assert_eq!(mixed["id"], SESSION);
 }
-    #[test]
+#[test]
 fn unchanged_transcripts_reuse_metadata_and_changed_files_refresh() {
-        // Recurring bug class: persistence: transcript index invalidates changed native files
-        let sandbox = Sandbox::new();
+    // Recurring bug class: persistence: transcript index invalidates changed native files
+    let sandbox = Sandbox::new();
     let path = sandbox.write(SESSION, &[user("Before")]);
     let mut index = native::Index::default();
     let first = sandbox.scan(&mut index);
@@ -101,10 +101,10 @@ fn unchanged_transcripts_reuse_metadata_and_changed_files_refresh() {
     std::fs::remove_file(path).unwrap();
     assert!(sandbox.scan(&mut index).is_empty());
 }
-    #[test]
+#[test]
 fn bounded_samples_keep_head_title_and_tail_preview_without_exact_counts() {
-        // Algorithmic core: bounded native transcript parser
-        let sandbox = Sandbox::new();
+    // Algorithmic core: bounded native transcript parser
+    let sandbox = Sandbox::new();
     let path = sandbox.write(
         SESSION,
         &[
@@ -121,10 +121,10 @@ fn bounded_samples_keep_head_title_and_tail_preview_without_exact_counts() {
     assert!(sessions[0].row["messageCount"].is_null());
     assert!(!sessions[0].row.to_string().contains(path.to_str().unwrap()));
 }
-    #[test]
+#[test]
 fn pi_v3_metadata_and_branch_history_stay_read_only() {
-        // Algorithmic core: Pi branch ancestry parser
-        let records = vec![
+    // Algorithmic core: Pi branch ancestry parser
+    let records = vec![
         json!({"type":"session","version":3,"id":SESSION,"cwd":"/workspace","timestamp":"2026-01-01T00:00:00Z"}),
         json!({"type":"message","id":"user","parentId":null,"timestamp":"2026-01-01T00:00:01Z","message":{"role":"user","content":"Question"}}),
         json!({"type":"message","id":"old","parentId":"user","timestamp":"2026-01-01T00:00:02Z","message":{"role":"assistant","content":[{"type":"text","text":"Abandoned branch"}]}}),
@@ -151,10 +151,10 @@ fn pi_v3_metadata_and_branch_history_stay_read_only() {
     assert!(timeline["status"].is_null());
     assert!(timeline.get("path").is_none());
 }
-    #[test]
+#[test]
 fn pi_history_retains_tool_positions_and_compaction_facts() {
-        // Algorithmic core: Pi tool and compaction parser
-        let records = vec![
+    // Algorithmic core: Pi tool and compaction parser
+    let records = vec![
         json!({"type":"message","id":"user","parentId":null,"timestamp":"2026-01-01T00:00:00Z","message":{"role":"user","content":"Edit config"}}),
         json!({"type":"message","id":"assistant","parentId":"user","timestamp":"2026-01-01T00:00:01Z","message":{"role":"assistant","content":[{"type":"text","text":"Starting"},{"type":"toolCall","id":"edit","name":"edit","arguments":{"path":"config.json","oldText":"false","newText":"true"}},{"type":"text","text":"Checking"}]}}),
         json!({"type":"message","id":"result","parentId":"assistant","timestamp":"2026-01-01T00:00:02Z","message":{"role":"toolResult","toolCallId":"edit","toolName":"edit","content":[{"type":"text","text":"Updated"}]}}),
@@ -175,7 +175,7 @@ fn pi_history_retains_tool_positions_and_compaction_facts() {
     assert!(timeline["status"].is_null());
 }
 
-    #[test]
+#[test]
 fn claude_list_metadata_confirms_only_the_latest_explicit_outcome() {
     // Recurring bug class: native Claude list rows fetched full detail histories even when their latest record already confirmed completion.
     let completed = json!({"type":"assistant","uuid":"reply","timestamp":"2026-01-01T00:00:01Z","message":{"role":"assistant","stop_reason":"end_turn","content":[{"type":"text","text":"Done"}]}});

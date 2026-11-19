@@ -17,7 +17,7 @@ impl AgentHost {
             string(&external.session, "project").to_owned()
         } else if agent == "codex" {
             let info = control
-                .thread_rpc(id)
+                .utility()
                 .await?
                 .call(
                     "thread/read",

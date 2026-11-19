@@ -4,10 +4,7 @@ desktop/src/src_conversations/import.rs	encrypted_database_versions_and_host_int
 desktop/src/src_conversations/jobs.rs	fake_keychain_import_transitions_and_same_account_deduplication
 desktop/src/src_conversations/jobs.rs	fake_keychain_denial_and_timeout_remain_pollable_blockers
 native/src/accounts/codex.rs	inherited_managed_home_never_becomes_primary_configuration
-native/src/accounts/codex_config.rs	repeated_configuration_reads_do_not_walk_unchanged_inputs
 native/src/accounts/identity.rs	source_product_correction_reclassifies_only_its_unidentified_account
-native/src/accounts/mod.rs	native_retry_without_account_keeps_retried_turn_attribution
-native/src/accounts/mod.rs	claude_transcript_identity_requires_one_native_account_match
 native/src/accounts/mod.rs	legacy_local_accounts_retire_without_losing_agent_membership
 native/src/accounts/mod.rs	inactive_routes_remain_diagnostics
 native/src/agents/activity.rs	codex_activity_ignores_terminal_questions_without_dropping_late_answers
@@ -185,8 +182,6 @@ native/src/dispatch_policy.rs	terminal_selection_rejects_unknown_and_running_tur
 native/src/dispatch_policy/decision.rs	criteria_tier_conflicts_survive_full_compact_and_cached_reads
 native/src/dispatch_policy/quality.rs	outcomes_review_coverage_and_later_user_findings_are_independent
 native/src/dispatch_policy/quality.rs	retained_history_keeps_newest_window_rows_and_bounds_only_window_overflow
-native/src/dispatch_policy/recommendation.rs	standard_tier_selects_model_with_only_optional_native_tiers
-native/src/dispatch_policy/recommendation.rs	native_pool_projection_retains_compact_allowance_fields
 native/src/dispatch_queue.rs	interrupted_predecessor_requires_explicit_queue_resume
 native/src/dispatch_queue.rs	queue_poll_reuses_history_and_reads_only_the_changed_message
 native/src/dispatch_queue.rs	orphaned_panel_records_remain_cancellable_only_locally
@@ -295,12 +290,6 @@ native/tests/hub_core.rs	desktop_recovers_core_and_remote_connections_independen
 tests/acceptance-fault.test.ts	Isolated faults reject real reads, expire and require a self-test thread
 tests/accounts-ui.test.ts	connector removal revokes only the selected instance and retains the device connection
 tests/accounts.test.ts	unchanged account reads reuse the index without account cost passes or row scans
-tests/accounts.test.ts	account reads observe a replaced index and retain add remove default and quota changes
-tests/accounts.test.ts	Targeted credential import refuses a different Codex identity
-tests/accounts.test.ts	Codex credentials remain independent while sessions use the native shared home
-tests/accounts.test.ts	Codex dispatch picks up shared configuration while an existing task stays active
-tests/accounts.test.ts	Codex account and quota reads remain available after shared configuration changes
-tests/accounts.test.ts	Claude credential profiles share native transcripts and retain legacy data for explicit migration
 tests/activity-ui.test.ts	overflow keeps unfinished work ahead of completions and can reveal every task
 tests/activity-ui.test.ts	later completions and new running tasks retain overflow priority after stored manual moves
 tests/agent-antigravity.test.ts	Antigravity timelines retain replies, tool failures and denied work across turns and restart

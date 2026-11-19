@@ -1995,7 +1995,6 @@ mod tests {
         );
     }
 
-    
     const AT: &str = "2026-01-01T00:00:00.000Z";
     const LATER: &str = "2026-01-01T00:00:01.000Z";
     #[test]
@@ -2012,10 +2011,6 @@ mod tests {
         assert_ne!(result["entries"][0]["id"], result["entries"][1]["id"]);
     }
 
-    
-
-    
-    
     #[test]
     // Algorithmic core: Claude transcript parser
     fn claude_transcript_projects_readonly_text_and_tool_results() {
@@ -2113,9 +2108,7 @@ mod tests {
         assert_eq!(t.revision, revision);
         assert_eq!(t.entries.len(), 3);
     }
-    
-    
-    
+
     #[test]
     // Recurring bug class: lifecycle: approval resolution restores command state
     fn resolved_approval_restores_running_command_phase_and_start() {
@@ -2221,7 +2214,7 @@ mod tests {
         assert_eq!(snapshot["phase"], "file");
         assert_eq!(snapshot["phaseSince"], AT);
     }
-    
+
     #[test]
     // Contract: ACP session/request_permission identity
     fn permission_backfill_preserves_request_and_respond_identity() {

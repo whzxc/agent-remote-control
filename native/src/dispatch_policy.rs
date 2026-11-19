@@ -5,7 +5,6 @@ use crate::*;
 use serde::{Deserialize, Serialize};
 mod decision;
 mod quality;
-mod recommendation;
 static POLICY_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 static RECORDS_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 /// Dispatch records carry an outcome projection, never an operation phase.
@@ -68,14 +67,6 @@ pub(crate) struct Policy {
     #[serde(default)]
     deny_efforts: Vec<String>,
     criteria: String,
-    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
-    account_credit_use: std::collections::BTreeMap<String, CreditUse>,
-}
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(rename_all = "lowercase")]
-enum CreditUse {
-    Allowed,
-    Never,
 }
 /// A user-owned bundle for one task class; the control source selects it explicitly.
 #[derive(Clone, Default, Deserialize, Serialize)]
@@ -116,8 +107,6 @@ pub(crate) struct AgentPolicy {
     allow_options: std::collections::BTreeMap<String, Vec<String>>,
     deny_options: std::collections::BTreeMap<String, Vec<String>>,
     criteria: String,
-    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
-    account_credit_use: std::collections::BTreeMap<String, CreditUse>,
 }
 pub(crate) fn agent_policy(agent: &str) -> Result<AgentPolicy> {
     Ok(read()?.agents.remove(agent).unwrap_or_default())
@@ -165,9 +154,30 @@ fn read_locked() -> Result<(Policies, Value)> {
         bytes.push(b'\n');
         save_bytes(&path, &bytes)?;
     }
-    let value = load(&path)?;
+    let mut value = load(&path)?;
+    // One-time migration: strip removed accountCreditUse maps from existing policy files.
+    let mut migrated = false;
+    if let Some(root_obj) = value.as_object_mut() {
+        for (key, section) in root_obj.iter_mut() {
+            if matches!(key.as_str(), "criteria" | "packs") {
+                continue;
+            }
+            if section
+                .as_object_mut()
+                .and_then(|o| o.remove("accountCreditUse"))
+                .is_some()
+            {
+                migrated = true;
+            }
+        }
+    }
     let policies: Policies = serde_json::from_value(value.clone())
         .map_err(|e| format!("INVALID_DISPATCH_POLICY: dispatch-policy.json: {e}"))?;
+    if migrated {
+        let mut bytes = serde_json::to_vec_pretty(&value).map_err(|e| e.to_string())?;
+        bytes.push(b'\n');
+        let _ = save_bytes(&path, &bytes);
+    }
     if policies
         .codex
         .model
@@ -539,6 +549,13 @@ pub(crate) fn turn_pack(task: &str, turn: &str) -> Option<Value> {
     }
     Some(pack)
 }
+pub(crate) fn turn_usage(task: &str, turn: &str) -> Option<Value> {
+    let rows = records(task).ok()?;
+    rows.iter()
+        .rev()
+        .find(|r| r["turnId"] == turn && r["usage"].is_object())
+        .map(|r| r["usage"].clone())
+}
 /// The pack facts recorded with a dispatch; defaults are already reflected in the selection.
 pub(crate) fn pack_record(args: &Value) -> Value {
     if !args["pack"].is_object() {
@@ -745,16 +762,20 @@ pub(crate) async fn catalog(
 }
 
 async fn codex_facts(c: &control::Control, compact: bool) -> Result<Value> {
-    let (models, quota) = tokio::join!(
-        models(c),
-        c.request("account/rateLimits/read", json!({}), 15000)
-    );
-    let quota = quota.map(|v| {
-        let mut quota = crate::subscriptions::codex_dispatch_quota(&v);
-        quota["state"] = json!("ready");
-        quota["observedAt"] = json!(now());
-        quota
-    });
+    let (models, gateway_quota) =
+        tokio::join!(models(c), crate::local_gateway::fetch_codex_pool_quota());
+    let quota = match gateway_quota {
+        Some((_, quota)) => Ok(quota),
+        None => c
+            .request("account/rateLimits/read", json!({}), 15000)
+            .await
+            .map(|v| {
+                let mut quota = crate::subscriptions::codex_dispatch_quota(&v);
+                quota["state"] = json!("ready");
+                quota["observedAt"] = json!(now());
+                quota
+            }),
+    };
     let authoritative = models.is_ok();
     Ok(json!({
         "observedAt":now(),"authoritative":authoritative,
@@ -773,10 +794,8 @@ pub(crate) async fn query(
     let policies = read()?;
     let mut rows = agents.dispatch_facts(args).await?;
     let snapshot = subscriptions.snapshot().await;
-    let accounts = crate::accounts::read()?;
     for row in &mut rows {
         let agent = string(row, "agent").to_owned();
-        row["accounts"] = crate::accounts::dispatch_accounts(&accounts, &agent)?;
         let providers = snapshot["providers"]
             .as_array()
             .into_iter()
@@ -823,13 +842,9 @@ pub(crate) async fn query(
         }
     }
     let packs = packs_view(&policies, args["view"] == "full")?;
-    let recommendation = recommendation::compute(
-        &json!({"criteria":policies.criteria,"packs":policies.packs,"agents":rows}),
-        args["view"] == "full",
-    );
     Ok(decision::present(
         json!({"observedAt":now(),"policyPath":root().join("dispatch-policy.json"),"criteria":policies.criteria,"packs":packs,
-            "recommendation":recommendation,"packAgents":policies.packs.values().filter_map(|p| p.agent.clone()).collect::<Vec<_>>(),"agents":rows}),
+            "packAgents":policies.packs.values().filter_map(|p| p.agent.clone()).collect::<Vec<_>>(),"agents":rows}),
         args,
     ))
 }
@@ -1060,6 +1075,11 @@ pub(crate) fn summarize_history(
         external_reviews: u64,
         external_pass: u64,
         external_rework: u64,
+        usage_samples: u64,
+        input_tokens: u64,
+        output_tokens: u64,
+        cache_read_tokens: u64,
+        cost_usd: f64,
     }
     let mut groups = std::collections::BTreeMap::<(String, String, String, String), Group>::new();
     let mut seen = std::collections::HashSet::new();
@@ -1157,6 +1177,13 @@ pub(crate) fn summarize_history(
         if let Some(ms) = row["terminal"]["observedDurationMs"].as_u64() {
             group.durations.push(ms);
         }
+        if row["usage"].is_object() && row["usage"]["calls"].as_u64().unwrap_or(0) > 0 {
+            group.usage_samples += 1;
+            group.input_tokens += row["usage"]["inputTokens"].as_u64().unwrap_or(0);
+            group.output_tokens += row["usage"]["outputTokens"].as_u64().unwrap_or(0);
+            group.cache_read_tokens += row["usage"]["cacheReadTokens"].as_u64().unwrap_or(0);
+            group.cost_usd += row["usage"]["costUsd"].as_f64().unwrap_or(0.0);
+        }
     }
     if compact {
         // Decision rows keep the six largest configurations; the rest merge into other.
@@ -1185,6 +1212,11 @@ pub(crate) fn summarize_history(
             other.failed += group.failed;
             other.interrupted += group.interrupted;
             other.durations.append(&mut group.durations);
+            other.usage_samples += group.usage_samples;
+            other.input_tokens += group.input_tokens;
+            other.output_tokens += group.output_tokens;
+            other.cache_read_tokens += group.cache_read_tokens;
+            other.cost_usd += group.cost_usd;
             false
         });
         if other.dispatches + other.external_reviews > 0 {
@@ -1208,6 +1240,15 @@ pub(crate) fn summarize_history(
                 row["medianObservedDurationMs"] =
                     json!((g.durations[(n - 1) / 2] as f64 + g.durations[n / 2] as f64) / 2.0);
                 row["durationSamples"] = json!(n);
+            }
+            if g.usage_samples > 0 {
+                row["usage"] = json!({
+                    "samples": g.usage_samples,
+                    "inputTokens": g.input_tokens,
+                    "outputTokens": g.output_tokens,
+                    "cacheReadTokens": g.cache_read_tokens,
+                    "costUsd": (g.cost_usd * 1_000_000.0).round() / 1_000_000.0,
+                });
             }
             row
         })
@@ -1269,22 +1310,7 @@ pub(crate) fn coordination_admission(base: &Path, thread: &str, request: &str) -
 
 pub(crate) fn records(thread: &str) -> Result<Vec<Value>> {
     let _guard = RECORDS_LOCK.lock().map_err(|e| e.to_string())?;
-    let rows = read_records(thread)?;
-    let account = crate::accounts::codex::bound_account(thread);
-    Ok(rows
-        .iter()
-        .map(|row| {
-            let mut row = row.clone();
-            if row["dispatchSource"] == "native-retry" && row["agentAccountId"].as_str().is_none() {
-                row["agentAccountId"] = json!(crate::accounts::codex_dispatch_account(
-                    &rows,
-                    row["turnId"].as_str(),
-                    &account,
-                ));
-            }
-            row
-        })
-        .collect())
+    read_records(thread)
 }
 fn read_records(thread: &str) -> Result<Vec<Value>> {
     read_rows(&directory(thread)?)
@@ -1412,7 +1438,6 @@ pub(crate) fn record_native_retry(thread: &str, previous: &str, retry: &Value) -
         .unwrap_or("native-persisted-turn-context");
     let row = json!({
         "agent":"codex","taskId":thread,"options":{},"requestId":turn,"threadId":thread,"turnId":turn,"dispatchMode":"new-turn",
-        "agentAccountId":crate::accounts::codex_dispatch_account(&rows, Some(previous), &crate::accounts::codex::bound_account(thread)),
         "origin":parent["origin"],"dispatchSource":"native-retry","retryOf":previous,"nativeTrigger":retry["trigger"],
         "model":config["model"],"effort":config["effort"],"serviceTier":config["serviceTier"],
         "source":{"model":evidence,"effort":evidence,"serviceTier":evidence},
@@ -1465,7 +1490,11 @@ pub(crate) async fn complete(
     last_activity: Option<&str>,
     reconciled: bool,
 ) -> Result<Value> {
-    if !records(thread)?.iter().any(|r| r["turnId"] == turn) {
+    let matching_rows: Vec<Value> = records(thread)?
+        .into_iter()
+        .filter(|r| r["turnId"] == turn)
+        .collect();
+    if matching_rows.is_empty() {
         return Ok(Value::Null);
     }
     let persisted = match c
@@ -1478,6 +1507,22 @@ pub(crate) async fn complete(
     {
         Ok(t) => control::persisted_turns(&t["thread"]),
         Err(_) => control::PersistedTurns::default(),
+    };
+    let gateway_usage = if turn_adapter::terminal(&incoming.state())
+        && matching_rows.iter().any(|r| r["usage"].is_null())
+    {
+        let timing = persisted.timings.get(turn);
+        let started_at = timing.and_then(|t| t["startedAt"].as_str()).or_else(|| {
+            matching_rows
+                .first()
+                .and_then(|r| r["submittedAt"].as_str())
+        });
+        let ended_at = timing.and_then(|t| t["endedAt"].as_str()).or(last_activity);
+        let now_str = now();
+        let effective_end = ended_at.or((!reconciled).then_some(now_str.as_str()));
+        crate::local_gateway::fetch_turn_usage("codex", thread, started_at, effective_end).await
+    } else {
+        None
     };
     // Re-read under the same lock as reviews; observation must never erase a later verdict.
     let _guard = RECORDS_LOCK.lock().map_err(|e| e.to_string())?;
@@ -1495,6 +1540,11 @@ pub(crate) async fn complete(
         );
         if let Some(config) = persisted.configurations.get(turn) {
             row["effectiveConfiguration"] = json!({"model":config["model"],"effort":config["effort"],"serviceTier":config["serviceTier"],"threadServiceTier":config["threadServiceTier"],"source":config["source"]});
+        }
+        if row["usage"].is_null() {
+            if let Some(usage) = gateway_usage.as_ref() {
+                row["usage"] = usage.clone();
+            }
         }
         crate::coordination::observers::save_owner(
             &directory(thread)?.join(format!("{}.json", string(row, "requestId"))),
@@ -1752,9 +1802,27 @@ pub(crate) fn agent_submitted(task: &Value) -> Result<()> {
     }
     Ok(())
 }
-pub(crate) fn agent_observe(task: &Value, submission: Option<&str>) -> Result<()> {
-    let _guard = RECORDS_LOCK.lock().map_err(|e| e.to_string())?;
+pub(crate) async fn agent_observe(task: &Value, submission: Option<&str>) -> Result<()> {
     let task_id = string(task, "taskId");
+    let session_id = task["sessionId"]
+        .as_str()
+        .or(task["threadId"].as_str())
+        .filter(|s| !s.is_empty());
+    let agent_name = string(task, "agent");
+    let terminal_now = turn_adapter::terminal(&crate::agents::lifecycle::read(task).state());
+    let gateway_usage = if terminal_now {
+        if let Some(session) = session_id {
+            let started_at = task["dispatch"]["submittedAt"].as_str();
+            let ended_at = now();
+            crate::local_gateway::fetch_turn_usage(agent_name, session, started_at, Some(&ended_at))
+                .await
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    let _guard = RECORDS_LOCK.lock().map_err(|e| e.to_string())?;
     for mut row in read_records(task_id)?
         .into_iter()
         .filter(|r| r["turnId"] == task["turnId"] && r["agent"] == task["agent"])
@@ -1780,6 +1848,11 @@ pub(crate) fn agent_observe(task: &Value, submission: Option<&str>) -> Result<()
         {
             let message = &task["lastMessage"];
             row["turnEvidence"] = json!({"model":format!("{}/{}",string(message,"provider"),string(message,"model")),"source":"pi-assistant-message","scope":"turn","observedAt":now()});
+        }
+        if row["usage"].is_null() {
+            if let Some(usage) = gateway_usage.as_ref() {
+                row["usage"] = usage.clone();
+            }
         }
         crate::coordination::observers::save_owner(
             &directory(task_id)?.join(format!("{}.json", string(&row, "requestId"))),
@@ -2047,19 +2120,16 @@ mod tests {
             "REVIEW_TERMINAL_TURN_NOT_FOUND"
         );
     }
-
 }
 
 #[cfg(test)]
 mod inheritance_tests {
     use super::*;
-    
 }
 
 #[cfg(test)]
 mod catalog_metadata_tests {
     use super::*;
-
 }
 
 #[cfg(test)]
@@ -2096,7 +2166,7 @@ mod pack_tests {
         assert_eq!(block.matches("<arc-pack").count(), 1);
     }
 
-#[test]
+    #[test]
     fn local_review_undo_rejects_changed_or_external_verdicts() {
         // Contract: local review receipt identity and undo authorization
         let local = json!({"review":{"requestId":"same","verdict":"pass","reviewer":{"controlSource":"ARC"}}});
@@ -2111,7 +2181,7 @@ mod pack_tests {
         assert!(!local_review_matches(&[rework], "same"));
     }
 
-#[test]
+    #[test]
     fn external_configuration_prefers_turn_evidence_and_retains_missing_as_null() {
         // Algorithmic core: per-turn dispatch configuration selection
         let configuration = review_configuration(&[
@@ -2128,7 +2198,7 @@ mod pack_tests {
         );
     }
 
-#[test]
+    #[test]
     fn external_history_uses_configuration_groups_with_separate_counts_and_no_durations() {
         // Contract: dispatch history summary groups and external review fields
         let mut arc = json!({"agent":"codex","threadId":"thread","turnId":"arc","dispatchMode":"new-turn","submittedAt":now(),"model":"model","effort":"high","serviceTier":"priority","options":{},"review":{"verdict":"pass"},"terminal":{"state":"completed","observedDurationMs":60000}});
@@ -2170,7 +2240,7 @@ mod pack_tests {
             .is_empty());
     }
 
-#[test]
+    #[test]
     fn latest_explicit_fields_survive_omission_independently() {
         // Algorithmic core: inherited dispatch configuration selection
         let records = vec![
@@ -2192,7 +2262,7 @@ mod pack_tests {
         assert_eq!(inherited_configuration(&Value::Null, &[]), json!({}));
     }
 
-#[test]
+    #[test]
     fn catalog_metadata_codex_retains_only_native_display_fields() {
         // Contract: dispatch catalog model metadata fields
         let native = json!({"model":"opaque-id","displayName":"Native model","provider":{"id":"native","name":"Native provider"},"contextWindow":200000,"serviceTiers":[{"id":"priority"}],"supportedReasoningEfforts":[{"reasoningEffort":"high"}]});
@@ -2213,7 +2283,7 @@ mod pack_tests {
         }
     }
 
-#[test]
+    #[test]
     fn pack_history_counts_new_turns_and_excludes_self_tests() {
         // Contract: dispatch pack history summary format
         let now = chrono::Utc::now();

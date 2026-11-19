@@ -218,9 +218,6 @@ pub fn failure(e: &str) -> Value {
     if device_code == "OP_UNAVAILABLE" || device_code.starts_with("DEVICE_") {
         return json!({"code":device_code,"message":e,"next":{"via":"query","op":"guide","args":{}}});
     }
-    if let Some(message) = e.strip_prefix("CODEX_PROFILE_PARITY_FAILED: ") {
-        return json!({"code":"CODEX_PROFILE_PARITY_FAILED","message":message,"retryable":false,"next":{"via":"query","op":"guide","args":{"op":"accounts"}}});
-    }
     if let Some(code) = crate::src_conversations::error_code(e) {
         return json!({"code":code,"message":e,"retryable":false});
     }
@@ -248,12 +245,6 @@ pub fn failure(e: &str) -> Value {
                     | "NOTIFICATION_TARGET_NOT_BOUND_TO_SOURCE"
                     | "INVALID_CLAUDE_SESSION"
                     | "ACCOUNT_SELECTION_REQUIRED"
-                    | "ACCOUNT_DEFAULT_MISSING"
-                    | "ACCOUNT_DEFAULT_AGENT_REQUIRED"
-                    | "CODEX_THREAD_ACCOUNT_MISMATCH"
-                    | "CODEX_PROFILE_DESKTOP_UNSUPPORTED"
-                    | "CLAUDE_SESSION_MIGRATION_REQUIRED"
-                    | "CODEX_PROFILE_PARITY_FAILED"
                     | "ACCOUNT_ROUTE_CHANGED"
                     | "HANDSHAKE_INVALID_OR_EXPIRED"
                     | "DESKTOP_STEER_UNAVAILABLE"
@@ -319,8 +310,6 @@ pub fn receipt(value: Value) -> Value {
         "turnId",
         "taskId",
         "agent",
-        "agentAccountId",
-        "agentProfileId",
         "error",
         "notification",
         "notificationError",

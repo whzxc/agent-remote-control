@@ -565,5 +565,4 @@ pub(crate) fn scale_poll() -> Result<()> {
 #[cfg(test)]
 mod projection_tests {
     use super::*;
-    
 }

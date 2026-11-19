@@ -22,15 +22,15 @@ export function deviceTaskSnapshot(value: unknown): DeviceTaskSnapshot {
     && Object.values(value.agents).every(activity => object(activity) && Array.isArray(activity.sessions)
       && activity.sessions.every(session => object(session) && typeof session.id === 'string'
         && typeof session.headline === 'string' && typeof session.phase === 'string'
-        && optionalStrings(session, ['title', 'fallbackHeadline', 'startedAt', 'turnStartedAt', 'turnEndedAt', 'turnId', 'agentAccountId'])
+        && optionalStrings(session, ['title', 'fallbackHeadline', 'startedAt', 'turnStartedAt', 'turnEndedAt', 'turnId'])
         && (session.interaction == null || object(session.interaction) && typeof session.interaction.summary === 'string'
           && object(session.interaction.respond))
         && (session.origin == null || object(session.origin) && optionalStrings(session.origin, ['sourceId', 'sourceLabel', 'deviceId']))
-        && (session.dispatchSummary == null || object(session.dispatchSummary) && optionalStrings(session.dispatchSummary, ['model', 'effort', 'serviceTier', 'agentAccountId'])
+        && (session.dispatchSummary == null || object(session.dispatchSummary) && optionalStrings(session.dispatchSummary, ['model', 'effort', 'serviceTier'])
           && (session.dispatchSummary.controlSource == null || object(session.dispatchSummary.controlSource) && optionalStrings(session.dispatchSummary.controlSource, ['id', 'label', 'kind', 'deviceId'])))))
     && Array.isArray(value.availableAgents) && value.availableAgents.every(agent => object(agent) && typeof agent.agent === 'string' && optionalStrings(agent, ['displayName', 'version']))
     && Array.isArray(value.records) && value.records.every(record => object(record) && object(record.task)
-      && typeof record.createdAt === 'string' && optionalStrings(record, ['agent', 'taskId', 'threadId', 'turnId', 'agentAccountId'])
+      && typeof record.createdAt === 'string' && optionalStrings(record, ['agent', 'taskId', 'threadId', 'turnId'])
       && optionalStrings(record.task, ['title', 'prompt', 'threadId'])
       && (record.runtime == null || object(record.runtime) && optionalStrings(record.runtime, ['title', 'status', 'runtimeStatus'])))
     && Number.isInteger(value.omittedRecords) && Number(value.omittedRecords) >= 0;

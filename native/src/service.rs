@@ -921,9 +921,6 @@ impl Service {
                 }
                 ("POST", "tasks/open") => {
                     let task = string(&body, "taskId");
-                    if body["agent"] == "codex" {
-                        self.control.observe_thread_account(task).await?;
-                    }
                     self.agents.open_task(string(&body, "agent"), task).await
                 }
                 ("GET", route) if route.starts_with("tasks/runtime/") => {

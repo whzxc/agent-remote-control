@@ -1,7 +1,7 @@
 import { createStore } from './store';
 
 export type HomepageMode = 'topology' | 'tasks';
-export type NodeTaskFocus = { id: string; label: string; agent?: string; accountId?: string; sourceIds?: string[]; upstreamSourceId?: string; deviceId?: string };
+export type NodeTaskFocus = { id: string; label: string; agent?: string; sourceIds?: string[]; upstreamSourceId?: string; deviceId?: string };
 function savedMode(): HomepageMode {
   try { return JSON.parse(localStorage.getItem('arc.homepage-mode') ?? 'null') === 'tasks' ? 'tasks' : 'topology'; }
   catch { return 'topology'; }

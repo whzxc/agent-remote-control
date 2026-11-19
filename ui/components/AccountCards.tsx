@@ -21,7 +21,7 @@ export function AgentAccountCard({ account, profile, onSelect, onReauth }: {
   const id = useId();
   const provider = accountQuotaProvider(profile.agent, account.quota);
   const signedIn = profile.state === 'signed-in';
-  const canRemove = profile.kind !== 'api-key' && profile.profileId !== 'codex-home' && account.agentProfiles.length === 1 && !account.sources.length;
+  const canRemove = account.agentProfiles.length === 1 && !account.sources.length;
   async function refresh() {
     setRefreshing(true); setError('');
     try { await refreshAccountQuota(account.id); }

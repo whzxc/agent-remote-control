@@ -7,7 +7,7 @@ import { AccountCard } from "../modules/agent-account";
 import { platformAccounts, platformAccountCopy as copy } from "../fixtures/agent-accounts";
 
 function Platform({ agent, state = "ready" }: {
-  agent: typeof platformAccounts.claude | typeof platformAccounts.codex;
+  agent: typeof platformAccounts.claude;
   state?: "ready" | "empty" | "loading";
 }) {
   return (
@@ -38,10 +38,6 @@ export default () => [
   <Frame name="accounts" fixture="agent-platform-lifecycle"
     capture={{ selector: ".dialog:has(.agent-platform-view)", viewport: "1280x800" }}>
     <Platform agent={platformAccounts.claude} />
-  </Frame>,
-  <Frame name="single-account" fixture="agent-platform-single"
-    capture={{ selector: ".dialog:has(.agent-platform-view)", viewport: "1280x800" }}>
-    <Platform agent={platformAccounts.codex} />
   </Frame>,
   <Frame name="empty" fixture="agent-platform-empty"
     capture={{ selector: ".dialog:has(.agent-platform-view)", viewport: "1280x800" }}>

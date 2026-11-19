@@ -33,8 +33,8 @@ import type { LayerRect as SurfaceRect } from "../components/ui/layerFrame";
 
 export interface NodeView extends Omit<PaintNode, "side"> { content: ReactNode; extent?: number; hasChildren?: boolean; deviceId?: string; remoteAgent?: string; upstreamSourceId?: string; capsuleMark?: ReactNode; reorderable?: boolean; children?: NodeView[]; collapsed?: boolean;
   unread?: ActivityReadTarget[];
-  platformRoot?: boolean; account?: boolean; accountId?: string; sameIdentity?: boolean; platform?: string; platformLabel?: string; label?: string;
-  sourceIds?: string[]; icon?: ReactNode; selectedAccountId?: string | null;
+  platformRoot?: boolean; account?: boolean; platform?: string; platformLabel?: string; label?: string;
+  sourceIds?: string[]; icon?: ReactNode;
   groupMember?: string; group?: TopologyGroupPlan; quota?: ProviderSnapshot;
   activityAt?: number; activityLevel?: number; pinned?: boolean;
   sourceProduct?: string; sourceProductLabel?: string;
@@ -289,10 +289,10 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
       },
       route: (from, to, size, occupied = []) => petPath(from, to, bounds, [...obstacles, ...occupied], size),
       wander: (from, size, occupied) => wanderPost(from, bounds, [...obstacles, ...occupied], size),
-      participant: (p, accountId, size = petSize('participant', p.brand === 'other')) => {
+      participant: (p, size = petSize('participant', p.brand === 'other')) => {
         const side = p.kind === 'source' ? -1 : 1;
         const candidates = latest.current.nodes.filter(n => n.side === side && nodeRects.has(nodeKey(n.side, n.id)) && (side === -1 ? n.sourceIds?.includes(p.nativeId) || n.id === p.nativeId : (n.platform ?? n.id) === p.nativeId));
-        const node = candidates.find(n => side === -1 && n.id === p.nativeId || accountId && n.accountId === accountId) ?? candidates.find(n => !n.account) ?? candidates[0];
+        const node = candidates.find(n => side === -1 && n.id === p.nativeId) ?? candidates.find(n => !n.account) ?? candidates[0];
         const rect = node && nodeRects.get(nodeKey(side, node.id));
         return rect && hub ? participantPost(rect, { x: hub.x, y: hub.y }, obstacles, bounds, size) : undefined;
       },
@@ -659,7 +659,7 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
       data-node-id={n.id} data-agent-node={!n.group && n.side === 1 ? n.platform ?? n.id : undefined} data-source-node={!n.group && n.side === -1 ? n.platformRoot ? n.id : n.sourceIds?.[0] ?? n.id : undefined}
       data-agent-platform={n.side === 1 && !n.account ? n.platform : undefined}
       data-source-platform={n.side === -1 ? n.platform : undefined}
-      data-account-id={n.accountId} data-topology-group={n.group?.id}
+      data-topology-group={n.group?.id}
       className={`topology-node ${n.group ? "topology-group-node" : ""} ${n.side === 1 ? "agents" : "sources"}`} data-highlighted={n.selected || undefined} data-reorderable={n.reorderable || undefined}
       onPointerEnter={() => changeHover({ side: n.side, id: n.id })} onPointerLeave={() => changeHover(null)} onPointerCancel={() => changeHover(null)}
       onFocusCapture={() => setFocus({ side: n.side, id: n.id })} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) { changeHover(null); } }}

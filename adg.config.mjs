@@ -64,13 +64,6 @@ export default {
       if (['agent-panel-loading', 'agent-platform-loading', 'source-panel-loading'].includes(name)) {
         await page.getByRole('dialog').getByText('正在加载…', { exact: true }).waitFor();
       }
-      if (scenario.startsWith('codex-account-add-')) {
-        await page.getByRole('button', { name: '添加账号', exact: true }).click();
-        const dialog = page.getByRole('dialog', { name: '添加 Codex 账号', exact: true });
-        await dialog.waitFor();
-        if (!scenario.includes('-oauth-')) await dialog.getByRole('radio', { name: '导入凭据', exact: true }).click();
-        if (scenario.includes('-external-')) await dialog.getByRole('radio', { name: '外部托管', exact: true }).click();
-      }
       if (preparation?.modelPicker || preparation?.modelDialog) {
         await page.getByRole('button', { name: '本任务模型', exact: true }).click();
         await page.locator('.task-dispatch-fields .select-trigger').waitFor();

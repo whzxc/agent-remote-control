@@ -13,11 +13,11 @@ flowchart TB
   end
   subgraph OWNERS["Business owners"]
     direction TB
-    control["Control<br/>Codex · workspace · review"]
+    control["Control<br/>Codex · workspace · review · usage backfill"]
     agenthost["AgentHost<br/>other Agents"]
-    accounts["accounts<br/>identities"]
+    accounts["accounts<br/>control sources · Claude L1 notify profiles"]
     coord["coordination<br/>board · messages · AX"]
-    policy["dispatch_policy<br/>criteria · packs"]
+    policy["dispatch_policy<br/>criteria · packs · quality history"]
     hub["mcp_hub"]
     control ~~~ coord
     agenthost ~~~ policy
@@ -27,7 +27,7 @@ flowchart TB
     direction TB
     notify["claude_notify<br/>observe · schedule · deliver"]
     queue["dispatch_queue<br/>queued sends"]
-    subs["subscriptions<br/>quota readers"]
+    subs["subscriptions<br/>native + optional gateway quotas"]
     notify ~~~ queue
     queue ~~~ subs
   end
@@ -38,11 +38,14 @@ flowchart TB
     events["events and inbox"]
   end
   lifecycle["turn_lifecycle<br/>pure classification"]
-  ext[("Codex Desktop · App Server · task-host")]
+  ext[("Codex Desktop · single App Server · task-host")]
+  gw[("Optional local gateway<br/>quotas · per-turn usage")]
   fdq -->|"private IPC"| inproc
   exec --> OWNERS
   OWNERS --> KERNEL
   OWNERS --> ext
+  OWNERS -.->|"optional"| gw
+  BG -.->|"optional"| gw
   BG --> lifecycle
   BG --> KERNEL
   class hub experimental

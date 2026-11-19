@@ -21,13 +21,6 @@ impl AgentDriver {
         }
     }
     pub fn navigation(&self, task: &str) -> Option<Value> {
-        if matches!(self, Self::CodexNative)
-            && crate::accounts::codex::thread_profile(task)
-                .ok()
-                .is_some_and(|p| p != "codex-home")
-        {
-            return None;
-        }
         self.deep_link(task)?;
         match self {
             Self::CodexNative
@@ -39,11 +32,6 @@ impl AgentDriver {
         }
     }
     pub async fn open_task(&self, task: &str) -> Result<Value> {
-        if matches!(self, Self::CodexNative)
-            && crate::accounts::codex::thread_profile(task)? != "codex-home"
-        {
-            return Err(json!({"code":"CODEX_PROFILE_DESKTOP_UNSUPPORTED","message":"Secondary Codex tasks run in their account's App Server. Codex Desktop uses the primary login.","next":{"via":"query","op":"guide","args":{"op":"codex_send"}}}).to_string());
-        }
         let url = self
             .deep_link(task)
             .ok_or("AGENT_TASK_OPEN_UNSUPPORTED_OR_INVALID_ID")?;
@@ -419,7 +407,7 @@ impl AgentDriver {
         };
         t["dispatch"]["submission"] = json!(submission);
         t["dispatch"]["turnEvidence"] = t["turnEvidence"].clone();
-        crate::dispatch_policy::agent_observe(&t, Some(submission))?;
+        crate::dispatch_policy::agent_observe(&t, Some(submission)).await?;
         save_task(&t)?;
         if let Err(error) = crate::claude_notify::observe(
             string(&t, "taskId"),
@@ -681,6 +669,4 @@ pub(super) fn discover_in(name: &str, paths: &[PathBuf]) -> Vec<PathBuf> {
 }
 
 #[cfg(test)]
-mod navigation_tests {
-    
-}
+mod navigation_tests {}

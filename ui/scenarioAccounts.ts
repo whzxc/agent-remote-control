@@ -1,4 +1,4 @@
-import type { ProviderAccount, AccountLogin, AccountsResult, CodexAccountImport } from './types';
+import type { ProviderAccount, AccountLogin, AccountsResult } from './types';
 import type { Status, ControlSource } from './state/types';
 // In-memory implementation of the native management routes in docs/reference/tools.md.
 export function accountScenario(status: Status, sources: ControlSource[], scenario?: string) {
@@ -12,9 +12,8 @@ export function accountScenario(status: Status, sources: ControlSource[], scenar
   const accounts: ProviderAccount[] = [
     { id: 'account-source', provider: 'anthropic', identityKey: `anthropic:unidentified:${sources[0].id}`, alias: 'Unidentified', createdAt: now, observedAt: now, sources: [sources[0].id], agentProfiles: [], health: { state: 'ready' }, notifications: { state: 'not-bound', reachable: false, sessions: [] }, quota: { state: 'unavailable', windows: [] } },
     { id: 'account-claude', provider: 'anthropic', identityKey: 'anthropic:id:example-claude-identity', alias: 'Studio', email: 'alex@example.com', orgName: 'Example Studio', plan: 'Max', createdAt: now, observedAt: now, sources: [], health: { state: 'ready' }, agentProfiles: [{ agent: 'claude', profileId: 'profile-claude', kind: 'cli-profile', state: 'signed-in', default: true }], notifications: { state: 'verified', reachable: true, sessions: [{ target: 'session_010000000000000000000001', state: 'verified', verified: true, lastDelivery: { at: Math.floor(Date.now() / 1000), status: 'sent' } }] }, quota: { state: 'ready', windows: [{ id: 'five-hour', poolId: 'main', label: '5 h', usedPercent: 37, resetsAt: new Date(Date.now() + 7200000).toISOString() }, { id: 'weekly', poolId: 'main', label: '7 d', usedPercent: 68, resetsAt: new Date(Date.now() + 259200000).toISOString() }] } },
-    { id: 'account-openai', provider: 'openai', identityKey: 'openai:id:example-openai-identity', alias: 'Personal', email: 'jordan@example.com', orgName: 'Example Lab', plan: 'Plus', createdAt: now, observedAt: now, sources: [chatgpt.id], health: { state: 'ready' }, agentProfiles: [{ agent: 'codex', profileId: 'codex-home', kind: 'codex-home', state: 'signed-in', default: true }], notifications: { state: 'mcp-events', reachable: true, sessions: [] }, quota: { state: 'ready', windows: [{ id: 'weekly', poolId: 'main', label: '7 d', usedPercent: 24, resetsAt: new Date(Date.now() + 86400000).toISOString() }] } },
+    { id: 'account-openai', provider: 'openai', identityKey: 'openai:id:example-openai-identity', alias: 'Personal', email: 'jordan@example.com', orgName: 'Example Lab', plan: 'Plus', createdAt: now, observedAt: now, sources: [chatgpt.id], health: { state: 'ready' }, agentProfiles: [], notifications: { state: 'mcp-events', reachable: true, sessions: [] }, quota: { state: 'ready', windows: [{ id: 'weekly', poolId: 'main', label: '7 d', usedPercent: 24, resetsAt: new Date(Date.now() + 86400000).toISOString() }] } },
     { id: 'account-review', provider: 'anthropic', identityKey: 'anthropic:id:example-review-identity', alias: 'Review', email: 'review@example.com', orgName: 'Example Review', createdAt: now, observedAt: now, sources: [], health: { state: 'attention' }, agentProfiles: [{ agent: 'claude', profileId: 'profile-review', kind: 'cli-profile', state: 'signed-out', default: false }], notifications: { state: 'n/a', sessions: [] }, quota: { state: 'unavailable', windows: [] } },
-    { id: 'account-key', provider: 'deepseek', identityKey: 'deepseek:unidentified:api-key:dsh', alias: 'Unidentified', createdAt: now, observedAt: now, sources: [], health: { state: 'attention' }, agentProfiles: [{ agent: 'dsh', profileId: 'api-key:dsh', kind: 'api-key', state: 'unfinished', default: true }], notifications: { state: 'n/a', sessions: [] }, quota: { state: 'unavailable', windows: [] } },
   ];
   const connectedAccount = accounts.find(account => account.sources.includes(chatgpt.id))!;
   chatgpt.authorizationFacts = { email: connectedAccount.email ?? undefined, orgName: connectedAccount.orgName ?? undefined };
@@ -31,16 +30,10 @@ export function accountScenario(status: Status, sources: ControlSource[], scenar
       alias: 'Personal', email: 'personal@example.com', agentProfiles: [{ ...team.agentProfiles[0], profileId: 'profile-personal', default: false }],
       quota: { state: 'unavailable', windows: [] } });
   }
-  if (scenario === 'agent-platform-single') {
-    const primary = accounts.find(account => account.id === 'account-openai')!;
-    primary.agentProfiles[0].state = 'signed-out';
-    primary.quota = { state: 'unavailable', windows: [] };
-    primary.email = 'personal@example.com';
-  }
   if (scenario === 'agent-platform-empty') {
     for (const account of accounts) account.agentProfiles = account.agentProfiles.filter(profile => profile.agent !== 'claude');
   }
-  let polls = 0, sequence = 0, login: AccountLogin | null = null;
+  let sequence = 0, login: AccountLogin | null = null;
   let loginAccount: string | undefined;
   const requireAccount = (id: string): ProviderAccount => {
     for (let hop = 0; hop <= accounts.length; hop++) {
@@ -52,14 +45,13 @@ export function accountScenario(status: Status, sources: ControlSource[], scenar
     throw new Error('ACCOUNT_MERGE_CYCLE');
   };
   function completeLogin() {
-    if (!login || !['claude', 'codex'].includes(login.kind)) return;
-    const account = requireAccount(loginAccount ?? (login.kind === 'claude' ? 'account-claude' : 'account-openai'));
-    account.agentProfiles.forEach(profile => { if (profile.agent === login!.kind) profile.state = 'signed-in'; });
+    if (!login || login.kind !== 'claude') return;
+    const account = requireAccount(loginAccount ?? 'account-claude');
+    account.agentProfiles.forEach(profile => { if (profile.agent === 'claude') profile.state = 'signed-in'; });
     account.health.state = 'ready'; login = { ...login, state: 'completed', loginUrl: null, accountId: account.id };
   }
   function list(agent?: string): AccountsResult {
     if (login?.state === 'starting') login = { ...login, state: 'waiting' };
-    else if (login?.state === 'waiting' && login.kind !== 'claude' && ++polls >= 4) completeLogin();
     return { accounts: accounts.filter(a => !a.removedAt && (!agent || a.agentProfiles.some(p => p.agent === agent))).map(({ email, orgName, ...account }) => account), login };
   }
   return (path: string, method: string, raw?: unknown): unknown => {
@@ -106,31 +98,20 @@ export function accountScenario(status: Status, sources: ControlSource[], scenar
       target.observedAt = now;
       return target;
     }
-    if (route === 'accounts/import' && method === 'POST') {
-      const request = raw as CodexAccountImport;
-      const tokens = request.auth.tokens as { account_id?: string; access_token?: string } | undefined;
-      if (!tokens?.access_token) throw new Error('CODEX_AUTH_INVALID');
-      const id = `imported-${++sequence}`, profileId = `profile-${id}`;
-      accounts.push({ id, provider: 'openai', identityKey: `openai:id:${tokens.account_id ?? id}`, alias: request.alias ?? 'Personal', createdAt: now, observedAt: now,
-        sources: [], health: { state: 'ready' }, agentProfiles: [{ agent: 'codex', profileId, kind: 'codex-home', state: 'signed-in', default: false, refreshOwner: request.refreshOwner }], notifications: { state: 'n/a', sessions: [] }, quota: { state: 'unavailable', windows: [] } });
-      return { state: 'completed', accountId: id, profileId, refreshOwner: request.refreshOwner };
-    }
     if (['accounts/add', 'accounts/reauth'].includes(route) && method === 'POST') {
       const kind = (body.kind ?? body.agent) as AccountLogin['kind'];
-      if (!['claude', 'codex', 'detect', 'api-key'].includes(kind)) throw new Error('ACCOUNT_NATIVE_LOGIN_REQUIRED');
+      if (!['claude', 'detect'].includes(kind)) throw new Error('ACCOUNT_NATIVE_LOGIN_REQUIRED');
       if (body.id) { const account = requireAccount(body.id); if (account.removedAt) throw new Error('ACCOUNT_REMOVED'); if (!account.agentProfiles.some(p => p.agent === body.agent)) throw new Error('ACCOUNT_AGENT_MISSING'); }
-      polls = 0; loginAccount = body.id;
-      if ((kind === 'codex' || kind === 'claude') && !body.id) {
+      loginAccount = body.id;
+      if (kind === 'claude' && !body.id) {
         const id = `oauth-${++sequence}`;
-        const provider = kind === 'codex' ? 'openai' : 'anthropic';
-        accounts.push({ id, provider, identityKey: `${provider}:id:${id}`, alias: kind === 'claude' ? 'New Claude' : 'Personal',
+        accounts.push({ id, provider: 'anthropic', identityKey: `anthropic:id:${id}`, alias: 'New Claude',
           email: 'new@example.com', createdAt: now, observedAt: now, sources: [], health: { state: 'attention' },
-          agentProfiles: [{ agent: kind, profileId: `profile-${id}`, kind: kind === 'codex' ? 'codex-home' : 'cli-profile', state: 'unfinished', default: false }], notifications: { state: 'n/a', sessions: [] }, quota: { state: 'unavailable', windows: [] } });
+          agentProfiles: [{ agent: 'claude', profileId: `profile-${id}`, kind: 'cli-profile', state: 'unfinished', default: false }], notifications: { state: 'n/a', sessions: [] }, quota: { state: 'unavailable', windows: [] } });
         loginAccount = id;
       }
-      login = { loginId: `example-login-${++sequence}`, kind, state: kind === 'claude' ? 'starting' : 'waiting', browserId: body.browserId,
-        browserName: body.browserId === 'chrome-profile' ? 'Google Chrome · Profile A' : undefined, loginUrl: 'https://login.example.com/authorize' };
-      if (kind === 'api-key') login = { loginId: login.loginId, kind, state: 'unfinished', errors: [], next: { message: "Configure the key using the Agent's native authentication, then call account_add with kind detect. ARC never stores an inference key in an account record." } };
+      login = { loginId: `example-login-${++sequence}`, kind, state: kind === 'claude' ? 'starting' : 'completed', browserId: body.browserId,
+        browserName: body.browserId === 'chrome-profile' ? 'Google Chrome · Profile A' : undefined, loginUrl: kind === 'claude' ? 'https://login.example.com/authorize' : undefined };
       if (kind === 'detect') login = { loginId: login.loginId, kind, state: 'completed', errors: [] };
       return login;
     }
@@ -138,7 +119,6 @@ export function accountScenario(status: Status, sources: ControlSource[], scenar
       if (!login || body.loginId !== login.loginId) throw new Error('LOGIN_NOT_FOUND');
       if (body.action === 'cancel') { login = { ...login, state: 'cancelled', loginUrl: null }; return login; }
       if (body.action !== 'code') throw new Error('INVALID_LOGIN_ACTION');
-      if (login.kind === 'codex') throw new Error('ACCOUNT_LOGIN_CODE_UNSUPPORTED');
       if (login.kind !== 'claude') throw new Error('ACCOUNT_NATIVE_LOGIN_REQUIRED');
       if (!body.code?.trim()) throw new Error('LOGIN_CODE_REQUIRED');
       if (body.code === 'fixture-expired-code') {
@@ -151,10 +131,6 @@ export function accountScenario(status: Status, sources: ControlSource[], scenar
       if (route === 'accounts/update') {
         if (account.removedAt) throw new Error('ACCOUNT_REMOVED');
         if (body.alias !== undefined) { if (!body.alias.trim()) throw new Error('ACCOUNT_ALIAS_REQUIRED'); account.alias = body.alias.trim(); }
-        if (body.defaultFor) {
-          if (!account.agentProfiles.some(p => p.agent === body.defaultFor)) throw new Error('ACCOUNT_AGENT_MISSING');
-          accounts.forEach(a => a.agentProfiles.forEach(p => { if (p.agent === body.defaultFor) p.default = !a.removedAt && a.id === account.id; }));
-        }
       } else {
         if (!['finish', 'cancel'].includes(body.running)) throw new Error('INVALID_RUNNING_POLICY');
         account.removedAt = now; account.health.state = 'removed'; account.displayName = `Removed account · ${account.alias}`; account.notifications.state = 'removed';

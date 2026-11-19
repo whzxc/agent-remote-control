@@ -426,10 +426,7 @@ pub(crate) async fn launch(
     };
     #[cfg(windows)]
     let socket = format!(r"\\.\pipe\arc-task-{}", id());
-    let mut spec = command_spec(
-        command.as_std(),
-        state["agent"] == "claude" && state["agentProfileId"].is_string(),
-    )?;
+    let mut spec = command_spec(command.as_std(), false)?;
     spec["directory"] = json!(directory);
     spec["socket"] = json!(socket);
     spec["taskId"] = state["taskId"].clone();

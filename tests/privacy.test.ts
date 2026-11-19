@@ -128,12 +128,12 @@ test('account privacy replaces DOM values, restores them exactly and preserves r
     assert.ok(page.getByText(source.authorizationFacts.orgName, { exact: true }));
     assert.equal(page.queryByText(sourceAccount.identityKey, { exact: true }), null);
     await act(async () => setPrivacy(true));
-    await render(h(Dialog, { title: 'Agent platform', onClose() {} }, h(AgentPlatformView, { agent: { agent: 'codex' } })));
+    await render(h(Dialog, { title: 'Agent platform', onClose() {} }, h(AgentPlatformView, { agent: { agent: 'claude' } })));
     assertPrivate();
     await act(async () => setPrivacy(false));
-    assert.ok(page.getByText(sourceAccount.email, { exact: true }));
-    assert.equal(page.queryByText(sourceAccount.orgName, { exact: true }), null);
-    assert.equal(page.queryByText(sourceAccount.identityKey, { exact: true }), null);
+    assert.ok(page.getByText(account.email, { exact: true }));
+    assert.equal(page.queryByText(account.orgName, { exact: true }), null);
+    assert.equal(page.queryByText(account.identityKey, { exact: true }), null);
     await act(async () => setPrivacy(true));
     await act(async () => navigation.set((old: any) => ({ ...old, remoteSourceId: undefined, remoteConnectionId: undefined })));
     await render(h(ConnectionsContent)); assertPrivate();

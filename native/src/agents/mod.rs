@@ -443,57 +443,6 @@ impl AgentHost {
             },
         )
     }
-    pub(crate) async fn cancel_account(
-        self: &Arc<Self>,
-        control: &Arc<control::Control>,
-        account: &str,
-    ) -> Result<()> {
-        let owner = crate::accounts::resolve(account)?;
-        let mut account_ids = owner["mergedAccountIds"]
-            .as_array()
-            .cloned()
-            .unwrap_or_default();
-        account_ids.push(owner["id"].clone());
-        let processes: Vec<_> = self.processes.lock().await.values().cloned().collect();
-        for process in processes {
-            let state = process.state.lock().await.clone();
-            if account_ids.contains(&state["agentAccountId"]) && lifecycle::active(&state) {
-                self.tool(
-                    control,
-                    "agent_interrupt",
-                    json!({"agent":state["agent"],"taskId":state["taskId"],"approval":"bypass"}),
-                )
-                .await?;
-            }
-        }
-        let records = control.task_records().await?;
-        let active: Vec<_> = control
-            .events
-            .lock()
-            .await
-            .timelines
-            .iter()
-            .filter(|(_, t)| {
-                matches!(
-                    t.turn_lifecycle(&t.turn).state(),
-                    crate::turn_lifecycle::TurnState::Active
-                        | crate::turn_lifecycle::TurnState::AwaitingInteraction
-                )
-            })
-            .map(|(id, _)| id.clone())
-            .collect();
-        for task in active {
-            if records
-                .iter()
-                .any(|r| account_ids.contains(&r["agentAccountId"]) && r["threadId"] == task)
-            {
-                control
-                    .mutate("interrupt", json!({"threadId":task,"approval":"bypass"}))
-                    .await?;
-            }
-        }
-        Ok(())
-    }
     pub async fn activity(&self, control: &control::Control) -> Value {
         let processes: Vec<_> = self.processes.lock().await.values().cloned().collect();
         let disabled = self.disabled.lock().await.clone();
@@ -1108,16 +1057,6 @@ impl AgentHost {
             return Ok(receipt);
         }
         if matches!(name, "agent_create" | "agent_send") {
-            let selected = crate::accounts::select(agent, args["account"].as_str())?;
-            if name == "agent_send" {
-                let existing = self.task(agent, string(&args, "taskId")).await?;
-                if existing["agentProfileId"].is_string()
-                    && existing["agentProfileId"] != selected["agentProfileId"]
-                {
-                    return Err("ACCOUNT_TASK_MISMATCH: This task retains its original login profile; select its account or create a new task".into());
-                }
-            }
-            crate::accounts::attach(&mut args, &selected);
             crate::dispatch_policy::apply_pack(&mut args, agent, name)?;
         }
         let task = if name == "agent_create" {
@@ -1146,7 +1085,7 @@ impl AgentHost {
         if matches!(name, "agent_create" | "agent_send") {
             args["srcConversation"] = crate::src_conversations::capture(&args).await?;
         }
-        let mut receipt = json!({"agentAccountId":args["agentAccountId"],"agentProfileId":args["agentProfileId"],"origin":crate::kernel::origin::current_origin(),"requestId":request,"agent":agent,"taskId":task,"previousTurnId":previous_turn,"operation":name,"arguments":args,"digest":digest,"state":if needs_approval{ReceiptState::AwaitingApproval.wire()}else{ReceiptState::Reserved.wire()},"backendSession":self.session,"createdAt":now(),"nextAction":"receipt"});
+        let mut receipt = json!({"origin":crate::kernel::origin::current_origin(),"requestId":request,"agent":agent,"taskId":task,"previousTurnId":previous_turn,"operation":name,"arguments":args,"digest":digest,"state":if needs_approval{ReceiptState::AwaitingApproval.wire()}else{ReceiptState::Reserved.wire()},"backendSession":self.session,"createdAt":now(),"nextAction":"receipt"});
         if matches!(name, "agent_create" | "agent_send") {
             crate::dispatch_caller::attach_current(&mut receipt);
         }
@@ -1293,7 +1232,7 @@ impl AgentHost {
             } else {
                 Value::Null
             };
-            let t = json!({"agentAccountId":args["agentAccountId"],"agentProfileId":args["agentProfileId"],"origin":crate::kernel::origin::current_origin(),"taskId":task,"agent":agent,"runtimeSource":driver.protocol(),"sessionId":null,"threadId":null,"cwd":args["cwd"],"title":crate::control::dispatch_title(args),"status":"starting","createdAt":now(),"updatedAt":now(),"metadata":{},"configured":configured,"approval":args["approval"],"output":""});
+            let t = json!({"origin":crate::kernel::origin::current_origin(),"taskId":task,"agent":agent,"runtimeSource":driver.protocol(),"sessionId":null,"threadId":null,"cwd":args["cwd"],"title":crate::control::dispatch_title(args),"status":"starting","createdAt":now(),"updatedAt":now(),"metadata":{},"configured":configured,"approval":args["approval"],"output":""});
             save_task(&t)?;
             let p = match driver
                 .start(t, false, self.wake.clone(), &self.launches)
@@ -1334,8 +1273,6 @@ impl AgentHost {
                     Ok(selection) => {
                         let mut task = p.state.lock().await;
                         task["dispatch"] = selection;
-                        task["agentAccountId"] = args["agentAccountId"].clone();
-                        task["agentProfileId"] = args["agentProfileId"].clone();
                     }
                     Err(error) => {
                         let unconfirmed =

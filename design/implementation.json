@@ -2283,9 +2283,6 @@
           "source": "design/surfaces/homepage-topology.tsx"
         },
         {
-          "source": "design/surfaces/homepage-topology-accounts.tsx"
-        },
-        {
           "source": "design/surfaces/homepage-topology-portrait.tsx"
         }
       ]

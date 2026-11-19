@@ -6,7 +6,7 @@ import { Accordion, Popover } from "radix-ui";
 import { ChevronDown, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import { locale, t } from "../i18n";
 import { copyText } from "../platform";
-import { Button, Field, Icon, IconButton, Input, Switch, Textarea } from "../components/ui";
+import { Button, Field, Icon, IconButton, Input, Switch } from "../components/ui";
 import { Slider } from "./Slider";
 import { PARAMETERS, PARAMETER_GROUPS } from "./solve";
 import { importParameters, parameterDiff } from "./parameters";
@@ -96,7 +96,7 @@ export default function TuningControls({ available }: { available: boolean }) {
               }).join(", ") }) : t("topology.imported"));
             }}>
               <Field compact id="topology-import" label={t("topology.paste")} error={importError}>
-                <Textarea id="topology-import" rows={4} value={json} spellCheck={false} aria-invalid={!!importError}
+                <textarea id="topology-import" className="input" rows={4} value={json} spellCheck={false} aria-invalid={!!importError}
                   aria-describedby={importError ? "topology-import-error" : undefined} onChange={event => { setJson(event.target.value); setImportError(""); }} />
               </Field>
               <Button type="submit">{t("topology.applyImport")}</Button>

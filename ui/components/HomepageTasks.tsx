@@ -11,8 +11,6 @@ import { homepageTaskFocus, remoteTaskPanel } from '../state/homepage';
 import { panelBack, selectAgentPanel } from '../state/overviewPanels';
 import { markHomepageTaskRead } from '../state/homepageTasks';
 import { activeHomepageTask, homepageTaskFamilies, homepageTaskTime, localTaskDay, type TaskFamily, type HomepageTask } from '../state/activityModel';
-import { useAccounts } from '../state/accounts';
-import { accountOwns } from '../accountPresentation';
 import { useAppNow } from '../state/appEnvironment';
 import { presentTaskState, taskException } from '../state/taskProjection';
 import { useTaskPreview } from '../state/taskExecution';
@@ -96,7 +94,7 @@ function TaskDayGrid({ items, preview, now, open, openChildren }: {
 export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
   const [familyKey, setFamilyKey] = useState<string>();
   const [returnChild, setReturnChild] = useState<string>();
-  const focus = homepageTaskFocus.use(), { items: accounts } = useAccounts();
+  const focus = homepageTaskFocus.use();
   const remote = deviceTasks.use();
   const omitted = Object.values(remote).reduce((sum, item) => sum + (item.snapshot?.omittedRecords ?? 0), 0);
   const body = useRef<HTMLElement>(null);
@@ -107,10 +105,10 @@ export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
     const days = new Map<number | undefined, TaskFamily[]>();
     const scoped = tasks.filter(task => {
       if (!focus) return true;
-      if (focus.deviceId) return task.deviceId === focus.deviceId && (!focus.agent || task.agent === focus.agent) && (!focus.accountId || task.accountId === focus.accountId);
+      if (focus.deviceId) return task.deviceId === focus.deviceId && (!focus.agent || task.agent === focus.agent);
       if (focus.upstreamSourceId) return task.upstreamSourceId === focus.upstreamSourceId;
       if (focus.sourceIds) return task.sourceIds.some(source => focus.sourceIds!.includes(source)) || task.controllerDeviceId === focus.id.replace(/^device:/, '');
-      return !task.deviceId && task.agent === focus.agent && (!focus.accountId || accounts.some(account => account.id === focus.accountId && accountOwns(account, task.accountId)));
+      return !task.deviceId && task.agent === focus.agent;
     });
     for (const task of homepageTaskFamilies(scoped)) {
       const day = task.latest ? localTaskDay(task.latest) : undefined;
@@ -119,7 +117,7 @@ export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
       else days.set(day, [task]);
     }
     return [...days].sort(([a], [b]) => (b ?? -Infinity) - (a ?? -Infinity));
-  }, [tasks, focus, accounts]);
+  }, [tasks, focus]);
   useLayoutEffect(() => {
     if (!focus) return;
     const target = body.current?.querySelector<HTMLElement>('[data-task-snapshot]');

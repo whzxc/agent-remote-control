@@ -1,7 +1,6 @@
 import { layers } from "./layers";
 import { onboarding, connectionSetup } from "./onboarding";
 import { createStore } from "./store";
-import { accounts } from "./accounts";
 import { agentPanelSelection, type AgentPanelSelection, type AgentPanelAction } from "./activityModel";
 import { sourcePlatformNodeId } from "../topology/accounts";
 import type { Ingress } from "./types";
@@ -9,7 +8,7 @@ import type { Ingress } from "./types";
 export const panelBack = createStore<{ label: string; open: () => void } | undefined>(undefined);
 export const agentPanel = createStore<AgentPanelSelection>(undefined);
 export function agentPanelId(selection: NonNullable<AgentPanelSelection>) {
-  return `${selection.agent}:${selection.platform ? 'platform' : selection.accountId ?? ''}`;
+  return `${selection.agent}:${selection.platform ? 'platform' : ''}`;
 }
 export type IngressConnectionSelection = { client?: { id: string; name: string; source: string }; ingress: Ingress; editing?: boolean; field?: string; autoConnect?: boolean; closing?: boolean };
 export type SourcePlatformSelection = { platform: string; closing?: boolean };
@@ -18,15 +17,13 @@ export function sourcePanelId(selection: IngressPanelSelection) {
   return 'platform' in selection ? sourcePlatformNodeId(selection.platform) : selection.client?.id ?? selection.ingress.id;
 }
 export const ingressPanel = createStore<IngressPanelSelection | undefined>(undefined);
-export function managesAgentAccounts(agent: string): agent is "claude" | "codex" {
-  return agent === "claude" || agent === "codex";
+export function managesAgentAccounts(agent: string): agent is "claude" {
+  return agent === "claude";
 }
 export function selectAgentPanel(action: AgentPanelAction) {
   if (action.type === 'back' && panelBack.get()) { const back = panelBack.get()!; layers.switchPanel(() => { panelBack.set(undefined); agentPanel.set(undefined); back.open(); }); return; }
   if (action.type === 'platform' && !managesAgentAccounts(action.agent)) {
-    const agent = action.agent;
-    const linked = accounts.get().items.filter(account => account.agentProfiles.some(profile => profile.agent === agent));
-    if (linked.length <= 1) action = { type: action.toggle ? 'toggle' : 'agent', agent: action.agent, accountId: linked[0]?.id };
+    action = { type: action.toggle ? 'toggle' : 'agent', agent: action.agent };
   }
   connectionSetup.set(undefined);
   onboarding.set(undefined);

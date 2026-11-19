@@ -229,14 +229,6 @@ impl Process {
         super::save_task(&state)?;
         let mut cmd = launch_command(binary, args)?;
         if state["agent"] == "claude" {
-            if let Some(profile) = state["agentProfileId"].as_str() {
-                let config = crate::accounts::claude::session_config_dir(profile)?;
-                cmd.env_clear()
-                    .envs(crate::accounts::claude::isolated_environment(
-                        std::env::vars_os().collect(),
-                        Some(&config),
-                    ));
-            }
             cmd.env(
                 "CLAUDE_CODE_EXECUTABLE",
                 super::driver::discover("claude").ok_or("AGENT_NOT_INSTALLED")?,
@@ -646,7 +638,7 @@ impl Process {
                 if method == "agent_settled" {
                     state["dispatch"]["submission"] = json!("accepted");
                     if let Err(error) =
-                        crate::dispatch_policy::agent_observe(&state, Some("accepted"))
+                        crate::dispatch_policy::agent_observe(&state, Some("accepted")).await
                     {
                         state["storageError"] = json!(error);
                     }
@@ -1462,7 +1454,6 @@ mod stream_stability_tests {
     }
 
     #[cfg(unix)]
-
     #[cfg(unix)]
     #[test]
     fn noisy_stdout_keeps_reading_and_survives_abnormal_exit() {
@@ -1490,5 +1481,4 @@ mod stream_stability_tests {
             assert!(saved["tracking"]["entries"].as_array().unwrap().iter().any(|r| r["type"] == "error"));
         });
     }
-
 }

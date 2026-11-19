@@ -1,11 +1,9 @@
 //! Provider identities own sources, execution profiles and notification routes.
 use crate::kernel::file_cache::load;
 use crate::*;
-use std::collections::HashSet;
 #[path = "../claude_accounts/mod.rs"]
 pub mod claude;
 pub(crate) mod codex;
-mod codex_config;
 mod identity;
 mod login;
 mod merge;
@@ -542,104 +540,6 @@ pub(crate) fn profile_account(profile: &str) -> Result<Value> {
         .ok_or("ACCOUNT_PROFILE_NOT_FOUND".into())
 }
 
-/// Execution profile evidence wins. Otherwise follow the retried turn, retaining
-/// the last confirmed thread attribution when execution evidence is unavailable.
-pub fn codex_dispatch_account(
-    records: &[Value],
-    turn: Option<&str>,
-    native_account: &Value,
-) -> Option<String> {
-    let account = |value: &Value| value.as_str().filter(|s| !s.is_empty()).map(str::to_owned);
-    if let Some(id) = account(native_account) {
-        return Some(id);
-    }
-    let mut row = turn
-        .and_then(|turn| records.iter().rev().find(|r| r["turnId"] == turn))
-        .or_else(|| records.last());
-    let mut seen = HashSet::new();
-    while let Some(current) = row {
-        if let Some(id) = account(&current["agentAccountId"]) {
-            return Some(id);
-        }
-        let previous = current["retryOf"].as_str().filter(|id| seen.insert(*id));
-        row = previous.and_then(|id| records.iter().rev().find(|r| r["turnId"] == id));
-    }
-    records
-        .iter()
-        .rev()
-        .find_map(|r| account(&r["agentAccountId"]))
-}
-#[cfg(test)]
-mod codex_attribution_tests {
-    use super::*;
-
-    #[test]
-    fn native_retry_without_account_keeps_retried_turn_attribution() {
-        // Recurring bug class: native interrupted-task successors without account fields cleared the thread's confirmed account after host restarts.
-        let records = vec![
-            json!({"turnId":"original","agentAccountId":"account-a"}),
-            json!({"turnId":"retry-1","dispatchSource":"native-retry","retryOf":"original","configurationEvidence":"inherited-dispatch-not-confirmed"}),
-            json!({"turnId":"retry-2","dispatchSource":"native-retry","retryOf":"retry-1","agentAccountId":null}),
-        ];
-        for native in [Value::Null, json!("account-a")] {
-            assert_eq!(
-                codex_dispatch_account(&records, Some("retry-2"), &native),
-                Some("account-a".into())
-            );
-            assert_eq!(
-                codex_dispatch_account(&records, None, &native),
-                Some("account-a".into())
-            );
-        }
-        let mut missing_evidence = records.clone();
-        missing_evidence[2]["retryOf"] = Value::Null;
-        assert_eq!(
-            codex_dispatch_account(&missing_evidence, None, &Value::Null),
-            Some("account-a".into())
-        );
-    }
-
-    #[test]
-    fn native_profile_account_is_authoritative_over_dispatch_history() {
-        // Algorithmic core: a known execution profile determines attribution independently of missing or conflicting dispatch accounts.
-        for recorded in [Value::Null, json!("account-a"), json!("account-b")] {
-            let records = vec![json!({"turnId":"turn","agentAccountId":recorded})];
-            assert_eq!(
-                codex_dispatch_account(&records, None, &json!("native-account")),
-                Some("native-account".into())
-            );
-        }
-    }
-}
-
-/// Resolve native Claude login metadata without selecting today's default profile.
-pub fn claude_transcript_account(rows: &[Value], oauth_account: &Value) -> Option<String> {
-    let uuid_key = identity_key(
-        "anthropic",
-        &json!({"accountId":oauth_account["accountUuid"]}),
-    );
-    // Claude auth status can omit accountId. Use the same email + organization
-    // identity key as profile import, with both fields supplied by native login.
-    let email_key = oauth_account["organizationUuid"]
-        .as_str()
-        .filter(|id| !id.is_empty())
-        .and_then(|org| {
-            identity_key(
-                "anthropic",
-                &json!({"email":oauth_account["emailAddress"],"orgId":org}),
-            )
-        });
-    let mut matches = rows.iter().filter(|row| {
-        live(row)
-            && [uuid_key.as_ref(), email_key.as_ref()]
-                .into_iter()
-                .flatten()
-                .any(|key| row["identityKey"].as_str() == Some(key.as_str()))
-            && profiles(row).any(|profile| profile["agent"] == "claude")
-    });
-    let account = matches.next()?["id"].as_str()?;
-    matches.next().is_none().then(|| account.to_owned())
-}
 pub(crate) fn claude_profile(account: &str) -> Result<String> {
     let row = resolve(account)?;
     if !live(&row) {
@@ -650,38 +550,6 @@ pub(crate) fn claude_profile(account: &str) -> Result<String> {
         .map(|p| string(p, "profileId").to_owned())
         .ok_or("ACCOUNT_AGENT_MISSING: This account has no Claude profile".into());
     result
-}
-/// Dispatch selection is saved after receipt replay lookup, before reservation.
-pub(crate) fn select(agent: &str, reference: Option<&str>) -> Result<Value> {
-    let row = if let Some(reference) = reference {
-        resolve(reference)?
-    } else {
-        read()?.iter().find(|a| live(a) && profiles(a).any(|p| p["agent"] == agent && p["default"] == true)).cloned().ok_or_else(|| json!({"code":"ACCOUNT_DEFAULT_MISSING","message":"Select an account explicitly or set its defaultFor before dispatch.","next":{"via":"query","op":"accounts","args":{"agent":agent}}}).to_string())?
-    };
-    if !live(&row) {
-        return Err("ACCOUNT_REMOVED: Select an active account".into());
-    }
-    let p = profiles(&row)
-        .filter(|p| p["agent"] == agent)
-        .min_by_key(|p| p["default"] != true)
-        .ok_or("ACCOUNT_AGENT_MISSING: Select an account with this Agent profile")?;
-    Ok(json!({"agentAccountId":row["id"],"agentProfileId":p["profileId"]}))
-}
-pub(crate) fn select_codex_thread(thread: &str, reference: Option<&str>) -> Result<Value> {
-    let profile = codex::thread_profile(thread)?;
-    let account = profile_account(&profile)?;
-    let selected = select("codex", Some(string(&account, "id")))?;
-    if let Some(reference) = reference {
-        if select("codex", Some(reference))?["agentAccountId"] != selected["agentAccountId"] {
-            return Err(json!({"code":"CODEX_THREAD_ACCOUNT_MISMATCH","message":"Continue this thread with its original account; create a new task to use another account","next":{"via":"query","op":"accounts","args":{"agent":"codex"}}}).to_string());
-        }
-    }
-    Ok(json!({"agentAccountId":account["id"],"agentProfileId":profile}))
-}
-pub(crate) fn attach(args: &mut Value, selection: &Value) {
-    for key in ["agentAccountId", "agentProfileId"] {
-        args[key] = selection[key].clone();
-    }
 }
 fn update(args: &Value) -> Result<Value> {
     let account = resolve(string(args, "id"))?;
@@ -695,28 +563,7 @@ fn update(args: &Value) -> Result<Value> {
             return Err("INVALID_ACCOUNT_ALIAS: Use 1 to 120 characters".into());
         }
     }
-    if args.get("default").is_some() && !args["defaultFor"].is_string() {
-        return Err(json!({"code":"ACCOUNT_DEFAULT_AGENT_REQUIRED","message":"Supply defaultFor with default.","next":{"via":"query","op":"guide","args":{"op":"account_update"}}}).to_string());
-    }
     change(|rows| {
-        if let Some(agent) = args["defaultFor"].as_str() {
-            let selected = profiles(&account)
-                .find(|p| p["agent"] == agent)
-                .ok_or("ACCOUNT_AGENT_MISSING")?["profileId"]
-                .clone();
-            for row in rows.iter_mut().filter(|a| live(a)) {
-                let selected_account = row["id"] == account["id"];
-                for p in row["agentProfiles"].as_array_mut().unwrap() {
-                    if p["agent"] == agent && (args["default"] != false || selected_account) {
-                        p["default"] = json!(
-                            args["default"] != false
-                                && selected_account
-                                && p["profileId"] == selected
-                        );
-                    }
-                }
-            }
-        }
         let row = rows.iter_mut().find(|a| a["id"] == account["id"]).unwrap();
         if let Some(alias) = args.get("alias") {
             row["alias"] = json!(alias.as_str().unwrap().trim());
@@ -728,27 +575,16 @@ fn update(args: &Value) -> Result<Value> {
 #[derive(Default)]
 pub(crate) struct Manager {
     claude: claude::Manager,
-    login: Mutex<Option<Value>>,
     refresh: Mutex<Option<std::time::Instant>>,
 }
 impl Manager {
-    pub async fn stop(&self, control: &control::Control) {
+    pub async fn stop(&self, _control: &control::Control) {
         self.claude.stop().await;
-        let mut current = self.login.lock().await;
-        if let Some(login) = current.take().filter(|login| {
-            login["kind"] == "codex"
-                && login["state"] == "waiting"
-                && login["temporaryProfile"] == true
-        }) {
-            if let Err(error) = codex::discard_login(control, string(&login, "profileId")).await {
-                crate::logs::record("WARN", &error, None);
-            }
-        }
     }
     pub async fn refresh(
         &self,
-        control: &control::Control,
-        agents: &agents::AgentHost,
+        _control: &control::Control,
+        _agents: &agents::AgentHost,
     ) -> Result<()> {
         let mut last = self.refresh.lock().await;
         migrate()?;
@@ -764,51 +600,21 @@ impl Manager {
             }
         }
         migrate()?;
-        let codex = control
-            .request("account/read", json!({"refreshToken":false}), 5000)
-            .await;
-        let inventory = agents.ui_inventory(false).await;
+        // One-time cleanup: drop legacy non-Claude execution profiles from account rows.
         change(|rows| {
-            let facts = codex
-                .as_ref()
-                .map(|v| &v["account"])
-                .unwrap_or(&Value::Null);
-            let state = if codex.is_err() {
-                "invalid"
-            } else if facts.is_object() {
-                "signed-in"
-            } else {
-                "signed-out"
-            };
-            observe(
-                rows,
-                "openai",
-                facts,
-                "codex-home",
-                Some(
-                    json!({"agent":"codex","profileId":"codex-home","kind":"codex-home","state":state,"default":false}),
-                ),
-                None,
-            );
-            for agent in inventory["agents"]
-                .as_array()
-                .into_iter()
-                .flatten()
-                .filter(|a| {
-                    a["agent"] != "claude" && a["agent"] != "codex" && a["installed"] == true
-                })
-            {
-                let name = string(agent, "agent");
-                observe(
-                    rows,
-                    provider(name),
-                    &Value::Null,
-                    &format!("api-key:{name}"),
-                    Some(
-                        json!({"agent":name,"profileId":format!("api-key:{name}"),"kind":"api-key","state":"unfinished","default":false}),
-                    ),
-                    None,
-                );
+            let retired_at = now();
+            for row in rows.iter_mut().filter(|r| live(r)) {
+                let had_profiles = row["agentProfiles"]
+                    .as_array()
+                    .is_some_and(|p| !p.is_empty());
+                if let Some(list) = row["agentProfiles"].as_array_mut() {
+                    list.retain(|p| p["agent"] == "claude");
+                }
+                let no_sources = row["sources"].as_array().is_none_or(Vec::is_empty);
+                let no_profiles = row["agentProfiles"].as_array().is_none_or(Vec::is_empty);
+                if had_profiles && no_sources && no_profiles {
+                    row["removedAt"] = json!(retired_at);
+                }
             }
             defaults(rows);
             Ok(())
@@ -835,9 +641,7 @@ impl Manager {
                 Ok((id.to_owned(), merge::canonical(&rows, id)?))
             })
             .collect::<Result<std::collections::BTreeMap<_, _>>>()?;
-        let parity = std::cell::OnceCell::new();
         for row in &mut rows {
-            project_parity(row, &parity);
             row["mergedAccountIds"] = json!(canonical
                 .iter()
                 .filter_map(|(id, owner)| {
@@ -887,7 +691,7 @@ impl Manager {
                 "n/a"
             };
             row["notifications"] = json!({"state":state,"reachable":sessions.iter().any(|s| s["verified"]==true || s["reachable"]==true),"sessions":sessions,"historicalSessions":historical_sessions});
-            row["health"] = json!({"state":if !live(row) {"removed"} else if identity::has_conflict(row) || profiles(row).any(|p| p["state"] != "signed-in" || parity_attention(p)) {"attention"} else {"ready"}});
+            row["health"] = json!({"state":if !live(row) {"removed"} else if identity::has_conflict(row) || profiles(row).any(|p| p["state"] != "signed-in") {"attention"} else {"ready"}});
             if !live(row) {
                 row["displayName"] = json!(format!("Removed account · {}", string(row, "alias")));
             }
@@ -911,9 +715,8 @@ impl Manager {
         }
         let claude_login =
             self.claude.request("profiles", "GET", json!({})).await?["login"].clone();
-        let login = self.login.lock().await.clone();
         Ok(
-            json!({"accounts":rows,"login":login.or_else(|| claude_login.is_object().then(|| login::progress(claude_login)))}),
+            json!({"accounts":rows,"login":claude_login.is_object().then(|| login::progress(claude_login))}),
         )
     }
     pub async fn op(
@@ -924,12 +727,7 @@ impl Manager {
         name: &str,
         args: Value,
     ) -> Result<Value> {
-        if name == "account_import" {
-            self.refresh(control, agents).await?;
-            return codex::import(control, &args).await;
-        }
         self.refresh(control, agents).await?;
-        self.observe_login(control).await?;
         let force_quota = name == "account_refresh_quota";
         if force_quota || name == "accounts" && args["id"].is_string() {
             let account = resolve(string(&args, "id"))?;
@@ -950,8 +748,7 @@ impl Manager {
                         .flatten()
                         .find(|row| row["providerId"] == provider)
                         .map(merge::shared_quota)
-                } else if let Some(p) =
-                    profiles(&account).find(|p| matches!(string(p, "agent"), "claude" | "codex"))
+                } else if let Some(p) = profiles(&account).find(|p| string(p, "agent") == "claude")
                 {
                     let observed = account["quota"]["observedAt"]
                         .as_str()
@@ -964,7 +761,7 @@ impl Manager {
                         Some(
                             crate::subscriptions::account_quota(
                                 control,
-                                string(p, "agent"),
+                                "claude",
                                 string(p, "profileId"),
                             )
                             .await,
@@ -1056,16 +853,17 @@ impl Manager {
                 if !matches!(string(&args, "running"), "finish" | "cancel") {
                     return Err("INVALID_RUNNING_POLICY: Use finish or cancel".into());
                 }
-                // Tombstone first: new dispatches cannot race the cancellation pass.
                 change(|rows| {
                     let account = rows.iter_mut().find(|a| a["id"] == row["id"]).unwrap();
                     if let Some(agent) = args["agent"].as_str() {
                         let removable = account["sources"].as_array().is_some_and(Vec::is_empty)
                             && profiles(account).count() == 1
-                            && profiles(account)
-                                .any(|p| p["agent"] == agent && p["profileId"] != "codex-home");
+                            && profiles(account).any(|p| p["agent"] == agent);
                         if !removable {
-                            return Err("ACCOUNT_PROFILE_NOT_REMOVABLE: This account has another role or is managed by Codex Desktop".into());
+                            return Err(
+                                "ACCOUNT_PROFILE_NOT_REMOVABLE: This account has another role"
+                                    .into(),
+                            );
                         }
                     }
                     account["removedAt"] = json!(now());
@@ -1075,9 +873,6 @@ impl Manager {
                     defaults(rows);
                     Ok(())
                 })?;
-                if args["running"] == "cancel" {
-                    agents.cancel_account(control, string(&row, "id")).await?;
-                }
                 self.query(&json!({"id":row["id"]})).await
             }
             _ => Err("UNKNOWN_ACCOUNT_OP: Read guide for accounts".into()),
@@ -1112,7 +907,6 @@ impl Manager {
                     | "update"
                     | "remove"
                     | "merge"
-                    | "import"
             )
         }) {
             if method == "POST" || op == "whoami" && method == "GET" {
@@ -1122,9 +916,7 @@ impl Manager {
                     "refresh-quota" => "account_refresh_quota".into(),
                     _ => format!("account_{op}"),
                 };
-                if matches!(op, "whoami" | "import")
-                    && crate::kernel::origin::current_origin()["sourceId"].is_null()
-                {
+                if op == "whoami" && crate::kernel::origin::current_origin()["sourceId"].is_null() {
                     return crate::kernel::origin::ORIGIN
                         .scope(
                             crate::sources::panel_origin().await?,
@@ -1167,55 +959,6 @@ impl Manager {
 
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn claude_transcript_identity_requires_one_native_account_match() {
-        // Recurring bug class: Claude transcript tasks had no execution account and were placed on the platform node.
-        let row = json!({"id":"account-a","identityKey":"anthropic:id:native-a","agentProfiles":[{"agent":"claude","default":false}]});
-        let identity = json!({"accountUuid":"native-a"});
-        assert_eq!(
-            super::claude_transcript_account(&[row.clone()], &identity).as_deref(),
-            Some("account-a")
-        );
-        assert_eq!(
-            super::claude_transcript_account(&[row.clone()], &json!({})),
-            None
-        );
-        assert_eq!(
-            super::claude_transcript_account(&[row.clone()], &json!({"accountUuid":"other"})),
-            None
-        );
-        let mut duplicate = row.clone();
-        duplicate["id"] = json!("account-b");
-        assert_eq!(
-            super::claude_transcript_account(&[row.clone(), duplicate.clone()], &identity),
-            None
-        );
-        duplicate["removedAt"] = json!("2026-01-01T00:00:00Z");
-        assert_eq!(
-            super::claude_transcript_account(&[row, duplicate], &identity).as_deref(),
-            Some("account-a")
-        );
-        let email_row = json!({"id":"email-account","identityKey":identity_key("anthropic", &json!({"email":"person@example.test","orgId":"org-a"})),"agentProfiles":[{"agent":"claude"}]});
-        let login = json!({"accountUuid":"native-a","emailAddress":"PERSON@example.test","organizationUuid":"org-a"});
-        assert_eq!(
-            super::claude_transcript_account(&[email_row.clone()], &login).as_deref(),
-            Some("email-account")
-        );
-        assert_eq!(
-            super::claude_transcript_account(
-                &[email_row.clone()],
-                &json!({"emailAddress":"person@example.test","organizationUuid":"org-b"})
-            ),
-            None
-        );
-        assert_eq!(
-            super::claude_transcript_account(
-                &[email_row],
-                &json!({"emailAddress":"person@example.test"})
-            ),
-            None
-        );
-    }
     use super::*;
     #[test]
     fn legacy_local_accounts_retire_without_losing_agent_membership() {
@@ -1300,44 +1043,6 @@ mod tests {
         );
         assert_eq!(profiles(&rows[0]).count(), 1);
     }
-}
-
-fn project_parity(account: &mut Value, parity: &std::cell::OnceCell<Value>) {
-    for profile in account["agentProfiles"]
-        .as_array_mut()
-        .into_iter()
-        .flatten()
-    {
-        if profile["agent"] == "codex" {
-            profile["parity"] = parity
-                .get_or_init(|| codex::inspect_profile("codex-home"))
-                .clone();
-            if profile["profileId"] != "codex-home" && profile["parity"]["state"] == "primary" {
-                profile["parity"]["state"] = json!("shared");
-            }
-            profile["role"] = json!(if profile["profileId"] == "codex-home" {
-                "primary"
-            } else {
-                "secondary"
-            });
-            profile["desktopDispatch"] = json!(profile["profileId"] == "codex-home");
-        }
-    }
-}
-fn parity_attention(profile: &Value) -> bool {
-    profile["agent"] == "codex"
-        && !matches!(
-            profile["parity"]["state"].as_str(),
-            Some("shared" | "primary")
-        )
-}
-
-pub(crate) fn dispatch_accounts(rows: &[Value], agent: &str) -> Result<Value> {
-    let parity = std::cell::OnceCell::new();
-    Ok(json!(rows.iter().cloned().map(|mut account| { project_parity(&mut account, &parity); account }).filter(|a| live(a) && profiles(a).any(|p| p["agent"] == agent)).map(|a| {
-        let profiles: Vec<_> = profiles(&a).filter(|p| p["agent"] == agent).cloned().collect();
-        json!({"id":a["id"],"alias":a["alias"],"default":profiles.iter().any(|p| p["default"] == true),"health":{"state":if !identity::has_conflict(&a) && profiles.iter().any(|p| p["state"] == "signed-in" && !parity_attention(p)) {"ready"} else {"attention"}},"agentProfiles":profiles,"quotaProviderId":a["quotaProviderId"],"observedAt":a["observedAt"],"quota":a["quota"]})
-    }).collect::<Vec<_>>()))
 }
 
 pub(crate) fn notification_accounts() -> Result<Vec<Value>> {

@@ -115,7 +115,6 @@
       "title": "Home",
       "assets": [
         "surfaces/homepage-topology.tsx",
-        "surfaces/homepage-topology-accounts.tsx",
         "surfaces/homepage-topology-portrait.tsx",
         "surfaces/homepage-tasks.tsx"
       ]

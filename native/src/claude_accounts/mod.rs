@@ -69,18 +69,8 @@ pub(crate) fn transcript_roots() -> Vec<(PathBuf, Option<String>)> {
     let Some(home) = dirs::home_dir() else {
         return Vec::new();
     };
-    let custom = configured_native_dir();
-    let config = custom.clone().unwrap_or_else(|| home.join(".claude"));
-    let metadata = if custom.is_some() {
-        config.join(".claude.json")
-    } else {
-        home.join(".claude.json")
-    };
-    let rows = super::read().unwrap_or_default();
-    let login: Value = crate::kernel::file_cache::load(&metadata).unwrap_or(Value::Null);
-    let account = super::claude_transcript_account(&rows, &login["oauthAccount"]);
-    let roots = vec![(config.join("projects"), account)];
-    roots
+    let config = configured_native_dir().unwrap_or_else(|| home.join(".claude"));
+    vec![(config.join("projects"), None)]
 }
 
 pub(crate) async fn refresh_profile(id: &str) -> Result<Value> {
@@ -249,55 +239,6 @@ fn configured_native_dir() -> Option<PathBuf> {
             !managed
         })
 }
-fn shared_projects(config: &Path) -> Result<()> {
-    let source = configured_native_dir()
-        .unwrap_or_else(|| dirs::home_dir().expect("home directory").join(".claude"))
-        .join("projects");
-    let target = config.join("projects");
-    std::fs::create_dir_all(&source).map_err(|e| e.to_string())?;
-    private_dir(config)?;
-    let source = source.canonicalize().map_err(|e| e.to_string())?;
-    if target.canonicalize().ok().as_ref() == Some(&source) {
-        return Ok(());
-    }
-    if std::fs::symlink_metadata(&target).is_ok() {
-        if std::fs::read_dir(&target)
-            .map_err(|e| e.to_string())?
-            .next()
-            .is_some()
-        {
-            return Err(json!({"code":"CLAUDE_SESSION_MIGRATION_REQUIRED","message":"This credential profile still contains native sessions. Move them to the native Claude projects directory before using it. ARC leaves the existing data unchanged.","next":{"via":"query","op":"guide","args":{"op":"accounts"}}}).to_string());
-        }
-        std::fs::remove_dir(&target).map_err(|e| e.to_string())?;
-    }
-    #[cfg(unix)]
-    std::os::unix::fs::symlink(&source, &target).map_err(|e| e.to_string())?;
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        let result = std::process::Command::new("cmd.exe")
-            .args(["/d", "/c", "mklink", "/J"])
-            .arg(&target)
-            .arg(&source)
-            .creation_flags(0x08000000)
-            .output()
-            .map_err(|e| e.to_string())?;
-        if !result.status.success() {
-            return Err("CLAUDE_SESSION_DIRECTORY_UNAVAILABLE: Could not link the native projects directory".into());
-        }
-    }
-    Ok(())
-}
-
-pub(crate) fn session_config_dir(account_id: &str) -> Result<PathBuf> {
-    let config = config_dir(account_id)?;
-    shared_projects(&config)?;
-    Ok(config)
-}
-pub(crate) async fn session_command(account_id: &str) -> Result<tokio::process::Command> {
-    cli(&session_config_dir(account_id)?).await
-}
-
 pub(crate) async fn account_command(account_id: &str) -> Result<tokio::process::Command> {
     cli(&config_dir(account_id)?).await
 }
@@ -375,18 +316,6 @@ pub fn capture_browser_url(args: &[String]) -> Option<Result<()>> {
         let url = authorization_url(&args[0]).ok_or("INVALID_CLAUDE_LOGIN_URL")?;
         save_bytes(Path::new(&path), url.as_bytes())
     })())
-}
-
-pub(crate) async fn open_login_url(browser_id: &str, url: &str) -> Result<()> {
-    if browser_id == "default" {
-        return browsers::open(None, url).await;
-    }
-    let browser = browsers::discover()
-        .await?
-        .into_iter()
-        .find(|b| b.id == browser_id)
-        .ok_or("BROWSER_NOT_FOUND")?;
-    browsers::open(Some(&browser), url).await
 }
 
 async fn read_login_output(reader: impl tokio::io::AsyncRead + Unpin, urls: mpsc::Sender<String>) {

@@ -206,7 +206,6 @@
                     "controlSource": "claude"
                   }
                 },
-                "agentAccountId": "Studio",
                 "dispatchSummary": {
                   "controlSource": {
                     "deviceId": "b10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10c",
@@ -237,7 +236,6 @@
                     "controlSource": "claude"
                   }
                 },
-                "agentAccountId": "Studio",
                 "dispatchSummary": {
                   "controlSource": {
                     "deviceId": "b10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10c",
@@ -287,7 +285,6 @@
             "state": "completed",
             "createdAt": "2025-12-31T23:57:00Z",
             "updatedAt": "2026-01-01T00:00:00Z",
-            "agentAccountId": "Studio",
             "origin": {
               "deviceId": "b10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10c",
               "sourceLabel": "Anchor Mac",
@@ -346,7 +343,6 @@
                     "controlSource": "claude"
                   }
                 },
-                "agentAccountId": "Studio",
                 "dispatchSummary": {
                   "controlSource": {
                     "deviceId": "b10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10c",
@@ -394,7 +390,6 @@
             "state": "completed",
             "createdAt": "2025-12-31T23:57:00Z",
             "updatedAt": "2026-01-01T00:00:00Z",
-            "agentAccountId": "Studio",
             "origin": {
               "deviceId": "b10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10cb10c",
               "sourceLabel": "Anchor Mac",

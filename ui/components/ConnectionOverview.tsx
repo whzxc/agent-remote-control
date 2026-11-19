@@ -19,9 +19,9 @@ import { appEnvironment } from "../state/appEnvironment";
 import { controlSource, controlSourcePlatform } from '../controlSources';
 import { accountViews } from '../topology/accountViews';
 import { visibleAgents } from '../topology/visibleAgents';
-import { topologyMode, topologyAccountOrder } from '../topology/accountState';
+import { topologyMode } from '../topology/accountState';
 import { useAccounts } from '../state/accounts';
-import { agentPanel, selectAgentPanel, ingressPanel, selectIngressPanel, selectSourcePlatform, sourcePanelId, agentPanelId } from "../state/overviewPanels";
+import { agentPanel, selectAgentPanel, ingressPanel, selectIngressPanel, selectSourcePlatform, sourcePanelId, agentPanelId, managesAgentAccounts } from "../state/overviewPanels";
 import { resetActivityCore, useActivityTracking } from "../state/activity";
 import { maxVisibleAgents } from "../subscriptions/displayPreferences";
 import { platformQuotaForAgent, subscriptions } from "../state/subscriptions";
@@ -81,7 +81,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   useEffect(() => { if (!detailOpen) setPanelExpanded(false); }, [detailOpen]);
   const { status, hubHealth, error } = connector.use();
   const inventory = agentStore.use();
-  const { items: accounts } = useAccounts(), mode = topologyMode.use(), accountOrders = topologyAccountOrder.use();
+  const { items: accounts } = useAccounts(), mode = topologyMode.use();
   const max = maxVisibleAgents.use();
   const { snapshot } = subscriptions.use();
   const [agentsOpen, setAgentsOpen] = useState(false), [displaySettingsOpen, setDisplaySettingsOpen] = useState<string | false>(false);
@@ -200,42 +200,38 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   });
   const agentViews: NodeView[] = agents.map(agent => {
     const selected = !selection?.closing && selection?.agent === agent.agent;
-    const agentAccounts = accounts.filter(account => account.agentProfiles.some(profile => profile.agent === agent.agent));
-    const shared = agentAccounts.length === 1 && (agentAccounts[0].quotaProviderId || agentAccounts[0].quota.windows.length) ? agentAccounts[0] : undefined;
-    const provider = shared ? accountQuotaProvider(agent.agent, shared.quota) : platformQuotaForAgent(snapshot, agent.agent);
+    const provider = platformQuotaForAgent(snapshot, agent.agent);
     const icon = <AgentQuotaIcon agent={agent.agent} provider={provider} summary={agent.agent !== "claude"} />;
+    const open = managesAgentAccounts(agent.agent)
+      ? { type: 'platform' as const, agent: agent.agent, toggle: true }
+      : { type: 'toggle' as const, agent: agent.agent };
     return {
       id: agent.agent, platform: agent.agent, platformLabel: name(agent), label: name(agent), icon, quota: provider,
-      selectedAccountId: selection?.accountId, state: wireState(agentState(agent)), attention: false, selected, reorderable: !readOnlyBrowser && !panelOpen,
+      state: wireState(agentState(agent)), attention: false, selected, reorderable: !readOnlyBrowser && !panelOpen,
       content: <GraphNode label={`${name(agent)}: ${t(agentState(agent))}`} state={wireState(agentState(agent))}
         onMove={!readOnlyBrowser && agent.enabled && !panelOpen ? by => moveVisibleAgent(agent.agent, by) : undefined}
         highlighted={selected} hideLabel={false} panelExpanded={selected} caption={<span className="graph-node-name">{name(agent)}</span>}
-        onOpen={() => selectAgentPanel({ type: 'platform', agent: agent.agent, toggle: true })}>{icon}</GraphNode>,
+        onOpen={() => selectAgentPanel(open)}>{icon}</GraphNode>,
     };
   });
-  const openAccountNode = (side: -1 | 1, platform: string, sourceId?: string, accountId?: string) => {
+  const openAccountNode = (side: -1 | 1, platform: string, sourceId?: string) => {
     if (side === 1) {
-      selectAgentPanel({ type: 'toggle', agent: platform, accountId });
+      selectAgentPanel({ type: 'toggle', agent: platform });
     } else {
       const source = controlSources.find(s => s.id === sourceId), ingress = source && sources.find(i => i.id === source.ingressId);
       if (source && ingress) selectIngressPanel(ingress, { toggle: true, client: { id: source.id, name: source.label, source: source.product } });
     }
   };
-  const topologyLeft = accountViews(sourceViews, -1, accounts, mode, accountOrders, {
+  const topologyLeft = accountViews(sourceViews, -1, mode, {
     open: openAccountNode, openPlatform: platform => selectSourcePlatform(platform, true),
     selectedPlatform: sourceSelection && !sourceSelection.closing && 'platform' in sourceSelection ? sourceSelection.platform : undefined,
   });
-  const topologyRight = accountViews(agentViews, 1, accounts, mode, accountOrders, {
-    open: openAccountNode, openPlatform: agent => selectAgentPanel({ type: 'platform', agent, toggle: true }),
-    selectedPlatform: selection?.platform && !selection.closing ? selection.agent : undefined,
-  });
+  const topologyRight = agentViews;
   const flatten = (nodes: NodeView[]): NodeView[] => nodes.flatMap(n => [n, ...flatten(n.children ?? [])]);
   const reorderNodes = (side: -1 | 1, ids: string[]) => {
     if (readOnlyBrowser) return;
-    const nodes = flatten(side === -1 ? topologyLeft : topologyRight), first = nodes.find(n => n.id === ids[0]);
-    if (first?.account && !first.sourceProduct) {
-      topologyAccountOrder.set(old => ({ ...old, [`${side}:${first.platform}`]: ids.flatMap(id => nodes.find(n => n.id === id)?.accountId ?? []) }));
-    } else if (side === -1) reorderSources(orderedSubset(controlSources, ids.flatMap(id => nodes.find(n => n.id === id)?.sourceIds ?? [id])).map(s => s.id));
+    const nodes = flatten(side === -1 ? topologyLeft : topologyRight);
+    if (side === -1) reorderSources(orderedSubset(controlSources, ids.flatMap(id => nodes.find(n => n.id === id)?.sourceIds ?? [id])).map(s => s.id));
     else reorderAgents(orderedSubset(agents.map(a => ({ id: a.agent })), ids).map(a => a.id));
   };
   return (

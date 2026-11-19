@@ -62,7 +62,6 @@ export interface CoreSnapshot {
 export type AgentPhase = "thinking" | "command" | "file" | "tool" | "text" | "interaction" | "idle";
 export interface DispatchSummary {
   controlSource?: { id?: string; accountId?: string; label?: string; kind?: string; deviceId?: string };
-  agentAccountId?: string;
   model?: string;
   effort?: string;
   serviceTier?: string;
@@ -89,7 +88,6 @@ export interface AgentActivitySession {
   projectName?: string | null;
   dispatchSummary?: DispatchSummary;
   origin?: { ingressId?: string; sourceId?: string; accountId?: string; controlSource?: string; deviceId?: string; sourceLabel?: string; authType?: string; peerOrigin?: { sourceId?: string; sourceLabel?: string; controlSource?: string } };
-  agentAccountId?: string | null;
   id: string;
   source: "arc-task" | "codex-thread" | "transcript";
   turnId?: string | null;
@@ -120,7 +118,6 @@ export interface AgentConversation {
   relationKind?: AgentActivitySession["relationKind"];
   preview?: string;
   metadataPartial?: boolean;
-  agentAccountId?: string | null;
   dispatchSummary?: DispatchSummary | null;
   turnCount?: number | null;
   projectName?: string | null;
@@ -214,12 +211,9 @@ export interface AgentTimeline {
 export interface AccountAgentProfile {
   agent: string;
   profileId: string;
-  kind: "cli-profile" | "codex-home" | "api-key";
+  kind: "cli-profile";
   state: "signed-in" | "signed-out" | "unfinished" | "invalid";
   default: boolean;
-  refreshOwner?: "codex" | "none" | "external";
-  role?: "primary" | "secondary";
-  desktopDispatch?: boolean;
 }
 export interface AccountNotifications {
   reachable?: boolean;
@@ -275,17 +269,9 @@ export interface ProviderAccount {
   quotaProviderId?: string | null;
   displayName?: string;
 }
-export interface CodexAccountImport {
-  accountId?: string;
-  auth: Record<string, unknown>;
-  refreshOwner: 'codex' | 'none' | 'external';
-  refreshCommand?: { program: string; args?: string[] };
-  alias?: string;
-}
-export interface CodexAccountImportResult { state: 'completed'; accountId: string; profileId: string; refreshOwner: CodexAccountImport['refreshOwner'] }
 export interface AccountLogin {
   loginId: string;
-  kind: "claude" | "codex" | "api-key" | "detect";
+  kind: "claude" | "detect";
   state: string;
   accountId?: string;
   loginUrl?: string | null;
