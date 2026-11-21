@@ -66,7 +66,7 @@ export async function connectDevice() {
   } catch (error) {
     if (!deviceLinkEnabled.get()) return;
     const text = String(error);
-    if (deviceView.get().dialog !== 'pair') notify(text, true);
+    if (deviceView.get().dialog !== 'pair') notify(text, { errorSource: 'device-pair' });
     const state: PairState = text.includes('DEVICE_PAIRING_INVALID') ? 'invalid' : text.includes('DEVICE_OFFER_EXPIRED') ? 'expired'
       : text.includes('DEVICE_PROTOCOL_MISMATCH') ? 'protocol' : text.includes('DEVICE_PAIRING_DECLINED') ? 'declined'
       : /DEVICE_(LAN_UNAVAILABLE|CONNECTION_REFUSED|TLS_FAILED)/.test(text) ? 'unreachable' : 'error';

@@ -164,7 +164,7 @@ function RelayHostingContent({ relays }: { relays: ReturnType<typeof useRelays> 
   }
   useEffect(() => {
     if (!dialogOpen && job && progress.phase === "failed") {
-      notify(progress.reason || t("connect.actionFailed"), true); setJob(undefined);
+      notify(progress.reason || t("connect.actionFailed"), { errorSource: 'relay-deploy' }); setJob(undefined);
     }
   }, [dialogOpen, job, progress.phase, progress.reason]);
   const owners = relays.relays.filter(relay => relay.owner);

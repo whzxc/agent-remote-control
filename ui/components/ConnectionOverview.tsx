@@ -98,7 +98,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     try {
       await controlHubCore("stop");
     } catch (failure) {
-      notify(String(failure), true);
+      notify(String(failure), { errorSource: 'core-stop' });
       void refreshHubHealth().catch(() => {});
     } finally {
       setStopping(false);

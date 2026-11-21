@@ -95,6 +95,35 @@ export async function verifyCoordination(page, fixture, messages, out, key, scre
   if (fixture.coordination === 'empty') {
     await board().getByText(m('emptyBoard'), { exact: true }).waitFor();
     await snapshot('empty');
+    const publish = (text, errorSource) => page.evaluate(async ({ text, errorSource }) => {
+      const { notify } = await import('/state/connector.ts');
+      notify(text, { errorSource });
+    }, { text, errorSource });
+    const first = 'Permissions refresh failed', latest = 'Permissions refresh timed out', other = 'Device pairing failed';
+    const toast = text => page.getByRole('alert').filter({ hasText: text });
+    const attention = board().getByRole('region', { name: m('attention'), exact: true });
+    await publish(first, 'permissions-refresh');
+    await publish('Settings saved');
+    await page.getByRole('status').getByText('Settings saved', { exact: true }).waitFor();
+    await toast(first).waitFor();
+    await attention.getByText(first, { exact: true }).waitFor();
+    await publish(other, 'device-pair');
+    await publish(latest, 'permissions-refresh');
+    await count(2);
+    for (const error of [other, latest]) {
+      await toast(error).waitFor();
+      await attention.getByText(error, { exact: true }).waitFor();
+    }
+    assert.equal(await page.getByText(first, { exact: true }).count(), 0);
+    await page.getByText('Settings saved', { exact: true }).waitFor({ state: 'hidden', timeout: 6000 });
+    await toast(latest).getByRole('button', { name: messages.dismissMessage }).click();
+    await count(1);
+    await attention.getByText(latest, { exact: true }).waitFor({ state: 'hidden' });
+    await attention.getByText(other, { exact: true }).waitFor();
+    await toast(other).getByRole('button', { name: messages.dismissMessage }).click();
+    await count(0);
+    checks.push('global errors survive success and its expiry, replace by source and dismiss independently in the toast and Board');
+
     await choose(m('view'), m('activityView'));
     await board().getByText(m('emptyEvents'), { exact: true }).waitFor();
     await count(0); await close();

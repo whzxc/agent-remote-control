@@ -4,7 +4,7 @@ import {act,createElement as h,useState} from 'react';
 import {within,fireEvent} from '@testing-library/dom';
 import {assertNodeIdentity} from './helpers/dom-assert.ts';
 import {withDialog} from './helpers/layers-ui.ts';
-import {createLayerStore} from '../ui/state/layers.ts';
+import {consumeOutsidePointer,createLayerStore} from '../ui/state/layers.ts';
 
 test('Close and Cancel retain busy work until completion and the dialog stays closed after late results', async () => {
   // Recurring bug class: B1 header Close orphaned busy work and job-driven owners could reopen their dialog on completion.
@@ -76,6 +76,41 @@ test('stacked setup edits tools inside its owning dialog and Back and Escape pre
     assert.ok(page.getByRole('textbox', { name: t('setup.connectionName') }));
     await act(async () => fireEvent.keyDown(page.getByRole('dialog', { name: t('source.newConnection'), exact: true }), { key: 'Escape' }));
     assert.ok(page.getByRole('button', { name: t('layers.keepEditing') }));
+  });
+});
+
+test('outside dismissal releases WebKit click suppression when a touch ends without a click', async context => {
+  // Recurring bug class: lifecycle cleanup of a consumed touch must preserve later independent clicks.
+  await withDialog(async ({ root }) => {
+    let activations = 0;
+    await act(async () => root.render(h('main', null,
+      h('button', { onPointerDown: (event: React.PointerEvent) => consumeOutsidePointer(event.nativeEvent) }, 'Dismiss'),
+      h('button', { onClick: () => { activations++; } }, 'Next action'))));
+    const page = within(document.body);
+    const dismiss = page.getByRole('button', { name: 'Dismiss' });
+    const next = page.getByRole('button', { name: 'Next action' });
+    const touch = (pointerId: number) => ({ pointerId, pointerType: 'touch', isPrimary: true });
+    context.mock.timers.enable({ apis: ['setTimeout'] });
+    try {
+      fireEvent.pointerDown(dismiss, touch(1));
+      context.mock.timers.tick(1100);
+      assert.equal(fireEvent.pointerUp(next, touch(1)), false);
+      fireEvent.click(next, { detail: 1 });
+      assert.equal(activations, 0);
+
+      fireEvent.pointerDown(dismiss, touch(2));
+      fireEvent.pointerUp(next, touch(2));
+      context.mock.timers.tick(1100);
+      fireEvent.click(next, { detail: 1 });
+      assert.equal(activations, 1);
+
+      fireEvent.pointerDown(dismiss, touch(3));
+      fireEvent.pointerUp(next, touch(3));
+      fireEvent.pointerDown(next, touch(4));
+      fireEvent.pointerUp(next, touch(4));
+      fireEvent.click(next, { detail: 1 });
+      assert.equal(activations, 2);
+    } finally { context.mock.timers.reset(); }
   });
 });
 

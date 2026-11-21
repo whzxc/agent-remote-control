@@ -353,8 +353,10 @@ Tray and deep-link navigation received while a dialog is open becomes actionable
 - Field errors MUST stay with their fields.
 - Actions using layer feedback show their result in the retained shell. The message can remain across panel replacement.
 - Global feedback reports background events, results after a shell closes, and errors refreshing Permissions from the workspace header.
-- A success toast MUST disappear after 4 seconds.
-- An error toast MUST stay until dismissed, and an actionable error MUST also appear in Board attention.
+- The latest success or informational toast appears below open errors and expires after four seconds.
+- Each global error stays in the toast region and in Board attention until its dismiss button is used. Dismissing one removes only that error from both places.
+- An error from the same producing operation replaces its previous message in place. Operations use stable keys such as Codex login, connection errors and Permissions refresh. Late layer results use the originating operation instance. Message text and locale do not determine identity.
+- Errors from different sources remain independently dismissible. Success and informational messages leave every error in place.
 - Copy controls share confirmation state. Topology export reports its result in the tuner status line.
 - Shared hover help uses Tooltip. SingleChoice uses native titles for icon-only options and disabled descriptions. Task cards use native titles for selected metadata and task names.
 

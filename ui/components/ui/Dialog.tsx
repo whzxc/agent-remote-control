@@ -21,7 +21,7 @@ import './Dialog.css';
 export function useDialogCompletion(onComplete: () => void | Promise<void>) {
   const layerId = useId();
   const isOpen = () => layers.get().some(layer => layer.id === layerId);
-  return { layerId, isOpen, feedback: (message: string, error = false) => { if (!isOpen()) notify(message, error); }, finish: (message = t('activity.completed')) => isOpen()
+  return { layerId, isOpen, feedback: (message: string, error = false) => { if (!isOpen()) notify(message, { errorSource: error ? `layer:${layerId}` : undefined }); }, finish: (message = t('activity.completed')) => isOpen()
     ? layers.complete(layerId, onComplete) : notify(message) };
 }
 

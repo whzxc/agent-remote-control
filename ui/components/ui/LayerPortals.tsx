@@ -6,10 +6,10 @@ import { notify } from '../../state/connector';
 import type { DialogProps } from './Dialog';
 export const CloseContext = createContext<{ id: string; busy?: boolean; close: () => void; feedback: (message: string, error: boolean) => void } | null>(null);
 export function useDialogFeedback() {
-  const context = useContext(CloseContext);
+  const context = useContext(CloseContext), source = useId();
   return (message: string, error = false) => {
     if (context && layers.get().some(layer => layer.id === context.id)) context.feedback(message, error);
-    else notify(message, error);
+    else notify(message, { errorSource: error ? `action:${source}` : undefined });
   };
 }
 export function DialogClose({ asChild, onClick, type = 'button', ...props }: ComponentProps<typeof D.Close>) {

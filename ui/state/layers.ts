@@ -101,7 +101,7 @@ export function createLayerStore() {
           entry.dismiss();
           return;
         }
-        if (contains(id, target) || layer.kind === 'panel' && target.closest(switcherSelector)) return;
+        if (contains(id, target) || layer.kind === 'panel' && (target.closest(switcherSelector) || target.closest('[data-global-feedback]'))) return;
         consumeOutsidePointer(event);
         dismiss(id);
       };
@@ -217,17 +217,24 @@ export function consumeOutsidePointer(event: PointerEvent) {
   const pointer = event.pointerId;
   const controller = new AbortController();
   const options = { capture: true, signal: controller.signal };
-  const cleanup = () => controller.abort();
-  const block = (input: Event) => {
-    if (input instanceof PointerEvent && input.pointerId !== pointer) return;
+  let expiry: ReturnType<typeof setTimeout>;
+  const cleanup = () => { clearTimeout(expiry); controller.abort(); };
+  const click = (input: MouseEvent) => {
+    if ('pointerId' in input && input.pointerId !== pointer) return;
     input.preventDefault();
     input.stopImmediatePropagation();
-    if (input.type === 'click') cleanup();
+    cleanup();
   };
-  const reset = (next: PointerEvent) => { if (next.pointerId === pointer) cleanup(); };
-  document.addEventListener('pointerup', block, options);
-  document.addEventListener('click', block, options);
-  document.addEventListener('pointercancel', reset, options);
-  document.addEventListener('pointerdown', reset, options);
+  const release = (input: PointerEvent) => {
+    if (input.pointerId !== pointer) return;
+    input.preventDefault();
+    input.stopImmediatePropagation();
+    document.addEventListener('click', click, options);
+    // WebKit may send a MouseEvent click without a pointer ID, or no click at all.
+    expiry = setTimeout(cleanup, 1000);
+  };
+  document.addEventListener('pointerup', release, options);
+  document.addEventListener('pointercancel', next => { if (next.pointerId === pointer) cleanup(); }, options);
+  document.addEventListener('pointerdown', next => { if (next.isPrimary || next.pointerId === pointer) cleanup(); }, options);
   window.addEventListener('blur', cleanup, { signal: controller.signal });
 }

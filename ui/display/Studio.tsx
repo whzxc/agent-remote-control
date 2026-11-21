@@ -122,7 +122,7 @@ export function StudioControls({ available }: { available: boolean }) {
         if (!value && !actual) restoreFocus();
       } else if (value) await document.documentElement.requestFullscreen();
       else if (document.fullscreenElement) await document.exitFullscreen();
-    } catch { notify(t('studio.fullscreenFailed'), true); }
+    } catch { notify(t('studio.fullscreenFailed'), { errorSource: 'studio-fullscreen' }); }
     finally { pendingFullscreen.current = false; setBusy(false); }
   }
   useEffect(() => {

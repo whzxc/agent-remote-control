@@ -5,6 +5,8 @@ import { isLocalSource } from "../sourcePresentation";
 import { t } from "../i18n";
 import { isDesktop, notifyNative } from "../platform";
 import type { ControlSource, HubHealth, Ingress, Status } from "./types";
+type GlobalFeedback = { text: string; errorSource?: string; copy?: string };
+
 export const connector = createStore<{
   status?: Status;
   hubHealth?: HubHealth;
@@ -13,14 +15,14 @@ export const connector = createStore<{
   busy: string;
   loading: boolean;
   error: string;
-  feedback: { text: string; error: boolean; copy?: string };
+  feedback: GlobalFeedback[];
 }>({
   sources: [],
   sourcesLoaded: false,
   busy: "",
   loading: true,
   error: "",
-  feedback: { text: "", error: false },
+  feedback: [],
 });
 const patch = (next: Partial<ReturnType<typeof connector.get>>) =>
   connector.set((old) => ({ ...old, ...next }));
@@ -42,14 +44,22 @@ export function reorderSources(ids: string[]) {
   sourceOrder.set(next);
 }
 let feedbackTimer: ReturnType<typeof setTimeout> | undefined;
-export function notify(text: string, error = false, copy?: string) {
-  clearTimeout(feedbackTimer);
-  patch({ feedback: { text, error, copy } });
-  if (text && !error)
-    feedbackTimer = setTimeout(
-      () => patch({ feedback: { text: "", error: false } }),
-      4000,
-    );
+export function dismissFeedback(notice: GlobalFeedback) {
+  patch({ feedback: connector.get().feedback.filter(item => item !== notice) });
+}
+
+export function notify(text: string, options: Omit<GlobalFeedback, 'text'> = {}) {
+  if (!text) return;
+  const notice = { text, ...options };
+  const current = connector.get().feedback;
+  const previous = current.find(item => item.errorSource === notice.errorSource);
+  const feedback = previous ? current.map(item => item === previous ? notice : item)
+    : notice.errorSource ? [notice, ...current] : [...current, notice];
+  patch({ feedback });
+  if (!notice.errorSource) {
+    clearTimeout(feedbackTimer);
+    feedbackTimer = setTimeout(() => dismissFeedback(notice), 4000);
+  }
 }
 let reading: Promise<void> | undefined;
 export function refreshConnector(): Promise<void> {
@@ -98,7 +108,7 @@ function accept(status: Status) {
     ).catch(() => {});
   patch({ status, error: "", loading: false });
 }
-export async function run(label: string, action: () => Promise<unknown>, onError = (message: string) => notify(message, true)) {
+export async function run(label: string, action: () => Promise<unknown>, onError = (message: string) => notify(message, { errorSource: `action:${label}` })) {
   if (connector.get().busy) return;
   patch({ busy: label });
   try {
@@ -144,7 +154,6 @@ export function startConnector() {
     clearInterval(timer);
     document.removeEventListener("visibilitychange", read);
     stream?.close();
-    clearTimeout(feedbackTimer);
   };
 }
 

@@ -16,7 +16,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Settings, X, ShieldAlert, ShieldCheck, RefreshCw, Users, PawPrint, Cloud, Plug } from "lucide-react";
 import { t, locale } from "./i18n";
 import { copyText, isDesktop } from "./platform";
-import { connector, notify, startConnector } from "./state/connector";
+import { connector, dismissFeedback, notify, startConnector } from "./state/connector";
 import { startAgents } from "./state/agents";
 import { startSubscriptions } from "./state/subscriptions";
 import { startAgentActivity } from "./state/activity";
@@ -95,7 +95,7 @@ export default function App() {
     if (!isDesktop) return;
     // Keep drafts and active dialogs alive; only retire an idle hidden surface.
     const timer = setInterval(() => {
-      if (document.querySelector('[role="dialog"], form') || updates.get().phase !== "idle" || updates.get().panelOpen || updateVisible()) return;
+      if (connector.get().feedback.some(item => item.errorSource) || document.querySelector('[role="dialog"], form') || updates.get().phase !== "idle" || updates.get().panelOpen || updateVisible()) return;
       void import("@tauri-apps/api/core").then(({ invoke }) => invoke("release_main_window")).catch(() => {});
     }, 30000);
     return () => clearInterval(timer);
@@ -137,7 +137,7 @@ export default function App() {
           navigate("overview");
         })),
         listen("permissions:open", () => requestExternalNavigation(t("permissions"), () => navigate("permissions"))),
-        listen("codex:login", () => { void api("codex/login", "POST").catch((e: Error) => notify(e.message, true)); }),
+        listen("codex:login", () => { void api("codex/login", "POST").catch((e: Error) => notify(e.message, { errorSource: 'codex-login' })); }),
         listen("updates:check", () => {
           requestExternalNavigation(t("updates"), showUpdate);
           void checkUpdate();
@@ -152,7 +152,7 @@ export default function App() {
           navigation.set((old) => ({ ...old, providerId: e.payload }));
           navigate("overview");
         })),
-        listen<string>("connection-error", (e) => notify(e.payload, true)),
+        listen<string>("connection-error", (e) => notify(e.payload, { errorSource: 'connection-error' })),
       ]);
       if (stopped) listeners.forEach((stop) => stop());
       else {
@@ -179,10 +179,10 @@ export default function App() {
       else if (url.hostname === "accounts") navigate("accounts");
       else if (url.hostname === "settings") navigate("settings");
       else if (url.hostname === "setup" && ["claude-login", "cloudflare-login"].includes(url.searchParams.get("target") ?? "")) {
-        void api("setup/apply", "POST", {stepId: url.searchParams.get("target") === "claude-login" ? "claude-code-ready" : "cloudflare-login", input:{}}).catch((e: Error) => notify(e.message, true));
+        void api("setup/apply", "POST", {stepId: url.searchParams.get("target") === "claude-login" ? "claude-code-ready" : "cloudflare-login", input:{}}).catch((e: Error) => notify(e.message, { errorSource: `setup:${url.searchParams.get("target")}` }));
       }
       else if (url.hostname === "setup" && url.searchParams.get("target") === "codex-login") {
-        void api("codex/login", "POST").catch((e: Error) => notify(e.message, true));
+        void api("codex/login", "POST").catch((e: Error) => notify(e.message, { errorSource: 'codex-login' }));
       }
     });
     };
@@ -225,7 +225,7 @@ export default function App() {
           leading={page === "settings" && nav.settingsExperimental ? <IconButton icon={ArrowLeft} label={t("back")} onClick={() => navigation.set(old => ({ ...old, settingsExperimental: undefined }))} /> : undefined}
           onEscapeKeyDown={event => { if (page === "settings" && nav.settingsExperimental) { event.preventDefault(); navigation.set(old => ({ ...old, settingsExperimental: undefined })); } }}
           actions={page === "permissions" ? <IconButton icon={RefreshCw} label={t("permissionsRefresh")} busy={permissionState.loading}
-            onClick={() => void refreshPermissions().catch(error => notify(String(error), true))} /> : undefined}>
+            onClick={() => void refreshPermissions().catch(error => notify(String(error), { errorSource: 'permissions-refresh' }))} /> : undefined}>
           <div className={`workspace ${page === "accounts" ? "accounts-workspace-container" : ""}`}>
             {page === "permissions" ? <PermissionsPage /> : page === "accounts" ? <PlatformsPage /> : page === "pets" ? <PetsPage />
               : <SettingsPage />}
@@ -261,22 +261,13 @@ export default function App() {
           <UpdateDock />
       </NavCapsule>
       </LayerOwnerContext.Provider>
-      {feedback.text && (
-        <div className="app-feedback">
-          <Notice elevated
-            tone={feedback.error ? "danger" : "success"}
-            action={
-              <>{feedback.copy && <Button onClick={() => void copyText(feedback.copy!).catch(() => notify(t("connect.actionFailed"), true))}>{t("copy")}</Button>}<IconButton
-                icon={X}
-                label={t("dismissMessage")}
-                onClick={() => notify("")}
-              /></>
-            }
-          >
-            {displayMessage(feedback.text)}
-          </Notice>
-        </div>
-      )}
+      {!!feedback.length && <div className="app-feedback" data-global-feedback>
+        {feedback.map(notice => <Notice key={notice.errorSource ?? 'message'} elevated tone={notice.errorSource ? "danger" : "success"}
+          action={<>{notice.copy && <Button onClick={() => void copyText(notice.copy!).catch(() => notify(t("connect.actionFailed"), { errorSource: 'clipboard' }))}>{t("copy")}</Button>}
+            <IconButton icon={X} label={t("dismissMessage")} onClick={() => dismissFeedback(notice)} /></>}>
+          {displayMessage(notice.text)}
+        </Notice>)}
+      </div>}
       {flow && <Onboarding returnFocus={page === "accounts" ? "[data-platform-add]" : undefined} />}
       {newConnection && <AddConnection options={newConnection} onClose={() => connectionSetup.set(undefined)} onAdded={id => {
         if (newConnection.forSwitch) connectionSwitch.set(old => old && { ...old, ingressId: id });

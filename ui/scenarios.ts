@@ -472,7 +472,7 @@ export async function installScenario(name: string) {
   accountResponse = (['accounts', 'source-panel'].includes(name) || name.startsWith('agent-platform-')) ? accountScenario(status, sources, name) : undefined;
   updates.set(old => ({ ...old, checked: true, error: '' }));
   responses['service'] = { supported: true, enabled: false };
-  connector.set({ status, hubHealth: readOnlyBrowser ? undefined : hubHealth, sources, sourcesLoaded: true, busy: '', loading: false, error: fixture.statusUnavailable ? 'Connection status is unavailable in this fixture.' : '', feedback: { text: '', error: false } });
+  connector.set({ status, hubHealth: readOnlyBrowser ? undefined : hubHealth, sources, sourcesLoaded: true, busy: '', loading: false, error: fixture.statusUnavailable ? 'Connection status is unavailable in this fixture.' : '', feedback: [] });
   agents.set({ items: inventory, loaded: true, loading: false, saving: '', error: fixture.agentDiscoveryError ?? '' });
   if (status.core.backendSession) resetActivityCore(status.core.backendSession);
   resetTaskExecutions();

@@ -238,6 +238,12 @@ pre {
   max-width: calc(100vw - 32px);
   z-index: 140;
 }
+.app-feedback:has(> :nth-child(2)) {
+  display: grid;
+  gap: var(--space-2);
+  max-height: 40dvh;
+  overflow-y: auto;
+}
 .app-feedback .notice {
   max-height: 40dvh;
   overflow: auto;
