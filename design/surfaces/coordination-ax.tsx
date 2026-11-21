@@ -4,6 +4,7 @@ import { axForms, axClosedEntries, axCopy } from "../fixtures/ax";
 
 export default () => axForms.map(form => <Frame
   name={form}
+  width={992}
   fixture={form === "open" ? "coordination-ax-light" : `board-ax-${form}`}
   capture={{
     selector: ".layer-panel",

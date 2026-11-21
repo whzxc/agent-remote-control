@@ -1,5 +1,20 @@
 import type { BoardForm, BoardGroupData } from "../modules/board";
-import { origins } from "./tasks";
+import type { TaskPreviewLine, TaskSnapshotData } from "../components/task-card";
+
+const taskHeader = {
+  node: "codex",
+  origin: [{ label: "Claude", brand: "claude" }, { label: "Codex", brand: "codex" }],
+  elapsed: "01:23",
+  dispatch: { model: "GPT-6.1 Sol", effort: "High", tier: "priority", fast: true },
+  project: { name: "acceptance", path: "/workspace/acceptance" },
+} satisfies Partial<TaskSnapshotData>;
+const previewLines: readonly TaskPreviewLine[] = [
+  { kind: "source", text: "Review the project and check the configuration. Keep the existing behavior while making the requested changes." },
+  { kind: "thinking", text: "I will read the current configuration and preserve its documented behavior." },
+  { kind: "tool", text: "Ran 1 command · cat package.json" },
+  { kind: "thinking", text: "The existing check command covers the changed TypeScript files." },
+  { kind: "agent", text: "The project configuration is ready. I am applying the change next." },
+];
 
 export const boardTabs = [
   { value: "current", label: "Current" },
@@ -15,16 +30,18 @@ export const boardGroups: BoardGroupData[] = [
     rows: [
       {
         title: "Choose the verification scope",
-        task: { id: 'scope', node: 'codex', title: 'Choose the verification scope', group: 'needs-me',
-          state: 'Waiting for user input', detail: 'Choose which platforms to verify.', icon: 'circle-help', origin: origins.local },
+        task: { ...taskHeader, id: 'scope', title: 'Choose the verification scope', group: 'needs-me',
+          state: 'Waiting for user input', detail: 'Choose the shared verification scope', icon: 'circle-help',
+          previewLines: [...previewLines, { kind: "tool", text: "Edited 1 file · Called 1 tool · Read project metadata" }],
+          requestLabel: 'Will be handled at the source’s next check' },
         meta: ["Codex", "Waiting for user input"],
         icon: "message-circle-question-mark",
         tone: "warning",
       },
       {
         title: "Interrupted registered task",
-        task: { id: 'interrupted', node: 'codex', title: 'Interrupted registered task', group: 'recent',
-          state: 'Interrupted', detail: '', icon: 'circle-pause', origin: origins.local },
+        task: { ...taskHeader, id: 'interrupted', title: 'Interrupted registered task', group: 'recent',
+          state: 'Interrupted', detail: '', icon: 'circle-pause', exception: 'interrupted' },
         meta: ["Codex", "Interrupted"],
         icon: "circle-pause",
         tone: "warning",
@@ -60,9 +77,9 @@ export const boardGroups: BoardGroupData[] = [
     rows: [
       {
         title: "Parallel registered work",
-        task: { id: 'parallel', node: 'codex', title: 'Parallel registered work', group: 'running',
-          state: 'Running', detail: '', icon: 'activity', phase: 'thinking', origin: origins.local,
-          activity: 'Reviewing the shared renderer.' },
+        task: { ...taskHeader, id: 'parallel', title: 'Parallel registered work', group: 'running',
+          state: 'Running', detail: '', icon: 'activity', phase: 'file',
+          previewLines: [...previewLines, { kind: "tool", text: "Edited 1 file · Called 1 tool · Ran 1 command · npm run check" }] },
         meta: ["Codex", "Running"],
         icon: "activity",
         tone: "accent",
@@ -103,33 +120,29 @@ export const boardGroups: BoardGroupData[] = [
     ],
   },
 ];
-export const boardFrames: { name: BoardForm; fixture: string; viewport: string; clicks?: string[]; height: number }[] = [
+export const boardFrames: { name: BoardForm; fixture: string; viewportHeight: number; clicks?: string[] }[] = [
   {
     name: "current",
     fixture: "coordination-problems",
-    viewport: "1280x1400",
+    viewportHeight: 1800,
     clicks: ["Open board"],
-    height: 1144,
   },
   {
     name: "empty",
     fixture: "coordination-empty",
-    viewport: "1280x800",
+    viewportHeight: 800,
     clicks: ["Open board"],
-    height: 680,
   },
   {
     name: "gap",
     fixture: "coordination-gap",
-    viewport: "1280x800",
+    viewportHeight: 800,
     clicks: ["Open board", "Activity"],
-    height: 680,
   },
   {
     name: "unavailable",
     fixture: "board-unavailable",
-    viewport: "1280x800",
-    height: 760,
+    viewportHeight: 800,
   },
 ];
 export const boardCopy = {

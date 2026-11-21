@@ -102,7 +102,7 @@ export function AXBoard({ form }: { form: AXForm }) {
       <span class="text-meta leading-4 text-text-tertiary">{closed ? axCopy.shown : axCopy.updated}</span>
       {closed && <Button variant="ghost" icon="chevron-down">{axCopy.more}</Button>}
     </div>}>
-    {form === "detail" ? <div><AXEntryDetail /></div> : <>
+    {form === "detail" ? <div class="pb-[25px]"><AXEntryDetail /></div> : <>
       <div class="flex items-center justify-between gap-6">
         <SingleChoice value={closed ? "closed" : "open"} options={axFilters} label={axCopy.status} class="auto-cols-auto!" />
         <div class="w-[240px]"><SearchInput placeholder={axCopy.search} /></div>

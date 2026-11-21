@@ -38,7 +38,7 @@ export type SingleChoiceProps = {
   navigation?: boolean;
   tabs?: boolean;
   tiles?: boolean;
-  form?: "setup-row" | "setup-product";
+  form?: "setup-row" | "setup-product" | "content-pills";
   class?: string;
   catalog?: boolean;
   dropdownIcon?: string;
@@ -68,7 +68,7 @@ export function SingleChoice({
       {option.graphic ?? <Icon name={option.icon ?? 'paw-print'} size={24}/>}
     </button>)}
   </div>;
-  if (cards || tiles || form)
+  if (cards || tiles || form === "setup-row" || form === "setup-product")
     return (
       <div
         role="radiogroup"
@@ -108,7 +108,7 @@ export function SingleChoice({
           : optionCards
             ? "flex w-full flex-col gap-2"
             : tabs
-              ? "inline-flex gap-(--control-inset)"
+              ? "inline-flex"
               : `inline-grid grid-flow-col ${fill ? "auto-cols-fr" : "auto-cols-max"} rounded-control bg-surface-sunken p-(--control-inset) ${fill ? "w-full" : ""}`
       }`}
     >
@@ -120,7 +120,7 @@ export function SingleChoice({
             ? "gap-5 h-11 px-4 rounded-card text-body font-medium bg-surface-sunken"
             : tabs
               ? "h-(--control-height) px-3 text-body"
-              : `h-7 ${compact ? "px-0" : "px-[14px]"} rounded-[14px] justify-center text-small whitespace-nowrap`;
+              : `h-7 ${form === "content-pills" ? "px-4" : compact ? "px-0" : "px-[14px]"} rounded-[14px] justify-center text-small whitespace-nowrap`;
         const content = (
           <>
             {option.graphic ||
@@ -146,9 +146,11 @@ export function SingleChoice({
             )}
             {tabs ? (
               <span
-                class={`flex h-full items-center border-b-2 ${selected ? "border-accent-text" : "border-transparent"}`}
+                class={`relative flex h-full items-center after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 ${selected ? "after:bg-accent-text" : ""}`}
               >
-                {content}
+                <span data-label={option.label} class="block after:invisible after:block after:h-0 after:font-[650] after:content-[attr(data-label)]">
+                  {content}
+                </span>
               </span>
             ) : (
               content

@@ -176,6 +176,7 @@ export default function CoordinationCenter() {
       const available = !!taskTarget(item.session.id);
       const task = localTaskCard(item.agent, { ...item.session, title: title(item) }, item.state === 'needsYou' ? 'needs-me' : 'recent');
       return <TaskCard key={item.id} task={task} form={item.state === 'needsYou' ? 'detail' : 'summary'} now={now}
+        readTimeline={false}
         description={available ? kindLabel(item) : t('center.targetUnavailable')} trigger={{ id, disabled: !available }}
         onOpen={available ? () => openAttention(item, id) : undefined} />;
     }
@@ -309,6 +310,7 @@ export default function CoordinationCenter() {
         </Section>}
         {(activeWork.length > 0 || notices.length > 0) && <Section label={t(showHistory ? 'center.notices' : 'center.work')} count={activeWork.length + notices.length}>
           {activeWork.map(({ agent, session }) => <TaskCard key={`${agent}:${session.id}`} task={localTaskCard(agent, session, 'running')} form="detail" now={now}
+            readTimeline={false}
             trigger={{ id: `work-${session.id}` }} onOpen={() => openTask(session.id, session.turnId ?? undefined, `work-${session.id}`)} />)}
           {notices.map(recordRow)}
         </Section>}

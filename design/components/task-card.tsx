@@ -9,6 +9,7 @@ import { tasks, origins, snapshotForms, auroraForms, tasksCopy as copy, taskStat
 export type OriginStep = { label: string; caption?: string; brand?: Brand; icon?: string };
 
 export type TaskGroup = 'needs-me' | 'running' | 'unread' | 'recent';
+export type TaskPreviewLine = { text: string; kind: 'source' | 'agent' | 'thinking' | 'tool' };
 
 export type TaskSnapshotData = {
   id: string; node: string; title: string; group: TaskGroup;
@@ -17,6 +18,8 @@ export type TaskSnapshotData = {
   project?: Parameters<typeof ProjectLabel>[0];
   change?: TaskChange; partial?: boolean; prompt?: string;
   snapshot?: readonly TaskStep[]; dispatch?: Parameters<typeof DispatchSpec>[0];
+  previewLines?: readonly TaskPreviewLine[];
+  requestLabel?: string;
 };
 
 
@@ -96,7 +99,7 @@ function SnapshotNote({ tone, label, text }: { tone: 'source' | 'request'; label
         <Icon name="shield-alert" size={12} />{label}
       </span>
     )}
-    <p class="mt-[2px] text-caption leading-4 font-medium text-text line-clamp-2">{text}</p>
+    <p class={`${label ? 'mt-0.5' : ''} text-caption leading-4 font-medium text-text line-clamp-2`}>{text}</p>
   </div>;
 }
 
@@ -124,7 +127,19 @@ export function TaskCard({ task, form }: {
   return <article aria-label={task.title} style={{ '--aurora-tint': active ? tint : undefined }}
     class={`flex w-full min-w-0 flex-col rounded-card border ${shell}`}>
     <TaskCardHeader task={task} />
-    {preview && (
+    {preview && task.previewLines ? (
+      <div class="mx-2 mb-2 flex min-h-10 max-h-[180px] flex-col justify-end overflow-clip rounded-tile bg-surface-subtle">
+        <div class="flex shrink-0 flex-col gap-2 p-[10px]">
+          {task.previewLines.map(({ text, kind }) => kind === 'source' ? <SnapshotNote tone="source" text={text} />
+            : kind === 'agent' ? <p class="line-clamp-2 text-caption leading-4 text-text">{text}</p>
+            : <div class={`flex items-center gap-[6px] whitespace-nowrap text-caption leading-4 text-text-secondary ${kind === 'tool' ? 'tabular-nums' : ''}`}>
+              <Icon name={kind === 'thinking' ? 'brain' : 'wrench'} size={12} class={kind === 'thinking' ? 'text-phase-thinking' : 'text-phase-file'} />
+              <span class="min-w-0 truncate">{text}</span>
+            </div>)}
+          {waiting && <SnapshotNote tone="request" label={task.requestLabel} text={task.detail} />}
+        </div>
+      </div>
+    ) : preview && (
       <div class="mx-2 mb-2 flex min-h-10 flex-col gap-2 rounded-tile bg-surface-subtle p-[10px]">
         {task.prompt && <SnapshotNote tone="source" text={task.prompt} />}
         {work && <div class="flex items-center gap-[6px] text-caption leading-4 text-text-secondary">

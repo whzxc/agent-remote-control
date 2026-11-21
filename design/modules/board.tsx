@@ -3,6 +3,7 @@ import { Frame, Icon } from "adg";
 import { Panel } from "../components/panel";
 import { SingleChoice } from "../components/single-choice";
 import { Button } from "../components/button";
+import { Notice } from "../components/notice";
 import { IconButton } from "../components/icon-button";
 import { Tile, type TileTone } from "../components/tile";
 import { TaskCard, type TaskSnapshotData } from '../components/task-card';
@@ -15,13 +16,15 @@ export type BoardGroupData = { title: string; rows: BoardRowData[] };
 export function BoardRow({ row }: { row: BoardRowData }) {
   if (row.task) return <TaskCard task={row.task} form={row.task.group === 'recent' ? 'summary' : 'detail'} />;
   return (
-    <article class="flex items-start gap-4 rounded-card bg-surface-subtle p-4">
+    <article class="flex min-h-16 items-center gap-4 rounded-card bg-surface-subtle p-4">
       <Tile form="phase" icon={row.icon} tone={row.tone} />
       <div class="flex min-w-0 flex-1 flex-col">
         <strong class="whitespace-pre-line text-small leading-(--line-small) font-semibold">{row.title}</strong>
-        <span class="flex flex-wrap gap-x-1 text-meta leading-[13px] text-text-secondary">{row.meta.map((part, index) => <span class="inline-flex gap-1">{index > 0 && <span aria-hidden="true">·</span>}{part}</span>)}</span>
+        <span class="flex flex-wrap gap-x-1 text-meta leading-[13px] text-text-secondary">
+          {row.meta.map((part, index) => <span>{index > 0 && <span aria-hidden="true" class="mr-1 text-text-tertiary">·</span>}{part}</span>)}
+        </span>
       </div>
-      {row.tone !== "neutral" && <Icon name="chevron-right" class="self-center text-text-secondary" />}
+      {row.tone !== "neutral" && <Icon name="chevron-right" size={16} class="shrink-0 text-text-secondary" />}
     </article>
   );
 }
@@ -37,7 +40,7 @@ export function BoardSection({ group, attention = false, partial = false }: {
       <h3 class={`flex items-center gap-[6px] text-meta leading-4 font-semibold ${tone}`}>
         {group.title}
         <span class="font-normal text-text-tertiary">{group.rows.length}</span>
-        {partial && <span class="ml-1 flex gap-1 font-normal text-text-secondary"><span>·</span><span>{boardCopy.partial}</span></span>}
+        {partial && <span class="ml-1 font-normal text-text-secondary">· {boardCopy.partial}</span>}
       </h3>
       {group.rows.map(row => <BoardRow row={row} />)}
     </section>
@@ -47,11 +50,9 @@ export function BoardSection({ group, attention = false, partial = false }: {
 export function BoardFeedback({ gap = false }: { gap?: boolean }) {
   const copy = gap ? boardCopy.gap : boardCopy.unavailable;
   return (
-    <div class="flex flex-col gap-1 rounded-card bg-danger/10 p-4">
-      <strong class="text-small leading-4 font-semibold text-danger">{copy.title}</strong>
-      <p class="text-meta leading-4 text-text-secondary">{copy.detail}</p>
-      <div class="mt-[10px]"><Button>{copy.action}</Button></div>
-    </div>
+    <Notice title={copy.title} actionBelow action={<Button>{copy.action}</Button>}>
+      <p>{copy.detail}</p>
+    </Notice>
   );
 }
 
@@ -59,20 +60,18 @@ export function BoardFilters({ activity = false }: { activity?: boolean }) {
   return (
     <div class="flex items-center gap-3">
       {!activity && (
-        <SingleChoice value={boardCopy.all} options={boardFilters} label={boardCopy.filter} class="auto-cols-auto!" />
+        <SingleChoice value={boardCopy.all} options={boardFilters} label={boardCopy.filter} form="content-pills" />
       )}
       <SingleChoice value="all" options={boardCopy.resources} label={boardCopy.resource} dropdown />
     </div>
   );
 }
 
-export function CoordinationBoard({ form }: { form: BoardForm }) {
+export function CoordinationBoard({ form, viewportHeight }: { form: BoardForm; viewportHeight: number }) {
   const gap = form === "gap", unavailable = form === "unavailable";
-  const shown = unavailable
-    ? boardGroups.slice(0, 2).map((g, i) => ({ ...g, rows: g.rows.slice(0, i === 0 ? 2 : 1) }))
-    : boardGroups;
+  const shown = unavailable ? [{ ...boardGroups[0], rows: boardGroups[0].rows.slice(0, 2) }] : boardGroups;
   return (
-    <Panel viewportHeight={form === "current" ? 1400 : 800} title={boardCopy.title}
+    <Panel viewportHeight={viewportHeight} title={boardCopy.title}
       actions={<IconButton icon="refresh-cw" label={boardCopy.refresh} />}
       headerNavigation={<SingleChoice value={gap ? "activity" : "current"} options={boardTabs} label={boardCopy.title} tabs />}
       footer={(form === "current" || form === "empty") && <p class="text-meta leading-4 text-text-tertiary">{boardCopy.observed}</p>}>
@@ -86,7 +85,7 @@ export function CoordinationBoard({ form }: { form: BoardForm }) {
         </div>
       ) : (
         !gap && (
-          <div class={`flex flex-col ${unavailable ? "mt-6 gap-[22px]" : "mt-[26px] gap-6"}`}>
+          <div class={`flex flex-col ${unavailable ? "mt-[22px]" : "mt-[26px] gap-6"}`}>
             {shown.map((group, i) => <BoardSection group={group} attention={i === 0} partial={unavailable && i === 0} />)}
           </div>
         )

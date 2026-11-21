@@ -196,8 +196,8 @@ function TaskCardPreview({ task, now, rows, notice, compact, lineCount, pending,
   </div>;
 }
 
-export function TaskCard({ task, now, form, onOpen, trigger, description, snapshotKey, notice, grid = false, attention, footer }: Omit<CardHeaderProps, 'titleId' | 'heading' | 'spec' | 'duration'> & {
-  form: 'summary' | 'detail'; snapshotKey?: string; notice?: CardNotice; grid?: boolean; footer?: ReactNode;
+export function TaskCard({ task, now, form, onOpen, trigger, description, snapshotKey, notice, grid = false, attention, footer, readTimeline = true }: Omit<CardHeaderProps, 'titleId' | 'heading' | 'spec' | 'duration'> & {
+  form: 'summary' | 'detail'; snapshotKey?: string; notice?: CardNotice; grid?: boolean; footer?: ReactNode; readTimeline?: boolean;
 }) {
   const card = useRef<HTMLElement>(null);
   const detail = form === 'detail';
@@ -210,7 +210,7 @@ export function TaskCard({ task, now, form, onOpen, trigger, description, snapsh
   const status = taskStatusEvidence(cachedStatus, recordedStatus);
   const state = presentTaskState(status, activeHomepageTask(task), task.group === 'needs-me');
   const settled = !activeHomepageTask(task) && terminalState(taskState(status, false));
-  const canRead = detail && !task.deviceId && !!task.session.timeline;
+  const canRead = readTimeline && detail && !task.deviceId && !!task.session.timeline;
   const preview = useTaskPreview(task.agent, task.session.id, canRead, card, settled, turn);
   const presentation = {
     ...task, startedAt: timing?.startedAt ?? task.startedAt, endedAt: timing?.endedAt ?? task.endedAt,

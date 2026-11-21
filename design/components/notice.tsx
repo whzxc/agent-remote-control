@@ -43,9 +43,18 @@ export function Notice({
       {action && <div class="mt-2">{action}</div>}
     </div>;
   }
+  if (actionBelow) return (
+    <div class={`grid w-full gap-[14px] rounded-inset p-4 ${paint[tone]}`}>
+      <div class="grid gap-0.5 text-meta leading-[18px]">
+        {title && <strong class="text-small font-semibold">{title}</strong>}
+        <div class="text-text">{children}</div>
+      </div>
+      <div class="flex items-center gap-2">{action}</div>
+    </div>
+  );
   return (
     <div
-      class={`flex w-full gap-3 rounded-[14px] px-4 pt-4 pb-[13px] ${paint[tone]} ${actionBelow ? "flex-col" : "items-start"} ${compact ? "text-meta leading-4 font-normal" : ""} ${elevated ? "shadow-md" : ""}`}
+      class={`flex w-full items-start gap-3 rounded-[14px] px-4 pt-4 pb-[13px] ${paint[tone]} ${compact ? "text-meta leading-4 font-normal" : ""} ${elevated ? "shadow-md" : ""}`}
     >
       <div class="flex min-w-0 flex-1 flex-col gap-1 text-meta leading-4">
         {title && <strong class="text-small leading-4">{title}</strong>}
