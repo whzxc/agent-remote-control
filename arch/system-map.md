@@ -5,6 +5,9 @@ owners:
   - native/src/ingress*
   - native/src/relay/**
   - native/src/codex_host.rs
+  - native/src/control.rs
+  - native/src/desktop.rs
+  - native/src/rpc.rs
   - native/src/task_host.rs
   - desktop/src/**
 status: Approved
@@ -12,6 +15,8 @@ status: Approved
 The MCP hub is experimental. It is off by default and enabled from Experimental settings.
 
 Local Agents execute on their single native installation and login without ARC-managed multi-account execution pools or secondary Codex App Servers. Multi-account LLM routing is delegated to an optional local gateway (such as Magpie) when configured by the user; Core probes the gateway locally for aggregated pool quotas and per-turn usage backfill and falls back silently to native behavior when absent. Claude CLI profiles remain scoped strictly to L1 control-source notification push.
+
+Desktop execution uses the Codex local daemon when Desktop is configured to share it. Core connects to that daemon as a client and opens the same native thread in Desktop. Compatible Desktop builds can use Desktop IPC. The ARC App Server remains the owner for background execution.
 
 Device link adds a device tier within the existing control-source/executor topology.
 Controller-side local Agents remain tier-1 executors without a local-device wrapper.

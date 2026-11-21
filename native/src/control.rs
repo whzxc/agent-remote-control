@@ -16,6 +16,7 @@ pub struct Control {
     pub(crate) shutdown: tokio::sync::watch::Sender<u64>,
     binary: PathBuf,
     rpc: Mutex<Option<Arc<Rpc>>>,
+    desktop_daemon: Mutex<Option<Arc<Rpc>>>,
     monitor: Mutex<Option<Arc<Ipc>>>,
     jobs: Mutex<HashMap<String, tokio::task::JoinHandle<()>>>,
     schemas: Mutex<Option<Value>>,
@@ -83,6 +84,7 @@ impl Control {
             jobs: Default::default(),
             schemas: Mutex::new(None),
             rpc: Mutex::new(None),
+            desktop_daemon: Mutex::new(None),
             requests: Default::default(),
             projects: Default::default(),
             task_records: Default::default(),
@@ -195,7 +197,52 @@ impl Control {
         }
         Ok(ipc.as_ref().unwrap().clone())
     }
+    pub(crate) async fn shared_desktop_rpc(&self) -> Result<Arc<Rpc>> {
+        #[cfg(target_os = "macos")]
+        {
+            let mut slot = self.desktop_daemon.lock().await;
+            self.launches.check()?;
+            if let Some(rpc) = slot.as_ref().filter(|rpc| rpc.alive()) {
+                return Ok(rpc.clone());
+            }
+            let socket = desktop::daemon::socket()?;
+            let rpc =
+                Rpc::connect_shared_desktop(&self.rpc_binary()?, self.events.clone(), &socket)
+                    .await?;
+            *slot = Some(rpc.clone());
+            Ok(rpc)
+        }
+        #[cfg(not(target_os = "macos"))]
+        Err("DESKTOP_SHARED_DAEMON_UNSUPPORTED".into())
+    }
+    async fn configured_desktop_daemon(&self) -> bool {
+        #[cfg(target_os = "macos")]
+        if !cfg!(feature = "test-fixture") {
+            return desktop::daemon::configured_pid().await.is_some();
+        }
+        false
+    }
+    pub(crate) async fn desktop_readiness(&self) -> Result<&'static str> {
+        match self.ipc().await {
+            Ok(_) => Ok("ipc"),
+            Err(_) if self.configured_desktop_daemon().await => {
+                self.shared_desktop_rpc().await?;
+                Ok("local-daemon")
+            }
+            Err(error) => Err(error),
+        }
+    }
+    pub(crate) fn shared_desktop_thread(&self, thread: &str) -> Result<bool> {
+        if !cfg!(target_os = "macos") || uuid::Uuid::parse_str(thread).is_err() {
+            return Ok(false);
+        }
+        let path = root().join("execution").join(format!("{thread}.json"));
+        Ok(path.exists() && crate::kernel::file_cache::load(&path)?["transport"] == "local-daemon")
+    }
     async fn follow(&self, thread: &str) -> Result<()> {
+        if self.shared_desktop_thread(thread)? {
+            return Ok(());
+        }
         self.ipc().await?.follow(thread).await
     }
     /// Sample only existing observation streams. Never start an app-server, discover
@@ -246,6 +293,9 @@ impl Control {
     }
     pub async fn close(&self) {
         self.launches.close();
+        if let Some(rpc) = self.desktop_daemon.lock().await.take() {
+            rpc.close().await;
+        }
         let mut retained = Vec::new();
         if let Some(cached) = self.rpc.lock().await.take() {
             if cached.detached() && (!cached.alive() || self.rpc_running(&cached).await) {
@@ -317,14 +367,32 @@ impl Control {
         title: &str,
         receipt: Option<&mut Value>,
     ) -> Result<Value> {
+        let rpc = self.utility().await?;
+        self.create_on_rpc(&rpc, args, title, receipt).await
+    }
+    async fn create_on_rpc(
+        &self,
+        rpc: &Rpc,
+        args: Value,
+        title: &str,
+        receipt: Option<&mut Value>,
+    ) -> Result<Value> {
         if args["ephemeral"] == true {
-            return Err("BACKGROUND_TASK_MUST_PERSIST".into());
+            return Err(if rpc.runtime_source() == "desktop-shared-app-server" {
+                "DESKTOP_TASK_MUST_PERSIST"
+            } else {
+                "BACKGROUND_TASK_MUST_PERSIST"
+            }
+            .into());
         }
         let title = dispatch_title(
             &json!({"title":title,"prompt":receipt.as_deref().map(|r| &r["task"]["prompt"])}),
         );
-        let rpc = self.utility().await?;
-        let selection = json!({"owner":"connector"});
+        let selection = if rpc.runtime_source() == "desktop-shared-app-server" {
+            json!({"owner":"desktop","transport":"local-daemon"})
+        } else {
+            json!({"owner":"connector"})
+        };
         let mut args = args;
         args["ephemeral"] = json!(false);
         let result = rpc.call("thread/start", args, 60000).await?;
@@ -351,13 +419,17 @@ impl Control {
         }
         Ok(result)
     }
-    async fn background_request(
+    async fn background_request(&self, method: &str, args: Value, timeout: u64) -> Result<Value> {
+        let rpc = self.utility().await?;
+        self.app_server_request(&rpc, method, args, timeout).await
+    }
+    async fn app_server_request(
         &self,
+        rpc: &Rpc,
         method: &str,
         mut args: Value,
         timeout: u64,
     ) -> Result<Value> {
-        let rpc = self.utility().await?;
         if method == "thread/resume" && args.get("excludeTurns").is_none() {
             args["excludeTurns"] = json!(true);
         }
@@ -369,8 +441,18 @@ impl Control {
                     json!({"threadId":args["threadId"],"includeTurns":false}),
                     60000,
                 )
-                .await?;
-            if state["thread"]["status"]["type"] == "notLoaded" {
+                .await;
+            let status = match state {
+                Ok(state) => state["thread"]["status"]["type"].clone(),
+                Err(error)
+                    if rpc.runtime_source() == "desktop-shared-app-server"
+                        && unmaterialized_thread(&error) =>
+                {
+                    Value::Null
+                }
+                Err(error) => return Err(error),
+            };
+            if status == "notLoaded" {
                 let thread = string(&args, "threadId");
                 // Record the triggering source before the observer can see acquisition.
                 self.observe_ownership(thread).await?;
@@ -390,7 +472,7 @@ impl Control {
         }
         let mut result = rpc.call(method, args, timeout).await?;
         if method == "thread/read" {
-            result["thread"]["runtimeSource"] = json!("connector-app-server");
+            result["thread"]["runtimeSource"] = json!(rpc.runtime_source());
         }
         Ok(result)
     }
@@ -407,6 +489,10 @@ impl Control {
         if check_desktop {
             match self.ipc().await {
                 Ok(_) => {}
+                Err(_) if self.configured_desktop_daemon().await => {
+                    let rpc = self.shared_desktop_rpc().await?;
+                    return self.create_on_rpc(&rpc, args, title, receipt).await;
+                }
                 Err(error) if desktop::endpoint_missing(&error) => {
                     return self.create_background(args, title, receipt).await;
                 }
@@ -512,16 +598,20 @@ impl Control {
         if result["state"] != "held" {
             return result;
         }
-        if self.background(thread).unwrap_or(false) {
+        let shared = self.shared_desktop_thread(thread).unwrap_or(false);
+        if shared || self.background(thread).unwrap_or(false) {
             let read = tokio::time::timeout(Duration::from_millis(1500), async {
-                self.utility()
-                    .await?
-                    .call(
-                        "thread/read",
-                        json!({"threadId":thread,"includeTurns":false}),
-                        1000,
-                    )
-                    .await
+                let rpc = if shared {
+                    self.shared_desktop_rpc().await?
+                } else {
+                    self.utility().await?
+                };
+                rpc.call(
+                    "thread/read",
+                    json!({"threadId":thread,"includeTurns":false}),
+                    1000,
+                )
+                .await
             })
             .await;
             if let Ok(Ok(metadata)) = read {
@@ -529,7 +619,7 @@ impl Control {
                     metadata["thread"]["status"]["type"].as_str(),
                     Some("active" | "idle")
                 ) {
-                    result["owner"] = json!("connector");
+                    result["owner"] = json!(if shared { "desktop" } else { "connector" });
                     result["runtimeStatus"] = metadata["thread"]["status"]["type"].clone();
                     return result;
                 }
@@ -635,7 +725,7 @@ impl Control {
             }
         }
         #[allow(unreachable_code)]
-        if self.effective_background(thread).await? {
+        if self.shared_desktop_thread(thread)? || self.effective_background(thread).await? {
             return Ok(());
         }
         let ipc = match self.ipc().await {
@@ -1158,7 +1248,7 @@ impl Control {
         if let Err(error) = &result {
             if !thread.is_empty() && error.contains("already has an active writer") {
                 let ownership = self.writer_ownership(thread).await;
-                if ownership["owner"] == "desktop" {
+                if ownership["owner"] == "desktop" && !self.shared_desktop_thread(thread)? {
                     // This explicit native rejection occurs before admission. It
                     // is safe to route once through the newly observed Desktop;
                     // never do this after a timeout or an uncertain submission.
@@ -1179,6 +1269,10 @@ impl Control {
     }
     async fn request_native_raw(&self, method: &str, args: Value, timeout: u64) -> Result<Value> {
         crate::acceptance_fault::check_read(method, &args)?;
+        if self.shared_desktop_thread(string(&args, "threadId"))? {
+            let rpc = self.shared_desktop_rpc().await?;
+            return self.app_server_request(&rpc, method, args, timeout).await;
+        }
         #[cfg(feature = "test-fixture")]
         {
             if std::env::var_os("ARC_FIXTURE_DESKTOP").is_none() {
@@ -1202,12 +1296,9 @@ impl Control {
                 return self.create_background(args, "", None).await;
             }
             let result = self.seed(args, "", None).await?;
-            if !self
-                .effective_background(string(&result["thread"], "id"))
-                .await?
-            {
-                desktop::reveal(self.ipc().await?.as_ref(), string(&result["thread"], "id"))
-                    .await?;
+            let thread = string(&result["thread"], "id");
+            if !self.shared_desktop_thread(thread)? && !self.effective_background(thread).await? {
+                desktop::reveal(self.ipc().await?.as_ref(), thread).await?;
             }
             return Ok(result);
         }
@@ -1750,7 +1841,7 @@ impl Control {
         if std::env::var_os("ARC_FIXTURE_DESKTOP").is_none() {
             return Ok(());
         }
-        if !self.effective_background(thread).await? {
+        if !self.shared_desktop_thread(thread)? && !self.effective_background(thread).await? {
             let state = self.ipc().await?.read(thread, true).await?;
             desktop::check_steer(&state, thread, turn)?;
         }
@@ -1806,12 +1897,18 @@ impl Control {
             {
                 return Err(crate::writer::busy(thread, ownership).to_string());
             }
-            let desktop = ownership["owner"] == "desktop" || self.handed_to_desktop(thread);
-            let state = if desktop {
+            let shared = self.shared_desktop_thread(thread)?;
+            let desktop =
+                shared || ownership["owner"] == "desktop" || self.handed_to_desktop(thread);
+            let state = if desktop && !shared {
                 let state = self.ipc().await?.read(thread, true).await?;
                 crate::control::thread(&state, true)?
             } else {
-                let rpc = self.utility().await?;
+                let rpc = if shared {
+                    self.shared_desktop_rpc().await?
+                } else {
+                    self.utility().await?
+                };
                 let mut state = rpc
                     .call(
                         "thread/read",
@@ -1880,7 +1977,7 @@ impl Control {
                     params[field] = value.clone();
                 }
             }
-            let result = if desktop {
+            let result = if desktop && !shared {
                 self.ipc().await?.mutate("turn/start", &params).await?
             } else {
                 self.request_inner("turn/start", params, 10000, false)
@@ -1915,7 +2012,12 @@ impl Control {
         if operation == "archive" {
             let thread = string(args, "threadId");
             r["threadId"] = json!(thread);
-            let rpc = self.utility().await?;
+            let shared = self.shared_desktop_thread(thread)?;
+            let rpc = if shared {
+                self.shared_desktop_rpc().await?
+            } else {
+                self.utility().await?
+            };
             let native = rpc
                 .call(
                     "thread/read",
@@ -1939,7 +2041,7 @@ impl Control {
                 // Native archive already handles its own idle writer atomically.
                 // Unsubscribe acknowledgement need not mean the session unloaded.
                 let unnecessary = owner["state"] == "unheld"
-                    || (owner["owner"] == "connector"
+                    || ((owner["owner"] == "connector" || (shared && owner["owner"] == "desktop"))
                         && native["thread"]["status"]["type"] == "idle");
                 if !unnecessary && self.release_writer(thread).await?["released"] != true {
                     return Err("RELEASE_UNCONFIRMED: read codex_owner before archive".into());
@@ -2002,7 +2104,14 @@ impl Control {
                 json!({"code":"STALE_INTERACTION","message":"The original interaction is no longer exposed by its owner. Read the current native interactions and answer the exact current request; do not replay a previous approval.",
                     "next":{"via":"query","op":"codex_pending","args":thread.map(|thread|json!({"threadId":thread})).unwrap_or(json!({}))}}).to_string()
             };
-            let recovered = args["backendSession"] != self.session;
+            let shared = self
+                .desktop_daemon
+                .lock()
+                .await
+                .as_ref()
+                .filter(|rpc| rpc.alive() && args["backendSession"] == rpc.session)
+                .cloned();
+            let recovered = args["backendSession"] != self.session && shared.is_none();
             if recovered
                 && !token_request
                     .as_ref()
@@ -2101,7 +2210,11 @@ impl Control {
                 })?;
                 return Ok(result);
             }
-            let rpc = self.utility().await?;
+            let rpc = if pending["owner"] == "desktop-shared-app-server" {
+                shared.ok_or_else(stale)?
+            } else {
+                self.utility().await?
+            };
             r["submissionStage"] = json!("responding");
             self.checkpoint(r)?;
             let mut response = json!({"id":pending["id"]});
@@ -2129,7 +2242,7 @@ impl Control {
             crate::respond_tokens::consume(args).map_err(|e| {
                 format!("SUBMISSION_UNCONFIRMED: response sent; token persistence failed: {e}")
             })?;
-            return Ok(json!({"responseSent":true,"backendSession":self.session,"id":key}));
+            return Ok(json!({"responseSent":true,"backendSession":rpc.session,"id":key}));
         }
         let mut retry_args = args.clone();
         let mut params = args["params"].clone();
@@ -2206,7 +2319,16 @@ impl Control {
             }
             r["turnId"] = out["turn"]["id"].clone();
             r["dispatchMode"] = json!("new-turn");
-            if !background {
+            let shared = self.shared_desktop_thread(thread)?;
+            #[cfg(target_os = "macos")]
+            let open = if shared {
+                Some(desktop::daemon::open_thread(thread).await)
+            } else {
+                None
+            };
+            #[cfg(not(target_os = "macos"))]
+            let open: Option<Result<()>> = None;
+            if !background && !shared {
                 let _ = self.follow(thread).await;
             }
             crate::dispatch_policy::record(r)?;
@@ -2223,6 +2345,14 @@ impl Control {
                 crate::logs::record("WARN", &e, None);
             }
             let mut response = json!({"threadId":thread,"turnId":r["turnId"],"resolved":result,"submitted":true,"executionOwner":if background {"connector"} else {"desktop"},"desktop":{"state":if background {"not-opened"} else {"owner-confirmed"},"sharedBackend":false}});
+            if let Some(open) = open {
+                response["desktop"] = match open {
+                    Ok(_) => json!({"state":"open-requested","sharedBackend":true}),
+                    Err(error) => {
+                        json!({"state":"open-failed","sharedBackend":true,"message":error})
+                    }
+                };
+            }
             if !background {
                 response["desktopUrl"] = json!(format!("codex://threads/{thread}"));
             }
@@ -2394,7 +2524,10 @@ impl Control {
             self.create_background(params, "", Some(r)).await?
         } else if method == "thread/start" {
             let out = self.seed(params, "", Some(r)).await?;
-            desktop::reveal(self.ipc().await?.as_ref(), string(&out["thread"], "id")).await?;
+            let thread = string(&out["thread"], "id");
+            if !self.shared_desktop_thread(thread)? && !self.background(thread)? {
+                desktop::reveal(self.ipc().await?.as_ref(), thread).await?;
+            }
             out
         } else if method == "turn/start" && r["turnBaseline"].is_object() {
             self.request_inner(&method, params, timeout, false).await?
@@ -2598,7 +2731,9 @@ impl Control {
             "codex_interactions" => crate::egress::interaction_history(&args),
             "codex_pending" => {
                 if let Some(thread) = args["threadId"].as_str() {
-                    if !self.effective_background(thread).await? {
+                    if self.shared_desktop_thread(thread)? {
+                        self.shared_desktop_rpc().await?;
+                    } else if !self.effective_background(thread).await? {
                         self.ipc().await?.read(thread, true).await?;
                     }
                 }

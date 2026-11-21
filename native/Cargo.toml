@@ -56,7 +56,7 @@ windows-sys = { version = ">=0.61, <1", features = ["Win32_Foundation", "Win32_N
 
 [target.'cfg(target_os = "macos")'.dependencies]
 unicode-normalization = ">=0.1, <1"
-objc2-foundation = { version = ">=0.3.2, <1", features = ["NSProcessInfo"] }
+objc2-foundation = { version = ">=0.3.2, <1", features = ["NSProcessInfo", "objc2-core-services"] }
 notify-rust = "4.18"
 
 [dev-dependencies]

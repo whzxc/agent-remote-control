@@ -5,13 +5,20 @@ sequenceDiagram
   participant S as Control source
   participant F as Front door
   participant C as Core
-  participant X as Codex (Desktop or App Server)
+  participant X as Codex execution owner
+  participant D as Codex Desktop
   participant N as Native session store
   S->>F: act codex_create {prompt, pack, notify}
   F->>C: private IPC with authenticated source
   C->>C: reserve receipt (requestId)
   C->>C: resolve dispatch policy and pack
-  C->>X: start thread and first turn
+  alt Desktop uses the local daemon
+    C->>X: start thread and first turn on shared daemon
+    C->>D: open the same thread
+    D->>X: read and follow the thread
+  else Desktop IPC or ARC background execution
+    C->>X: start thread and first turn on selected owner
+  end
   C->>C: bind notification to thread, turn and target
   C-->>S: receipt: submitted, threadId, turnId
   Note over S: ends its turn and waits

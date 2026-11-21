@@ -61,6 +61,7 @@ pub struct Rpc {
     pending: Pending,
     pub events: SharedEvents,
     pub session: String,
+    shared_desktop: bool,
     alive: Arc<std::sync::atomic::AtomicBool>,
     pid: Option<u32>,
     started_at: String,
@@ -103,6 +104,7 @@ impl Rpc {
             pid,
             started_at,
             inherited_nofile,
+            false,
         )
         .await
     }
@@ -167,11 +169,27 @@ impl Rpc {
         session: &str,
         host: crate::codex_host::Host,
     ) -> Result<Arc<Self>> {
+        let socket = host.socket.clone();
+        Self::proxy(binary, events, session, &socket, Some(host)).await
+    }
+    #[cfg(target_os = "macos")]
+    pub(crate) async fn connect_shared_desktop(
+        binary: &Path,
+        events: SharedEvents,
+        socket: &Path,
+    ) -> Result<Arc<Self>> {
+        Self::proxy(binary, events, &id(), socket, None).await
+    }
+    async fn proxy(
+        binary: &Path,
+        events: SharedEvents,
+        session: &str,
+        socket: &Path,
+        host: Option<crate::codex_host::Host>,
+    ) -> Result<Arc<Self>> {
         let mut command = command(binary);
         command.env("CODEX_HOME", crate::accounts::codex::default_home()?);
-        command
-            .args(["app-server", "proxy", "--sock"])
-            .arg(&host.socket);
+        command.args(["app-server", "proxy", "--sock"]).arg(socket);
         #[cfg(unix)]
         command.process_group(0);
         let mut child = command
@@ -199,21 +217,36 @@ impl Rpc {
         .map_err(|_| "CODEX_HOST_HANDSHAKE_TIMEOUT".to_owned())?
         .map_err(|e| format!("CODEX_HOST_HANDSHAKE_FAILED: {e}"))?;
         let (sink, stream) = socket.split();
-        let pid = Some(host.pid);
-        let started_at = host.started_at.clone();
-        let inherited_nofile = host.inherited_nofile.clone();
+        let pid = host.as_ref().map(|host| host.pid).or_else(|| child.id());
+        let started_at = host
+            .as_ref()
+            .map(|host| host.started_at.clone())
+            .unwrap_or_else(now);
+        let inherited_nofile = host
+            .as_ref()
+            .map(|host| host.inherited_nofile.clone())
+            .unwrap_or(Value::Null);
+        let shared_desktop = host.is_none();
         Self::run(
             child,
             Writer::Socket(sink),
             Frames::Socket(stream),
-            Some(host),
+            host,
             events,
             session,
             pid,
             started_at,
             inherited_nofile,
+            shared_desktop,
         )
         .await
+    }
+    pub(crate) fn runtime_source(&self) -> &'static str {
+        if self.shared_desktop {
+            "desktop-shared-app-server"
+        } else {
+            "connector-app-server"
+        }
     }
     /// Subscribe this connection to turns that kept running while no Core was
     /// attached. Codex re-sends their pending server requests on resume.
@@ -316,6 +349,7 @@ impl Rpc {
         pid: Option<u32>,
         started_at: String,
         inherited_nofile: Value,
+        shared_desktop: bool,
     ) -> Result<Arc<Self>> {
         let pending: Pending = Default::default();
         let alive = Arc::new(std::sync::atomic::AtomicBool::new(true));
@@ -326,12 +360,21 @@ impl Rpc {
             pending: pending.clone(),
             events: events.clone(),
             session: session.into(),
+            shared_desktop,
             alive: alive.clone(),
             pid,
             started_at,
             inherited_nofile,
         });
         let session = session.to_owned();
+        let runtime_source = rpc.runtime_source();
+        let response_id = move |session: &str, key: &Value| {
+            if shared_desktop {
+                json!(["desktop-daemon", session, key]).to_string()
+            } else {
+                key.to_string()
+            }
+        };
         tokio::spawn(async move {
             while let Some(bytes) = frames.next().await {
                 let Ok(msg) = serde_json::from_slice::<Value>(&bytes) else {
@@ -339,21 +382,22 @@ impl Rpc {
                 };
                 if msg.get("method").is_some() {
                     if let Some(key) = msg.get("id") {
-                        let mut request = json!({"id":key,"responseId":key.to_string(),"method":msg["method"],"params":msg["params"],"backendSession":session,"owner":"connector-app-server","canRespond":true,"next":{"via":"act","op":"codex_respond","args":{"id":key.to_string(),"backendSession":session},"hint":"Supply exactly one of result/error using the native response schema."}});
+                        let response = response_id(&session, key);
+                        let mut request = json!({"id":key,"responseId":response,"method":msg["method"],"params":msg["params"],"backendSession":session,"owner":runtime_source,"canRespond":true,"next":{"via":"act","op":"codex_respond","args":{"id":response,"backendSession":session},"hint":"Supply exactly one of result/error using the native response schema."}});
                         let task = string(&request["params"], "threadId").to_owned();
                         if let Err(error) =
                             crate::claude_notify::routing::observe("codex", &task, &mut request)
                         {
                             crate::logs::record("WARN", &error, None);
                         }
-                        events.lock().await.pending.insert(key.to_string(), request);
+                        events.lock().await.pending.insert(response, request);
                     }
                     if string(&msg, "method") == "serverRequest/resolved" {
                         events
                             .lock()
                             .await
                             .pending
-                            .remove(&msg["params"]["requestId"].to_string());
+                            .remove(&response_id(&session, &msg["params"]["requestId"]));
                     }
                     crate::event(
                         &events,
@@ -378,15 +422,29 @@ impl Rpc {
                 let _ = tx.send(Err("TRANSPORT_CLOSED: execution state unknown".into()));
             }
             let mut events = events.lock().await;
-            events.pending.retain(|_, r| r["owner"] == "desktop");
+            events
+                .pending
+                .retain(|_, r| r["owner"] == "desktop" || r["backendSession"] != session);
             for timeline in events.timelines.values_mut() {
-                if timeline.info["runtimeSource"] == "connector-app-server" {
+                if timeline.info["runtimeSource"] == runtime_source {
                     timeline.lose_observation();
                 }
             }
             events.wake.notify_waiters();
         });
-        rpc.call("initialize",json!({"clientInfo":{"name":"agent-remote-control","version":env!("ARC_BUILD_VERSION")},"capabilities":{"experimentalApi":true}}),60000).await?;
+        let initialize_timeout = if shared_desktop { 5_000 } else { 60_000 };
+        let initialized = rpc.call("initialize",json!({"clientInfo":{"name":"agent-remote-control","version":env!("ARC_BUILD_VERSION")},"capabilities":{"experimentalApi":true}}),initialize_timeout).await?;
+        if shared_desktop {
+            let expected = crate::accounts::codex::default_home()?
+                .canonicalize()
+                .map_err(|e| e.to_string())?;
+            let reported = Path::new(string(&initialized, "codexHome"))
+                .canonicalize()
+                .map_err(|e| e.to_string())?;
+            if reported != expected {
+                return Err("DESKTOP_DAEMON_HOME_MISMATCH".into());
+            }
+        }
         rpc.write(json!({"method":"initialized"})).await?;
         Ok(rpc)
     }
@@ -490,7 +548,7 @@ impl Rpc {
     }
     /// Close this connection. A detached server keeps running; only its proxy ends.
     pub async fn close(&self) {
-        if self.host.is_some() {
+        if self.host.is_some() || self.shared_desktop {
             self.input.lock().await.take();
             let _ = self.child.lock().await.kill().await;
             self.alive.store(false, std::sync::atomic::Ordering::SeqCst);

@@ -12,6 +12,8 @@ use tokio::net::UnixStream;
 type DesktopStream = UnixStream;
 #[cfg(windows)]
 type DesktopStream = tokio::net::windows::named_pipe::NamedPipeClient;
+#[cfg(target_os = "macos")]
+pub(crate) mod daemon;
 mod interactions;
 #[cfg(windows)]
 mod windows;

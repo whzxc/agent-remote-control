@@ -427,6 +427,7 @@ pub fn receipt(value: Value) -> Value {
                         "turnId",
                         "taskId",
                         "sessionId",
+                        "desktop",
                         "desktopUrl",
                         "submitted",
                         "accepted",

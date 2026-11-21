@@ -12,6 +12,7 @@ flowchart TB
   end
   subgraph EXEC["Agent execution"]
     codexd["Codex Desktop<br/>native login"]
+    codexdaemon["Codex local daemon<br/>shared Desktop execution"]
     appsrv["ARC App Server<br/>single native Codex host"]
     taskhost["task-host<br/>Claude Code · Cursor · Pi · dsh"]
   end
@@ -30,10 +31,13 @@ flowchart TB
   fd -->|"private IPC"| core
   state --- core
   hub --- core
-  core -->|"Desktop IPC"| codexd
+  core -->|"Desktop IPC on compatible builds<br/>open thread in Desktop"| codexd
+  core -->|"App Server protocol over Unix socket"| codexdaemon
+  codexd -->|"App Server protocol over the same socket"| codexdaemon
   core -->|"socket"| appsrv
   core -->|"task-host protocol"| taskhost
   codexd --> native
+  codexdaemon --> native
   appsrv --> native
   taskhost --> native
   core -.->|"observes turns"| native

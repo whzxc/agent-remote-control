@@ -404,7 +404,7 @@ impl WaitSource for CodexSource {
                 }
                 turns.reverse();
                 v["thread"]["turns"] = json!(turns);
-                v["thread"]["runtimeSource"] = json!("connector-app-server");
+                v["thread"]["runtimeSource"] = json!(r.runtime_source());
                 v
             }
             CodexOwner::Desktop(i) => {
@@ -537,8 +537,9 @@ pub(crate) fn reconcile_interruption(value: &mut Value, selected: &str, history:
 }
 async fn codex_source(control: &Arc<Control>, args: &Value) -> Result<CodexSource> {
     let thread = string(args, "threadId");
-    let background = control.effective_background(thread).await?;
-    let owner = if background {
+    let owner = if control.shared_desktop_thread(thread)? {
+        CodexOwner::Background(control.shared_desktop_rpc().await?)
+    } else if control.effective_background(thread).await? {
         CodexOwner::Background(control.utility().await?)
     } else {
         CodexOwner::Desktop(control.ipc().await?)
@@ -591,7 +592,7 @@ pub(crate) async fn codex_notification_observe(
     args: &Value,
     discover_owner: bool,
 ) -> Result<(Value, Option<PathBuf>)> {
-    if discover_owner {
+    if discover_owner || control.shared_desktop_thread(string(args, "threadId"))? {
         let (mut value, path, turn) = codex_observe_with_path(control, args).await?;
         value["_turnLifecycle"] = adapters::checkpoint(&turn);
         return Ok((value, path));

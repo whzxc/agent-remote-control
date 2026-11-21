@@ -38,7 +38,7 @@ flowchart TB
     events["events and inbox"]
   end
   lifecycle["turn_lifecycle<br/>pure classification"]
-  ext[("Codex Desktop · single App Server · task-host")]
+  ext[("Codex Desktop IPC · Codex local daemon · ARC App Server · task-host")]
   gw[("Optional local gateway<br/>quotas · per-turn usage")]
   fdq -->|"private IPC"| inproc
   exec --> OWNERS

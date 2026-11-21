@@ -219,9 +219,9 @@ impl Service {
         status["requestRoutingDelaySeconds"] =
             status_settings()?["requestRoutingDelaySeconds"].clone();
         status["cliPath"] = json!(crate::cli_shim::executable()?);
-        let desktop = match self.control.ipc().await {
-            Ok(_) => {
-                json!({"supported":true,"state":"ready","executionOwner":"desktop","message":"Codex Desktop is ready"})
+        let desktop = match self.control.desktop_readiness().await {
+            Ok(transport) => {
+                json!({"supported":true,"state":"ready","executionOwner":"desktop","transport":transport,"message":"Codex Desktop is ready"})
             }
             Err(e) => {
                 json!({"supported":crate::desktop::installation().is_some(),"state":if crate::desktop::installation().is_some(){"disconnected"}else{"unavailable"},"executionOwner":"desktop","message":e})
