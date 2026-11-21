@@ -326,6 +326,12 @@ Tray and deep-link navigation received while a dialog is open becomes actionable
 
 ### Motion
 
+`npm run check:ui-styles` checks CSS and inline timing, Motion transitions, Web Animations and recurring frame callbacks. `tooling/ui-motion-allowlist.json` identifies exact artwork declarations. `tooling/ui-motion-decisions.json` pins pending decisions to their reviewed location and current value.
+`npm run check:ui-styles` restricts explicitly infinite CSS tracks to running indicators and named artwork, with one track per running-indicator declaration.
+`npm run check:ui-styles` checks the shared zero-duration reset on reduced-motion elements and their before and after pseudo-elements.
+
+`--motion-running` is 1600ms. The enter and exit curves are `cubic-bezier(0.16, 1, 0.3, 1)` and `cubic-bezier(0.4, 0, 1, 1)`, respectively.
+
 - Motion tokens MUST own every duration and easing outside the topology animator.
 - `--motion-fast` is 120ms for hover, press, tooltip and toast.
 - `--motion-base` is 160ms for dialog and transient entry, content swaps, and synchronized height and y transitions.

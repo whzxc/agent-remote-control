@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import postcss from 'postcss';
 import { checkConsumers } from './check-ui-consumers.mjs';
+import { checkMotion } from './check-ui-motion.mjs';
 import { checkTokens } from './check-ui-tokens.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -53,8 +54,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
     const result = await checkStyles();
     const consumers = checkConsumers();
-    result.errors.push(...consumers.errors, ...checkTokens(root, consumers.parts).errors);
+    const motion = checkMotion(root);
+    result.errors.push(...motion.errors, ...consumers.errors, ...checkTokens(root, consumers.parts).errors);
     if (result.errors.length) { console.error(result.errors.join('\n')); process.exitCode = 1; }
-    else console.log(`UI style policy passed (${result.declarations} declarations, ${result.exceptions} exact exceptions).`);
+    else console.log(`UI style policy passed (${result.declarations} declarations, ${result.exceptions} paint exceptions, ${motion.exceptions} motion artwork exceptions, ${motion.pending} pending timing decisions).`);
   } catch (error) { console.error(error.message); process.exitCode = 1; }
 }
