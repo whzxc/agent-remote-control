@@ -18,6 +18,6 @@
 .node-capsule-disc[data-phase=command] { color: var(--phase-command); }
 .node-capsule-disc[data-phase=running] { color: var(--role-agent); animation: capsule-pulse var(--motion-running) var(--ease-running) infinite; }
 @keyframes capsule-pulse { 50% { opacity: .45; } }
-@media (prefers-reduced-motion: reduce) { .node-capsule-disc { animation: none; } }
+@media (prefers-reduced-motion: reduce) { :root:not([data-reduced-motion]) .node-capsule-disc[data-phase=running] { animation: none; } }
 .node-capsule-logo, .node-capsule-tasks { border: 0; padding: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .topology-scene[data-orientation=portrait] .node-capsule-logo { background: var(--canvas); border-radius: 50%; }

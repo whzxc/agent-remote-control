@@ -348,6 +348,7 @@ export function SingleChoice({
   tiles ||= form === "setup-product";
   const container = useRef<HTMLDivElement>(null);
   const measure = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
   const [fits, setFits] = useState(false);
   const [contentWidth, setContentWidth] = useState<number>();
   useLayoutEffect(() => {
@@ -424,12 +425,12 @@ export function SingleChoice({
           ))}
         </RadioGroup.Root>
       ) : menuLabel ? (
-        <M.Root>
+        <M.Root open={open} onOpenChange={setOpen}>
           <M.Trigger asChild>
             <ChoiceTrigger aria-label={label} disabled={disabled} side={side}>{options.find(option => option.value === value)?.label}</ChoiceTrigger>
           </M.Trigger>
           <M.Portal>
-            <TransientLayer><M.Content className="select-content choice-labelled-menu" aria-label={menuLabel}
+            <TransientLayer onDismiss={() => setOpen(false)}><M.Content className="select-content choice-labelled-menu" aria-label={menuLabel}
               side={side} align="start" sideOffset={6} collisionPadding={12}
               style={{ maxHeight: "var(--radix-dropdown-menu-content-available-height)", overflowY: "auto" }}>
               <M.Label className="choice-menu-label">{menuLabel}</M.Label>
@@ -445,7 +446,7 @@ export function SingleChoice({
           </M.Portal>
         </M.Root>
       ) : (
-        <S.Root value={value} onValueChange={onChange} disabled={disabled}>
+        <S.Root open={open} onOpenChange={setOpen} value={value} onValueChange={onChange} disabled={disabled}>
           <S.Trigger className="select-trigger" aria-label={label}>
             <S.Value />
             <S.Icon>
@@ -453,7 +454,7 @@ export function SingleChoice({
             </S.Icon>
           </S.Trigger>
           <S.Portal>
-            <TransientLayer><S.Content
+            <TransientLayer onDismiss={() => setOpen(false)}><S.Content
               className="select-content"
               position={position}
               side={side}
@@ -517,8 +518,8 @@ export function Tooltip({
   if (!text) return <>{children}</>;
   const content = (
     <T.Root
-      open={hoverOnly ? open : undefined}
-      onOpenChange={hoverOnly ? (next) => setOpen(next && pointerHover.current) : undefined}
+      open={open}
+      onOpenChange={next => setOpen(next && (!hoverOnly || pointerHover.current))}
       disableHoverableContent={hoverOnly}
     >
       <T.Trigger
@@ -537,7 +538,7 @@ export function Tooltip({
         onBlur={hoverOnly ? dismiss : undefined}
       >{children}</T.Trigger>
       <T.Portal>
-        <TransientLayer><T.Content className="tooltip" side={side} sideOffset={6} collisionPadding={10}>
+        <TransientLayer onDismiss={() => setOpen(false)}><T.Content className="tooltip" side={side} sideOffset={6} collisionPadding={10}>
           {typeof text === "string" ? protect(text) : text}
         </T.Content></TransientLayer>
       </T.Portal>
@@ -562,11 +563,12 @@ export function Menu({
     danger?: boolean;
   }[];
 }) {
+  const [open, setOpen] = useState(false);
   return (
-    <M.Root>
+    <M.Root open={open} onOpenChange={setOpen}>
       <M.Trigger asChild>{trigger}</M.Trigger>
       <M.Portal>
-        <TransientLayer><M.Content
+        <TransientLayer onDismiss={() => setOpen(false)}><M.Content
           className="menu"
           aria-label={label}
           sideOffset={6}

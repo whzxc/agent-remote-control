@@ -82,7 +82,7 @@ export default function App() {
   const welcome = flow?.step === "welcome" && page === "overview";
   const layers = layerStore.use();
   const modalOpen = layers.some(layer => layer.kind === 'dialog');
-  const workspace = layers.find(layer => layer.kind === 'panel' && layer.node?.dataset.layerSide === 'center');
+  const panel = layers.find(layer => layer.kind === 'panel');
   useBoardObservation(page === 'overview' && (!modalOpen || bulletinOpen));
   useEffect(() => { localStorage.setItem("arc-page", page); }, [page]);
   useLayoutEffect(() => {
@@ -204,13 +204,13 @@ export default function App() {
       onClickCapture={(e) => captureLayerTrigger(e.target)}
 
     >
-      <HomepageDisplay headerVisible={page === "overview" && !welcome && !modalOpen && !workspace} />
+      <HomepageDisplay headerVisible={page === "overview" && !welcome && !modalOpen} />
       {isDesktop && (
         <div className="window-drag-strip" data-tauri-drag-region />
       )}
       <main
         className="home-workspace"
-        inert={page !== "overview" || modalOpen || !!workspace}
+        inert={page !== "overview" || modalOpen}
       >
         <ConnectionOverview visible={page === "overview"} />
       </main>
@@ -232,7 +232,7 @@ export default function App() {
           </div>
         </Panel>
       }</PanelRoute>
-      <LayerOwnerContext.Provider value={workspace?.id}>
+      <LayerOwnerContext.Provider value={panel?.id}>
       <NavCapsule
         activeKey={modalOpen ? "" : page === "overview" ? undefined : page}
         data-workspace-switcher
@@ -256,8 +256,8 @@ export default function App() {
 
             </button>
           ))}
-          <TuningControls available={page === "overview" && !welcome && !modalOpen && !workspace} />
-          <StudioControls available={studio && page === "overview" && !welcome && !modalOpen && !workspace} />
+          <TuningControls available={page === "overview" && !welcome && !modalOpen} />
+          <StudioControls available={studio && page === "overview" && !welcome && !modalOpen} />
           <UpdateDock />
       </NavCapsule>
       </LayerOwnerContext.Provider>

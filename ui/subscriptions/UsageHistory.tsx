@@ -76,6 +76,7 @@ export default function UsageHistory({
       key ? (live.current.expanded ? 0 : 120) : 180,
     );
   }
+  const isReading = (target: Node) => [...triggers.current.values()].some(node => node.contains(target));
   const dismiss = () => {
     clearTimeout(timer.current);
     hoverTarget.current = "";
@@ -127,7 +128,7 @@ export default function UsageHistory({
       >
         <Popover.Anchor virtualRef={anchor} />
         <Popover.Portal>
-          <TransientLayer><QuotaPopover
+          <TransientLayer onDismiss={dismiss} isAnchor={isReading}><QuotaPopover
             ref={card}
             className="history-popover"
             side="top"
@@ -138,7 +139,7 @@ export default function UsageHistory({
             style={{ height: motion.value[2]! + 16 }}
             onInteractOutside={(e) => {
               const target = e.target;
-              if (target instanceof Node && [...triggers.current.values()].some(node => node.contains(target))) e.preventDefault();
+              if (target instanceof Node && isReading(target)) e.preventDefault();
             }}
             onOpenAutoFocus={(e) => e.preventDefault()}
             onCloseAutoFocus={(e) => e.preventDefault()}

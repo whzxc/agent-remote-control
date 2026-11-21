@@ -27,7 +27,7 @@
 .update-history-link { display: flex; justify-content: flex-end; margin-top: 16px; }
 .update-history-link .button { height: 24px; }
 .settings-about-links { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-inline: 16px; margin-top: 12px; }
-@media (prefers-reduced-motion: reduce) { .update-ring, .update-panel { animation: none; } }
+@media (prefers-reduced-motion: reduce) { :root:not([data-reduced-motion]) .update-ring, :root:not([data-reduced-motion]) .update-panel { animation: none; } }
 :root[data-reduced-motion="true"] :is(.update-ring, .update-panel) { animation: none; }
 .settings-about .setting-control .actions { justify-content: flex-end; }
 .settings-about .setting-control .button { --button-width: auto; }

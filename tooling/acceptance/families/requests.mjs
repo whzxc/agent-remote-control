@@ -37,8 +37,19 @@ export const checks = [
                     await dialog.waitFor();
                     if (fixture.tasks[fixture.detailTask].question === true && !await dialog.getByRole('radio', { name: /Alpha/ }).isChecked())
                         throw new Error('Reopening the request lost its draft.');
+                    if (fixture.tasks[fixture.detailTask].question)
+                        await dialog.getByRole('button', { name: messages['detail.nextRequest'], exact: true }).click();
                     await dialog.getByRole('button', { name: messages.close, exact: true }).click();
                     await dialog.waitFor({ state: 'hidden' });
+                    if (fixture.tasks[fixture.detailTask].question) {
+                        await page.keyboard.press('Escape');
+                        const keep = page.getByRole('button', { name: messages['layers.keepEditing'], exact: true });
+                        await keep.click();
+                        await entry.click();
+                        await dialog.getByRole('button', { name: messages['detail.previousRequest'], exact: true }).click();
+                        if (!await dialog.getByRole('radio', { name: /Alpha/ }).isChecked())
+                            throw new Error('Paging to a clean request lost an earlier answer draft.');
+                    }
                 }
             }
             finally {

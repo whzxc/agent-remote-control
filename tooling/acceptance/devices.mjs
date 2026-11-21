@@ -33,6 +33,8 @@ export async function verifyDevices(page, fixture, messages) {
   if (state === 'controller') {
     await openDevice('Quartz PC'); await workspace.getByText('Windows · x86_64', { exact: true }).waitFor();
     await page.keyboard.press('Escape');
+    const quartz = page.getByRole('button', { name: 'Quartz PC', exact: true });
+    await page.waitForFunction(node => node === document.activeElement, await quartz.elementHandle());
     await openDevice('Cedar Mac'); await workspace.getByText('macOS · arm64', { exact: true }).waitFor();
     await page.keyboard.press('Escape');
     await choose('member'); await workspace.getByText(c('unpaired'), { exact: true }).waitFor();

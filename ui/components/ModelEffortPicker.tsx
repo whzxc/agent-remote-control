@@ -42,7 +42,8 @@ export default function ModelEffortPicker({ label, models, efforts, model, effor
     const value = steps[index] === INHERIT ? "" : steps[index];
     if (value !== effort) onChange({ model, effort: value });
   };
-  return <Popover.Root>
+  const [open, setOpen] = useState(false);
+  return <Popover.Root open={open} onOpenChange={setOpen}>
     <Popover.Trigger asChild>
       <ChoiceTrigger aria-label={label} aria-describedby={specId} disabled={disabled} data-dispatch-spec="">
         <DispatchSpec id={specId} model={model ? modelName : selectedEffort ? undefined : inheritLabel}
@@ -50,7 +51,7 @@ export default function ModelEffortPicker({ label, models, efforts, model, effor
       </ChoiceTrigger>
     </Popover.Trigger>
     <Popover.Portal>
-      <TransientLayer><Popover.Content className="popover spec-picker" aria-label={label} side="bottom" align="start" sideOffset={8} collisionPadding={12}>
+      <TransientLayer onDismiss={() => setOpen(false)}><Popover.Content className="popover spec-picker" aria-label={label} side="bottom" align="start" sideOffset={8} collisionPadding={12}>
         <div className="spec-picker-model-row">
           <SingleChoice dropdown label={`${t("dispatchDefaults.model")}: ${modelName}`} value={model || INHERIT} disabled={disabled}
             options={[{ value: INHERIT, label: inheritLabel }, ...models]} menuLabel={t("dispatchDefaults.chooseModel")} side="right"

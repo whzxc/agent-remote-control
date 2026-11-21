@@ -1,4 +1,63 @@
-import path from 'node:path';
+async function setMotion(page, reduced) {
+    await page.evaluate(async value => {
+        const { setScenarioReducedMotion } = await import('/scenarios.ts');
+        const { refreshAppEnvironment } = await import('/state/appEnvironment.ts');
+        setScenarioReducedMotion(value);
+        await refreshAppEnvironment();
+    }, reduced);
+    await page.waitForFunction(value => document.documentElement.dataset.reducedMotion === String(value), reduced);
+}
+
+async function interruptLayerMotion(page) {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await setMotion(page, false);
+    await page.evaluate(() => {
+        const capsule = document.createElement('span'), card = document.createElement('article');
+        capsule.className = 'node-capsule-disc';
+        capsule.dataset.phase = 'running';
+        card.className = 'task-card';
+        card.dataset.aurora = 'command';
+        document.body.append(capsule, card);
+        const root = document.documentElement;
+        try {
+            if (getComputedStyle(capsule).animationName !== 'capsule-pulse' || getComputedStyle(card).animationName !== 'task-aurora')
+                throw new Error('System reduction overrode explicit normal motion on a running indicator.');
+            delete root.dataset.reducedMotion;
+            if (getComputedStyle(capsule).animationName !== 'none')
+                throw new Error('The capsule animated before the reduced-motion setting initialized.');
+        } finally {
+            root.dataset.reducedMotion = 'false';
+            capsule.remove();
+            card.remove();
+        }
+        // Lengthen the production tokens so even a slow browser can interrupt a live transition.
+        for (const token of ['fast', 'panel']) document.documentElement.style.setProperty('--motion-' + token, '4s');
+    });
+    const panel = page.locator('.layer-panel');
+    await page.keyboard.press('Escape');
+    await page.locator('.layer-panel[data-exiting]').waitFor();
+    await setMotion(page, true);
+    await panel.waitFor({ state: 'hidden', timeout: 1200 });
+
+    await setMotion(page, false);
+    await page.locator('[data-page="settings"]').click();
+    await page.locator('.layer-panel[data-layer-entering]').waitFor();
+    await setMotion(page, true);
+    await page.waitForFunction(() => {
+        const node = document.querySelector('.layer-panel');
+        return node && !node.hasAttribute('data-layer-entering') && getComputedStyle(node).opacity === '1';
+    }, null, { timeout: 1200 });
+    await setMotion(page, false);
+    if (await panel.getAttribute('data-layer-entering') !== null || await panel.evaluate(node => getComputedStyle(node).opacity) !== '1')
+        throw new Error('Restoring normal motion replayed entry on the open panel.');
+
+    await panel.locator('#settings-experimental-entry').click();
+    const body = panel.locator('.dialog-body');
+    await page.waitForFunction(node => Number(getComputedStyle(node).opacity) < 0.99, await body.elementHandle(), { timeout: 1200 });
+    await setMotion(page, true);
+    await page.waitForFunction(() => [...document.querySelectorAll('.layer-panel :is(.dialog-header,.dialog-body)')]
+        .every(node => getComputedStyle(node).opacity === '1'), null, { timeout: 1200 });
+}
 export const checks = [
     { stage: "afterCapture", order: 47, visual: false, async run(context) {
             const { page, fixture, height, row } = context;
@@ -14,6 +73,7 @@ export const checks = [
                     if (samples.at(-1).entering)
                         throw new Error('Entry geometry gate did not finish with the fade.');
                     row.layerEntry = { samples: samples.length, entrySamples: entry.length };
+                    await interruptLayerMotion(page);
                 }
             }
             finally {

@@ -34,7 +34,7 @@ tasks and unread completions show previews. Older history shows compact summarie
 Inactive tasks show a recorded failure or interruption when available and
 otherwise appear completed. Offline history uses the last observation. Opening an
 unread completion marks it read.
-Snapshot opening and closing morph between the card and the centered layer slot.
+Task snapshots open in the shared centered panel.
 Reduced motion is instant.
 The one-row HomepageBar reserves space for both homepage modes and retains the Board entry.
 
@@ -57,7 +57,7 @@ latest ended task. Offline nodes omit live counts and phases. Available quota st
 for Agent nodes and their linked control source nodes. The logo opens its existing node panel;
 the task area opens scoped Tasks. Narrow topology pans horizontally between reserved
 columns by explicit user input; the header/navigation stay fixed. Device management
-explicitly folds the child branch while its panel is open.
+selects the device and preserves the topology disclosure state.
 
 The homepage, Agent and control-source task lists share one task card. A summary
 renders the same three-row header as a detail preview: origin chain and time,

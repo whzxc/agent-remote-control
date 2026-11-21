@@ -4,7 +4,7 @@
 [Remote link](remote-link.md#device-link) owns the Desktop entry.
 
 The homepage renders paired members on the executor wing and the controller on the member source wing.
-Each device opens its side-slot management panel.
+Each device opens its centered management panel.
 The right add endpoint opens pairing and local offers.
 Native `controller.showUpstreamSources` configuration owns default-off disclosure of `controller.upstreamSources`.
 
@@ -16,6 +16,6 @@ Incoming controller-dispatched work stays local on the member and uses the contr
 Offline or failed observations retain last-seen metadata and use unconfirmed presentation.
 
 The current management API has no remote account/quota inventory or remote timeline/response forwarding.
-Remote cards expose the recorded activity in a side panel with partial-history status.
+Remote cards expose the recorded activity in a centered panel with partial-history status.
 Local task cards retain the existing timeline and response interactions.
 Device file transfer retains its native and CLI owners.

@@ -144,9 +144,10 @@ export default function DeviceNodePanel({ onPanelFrame }: { onPanelFrame?: (rect
     setBusy(true); setActionError('');
     try { await setControllerSources(show); } catch (error) { setActionError(String(error)); } finally { setBusy(false); }
   }
+  const nodeId = view.upstreamSource ? `upstream:${view.upstreamSource}` : `device:${view.detail}${view.agent ? `:agent:${view.agent}` : ''}`;
   return <>
     {(detail || controller || view.detail === 'pairing') && <Panel size="m" title={selectedAgent ? `${detail!.name} · ${agentName(selectedAgent)}` : upstream?.sourceLabel ?? detail?.name ?? (controller ? snapshot?.controller?.name : c('deviceLink'))}
-      returnFocus={view.detail === 'pairing' ? '.hub-device-link' : undefined} className="device-node-panel" onPanelFrame={onPanelFrame} busy={busy} onClose={() => deviceView.set({ side: view.side })}>
+      returnFocus={view.detail === 'pairing' ? '.hub-device-link' : `[data-node-id="${CSS.escape(nodeId)}"] [data-layer-switcher]`} className="device-node-panel" onPanelFrame={onPanelFrame} busy={busy} onClose={() => deviceView.set({ side: view.side })}>
       <div className="devices-content">{view.detail === 'pairing' && <Button data-device-pair-add variant="primary" onClick={() => deviceView.set(old => ({ ...old, dialog: 'pair' }))}><Icon icon={Plus} />{c('add')}</Button>}{detail && remote[detail.id]?.error && <Notice layout="inline">{remote[detail.id].error}</Notice>}{(error || actionError) && <Notice layout="inline">{error || actionError}</Notice>}
         {selectedAgent && detail ? <DeviceFacts variant="detail"><DeviceFacts variant="identity"><BrandMark markup={icons[selectedAgent.agent]} size={28} /><strong>{agentName(selectedAgent)}</strong></DeviceFacts>
           <p>{selectedAgent.version}</p><Button onClick={() => { deviceView.set({ side: 'controller' }); focusNodeTasks({ id: `device:${detail.id}:agent:${selectedAgent.agent}`, deviceId: detail.id, agent: selectedAgent.agent, label: `${detail.name} · ${agentName(selectedAgent)}` }); }}>{t('homepage.tasks')}</Button>

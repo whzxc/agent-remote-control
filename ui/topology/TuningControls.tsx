@@ -38,11 +38,11 @@ function ParameterControl({ spec, value }: { spec: typeof PARAMETERS[number]; va
       <Slider label={label} min={spec.min} max={spec.max} step={spec.step} value={value}
         onChange={number => { previewParameter(spec.key, number); setNotice(""); }}
         onCommit={number => { previewParameter(spec.key, number); saveTopologyParameters(); }} />
-      <Input id={`topology-${spec.key}`} inputMode="decimal" value={text} aria-label={t("topology.valueLabel", { label })}
+      <Input id={`topology-${spec.key}`} inputMode="decimal" data-edited={text !== String(value) || undefined} value={text} aria-label={t("topology.valueLabel", { label })}
         onChange={event => setText(event.target.value)} onBlur={apply}
         onKeyDown={event => {
           if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); }
-          if (event.key === "Escape") { setText(String(value)); event.stopPropagation(); }
+          if (event.key === "Escape" && text !== String(value)) { setText(String(value)); event.stopPropagation(); }
         }} />
       <IconButton icon={RotateCcw} label={t("topology.resetOne", { label })} size={16} disabled={!changed}
         onClick={() => { resetTopologyParameter(spec.key); setNotice(""); }} />
@@ -67,8 +67,11 @@ export default function TuningControls({ available }: { available: boolean }) {
   if (!enabled) return null;
   return <Popover.Root open={open} onOpenChange={changeOpen}>
     <Popover.Trigger asChild><IconButton icon={SlidersHorizontal} size={20} label={t("topology.tuning")} data-hover-target="topology" /></Popover.Trigger>
-    <Popover.Portal><TransientLayer><InspectionPopover ref={element} variant="tuning" side="top" align="start" sideOffset={12} collisionPadding={16}
-      aria-label={t("topology.tuning")} onEscapeKeyDown={event => event.stopPropagation()}
+    <Popover.Portal><TransientLayer onDismiss={() => changeOpen(false)}><InspectionPopover ref={element} variant="tuning" side="top" align="start" sideOffset={12} collisionPadding={16}
+      aria-label={t("topology.tuning")} onEscapeKeyDown={event => {
+        if (event.target instanceof HTMLInputElement && event.target.matches('.topology-parameter input[data-edited]')) event.preventDefault();
+        else event.stopPropagation();
+      }}
       onInteractOutside={() => {
         const active = document.activeElement;
         if (active instanceof HTMLInputElement && element.current?.contains(active)) active.blur();

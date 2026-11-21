@@ -24,7 +24,7 @@ Use `SingleChoice` for every single-choice control: pills for at most five optio
 - `tooling/check-ui-consumers.mjs` requires two feature consumers per shared export and reports parts to move back to their feature or delete. It follows reexports and shared dependencies; a feature directory counts once, flat component and Board/AX files count individually, and tests/type-only imports do not count.
 - `tooling/check-ui-tokens.mjs` requires semantic paint token names and counts declaration uses across `ui/`, including shared CSS. It applies the ADG normalization thresholds (`tooling/token-distance.mjs`), using the 14px body size for unitless line heights, rejects a small difference used fewer than three times and names the nearest token. Value-named tokens fail. Named artwork palettes use exact file/token/reason entries in `tooling/ui-token-allowlist.json`.
 
-Related tooltips remain visible while smoothly moving and resizing; hover highlights use the shared token-driven layer. Hub toggles stay simple and tactile. The layer contract below owns reduced motion, keyboard navigation, focus restoration, sizing, dismissal and feedback.
+Each Tooltip trigger owns a Radix portal. Hover highlights follow the active target through the shared token-driven layer. Hub toggles stay simple and tactile. The layer contract below owns reduced motion, keyboard navigation, focus restoration, sizing, dismissal and feedback.
 
 ## Homepage and layout
 
@@ -54,17 +54,17 @@ The homepage supplements live activity and dispatch receipts with recent unarchi
 
 Completed cards show the Agent and available control source, title, recorded configuration and elapsed execution time. Duration comes from native timing metadata or recorded start and end times. Previews summarize tool work by category on a single line and render reasoning summaries and Markdown replies. Compact history shows the project or available last-seen metadata. Requests remain with their controller. Remote cards use available controller-scoped device task metadata.
 
-Task details open and close with the shared centered panel transition used by Settings. Closing restores focus to the originating card. Existing task detail interactions remain inside the task layer. Final replies and review cards use a neutral border without a colored left edge.
+Task details open in the shared centered panel. Registry dismissal fades the shell. The remote detail header closes the selection directly. Closing restores focus to the originating card. Existing task detail interactions remain inside the task layer. Final replies and review cards use a neutral border without a colored left edge.
 
 Collapsed timeline turns expand from any point on the card. Expanded turns collapse only from the padded title bar. Markdown links distinguish web/app URLs, local heading anchors, and file references. File references resolve through local management against the task's native project metadata; the frontend cannot supply a project root. Images share the existing project/thread-visualization path boundary and bounded decoder. Local files reveal in the host file manager. Failed, missing, or unsupported images render an image icon. Remote images use HTTP(S) without a referrer. Raw HTML and executable URL schemes remain inactive.
 
 Codex subagents use their native nickname as the display title in activity, conversation lists and task details. External Codex activity without a nickname reads conversation titles from the native session index. An incremental rollout reader retains the first readable user message as a fallback, plus creation time and project metadata outside the bounded headline tail. Fast uses an explicit turn service tier when present, otherwise the thread setting captured at that turn's start. Later settings do not change earlier turn summaries.
 
-Every node panel, workspace and dialog uses one centered slot owned by `layerFrame`. Content chooses M (560px) or XL (960px), capped to the viewport margins. The current height stays centered between the top line and bottom margin. Growth and allowed shrink move both edges symmetrically. Height fits content, retains its largest value until a whole-view replacement, and caps with a scrolling body under fixed headers and footers. Narrow or portrait layers fill the available width. Replacement retains the shared shell and crossfades content. Entry and exit use opacity fades. Reduced motion applies geometry directly. Closing restores the latest trigger.
+Node panels and workspaces share one centered panel host. Each surface selects M (560px) or XL (960px). Dialogs use M. The viewport margins cap both widths. The shell centers its current height between the top and bottom insets. Panels retain their largest capped height within a view. Dialogs follow measured content height. At the height cap, the body scrolls between the fixed header and footer.
 
-Node panels have no scrim, scene scroll lock or background inert. Nodes and the navigation capsule are marked panel switchers and use the layer store for replacement and toggling. A clean panel closes on outside pointer input or Escape, consuming the outside click. Dirty or busy panels show the shared dismissal footer with its safe action focused. The selected node hides its visible label while retaining its accessible name and logo action. Closing restores trigger focus, falling back to the owning node. Node panels pause topology dragging and keyboard sorting while open. Layers overlay the topology without contributing boundaries or geometry to its solver. Node positions, hub position, scale, grouping and child brackets remain unchanged when a layer opens.
+Node panels have no scrim, scene scroll lock or background inert. Nodes and the navigation capsule are marked panel switchers and use the layer store for replacement and toggling. A clean panel closes on outside pointer input or Escape, consuming the outside click. Dirty or busy panels show the shared dismissal footer with its safe action focused. The selected node hides its visible label while retaining its accessible name and logo action. Closing restores trigger focus, falling back to the owning node. Node panels pause topology dragging and keyboard sorting while open. Layers overlay the topology without contributing boundaries or geometry to its solver. Selection can reveal an Agent beyond the display limit, protect a node from compaction, reopen a wing or scroll the selected node into view.
 
-Opening an Agent panel retains the selected node's scale and primary connection. The panel overlays the configuration without hiding or moving descendants. Agent views merge live tasks with unarchived conversation metadata. Sticky sections group tasks needing input, running tasks, unread completed tasks, conversations created today, yesterday, each remaining date in the current Monday-based week, and earlier conversations, with loaded counts. Unread appears immediately after Running and uses the shared completion read state. Opening an unread task moves it to its creation-date group. Empty sections are omitted. Date boundaries use the local calendar. Metadata without live evidence reads the recorded turn result. Inactive conversations without an explicit exception appear completed. Explicit failed or error outcomes show failure. Cancellation, interruption and abort show interruption. It has no inferred duration, live phase, model, or source. Conversation rows retain the project, latest observed model/effort/Fast, turn count and creation date. The full local creation timestamp is available on hover. Missing configuration is omitted. Each section orders by creation time, newest first, without manual task order. The local agents/conversations endpoint returns 20 metadata rows per request, capped at 50, with an opaque nextCursor. Codex reads native unarchived threads. Other Agents expose ARC-stored tasks only because their drivers have no native history/archive contract. The frontend appends pages near the scroll boundary, memoizes rows, and sizes cards from their content. A delayed generic loading indicator appears only before any visible conversation is available; account-filtered pages keep that initial indicator continuous. Later pages retain visible rows without flashing a loading message. The list exposes request progress through aria-busy. Hidden lists stop requesting pages. Metadata stays mounted across details/back navigation. Timelines load only after selection; listing never resumes sessions or builds each conversation timeline. Codex list metadata reuses the incremental native-record scanner for turn configuration and distinct turn IDs, with a bounded in-memory cache of scan offsets. Other Agents read persisted task configuration and turn metadata without retaining output payloads. Metadata observed while the panel is mounted remains available after a live task disappears from the activity snapshot, even before it appears in a history page.
+Opening an Agent panel retains the selected node's scale and primary connection. Its rectangle reserves no topology space. Agent views merge live tasks with unarchived conversation metadata. Sticky sections group tasks needing input, running tasks, unread completed tasks, conversations created today, yesterday, each remaining date in the current Monday-based week, and earlier conversations, with loaded counts. Unread appears immediately after Running and uses the shared completion read state. Opening an unread task moves it to its creation-date group. Empty sections are omitted. Date boundaries use the local calendar. Metadata without live evidence reads the recorded turn result. Inactive conversations without an explicit exception appear completed. Explicit failed or error outcomes show failure. Cancellation, interruption and abort show interruption. It has no inferred duration, live phase, model, or source. Conversation rows retain the project, latest observed model/effort/Fast, turn count and creation date. The full local creation timestamp is available on hover. Missing configuration is omitted. Each section orders by creation time, newest first, without manual task order. The local agents/conversations endpoint returns 20 metadata rows per request, capped at 50, with an opaque nextCursor. Codex reads native unarchived threads. Other Agents expose ARC-stored tasks only because their drivers have no native history/archive contract. The frontend appends pages near the scroll boundary, memoizes rows, and sizes cards from their content. A delayed generic loading indicator appears only before any visible conversation is available; account-filtered pages keep that initial indicator continuous. Later pages retain visible rows without flashing a loading message. The list exposes request progress through aria-busy. Hidden lists stop requesting pages. Metadata stays mounted across details/back navigation. Timelines load only after selection; listing never resumes sessions or builds each conversation timeline. Codex list metadata reuses the incremental native-record scanner for turn configuration and distinct turn IDs, with a bounded in-memory cache of scan offsets. Other Agents read persisted task configuration and turn metadata without retaining output payloads. Metadata observed while the panel is mounted remains available after a live task disappears from the activity snapshot, even before it appears in a history page.
 
 Source, Agent, account, device and task panels share the centered M presentation and focus behavior. Source and Agent panels replace one another in the same physical slot. Panel visibility has no topology solver input and creates no panel tentacle or leaf port. [source-panel.tsx](../../design/surfaces/source-panel.tsx) and [agent-panel.tsx](../../design/surfaces/agent-panel.tsx) own their content presentation.
 
@@ -86,7 +86,7 @@ Recent dispatches reveal eight more rows near the scroll boundary. Existing APIs
 
 Remote link opens Connection management, defined by [connections.tsx](../../design/surfaces/connections.tsx). The list includes every external ingress, including unused ones. Add connection lives in the panel header. Each card shows its name, state and associated source icons with visible names, followed by its address, provider and connection method. Relay Worker version remains beside its provider information. Cards expose copy, dedicated-tunnel editing, relay retry/update and joined-relay Leave. Edit precedes removal. Cards do not open a secondary detail view or offer source creation. Removal names affected sources and preserves their names and history as disconnected. Cross-connection migration uses the existing Connection, Update address and Reauthorize dialog. Relay sharing, member devices, and owner Delete belong exclusively to the Relay hosting capsule entry. Joined relays remain connections.
 
-Creating and approving follow [setup.tsx](../../design/surfaces/setup.tsx) and [Remote link › Placement rule](remote-link.md#placement-rule). Add control source, Add connection and Change connection reuse the shared dialog, choices, fields and copy control. Dialog owns modal focus containment and consumes outside pointer input. A stacked Add connection retains its parent in place beneath the scrim. Both dialogs use the unified M viewport dialog slot. Connection context alone does not create a stacked layer. Canceling a stacked Add connection preserves the mounted parent draft and restores its focus. Source completion highlights the new homepage node for two seconds; reduced motion keeps a static ring for the same duration. The method step uses close for dismissal; success keeps the action to add another source or continue with the connection. Empty connection selection offers creation methods without a disabled Continue action.
+Creating and approving follow [setup.tsx](../../design/surfaces/setup.tsx) and [Remote link › Placement rule](remote-link.md#placement-rule). Add control source, Add connection and Change connection reuse the shared dialog, choices, fields and copy control. Dialog owns modal focus containment and consumes outside pointer input. A stacked Add connection leaves its parent mounted beneath the scrim. Both dialogs use the unified M viewport dialog slot. Connection context alone does not create a stacked layer. Canceling a stacked Add connection preserves the mounted parent draft and restores its focus. After setup closes, the overview retains the new source ID for two seconds. The plain GraphNode supports a base-duration grow-in and a static reduced-motion ring. Source capsules display their ordinary state. The method step uses close for dismissal; success keeps the action to add another source or continue with the connection. Empty connection selection offers creation methods without a disabled Continue action.
 
 Relay methods retain cancellation, retry and account selection. Running steps combine state and duration, with the active spinner in the step tile. During setup deployment the footer contains Cancel and the busy action; Back is unavailable until the operation ends. Cancel calls the relay cancellation operation and restores configuration. Waiting for a client also uses a busy footer action. Own address and Secure Tunnel reuse IngressDialog's configuration logic without a platform picker. Credential links accompany their field labels. Domain and connection name stay together, and tool counts accompany the capability disclosure. Form submission retains native validation, field error associations and focus on the first invalid field. Ready cards group state and source count under the connection name before the address label and copy field.
 
@@ -94,7 +94,7 @@ Inline approval groups the pairing code with its comparison instruction and comb
 
 Activity updates preserve presentation order within each task group. Read acknowledgements persist in viewer storage. Native task/session stores retain canonical history. Native-app badges remain separate. See [Task tracking](task-tracking.md#homepage-ui).
 
-Workspaces use the shared nonmodal [Panel](../../ui/components/ui/Panel.tsx). Settings, Platforms, Permissions, Pets, Relay hosting, Connections, Agents management, Coordination Board and MCP hub all use the center XL slot at 960px, capped by both 16px viewport margins. The shared size prop selects M or XL by content. The explicit width toggle expands to the available width and its state carries across workspace switches. The top line is 48px on desktop or 20px in the browser. The current height always stays centered vertically between that line and the bottom margin. Growth, allowed shrink and content replacement move both edges symmetrically with a shared height and y transition. Header and footer stay fixed while the body scrolls at the cap. Capsule switches replace content inside one mounted shell without entry or exit animations. Nested dialogs keep the parent visible and stationary beneath their scrim.
+Workspaces use the shared nonmodal [Panel](../../ui/components/ui/Panel.tsx). Settings, Platforms, Permissions, Pets, Relay hosting, Connections, Agents management, Coordination Board and MCP hub default to XL at 960px in the center slot, capped by both 16px viewport margins. The shared size prop selects M or XL by content. The explicit width toggle expands to the available width and its state carries across workspace switches. The top line is 48px on desktop or 20px in the browser. The current height always stays centered vertically between that line and the bottom margin. Growth, allowed shrink and content replacement move both edges symmetrically with a shared height and y transition. Header and footer stay fixed while the body scrolls at the cap. Capsule switches replace content inside one mounted shell without replaying shell entry. A child dialog leaves its parent mounted beneath the scrim. The parent continues to track its own content and viewport.
 
 The layer store permits one panel. Opening another replaces it. The navigation capsule remains available below the panel as the workspace switcher. Panels use a 76px bottom inset. Modal dialogs use a 16px bottom inset and sit above the capsule. Another capsule entry replaces a clean workspace and shows its discard or running footer when needed; the active entry toggles it closed. Keep editing or Keep open withdraws a pending switch. Other outside pointer input closes a clean workspace and consumes the release and click. Workspaces without ordinary actions create a footer only for dismissal states.
 
@@ -131,10 +131,10 @@ Reuse Button, Input, Slider, Field, SingleChoice, Switch, Dialog, Tooltip, Popov
 - Field errors remain associated with inputs. Failed submission focuses the first error and preserves input.
 - Dialog has an accessible title, a fixed header and footer, and a scrolling body at the content-height cap. Its width is the shared M slot width. `layerFrame` owns stateless viewport geometry. Dialogs stay horizontally and vertically centered for their current height. The top line is 48px on desktop and 20px in the browser. Narrow and portrait dialogs fill the viewport width minus both 16px side margins.
 - `TransientLayer` preserves each portaled transient's layer owner. The layer store owns scrim, dialog and transient stacking order. A transient sits above its owner and below a stacked child dialog. Select in either position, menus, popovers and tooltips share this rule. Input inside an owned transient belongs to its owning layer's input boundary.
-- `ui/state/layers.ts` owns the open-layer registry, immediate clean switching, deferred dirty or busy switching, dismissal and focus restoration. At most two dialogs are stacked. First-level layers have no scrim; only a dialog over another panel or dialog dims everything beneath it. Modal focus containment and consumed outside dismissal stay active without a scrim. A child retains its parent's mounted content and viewport position beneath the scrim. Only the top layer handles Escape or outside pointer input. Clean layers close. Edited input means changes not yet submitted. A submitted value whose attempt has finished, with any result, is clean until edited again. Edited input replaces footer actions with a discard confirmation focused on Keep editing. Running work replaces footer actions with a pending-close message focused on Keep open. Cancellable work also offers Stop and close. A pending close completes when the work finishes unless Keep open withdrew it. Close and Cancel close clean or dirty layers directly. During running work they show the same pending-close footer as outside input. Closing restores trigger focus, falling back to the layer below. Outside dismissal consumes the pointer release and click.
+- `ui/state/layers.ts` owns the open-layer registry, immediate clean switching, deferred dirty or busy switching, dismissal and focus restoration. At most two dialogs are stacked. First-level layers have no scrim; only a dialog over another panel or dialog dims everything beneath it. Modal focus containment and consumed outside dismissal stay active without a scrim. A child retains its parent's mounted content beneath the scrim. Radix routes Escape to the topmost transient or shell. An outside press dismisses the owned transient before a control underneath can act. Its trigger and registered quota-history anchors keep their Radix interactions. Shells with a Back action may handle Escape by returning to the previous view. Outside dismissal still consults the owner’s dirty and busy state. Edited input means changes not yet submitted. Submitted forms normally become clean until edited again. Task questions retain nonempty answers while the request remains unresolved. Edited input replaces footer actions with a discard confirmation focused on Keep editing. Running work replaces footer actions with a pending-close message focused on Keep open. Cancellable work also offers Stop and close. A pending close completes when the work finishes unless Keep open withdrew it. Close and Cancel close clean or dirty layers directly. During running work they show the same pending-close footer as outside input. Closing restores trigger focus, falling back to the layer below. Outside dismissal consumes the pointer release and click.
 - Icon buttons have accessible names. Disabled/loading/empty/expired/failure/success states reflect real responses.
 
-`UiProvider` owns explicit physical Panel slot hosts.
+`PanelProvider` owns one physical panel host in the center slot.
 `PanelRoute` retains the committed React owner while its keyed replacement prepares.
 Panel content stays in its feature context and switches without host timers or an external React-content registry.
 The shell observes one natural content container and listens for viewport changes.
@@ -150,7 +150,7 @@ Agent artwork is resolved by `ui/assets/brand-reserve/magpie/manifest.json`. Age
 
 Functional icons use shared Icon with Lucide and a 1.75px rendered stroke at every size. Icon buttons stay circular; local overrides change only `--icon-button-size`. Brands retain their assets. ui/style.css owns controls. ui/product.css owns product layout.
 
-Motion owns layer entry, exit, content crossfades and geometry transitions. Dialogs and panels currently enter and exit with an opacity fade. `layerFrame` computes the current height and y from the slot and viewport without placement history. Geometry settles instantly during the entry fade, including content arriving after the first measurement. After entry, height and y transition together over `--motion-base` with `--ease-enter`, keeping the vertical center fixed throughout growth, allowed shrink, view reset and content replacement. Retained height still applies within one panel view. Same-slot replacement keeps the shell mounted and crossfades its header and body. Cross-slot switches fade out and in concurrently. Reduced motion applies geometry and opacity changes instantly. Related tooltips remain mounted and move/resize continuously between triggers. HoverScope uses shared token-driven highlights following pointer, keyboard, and Radix state.
+Motion fades a new panel over `--motion-panel` and a new dialog over `--motion-base`. Geometry settles immediately during entry, including measurements that arrive after the first frame. After entry, top and height transition together over `--motion-base` with `--ease-enter`. Registry dismissal waits for a fast opacity fade using the enter curve for a panel and the exit curve for a dialog. The app’s effective reduced-motion preference applies final geometry and opacity immediately, including a fade already in progress.
 
 ## Functional pages
 
@@ -158,7 +158,7 @@ Agent panels retain task rows and execution details. [design/surfaces/agent-pane
 
 Request logs remain available through native management interfaces; there is no standalone Records page.
 
-Connections expose editing directly on their cards. Forms own provider/domain/credentials/authentication. Tool lists are views inside their owning dialog. Back and Escape return to the retained form and restore focus to the tool-list trigger. The header shows the owner title as a breadcrumb. Content crossfades while the shell keeps its slot and size. Tool changes remain in the owner draft and participate in its dirty state. Name/policy/auto-start edits preserve OAuth grants and live connections. Fixed tools remain guide/query/act. Lists target ops, showing query/act ownership and local availability. Domain fields accept hostnames or full HTTP(S) URLs, extracting the hostname and omitting port/path/query. Service assembles MCP URLs. Credentials, authentication and operation policy fields are shown directly. Blank existing-secret fields retain values. OAuth consent, denial, and revocation are explicit actions.
+Connections expose editing directly on their cards. Forms own provider/domain/credentials/authentication. Tool lists are views inside their owning dialog. Back and Escape return to the retained form and restore focus to the tool-list trigger. The header shows the owner title as a breadcrumb. The incoming header and body fade in at the height captured when the nested view opened. Tool changes remain in the owner draft and participate in its dirty state. Name/policy/auto-start edits preserve OAuth grants and live connections. Fixed tools remain guide/query/act. Lists target ops, showing query/act ownership and local availability. Domain fields accept hostnames or full HTTP(S) URLs, extracting the hostname and omitting port/path/query. Service assembles MCP URLs. Credentials, authentication and operation policy fields are shown directly. Blank existing-secret fields retain values. OAuth consent, denial, and revocation are explicit actions.
 
 The settings, Agents, Agent details, display and Experimental forms follow [settings.tsx](../../design/surfaces/settings.tsx). Each setting occupies one row, with its name and effect on the left and its control on the right. Sections group settings by their scope. Single-choice controls use their dropdown form when the row cannot fit pills. Agent details retain versions, official setup, discovery errors, quota and dispatch defaults. Homepage follows Agent order rather than provider order. Installed enabled Agents support pointer reordering. The list toolbar opens quota overview and display settings; the header provides the single inventory refresh action. Drag starts only outside clickable controls. Icons/links/switches retain clicks. Focused cards also support arrow sorting. Management/homepage share persisted order. Full versions remain available on hover. Uninstalled entries link official installation. Display settings include homepage Agent count and quota presentation. The Agent panel settings action opens display settings directly. Agent, Agent platform, account and control-source overviews fit their content within the viewport. They use the centered M size within the available interval and retain their largest height while open. The header stays visible while the body scrolls at the cap. Initial opening waits up to 200ms for the first required history page, account list, dispatch feed or connector list. A slow read shows Loading in the affected body, and a failed read shows Retry there. Task details and connection editing fit content up to the bottom margin.
 
@@ -260,7 +260,7 @@ See [MCP hub](mcp-hub.md) for ownership and session behavior.
 
 Pending OAuth requests appear in Board attention. They never open a dialog automatically. A user-started setup or connection-switch flow may advance into its approval step. Opening an approval from Board is an explicit action.
 
-Board-to-task navigation retains an explicit Back action to the Board and restores the originating row. Closing task details closes the panel. Add connection opened from Connections retains the parent panel, visible and stationary under its dialog scrim, and returns focus to Add connection.
+Board-to-task navigation retains an explicit Back action to the Board and restores the originating row. Closing task details closes the panel. Add connection opened from Connections retains the parent panel, visible under its dialog scrim, and returns focus to Add connection.
 
 Tray and deep-link navigation received while a dialog is open becomes actionable Board attention. It does not discard, replace or navigate behind that dialog. The user opens the deferred target from Board after closing the dialog.
 
@@ -273,46 +273,43 @@ Tray and deep-link navigation received while a dialog is open becomes actionable
 - A toast is a short message about something outside the current layer.
 - At most one panel MUST be open.
 - Opening a panel MUST replace the open panel.
-- Navigation from one panel to another MUST keep a Back control to the previous panel instead of closing and reopening surfaces.
+- Board-to-task navigation retains the originating Board row for Back. Opening a platform from a source or a task from its dispatch list selects the destination directly.
 - At most two dialogs MUST be stacked.
 - A child dialog MUST stack on its parent and MUST NOT unmount it.
-- A stacked parent MUST stay visible under the scrim and MUST NOT move, scale or hide.
-- Only a user action MAY open a panel or dialog.
-- System events MUST surface as Board attention, a capsule badge or a native notification.
+- A stacked parent stays visible and inert beneath the scrim. Stacking adds no translation or scale. Content and viewport changes can still resize and recenter it.
+- Startup restores the saved workspace when it is available. Interactive navigation opens the selected panel or dialog.
+- Background events surface as Board attention, capsule badges or native notifications.
 - Welcome MAY open automatically when there are no sources and no other panel or dialog is open.
 - A flow the user started MAY advance to its next step automatically, including OAuth approval inside that flow.
 - External navigation from the tray or a deep link MUST NOT discard an open dialog; its target becomes attention until the dialog closes.
 
 ### Placement
 
-- Placement MUST depend only on the layer kind, the panel side and the viewport.
+- The frame calculation uses viewport insets, surface size, expansion and measured or retained content height.
 - The trigger position MUST NOT change where a panel or dialog appears.
 - The top line is the window's top inset: 48px on desktop windows and 20px in the browser.
 - The side margin is 16px.
-- The left panel slot MUST hold source-side node panels, aligned to the left side margin.
-- The right panel slot MUST hold Agent-side node panels and task details, aligned to the right side margin.
-- The center panel slot MUST hold workspaces: Settings, Platforms, Permissions, Pets, Relay hosting, MCP hub, Connections, Coordination Board and Agents management.
-- The center panel slot MUST be horizontally centered.
+- Node panels, task details and workspaces use the same horizontally centered panel slot.
 - Node panels MUST NOT follow the vertical position of their node.
 - Dialogs MUST be horizontally centered on the viewport.
 - Every layer MUST stay vertically centered between the top line and bottom margin for its current height.
 - Height and y MUST transition together so both edges move symmetrically.
-- Placement MUST be independent of history and trigger geometry.
+- The frame calculation receives the current target height. The measurement hook owns panel height retention and nested-view height capture.
 - A stacked child dialog MUST use the same horizontal slot and width as its parent dialog.
-- A dialog opened from a panel MUST use the dialog slot, not the panel's center.
+- A dialog opened from a panel uses the dialog insets.
 - Transient layers MUST anchor to their trigger with collision handling.
 - Only transient layers MAY be positioned by their trigger.
 - Toasts MUST appear in one fixed region at the top center below the top line.
 - Panels and dialogs MUST NOT be draggable.
-- A layer MAY move after opening only when the viewport resizes.
-- Below 760px wide and in portrait layouts, all panel slots MUST collapse into one full-width slot, and dialogs MUST span the viewport width minus both side margins.
+- Content growth, view replacement, expansion and viewport changes can change the centered frame after entry.
+- Below 760px wide and in portrait layouts, panels and dialogs span the viewport width minus both side margins.
 
 ### Sizing
 
-- The slot MUST determine width without a per-surface size prop.
+- Each panel selects its size through the shared size prop.
 - Per-surface width literals MUST NOT be used.
-- `--layer-m` is 560px for every dialog and left or right node panel.
-- `--layer-xl` is 960px for every center workspace.
+- `--layer-m` is 560px for dialogs and the default width for node and task panels.
+- `--layer-xl` is 960px for a workspace at its default width.
 - Panels MAY expand to the viewport width minus both side margins through an explicit width toggle.
 - Dialogs MUST NOT expand.
 - Widths MUST be capped at the viewport width minus both side margins.
@@ -320,33 +317,32 @@ Tray and deep-link navigation received while a dialog is open becomes actionable
 - Height MUST be capped at the full interval between the top line and bottom margin.
 - Layers MUST NOT stretch to the available height when content is shorter.
 - Headers and footers MUST stay fixed while the body scrolls at the cap.
-- A panel's height MUST NOT shrink while it stays open, so filters, tabs and refreshes do not move its bottom edge.
-- A view change that replaces the whole panel content MAY reset the height.
+- Within a panel view, filters and refreshes retain the largest measured height up to the current viewport cap.
+- A view change or a new measured body that requests a height reset can clear the retained height.
 - Opening MAY wait up to 200ms for the first required data, as it does today.
 
 ### Motion
 
 `npm run check:ui-styles` checks duration and easing tokens, infinite animation tracks, recurring frame callbacks and the shared reduced-motion reset, with exact artwork exceptions in `tooling/ui-motion-allowlist.json`.
 
-- Use `--motion-fast` for hover, press, tooltips, toasts, menu, select and popover entry, and header and body replacement within a layer.
-- Use `--motion-base` for dialog entry, disclosure entry and synchronized height and y transitions.
-- Use `--motion-panel` for panel opacity entry.
-- Use `--motion-running` for repeating status indicators and `--ease-running` for a symmetric pulse.
-- Exit durations MUST be at most their entry durations.
-- Transient layers MUST enter with a fade.
-- Content swaps inside one layer MUST crossfade while the shell stays centered for its current height.
+- The design scale is fast (120ms), base (160ms), panel (180ms) and running (1600ms). `--ease-enter` uses `cubic-bezier(0.16, 1, 0.3, 1)`. `--ease-exit` uses `cubic-bezier(0.4, 0, 1, 1)`. Symmetric pulses use `--ease-running` (ease-in-out).
+- Shared tooltips, menus, selects and standard popovers enter over fast. Quota history moves a virtual anchor between readings and enters over base. The update popover also enters over base. Pet, Studio and topology inspection popovers open immediately. Global feedback mounts and unmounts immediately.
+- Timeline disclosures open over base/enter and close over base/exit. The topology accordion uses base/enter in both directions.
+- The empty-hub ripple plays once. Wire flow repeats on connecting branches. Studio lighting, mascot and pet motion, and the eight-second linear Aurora border have named artwork exceptions. A dangling sprite combines atlas playback and rocking.
+- Registry exits MUST complete within the corresponding entry duration.
+- An explicit app motion setting takes precedence over the system preference. Enabling reduction settles active layer fades and geometry. Restoring normal motion applies to subsequent transitions. Discrete pet reactions can still change pose.
 
 ### Dismissal, focus and feedback
 
 - Pointer input outside a panel, dialog or transient layer MUST produce a visible response.
-- Escape MUST act only on the topmost layer and MUST follow the same rules as outside pointer input.
+- Escape acts on the topmost transient or shell. Connection tool lists, Experimental settings and Board detail views use Escape for Back. An outside press requests dismissal.
 - Outside input MUST close a layer that holds no edited input and no running work.
-- Outside input on a layer with edited input MUST show a discard confirmation instead of closing.
-- Edited input means changes not yet submitted; a submitted value whose attempt has finished, with any result, is clean until the user edits it again.
-- Outside input on a layer with running work MUST show that work's state instead of closing.
+- Outside dismissal of a dirty panel or dialog shows its discard footer. The topology tuner retains import text across popover dismissal while its control stays mounted.
+- Task question drafts remain protected across the pending requests in a panel, including a nonempty answer retained after a failed submission. Other submitted forms become clean until edited again.
+- Outside dismissal of a busy panel or dialog shows its running-work footer. The update popover can close during a background download. Installation keeps the popover open until the updater finishes or restarts ARC.
 - When running work can be cancelled, that state MUST offer to stop the work and close.
 - When running work cannot be cancelled, that state MUST say that the layer closes after the work finishes.
-- Running-work states MUST offer to keep the layer open, and a layer whose close was requested MUST close when its work finishes unless the user chose to keep it open.
+- Busy panel and dialog footers MUST offer to keep the layer open, and a layer whose close was requested MUST close when its work finishes unless the user chose to keep it open.
 - Confirmations and running-work states MUST appear inside the layer, replacing its footer actions, without opening another layer.
 - The confirmation MUST focus the action that keeps the layer open.
 - Close and Cancel controls MUST close clean or dirty layers directly.
@@ -355,23 +351,24 @@ Tray and deep-link navigation received while a dialog is open becomes actionable
 - Dismissal MUST NOT activate the element under the pointer.
 - Closing a layer MUST restore focus to its trigger, falling back to the layer below it.
 - Field errors MUST stay with their fields.
-- The result of an action MUST appear inside the layer that started it.
-- A toast MUST only report a background event or the result of an action whose layer has closed.
+- Actions using layer feedback show their result in the retained shell. The message can remain across panel replacement.
+- Global feedback reports background events, results after a shell closes, and errors refreshing Permissions from the workspace header.
 - A success toast MUST disappear after 4 seconds.
 - An error toast MUST stay until dismissed, and an actionable error MUST also appear in Board attention.
-- Copy confirmation MUST use one shared control state.
-- Help on hover MUST use the shared Tooltip, not native `title`.
+- Copy controls share confirmation state. Topology export reports its result in the tuner status line.
+- Shared hover help uses Tooltip. SingleChoice uses native titles for icon-only options and disabled descriptions. Task cards use native titles for selected metadata and task names.
 
 
 The layer registry in `ui/state/layers.ts` owns stacking, exclusivity, dismissal and focus restoration. `layerFrame` owns pure geometry. Panel and Dialog share one shell implementation. Portaled transient content retains its owning layer identity and a stack level above that layer.
 
 ### Retained panel replacement
 
-The shared Panel provider keeps one shell mounted for each physical slot.
-A same-slot switch replaces the header and body with a `--motion-fast` crossfade and animates height and y together around the fixed available-area center.
-The width remains unchanged during a same-slot switch.
-Narrow and portrait viewports treat all panel switches as same-slot replacements.
-Different slots exit and enter concurrently without an empty frame.
+The provider retains one centered shell when a panel replaces another panel at any viewport size.
+The incoming surface selects its own width and expansion state.
+After entry, a change of panel owner, view key or nested-view title starts a `--motion-fast` fade from 25% to full opacity on the header and body present at that commit. Replacement content attached later can appear directly.
+Only incoming content participates. The footer stays outside this fade.
+A change during entry shares the shell fade. Advancing a setup step alone does not trigger a content fade.
+Height and top move together around the available-area center.
 Dirty and busy layers resolve their footer before switching.
 Keep editing or Keep open withdraws the switch.
 The active trigger toggles its panel closed.
@@ -381,7 +378,7 @@ Reduced motion replaces content and geometry instantly.
 
 First-level panels and dialogs have no scrim.
 A dialog above a panel or dialog uses the existing 24% light or 60% dark scrim over everything beneath it.
-Dialog focus containment, aria-modal and consumed outside dismissal remain active without a scrim.
+Radix traps focus and hides surrounding content from assistive technology for modal dialogs. The shell supplies the accessible name and consumes outside dismissal with or without a scrim.
 The layer store starts clean switches immediately and coordinates deferred dirty or busy switches without waiting for the old close to finish.
 
 Shared controls remain in `ui/components/ui/` only while at least two features use them. Feature-local timeline, record, library, device, update and quota presentation lives with its feature and uses runtime tokens. [SetupFlow](../../design/components/setup-flow.tsx) mirrors its shared runtime assembly; [TopologyNode](../../design/modules/homepage-scene/index.tsx) belongs to the homepage scene; their feature callers retain data loading and actions.

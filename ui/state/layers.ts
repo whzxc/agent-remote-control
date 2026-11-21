@@ -33,7 +33,9 @@ export function createLayerStore() {
       || target.closest<HTMLElement>('[data-layer-owner]')?.dataset.layerOwner === id);
   const remove = (id: string) => { if (current.some(layer => layer.id === id)) publish(current.filter(layer => layer.id !== id)); };
   const closing = new Set<string>();
-  let pendingSwitch: { id: string; open: () => void; toggle: boolean } | undefined;
+  let pendingSwitch: { id: string; open: () => void; toggle: boolean; trigger: HTMLElement | null } | undefined;
+  let switchTrigger: HTMLElement | null | undefined;
+  const transients = new Map<HTMLElement, { owner: string; dismiss: () => void; isAnchor: (target: Element) => boolean }>();
   const finishClose = async (id: string, complete?: () => void | Promise<void>) => {
     const layer = current.find(item => item.id === id);
     if (!layer || closing.has(id)) return;
@@ -41,7 +43,11 @@ export function createLayerStore() {
     try {
       const pending = pendingSwitch?.id === id ? pendingSwitch : undefined;
       if (pending) pendingSwitch = undefined;
-      if (pending && !pending.toggle) { pending.open(); return; }
+      if (pending && !pending.toggle) {
+        switchTrigger = pending.trigger;
+        pending.open();
+        return;
+      }
       await layer.onExit?.();
       await (complete ?? layer.onClose)();
     }
@@ -75,10 +81,26 @@ export function createLayerStore() {
       const scrim = 201 + Math.max(0, depth) * 10;
       return { panel: 101, switcher: 100, scrim, dialog: scrim + 1, transient: depth < 0 ? 120 : scrim + 2 };
     },
+    ownTransient(node: HTMLElement, owner: string, dismiss: () => void, isAnchor: (target: Element) => boolean) {
+      transients.set(node, { owner, dismiss, isAnchor });
+      return () => { transients.delete(node); };
+    },
     observeOutsidePointer(id: string) {
       const handle = (event: PointerEvent) => {
         const layer = top(), target = event.target;
         if (layer?.id !== id || !layer.node || event.button !== 0 || !(target instanceof Element)) return;
+        const transient = Array.from(transients).reverse().find(([node, entry]) => entry.owner === id && node.isConnected);
+        if (transient) {
+          const [node, entry] = transient;
+          if (node.contains(target) || entry.isAnchor(target)) return;
+          // Radix links interactive triggers to their content and tooltip triggers to a labelled descendant.
+          const control = target.closest('[aria-controls], [aria-describedby]');
+          const linked = [control?.getAttribute('aria-controls'), control?.getAttribute('aria-describedby')].join(' ').split(/\s+/);
+          if (linked.some(key => key && node.contains(document.getElementById(key)))) return;
+          consumeOutsidePointer(event);
+          entry.dismiss();
+          return;
+        }
         if (contains(id, target) || layer.kind === 'panel' && target.closest(switcherSelector)) return;
         consumeOutsidePointer(event);
         dismiss(id);
@@ -96,9 +118,14 @@ export function createLayerStore() {
     canOpen,
     switchPanel(open: () => void, toggle = false) {
       if (top()?.kind === 'dialog') return;
+      switchTrigger = undefined;
       const panel = current.find(layer => layer.kind === 'panel');
       if (!panel) { open(); return; }
-      if (panel.busy || panel.dirty) { pendingSwitch = { id: panel.id, open, toggle }; dismiss(panel.id); }
+      if (panel.busy || panel.dirty) {
+        const trigger = layerTrigger() ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+        pendingSwitch = { id: panel.id, open, toggle, trigger };
+        dismiss(panel.id);
+      }
       else if (toggle) void close(panel.id); else open();
     },
     open(layer: LayerInput) {
@@ -113,7 +140,12 @@ export function createLayerStore() {
     },
     retarget(id: string, trigger: HTMLElement | null, returnFocus?: string) {
       const layer = current.find(item => item.id === id);
+      if (layer?.kind === 'panel' && switchTrigger !== undefined) {
+        trigger = switchTrigger;
+        switchTrigger = undefined;
+      }
       if (layer) { layer.trigger = trigger; layer.returnFocus = returnFocus; }
+      return trigger;
     },
     ready(id: string, node: HTMLElement) {
       const layer = current.find(item => item.id === id);
@@ -182,10 +214,20 @@ export function layerTrigger() { return clickTrigger; }
 export function consumeOutsidePointer(event: PointerEvent) {
   event.preventDefault();
   event.stopPropagation();
-  const block = (click: Event) => { click.preventDefault(); click.stopImmediatePropagation(); };
-  const cleanup = () => { document.removeEventListener('click', block, true); document.removeEventListener('pointerup', release, true); };
-  const release = () => { setTimeout(cleanup, 0); };
-  document.addEventListener('click', block, true);
-  document.addEventListener('pointerup', release, { capture: true, once: true });
-  setTimeout(cleanup, 1000);
+  const pointer = event.pointerId;
+  const controller = new AbortController();
+  const options = { capture: true, signal: controller.signal };
+  const cleanup = () => controller.abort();
+  const block = (input: Event) => {
+    if (input instanceof PointerEvent && input.pointerId !== pointer) return;
+    input.preventDefault();
+    input.stopImmediatePropagation();
+    if (input.type === 'click') cleanup();
+  };
+  const reset = (next: PointerEvent) => { if (next.pointerId === pointer) cleanup(); };
+  document.addEventListener('pointerup', block, options);
+  document.addEventListener('click', block, options);
+  document.addEventListener('pointercancel', reset, options);
+  document.addEventListener('pointerdown', reset, options);
+  window.addEventListener('blur', cleanup, { signal: controller.signal });
 }

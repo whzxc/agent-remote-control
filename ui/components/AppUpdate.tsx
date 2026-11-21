@@ -135,7 +135,7 @@ export function UpdateDock() {
     <Popover.Trigger asChild><button type="button" className="update-dock-entry" data-hover-target="updates" aria-label={t("viewUpdate")}>
       <Icon icon={active ? LoaderCircle : ArrowUp} size={20} className={active ? "update-ring" : undefined} />{available() && <span className="update-available-dot" />}
     </button></Popover.Trigger>
-    <Popover.Portal><TransientLayer><Popover.Content className="update-panel" side="top" align="end" sideOffset={12} collisionPadding={16}
+    <Popover.Portal><TransientLayer onDismiss={() => { if (!installing) dismissUpdate(); }}><Popover.Content className="update-panel" side="top" align="end" sideOffset={12} collisionPadding={16}
       aria-label={t("appUpdates")} onEscapeKeyDown={event => { event.stopPropagation(); if (installing) event.preventDefault(); }}>
       <PanelContents />
     </Popover.Content></TransientLayer></Popover.Portal>

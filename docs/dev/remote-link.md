@@ -91,15 +91,15 @@ The workspace subject is control sources and how each one connects.
 
 ### Placement rule
 
-Creating something new or approving something that just arrived happens in a centered modal dialog. Existing objects are inspected and edited in side panels and workspace panels. Add flows MUST NOT open in side panels.
+Creating something new or approving something that just arrived happens in a centered modal dialog. Existing objects are inspected and edited in centered node panels and workspaces.
 
 Add control source, Add connection, and Change connection follow [setup.tsx](../../design/surfaces/setup.tsx). Their shared shell and controls follow the approved [design sources](design.md). Steps that complete on an external event retain the busy footer action and advance after the corresponding client authorization or relay deployment is observed.
 
-Completed step labels retain the chosen value. Only the body scrolls when the viewport cannot fit the content. Local Claude Code and Claude Desktop remain separate choices. Workspace entry points keep the workspace mounted behind the dialog; dismissal restores the trigger or a visible equivalent. Source completion returns to the homepage for the new-node highlight.
+Completed step labels retain the chosen value. Only the body scrolls when the viewport cannot fit the content. Local Claude Code and Claude Desktop remain separate choices. Workspace entry points keep the workspace mounted behind the dialog; dismissal restores the trigger or a visible equivalent. Source completion returns to the homepage.
 
-Add connection MAY stack on top of Add control source or Change connection. The parent dialog stays mounted, scaled to 0.95 and shifted up without dimming or a visible scrim. The stacked dialog shows "Returns to <parent title> when done". Completing it closes only the stacked layer and selects the new connection in the parent. Closing it returns to the parent unchanged. Escape closes one layer.
+Add connection MAY stack on top of Add control source or Change connection. The parent stays mounted beneath the scrim and retains its own centered geometry. The stacked dialog shows "Returns to <parent title> when done". Completing it closes only the stacked layer and selects the new connection in the parent. Closing it returns to the parent unchanged. Escape closes one layer.
 
-Run `npm run accept:ui -- --setup-only` for setup layout acceptance at 640×800, 1280×800 and 1920×1080. Standard steps MUST fit without body scrolling at the two larger viewports. The 640px check permits vertical scrolling and rejects horizontal overflow. Stacked layers MUST remain narrower than their recessed parent.
+Run `npm run accept:ui -- --setup-only` for setup layout acceptance at 640×800, 1280×800 and 1920×1080. Standard steps MUST fit without body scrolling at the two larger viewports. The 640px check permits vertical scrolling and rejects horizontal overflow. Stacked setup dialogs share their horizontal position and width.
 
 ### Add a control source
 
@@ -109,7 +109,7 @@ The left center dot, Platforms › Add control source, Welcome, and Add connecti
 2. Connection: "Which connection should <platform> use to reach this computer?", then one radio row per existing connection with name, kind, the sources it already carries, and online state. Incompatible connections stay visible, disabled, with the reason ("ChatGPT only"). A row whose OAuth connection already carries a source of the same product shows a separate warning-colored line that approval will offer New account or Reauthorize. A full-width dashed New connection row has a left-aligned title and description and stacks Add connection. With no compatible connection, the step shows "No connection yet" with Create my relay (recommended, emphasized) and Join a shared relay / Use your own address rows, each opening Add connection directly at that method's configuration. Local products show only their local connection, and a missing one is installed by Add connection's local method.
 3. Configure: numbered instructions from the registry: copy the address, the platform's settings path with an Open settings button, then "Click Connect in <platform>; the browser shows a 4-character code". The footer waits for the client and advances to Approve when a new pending request appears.
 4. Approve: the pairing code in large monospace on a subtle panel, an account name field defaulting to the product name plus a disambiguating suffix, the New account / Reauthorize choice when applicable, origin and capability line, and Deny / Approve. ARC also posts a system notification "<Platform> requests a connection · code 4F7K" that focuses this step.
-5. Done: success mark, "<label> connected", the connection used, a copyable first prompt, and Add another / Done. After closing, the new node grows into the homepage left wing and stays highlighted for about 2 seconds.
+5. Done: success mark, "<label> connected", the connection used, a copyable first prompt, and Add another / Done. After closing, the overview tracks the new source ID for two seconds. Source capsules use their ordinary presentation.
 
 Non-OAuth sources skip Approve and complete on an observed client connection, as before.
 
@@ -169,7 +169,7 @@ RelayProgress supports account selection when Core returns multiple Cloudflare a
 
 The Experimental Device link switch enables paired-device topology nodes.
 The right add endpoint offers Add Agent, Add device and this-device pairing offers.
-Device nodes open side panels with paths, reachability, addresses, overrides and revocation.
+Device nodes open centered panels with paths, reachability, addresses, overrides and revocation.
 The member controller is a left-wing source. Settings owns its default-off upstream-source disclosure.
 A submitted pairing attempt is clean after any finished result until the user edits it again.
 A waiting attempt is running work and offers Keep open and Stop and close through the shared Dialog.

@@ -63,15 +63,32 @@ export function LayerShell({ onContentHost, kind, size = kind === 'panel' ? 'xl'
   const actionsContext = useMemo(() => ({ target: footerTarget, register: registerActions }), [footerTarget, registerActions]);
   const [node, setNode] = useState<HTMLDivElement | null>(null);
   const [entering, setEntering] = useState(true);
+  const fades = useRef(new Map<HTMLElement, ReturnType<typeof animate>>());
+  const trackFade = useCallback((target: HTMLElement, fade: ReturnType<typeof animate>) => {
+    fades.current.set(target, fade);
+    return fade.then(() => {
+      if (fades.current.get(target) === fade) fades.current.delete(target);
+    });
+  }, []);
+  const reduceMotion = useRef(reduced);
+  useLayoutEffect(() => {
+    reduceMotion.current = reduced;
+    if (reduced) for (const fade of fades.current.values()) fade.complete();
+  }, [reduced]);
   useLayoutEffect(() => {
     if (!node) return;
+    const reduced = reduceMotion.current;
     setEntering(!reduced);
     if (reduced) { node.style.opacity = '1'; setEntering(false); return; }
     node.style.opacity = '0';
     const fade = animate(node, { opacity: 1 }, motionTransition(kind === 'panel' ? 'panel' : 'base'));
-    void fade.then(() => setEntering(false));
-    return () => fade.stop();
-  }, [node, reduced, kind]);
+    let mounted = true;
+    void trackFade(node, fade).then(() => { if (mounted) setEntering(false); });
+    return () => {
+      mounted = false;
+      if (fades.current.get(node) === fade) { fade.stop(); fades.current.delete(node); }
+    };
+  }, [node, kind, trackFade]);
   const [view, setView] = useState<View | null>(null);
   const viewHeight = useRef<number | undefined>(undefined), currentNode = useRef(node);
   currentNode.current = node;
@@ -92,10 +109,10 @@ export function LayerShell({ onContentHost, kind, size = kind === 'panel' ? 'xl'
   useLayoutEffect(() => {
     const next = `${contentKey}:${viewKey}:${view?.title}`;
     if (previousContent.current !== next && contentNode && !reduced && !entering) {
-      for (const part of contentNode.querySelectorAll<HTMLElement>(':scope > .dialog-header, :scope > .layer-custom-header, :scope > .dialog-body')) void animate(part, { opacity: [.25, 1] }, motionTransition('fast'));
+      for (const part of contentNode.querySelectorAll<HTMLElement>(':scope > .dialog-header, :scope > .layer-custom-header, :scope > .dialog-body')) void trackFade(part, animate(part, { opacity: [.25, 1] }, motionTransition('fast')));
     }
     previousContent.current = next;
-  }, [contentKey, viewKey, view, reduced, entering, contentNode]);
+  }, [contentKey, viewKey, view, reduced, entering, contentNode, trackFade]);
   const entryFrame = useRef(frame);
   if (entering || !entryFrame.current) entryFrame.current = frame;
   useLayoutEffect(() => {
@@ -132,8 +149,8 @@ export function LayerShell({ onContentHost, kind, size = kind === 'panel' ? 'xl'
   const onExit = useCallback(async () => {
     if (reduced || !node) return;
     setExiting(true);
-    await animate(node, { opacity: 0 }, motionTransition('fast', kind === 'dialog' ? 'exit' : 'enter'));
-  }, [node, reduced, kind]);
+    await trackFade(node, animate(node, { opacity: 0 }, motionTransition('fast', kind === 'dialog' ? 'exit' : 'enter')));
+  }, [node, reduced, kind, trackFade]);
   const latest = useRef({ onClose, dirty, busy, onCancel, onExit });
   latest.current = { onClose, dirty, busy, onCancel, onExit };
   useLayoutEffect(() => {
@@ -144,7 +161,7 @@ export function LayerShell({ onContentHost, kind, size = kind === 'panel' ? 'xl'
   }, [open, allowed, id, kind]);
   useLayoutEffect(() => {
     focusSource.current = layerTrigger() ?? focusTrigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
-    layers.retarget(id, focusSource.current, returnFocus);
+    focusSource.current = layers.retarget(id, focusSource.current, returnFocus);
   }, [contentKey, viewKey, returnFocus]);
   // Parent Radix effects finish before a child portal mounts, so hideOthers cannot hide the child.
   useEffect(() => {
@@ -209,7 +226,7 @@ export function LayerShell({ onContentHost, kind, size = kind === 'panel' ? 'xl'
         data-layer-kind={kind} data-layer-size={size} data-panel-depth={depth + 1} inert={recessed || undefined} data-exiting={exiting || undefined}
         {...{ "aria-labelledby": labelledBy ?? `${id}-title` }}
         aria-describedby={description ? `${id}-description` : undefined}
-        style={{ opacity: reduced ? 1 : 0, top: entryFrame.current?.y, height: entryFrame.current?.height, left: frame?.x, width: frame?.width ?? `var(--layer-${size})`, maxHeight: frame?.maxHeight,
+        style={{ opacity: 0, top: entryFrame.current?.y, height: entryFrame.current?.height, left: frame?.x, width: frame?.width ?? `var(--layer-${size})`, maxHeight: frame?.maxHeight,
           visibility: frame ? undefined : 'hidden', zIndex: kind === 'panel' ? stack.panel : stack.dialog,
           '--layer-retained-height': `${retainedHeight}px`,
           '--layer-content-cap': `calc(100dvh - var(--layer-${isDesktop ? 'top-desktop' : 'top-browser'}) - var(${kind === 'panel' ? '--layer-panel-bottom' : '--layer-side-margin'}))` } as CSSProperties}

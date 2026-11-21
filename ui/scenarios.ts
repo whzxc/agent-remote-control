@@ -44,6 +44,8 @@ type TimelineRow = Pick<AgentTimelineEntry, 'type' | 'status'> & Partial<AgentTi
 type Fixture = { coldTaskPreviews?: boolean; homepage?: { mode: 'topology' | 'tasks'; check?: string; remoteTaskCount?: number };  deviceLink?: DeviceFixture; expandedSources?: string[]; claudeQuota?: boolean; sourceProducts?: string[]; dispatchModels?: CatalogModel[]; agentInventory?: Agent[]; agentDiscoveryError?: string; platformAgent?: string; mcpHub?: McpFixture; coordination?: CoordinationFixture; ingressStates?: string[]; hubCore?: HubHealth["core"]; hubRemoteFailure?: boolean; hubRemoteCheckFailed?: boolean; statusUnavailable?: boolean; relayHosting?: boolean; topologyTuning?: boolean; settingsExperimental?: boolean; studio?: 'day' | 'night' | 'auto'; pets?: boolean; mascots?: boolean; historyRows?: number; historyDelayMs?: number; slowDock?: 'accounts' | 'dispatches'; metadataOnlyHistory?: boolean; maxVisibleAgents?: number; topologyAccounts?: boolean | 'dense' | 'device-portrait'; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: Partial<UpdateView>; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean | 'session-week-month' | 'single-ring-pace'; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; previousTurnOutcomes?: ('failed' | 'cancelled')[]; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { originController?: boolean; originSource?: boolean; agent: string; spec?: Pick<DispatchSummary, 'model' | 'effort' | 'serviceTier'>; parent?: number; relationKind?: AgentActivitySession["relationKind"]; direct?: boolean; assignment?: string; previewFailure?: boolean; previewDelayMs?: number; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; historyDate?: string; projectName?: string; turnCount?: number; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; entries?: TimelineRow[]; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { url?: string; empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
 const fixtures = import.meta.glob('../tooling/acceptance/scenarios/*.json', { import: 'default' });
 let responses: Record<string, unknown> = {};
+let motionOverride: boolean | undefined;
+export function setScenarioReducedMotion(value: boolean | undefined) { motionOverride = value; }
 let mcpResponse = mcpScenario();
 let deviceResponse = deviceScenario();
 let conversations: Record<string, AgentConversation[]> = {};
@@ -107,7 +109,7 @@ function respondToScenario(path: string, method: string, body?: unknown): unknow
   }
   if (path === 'app/env' && method === 'GET') {
     const now = Date.now();
-    return { active: false, expiresAt: null, realNowMs: now, overrides: {}, clock: { value: { nowMs: now, speed: 1 }, source: 'system' } } satisfies import('./state/appEnvModel').EnvSample;
+    return { active: motionOverride !== undefined, expiresAt: motionOverride === undefined ? null : now + 60000, realNowMs: now, overrides: { reducedMotion: motionOverride }, clock: { value: { nowMs: now, speed: 1 }, source: 'system' } } satisfies import('./state/appEnvModel').EnvSample;
   }
   if (path === 'tool-catalog' && method === 'GET') return {
     groups: [{ id: 'codex', label: { en: 'Tasks', 'zh-CN': 'Tasks' } }], required: ['guide'],
@@ -199,6 +201,7 @@ export async function installScenario(name: string) {
   const load = fixtures[`../tooling/acceptance/scenarios/${scenario}.json`];
   if (!load) throw new Error(`Unknown acceptance scenario: ${name}`);
   const data = await load() as Fixture;
+  motionOverride = undefined;
   const requestedTheme = new URLSearchParams(window.location.search).get('theme') ?? fixtureTheme ?? data.theme;
   const fixture = { ...data, theme: requestedTheme === 'dark' ? 'dark' as const : 'light' as const };
   mcpResponse = mcpScenario(fixture.mcpHub);

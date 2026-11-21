@@ -157,9 +157,13 @@ test('workspaces replace on open and capsule switching preserves dirty drafts un
     assert.equal(page.queryByRole('dialog', { name: 'Relay' }), null);
     await act(async () => fireEvent.click(keep));
     assert.equal((page.getByRole('textbox', { name: 'Workspace draft' }) as HTMLInputElement).value, 'Retained draft');
-    await act(async () => fireEvent.click(page.getByRole('button', { name: 'Open Relay' })));
+    const relayTrigger = page.getByRole('button', { name: 'Open Relay' });
+    await act(async () => { relayTrigger.focus(); fireEvent.click(relayTrigger); });
     await act(async () => fireEvent.click(page.getByRole('button', { name: t('layers.discardAction') }))); await settle();
     assert.ok(page.getByRole('dialog', { name: 'Relay' }));
+    await act(async () => fireEvent.keyDown(page.getByRole('dialog', { name: 'Relay' }), { key: 'Escape' })); await settle();
+    assertNodeIdentity(focused(), relayTrigger);
+    await act(async () => fireEvent.click(relayTrigger)); await settle();
     await act(async () => fireEvent.click(page.getByRole('button', { name: 'Start work' })));
     await act(async () => fireEvent.click(page.getByRole('button', { name: 'Open Settings' }))); await settle();
     assertNodeIdentity(focused(), page.getByRole('button', { name: t('layers.keepOpen') }));

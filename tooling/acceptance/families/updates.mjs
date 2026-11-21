@@ -20,14 +20,29 @@ export const checks = [
                         }
                     }
                     else {
-                        const entry = page.getByRole('button', { name: messages.viewUpdate, exact: true });
+                        const entry = page.locator('.navigation-capsule').getByRole('button', { name: messages.viewUpdate, exact: true });
                         await entry.waitFor({ state: 'visible' });
                         if (fixture.updatePanel === false)
                             await entry.click();
                         const panel = page.getByRole('dialog', { name: messages.appUpdates, exact: true });
                         await panel.waitFor({ state: 'visible' });
-                        if (fixture.update.phase === 'downloading')
+                        if (fixture.update.phase === 'downloading') {
                             await panel.getByRole('progressbar').waitFor();
+                            await page.evaluate(async () => {
+                                (await import('/scenarios.ts')).setScenarioReducedMotion(false);
+                                await (await import('/state/appEnvironment.ts')).refreshAppEnvironment();
+                            });
+                            await page.waitForFunction(() => getComputedStyle(document.querySelector('.update-ring')).animationName === 'update-spin');
+                            await page.keyboard.press('Escape');
+                            await page.locator('[data-page="settings"]').click();
+                            await entry.click();
+                            await panel.getByRole('progressbar').waitFor();
+                            const ownerClose = page.locator('.layer-panel').getByRole('button', { name: messages.backToHome, exact: true });
+                            const rect = await ownerClose.boundingBox();
+                            await page.mouse.click(rect.x + rect.width / 2, rect.y + rect.height / 2);
+                            await panel.waitFor({ state: 'hidden' });
+                            await page.locator('.settings-page').waitFor();
+                        }
                         else if (fixture.update.phase === 'installing') {
                             if (!await panel.getByRole('button', { name: messages['updates.installing'] }).isDisabled())
                                 throw new Error('The update button is active while installation is running.');

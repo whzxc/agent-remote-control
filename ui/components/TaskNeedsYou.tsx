@@ -53,8 +53,11 @@ export default function TaskNeedsYou({ agent, session, entries, source, narrow, 
   const interaction = pending?.interaction;
   const requestPreview = interaction?.command || interaction?.preview
     || (interaction?.path && <FilePath path={interaction.path} cwd={interaction.cwd} full />);
-  usePanelState({ dirty: Object.values(drafts[identity ?? ""] ?? {}).some(values => values.some(value => value.length > 0)),
-    busy: !!identity && submissions[identity]?.status === "submitting" || routing.busy });
+  const requestIds = native.map(request => interactionKey(agent, request));
+  usePanelState({
+    dirty: requestIds.some(key => Object.values(drafts[key] ?? {}).some(values => values.some(Boolean))),
+    busy: routing.busy || requestIds.some(key => submissions[key]?.status === "submitting"),
+  });
   const route = (mode: "all" | "passive" | "actionable", inlineRoute = false) => <RequestRouting mode={mode} inline={inlineRoute} routing={routing.error ? undefined : routing.routing} source={dispatchSourceLabel(source) || t("routing.source")} busy={routing.busy} change={routing.change} />;
   const passive = routing.routing && !["deferred", "paused"].includes(routing.routing.state) && !routing.error ? route("passive", false) : undefined;
   const inlineCard = inline && !narrow;

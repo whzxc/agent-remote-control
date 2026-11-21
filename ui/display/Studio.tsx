@@ -143,7 +143,7 @@ export function StudioControls({ available }: { available: boolean }) {
   if (!enabled) return null;
   return <Popover.Root open={open} onOpenChange={setOpen}>
     <Popover.Trigger asChild><IconButton ref={trigger} icon={Monitor} size={20} label={t('studio.settings')} data-hover-target="studio" /></Popover.Trigger>
-    <Popover.Portal><TransientLayer><InspectionPopover variant="studio" side="top" align="start" sideOffset={12} collisionPadding={16}
+    <Popover.Portal><TransientLayer onDismiss={() => setOpen(false)}><InspectionPopover variant="studio" side="top" align="start" sideOffset={12} collisionPadding={16}
       aria-label={t('studio.settings')} onEscapeKeyDown={event => event.stopPropagation()}>
       <StudioLighting />
       <Button busy={busy} onClick={() => { void changeFullscreen(!fullscreen); setOpen(false); }}>

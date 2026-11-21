@@ -27,5 +27,5 @@ A capsule task action scrolls and focuses its matching tasks.
 ## Panels
 
 The shared layer registry and layerFrame own panel and dialog geometry.
-Narrow or portrait viewports collapse left and right M slots to the available width.
+Narrow or portrait viewports use the available width for centered panels and dialogs.
 Headers and footers stay fixed while the capped body scrolls.

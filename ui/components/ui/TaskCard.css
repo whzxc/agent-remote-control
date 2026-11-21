@@ -26,7 +26,7 @@
 }
 
 @keyframes task-aurora { to { --task-aurora-angle: 384deg; } }
-@media (prefers-reduced-motion: reduce) { .task-card[data-aurora] { animation: none; } }
+@media (prefers-reduced-motion: reduce) { :root:not([data-reduced-motion]) .task-card[data-aurora] { animation: none; } }
 [data-reduced-motion=true] .task-card[data-aurora] { animation: none; }
 
 .task-card-header { display: flex; flex: none; flex-direction: column; gap: 8px; min-width: 0; padding: 12px 14px; }

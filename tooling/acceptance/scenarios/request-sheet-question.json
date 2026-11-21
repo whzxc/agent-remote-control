@@ -20,7 +20,40 @@
       "phase": "interaction",
       "title": "Waiting for input",
       "headline": "Choose an option",
-      "question": true
+      "question": true,
+      "entries": [
+        {
+          "type": "interaction",
+          "status": "pending",
+          "interaction": {
+            "kind": "question",
+            "summary": "First fixture question",
+            "method": "item/tool/requestUserInput",
+            "canRespond": true,
+            "questions": [
+              {
+                "id": "choice",
+                "question": "First choice",
+                "options": [
+                  {
+                    "label": "Alpha"
+                  },
+                  {
+                    "label": "Beta"
+                  }
+                ]
+              }
+            ],
+            "respond": {
+              "op": "codex_respond",
+              "args": {
+                "id": "first-question",
+                "backendSession": "fixture"
+              }
+            }
+          }
+        }
+      ]
     }
   ]
 }

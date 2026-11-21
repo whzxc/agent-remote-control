@@ -133,11 +133,38 @@ export const checks = [
                     await platforms.getByRole('button', { name: messages.addControlSource, exact: true }).click();
                     const addProduct = messages['setup.addProduct'].replace('{name}', source.productName);
                     const menu = page.getByRole('menu', { name: messages.addControlSource, exact: true });
+                    await menu.waitFor();
+                    await page.evaluate(() => {
+                        const target = document.createElement('button');
+                        target.id = 'outside-menu-target';
+                        target.style.cssText = 'position:fixed;inset:2px auto auto 2px;width:12px;height:12px;pointer-events:auto';
+                        target.onpointerup = target.onclick = () => { target.dataset.activated = 'true'; };
+                        document.body.append(target);
+                    });
+                    await page.mouse.move(8, 8);
+                    await page.mouse.down();
+                    await menu.waitFor({ state: 'hidden' });
+                    // A long press can outlive the shell or transient that consumed its start.
+                    await new Promise(resolve => setTimeout(resolve, 1050));
+                    await page.mouse.up();
+                    if (!await platforms.isVisible() || await page.locator('#outside-menu-target').getAttribute('data-activated'))
+                        throw new Error('Dismissing the menu activated its owner or the underlying target.');
+                    await page.locator('#outside-menu-target').evaluate(node => node.remove());
+                    await platforms.getByRole('button', { name: messages.addControlSource, exact: true }).click();
                     await menu.getByRole('menuitem', { name: addProduct, exact: true }).click();
                     const dialog = page.getByRole('dialog', { name: addProduct, exact: true });
                     await dialog.waitFor({ state: 'visible' });
                     await page.keyboard.press('Escape');
                     await dialog.waitFor({ state: 'hidden' });
+                    const saved = platforms.getByRole('region', { name: renamed, exact: true });
+                    await saved.getByRole('button', { name: messages['platforms.rename'].replace('{name}', renamed), exact: true }).click();
+                    await saved.getByRole('textbox').fill(source.label);
+                    const settings = page.locator('[data-page="settings"]');
+                    await settings.press('Enter');
+                    await platforms.getByRole('button', { name: messages['layers.discardAction'], exact: true }).click();
+                    await page.locator('.settings-page').waitFor();
+                    await page.keyboard.press('Escape');
+                    await page.waitForFunction(node => node === document.activeElement, await settings.elementHandle());
                 }
             }
             finally {

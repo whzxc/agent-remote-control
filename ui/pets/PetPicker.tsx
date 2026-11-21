@@ -19,7 +19,7 @@ export default function PetPicker({ scope, name, platform }: { scope: string; na
   const selected = library.packages.some(p => p.key === assignments[scope]) ? assignments[scope] : '';
   return <Popover.Root open={open} onOpenChange={value => { setOpen(value); if (value) void refreshPets(); }}>
     <Popover.Trigger asChild><IconButton icon={PawPrint} label={t('pets.chooseFor', { name })} /></Popover.Trigger>
-    <Popover.Portal><TransientLayer><InspectionPopover variant="pet" side="bottom" align="end" sideOffset={8} collisionPadding={12}
+    <Popover.Portal><TransientLayer onDismiss={() => setOpen(false)}><InspectionPopover variant="pet" side="bottom" align="end" sideOffset={8} collisionPadding={12}
       aria-label={t('pets.chooseFor', { name })} onEscapeKeyDown={event => event.stopPropagation()}>
       {library.error && <Notice tone="danger">{library.error}<Button onClick={() => void refreshPets()}>{t('retry')}</Button></Notice>}
       {!library.packages.length && <p role="status">{t(library.loading ? 'pets.loading' : 'pets.empty')}</p>}
