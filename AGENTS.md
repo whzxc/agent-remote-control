@@ -24,7 +24,7 @@ Keep this file within 12,000 Unicode characters. Replace or move text to its own
 - After direct Cargo builds or tests, run `npm run cache:prune`.
 - Commit messages MUST use Conventional Commits with an English single-line subject: `type(scope): description`. Allowed types are feat, fix, docs, refactor, test, build, ci, chore, perf, and revert. Do not write a body or rewrite history. A required Git trailer may follow one blank line.
 - Keep personal paths, project names, accounts, secrets, Tunnel identities, quota details, and real task content out of the repository. Personal dispatch criteria belong in local state configuration.
-- Changes to what an `arch/` diagram shows MUST update the diagram before implementation. Behavior changes need user approval of the updated diagram first. See [Architecture assets](docs/dev/arch-assets.md).
+- Keep affected `arch/` diagrams current in the same change as the implementation. Follow [Architecture assets](docs/dev/arch-assets.md) when the user requests an architecture preview or review.
 - Documentation describes current features, architecture, limits, and procedures. Do not store process records, acceptance results, decision logs, or personal environment details.
 
 ## Language and terminology

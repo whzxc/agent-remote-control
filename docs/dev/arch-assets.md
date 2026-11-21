@@ -51,13 +51,15 @@ Inspector.
 
 ## Review
 
-A change that alters what an asset shows updates the asset before implementation.
-Segment review checks whether a diff touching a sidecar's `owners` requires an asset
-update. `adg check` validates classes, sidecars and owner paths. The control source
-reviews a proposed diagram against its base with ADG's review overlay (`--base=<rev>`),
-which marks added, changed and removed nodes and edges. Updates that only reflect
-implementation are approved by the control source. Behavior changes need user approval
-of the updated asset first.
+Implement behavior changes directly by default. If the user asks to see or review
+the proposed architecture first, present the affected diagrams and wait for their
+go-ahead before implementation.
+
+When a change alters what an asset shows, update the diagram and its sidecar as
+needed in the same change as the implementation. During diff review, check whether
+changes to a sidecar's `owners` require an asset update. ADG's review overlay
+(`--base=<rev>`) shows added, changed and removed nodes and edges. `adg check`
+validates classes, sidecars and owner paths.
 
 ## Limits
 
