@@ -1,0 +1,27 @@
+[
+  {
+    "section": "features",
+    "en": "On macOS, ARC can prepare a shared Codex Desktop connection and continue the original dispatch. Settings defaults to Ask first. If Desktop activity cannot be confirmed, choose whether to restart it or use an independent instance once.",
+    "zh-CN": "在 macOS 上，ARC 可以恢复与 Codex Desktop 的共享连接，随后自动继续原派发。设置默认是「仅提示」。无法确认现有 Desktop 的运行状态时，可以选择重启，或仅此一次使用独立实例。"
+  },
+  {
+    "section": "improvements",
+    "en": "Today's homepage task grids initially show up to two rows per group and can be expanded to show the rest. Task details keep their recorded turn count while history loads.",
+    "zh-CN": "首页今日任务每组默认显示至多两行，可展开查看其余任务。加载历史时，任务详情仍会显示已记录的轮次。"
+  },
+  {
+    "section": "improvements",
+    "en": "Task cards, dispatch controls and timelines have clearer status labels and layout.",
+    "zh-CN": "任务卡片、派发控件和时间线的状态标识与布局更清晰。"
+  },
+  {
+    "section": "fixes",
+    "en": "A stall alert can be resolved after it has already been delivered.",
+    "zh-CN": "已送达的任务停滞提醒现可正常标记为已解决。"
+  },
+  {
+    "section": "actions",
+    "en": "Local agents use their native sign-in. If you previously supplied an account to select a local dispatch profile, update your calls to use the native login. Codex account routing can be configured through an optional local gateway.",
+    "zh-CN": "本地 Agent 使用原生登录。如果此前通过 account 参数选择本地派发账号，请更新调用以使用原生登录。Codex 多账号路由可通过可选的本地网关配置。"
+  }
+]
