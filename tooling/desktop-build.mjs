@@ -1,12 +1,11 @@
 import { requireMainCheckout } from './coding-lane.mjs';
 requireMainCheckout();
 import { enterHeavyBuild } from './heavy-build.mjs';
-enterHeavyBuild();
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { buildEnv } from './build-env.mjs';
 import { releaseSigningEnv } from './release-signing.mjs';
-import { macosSigningIdentity } from './macos-signing.mjs';
+import { preflightMacosSigning } from './macos-signing.mjs';
 import { compileIcon, requireXcode } from './macos-icons.mjs';
 import { stageTimer } from './release-support.mjs';
 import { buildNative } from './build-native.mjs';
@@ -41,7 +40,18 @@ args.push('--config', JSON.stringify({ version: env.ARC_BUILD_VERSION }));
 for (const key of ['TAURI_SIGNING_PRIVATE_KEY', 'TAURI_SIGNING_PRIVATE_KEY_PASSWORD']) {
   if (signing[key] !== undefined) env[key] = signing[key];
 }
-const identity = macosSigningIdentity(env, { release: true });
+let identity;
+if (process.platform === 'darwin') {
+  // Core staging signs even when Tauri bundling is disabled.
+  try {
+    identity = preflightMacosSigning(env);
+  } catch (error) {
+    console.error('macOS signing preflight failed. Have the control source run the ARC local install refresh (arc-local-install-refresh) from Terminal.');
+    console.error(error.message);
+    process.exit(1);
+  }
+}
+enterHeavyBuild();
 for (const key of Object.keys(env)) if (/^(CSC_|WIN_CSC_)/.test(key)) delete env[key];
 if (process.platform === 'darwin') args.push('--config', JSON.stringify({ bundle: { macOS: {
   signingIdentity: identity, hardenedRuntime: true,
