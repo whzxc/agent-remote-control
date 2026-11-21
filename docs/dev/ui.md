@@ -326,22 +326,15 @@ Tray and deep-link navigation received while a dialog is open becomes actionable
 
 ### Motion
 
-`npm run check:ui-styles` checks CSS and inline timing, Motion transitions, Web Animations and recurring frame callbacks. `tooling/ui-motion-allowlist.json` identifies exact artwork declarations. `tooling/ui-motion-decisions.json` pins pending decisions to their reviewed location and current value.
-`npm run check:ui-styles` restricts explicitly infinite CSS tracks to running indicators and named artwork, with one track per running-indicator declaration.
-`npm run check:ui-styles` checks the shared zero-duration reset on reduced-motion elements and their before and after pseudo-elements.
+`npm run check:ui-styles` checks duration and easing tokens, infinite animation tracks, recurring frame callbacks and the shared reduced-motion reset, with exact artwork exceptions in `tooling/ui-motion-allowlist.json`.
 
-`--motion-running` is 1600ms. The enter and exit curves are `cubic-bezier(0.16, 1, 0.3, 1)` and `cubic-bezier(0.4, 0, 1, 1)`, respectively.
-
-- Motion tokens MUST own every duration and easing outside the topology animator.
-- `--motion-fast` is 120ms for hover, press, tooltip and toast.
-- `--motion-base` is 160ms for dialog and transient entry, content swaps, and synchronized height and y transitions.
-- `--motion-panel` is 180ms for panel opacity entry.
+- Use `--motion-fast` for hover, press, tooltips, toasts, menu, select and popover entry, and header and body replacement within a layer.
+- Use `--motion-base` for dialog entry, disclosure entry and synchronized height and y transitions.
+- Use `--motion-panel` for panel opacity entry.
+- Use `--motion-running` for repeating status indicators and `--ease-running` for a symmetric pulse.
 - Exit durations MUST be at most their entry durations.
-- `--ease-enter` and `--ease-exit` MUST be the only easing curves outside the topology springs and gesture-driven motion.
 - Transient layers MUST enter with a fade.
 - Content swaps inside one layer MUST crossfade while the shell stays centered for its current height.
-- Infinite animations MUST only indicate a running state, with at most one per element.
-- Reduced motion MUST apply geometry and opacity changes instantly.
 
 ### Dismissal, focus and feedback
 

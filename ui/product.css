@@ -223,12 +223,12 @@
 .topology-hub { position: absolute; left: 0; top: 0; z-index: 6; pointer-events: none; }
 
 .hub-entry { position: absolute; top: 50%; width: calc(var(--hub-dot-size) + 8px); height: calc(var(--hub-dot-size) + 8px); min-width: 28px; min-height: 28px; padding: 4px; transform: translate(-50%, -50%); cursor: pointer; display: grid; place-items: center; pointer-events: auto; }
-.hub-dot { position: relative; display: block; width: var(--hub-dot-size); height: var(--hub-dot-size); transform: scale(var(--hub-dot-scale, 1)); transition: box-shadow var(--motion-base) var(--ease-enter); pointer-events: none; }
+.hub-dot { position: relative; display: block; width: var(--hub-dot-size); height: var(--hub-dot-size); transform: scale(var(--hub-dot-scale, 1)); transition: box-shadow var(--motion-fast) var(--ease-enter); pointer-events: none; }
 .hub-dot > svg { display: block; width: 100%; height: 100%; }
 .hub-plus { stroke-width: 5.865; }
-.hub-symbol { transform-box: view-box; transform-origin: 10px 10px; opacity: 0; transform: scale(.3) rotate(-90deg); transition: transform var(--motion-base) var(--ease-enter), opacity var(--motion-base) var(--ease-enter); }
+.hub-symbol { transform-box: view-box; transform-origin: 10px 10px; opacity: 0; transform: scale(.3) rotate(-90deg); transition: transform var(--motion-fast) var(--ease-enter), opacity var(--motion-fast) var(--ease-enter); }
 .topology-hub:hover .hub-symbol, .topology-hub:has(.hub-entry:focus-visible) .hub-symbol, .hub-entry[data-empty] .hub-symbol { opacity: 1; transform: none; }
-.hub-entry[data-empty] .hub-dot::after { content: ""; position: absolute; inset: 0; animation: hub-ripple var(--motion-running) var(--ease-enter) infinite; }
+.hub-entry[data-empty] .hub-dot::after { content: ""; position: absolute; inset: 0; animation: hub-ripple var(--motion-running) var(--ease-enter) 1 forwards; }
 @keyframes hub-ripple { from { transform: scale(1); opacity: .45; } 80%, to { transform: scale(1.7); opacity: 0; } }
 :root[data-reduced-motion="true"] {
   .hub-dot, .hub-symbol { transition: none; }
@@ -253,7 +253,8 @@
 .topology-ear, .topology-outer-arc { fill: none; stroke: var(--wire-color); stroke-linecap: round; }
 .topology-wires .needs-attention { stroke: var(--warning); }
 .topology-wires .wire-break { fill: none; stroke: var(--graph-bg); stroke-linecap: butt; }
-.topology-wires .connecting-wire { fill: none; stroke: var(--wire-color); stroke-opacity: 0.5; stroke-linecap: round; stroke-dasharray: 2 9; animation: graph-connecting calc(var(--motion-running) * var(--topology-time-scale, 1)) var(--ease-enter) infinite; }
+.topology-wires .connecting-wire { fill: none; stroke: var(--wire-color); stroke-opacity: 0.5; stroke-linecap: round; stroke-dasharray: 2 9; }
+.topology-wires :where(.primary[data-state="connecting"]) .connecting-wire { animation: graph-connecting calc(var(--motion-running) * var(--topology-time-scale, 1)) var(--ease-enter) infinite; }
 .topology-wires .right .connecting-wire { animation-direction: reverse; }
 .topology-wires .secondary { --task-color: var(--wire-color); }
 .topology-wires .secondary[data-state="failed"] { --task-color: var(--danger); }
@@ -284,7 +285,7 @@
 button.timeline-summary { appearance: none; cursor: pointer; }
 .timeline-summary > .icon { flex: none; }
 
-.timeline-chevron { flex: none; transition: transform var(--motion-base); }
+.timeline-chevron { flex: none; transition: transform var(--motion-base) var(--ease-enter); }
 .timeline-summary[data-state=open] > .timeline-chevron { transform: rotate(90deg); }
 .timeline-fold-content { overflow: hidden; }
 .timeline-entry-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

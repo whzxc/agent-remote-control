@@ -107,7 +107,7 @@ export function inspectMotionScripts(base, files) {
       const call = value.expression.name?.text === 'trim' ? value.expression.expression : value;
       return ts.isCallExpression(call) && call.expression.name?.text === 'getPropertyValue' &&
         ts.isCallExpression(call.expression.expression) && call.expression.expression.expression.getText() === 'getComputedStyle' &&
-        /^--ease-(enter|exit)$/.test(call.arguments[0]?.text);
+        /^--ease-(enter|exit|running)$/.test(call.arguments[0]?.text);
     }
     // Web Animations takes milliseconds and a CSS easing string; Motion takes seconds and a tuple.
     function webTiming(node, target, expr) {

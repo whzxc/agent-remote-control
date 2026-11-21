@@ -5,19 +5,14 @@ import { motionTransition } from '../ui/motion/tokens.ts';
 import { inspectMotionScripts } from './ui-motion-scripts.mjs';
 
 const duration = /^var\(--motion-(?:fast|base|panel|running)\)$/;
-const easing = /^var\(--ease-(?:enter|exit)\)$/;
-const token = /^--(?:motion-(?:fast|base|panel|running)|ease-(?:enter|exit))$/;
-const runningSelectors = new Set([
-  '.spin', '.ui-spinner', '.update-ring', '.node-capsule-disc[data-phase=running]',
-  '.task-card[data-aurora]', '.step-running .icon', '.phase-shimmer', '.phase-shimmer > span',
-  '.topology-wires .primary[data-state=connecting] .connecting-wire',
-]);
+const easing = /^var\(--ease-(?:enter|exit|running)\)$/;
+const token = /^--(?:motion-(?:fast|base|panel|running)|ease-(?:enter|exit|running))$/;
 const reducedRoot = /^:root\[data-reduced-motion=(?:"true"|'true'|true)\]$/;
 const zeroTime = /^0(?:s|ms)$/i;
 const scaledRunning = /^calc\(var\(--motion-running\)\s*\*\s*var\(--topology-time-scale,\s*1\)\)$/;
-const motionProperty = /^(?:(?:animation|transition)(?:-[a-z-]+)?|--motion-(?:fast|base|panel|running)|--ease-(?:enter|exit))$/;
+const motionProperty = /^(?:(?:animation|transition)(?:-[a-z-]+)?|--motion-(?:fast|base|panel|running)|--ease-(?:enter|exit|running))$/;
 
-function cssIssues(row, resolves) {
+function cssIssues(row, resolves, runningSelectors) {
   const { property, value, selector } = row;
   const issues = [];
   if (token.test(property)) return ['design/tokens.css owns this token'];
@@ -75,6 +70,7 @@ function checkTokenSource(base, errors) {
       errors.push(`${file}: --motion-${name} needs a positive duration matching its JS fallback where provided.`);
     }
   }
+  if (values.get('--ease-running') !== 'ease-in-out') errors.push(`${file}: --ease-running must preserve the symmetric ease-in-out curve.`);
   for (const name of ['enter', 'exit']) {
     const curve = values.get('--ease-' + name)?.match(/^cubic-bezier\(([^)]+)\)$/)?.[1].split(',').map(Number);
     const fallback = motionTransition('base', name).ease;
@@ -152,33 +148,11 @@ export function checkMotion(base) {
     if (allowed.has(key(entry))) throw Error('Duplicate motion exception: ' + key(entry));
     allowed.set(key(entry), entry.reason);
   }
-  const decisions = JSON.parse(readFileSync(path.join(base, 'tooling/ui-motion-decisions.json'), 'utf8'));
-  const pending = new Map(), matched = new Set(), seenDecisions = new Set();
-  for (const entry of decisions) {
-    const id = key(entry);
-    if (Object.keys(entry).sort().join(',') !== 'current,file,property,proposed,reason,selector' ||
-        !Object.values(entry).every(value => typeof value === 'string' && value.trim()) ||
-        entry.reason !== 'pending timing decision' || entry.current === entry.proposed) {
-      throw Error('Pending motion decisions require an exact location, current value, proposed timing and reason.');
-    }
-    if (allowed.has(id) || pending.has(id)) throw Error('Duplicate motion exception: ' + id);
-    pending.set(id, entry);
-  }
+  const runningSelectors = new Set(JSON.parse(readFileSync(path.join(base, 'tooling/ui-motion-running-selectors.json'), 'utf8')));
   for (const row of inventory) {
     if (customTimes.has(row.property)) row.customTime = true;
-    const issues = row.issues ?? cssIssues(row, resolves);
-    const id = key(row), decision = pending.get(id);
-    if (decision && row.value !== 'none') {
-      if (seenDecisions.has(id)) errors.push(`${row.file}:${row.line}: overlapping pending motion decision: ${id}`);
-      seenDecisions.add(id);
-    }
-    // Semantic token choices can already parse correctly. Pin those reviewed values too.
-    if (decision && !token.test(row.property) && decision.current === row.value && !matched.has(id)) {
-      matched.add(id);
-      row.pending = decision.proposed;
-      row.issues = issues;
-      continue;
-    }
+    const issues = row.issues ?? cssIssues(row, resolves, runningSelectors);
+    const id = key(row);
     const reason = allowed.get(id);
     if (issues.length && reason && !token.test(row.property)) {
       row.artwork = reason;
@@ -188,12 +162,11 @@ export function checkMotion(base) {
       errors.push(`${row.file}:${row.line}: ${row.selector}: ${row.property}: ${issues.join('; ')}.`);
     }
   }
-  for (const id of pending.keys()) if (!matched.has(id)) errors.push('Stale or changed pending motion decision: ' + id);
   for (const id of allowed.keys()) if (!used.has(id)) errors.push('Stale motion exception: ' + id);
   for (const selector of ['*', '*::before', '*::after']) {
     for (const property of ['animation-duration', 'transition-duration']) {
       if (!reset.has(selector + '/' + property)) errors.push(`ui/style.css: reduced motion requires an important zero ${property} on ${selector}.`);
     }
   }
-  return { inventory, errors, exceptions: used.size, pending: matched.size };
+  return { inventory, errors, exceptions: used.size };
 }

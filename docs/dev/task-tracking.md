@@ -184,7 +184,7 @@ Earlier turns initially collapse to one row showing turn number, route marks, ou
 
 Terminal task details read the selected turn's review automatically. A recorded review uses the final-answer card surface, with a review heading, verdict, reviewer, timestamp, and optional note. No review section or placeholder is shown while loading or when no review exists. Read failures retain an actionable retry notice.
 
-Radix Collapsible owns keyboard/semantics. motion animates height around 180ms. Live reduced-motion changes immediately stop mounted transitions and icon rotation. Expansion affects only timeline content, never polling/cursors/follow behavior/panel shell. All colors use semantic light/dark tokens.
+Radix Collapsible owns keyboard/semantics. Timeline folds animate height and opacity with `--motion-base`, using `--ease-enter` to expand and `--ease-exit` to collapse. Live reduced-motion changes immediately stop mounted transitions and icon rotation. Expansion affects only timeline content, never polling/cursors/follow behavior/panel shell. All colors use semantic light/dark tokens.
 
 ## Native navigation
 

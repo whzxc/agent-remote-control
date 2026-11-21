@@ -74,6 +74,7 @@
   --motion-running: 1600ms;
   --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-running: ease-in-out;
 
   /* Surfaces */
   --layer-scrim: rgb(0 0 0 / 24%);

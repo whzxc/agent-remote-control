@@ -1,0 +1,10 @@
+[
+  ".spin",
+  ".ui-spinner",
+  ".update-ring",
+  ".node-capsule-disc[data-phase=running]",
+  ".step-running .icon",
+  ".phase-shimmer",
+  ".phase-shimmer > span",
+  ".topology-wires :where(.primary[data-state=connecting]) .connecting-wire"
+]

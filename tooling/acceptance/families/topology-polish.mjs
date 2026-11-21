@@ -63,10 +63,10 @@ export const checks = [{ stage: 'verify', order: 18.5, visual: true, async run({
   if (await positions() !== before) throw new Error('Opening a leaf panel changed topology geometry.');
   if (await page.getByRole('group', { name: /OpenCode/ }).getByRole('button', { name: /Collapse|Expand/ }).count()) throw new Error('A leaf exposes arc collapse controls.');
   await page.keyboard.press('Escape'); await panel.waitFor({ state: 'hidden' });
-  const parentActions = page.getByRole('group', { name: 'Codex', exact: true });
-  const collapse = parentActions.getByRole('button', { name: `${messages['topology.collapse']} Codex`, exact: true });
+  const parentActions = page.getByRole('group', { name: 'OpenAI', exact: true });
+  const collapse = parentActions.getByRole('button', { name: `${messages['topology.collapse']} OpenAI`, exact: true });
   await collapse.focus(); await collapse.press('Enter'); await inspect();
-  const expand = parentActions.getByRole('button', { name: `${messages['topology.expand']} Codex`, exact: true });
+  const expand = parentActions.getByRole('button', { name: `${messages['topology.expand']} OpenAI`, exact: true });
   await expand.focus(); await expand.press('Enter'); await inspect();
   const action = page.getByRole('button', { name: messages['device.deviceLink'], exact: true });
   if (!await page.locator('.hub-arc-bottom').getByRole('button', { name: messages['device.deviceLink'], exact: true }).count()) throw new Error('Device link is not on the lower ARC action group.');

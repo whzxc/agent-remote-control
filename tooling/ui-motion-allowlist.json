@@ -1,5 +1,11 @@
 [
   {
+    "file": "ui/components/ui/TaskCard.css",
+    "selector": ".task-card[data-aurora]",
+    "property": "animation",
+    "reason": "Task-card Aurora artwork: the decorative phase-colored border rotates at constant speed over eight seconds."
+  },
+  {
     "file": "ui/display/studio.css",
     "selector": ".studio-window-light",
     "property": "animation",

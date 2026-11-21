@@ -57,6 +57,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const motion = checkMotion(root);
     result.errors.push(...motion.errors, ...consumers.errors, ...checkTokens(root, consumers.parts).errors);
     if (result.errors.length) { console.error(result.errors.join('\n')); process.exitCode = 1; }
-    else console.log(`UI style policy passed (${result.declarations} declarations, ${result.exceptions} paint exceptions, ${motion.exceptions} motion artwork exceptions, ${motion.pending} pending timing decisions).`);
+    else console.log(`UI style policy passed (${result.declarations} declarations, ${result.exceptions} paint exceptions, ${motion.exceptions} motion artwork exceptions).`);
   } catch (error) { console.error(error.message); process.exitCode = 1; }
 }

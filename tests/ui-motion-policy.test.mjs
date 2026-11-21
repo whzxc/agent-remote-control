@@ -12,7 +12,11 @@ async function fixture(t, files, exceptions = []) {
   t.after(() => rm(root, { recursive: true, force: true }));
   const design = await readFile(new URL('../design/tokens.css', import.meta.url), 'utf8');
   for (const [file, content] of Object.entries({
-    'design/tokens.css': design, 'ui/style.css': reset, 'tooling/ui-motion-decisions.json': '[]', 'tooling/ui-motion-allowlist.json': JSON.stringify(exceptions), ...files,
+    'design/tokens.css': design,
+    'ui/style.css': reset,
+    'tooling/ui-motion-running-selectors.json': JSON.stringify(['.job-spinner']),
+    'tooling/ui-motion-allowlist.json': JSON.stringify(exceptions),
+    ...files,
   })) {
     await mkdir(path.dirname(path.join(root, file)), { recursive: true });
     await writeFile(path.join(root, file), content);
@@ -24,11 +28,11 @@ test('CSS motion policy separates tracks, token roles, loops and reduced-motion 
   // Algorithmic core: shorthand parsing must validate each track, including implicit timing and nested fallback values.
   const root = await fixture(t, {
     'ui/topology/controls.css': `.ok { transition: color ${timed}, transform ${timed}; }
-      .spin { animation: spin ${timed} infinite; }
+      .job-spinner { animation: spin var(--motion-running) var(--ease-running) infinite; }
       .mixed { transition: color ${timed}, opacity 1s var(--ease-enter); }
       .implicit { transition: color var(--motion-fast); }
       .idle { animation: pulse ${timed} infinite; }
-      .spin { animation: a ${timed} infinite, b ${timed} infinite; }
+      .job-spinner { animation: a ${timed} infinite, b ${timed} infinite; }
       .fallback { animation-duration: var(--motion-fast, 350ms); }
       @keyframes bad { to { animation-timing-function: steps(2); } }
       .wait { transition-delay: 350ms; }
@@ -41,10 +45,10 @@ test('CSS motion policy separates tracks, token roles, loops and reduced-motion 
   });
   const result = checkMotion(root);
   assert.deepEqual(result.inventory.filter(row => row.issues?.length).map(row => row.selector).sort(),
-    ['.mixed', '.implicit', '.idle', '.spin', '.fallback', 'to', '.wait', '.defaults', '.wrong', ':root'].sort());
+    ['.mixed', '.implicit', '.idle', '.job-spinner', '.fallback', 'to', '.wait', '.defaults', '.wrong', ':root'].sort());
   assert.equal(result.errors.filter(error => error.includes('on *::after')).length, 2);
   await writeFile(path.join(root, 'design/tokens.css'), ':root { --ease-enter: linear; --motion-base: 10s; }');
-  assert.equal(checkMotion(root).errors.filter(error => error.startsWith('design/tokens.css:')).length, 6);
+  assert.equal(checkMotion(root).errors.filter(error => error.startsWith('design/tokens.css:')).length, 7);
 });
 
 test('motion exceptions belong to the exact artwork declaration and expire with it', async t => {
@@ -111,20 +115,4 @@ test('artwork clock producers and consumers require independent exact exceptions
   assert.equal(checkMotion(root).errors.length, 1);
   await writeFile(path.join(root, 'tooling/ui-motion-allowlist.json'), JSON.stringify([entry, clock]));
   assert.deepEqual(checkMotion(root).errors, []);
-});
-
-test('pending timing decisions grandfather only the reviewed value at its reviewed location', async t => {
-  // Algorithmic core: a deferred timing change must remain visible and cannot authorize a new literal.
-  const current = 'opacity 1.4s ease-in-out';
-  const entry = { file: 'ui/view.css', selector: '.icon', property: 'transition', current,
-    proposed: 'opacity var(--motion-fast) var(--ease-enter)', reason: 'pending timing decision' };
-  const root = await fixture(t, { 'ui/view.css': `.icon { transition: ${current}; }`,
-    'tooling/ui-motion-decisions.json': JSON.stringify([entry]) });
-  assert.deepEqual(checkMotion(root).errors, []);
-  await writeFile(path.join(root, entry.file), '.icon { transition: opacity 2s linear; }');
-  assert.equal(checkMotion(root).errors.length, 2);
-  await writeFile(path.join(root, entry.file), `.other { transition: ${current}; }`);
-  assert.equal(checkMotion(root).errors.length, 2);
-  await writeFile(path.join(root, entry.file), `.icon { transition: ${entry.proposed}; }`);
-  assert.equal(checkMotion(root).errors.length, 1);
 });

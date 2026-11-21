@@ -44,7 +44,8 @@ function Fold({ open, onChange, summary, children, className = "", expandable = 
     {reduced ? open && <Collapsible.Content className="timeline-fold-content">{children}</Collapsible.Content> : <AnimatePresence initial={false}>
       {open && <Collapsible.Content forceMount asChild>
         <motion.div className="timeline-fold-content" initial={{ height: 0, opacity: 0 }}
-          animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ ...motionTransition("panel"), duration: reduced ? 0 : motionTransition("panel").duration }}>
+          animate={{ height: "auto", opacity: 1 }} transition={motionTransition("base", "enter")}
+          exit={{ height: 0, opacity: 0, transition: motionTransition("base", "exit") }}>
           {children}
         </motion.div>
       </Collapsible.Content>}
