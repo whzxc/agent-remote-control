@@ -61,6 +61,7 @@
     }
   ],
   "homepage": {
-    "mode": "tasks"
+    "mode": "tasks",
+    "check": "queue-overflow"
   }
 }

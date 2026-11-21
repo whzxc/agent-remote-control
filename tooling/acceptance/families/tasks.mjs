@@ -139,23 +139,6 @@ export const checks = [
                 context.model = model;
             }
         } },
-    { stage: "verify", order: 32, visual: true, async run(context) {
-            const { page, fixture, name, key, root, out, screenshots } = context;
-            let { model } = context;
-            try {
-                if (name === 'task-queue-overflow') {
-                    // Regression: unfinished work was hidden behind completed tasks in the retired topology queue.
-                    const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
-                    const feed = page.getByRole('main', { name: messages['homepage.tasks'], exact: true });
-                    for (const task of fixture.tasks) await feed.getByRole('article', { name: task.title, exact: true }).waitFor();
-                    if (await page.getByRole('dialog').count()) throw new Error('Opening the Tasks feed opened a detail panel.');
-
-                }
-            }
-            finally {
-                context.model = model;
-            }
-        } },
     { stage: "verify", order: 33, visual: true, async run(context) {
             const { page, fixture, key, root, out, screenshots } = context;
             let { model } = context;
