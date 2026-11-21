@@ -1,12 +1,23 @@
 {
   "version": 1,
+  "roles": {
+    "duration-base": "--motion-base",
+    "duration-fast": "--motion-fast",
+    "duration-loop": "--motion-running",
+    "easing-enter": "--ease-enter",
+    "easing-exit": "--ease-exit",
+    "easing-loop": "--ease-running",
+    "spring-small": "--motion-spring-topology",
+    "distance-small": "--motion-distance-update",
+    "scale-small": "--motion-scale-small"
+  },
   "patterns": {
     "aurora-border": {
       "kind": "ambient",
       "action": "loop",
       "effect": "aurora",
       "properties": ["--task-aurora-angle", "background"],
-      "parameters": {"duration": "--motion-aurora", "easing": "--adg-motion-linear"},
+      "parameters": {"duration": "--motion-aurora", "easing": "--ease-linear"},
       "interrupt": "cancel",
       "reduced": "static",
       "frames": [{"source": "design/components/task-card.tsx", "frame": "task-card-aurora"}],
@@ -17,38 +28,21 @@
       ]
     },
     "geometry-transition": {
-      "kind": "layout",
-      "action": "reflow",
-      "effect": "size",
-      "properties": ["x", "y", "width", "height"],
-      "parameters": {"duration": "--motion-base", "easing": "--ease-enter"},
-      "interrupt": "retarget",
-      "reduced": "instant",
+      "extends": "size-transition",
       "consumers": [
         {"file": "ui/motion/geometry.ts", "match": "motion:animate", "within": "to"}
       ]
     },
     "topology-geometry-spring": {
-      "kind": "layout",
-      "action": "reflow",
-      "effect": "size",
-      "properties": ["x", "y", "width", "height", "scale", "opacity"],
+      "extends": "size-transition",
       "parameters": {"spring": "--motion-spring-topology"},
-      "interrupt": "retarget",
-      "reduced": "instant",
       "frames": [{"source": "design/modules/homepage-scene/index.tsx", "frame": "idle"}],
       "consumers": [
         {"file": "ui/topology/animate.ts", "match": "call:spring", "within": "TopologyAnimator"}
       ]
     },
     "agent-position-reflow": {
-      "kind": "layout",
-      "action": "reflow",
-      "effect": "avoid",
-      "properties": ["x", "y", "scale", "box-shadow"],
-      "parameters": {"duration": "--motion-base", "easing": "--ease-enter"},
-      "interrupt": "retarget",
-      "reduced": "instant",
+      "extends": "avoid-reflow",
       "frames": [{"source": "design/modules/agent-settings.tsx", "frame": "agent-inventory-card"}],
       "consumers": [
         {"file": "ui/components/AgentsSettings.tsx", "match": "motion:layout", "within": "AgentCard"},
@@ -56,13 +50,8 @@
       ]
     },
     "appear": {
-      "kind": "transition",
-      "action": "enter",
-      "effect": "fade",
-      "properties": ["opacity"],
-      "parameters": {"duration": "--motion-fast", "easing": "--ease-enter"},
-      "interrupt": "finish",
-      "reduced": "instant",
+      "extends": "fade",
+      "parameters": {"duration": "--motion-fast"},
       "consumers": [
         {"file": "ui/components/ui/controls.css", "match": "css:.select-content,.menu,.popover"},
         {"file": "ui/components/ui/controls.css", "match": "css:.tooltip"},
@@ -70,13 +59,7 @@
       ]
     },
     "quota-fade": {
-      "kind": "transition",
-      "action": "enter",
-      "effect": "fade",
-      "properties": ["opacity"],
-      "parameters": {"duration": "--motion-base", "easing": "--ease-enter"},
-      "interrupt": "finish",
-      "reduced": "instant",
+      "extends": "fade",
       "frames": [{"source": "design/modules/quota-detail.tsx", "frame": "history"}],
       "consumers": [
         {"file": "ui/subscriptions/bubble.css", "match": "css:.history-popover"},
@@ -84,13 +67,8 @@
       ]
     },
     "source-grow-in": {
-      "kind": "transition",
-      "action": "enter",
-      "effect": "pop",
-      "properties": ["scale", "opacity", "filter"],
-      "parameters": {"duration": "--motion-base", "easing": "--ease-enter", "scale": "--motion-scale-small", "fromOpacity": 0.3},
-      "interrupt": "finish",
-      "reduced": "instant",
+      "extends": "spring-pop",
+      "parameters": {"duration": "--motion-base", "easing": "--ease-enter", "fromOpacity": 0.3},
       "frames": [{"source": "design/modules/homepage-scene/index.tsx", "frame": "idle"}],
       "consumers": [
         {"file": "ui/product.css", "match": "keyframes:source-grow-in"},
@@ -98,13 +76,8 @@
       ]
     },
     "capsule-pulse": {
-      "kind": "ambient",
-      "action": "loop",
-      "effect": "pulse",
-      "properties": ["opacity"],
-      "parameters": {"duration": "--motion-running", "easing": "--ease-running"},
-      "interrupt": "cancel",
-      "reduced": "static",
+      "extends": "ambient-loop",
+      "parameters": {"scale": "--motion-scale-still", "fromOpacity": 0.45},
       "frames": [{"source": "design/modules/homepage-scene/index.tsx", "frame": "capsule"}],
       "consumers": [
         {"file": "ui/components/ui/NodeCapsule.css", "match": "css:.node-capsule-disc[data-phase=running]"},
@@ -142,13 +115,8 @@
       ]
     },
     "center-panel-crossfade": {
-      "kind": "transition",
-      "action": "replace",
-      "effect": "crossfade",
-      "properties": ["opacity"],
-      "parameters": {"duration": "--motion-fast", "easing": "--ease-enter"},
-      "interrupt": "retarget",
-      "reduced": "instant",
+      "extends": "crossfade-replace",
+      "parameters": {"duration": "--motion-fast"},
       "frames": [{"source": "design/surfaces/layers.tsx", "frame": "workspace-fit"}, {"source": "design/surfaces/layers.tsx", "frame": "workspace-cap"}],
       "consumers": [
         {"file": "ui/components/ui/PanelCrossfade.tsx", "match": "web:animate", "within": "PanelPaint"}
@@ -229,14 +197,7 @@
       ]
     },
     "layer-fade": {
-      "kind": "transition",
-      "action": "enter",
-      "effect": "fade",
-      "properties": ["opacity"],
-      "parameters": {"duration": "--motion-base", "easing": "--ease-enter"},
-      "interrupt": "cancel",
-      "reduced": "instant",
-      "exit": {"duration": "--motion-fast", "easing": "--ease-exit"},
+      "extends": "fade",
       "frames": [{"source": "design/surfaces/layers.tsx", "frame": "deploy-dialog"}],
       "consumers": [
         {"file": "ui/components/ui/Dialog.tsx", "match": "motion:animate", "within": "fade"},
@@ -244,39 +205,21 @@
       ]
     },
     "layer-size": {
-      "kind": "layout",
-      "action": "resize",
-      "effect": "size",
-      "properties": ["top", "height"],
-      "parameters": {"duration": "--motion-base", "easing": "--ease-enter"},
-      "interrupt": "retarget",
-      "reduced": "instant",
+      "extends": "size-transition",
       "frames": [{"source": "design/surfaces/layers.tsx", "frame": "workspace-fit"}, {"source": "design/surfaces/layers.tsx", "frame": "workspace-cap"}],
       "consumers": [
         {"file": "ui/components/ui/Dialog.tsx", "match": "motion:animate", "within": "geometry"}
       ]
     },
     "dialog-content-fade": {
-      "kind": "transition",
-      "action": "replace",
-      "effect": "fade",
-      "properties": ["opacity"],
-      "parameters": {"duration": "--motion-fast", "easing": "--ease-enter", "fromOpacity": 0.25},
-      "interrupt": "cancel",
-      "reduced": "instant",
+      "extends": "fade",
+      "parameters": {"duration": "--motion-fast", "fromOpacity": 0.25},
       "consumers": [
         {"file": "ui/components/ui/Dialog.tsx", "match": "motion:animate", "within": "LayerShell"}
       ]
     },
     "expand-collapse": {
-      "kind": "layout",
-      "action": "resize",
-      "effect": "expand",
-      "properties": ["height", "opacity"],
-      "parameters": {"duration": "--motion-base", "easing": "--ease-enter"},
-      "interrupt": "finish",
-      "reduced": "instant",
-      "exit": {"duration": "--motion-base", "easing": "--ease-exit"},
+      "exit": {"duration": "--motion-base"},
       "frames": [{"source": "design/modules/timeline.tsx", "frame": "timeline-fold"}],
       "consumers": [
         {"file": "ui/components/TimelineEntries.tsx", "match": "motion:AnimatePresence", "within": "Fold"},
@@ -289,26 +232,14 @@
       ]
     },
     "highlight-follow": {
-      "kind": "continuous",
-      "action": "follow",
-      "effect": "follow",
-      "properties": ["x", "y", "width", "height", "opacity"],
-      "parameters": {"duration": "--motion-base", "easing": "--ease-enter"},
-      "interrupt": "retarget",
-      "reduced": "static",
+      "extends": "follow",
       "consumers": [
         {"file": "ui/components/ui/HoverScope.tsx", "match": "motion:animate", "within": "measure"},
         {"file": "ui/components/ui/style-HoverScope.css", "match": "css:.hover-highlight"}
       ]
     },
     "update-panel-entry": {
-      "kind": "transition",
-      "action": "enter",
-      "effect": "slide",
-      "properties": ["y", "opacity"],
-      "parameters": {"duration": "--motion-base", "easing": "--ease-enter", "distance": "--motion-distance-update"},
-      "interrupt": "finish",
-      "reduced": "instant",
+      "extends": "slide",
       "consumers": [
         {"file": "ui/components/AppUpdate.css", "match": "css:.update-panel"},
         {"file": "ui/components/AppUpdate.css", "match": "keyframes:update-panel-in"}
@@ -352,13 +283,7 @@
       ]
     },
     "privacy-fade": {
-      "kind": "transition",
-      "action": "enter",
-      "effect": "fade",
-      "properties": ["opacity", "filter"],
-      "parameters": {"duration": "--motion-base", "easing": "--ease-enter"},
-      "interrupt": "finish",
-      "reduced": "instant",
+      "extends": "fade",
       "consumers": [
         {"file": "ui/product.css", "match": "css:.pii"},
         {"file": "ui/product.css", "match": "keyframes:privacy-in"}
@@ -387,7 +312,7 @@
       "action": "loop",
       "effect": "shimmer",
       "properties": ["stroke-dashoffset", "opacity"],
-      "parameters": {"duration": "--motion-running", "easing": "--adg-motion-linear"},
+      "parameters": {"duration": "--motion-running", "easing": "--ease-linear"},
       "interrupt": "cancel",
       "reduced": "static",
       "consumers": [
@@ -418,13 +343,7 @@
       ]
     },
     "studio-scene-crossfade": {
-      "kind": "transition",
-      "action": "replace",
-      "effect": "crossfade",
-      "properties": ["opacity"],
-      "parameters": {"duration": "--motion-base", "easing": "--ease-enter"},
-      "interrupt": "finish",
-      "reduced": "instant",
+      "extends": "crossfade-replace",
       "consumers": [
         {"file": "ui/display/studio.css", "match": "css:.studio-image"},
         {"file": "ui/display/studio.css", "match": "css:.studio-motion"}

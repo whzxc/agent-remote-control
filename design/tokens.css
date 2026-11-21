@@ -81,6 +81,9 @@
   --motion-studio-daylight: 38s;
   --motion-distance-update: 5px;
   --motion-scale-ripple: 1.7;
+  --motion-scale-small: .85;
+  --motion-scale-still: 1;
+  --ease-linear: linear;
   --motion-spring-topology-duration: 360ms;
   --motion-spring-topology-bounce: .002;
 
