@@ -74,6 +74,7 @@ pub enum Event {
     AwaitApproval,
     Approve,
     Reject,
+    AbortBeforeSubmit,
     OwnerLost,
 }
 impl Progress {
@@ -160,6 +161,7 @@ pub fn advance(previous: Progress, event: Event) -> Progress {
         Event::Begin if previous.is(State::Reserved) => State::Executing,
         Event::Approve if previous.is(State::AwaitingApproval) => State::Reserved,
         Event::Reject if previous.is(State::AwaitingApproval) => State::NotExecuted,
+        Event::AbortBeforeSubmit if previous.is(State::Reserved) => State::NotExecuted,
         Event::Complete if previous.active() || previous.is(State::Unconfirmed) => State::Completed,
         Event::Fail(state) if previous.active() || previous.is(State::Unconfirmed) => state.state(),
         Event::OwnerLost if previous.active() => State::Unconfirmed,

@@ -24,6 +24,8 @@ export function taskErrorText(error: unknown, fallback: MessageKey = "requestFai
   const message = typeof value === "string" ? value : "";
   if (/\bSOURCE_REVOKED\b/.test(message)) return t("detail.sourceRevoked");
   if (message === "DESKTOP_SNAPSHOT_TIMEOUT") return t("detail.desktopSnapshotTimeout");
+  if (message === "DESKTOP_RECOVERY_READY_TIMEOUT") return t("desktopRecovery.readinessTimeout");
+  if (message === "DESKTOP_RECOVERY_QUIT_TIMEOUT") return t("desktopRecovery.quitTimeout");
   if (!message || /^(?:Error:\s*)?[A-Z][A-Z0-9_]+(?::.*)?$/.test(message)) return t(fallback);
   return message.replace(/^Error:\s*/, "");
 }

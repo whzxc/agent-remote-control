@@ -1918,6 +1918,7 @@ pub(crate) fn settings() -> Result<Value> {
     for (key, value) in [
         ("enabled", json!(false)),
         ("autoOpenCodex", json!(!cfg!(target_os = "linux"))),
+        ("desktopRecovery", json!("prompt")),
         ("notificationsEnabled", json!(true)),
         ("requestRoutingDelaySeconds", json!(15)),
         ("notificationBucketCapacity", json!(10)),

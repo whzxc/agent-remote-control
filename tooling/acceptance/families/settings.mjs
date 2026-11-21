@@ -73,6 +73,22 @@ export const checks = [
                     await pets.click();
                     await pets.click();
                 }
+                if (name === 'settings-about-light') {
+                    const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
+                    const label = messages['desktopRecovery.setting'];
+                    const choice = page.getByRole('combobox', { name: label, exact: true });
+                    if (await choice.count()) {
+                        await choice.getByText(messages['desktopRecovery.prompt'], { exact: true }).waitFor();
+                        await choice.click();
+                        await page.getByRole('option', { name: messages['desktopRecovery.restart'], exact: true }).click();
+                        await choice.getByText(messages['desktopRecovery.restart'], { exact: true }).waitFor();
+                    } else {
+                        const row = page.getByRole('radiogroup', { name: label, exact: true });
+                        await row.getByRole('radio', { name: messages['desktopRecovery.prompt'], checked: true }).waitFor();
+                        await row.getByRole('radio', { name: messages['desktopRecovery.restart'], exact: true }).click();
+                        await row.getByRole('radio', { name: messages['desktopRecovery.restart'], checked: true }).waitFor();
+                    }
+                }
             }
             finally {
                 context.model = model;

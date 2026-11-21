@@ -314,6 +314,7 @@ pub fn receipt(value: Value) -> Value {
         "notification",
         "notificationError",
         "executionOwner",
+        "submissionStage",
         "failureStage",
         "cleanup",
         "next",
@@ -321,6 +322,13 @@ pub fn receipt(value: Value) -> Value {
         if !value[key].is_null() {
             out[key] = value[key].clone();
         }
+    }
+    if value["desktopRecovery"].is_object() {
+        let recovery = &value["desktopRecovery"];
+        out["desktopRecovery"] = json!({
+            "state":recovery["state"],"decisionId":recovery["decisionId"],"reason":recovery["reason"],
+            "transport":recovery["transport"],"targetPid":recovery["target"]["pid"]
+        });
     }
     if let Some(by) = value
         .get("answeredBy")
@@ -1053,6 +1061,10 @@ pub(crate) fn next(value: &mut Value, name: &str, args: &Value, push_available: 
         json!({"via":"query","op":"guide","args":if op.is_empty(){json!({})}else{json!({"op":op})},"hint":format!("{}: {}",string(&value["error"],"field"),string(&value["error"],"message"))})
     } else if name == "command" && value["error"]["message"] == "RPC_TIMEOUT: command/exec" {
         json!({"via":"query","op":"guide","args":{"op":"process"},"hint":"command owns its child process tree until exit or timeout. For work that must outlive this call, use act process action:spawn with params:{command:[...],cwd:<absolute directory>,processHandle:<unique handle>,timeoutMs:null}. It lasts only for the native backend session; inspect codex_events and stop it with process action:kill."})
+    } else if receipt_is(State::AwaitingApproval)
+        && value["desktopRecovery"]["state"] == "waiting-for-local"
+    {
+        json!({"hint":"A local decision is required in ARC before Codex Desktop can be prepared. Read this same receipt after the user makes a local choice.","via":"act","op":"receipt","args":{"requestId":value["requestId"],"action":"read"}})
     } else if receipt_is(State::AwaitingApproval) {
         json!({"hint":"Inspect the original request, then decide according to user intent.","via":"act","op":"receipt","args":{"requestId":value["requestId"],"action":"read"}})
     } else if value["state"] == "interaction-required" {

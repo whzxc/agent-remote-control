@@ -23,6 +23,12 @@ export const sourceHistory = [
     title: "Needs your attention",
     rows: [
       [
+        "Prepare Desktop for dispatch",
+        "codex · Waiting for a local Desktop decision",
+        "warning",
+        "shield-alert",
+      ],
+      [
         "Submission awaiting-approval",
         "codex · Awaiting dispatch approval",
         "warning",
@@ -50,7 +56,7 @@ export const sourceHistory = [
   {
     title: "Today",
     rows: [
-      ["Submission reserved", "codex · Submitting", "neutral", "circle"],
+      ["Submission reserved", "codex · Preparing Codex Desktop", "neutral", "circle"],
       ["Submission not-executed", "codex · Not executed", "neutral", "circle"],
       [
         "Submission unconfirmed",

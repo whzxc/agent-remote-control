@@ -74,6 +74,12 @@ export function scenarioResponse(path: string, method: string, body?: unknown): 
   }
 }
 function respondToScenario(path: string, method: string, body?: unknown): unknown {
+  if (path === 'task-settings' && method === 'PUT') {
+    const setting = (body as Pick<Status, 'desktopRecovery'>).desktopRecovery;
+    const status = responses.status as Status;
+    if (setting) status.desktopRecovery = setting;
+    return { desktopRecovery: status.desktopRecovery ?? 'prompt' };
+  }
   if (path === 'updates/history' && method === 'GET') return structuredClone(responses[path] ?? releaseHistory);
   const deviceResult = deviceResponse(path, method, body);
   if (deviceResult !== undefined) return deviceResult;
@@ -370,9 +376,13 @@ export async function installScenario(name: string) {
       task: { ...records[0].task, title: 'Earlier completed dispatch' } });
     for (const [index, state] of ['awaiting-approval', 'reserved', 'not-executed', 'unconfirmed', 'failed'].entries()) {
       records.push({ ...records[0], requestId: `fixture-submission-${index}`, turnId: undefined, state,
+        ...(state === 'reserved' ? { submissionStage: 'desktop-preparing' } : {}),
         ...(state === 'failed' ? { error: { code: 'DESKTOP_SNAPSHOT_VERSION_UNSUPPORTED', version: 99 } } : {}),
         task: { ...records[0].task, title: `Submission ${state}` } });
     }
+    records.unshift({ ...records[0], requestId: 'fixture-desktop-recovery', turnId: undefined, threadId: undefined, state: 'awaiting-approval',
+      desktopRecovery: { state: 'waiting-for-local', decisionId: '00000000-0000-4000-8000-000000000001', reason: 'activity-unconfirmed', target: { pid: 123 } },
+      task: { ...records[0].task, title: 'Prepare Desktop for dispatch' } });
   }
   const routingByTask: Record<string, RequestRouting> = Object.fromEntries(fixture.tasks.flatMap((task, index) => task.requestRouting ? [[`fixture-task-${index}`, {
     state: task.requestRouting, deferUntil: task.requestRouting === 'deferred' ? Date.parse(now) + 15000 : null,

@@ -1,0 +1,16 @@
+%% Desktop preparation (layer 2): route recovery before a new native thread.
+%% Index and code mapping: docs/dev/arch-assets.md
+flowchart TD
+  request["Reserved create receipt"] --> gate["Serialize preparation and probe the Desktop route"]
+  gate --> ready{"Verified Desktop route?"}
+  ready -->|Yes| submit["Submit the original request"]
+  ready -->|No| policy{"Local recovery policy"}
+  policy -->|Ask, or restart with unverified activity| waiting["Await a local decision on the same receipt"]
+  waiting -->|Cancel| stopped["Not executed"]
+  waiting -->|Restart or independent once| gate
+  policy -->|Authorized restart or new main| main["Start native daemon if needed<br/>Gracefully quit only the approved process<br/>Launch main Desktop"]
+  policy -->|Independent| independent["Start native daemon if needed<br/>Launch or reuse the independent Desktop"]
+  main --> verify{"Desktop socket peer and App Server verified?"}
+  independent --> verify
+  verify -->|Yes| submit
+  verify -->|Timeout or failure| stopped

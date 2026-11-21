@@ -168,10 +168,18 @@ pub(crate) fn display_record(record: &Value) -> Value {
             "updatedAt",
             "approval",
             "executionOwner",
+            "submissionStage",
             "open",
             "error",
         ],
     );
+    if record["desktopRecovery"].is_object() {
+        let recovery = &record["desktopRecovery"];
+        row["desktopRecovery"] = fields(recovery, &["state", "decisionId", "reason"]);
+        if recovery["target"]["pid"].is_number() {
+            row["desktopRecovery"]["target"] = fields(&recovery["target"], &["pid"]);
+        }
+    }
     if record["runtime"].is_object() {
         row["runtime"] = fields(
             &record["runtime"],

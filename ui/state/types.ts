@@ -62,6 +62,7 @@ export interface Status {
   taskApprovalEnabled: boolean;
   requestRoutingDelaySeconds?: number;
   autoOpenCodex: boolean;
+  desktopRecovery?: "prompt" | "restart" | "independent";
   notificationsEnabled: boolean;
   core: CoreSnapshot;
   connection?: { running: boolean; updateAvailable: boolean; mcpUrl: string };

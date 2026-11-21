@@ -71,7 +71,11 @@ export const checks = [
                         const running = source.getByRole('article', { name: 'Current running dispatch', exact: true });
                         await running.getByRole('region', { name: messages['homepage.recentSteps'] }).waitFor();
                         await source.getByRole('article', { name: 'Submission awaiting-approval', exact: true }).getByRole('status').filter({ hasText: messages['sourcePanel.awaitingApproval'] }).waitFor();
-                        await source.getByRole('article', { name: 'Submission reserved', exact: true }).getByRole('status').filter({ hasText: messages['sourcePanel.submitting'] }).waitFor();
+                        await source.getByRole('article', { name: 'Submission reserved', exact: true }).getByRole('status').filter({ hasText: messages['desktopRecovery.preparing'] }).waitFor();
+                        await source.getByRole('article', { name: 'Prepare Desktop for dispatch', exact: true }).getByRole('status').filter({ hasText: messages['desktopRecovery.waiting'] }).waitFor();
+                        const independent = source.getByRole('button', { name: messages['desktopRecovery.independentAction'], exact: true });
+                        await independent.click();
+                        await independent.waitFor({ state: 'hidden' });
                         await source.getByRole('article', { name: 'Submission failed', exact: true }).getByRole('alert').filter({ hasText: /Codex Desktop.*v99/ }).waitFor();
                         const top = await heading.boundingBox();
                         await earlier.scrollIntoViewIfNeeded();

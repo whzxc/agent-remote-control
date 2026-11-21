@@ -19,11 +19,14 @@ import { Button, Icon, Switch, SingleChoice, Input, Field } from "./ui";
 import { SettingsSection as Group, Setting as Row } from "./ui/Settings";
 import ExperimentalSettings from "./ExperimentalSettings";
 import { AppUpdate } from "./AppUpdate";
+import { tasks } from "../state/tasks";
+import DesktopRecoveryNotice, { awaitsDesktopDecision } from "./DesktopRecoveryNotice";
 export default function SettingsPage() {
   const notify = useDialogFeedback();
   const run = (label: string, action: () => Promise<unknown>) => runGlobal(label, action, message => notify(message, true));
 
   const { status, busy } = connector.use();
+  const pendingDesktop = tasks.use().records.filter(awaitsDesktopDecision);
   const { settingsExperimental } = navigation.use();
   const previousSettings = useRef<string | undefined>(undefined);
   useLayoutEffect(() => {
@@ -109,6 +112,7 @@ export default function SettingsPage() {
   async function saveTask(patch: {
     enabled?: boolean;
     autoOpenCodex?: boolean;
+    desktopRecovery?: "prompt" | "restart" | "independent";
     notificationsEnabled?: boolean;
     requestRoutingDelaySeconds?: number;
   }) {
@@ -145,6 +149,19 @@ export default function SettingsPage() {
             onChange={(value) => void saveTask({ autoOpenCodex: value })}
           />
         </Row>
+        {status?.platform === "darwin" && status.autoOpenCodex && (
+          <Row title={t("desktopRecovery.setting")} width={236}>
+            <SingleChoice dropdown fill label={t("desktopRecovery.setting")} value={status.desktopRecovery ?? "prompt"}
+              disabled={!!busy} onChange={value => void saveTask({ desktopRecovery: value as "prompt" | "restart" | "independent" })}
+              options={[
+                { value: "prompt", label: t("desktopRecovery.prompt") },
+                { value: "restart", label: t("desktopRecovery.restart") },
+                { value: "independent", label: t("desktopRecovery.independent") },
+              ]}
+            />
+          </Row>
+        )}
+        {pendingDesktop.map(record => <DesktopRecoveryNotice key={record.requestId} record={record} />)}
         <Row
           title={t("taskApprovalMode")}
           description={t("askForConfirmationByDefaultTheCloudCan")}

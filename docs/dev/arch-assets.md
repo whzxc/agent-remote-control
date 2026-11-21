@@ -37,6 +37,7 @@ Inspector.
 | [system-map.mmd](../../arch/system-map.mmd) | Control sources, connections, front door, Core, state directory, MCP hub, Codex Desktop, ARC App Server, task-host, native session stores and proposed Device link members |
 | [components/core.mmd](../../arch/components/core.mmd) | Core request path, business owners, background work, kernel records and turn classification |
 | [mechanisms/main-loop.mmd](../../arch/mechanisms/main-loop.mmd) | One Codex dispatch from `codex_create` through observation, push, `codex_read` and `codex_review` |
+| [mechanisms/desktop-preparation.mmd](../../arch/mechanisms/desktop-preparation.mmd) | macOS Desktop readiness, local choices, launch and receipt continuation |
 | [mechanisms/receipts.mmd](../../arch/mechanisms/receipts.mmd) | Receipt states and transitions |
 | [mechanisms/turn-lifecycle.mmd](../../arch/mechanisms/turn-lifecycle.mmd) | `TurnState` classification from owner and native terminal evidence |
 | [mechanisms/notification-flow.mmd](../../arch/mechanisms/notification-flow.mmd) | Binding, observation, delivery gates, L1/L2 sends and the ingress inbox |

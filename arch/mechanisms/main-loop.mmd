@@ -12,6 +12,11 @@ sequenceDiagram
   F->>C: private IPC with authenticated source
   C->>C: reserve receipt (requestId)
   C->>C: resolve dispatch policy and pack
+  opt Desktop dispatch needs a usable route
+    C->>C: prepare Desktop on the original receipt
+    C-->>S: report preparation or the pending local choice
+    C->>D: verify the selected Desktop is connected before submission
+  end
   alt Desktop uses the local daemon
     C->>X: start thread and first turn on shared daemon
     C->>D: open the same thread

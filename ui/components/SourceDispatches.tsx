@@ -4,7 +4,7 @@ import { taskState } from "../state/taskProjection";
 import { pendingSessions } from "../state/taskInteractions";
 import { activityApprovals } from "../state/activity";
 import { useAppNow } from "../state/appEnvironment";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { MessagesSquare } from "lucide-react";
 import { locale, t } from "../i18n";
 import { refreshTasks, tasks } from "../state/tasks";
@@ -18,6 +18,7 @@ import { taskErrorText } from "../state/taskErrors";
 import { Button, Empty, Loading, Notice } from "./ui";
 import { TaskCard, localTaskCard } from "./ui/TaskCard";
 import { localTaskDay, type TrackedActivity } from "../state/activityModel";
+import DesktopRecoveryNotice, { awaitsDesktopDecision } from "./DesktopRecoveryNotice";
 
 export default function SourceDispatches({ sourceId }: { sourceId: string }) {
   const language = locale.use();
@@ -88,7 +89,10 @@ export default function SourceDispatches({ sourceId }: { sourceId: string }) {
           const snapshotError = record.error?.code?.startsWith("DESKTOP_SNAPSHOT_") || record.error?.message === "DESKTOP_SNAPSHOT_TIMEOUT";
           const submission = ["awaitingApproval", "submitting", "notExecuted", "submissionUnknown", "submissionFailed"].includes(state);
           const shownState = state === 'unknown' ? 'done' : state;
-          const label = state === "submissionFailed" && snapshotError ? taskErrorText(record.error, "sourcePanel.submissionFailed")
+          const label = awaitsDesktopDecision(record) ? t("desktopRecovery.waiting")
+            : state === "submitting" && record.submissionStage === "desktop-preparing" ? t("desktopRecovery.preparing")
+            : state === "notExecuted" && record.desktopRecovery?.state === "failed" ? taskErrorText(record.error, "sourcePanel.notExecuted")
+            : state === "submissionFailed" && snapshotError ? taskErrorText(record.error, "sourcePanel.submissionFailed")
             : submission ? t(`sourcePanel.${state}`) : t(`detail.state.${shownState}`);
           const observed = live ?? unread;
           const session: TrackedActivity = {
@@ -108,13 +112,13 @@ export default function SourceDispatches({ sourceId }: { sourceId: string }) {
             : unread ? 'unread' : 'recent';
           const task = { ...localTaskCard(agent, session, group), sourceIds: [sourceId] };
           const preview = submission || state === 'needsYou' || state === 'running' || !!unread || localTaskDay(session.orderAt) === today;
-          return <TaskCard key={record.requestId} task={task} now={now} form={preview ? 'detail' : 'summary'}
+          return <Fragment key={record.requestId}><TaskCard task={task} now={now} form={preview ? 'detail' : 'summary'}
             description={label} trigger={{ disabled: !canOpen }}
             notice={submission ? { text: label, danger: state === "submissionFailed" } : undefined}
             onOpen={canOpen ? () => {
               selectAgentPanel({ type: "task", agent, session });
               navigation.set(old => ({ ...old, page: "overview" }));
-            } : undefined} />;
+            } : undefined} /><DesktopRecoveryNotice record={record} /></Fragment>;
         })}</div>
       </section>;
     })}

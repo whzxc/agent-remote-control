@@ -380,7 +380,6 @@ tests/coordination-report.test.mjs	lane lifecycle forwards its command origin th
 tests/desktop-dispatch.test.ts	Desktop and connector owners dispatch FIFO and steer only a confirmed native turn
 tests/desktop-dispatch.test.ts	AX unheld thread reads recover from silent Desktop discovery
 tests/desktop-dispatch.test.ts	Codex activity and timelines retain the active native turn
-tests/desktop-dispatch.test.ts	Missing Desktop endpoint falls back before create and send submission
 tests/dev-core.test.ts	isolated owner can stop restarted Core after Desktop disappears during quit
 tests/dev-identity.test.ts	isolated development identities cannot collide with installed or ordinary development apps
 tests/dev-identity.test.ts	development port keeps the native web URL and CSP on the selected loopback listener

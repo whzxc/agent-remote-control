@@ -15,6 +15,8 @@ type DesktopStream = tokio::net::windows::named_pipe::NamedPipeClient;
 #[cfg(target_os = "macos")]
 pub(crate) mod daemon;
 mod interactions;
+#[cfg(target_os = "macos")]
+pub(crate) mod recovery;
 #[cfg(windows)]
 mod windows;
 use tokio::{

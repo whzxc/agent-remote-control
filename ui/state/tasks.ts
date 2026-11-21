@@ -10,6 +10,8 @@ export interface TaskRecord {
   origin?: import("../types").AgentActivitySession["origin"];
   requestId: string;
   executionOwner?: "desktop" | "connector";
+  submissionStage?: string;
+  desktopRecovery?: { state: string; decisionId?: string; reason?: string; target?: { pid: number } };
   threadId?: string;
   turnId?: string;
   runtime?: TaskRuntime;
@@ -75,16 +77,17 @@ export function refreshTasks() {
         for (const row of data.records) next.set(row.requestId, row);
         records = [...next.values()].sort(compareTasks);
       }
-      const ids = new Set(
-        records
-          .filter((r) => r.state === "awaiting-approval")
-          .map((r) => r.requestId),
-      );
-      if (seen && [...ids].some((id) => !seen!.has(id)))
+      const approvals = records.filter(r => r.state === "awaiting-approval");
+      const key = (r: TaskRecord) => r.desktopRecovery?.decisionId ?? r.requestId;
+      const ids = new Set(approvals.map(key));
+      const arrived = seen && approvals.find(r => !seen!.has(key(r)));
+      if (arrived) {
+        const desktop = arrived.desktopRecovery?.state === "waiting-for-local";
         void notifyNative(
-          t("newTaskRequestsAwaitApproval"),
-          t("confirmInConnectorOrChatgptOrExecuteDirectly"),
+          t(desktop ? "desktopRecovery.waiting" : "newTaskRequestsAwaitApproval"),
+          t(desktop ? "desktopRecovery.chooseInSettings" : "confirmInConnectorOrChatgptOrExecuteDirectly"),
         ).catch(() => {});
+      }
       seen = ids;
       tasks.set({ records, error: "", loading: false });
     })

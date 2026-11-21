@@ -28,7 +28,11 @@ export function GeneralSettingsContent() { return (<div class="flex flex-col gap
           <SettingLine title={copy.text4} class="py-3!">
             <Input value={copy.text5} class="w-[104px]" />
           </SettingLine>
-          <ToggleRows rows={behavior} />
+          <ToggleRows rows={behavior.slice(0, 2)} />
+          <SettingLine title="When Codex Desktop is unavailable">
+            <Choices dropdown label="When Codex Desktop is unavailable" options={["Ask first", "Restart existing Desktop", "Launch an independent instance"]} value="Ask first" width={236} />
+          </SettingLine>
+          <ToggleRows rows={behavior.slice(2)} />
         </Group>
         <Group title={copy.text6}>
           <SettingLine title={copy.text7}>

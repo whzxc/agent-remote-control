@@ -17,6 +17,8 @@ pub struct Control {
     binary: PathBuf,
     rpc: Mutex<Option<Arc<Rpc>>>,
     desktop_daemon: Mutex<Option<Arc<Rpc>>>,
+    #[cfg(target_os = "macos")]
+    desktop_preparation: Mutex<()>,
     monitor: Mutex<Option<Arc<Ipc>>>,
     jobs: Mutex<HashMap<String, tokio::task::JoinHandle<()>>>,
     schemas: Mutex<Option<Value>>,
@@ -85,6 +87,8 @@ impl Control {
             schemas: Mutex::new(None),
             rpc: Mutex::new(None),
             desktop_daemon: Mutex::new(None),
+            #[cfg(target_os = "macos")]
+            desktop_preparation: Mutex::new(()),
             requests: Default::default(),
             projects: Default::default(),
             task_records: Default::default(),
@@ -218,7 +222,9 @@ impl Control {
     async fn configured_desktop_daemon(&self) -> bool {
         #[cfg(target_os = "macos")]
         if !cfg!(feature = "test-fixture") {
-            return desktop::daemon::configured_pid().await.is_some();
+            return desktop::daemon::connected()
+                .await
+                .is_ok_and(|instance| instance.is_some());
         }
         false
     }
@@ -233,11 +239,14 @@ impl Control {
         }
     }
     pub(crate) fn shared_desktop_thread(&self, thread: &str) -> Result<bool> {
+        self.desktop_transport(thread, "local-daemon")
+    }
+    fn desktop_transport(&self, thread: &str, transport: &str) -> Result<bool> {
         if !cfg!(target_os = "macos") || uuid::Uuid::parse_str(thread).is_err() {
             return Ok(false);
         }
         let path = root().join("execution").join(format!("{thread}.json"));
-        Ok(path.exists() && crate::kernel::file_cache::load(&path)?["transport"] == "local-daemon")
+        Ok(path.exists() && crate::kernel::file_cache::load(&path)?["transport"] == transport)
     }
     async fn follow(&self, thread: &str) -> Result<()> {
         if self.shared_desktop_thread(thread)? {
@@ -482,11 +491,18 @@ impl Control {
         title: &str,
         mut receipt: Option<&mut Value>,
     ) -> Result<Value> {
+        let prepared = receipt
+            .as_ref()
+            .map(|r| string(&r["desktopRecovery"], "transport"));
+        if prepared == Some("local-daemon") {
+            let rpc = self.shared_desktop_rpc().await?;
+            return self.create_on_rpc(&rpc, args, title, receipt).await;
+        }
         #[cfg(feature = "test-fixture")]
         let check_desktop = std::env::var_os("ARC_FIXTURE_DESKTOP").is_some();
         #[cfg(not(feature = "test-fixture"))]
         let check_desktop = true;
-        if check_desktop {
+        if check_desktop && prepared != Some("ipc") {
             match self.ipc().await {
                 Ok(_) => {}
                 Err(_) if self.configured_desktop_daemon().await => {
@@ -728,10 +744,12 @@ impl Control {
         if self.shared_desktop_thread(thread)? || self.effective_background(thread).await? {
             return Ok(());
         }
+        let desktop_only = self.desktop_transport(thread, "ipc")?;
         let ipc = match self.ipc().await {
             Ok(ipc) => ipc,
             Err(error)
                 if desktop::endpoint_missing(&error)
+                    && !desktop_only
                     && !self.handed_to_desktop(thread)
                     && crate::writer::probe(thread)["state"] == "unheld" =>
             {
@@ -777,6 +795,7 @@ impl Control {
             Ok(_) => Ok(()),
             Err(e)
                 if desktop::owner_discovery_pending(&e)
+                    && !desktop_only
                     && crate::writer::probe(thread)["state"] == "unheld" =>
             {
                 // The bounded Desktop load still has no owner, and no turn has
@@ -811,7 +830,11 @@ impl Control {
         Ok(())
     }
     async fn archive_empty_creation(&self, thread: &str) -> Result<Value> {
-        let rpc = self.utility().await?;
+        let rpc = if self.shared_desktop_thread(thread)? {
+            self.shared_desktop_rpc().await?
+        } else {
+            self.utility().await?
+        };
         let history = match rpc
             .call(
                 "thread/turns/list",
@@ -1560,6 +1583,36 @@ impl Control {
         RECEIPTS.wait(&request, &self.session, wait, rx).await
     }
 
+    async fn prepare_create(&self, operation: &str, receipt: &mut Value) -> Result<bool> {
+        #[cfg(target_os = "macos")]
+        if operation == "create"
+            && receipt["executionOwner"] == "desktop"
+            && (!cfg!(feature = "test-fixture")
+                || std::env::var_os("ARC_FIXTURE_DESKTOP").is_some())
+        {
+            use desktop::recovery::Preparation;
+            receipt["submissionStage"] = json!("desktop-preparing");
+            self.checkpoint(receipt)?;
+            let _gate = self.desktop_preparation.lock().await;
+            self.launches.check()?;
+            match desktop::recovery::prepare(self, receipt).await? {
+                Preparation::Ipc => {
+                    receipt["desktopRecovery"] = json!({"state":"ready","transport":"ipc"})
+                }
+                Preparation::Shared(instance) => {
+                    receipt["desktopRecovery"] = json!({"state":"ready","transport":"local-daemon","target":instance.identity()});
+                }
+                Preparation::Awaiting { reason, target } => {
+                    receipt["desktopRecovery"] = json!({"state":"waiting-for-local","decisionId":id(),"reason":reason,"target":target.map(|instance| instance.identity())});
+                    progress::apply(receipt, ProgressEvent::AwaitApproval);
+                    return Ok(false);
+                }
+            }
+        }
+        let _ = (operation, receipt);
+        Ok(true)
+    }
+
     fn launch(
         self: &Arc<Self>,
         operation: &str,
@@ -1574,60 +1627,79 @@ impl Control {
         let (tx, rx) = tokio::sync::oneshot::channel();
         let origin = receipt["origin"].clone();
         let job = tokio::spawn(crate::kernel::origin::ORIGIN.scope(origin, async move {
-            let owner = RECEIPTS.begin(&mut receipt);
-            let outcome = match &owner {
-                Ok(_) => c.perform(&op, &args, &mut receipt).await,
-                Err(error) => Err(error.clone()),
-            };
-            match outcome {
-                Ok(result) => {
-                    receipt["result"] = result;
-                    progress::apply(&mut receipt, ProgressEvent::Complete)
+            let prepared = c.prepare_create(&op, &mut receipt).await;
+            let owner = match prepared {
+                Ok(true) => Some(RECEIPTS.begin(&mut receipt)),
+                Ok(false) => None,
+                Err(error) => {
+                    receipt["failureStage"] = json!("desktop-preparing");
+                    receipt["desktopRecovery"]["state"] = json!("failed");
+                    receipt["result"] = json!({"error":crate::egress::failure(&error)});
+                    progress::apply(&mut receipt, ProgressEvent::AbortBeforeSubmit);
+                    None
                 }
-                Err(err) => {
-                    // A definite pre-acceptance create failure must not leave an
-                    // apparently usable empty task. Unknown submissions are retained.
-                    if op == "create"
-                        && receipt["threadId"].is_string()
-                        && receipt["turnId"].is_null()
-                        && !receipt["cleanup"].is_object()
-                        && progress::failure(&err) != progress::Failure::Unconfirmed
-                    {
-                        let thread = string(&receipt, "threadId");
-                        let cleanup = c.archive_empty_creation(thread).await;
-                        receipt["cleanup"] = match cleanup {
-                            Ok(cleanup) => cleanup,
-                            Err(error) => json!({"archived":false,"error":error}),
-                        };
+            };
+            if let Some(owner) = &owner {
+                let outcome = match owner {
+                    Ok(_) => c.perform(&op, &args, &mut receipt).await,
+                    Err(error) => Err(error.clone()),
+                };
+                match outcome {
+                    Ok(result) => {
+                        receipt["result"] = result;
+                        progress::apply(&mut receipt, ProgressEvent::Complete)
                     }
-                    receipt["failureStage"] = receipt["submissionStage"]
-                        .as_str()
-                        .map(|stage| json!(stage))
-                        .unwrap_or_else(|| receipt["state"].clone());
-                    progress::apply(&mut receipt, ProgressEvent::Fail(progress::failure(&err)));
-                    let mut error = crate::egress::failure(&err);
-                    if error["code"] == "THREAD_WRITER_BUSY" && receipt["threadId"].is_string() {
-                        error["next"] =
-                            crate::writer::busy(string(&receipt, "threadId"), Value::Null)["next"]
-                                .clone();
+                    Err(err) => {
+                        // A definite pre-acceptance create failure must not leave an
+                        // apparently usable empty task. Unknown submissions are retained.
+                        if op == "create"
+                            && receipt["threadId"].is_string()
+                            && receipt["turnId"].is_null()
+                            && !receipt["cleanup"].is_object()
+                            && progress::failure(&err) != progress::Failure::Unconfirmed
+                        {
+                            let thread = string(&receipt, "threadId");
+                            let cleanup = c.archive_empty_creation(thread).await;
+                            receipt["cleanup"] = match cleanup {
+                                Ok(cleanup) => cleanup,
+                                Err(error) => json!({"archived":false,"error":error}),
+                            };
+                        }
+                        receipt["failureStage"] = receipt["submissionStage"]
+                            .as_str()
+                            .map(|stage| json!(stage))
+                            .unwrap_or_else(|| receipt["state"].clone());
+                        progress::apply(&mut receipt, ProgressEvent::Fail(progress::failure(&err)));
+                        let mut error = crate::egress::failure(&err);
+                        if error["code"] == "THREAD_WRITER_BUSY" && receipt["threadId"].is_string()
+                        {
+                            error["next"] =
+                                crate::writer::busy(string(&receipt, "threadId"), Value::Null)
+                                    ["next"]
+                                    .clone();
+                        }
+                        if op == "command" || args["method"] == "command/exec" {
+                            let mut recovery = json!({"error":error});
+                            crate::egress::next(&mut recovery, "command", &args, false);
+                            receipt["next"] = recovery["next"].clone();
+                            error = recovery["error"].clone();
+                        }
+                        receipt["result"] = json!({"error":error});
                     }
-                    if op == "command" || args["method"] == "command/exec" {
-                        let mut recovery = json!({"error":error});
-                        crate::egress::next(&mut recovery, "command", &args, false);
-                        receipt["next"] = recovery["next"].clone();
-                        error = recovery["error"].clone();
-                    }
-                    receipt["result"] = json!({"error":error});
                 }
             }
+            // Publish a parked receipt while holding the jobs lock so a local
+            // decision cannot insert a successor before this worker is removed.
+            let mut jobs = c.jobs.lock().await;
             let result = match c.checkpoint(&mut receipt) {
                 Ok(()) => Ok(receipt),
                 Err(error) => {
                     Err(crate::egress::receipt_persistence_failure(&receipt, &error).to_string())
                 }
             };
+            jobs.remove(&key);
+            drop(jobs);
             let _ = tx.send(result);
-            c.jobs.lock().await.remove(&key);
         }));
         jobs.insert(request.clone(), job);
         rx
@@ -1642,8 +1714,12 @@ impl Control {
         action: &str,
         source: &str,
         wait_ms: u64,
+        desktop_decision_id: Option<&str>,
     ) -> Result<Value> {
-        if !matches!(action, "approve" | "bypass" | "reject") {
+        if !matches!(
+            action,
+            "approve" | "bypass" | "reject" | "restart-desktop" | "independent-desktop"
+        ) {
             return Err("invalid approval action".into());
         }
         let _request_lock = self.requests.lock(request).await;
@@ -1651,7 +1727,30 @@ impl Control {
         if !Progress::read(string(&r, "state"), true).is(ReceiptState::AwaitingApproval) {
             return Ok(r);
         }
-        r["approval"] = json!({"decision":if action=="approve"{"approved"}else{action},"source":source,"answeredBy":crate::interaction_responses::current_answered_by(),"at":now()});
+        if r["desktopRecovery"]["state"] == "waiting-for-local" {
+            if source == "local"
+                && desktop_decision_id != r["desktopRecovery"]["decisionId"].as_str()
+            {
+                return Err("DESKTOP_RECOVERY_DECISION_STALE".into());
+            }
+            match (source, action) {
+                ("local", "restart-desktop" | "independent-desktop") => {
+                    r["desktopRecovery"]["choice"] = json!(if action == "restart-desktop" {
+                        "restart"
+                    } else {
+                        "independent"
+                    });
+                    r["desktopRecovery"]["state"] = json!("preparing");
+                }
+                ("local", "reject") => r["desktopRecovery"]["state"] = json!("cancelled"),
+                _ => return Ok(r),
+            }
+        } else {
+            if matches!(action, "restart-desktop" | "independent-desktop") {
+                return Err("DESKTOP_RECOVERY_DECISION_NOT_PENDING".into());
+            }
+            r["approval"] = json!({"decision":if action=="approve"{"approved"}else{action},"source":source,"answeredBy":crate::interaction_responses::current_answered_by(),"at":now()});
+        }
         r.as_object_mut().unwrap().remove("nextAction");
         progress::apply(
             &mut r,
@@ -2280,6 +2379,12 @@ impl Control {
                     .await?
             };
             let thread = string(&result["thread"], "id");
+            if r["desktopRecovery"]["transport"] == "ipc" && uuid::Uuid::parse_str(thread).is_ok() {
+                save(
+                    &root().join("execution").join(format!("{thread}.json")),
+                    &json!({"owner":"desktop","transport":"ipc"}),
+                )?;
+            }
             let mut turn = configured(args, string(&result["thread"], "cwd"))?;
             if !background && turn["model"].is_null() {
                 turn["model"] = result["model"].clone();
@@ -2322,7 +2427,7 @@ impl Control {
             let shared = self.shared_desktop_thread(thread)?;
             #[cfg(target_os = "macos")]
             let open = if shared {
-                Some(desktop::daemon::open_thread(thread).await)
+                Some(desktop::daemon::open_thread(thread, r["desktopRecovery"].get("target")).await)
             } else {
                 None
             };
@@ -2712,6 +2817,7 @@ impl Control {
                         action,
                         "cloud",
                         num(&args, "waitMs", 25000) as u64,
+                        None,
                     )
                     .await
                 }

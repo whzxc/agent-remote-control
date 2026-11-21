@@ -216,8 +216,9 @@ impl Service {
             }
             json!({"config":config,"core":{"desktop":{"state":"unknown"},"appServer":{"state":"unknown"},"chatgpt":{},"logs":[]},"connection":{"running":false,"mcpUrl":""},"connector":{"state":"stopped"},"tunnel":{"state":"stopped","error":""},"logs":[],"version":env!("ARC_BUILD_VERSION"),"platform":if cfg!(target_os="macos"){"darwin"}else if cfg!(windows){"win32"}else{"linux"},"taskApprovalEnabled":self.control.approval_mode()?,"autoOpenCodex":self.control.auto_open_codex()?})
         };
-        status["requestRoutingDelaySeconds"] =
-            status_settings()?["requestRoutingDelaySeconds"].clone();
+        let task_settings = status_settings()?;
+        status["requestRoutingDelaySeconds"] = task_settings["requestRoutingDelaySeconds"].clone();
+        status["desktopRecovery"] = task_settings["desktopRecovery"].clone();
         status["cliPath"] = json!(crate::cli_shim::executable()?);
         let desktop = match self.control.desktop_readiness().await {
             Ok(transport) => {
@@ -868,6 +869,14 @@ impl Service {
                             settings[key] = json!(value.as_bool().ok_or("invalid task setting")?);
                         }
                     }
+                    if let Some(value) = body.get("desktopRecovery") {
+                        if !cfg!(target_os = "macos")
+                            || !matches!(value.as_str(), Some("prompt" | "restart" | "independent"))
+                        {
+                            return Err("Invalid macOS Desktop recovery setting".into());
+                        }
+                        settings["desktopRecovery"] = value.clone();
+                    }
                     if body.get("notificationWakeLimit").is_some() {
                         return Err("RETIRED_SETTING: use notificationBucketCapacity and notificationRefillSeconds".into());
                     }
@@ -910,6 +919,7 @@ impl Service {
                             string(&body, "action"),
                             "local",
                             25000,
+                            body["desktopDecisionId"].as_str(),
                         )
                         .await
                 }

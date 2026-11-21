@@ -305,8 +305,8 @@ test('Codex activity and timelines retain the active native turn', { skip: proce
   }
 });
 
-test('Missing Desktop endpoint falls back before create and send submission', {skip:process.platform!=='darwin'}, async()=>{
-  // Recurring bug class: credentials-only Codex homes failed at thread-submitting with an unnamed ENOENT.
+test('Desktop recovery keeps create pending without accepting remote approval, while existing sends can fall back', {skip:process.platform!=='darwin'}, async()=>{
+  // Recurring bug class: security. A missing Desktop endpoint preserves the destination and requires a current local decision.
   const directory=await realpath(await mkdtemp(path.join(tmpdir(),'arc-missing-ipc-')));
   const threadId=randomUUID(), turnId=randomUUID(), existing=randomUUID();
   const fixture=await nativeControl(`
@@ -323,15 +323,27 @@ test('Missing Desktop endpoint falls back before create and send submission', {s
   `,{CODEX_HOME:directory,ARC_FIXTURE_DESKTOP:'1'});
   try {
     await fixture.api('task-settings',{autoOpenCodex:true},'PUT');
+    assert.equal((await fixture.api('task-settings')).desktopRecovery, 'prompt');
     const missing=await fixture.completed('codex_interrupt',{threadId:existing,turnId});
     assert.equal(missing.error.code,'DESKTOP_IPC_ENDPOINT_MISSING',JSON.stringify(missing));
     assert.equal(missing.error.endpoint,path.join(directory,'ipc/ipc.sock'));
     assert.equal(missing.next.op,'guide');
     assert.deepEqual(missing.next.args,{op:'codex_send'});
-    const created=await fixture.completed('codex_create',{prompt:'Endpoint fallback fixture',thread:{cwd:directory}});
-    assert.equal(created.state,'completed',JSON.stringify(created));
-    assert.equal(created.executionOwner,'connector');
-    assert.equal(created.threadId,threadId);
+    const requestId = randomUUID();
+    const args = { requestId, prompt:'Desktop preparation fixture', thread:{cwd:directory} };
+    const pending = await fixture.completed('codex_create', args);
+    assert.equal(pending.state, 'awaiting-approval', JSON.stringify(pending));
+    assert.equal(pending.desktopRecovery.state, 'waiting-for-local');
+    assert.equal(pending.threadId, undefined);
+    const bypass = await fixture.call('receipt', {requestId, action:'bypass'});
+    assert.equal(bypass.state, 'awaiting-approval', JSON.stringify(bypass));
+    await fixture.api('tasks/decision', {requestId, action:'reject', desktopDecisionId:randomUUID()});
+    assert.equal((await fixture.call('receipt', {requestId})).state, 'awaiting-approval');
+    const cancelled = await fixture.api('tasks/decision', {requestId, action:'reject', desktopDecisionId:pending.desktopRecovery.decisionId});
+    assert.equal(cancelled.state, 'not-executed', JSON.stringify(cancelled));
+    const replayed = await fixture.completed('codex_create', args);
+    assert.equal(replayed.state, 'not-executed', JSON.stringify(replayed));
+    assert.equal(replayed.threadId, undefined);
     const sent=await fixture.completed('codex_send',{threadId:existing,prompt:'Continue existing fixture'});
     assert.equal(sent.state,'completed',JSON.stringify(sent));
     assert.equal(sent.threadId,existing);
@@ -340,7 +352,7 @@ test('Missing Desktop endpoint falls back before create and send submission', {s
     await mkdir(path.join(directory,'ipc'));
     await writeFile(path.join(directory,'ipc/ipc.sock'),'not a socket');
     const uncertain=await fixture.completed('codex_create',{prompt:'Uncertain endpoint fixture',thread:{cwd:directory}});
-    assert.equal(uncertain.state,'failed',JSON.stringify(uncertain));
+    assert.equal(uncertain.state,'not-executed',JSON.stringify(uncertain));
     assert.equal(uncertain.threadId,undefined);
   } finally {await fixture.close();await rm(directory,{recursive:true,force:true});}
 });

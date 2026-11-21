@@ -368,6 +368,9 @@
               "autoOpenCodex": {
                 "type": "boolean"
               },
+              "desktopRecovery": {
+                "enum": ["prompt", "restart", "independent"]
+              },
               "requestRoutingDelaySeconds": {
                 "type": "integer",
                 "minimum": 0,
@@ -405,9 +408,15 @@
               "requestId": {
                 "type": "string"
               },
+              "desktopDecisionId": {
+                "type": "string",
+                "format": "uuid"
+              },
               "action": {
                 "enum": [
                   "approve",
+                  "restart-desktop",
+                  "independent-desktop",
                   "reject"
                 ]
               }
