@@ -146,6 +146,7 @@
       "easing": "--ease-enter",
       "phases": [[
         {"targets": [{"part": "design/components/panel.tsx#Panel", "key": "center"}], "properties": ["height", "y"], "mode": "match"},
+        {"targets": [{"anchor": "center-header"}, {"anchor": "center-body"}], "properties": ["y"], "mode": "match"},
         {"targets": [{"anchor": "center-header"}, {"anchor": "center-body"}], "properties": ["opacity"], "mode": "crossfade", "duration": "--motion-fast"}
       ]],
       "interrupt": "finish",
@@ -163,6 +164,7 @@
       "easing": "--ease-enter",
       "phases": [[
         {"targets": [{"part": "design/components/panel.tsx#Panel", "key": "center"}], "properties": ["height", "y"], "mode": "match"},
+        {"targets": [{"anchor": "center-header"}, {"anchor": "center-body"}], "properties": ["y"], "mode": "match"},
         {"targets": [{"anchor": "center-header"}, {"anchor": "center-body"}], "properties": ["opacity"], "mode": "crossfade", "duration": "--motion-fast"}
       ]],
       "interrupt": "finish",

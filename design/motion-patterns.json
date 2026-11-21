@@ -1,0 +1,434 @@
+{
+  "version": 1,
+  "patterns": {
+    "aurora-border": {
+      "kind": "ambient",
+      "action": "loop",
+      "effect": "aurora",
+      "properties": ["--task-aurora-angle", "background"],
+      "parameters": {"duration": "--motion-aurora", "easing": "--adg-motion-linear"},
+      "interrupt": "cancel",
+      "reduced": "static",
+      "frames": [{"source": "design/components/task-card.tsx", "frame": "task-card-aurora"}],
+      "consumers": [
+        {"file": "ui/components/ui/TaskCard.css", "match": "css:.task-card[data-aurora]"},
+        {"file": "ui/components/ui/TaskCard.css", "match": "keyframes:task-aurora"},
+        {"file": "ui/components/HomepageTasks.tsx", "match": "attribute:data-aurora"}
+      ]
+    },
+    "geometry-transition": {
+      "kind": "layout",
+      "action": "reflow",
+      "effect": "size",
+      "properties": ["x", "y", "width", "height"],
+      "parameters": {"duration": "--motion-base", "easing": "--ease-enter"},
+      "interrupt": "retarget",
+      "reduced": "instant",
+      "consumers": [
+        {"file": "ui/motion/geometry.ts", "match": "motion:animate", "within": "to"}
+      ]
+    },
+    "topology-geometry-spring": {
+      "kind": "layout",
+      "action": "reflow",
+      "effect": "size",
+      "properties": ["x", "y", "width", "height", "scale", "opacity"],
+      "parameters": {"spring": "--motion-spring-topology"},
+      "interrupt": "retarget",
+      "reduced": "instant",
+      "frames": [{"source": "design/modules/homepage-scene/index.tsx", "frame": "idle"}],
+      "consumers": [
+        {"file": "ui/topology/animate.ts", "match": "call:spring", "within": "TopologyAnimator"}
+      ]
+    },
+    "agent-position-reflow": {
+      "kind": "layout",
+      "action": "reflow",
+      "effect": "avoid",
+      "properties": ["x", "y", "scale", "box-shadow"],
+      "parameters": {"duration": "--motion-base", "easing": "--ease-enter"},
+      "interrupt": "retarget",
+      "reduced": "instant",
+      "frames": [{"source": "design/modules/agent-settings.tsx", "frame": "agent-inventory-card"}],
+      "consumers": [
+        {"file": "ui/components/AgentsSettings.tsx", "match": "motion:layout", "within": "AgentCard"},
+        {"file": "ui/components/AgentsSettings.tsx", "match": "motion:whileDrag", "within": "AgentCard"}
+      ]
+    },
+    "appear": {
+      "kind": "transition",
+      "action": "enter",
+      "effect": "fade",
+      "properties": ["opacity"],
+      "parameters": {"duration": "--motion-fast", "easing": "--ease-enter"},
+      "interrupt": "finish",
+      "reduced": "instant",
+      "consumers": [
+        {"file": "ui/components/ui/controls.css", "match": "css:.select-content,.menu,.popover"},
+        {"file": "ui/components/ui/controls.css", "match": "css:.tooltip"},
+        {"file": "ui/style.css", "match": "keyframes:appear"}
+      ]
+    },
+    "quota-fade": {
+      "kind": "transition",
+      "action": "enter",
+      "effect": "fade",
+      "properties": ["opacity"],
+      "parameters": {"duration": "--motion-base", "easing": "--ease-enter"},
+      "interrupt": "finish",
+      "reduced": "instant",
+      "frames": [{"source": "design/modules/quota-detail.tsx", "frame": "history"}],
+      "consumers": [
+        {"file": "ui/subscriptions/bubble.css", "match": "css:.history-popover"},
+        {"file": "ui/subscriptions/bubble.css", "match": "keyframes:quota-fade"}
+      ]
+    },
+    "source-grow-in": {
+      "kind": "transition",
+      "action": "enter",
+      "effect": "pop",
+      "properties": ["scale", "opacity", "filter"],
+      "parameters": {"duration": "--motion-base", "easing": "--ease-enter", "scale": "--motion-scale-small", "fromOpacity": 0.3},
+      "interrupt": "finish",
+      "reduced": "instant",
+      "frames": [{"source": "design/modules/homepage-scene/index.tsx", "frame": "idle"}],
+      "consumers": [
+        {"file": "ui/product.css", "match": "keyframes:source-grow-in"},
+        {"file": "ui/product.css", "match": "css:.graph-node[data-new-source]"}
+      ]
+    },
+    "capsule-pulse": {
+      "kind": "ambient",
+      "action": "loop",
+      "effect": "pulse",
+      "properties": ["opacity"],
+      "parameters": {"duration": "--motion-running", "easing": "--ease-running"},
+      "interrupt": "cancel",
+      "reduced": "static",
+      "frames": [{"source": "design/modules/homepage-scene/index.tsx", "frame": "capsule"}],
+      "consumers": [
+        {"file": "ui/components/ui/NodeCapsule.css", "match": "css:.node-capsule-disc[data-phase=running]"},
+        {"file": "ui/components/ui/NodeCapsule.css", "match": "keyframes:capsule-pulse"}
+      ]
+    },
+    "hub-ripple": {
+      "kind": "transition",
+      "action": "enter",
+      "effect": "pulse",
+      "properties": ["transform", "opacity"],
+      "parameters": {"duration": "--motion-running", "easing": "--ease-enter", "scale": "--motion-scale-ripple", "fromOpacity": 0.45},
+      "interrupt": "finish",
+      "reduced": "instant",
+      "frames": [{"source": "design/modules/homepage-scene/index.tsx", "frame": "idle"}],
+      "consumers": [
+        {"file": "ui/product.css", "match": "css:.hub-entry[data-empty] .hub-dot::after"},
+        {"file": "ui/product.css", "match": "keyframes:hub-ripple"}
+      ]
+    },
+    "phase-shimmer": {
+      "kind": "ambient",
+      "action": "loop",
+      "effect": "shimmer",
+      "properties": ["transform"],
+      "parameters": {"duration": "--motion-running", "easing": "--ease-enter"},
+      "interrupt": "cancel",
+      "reduced": "static",
+      "frames": [{"source": "design/modules/homepage-scene/index.tsx", "frame": "phase-label"}],
+      "consumers": [
+        {"file": "ui/components/ui/TaskPhase.css", "match": "css:.phase-shimmer"},
+        {"file": "ui/components/ui/TaskPhase.css", "match": "css:.phase-shimmer>span"},
+        {"file": "ui/components/ui/TaskPhase.css", "match": "keyframes:phase-shimmer"},
+        {"file": "ui/components/ui/TaskPhase.css", "match": "keyframes:phase-shimmer-text"}
+      ]
+    },
+    "center-panel-crossfade": {
+      "kind": "transition",
+      "action": "replace",
+      "effect": "crossfade",
+      "properties": ["opacity"],
+      "parameters": {"duration": "--motion-fast", "easing": "--ease-enter"},
+      "interrupt": "retarget",
+      "reduced": "instant",
+      "frames": [{"source": "design/surfaces/layers.tsx", "frame": "workspace-fit"}, {"source": "design/surfaces/layers.tsx", "frame": "workspace-cap"}],
+      "consumers": [
+        {"file": "ui/components/ui/PanelCrossfade.tsx", "match": "web:animate", "within": "PanelPaint"}
+      ]
+    },
+    "character-ambient": {
+      "kind": "ambient",
+      "action": "loop",
+      "effect": "pulse",
+      "properties": ["transform", "opacity", "background-position"],
+      "parameters": {"duration": "--motion-character-blink", "easing": "--ease-running"},
+      "interrupt": "cancel",
+      "reduced": "static",
+      "frames": [{"source": "design/modules/pets.tsx", "frame": "pets-library"}, {"source": "design/modules/homepage-scene/index.tsx", "frame": "idle"}],
+      "consumers": [
+        {"file": "ui/pets/PetSprite.tsx", "match": "style:animationDelay", "within": "PetSprite"},
+        {"file": "ui/pets/mascots.css", "match": "css:.pet-mascot[data-motion] .mascot-eye-open"},
+        {"file": "ui/pets/mascots.css", "match": "css:.pet-mascot[data-motion] .mascot-eye-closed"},
+        {"file": "ui/pets/mascots.css", "match": "css:.pet-mascot[data-motion] .mascot-cursor"},
+        {"file": "ui/pets/mascots.css", "match": "css:.pet-mascot[data-motion][data-action=\"idle\"] .mascot-rig"},
+        {"file": "ui/pets/mascots.css", "match": "css:.pet-mascot[data-motion][data-walking] .mascot-leg-left"},
+        {"file": "ui/pets/mascots.css", "match": "css:.pet-mascot[data-motion][data-walking] .mascot-leg-right"},
+        {"file": "ui/pets/mascots.css", "match": "css:.pet-mascot[data-motion][data-walking] .mascot-body"},
+        {"file": "ui/pets/mascots.css", "match": "css:.pet-mascot[data-motion][data-action=\"catch\"] .mascot-arm-right"},
+        {"file": "ui/pets/mascots.css", "match": "css:.pet-mascot[data-motion][data-action=\"work\"] .mascot-arm-left"},
+        {"file": "ui/pets/mascots.css", "match": "css:.pet-mascot[data-motion][data-action=\"work\"] .mascot-arm-right"},
+        {"file": "ui/pets/mascots.css", "match": "css:.pet-mascot[data-motion][data-action=\"work\"] .mascot-work-sparks"},
+        {"file": "ui/pets/mascots.css", "match": "css:.pet-mascot[data-motion][data-action=\"think\"] .mascot-arm-right"},
+        {"file": "ui/pets/mascots.css", "match": "css:.pet-mascot[data-motion][data-action=\"wait\"] .mascot-arm"},
+        {"file": "ui/pets/mascots.css", "match": "css:.pet-mascot[data-motion][data-action=\"celebrate\"] .mascot-arm-left"},
+        {"file": "ui/pets/mascots.css", "match": "css:.pet-mascot[data-motion][data-action=\"celebrate\"] .mascot-arm-right"},
+        {"file": "ui/pets/mascots.css", "match": "css:.pet-mascot[data-motion][data-contact=\"sit\"] .mascot-leg"},
+        {"file": "ui/pets/mascots.css", "match": "css:.pet-mascot[data-motion][data-contact=\"swing\"] .mascot-leg-left"},
+        {"file": "ui/pets/mascots.css", "match": "css:.pet-mascot[data-motion][data-contact=\"swing\"] .mascot-leg-right"},
+        {"file": "ui/pets/mascots.css", "match": "keyframes:mascot-blink-open"},
+        {"file": "ui/pets/mascots.css", "match": "keyframes:mascot-blink-closed"},
+        {"file": "ui/pets/mascots.css", "match": "keyframes:mascot-cursor"},
+        {"file": "ui/pets/mascots.css", "match": "keyframes:mascot-breathe"},
+        {"file": "ui/pets/mascots.css", "match": "keyframes:mascot-step"},
+        {"file": "ui/pets/mascots.css", "match": "keyframes:mascot-walk-body"},
+        {"file": "ui/pets/mascots.css", "match": "keyframes:mascot-catch"},
+        {"file": "ui/pets/mascots.css", "match": "keyframes:mascot-tap"},
+        {"file": "ui/pets/mascots.css", "match": "keyframes:mascot-work"},
+        {"file": "ui/pets/mascots.css", "match": "keyframes:mascot-think"},
+        {"file": "ui/pets/mascots.css", "match": "keyframes:mascot-wait"},
+        {"file": "ui/pets/mascots.css", "match": "keyframes:mascot-cheer"},
+        {"file": "ui/pets/mascots.css", "match": "keyframes:mascot-sit-feet"},
+        {"file": "ui/pets/mascots.css", "match": "keyframes:mascot-swing-feet"},
+        {"file": "ui/pets/pets.css", "match": "css:.pet-sprite[data-animated]"},
+        {"file": "ui/pets/pets.css", "match": "keyframes:pet-frames"},
+        {"file": "ui/pets/pets.css", "match": "css:.topology-pet[data-dangling][data-motion] .pet-sprite"},
+        {"file": "ui/pets/pets.css", "match": "keyframes:pet-struggle"},
+        {"file": "ui/pets/pets.css", "match": "css:.topology-pet[data-motion] .pet-pose"},
+        {"file": "ui/pets/pets.css", "match": "css:.topology-pet[data-motion] .pet-pose[data-gesture=\"nod\"]"},
+        {"file": "ui/pets/pets.css", "match": "css:.topology-pet[data-motion] .pet-pose[data-gesture=\"sway\"]"},
+        {"file": "ui/pets/pets.css", "match": "css:.topology-pet[data-motion] .pet-pose[data-gesture=\"hop\"]"},
+        {"file": "ui/pets/pets.css", "match": "css:.topology-pet[data-motion] .pet-pose[data-gesture=\"bounce\"]"},
+        {"file": "ui/pets/pets.css", "match": "css:.topology-pet[data-motion] .pet-pose[data-gesture=\"wiggle\"]"},
+        {"file": "ui/pets/pets.css", "match": "css:.topology-pet[data-motion] .pet-pose[data-gesture=\"spin\"]"},
+        {"file": "ui/pets/pets.css", "match": "css:.topology-pet[data-motion] .pet-pose[data-gesture=\"stretch\"]"},
+        {"file": "ui/pets/pets.css", "match": "css:.topology-pet[data-motion] .pet-pose[data-gesture=\"peek\"]"},
+        {"file": "ui/pets/pets.css", "match": "css:.topology-pet[data-motion] .pet-pose[data-gesture=\"lean\"]"},
+        {"file": "ui/pets/pets.css", "match": "keyframes:pet-nod"},
+        {"file": "ui/pets/pets.css", "match": "keyframes:pet-sway"},
+        {"file": "ui/pets/pets.css", "match": "keyframes:pet-hop"},
+        {"file": "ui/pets/pets.css", "match": "keyframes:pet-bounce"},
+        {"file": "ui/pets/pets.css", "match": "keyframes:pet-wiggle"},
+        {"file": "ui/pets/pets.css", "match": "keyframes:pet-spin"},
+        {"file": "ui/pets/pets.css", "match": "keyframes:pet-stretch"},
+        {"file": "ui/pets/pets.css", "match": "keyframes:pet-peek"},
+        {"file": "ui/pets/pets.css", "match": "keyframes:pet-lean"},
+        {"file": "ui/pets/pets.css", "match": "css:.topology-pet[data-motion] .pet-pose[data-contact=\"sit\"]"},
+        {"file": "ui/pets/pets.css", "match": "css:.topology-pet[data-motion] .pet-pose[data-contact=\"swing\"]"},
+        {"file": "ui/pets/pets.css", "match": "css:.topology-pet[data-motion] .pet-pose[data-contact=\"pull\"]"},
+        {"file": "ui/pets/pets.css", "match": "keyframes:pet-perch"},
+        {"file": "ui/pets/pets.css", "match": "keyframes:pet-swing"},
+        {"file": "ui/pets/pets.css", "match": "keyframes:pet-pull"}
+      ]
+    },
+    "layer-fade": {
+      "kind": "transition",
+      "action": "enter",
+      "effect": "fade",
+      "properties": ["opacity"],
+      "parameters": {"duration": "--motion-base", "easing": "--ease-enter"},
+      "interrupt": "cancel",
+      "reduced": "instant",
+      "exit": {"duration": "--motion-fast", "easing": "--ease-exit"},
+      "frames": [{"source": "design/surfaces/layers.tsx", "frame": "deploy-dialog"}],
+      "consumers": [
+        {"file": "ui/components/ui/Dialog.tsx", "match": "motion:animate", "within": "fade"},
+        {"file": "ui/components/ui/Dialog.tsx", "match": "motion:animate", "within": "onExit"}
+      ]
+    },
+    "layer-size": {
+      "kind": "layout",
+      "action": "resize",
+      "effect": "size",
+      "properties": ["top", "height"],
+      "parameters": {"duration": "--motion-base", "easing": "--ease-enter"},
+      "interrupt": "retarget",
+      "reduced": "instant",
+      "frames": [{"source": "design/surfaces/layers.tsx", "frame": "workspace-fit"}, {"source": "design/surfaces/layers.tsx", "frame": "workspace-cap"}],
+      "consumers": [
+        {"file": "ui/components/ui/Dialog.tsx", "match": "motion:animate", "within": "geometry"}
+      ]
+    },
+    "dialog-content-fade": {
+      "kind": "transition",
+      "action": "replace",
+      "effect": "fade",
+      "properties": ["opacity"],
+      "parameters": {"duration": "--motion-fast", "easing": "--ease-enter", "fromOpacity": 0.25},
+      "interrupt": "cancel",
+      "reduced": "instant",
+      "consumers": [
+        {"file": "ui/components/ui/Dialog.tsx", "match": "motion:animate", "within": "LayerShell"}
+      ]
+    },
+    "expand-collapse": {
+      "kind": "layout",
+      "action": "resize",
+      "effect": "expand",
+      "properties": ["height", "opacity"],
+      "parameters": {"duration": "--motion-base", "easing": "--ease-enter"},
+      "interrupt": "finish",
+      "reduced": "instant",
+      "exit": {"duration": "--motion-base", "easing": "--ease-exit"},
+      "frames": [{"source": "design/modules/timeline.tsx", "frame": "timeline-fold"}],
+      "consumers": [
+        {"file": "ui/components/TimelineEntries.tsx", "match": "motion:AnimatePresence", "within": "Fold"},
+        {"file": "ui/components/TimelineEntries.tsx", "match": "motion:animate", "within": "Fold"},
+        {"file": "ui/components/TimelineEntries.tsx", "match": "motion:exit", "within": "Fold"},
+        {"file": "ui/product.css", "match": "css:.topology-section-content[data-state=\"open\"]"},
+        {"file": "ui/product.css", "match": "css:.topology-section-content[data-state=\"closed\"]"},
+        {"file": "ui/product.css", "match": "keyframes:topology-expand"},
+        {"file": "ui/product.css", "match": "keyframes:topology-collapse"}
+      ]
+    },
+    "highlight-follow": {
+      "kind": "continuous",
+      "action": "follow",
+      "effect": "follow",
+      "properties": ["x", "y", "width", "height", "opacity"],
+      "parameters": {"duration": "--motion-base", "easing": "--ease-enter"},
+      "interrupt": "retarget",
+      "reduced": "static",
+      "consumers": [
+        {"file": "ui/components/ui/HoverScope.tsx", "match": "motion:animate", "within": "measure"},
+        {"file": "ui/components/ui/style-HoverScope.css", "match": "css:.hover-highlight"}
+      ]
+    },
+    "update-panel-entry": {
+      "kind": "transition",
+      "action": "enter",
+      "effect": "slide",
+      "properties": ["y", "opacity"],
+      "parameters": {"duration": "--motion-base", "easing": "--ease-enter", "distance": "--motion-distance-update"},
+      "interrupt": "finish",
+      "reduced": "instant",
+      "consumers": [
+        {"file": "ui/components/AppUpdate.css", "match": "css:.update-panel"},
+        {"file": "ui/components/AppUpdate.css", "match": "keyframes:update-panel-in"}
+      ]
+    },
+    "control-feedback": {
+      "kind": "transition",
+      "action": "enter",
+      "effect": "fade",
+      "properties": ["background-color", "border-color", "color", "opacity", "transform"],
+      "parameters": {"duration": "--motion-fast", "easing": "--ease-enter"},
+      "interrupt": "finish",
+      "reduced": "instant",
+      "consumers": [
+        {"file": "ui/components/hosting/DataTable.css", "match": "css:.data-table-row"},
+        {"file": "ui/components/navigation/NavCapsule.css", "match": "css:.navigation-capsule button"},
+        {"file": "ui/components/ui/controls.css", "match": "css:.button"},
+        {"file": "ui/components/ui/controls.css", "match": "css:.switch"},
+        {"file": "ui/components/ui/controls.css", "match": "css:.switch-thumb"},
+        {"file": "ui/components/ui/controls.css", "match": "css:.choice-pills .choice-option"},
+        {"file": "ui/product.css", "match": "css:.capsule-icons button"},
+        {"file": "ui/product.css", "match": "css:.hub-dot"},
+        {"file": "ui/product.css", "match": "css:.hub-symbol"},
+        {"file": "ui/product.css", "match": "css:.topology-arc-actions .arc-action-button"},
+        {"file": "ui/product.css", "match": "css:.hub-arc-action"}
+      ]
+    },
+    "disclosure-turn": {
+      "kind": "transition",
+      "action": "enter",
+      "effect": "pop",
+      "properties": ["transform"],
+      "parameters": {"duration": "--motion-base", "easing": "--ease-enter"},
+      "interrupt": "finish",
+      "reduced": "instant",
+      "consumers": [
+        {"file": "ui/coordination/center.css", "match": "css:.center-technical>summary>.icon"},
+        {"file": "ui/mcp/Controls.css", "match": "css:.tag.disclosure"},
+        {"file": "ui/product.css", "match": "css:.timeline-chevron"},
+        {"file": "ui/product.css", "match": "css:.topology-section-trigger>.icon"}
+      ]
+    },
+    "privacy-fade": {
+      "kind": "transition",
+      "action": "enter",
+      "effect": "fade",
+      "properties": ["opacity", "filter"],
+      "parameters": {"duration": "--motion-base", "easing": "--ease-enter"},
+      "interrupt": "finish",
+      "reduced": "instant",
+      "consumers": [
+        {"file": "ui/product.css", "match": "css:.pii"},
+        {"file": "ui/product.css", "match": "keyframes:privacy-in"}
+      ]
+    },
+    "loading-spin": {
+      "kind": "ambient",
+      "action": "loop",
+      "effect": "spin",
+      "properties": ["transform"],
+      "parameters": {"duration": "--motion-running", "easing": "--ease-enter"},
+      "interrupt": "cancel",
+      "reduced": "static",
+      "consumers": [
+        {"file": "ui/components/AppUpdate.css", "match": "css:.update-ring"},
+        {"file": "ui/components/AppUpdate.css", "match": "keyframes:update-spin"},
+        {"file": "ui/components/ui/Feedback.css", "match": "css:.ui-spinner"},
+        {"file": "ui/components/ui/Feedback.css", "match": "keyframes:ui-spin"},
+        {"file": "ui/product.css", "match": "css:.step-running .icon"},
+        {"file": "ui/style.css", "match": "css:.spin"},
+        {"file": "ui/style.css", "match": "keyframes:spin"}
+      ]
+    },
+    "connection-flow": {
+      "kind": "ambient",
+      "action": "loop",
+      "effect": "shimmer",
+      "properties": ["stroke-dashoffset", "opacity"],
+      "parameters": {"duration": "--motion-running", "easing": "--adg-motion-linear"},
+      "interrupt": "cancel",
+      "reduced": "static",
+      "consumers": [
+        {"file": "ui/product.css", "match": "css:.topology-wires :where(.primary[data-state=\"connecting\"]) .connecting-wire"},
+        {"file": "ui/product.css", "match": "css:.topology-wires .right .connecting-wire"},
+        {"file": "ui/product.css", "match": "keyframes:graph-connecting"},
+        {"file": "ui/product.css", "match": "keyframes:activity-flow"}
+      ]
+    },
+    "studio-atmosphere": {
+      "kind": "ambient",
+      "action": "loop",
+      "effect": "pulse",
+      "properties": ["opacity", "transform"],
+      "parameters": {"duration": "--motion-studio-daylight", "easing": "--ease-running"},
+      "interrupt": "cancel",
+      "reduced": "static",
+      "consumers": [
+        {"file": "ui/display/studio.css", "match": "css:.studio-window-light"},
+        {"file": "ui/display/studio.css", "match": "css:.studio-leaf-shadows"},
+        {"file": "ui/display/studio.css", "match": "css:.studio-lamp-light"},
+        {"file": "ui/display/studio.css", "match": "css:.studio-window-glints"},
+        {"file": "ui/display/studio.css", "match": "css:.studio-backdrop[data-motion=\"quiet\"] .studio-motion>div"},
+        {"file": "ui/display/studio.css", "match": "keyframes:studio-daylight"},
+        {"file": "ui/display/studio.css", "match": "keyframes:studio-leaves"},
+        {"file": "ui/display/studio.css", "match": "keyframes:studio-lamp"},
+        {"file": "ui/display/studio.css", "match": "keyframes:studio-glints"}
+      ]
+    },
+    "studio-scene-crossfade": {
+      "kind": "transition",
+      "action": "replace",
+      "effect": "crossfade",
+      "properties": ["opacity"],
+      "parameters": {"duration": "--motion-base", "easing": "--ease-enter"},
+      "interrupt": "finish",
+      "reduced": "instant",
+      "consumers": [
+        {"file": "ui/display/studio.css", "match": "css:.studio-image"},
+        {"file": "ui/display/studio.css", "match": "css:.studio-motion"}
+      ]
+    }
+  }
+}

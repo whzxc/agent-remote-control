@@ -76,6 +76,13 @@
   --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
   --ease-running: ease-in-out;
+  --motion-aurora: 8s;
+  --motion-character-blink: 5.4s;
+  --motion-studio-daylight: 38s;
+  --motion-distance-update: 5px;
+  --motion-scale-ripple: 1.7;
+  --motion-spring-topology-duration: 360ms;
+  --motion-spring-topology-bounce: .002;
 
   /* Surfaces */
   --layer-scrim: rgb(0 0 0 / 24%);
