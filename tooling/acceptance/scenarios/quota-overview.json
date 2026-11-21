@@ -1,0 +1,8 @@
+{
+  "theme": "light",
+  "language": "zh-CN",
+  "agents": ["antigravity"],
+  "quota": "antigravity",
+  "quotaDisplay": "used",
+  "tasks": []
+}

@@ -9,8 +9,10 @@ export const platformAccounts = {
     brand: "claude-code",
     accounts: [
       { alias: "Team", email: "team@example.com", state: "signed-in", default: true, windows: [
-        { label: "5 小时额度", value: 84, mode: "剩余", reset: "3 小时后重置", elapsed: 0.6, tone: "success" },
-        { label: "周额度", value: 73, mode: "剩余", reset: "1 天后重置", elapsed: 1 / 7, tone: "success" },
+        { label: "5 小时额度", value: 84, mode: "剩余", reset: "3 小时后重置",
+          elapsed: 0.6, projected: 60, tone: "success" },
+        { label: "周额度", value: 73, mode: "剩余", reset: "1 天后重置",
+          elapsed: 1 / 7, projected: 69, tone: "success" },
       ] },
       { alias: "Studio", email: "studio@example.com", state: "signed-out" },
       { alias: "Personal", email: "personal@example.com", state: "signed-in", windows: [] },

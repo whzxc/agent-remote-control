@@ -17,7 +17,7 @@ import { usageLink } from "./usageLinks";
 import type { ProviderSnapshot } from "./types";
 import UsageHistory from "./UsageHistory";
 import ResetCreditDetails from "./ResetCreditDetails";
-import { QuotaCard, QuotaDetailAction } from "../components/ui/QuotaCard";
+import { QuotaCard, QuotaCards, QuotaDetailAction } from "../components/ui/QuotaCard";
 import "./bubble.css";
 export default function QuotaBubble({
   provider,
@@ -114,7 +114,7 @@ export default function QuotaBubble({
       >
         {({ register, hover, focus, expanded, displayed, highlighted }) => (
           <>
-            <header>
+            <QuotaCards heading={<header className="quota-provider-heading">
               <span
                 className="provider-logo"
                 dangerouslySetInnerHTML={{ __html: icons[provider.agentId] }}
@@ -155,8 +155,12 @@ export default function QuotaBubble({
                     <Icon icon={hasError ? CircleAlert : TriangleAlert} />
                   </span>
                 )}
-                <HoverHelp text={preciseTime(provider.observedAt)}><time className="refresh-age">{ageText}</time></HoverHelp>
               </span>
+              <HoverHelp text={preciseTime(provider.observedAt)}>
+                <time className="refresh-age" dateTime={provider.observedAt}>
+                  {!refreshable && <Icon icon={RefreshCw} size={13} />}{ageText}
+                </time>
+              </HoverHelp>
               {refreshable && <IconButton
                 compact
                 icon={RefreshCw}
@@ -166,11 +170,10 @@ export default function QuotaBubble({
                 disabled={!provider.eligible}
                 onClick={() => void refresh()}
               />}
-            </header>
-            <div className="quota-window-grid">
+            </header>}>
               {readings.map(({ w }) => {
                 const key = "reading:" + w.id;
-                return <QuotaCard key={w.id} window={w} provider={provider} now={now} detail={pace =>
+                return <QuotaCard key={w.id} window={w} provider={provider} now={now} detail={(pace, label) =>
                   <QuotaDetailAction
                     ref={node => register(key, node)}
                     onPointerEnter={event => event.pointerType !== "touch" && hover(key)}
@@ -179,12 +182,12 @@ export default function QuotaBubble({
                     onFocus={() => focus(key)}
                     onBlur={() => focus("")}
                     aria-expanded={expanded && displayed === key}
-                    aria-label={`${windowLabel(w.label)} · ${pace.label}`}>
-                    {pace.flame && <Icon icon={Flame} size={12} />} {pace.label}
+                    aria-label={`${windowLabel(w.label)} · ${label}`}>
+                    {pace.flame && <Icon icon={Flame} size={12} />} {label}
                   </QuotaDetailAction>
                 } />;
               })}
-            </div>
+            </QuotaCards>
             {((provider.creditBalance ?? 0) > 0 || provider.availableResetCount != null || !!provider.productUsage?.rows.length) && <QuotaHistory className="usage-history" activeKey={highlighted}>
               {(provider.creditBalance ?? 0) > 0 && (
                 <div className="history-period">

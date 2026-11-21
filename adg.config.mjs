@@ -21,7 +21,6 @@ const prepared = {
   'agent-account-reauth': { scenario: 'agent-platform-lifecycle', accountAction: 'reauth' },
   'agent-account-reauth-waiting': { scenario: 'agent-platform-lifecycle', accountAction: 'waiting' },
   'agent-account-reauth-expired': { scenario: 'agent-platform-lifecycle', accountAction: 'expired' },
-  'quota-overview': { scenario: 'agent-panel' },
   'board-unavailable': { scenario: 'coordination-unavailable' },
   'portrait-topology-sources-folded': { scenario: 'portrait-topology-0', side: -1 },
   'portrait-topology-agents-folded': { scenario: 'portrait-topology-0', side: 1 },
@@ -127,11 +126,6 @@ export default {
             await dialog.getByText('登录链接已过期', { exact: true }).waitFor();
           }
         }
-      }
-      if (name === 'quota-overview') {
-        await page.keyboard.press('Escape');
-        await page.locator('.activity-panel').waitFor({ state: 'hidden' });
-        await page.getByRole('button', { name: '管理 Agent', exact: true }).waitFor();
       }
       if (name === 'board-unavailable') {
         await page.getByRole('button', { name: 'Open board', exact: true }).click();

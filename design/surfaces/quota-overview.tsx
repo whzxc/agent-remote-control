@@ -1,17 +1,18 @@
-import { Frame } from "adg";
+import { Frame, Icon } from "adg";
 import { PanelShell, PanelHeader } from "../components/panel";
 import { BrandMark } from "../components/brand-mark";
 import { IconButton } from "../components/icon-button";
 import { QuotaCards } from '../components/quota';
 import { Tile } from "../components/tile";
 import { Button } from "../components/button";
-import { agentQuotas, overviewProvider } from "../fixtures/quota";
+import { antigravityQuotaOverview } from "../fixtures/quota";
+
 function QuotaOverview({ empty = false }: { empty?: boolean }) {
   return (
     <PanelShell class="px-6 pt-[13px] pb-6">
       <PanelHeader
         title="订阅额度"
-        actions={!empty && <IconButton icon="refresh-cw" label="Refresh" />}
+        actions={!empty && <IconButton icon="refresh-cw" label="刷新" />}
       />
       {empty ? (
         <div class="mt-[33px] flex flex-col items-center">
@@ -24,13 +25,16 @@ function QuotaOverview({ empty = false }: { empty?: boolean }) {
           </div>
         </div>
       ) : (
-        <div class="mt-6 flex flex-col gap-3">
-          <header class="flex h-6 items-center gap-[10px]">
-            <BrandMark brand="codex" size={24} />
-            <strong class="text-body font-[650]">{overviewProvider.name}</strong>
-            <span class="text-meta text-text-tertiary">{overviewProvider.observed}</span>
-          </header>
-          <QuotaCards windows={agentQuotas} />
+        <div class="mt-[25px]">
+          <QuotaCards windows={antigravityQuotaOverview.windows} heading={
+            <header class="flex items-center gap-2.5 border-b border-border py-3">
+              <BrandMark brand="antigravity" size={26} />
+              <strong class="text-body font-[650]">{antigravityQuotaOverview.name}</strong>
+              <span class="ml-auto inline-flex items-center gap-1.5 text-meta text-text-secondary">
+                <Icon name="refresh-cw" size={13} />{antigravityQuotaOverview.observed}
+              </span>
+            </header>
+          } />
         </div>
       )}
     </PanelShell>

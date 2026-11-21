@@ -35,7 +35,9 @@ export function AccountCard({ account }: { account: AgentAccount }) {
           {account.removable !== false && <IconButton compact icon="trash-2" label={copy.remove} />}
         </div>
       </div>
-      {signedIn && account.windows.length ? <QuotaCards windows={account.windows} /> : (
+      {signedIn && account.windows.length ? (
+        <QuotaCards windows={account.windows} />
+      ) : (
         <div class="flex min-h-(--control-height) items-center justify-between gap-2">
           <p class={`text-meta ${signedIn ? "text-text-secondary" : "text-danger"}`}>{status}</p>
           {!signedIn && <Button>{copy.reauth}</Button>}
