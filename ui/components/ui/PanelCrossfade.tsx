@@ -2,6 +2,26 @@ import { Component, type ReactNode } from 'react';
 import { motionTransition } from '../../motion/tokens';
 
 const regions = ':scope > .dialog-header, :scope > .layer-custom-header, :scope > .dialog-body';
+const paintSheets = new WeakMap<CSSStyleSheet, CSSStyleSheet>();
+
+function sheetForPaint(source: CSSStyleSheet) {
+  const cached = paintSheets.get(source);
+  if (cached) return cached;
+
+  const href = source.href;
+  const sheet = new CSSStyleSheet({ baseURL: href ?? document.baseURI, media: source.media.mediaText });
+  let css = Array.from(source.cssRules, rule => rule.cssText).join('\n');
+  if (href) {
+    // Chromium ignores baseURL. Resolve Vite's relative asset URLs in the serialized CSSOM.
+    css = css.replace(/url\("([^"\\]+)"\)/g, (value, url: string) => {
+      if (/^(?:#|\/|[\w+.-]+:)/.test(url)) return value;
+      return `url("${new URL(url, href).href}")`;
+    });
+  }
+  sheet.replaceSync(css);
+  paintSheets.set(source, sheet);
+  return sheet;
+}
 
 /** Keep the old paint outside the live form, accessibility tree and height measurement. */
 function capturePanel(content: HTMLElement) {
@@ -12,15 +32,11 @@ function capturePanel(content: HTMLElement) {
   overlay.inert = true;
   overlay.setAttribute('aria-hidden', 'true');
   const shadow = overlay.attachShadow({ mode: 'closed' });
-  for (const sheet of document.head.querySelectorAll('style, link[rel="stylesheet"]')) {
-    shadow.append(sheet.cloneNode(true));
-  }
   const surface = shell.cloneNode(false) as HTMLElement;
   Object.assign(surface.style, { position: 'relative', inset: 'auto', width: bounds.width + 'px',
     height: bounds.height + 'px', background: 'none', boxShadow: 'none', opacity: '1' });
   const layout = content.cloneNode(false) as HTMLElement;
   surface.append(layout);
-  shadow.append(surface);
   const scroll: Array<() => void> = [];
   for (const part of content.querySelectorAll<HTMLElement>(regions)) {
     const box = part.getBoundingClientRect();
@@ -37,7 +53,13 @@ function capturePanel(content: HTMLElement) {
     });
     copy.querySelectorAll('iframe, object, embed, audio, video').forEach(el => el.remove());
   }
-  return { overlay, mount() { shell.append(overlay); scroll.forEach(restore => restore()); } };
+  return { overlay, mount() {
+    shell.append(overlay);
+    // Connect the host first so WebKit applies adopted styles as soon as the content is inserted.
+    shadow.adoptedStyleSheets = Array.from(document.styleSheets).filter(sheet => !sheet.disabled).map(sheetForPaint);
+    shadow.append(surface);
+    scroll.forEach(restore => restore());
+  } };
 }
 
 /** One transition per physical panel. A new owner can arrive through a different React portal. */

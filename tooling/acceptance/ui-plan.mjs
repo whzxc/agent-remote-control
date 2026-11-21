@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 // Cover startup, task panels, approvals, topology controls, narrow focus and updates.
 export const smokeScenarios = [
   'idle', 'agent-panel-short', 'task-states', 'approval', 'studio-connections',
-  'portrait-topology-accounts', 'task-timeline-scroll', 'p3-welcome', 'updates-settings',
+  'portrait-topology-accounts', 'task-timeline-scroll', 'p3-welcome', 'updates-settings', 'relay-hosting-light',
 ];
 
 export function selectScenarios(files, { all = false, filter } = {}) {

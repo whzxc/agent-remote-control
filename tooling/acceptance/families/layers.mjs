@@ -63,6 +63,28 @@ async function verifyPanelCrossfade(page) {
     await setMotion(page, false);
     const panel = page.locator('.layer-panel');
     const origin = await panel.boundingBox();
+    const stylesheet = '/layer-fixture/assets/panel.css';
+    let stylesheetRequests = 0;
+    await page.route('**' + stylesheet, route => {
+        stylesheetRequests++;
+        return route.fulfill({ contentType: 'text/css', body: `
+            arc-paint-probe { outline-offset: 7px; }
+            arc-paint-probe::before { background-image: url(./marker.svg); }` });
+    });
+    await page.addStyleTag({ url: stylesheet });
+    await page.evaluate(() => {
+        window.panelPaintSamples = [];
+        customElements.define('arc-paint-probe', class extends HTMLElement {
+            connectedCallback() {
+                // Sample the actual outgoing subtree at insertion, before a later frame can hide a late sheet.
+                if (this.getRootNode() instanceof ShadowRoot) window.panelPaintSamples.push({
+                    offset: getComputedStyle(this).outlineOffset,
+                    image: getComputedStyle(this, '::before').backgroundImage,
+                });
+            }
+        });
+    });
+    const markOutgoing = () => panel.locator('.dialog-body').evaluate(body => body.append(document.createElement('arc-paint-probe')));
     await page.evaluate(() => {
         // Stretch both production clocks to make the interior of the fade observable.
         document.documentElement.style.setProperty('--motion-fast', '2s');
@@ -92,12 +114,19 @@ async function verifyPanelCrossfade(page) {
     };
     try {
         const settings = page.locator('[data-page="settings"]'), hosting = page.locator('[data-page="relay-hosting"]');
+        await markOutgoing();
         await settings.click();
         await panel.getByRole('heading', { name: 'Settings', exact: true }).waitFor();
         const first = await sample();
+        await markOutgoing();
         await hosting.click();
         await panel.getByRole('heading', { name: 'Relay hosting', exact: true }).waitFor();
         const interrupted = await sample();
+        const firstPaint = await page.evaluate(() => window.panelPaintSamples);
+        const image = new URL('./marker.svg', new URL(stylesheet, page.url())).href;
+        if (stylesheetRequests !== 1 || firstPaint.length !== 2
+            || firstPaint.some(paint => paint.offset !== '7px' || paint.image !== `url("${image}")`))
+            throw new Error('Outgoing linked stylesheet at insertion: ' + JSON.stringify({ firstPaint, stylesheetRequests }));
         await setMotion(page, true);
         await page.waitForFunction(() => !document.querySelector('.panel-outgoing'));
         await page.evaluate(() => {
@@ -119,7 +148,7 @@ async function verifyPanelCrossfade(page) {
         if (!instant.focused || instant.commits !== 1 || instant.outgoing || instant.opacity !== '1'
             || Math.abs(instant.height - instant.targetHeight) > 1 || !(first.height > origin.height && first.height < instant.height))
             throw new Error('Reduced replacement or centered resize failed: ' + JSON.stringify({first, instant}));
-        return { first, interrupted, instant };
+        return { first, interrupted, instant, firstPaint, stylesheetRequests };
     } finally {
         await page.evaluate(() => {
             document.documentElement.style.removeProperty('--motion-fast');
