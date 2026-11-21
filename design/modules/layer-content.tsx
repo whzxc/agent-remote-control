@@ -17,7 +17,7 @@ export function WorkspaceContent({ settings = false }: { settings?: boolean }) {
   if (!settings) return <div class="flex flex-col gap-5 pt-[6px]">
     <div class="flex flex-col gap-3"><h2 class="text-body font-[650] leading-4">Hosted relays</h2>
       <p class="text-body text-text-secondary leading-4">You have not deployed a relay yet.</p></div>
-    <div><Button class="w-[186px]">Deploy new relay</Button></div>
+    <div><Button anchor="deploy-relay" class="w-[186px]">Deploy new relay</Button></div>
   </div>;
   return <div class="flex flex-col gap-7 pt-2">
     {layerSettings.map(section => <SettingsSection title={section.title}>

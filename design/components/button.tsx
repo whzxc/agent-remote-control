@@ -6,6 +6,7 @@ export type ButtonProps = {
     "primary" | "secondary" | "ghost" | "link" | "danger" | "danger-outline";
   busy?: boolean;
   presentation?: "record-link";
+  anchor?: string;
   disabled?: boolean;
   icon?: string;
   children?: unknown;
@@ -15,6 +16,7 @@ export function Button({
   variant = "secondary",
   presentation,
   busy,
+  anchor,
   disabled,
   icon,
   children,
@@ -32,6 +34,7 @@ export function Button({
   };
   return (
     <button
+      data-adg-id={anchor}
       disabled={disabled || busy}
       aria-busy={busy}
       class={`inline-flex shrink-0 items-center justify-center gap-(--control-gap)

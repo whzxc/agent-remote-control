@@ -7,6 +7,8 @@ import { panelExample } from "../fixtures/panels";
 
 export function Panel({
   title,
+  motionId,
+  closeLabel = "Close",
   kind = "panel",
   children,
   actions,
@@ -26,6 +28,8 @@ export function Panel({
   height,
 }: {
   title?: unknown;
+  motionId?: string;
+  closeLabel?: string;
   kind?: "panel" | "dialog";
   children?: unknown;
   actions?: unknown;
@@ -46,21 +50,24 @@ export function Panel({
 }) {
   return (
     <section
+      role={motionId ? (kind === "dialog" ? "dialog" : "region") : undefined}
+      aria-label={motionId && typeof title === "string" ? title : undefined}
+      data-adg-id={motionId} tabindex={motionId ? -1 : undefined}
       style={{ height, width: viewportHeight && (viewportWidth < 760 || viewportHeight > viewportWidth) ? `calc(${viewportWidth}px - 2 * var(--layer-side-margin))` : `var(--layer-${size ?? (kind === "panel" ? "xl" : "m")})`, "--layer-retained-height": retainedHeight ? `${retainedHeight}px` : "0px", "--layer-viewport-height": viewportHeight ? `${viewportHeight}px` : undefined, "--layer-frame-top": "var(--layer-top-browser)", "--layer-frame-bottom": `var(${kind === "panel" ? "--layer-panel-bottom" : "--layer-side-margin"})` }}
-      class={`flex min-h-(--layer-retained-height) flex-col rounded-panel ${transparent ? "bg-transparent backdrop-blur-[24px]" : "bg-surface-raised"} pb-6 px-6 text-text shadow-lg
+      class={`${motionId ? "pointer-events-auto" : ""} flex min-h-(--layer-retained-height) flex-col rounded-panel ${transparent ? "bg-transparent backdrop-blur-[24px]" : "bg-surface-raised"} pb-6 px-6 text-text shadow-lg
         mx-auto max-w-[calc(100%_-_2_*_var(--layer-side-margin))]! max-h-[calc(100%_-_var(--layer-top)_-_var(--layer-frame-bottom))]!
         ${viewportHeight ? "max-h-[calc(var(--layer-viewport-height)_-_var(--layer-frame-top)_-_var(--layer-frame-bottom))]!" : ""}
         max-w-full [&>header]:shrink-0
         ${roomyHeader ? "gap-[29px] pt-[21px]" : "gap-[25px] pt-[13px]"}`}
     >
       {!headerless && (
-        <header class="flex h-(--control-height) items-center justify-between gap-4" style={{height: headerHeight}}>
+        <header data-adg-id={motionId && `${motionId}-header`} class="flex h-(--control-height) items-center justify-between gap-4" style={{height: headerHeight}}>
           {leading}
           <h2 class="text-title leading-6 font-[650]">{title}</h2>
           {headerNavigation}
           <div class="ml-auto flex items-center gap-(--control-gap)">
             {actions}
-            <IconButton icon="x" label="Close" />
+            <IconButton key="close" anchor={motionId && `${motionId}-close`} icon="x" label={closeLabel} />
           </div>
         </header>
       )}
@@ -68,7 +75,7 @@ export function Panel({
       {description && (
         <div class="text-small text-text-secondary">{description}</div>
       )}
-      {headerless ? children : <div class="min-h-0 flex-1 overflow-y-auto">{children}</div>}
+      {headerless ? children : <div data-adg-id={motionId && `${motionId}-body`} class="min-h-0 flex-1 overflow-y-auto">{children}</div>}
       {footer ? <div class="shrink-0">{footer}</div> : footer}
     </section>
   );

@@ -5,15 +5,19 @@ import { modeCopy as copy } from '../../fixtures/homepage-mode';
 
 export function NavCapsule({
   items: entries = items,
+  hosting = false,
   active = "permissions",
 }: {
   items?: { id: string; icon: string; label: string }[];
   active?: string;
+  hosting?: boolean;
 }) {
   return (
     <nav class="inline-flex items-center gap-1 px-[6px] py-(--dock-padding-block) rounded-panel bg-surface-raised shadow-lg">
-      {entries.map((item) => (
+      {(hosting ? [...entries, {id: "relay-hosting", icon: "cloud", label: "Relay hosting"}] : entries).map((item) => (
         <button
+          key={item.id}
+          data-adg-id={`nav-${item.id}`}
           aria-label={item.label}
           class={
             "flex items-center justify-center size-(--dock-button-size) rounded-card " +

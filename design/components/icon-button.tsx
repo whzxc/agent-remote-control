@@ -8,6 +8,7 @@ export function IconButton({
   size,
   compact = false,
   active = false,
+  anchor,
   disabled = false,
   agent = false,
 }: {
@@ -17,11 +18,13 @@ export function IconButton({
   size?: number;
   compact?: boolean;
   active?: boolean;
+  anchor?: string;
   disabled?: boolean;
   agent?: boolean;
 }) {
   return (
     <button
+      data-adg-id={anchor}
       aria-label={label}
       disabled={disabled || busy}
       class={`flex shrink-0 items-center justify-center rounded-control text-text

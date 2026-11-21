@@ -1,0 +1,178 @@
+{
+  "version": 1,
+  "edges": [
+    {
+      "id": "open-hosting",
+      "rememberTrigger": true,
+      "from": {"source": "design/surfaces/layers.tsx", "frame": "hosting-home"},
+      "to": {"source": "design/surfaces/layers.tsx", "frame": "workspace-fit"},
+      "trigger": {"on": "click", "target": {"anchor": "nav-relay-hosting"}},
+      "duration": "--motion-panel",
+      "easing": "--ease-enter",
+      "phases": [[
+        {"targets": [{"anchor": "center"}], "properties": ["opacity"], "mode": "enter"}
+      ]],
+      "interrupt": "finish",
+      "reduced": "instant",
+      "focus": {"target": {"anchor": "center"}}
+    },
+    {
+      "id": "open-deployment",
+      "rememberTrigger": true,
+      "from": {"source": "design/surfaces/layers.tsx", "frame": "workspace-fit"},
+      "to": {"source": "design/surfaces/layers.tsx", "frame": "deploy-dialog"},
+      "trigger": {"on": "click", "target": {"anchor": "deploy-relay"}},
+      "duration": "--motion-base",
+      "easing": "--ease-enter",
+      "phases": [[
+        {"targets": [{"anchor": "deployment"}], "properties": ["opacity"], "mode": "enter"}
+      ]],
+      "interrupt": "finish",
+      "reduced": "instant",
+      "focus": {"target": {"anchor": "deployment"}}
+    },
+    {
+      "id": "close-deployment",
+      "label": "Close deployment dialog",
+      "from": {"source": "design/surfaces/layers.tsx", "frame": "deploy-dialog"},
+      "to": {"source": "design/surfaces/layers.tsx", "frame": "workspace-fit"},
+      "trigger": {"on": "click", "target": {"anchor": "deployment-close"}},
+      "duration": "--motion-fast",
+      "easing": "--ease-exit",
+      "phases": [[
+        {"targets": [{"anchor": "deployment"}], "properties": ["opacity"], "mode": "exit"}
+      ]],
+      "interrupt": "finish",
+      "reduced": "instant",
+      "focus": "restore-trigger"
+    },
+    {
+      "id": "escape-deployment",
+      "label": "Dismiss deployment dialog",
+      "from": {"source": "design/surfaces/layers.tsx", "frame": "deploy-dialog"},
+      "to": {"source": "design/surfaces/layers.tsx", "frame": "workspace-fit"},
+      "trigger": {"on": "key", "key": "Escape", "target": {"frame": true}},
+      "duration": "--motion-fast",
+      "easing": "--ease-exit",
+      "phases": [[
+        {"targets": [{"anchor": "deployment"}], "properties": ["opacity"], "mode": "exit"}
+      ]],
+      "interrupt": "finish",
+      "reduced": "instant",
+      "focus": "restore-trigger"
+    },
+    {
+      "id": "close-hosting",
+      "label": "Close Relay hosting",
+      "from": {"source": "design/surfaces/layers.tsx", "frame": "workspace-fit"},
+      "to": {"source": "design/surfaces/layers.tsx", "frame": "hosting-home"},
+      "trigger": {"on": "click", "target": {"anchor": "center-close"}},
+      "duration": "--motion-fast",
+      "easing": "--ease-enter",
+      "phases": [[
+        {"targets": [{"anchor": "center"}], "properties": ["opacity"], "mode": "exit"}
+      ]],
+      "interrupt": "finish",
+      "reduced": "instant",
+      "focus": "restore-trigger"
+    },
+    {
+      "id": "escape-hosting",
+      "label": "Dismiss Relay hosting",
+      "from": {"source": "design/surfaces/layers.tsx", "frame": "workspace-fit"},
+      "to": {"source": "design/surfaces/layers.tsx", "frame": "hosting-home"},
+      "trigger": {"on": "key", "key": "Escape", "target": {"frame": true}},
+      "duration": "--motion-fast",
+      "easing": "--ease-enter",
+      "phases": [[
+        {"targets": [{"anchor": "center"}], "properties": ["opacity"], "mode": "exit"}
+      ]],
+      "interrupt": "finish",
+      "reduced": "instant",
+      "focus": "restore-trigger"
+    },
+    {
+      "id": "close-settings",
+      "label": "Close Settings",
+      "from": {"source": "design/surfaces/layers.tsx", "frame": "workspace-cap"},
+      "to": {"source": "design/surfaces/layers.tsx", "frame": "hosting-home"},
+      "trigger": {"on": "click", "target": {"anchor": "center-close"}},
+      "duration": "--motion-fast",
+      "easing": "--ease-enter",
+      "phases": [[
+        {"targets": [{"anchor": "center"}], "properties": ["opacity"], "mode": "exit"}
+      ]],
+      "interrupt": "finish",
+      "reduced": "instant",
+      "focus": "restore-trigger"
+    },
+    {
+      "id": "escape-settings",
+      "label": "Dismiss Settings",
+      "from": {"source": "design/surfaces/layers.tsx", "frame": "workspace-cap"},
+      "to": {"source": "design/surfaces/layers.tsx", "frame": "hosting-home"},
+      "trigger": {"on": "key", "key": "Escape", "target": {"frame": true}},
+      "duration": "--motion-fast",
+      "easing": "--ease-enter",
+      "phases": [[
+        {"targets": [{"anchor": "center"}], "properties": ["opacity"], "mode": "exit"}
+      ]],
+      "interrupt": "finish",
+      "reduced": "instant",
+      "focus": "restore-trigger"
+    },
+    {
+      "id": "replace-with-settings",
+      "rememberTrigger": "replace",
+      "label": "Switch to Settings",
+      "from": {"source": "design/surfaces/layers.tsx", "frame": "workspace-fit"},
+      "to": {"source": "design/surfaces/layers.tsx", "frame": "workspace-cap"},
+      "trigger": {"on": "click", "target": {"anchor": "nav-settings"}},
+      "duration": "--motion-base",
+      "easing": "--ease-enter",
+      "phases": [[
+        {"targets": [{"part": "design/components/panel.tsx#Panel", "key": "center"}], "properties": ["height", "y"], "mode": "match"},
+        {"targets": [{"anchor": "center-header"}, {"anchor": "center-body"}], "properties": ["opacity"], "mode": "enter", "fromOpacity": 0.25, "duration": "--motion-fast"}
+      ]],
+      "interrupt": "finish",
+      "reduced": "instant",
+      "focus": {"target": {"anchor": "center"}}
+    },
+    {
+      "id": "preview-two-sided-replacement",
+      "rememberTrigger": "replace",
+      "proposed": "two-sided-replacement",
+      "label": "Preview two-sided replacement",
+      "from": {"source": "design/surfaces/layers.tsx", "frame": "workspace-cap"},
+      "to": {"source": "design/surfaces/layers.tsx", "frame": "workspace-fit"},
+      "trigger": {"on": "click", "target": {"anchor": "nav-relay-hosting"}},
+      "duration": "--motion-base",
+      "easing": "--ease-enter",
+      "phases": [[
+        {"targets": [{"part": "design/components/panel.tsx#Panel", "key": "center"}], "properties": ["height", "y"], "mode": "match"},
+        {"targets": [{"anchor": "center-header"}, {"anchor": "center-body"}], "properties": ["opacity"], "mode": "crossfade", "duration": "--motion-fast"}
+      ]],
+      "interrupt": "finish",
+      "reduced": "instant",
+      "focus": {"target": {"anchor": "center"}}
+    },
+    {
+      "id": "preview-cross-slot-switch",
+      "rememberTrigger": "replace",
+      "proposed": "desktop-cross-slot",
+      "label": "Preview cross-slot switch",
+      "from": {"source": "design/surfaces/layers.tsx", "frame": "proposed-hosting-side"},
+      "to": {"source": "design/surfaces/layers.tsx", "frame": "workspace-cap"},
+      "trigger": {"on": "click", "target": {"anchor": "nav-settings"}},
+      "duration": "--motion-panel",
+      "easing": "--ease-enter",
+      "phases": [[
+        {"targets": [{"anchor": "side"}], "properties": ["opacity"], "mode": "exit", "duration": "--motion-fast"},
+        {"targets": [{"anchor": "center"}], "properties": ["opacity"], "mode": "enter"}
+      ]],
+      "interrupt": "finish",
+      "reduced": "instant",
+      "focus": {"target": {"anchor": "center"}}
+    }
+  ]
+}

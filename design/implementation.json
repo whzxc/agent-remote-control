@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "mappings": [
     {
       "implementation": {
@@ -538,6 +538,42 @@
         {
           "source": "design/components/panel.tsx",
           "part": "PanelHeader"
+        },
+        {
+          "source": "design/surfaces/layers.tsx",
+          "transition": "open-hosting"
+        },
+        {
+          "source": "design/surfaces/layers.tsx",
+          "transition": "open-deployment"
+        },
+        {
+          "source": "design/surfaces/layers.tsx",
+          "transition": "close-deployment"
+        },
+        {
+          "source": "design/surfaces/layers.tsx",
+          "transition": "escape-deployment"
+        },
+        {
+          "source": "design/surfaces/layers.tsx",
+          "transition": "close-hosting"
+        },
+        {
+          "source": "design/surfaces/layers.tsx",
+          "transition": "escape-hosting"
+        },
+        {
+          "source": "design/surfaces/layers.tsx",
+          "transition": "close-settings"
+        },
+        {
+          "source": "design/surfaces/layers.tsx",
+          "transition": "escape-settings"
+        },
+        {
+          "source": "design/surfaces/layers.tsx",
+          "transition": "replace-with-settings"
         }
       ]
     },

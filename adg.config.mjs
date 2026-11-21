@@ -3,6 +3,8 @@ import path from 'node:path';
 
 // Compare preparations use the same fixture data and public controls as accept:ui.
 const prepared = {
+  'hosting-home': { scenario: 'relay-hosting-light', closeHosting: true },
+  'hosting-deploy': { scenario: 'relay-hosting-light', openDeployment: true },
   'grouped-task-children': { scenario: 'homepage-task-family', children: true },
   'daily-task-groups-expanded': { scenario: 'homepage-task-daily-overflow', expandYesterday: true },
   'task-detail-empty-body': { scenario: 'homepage-task-family', emptyTask: true },
@@ -26,9 +28,9 @@ const prepared = {
 };
 
 export default {
-  requires: '>=0.14.1',
+  requires: '>=0.16.0',
   design: 'design',
-  check: { strictLayers: true, lifecycle: true },
+  check: { strictLayers: true, lifecycle: true, strictMotion: true },
   output: 'output/design',
   compare: {
     port: 5188,
@@ -58,6 +60,14 @@ export default {
       await page.waitForFunction(name => document.documentElement.dataset.scenarioError || document.documentElement.dataset.scenarioReady === name, scenario, { timeout: 15000 });
       const error = await page.evaluate(() => document.documentElement.dataset.scenarioError);
       if (error) throw new Error(`ARC fixture ${name}: ${error}`);
+      if (preparation?.closeHosting) {
+        await page.getByRole('region', { name: 'Relay hosting', exact: true }).press('Escape');
+        await page.locator('.layer-panel').waitFor({ state: 'hidden' });
+      }
+      if (preparation?.openDeployment) {
+        await page.getByRole('button', { name: 'Deploy new relay', exact: true }).click();
+        await page.getByRole('dialog', { name: 'Deploy new relay' }).waitFor();
+      }
       if (preparation?.expandYesterday) await page.getByRole('region', { name: '昨天', exact: true }).getByRole('button', { name: '展开 4 个任务', exact: true }).click();
       if (preparation?.children) await page.getByRole('button', { name: /4 个子任务/ }).click();
       if (preparation?.emptyTask) await page.getByRole('article', { name: '检查新会话的初始状态' }).getByRole('button', { name: /打开任务详情:/ }).click();

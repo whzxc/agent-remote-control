@@ -49,11 +49,11 @@ export function TopologyScene({ scene }: { scene: TopologySceneData }) {
         : <AgentIcon brand={brand} size={44} readings={readings} />;
       return <div class="absolute size-11" style={{ left: node.x, top: node.y }}>
         {node.group ? <div style={{ transform: `scale(${node.scale})`, 'transform-origin': '22px 22px' }}>
-          <TopologyGroup label={node.label} members={Array.from({ length: node.group.count }, () => ({ brand: 'codex' as const }))}
+          <TopologyGroup key={node.id} label={node.label} members={Array.from({ length: node.group.count }, () => ({ brand: 'codex' as const }))}
             layout={node.group.layout as 'vertical'} />
         </div> : <>
           <div class="absolute" style={{ left: -2, top: -2, transform: `scale(${node.scale})`, 'transform-origin': '24px 24px' }}>
-            <TopologyNode bare hideLabel taskState={state} label={node.label} graphic={graphic}
+            <TopologyNode key={node.id} bare hideLabel taskState={state} label={node.label} graphic={graphic}
               capsuleMark={node.device ? deviceMark : <BrandMark brand={brand} size={28} />}
               capsuleNeutralRing={node.device} readings={readings} capsuleWing={node.wing as 'left' | 'right'} capsuleCompact={scene.width < scene.height} />
           </div>
@@ -66,12 +66,12 @@ export function TopologyScene({ scene }: { scene: TopologySceneData }) {
   </div>;
 }
 
-export function HomepageScene({ scene, chrome = true }: { scene: TopologySceneData; chrome?: boolean }) {
+export function HomepageScene({ scene, chrome = true, hosting = false, active = "" }: { scene: TopologySceneData; chrome?: boolean; hosting?: boolean; active?: string }) {
   return <div data-free class="relative bg-canvas text-text" style={{ width: scene.width, height: scene.height }}>
     <TopologyScene scene={scene} />
     {chrome && <>
       <div class="absolute top-6 inset-x-6"><HomepageBar mode="topology" compact={scene.width < 1000} time={scene.time} date={scene.date} title={scene.language === "zh-CN" ? "公示牌" : "Board"} language={scene.language} /></div>
     </>}
-    <div class="absolute bottom-6 left-6"><NavCapsule active="" /></div>
+    <div class="absolute bottom-6 left-6"><NavCapsule hosting={hosting} active={active} /></div>
   </div>;
 }

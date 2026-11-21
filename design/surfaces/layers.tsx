@@ -1,7 +1,8 @@
 import { Frame } from 'adg';
 import { HomepageScene, NodePanelHeading } from '../modules/homepage-scene';
 import { WorkspaceContent, NodePanelContent } from '../modules/layer-content';
-import { Panel } from '../components/panel';
+import { Button } from '../components/button';
+import { Dialog, Panel } from '../components/panel';
 import { IconButton } from '../components/icon-button';
 import { topologyScenes } from '../fixtures/topology';
 import { SetupFlow } from '../components/setup-flow';
@@ -9,13 +10,49 @@ import { ConnectionOnboarding } from '../modules/connection-onboarding';
 import { SourceOnboarding } from '../modules/source-onboarding';
 import { onboardingFrames } from '../fixtures/onboarding';
 
+const capture = { page: true as const, origin: '0 0', viewport: '1280x800' };
+
+function workspaceFrame(name: string, fixture?: string) {
+  const settings = name === 'workspace-cap';
+  const home = name === 'hosting-home';
+  const deploy = name === 'deploy-dialog';
+  const side = name === 'proposed-hosting-side';
+  const slot = side ? 'side' : 'center';
+  const scene = topologyScenes[settings ? 'workspace-cap' : 'workspace-fit'];
+  return <Frame name={name} width={1280} height={800} fixture={fixture} capture={fixture ? capture : undefined}
+    proposed={side ? 'desktop-cross-slot' : undefined}
+    note={side ? 'Desktop proposal. Switch to Settings to preview the side and center slots fading together. Narrow and portrait layouts keep the center slot.' : undefined}>
+    <div class="relative w-[1280px] h-[800px]">
+      <div inert={deploy || undefined}>
+        <HomepageScene key="homepage" scene={scene} chrome={home} hosting active={home || deploy ? '' : settings ? 'settings' : 'relay-hosting'} />
+        {!home && <div class={`pointer-events-none absolute flex items-center justify-center pt-5 pb-[76px] ${side ? 'inset-y-0 right-0 w-[592px]' : 'inset-0'}`}>
+          <Panel key={slot} motionId={slot} closeLabel="Back to home" size={side ? 'm' : 'xl'} retainedHeight={settings ? 704 : 200}
+            headerHeight={settings ? 50 : undefined} title={settings ? 'Settings' : 'Relay hosting'}
+            actions={<IconButton key="expand" icon="maximize-2" label="Expand panel width"/>}>
+            <WorkspaceContent settings={settings} />
+          </Panel>
+        </div>}
+      </div>
+      {deploy && <div class="absolute inset-0 bg-layer-scrim flex items-center justify-center pt-5 pb-4">
+        <Dialog key="deploy" motionId="deployment" title="Deploy new relay"
+          footer={<div class="flex justify-end"><Button variant="primary">Deploy new relay</Button></div>}>
+          <p class="text-body text-text-secondary">No account? Sign up for free on the login page.</p>
+        </Dialog>
+      </div>}
+    </div>
+  </Frame>;
+}
+
 const slots = [
-  {name:'workspace-fit',scene:'workspace-fit',fixture:'relay-hosting-light',height:200},
-  {name:'workspace-cap',scene:'workspace-cap',fixture:'settings-about-light',height:704},
   {name:'node-panel',scene:'node-panel',fixture:'agent-panel-short',height:474},
   {name:'portrait-workspace',scene:'portrait-workspace',fixture:'relay-hosting-light',height:200},
 ] as const;
 export default () => [
+  workspaceFrame('hosting-home', 'hosting-home'),
+  workspaceFrame('workspace-fit', 'relay-hosting-light'),
+  workspaceFrame('deploy-dialog', 'hosting-deploy'),
+  workspaceFrame('workspace-cap', 'settings-about-light'),
+  workspaceFrame('proposed-hosting-side'),
   ...slots.map(slot => {
     const scene=topologyScenes[slot.scene], node=slot.name==='node-panel';
     return <Frame name={slot.name} width={scene.width} height={scene.height} fixture={slot.fixture}
@@ -23,10 +60,10 @@ export default () => [
       <div class="relative" style={{width:scene.width,height:scene.height}}>
         <HomepageScene scene={scene} chrome={node}/>
         <div data-free class="absolute inset-0 flex items-center justify-center pt-5 pb-[76px]">
-          <Panel size={node?'m':'xl'} viewportWidth={scene.width} retainedHeight={slot.height} height={node ? slot.height : undefined} headerHeight={slot.name==='workspace-cap'?50:node?46:undefined}
-            title={node?<NodePanelHeading/>:slot.name==='workspace-cap'?'Settings':'Relay hosting'}
+          <Panel size={node?'m':'xl'} viewportWidth={scene.width} retainedHeight={slot.height} height={node ? slot.height : undefined} headerHeight={node?46:undefined}
+            title={node?<NodePanelHeading/>:'Relay hosting'}
             headerless={node} actions={node?undefined:<IconButton icon="maximize-2" label="Expand"/>}>
-            {node?<><NodePanelHeading/><div class="min-h-0 overflow-y-auto"><NodePanelContent/></div></>:<WorkspaceContent settings={slot.name==='workspace-cap'}/>}
+            {node?<><NodePanelHeading/><div class="min-h-0 overflow-y-auto"><NodePanelContent/></div></>:<WorkspaceContent/>}
           </Panel>
         </div>
       </div>
