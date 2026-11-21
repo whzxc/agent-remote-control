@@ -58,11 +58,82 @@ async function interruptLayerMotion(page) {
     await page.waitForFunction(() => [...document.querySelectorAll('.layer-panel :is(.dialog-header,.dialog-body)')]
         .every(node => getComputedStyle(node).opacity === '1'), null, { timeout: 1200 });
 }
+// Recurring bug class: lifecycle of retained content during replacement and interruption.
+async function verifyPanelCrossfade(page) {
+    await setMotion(page, false);
+    const panel = page.locator('.layer-panel');
+    const origin = await panel.boundingBox();
+    await page.evaluate(() => {
+        // Stretch both production clocks to make the interior of the fade observable.
+        document.documentElement.style.setProperty('--motion-fast', '2s');
+        document.documentElement.style.setProperty('--motion-base', '2s');
+    });
+    const sample = async () => {
+        const handle = await page.waitForFunction(() => {
+            const shell = document.querySelector('.layer-panel');
+            const old = shell.querySelector('.panel-outgoing');
+            const header = shell.querySelector('.dialog-header');
+            const body = shell.querySelector('.dialog-body');
+            if (!old || !header || !body) return false;
+            const alpha = element => Number(getComputedStyle(element).opacity);
+            const [outgoing, incoming, bodyOpacity] = [old, header, body].map(alpha);
+            if ([outgoing, incoming, bodyOpacity].some(value => value <= 0 || value >= 1)) return false;
+            const { width, height, y } = shell.getBoundingClientRect();
+            return { outgoing, incoming, bodyOpacity, center: y + height / 2, width, height,
+                paints: shell.querySelectorAll('.panel-outgoing').length, inert: old.inert };
+        });
+        const reading = await handle.jsonValue();
+        await handle.dispose();
+        if (reading.paints !== 1 || !reading.inert || Math.abs(reading.outgoing + reading.incoming - 1) > 0.04
+            || Math.abs(reading.incoming - reading.bodyOpacity) > 0.04 || Math.abs(reading.width - origin.width) > 1
+            || Math.abs(reading.center - origin.y - origin.height / 2) > 1)
+            throw new Error('Panel replacement lost its shared opacity clock or centered shell: ' + JSON.stringify(reading));
+        return reading;
+    };
+    try {
+        const settings = page.locator('[data-page="settings"]'), hosting = page.locator('[data-page="relay-hosting"]');
+        await settings.click();
+        await panel.getByRole('heading', { name: 'Settings', exact: true }).waitFor();
+        const first = await sample();
+        await hosting.click();
+        await panel.getByRole('heading', { name: 'Relay hosting', exact: true }).waitFor();
+        const interrupted = await sample();
+        await setMotion(page, true);
+        await page.waitForFunction(() => !document.querySelector('.panel-outgoing'));
+        await page.evaluate(() => {
+            window.panelFocusCommits = [];
+            document.addEventListener('focusin', event => {
+                const shell = event.target.closest('.layer-panel');
+                if (shell) window.panelFocusCommits.push(shell.getAttribute('aria-labelledby'));
+            });
+        });
+        await settings.click();
+        await panel.getByRole('heading', { name: 'Settings', exact: true }).waitFor();
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        const instant = await panel.evaluate(shell => ({
+            focused: shell === document.activeElement, commits: window.panelFocusCommits.length,
+            outgoing: !!shell.querySelector('.panel-outgoing'),
+            opacity: getComputedStyle(shell.querySelector('.dialog-body')).opacity,
+            height: shell.getBoundingClientRect().height, targetHeight: Number(shell.dataset.layerFrameHeight)
+        }));
+        if (!instant.focused || instant.commits !== 1 || instant.outgoing || instant.opacity !== '1'
+            || Math.abs(instant.height - instant.targetHeight) > 1 || !(first.height > origin.height && first.height < instant.height))
+            throw new Error('Reduced replacement or centered resize failed: ' + JSON.stringify({first, instant}));
+        return { first, interrupted, instant };
+    } finally {
+        await page.evaluate(() => {
+            document.documentElement.style.removeProperty('--motion-fast');
+            document.documentElement.style.removeProperty('--motion-base');
+        });
+    }
+}
 export const checks = [
     { stage: "afterCapture", order: 47, visual: false, async run(context) {
             const { page, fixture, height, row } = context;
             let { model } = context;
             try {
+                if (context.name === 'relay-hosting-light' && context.width === 1280 && context.behavior)
+                    row.panelCrossfade = await verifyPanelCrossfade(page);
                 if (fixture.layerEntryCheck) {
                     const samples = await page.evaluate(() => window.__layerEntrySamples);
                     const entry = samples.filter(row => row.entering);

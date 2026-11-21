@@ -72,3 +72,5 @@
 .dialog-swap { opacity: 1; }
 
 .layer-content[data-natural-body] { height: 100%; min-height: 0; }
+
+.panel-outgoing { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }

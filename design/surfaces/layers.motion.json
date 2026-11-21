@@ -10,6 +10,7 @@
       "duration": "--motion-panel",
       "easing": "--ease-enter",
       "phases": [[
+        {"targets": [{"part": "design/modules/homepage-scene/navigation.tsx#HomepageBar"}], "properties": ["opacity"], "mode": "exit", "duration": "--motion-instant"},
         {"targets": [{"anchor": "center"}], "properties": ["opacity"], "mode": "enter"}
       ]],
       "interrupt": "finish",
@@ -25,6 +26,7 @@
       "duration": "--motion-base",
       "easing": "--ease-enter",
       "phases": [[
+        {"targets": [{"anchor": "deployment-scrim"}], "properties": ["opacity"], "mode": "enter", "duration": "--motion-instant"},
         {"targets": [{"anchor": "deployment"}], "properties": ["opacity"], "mode": "enter"}
       ]],
       "interrupt": "finish",
@@ -41,6 +43,8 @@
       "easing": "--ease-exit",
       "phases": [[
         {"targets": [{"anchor": "deployment"}], "properties": ["opacity"], "mode": "exit"}
+      ], [
+        {"targets": [{"anchor": "deployment-scrim"}], "properties": ["opacity"], "mode": "exit", "duration": "--motion-instant"}
       ]],
       "interrupt": "finish",
       "reduced": "instant",
@@ -56,6 +60,8 @@
       "easing": "--ease-exit",
       "phases": [[
         {"targets": [{"anchor": "deployment"}], "properties": ["opacity"], "mode": "exit"}
+      ], [
+        {"targets": [{"anchor": "deployment-scrim"}], "properties": ["opacity"], "mode": "exit", "duration": "--motion-instant"}
       ]],
       "interrupt": "finish",
       "reduced": "instant",
@@ -71,6 +77,8 @@
       "easing": "--ease-enter",
       "phases": [[
         {"targets": [{"anchor": "center"}], "properties": ["opacity"], "mode": "exit"}
+      ], [
+        {"targets": [{"part": "design/modules/homepage-scene/navigation.tsx#HomepageBar"}], "properties": ["opacity"], "mode": "enter", "duration": "--motion-instant"}
       ]],
       "interrupt": "finish",
       "reduced": "instant",
@@ -86,6 +94,8 @@
       "easing": "--ease-enter",
       "phases": [[
         {"targets": [{"anchor": "center"}], "properties": ["opacity"], "mode": "exit"}
+      ], [
+        {"targets": [{"part": "design/modules/homepage-scene/navigation.tsx#HomepageBar"}], "properties": ["opacity"], "mode": "enter", "duration": "--motion-instant"}
       ]],
       "interrupt": "finish",
       "reduced": "instant",
@@ -101,6 +111,8 @@
       "easing": "--ease-enter",
       "phases": [[
         {"targets": [{"anchor": "center"}], "properties": ["opacity"], "mode": "exit"}
+      ], [
+        {"targets": [{"part": "design/modules/homepage-scene/navigation.tsx#HomepageBar"}], "properties": ["opacity"], "mode": "enter", "duration": "--motion-instant"}
       ]],
       "interrupt": "finish",
       "reduced": "instant",
@@ -116,36 +128,20 @@
       "easing": "--ease-enter",
       "phases": [[
         {"targets": [{"anchor": "center"}], "properties": ["opacity"], "mode": "exit"}
+      ], [
+        {"targets": [{"part": "design/modules/homepage-scene/navigation.tsx#HomepageBar"}], "properties": ["opacity"], "mode": "enter", "duration": "--motion-instant"}
       ]],
       "interrupt": "finish",
       "reduced": "instant",
       "focus": "restore-trigger"
     },
     {
-      "id": "replace-with-settings",
+      "id": "crossfade-to-settings",
       "rememberTrigger": "replace",
       "label": "Switch to Settings",
       "from": {"source": "design/surfaces/layers.tsx", "frame": "workspace-fit"},
       "to": {"source": "design/surfaces/layers.tsx", "frame": "workspace-cap"},
       "trigger": {"on": "click", "target": {"anchor": "nav-settings"}},
-      "duration": "--motion-base",
-      "easing": "--ease-enter",
-      "phases": [[
-        {"targets": [{"part": "design/components/panel.tsx#Panel", "key": "center"}], "properties": ["height", "y"], "mode": "match"},
-        {"targets": [{"anchor": "center-header"}, {"anchor": "center-body"}], "properties": ["opacity"], "mode": "enter", "fromOpacity": 0.25, "duration": "--motion-fast"}
-      ]],
-      "interrupt": "finish",
-      "reduced": "instant",
-      "focus": {"target": {"anchor": "center"}}
-    },
-    {
-      "id": "preview-two-sided-replacement",
-      "rememberTrigger": "replace",
-      "proposed": "two-sided-replacement",
-      "label": "Preview two-sided replacement",
-      "from": {"source": "design/surfaces/layers.tsx", "frame": "workspace-cap"},
-      "to": {"source": "design/surfaces/layers.tsx", "frame": "workspace-fit"},
-      "trigger": {"on": "click", "target": {"anchor": "nav-relay-hosting"}},
       "duration": "--motion-base",
       "easing": "--ease-enter",
       "phases": [[
@@ -157,18 +153,17 @@
       "focus": {"target": {"anchor": "center"}}
     },
     {
-      "id": "preview-cross-slot-switch",
+      "id": "preview-two-sided-replacement",
       "rememberTrigger": "replace",
-      "proposed": "desktop-cross-slot",
-      "label": "Preview cross-slot switch",
-      "from": {"source": "design/surfaces/layers.tsx", "frame": "proposed-hosting-side"},
-      "to": {"source": "design/surfaces/layers.tsx", "frame": "workspace-cap"},
-      "trigger": {"on": "click", "target": {"anchor": "nav-settings"}},
-      "duration": "--motion-panel",
+      "label": "Switch to Relay hosting",
+      "from": {"source": "design/surfaces/layers.tsx", "frame": "workspace-cap"},
+      "to": {"source": "design/surfaces/layers.tsx", "frame": "workspace-fit"},
+      "trigger": {"on": "click", "target": {"anchor": "nav-relay-hosting"}},
+      "duration": "--motion-base",
       "easing": "--ease-enter",
       "phases": [[
-        {"targets": [{"anchor": "side"}], "properties": ["opacity"], "mode": "exit", "duration": "--motion-fast"},
-        {"targets": [{"anchor": "center"}], "properties": ["opacity"], "mode": "enter"}
+        {"targets": [{"part": "design/components/panel.tsx#Panel", "key": "center"}], "properties": ["height", "y"], "mode": "match"},
+        {"targets": [{"anchor": "center-header"}, {"anchor": "center-body"}], "properties": ["opacity"], "mode": "crossfade", "duration": "--motion-fast"}
       ]],
       "interrupt": "finish",
       "reduced": "instant",

@@ -131,7 +131,7 @@ Reuse Button, Input, Slider, Field, SingleChoice, Switch, Dialog, Tooltip, Popov
 - Field errors remain associated with inputs. Failed submission focuses the first error and preserves input.
 - Dialog has an accessible title, a fixed header and footer, and a scrolling body at the content-height cap. Its width is the shared M slot width. `layerFrame` owns stateless viewport geometry. Dialogs stay horizontally and vertically centered for their current height. The top line is 48px on desktop and 20px in the browser. Narrow and portrait dialogs fill the viewport width minus both 16px side margins.
 - `TransientLayer` preserves each portaled transient's layer owner. The layer store owns scrim, dialog and transient stacking order. A transient sits above its owner and below a stacked child dialog. Select in either position, menus, popovers and tooltips share this rule. Input inside an owned transient belongs to its owning layer's input boundary.
-- `ui/state/layers.ts` owns the open-layer registry, immediate clean switching, deferred dirty or busy switching, dismissal and focus restoration. At most two dialogs are stacked. First-level layers have no scrim; only a dialog over another panel or dialog dims everything beneath it. Modal focus containment and consumed outside dismissal stay active without a scrim. A child retains its parent's mounted content beneath the scrim. Radix routes Escape to the topmost transient or shell. An outside press dismisses the owned transient before a control underneath can act. Its trigger and registered quota-history anchors keep their Radix interactions. Shells with a Back action may handle Escape by returning to the previous view. Outside dismissal still consults the owner’s dirty and busy state. Edited input means changes not yet submitted. Submitted forms normally become clean until edited again. Task questions retain nonempty answers while the request remains unresolved. Edited input replaces footer actions with a discard confirmation focused on Keep editing. Running work replaces footer actions with a pending-close message focused on Keep open. Cancellable work also offers Stop and close. A pending close completes when the work finishes unless Keep open withdrew it. Close and Cancel close clean or dirty layers directly. During running work they show the same pending-close footer as outside input. Closing restores trigger focus, falling back to the layer below. Outside dismissal consumes the pointer release and click.
+- `ui/state/layers.ts` owns the open-layer registry, immediate clean switching, deferred dirty or busy switching, dismissal and focus restoration. At most two dialogs are stacked. First-level layers have no scrim; only a dialog over another panel or dialog dims everything beneath it. Modal focus containment and consumed outside dismissal stay active without a scrim. A child retains its parent's mounted content beneath the scrim. Radix routes Escape to the topmost transient or shell. An outside press dismisses the owned transient before a control underneath can act. Its trigger and registered quota-history anchors keep their Radix interactions. Shells with a Back action may handle Escape by returning to the previous view. Outside dismissal still consults the owner’s dirty and busy state. Edited input means changes not yet submitted. Submitted forms normally become clean until edited again. Task questions retain nonempty answers while the request remains unresolved. Edited input replaces footer actions with a discard confirmation focused on Keep editing. Running work replaces footer actions with a pending-close message focused on Keep open. Cancellable work also offers Stop and close. A pending close completes when the work finishes unless Keep open withdrew it. Close and Cancel close clean or dirty layers directly. During running work they show the same pending-close footer as outside input. Closing restores trigger focus, falling back to the exposed layer or the homepage main landmark. Outside dismissal consumes the pointer release and click.
 - Icon buttons have accessible names. Disabled/loading/empty/expired/failure/success states reflect real responses.
 
 `PanelProvider` owns one physical panel host in the center slot.
@@ -329,7 +329,8 @@ Tray and deep-link navigation received while a dialog is open becomes actionable
 - Shared tooltips, menus, selects and standard popovers enter over fast. Quota history moves a virtual anchor between readings and enters over base. The update popover also enters over base. Pet, Studio and topology inspection popovers open immediately. Global feedback mounts and unmounts immediately.
 - Timeline disclosures open over base/enter and close over base/exit. The topology accordion uses base/enter in both directions.
 - The empty-hub ripple plays once. Wire flow repeats on connecting branches. Studio lighting, mascot and pet motion, and the eight-second linear Aurora border have named artwork exceptions. A dangling sprite combines atlas playback and rocking.
-- Registry exits MUST complete within the corresponding entry duration.
+- A retained center panel crossfades its header and body over `--motion-fast` while height and y move together over `--motion-base`, all with `--ease-enter`.
+- Registry exits MUST complete within the corresponding entry duration. A stacked dialog mounts its static scrim at entry and removes it after exit. The homepage bar unmounts on panel open and mounts after close.
 - An explicit app motion setting takes precedence over the system preference. Enabling reduction settles active layer fades and geometry. Restoring normal motion applies to subsequent transitions. Discrete pet reactions can still change pose.
 
 ### Dismissal, focus and feedback
@@ -349,7 +350,7 @@ Tray and deep-link navigation received while a dialog is open becomes actionable
 - Close and Cancel controls on a layer with running work MUST show the same running-work state as outside input, focus Keep open, offer Stop and close when cancellable, and close when the work finishes unless Keep open withdraws the close request.
 - The navigation capsule and topology nodes MUST act as panel switchers: another entry replaces a clean panel, edited or running work shows its dismissal footer, and the active entry toggles it closed.
 - Dismissal MUST NOT activate the element under the pointer.
-- Closing a layer MUST restore focus to its trigger, falling back to the layer below it.
+- Closing a layer MUST restore focus to its trigger, falling back to the exposed layer or the homepage main landmark.
 - Field errors MUST stay with their fields.
 - Actions using layer feedback show their result in the retained shell. The message can remain across panel replacement.
 - Global feedback reports background events, results after a shell closes, and errors refreshing Permissions from the workspace header.
@@ -367,10 +368,9 @@ The layer registry in `ui/state/layers.ts` owns stacking, exclusivity, dismissal
 
 The provider retains one centered shell when a panel replaces another panel at any viewport size.
 The incoming surface selects its own width and expansion state.
-After entry, a change of panel owner, view key or nested-view title starts a `--motion-fast` fade from 25% to full opacity on the header and body present at that commit. Replacement content attached later can appear directly.
-Only incoming content participates. The footer stays outside this fade.
+Panel owner and view changes use the shared crossfade after entry. Only incoming content receives input and focus. The footer switches directly. Another switch discards the prior outgoing paint and starts the latest replacement immediately.
 A change during entry shares the shell fade. Advancing a setup step alone does not trigger a content fade.
-Height and top move together around the available-area center.
+Height and top move together over `--motion-base` with `--ease-enter` around the available-area center. Width takes the destination size directly.
 Dirty and busy layers resolve their footer before switching.
 Keep editing or Keep open withdraws the switch.
 The active trigger toggles its panel closed.

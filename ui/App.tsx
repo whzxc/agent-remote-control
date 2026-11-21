@@ -208,7 +208,7 @@ export default function App() {
       {isDesktop && (
         <div className="window-drag-strip" data-tauri-drag-region />
       )}
-      <main
+      <main tabIndex={-1}
         className="home-workspace"
         inert={page !== "overview" || modalOpen}
       >

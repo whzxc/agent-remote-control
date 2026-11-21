@@ -573,7 +573,27 @@
         },
         {
           "source": "design/surfaces/layers.tsx",
-          "transition": "replace-with-settings"
+          "transition": "crossfade-to-settings"
+        },
+        {
+          "source": "design/surfaces/layers.tsx",
+          "transition": "preview-two-sided-replacement"
+        }
+      ]
+    },
+    {
+      "implementation": {
+        "file": "ui/components/ui/PanelCrossfade.tsx",
+        "symbol": "PanelPaint"
+      },
+      "design": [
+        {
+          "source": "design/surfaces/layers.tsx",
+          "transition": "crossfade-to-settings"
+        },
+        {
+          "source": "design/surfaces/layers.tsx",
+          "transition": "preview-two-sided-replacement"
         }
       ]
     },

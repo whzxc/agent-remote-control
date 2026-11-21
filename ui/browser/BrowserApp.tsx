@@ -19,7 +19,7 @@ export default function BrowserApp() {
     return () => stops.forEach(stop => stop());
   }, []);
   return <div className="app-scene">
-    <main className="home-workspace"><ConnectionOverview /></main>
+    <main tabIndex={-1} className="home-workspace"><ConnectionOverview /></main>
     {flow && <Onboarding />}
   </div>;
 }

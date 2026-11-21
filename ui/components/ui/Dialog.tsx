@@ -1,3 +1,4 @@
+import { PanelCrossfade, PanelPaint } from "./PanelCrossfade";
 import { animate } from "motion/react";
 import { motionTransition } from "../../motion/tokens";
 import { useLayerFrame } from "./useLayerFrame";
@@ -45,6 +46,8 @@ export type DialogProps = {
   initialFocus?: string;
   returnFocus?: string;
 };
+
+type PanelShellContent = DialogProps & { viewKey?: string; headerNavigation?: ReactNode };
 
 export type LayerContentHost = { layerId: string; target: HTMLDivElement; render: (props: DialogProps) => ReactNode; ready: () => void };
 
@@ -105,14 +108,19 @@ export function LayerShell({ onContentHost, kind, size = kind === 'panel' ? 'xl'
   const ready = useCallback(() => setReadyContent(old => ({ key: `${contentKey}:${viewKey}`, revision: (old?.revision ?? 0) + 1 })), [contentKey, viewKey]);
   const { frame, retainedHeight } = useLayerFrame((!onContentHost || readyContent?.key === `${contentKey}:${viewKey}`) && (!headerless || !headerCount || headerMounted) ? contentNode : null, { kind, size, expanded, viewKey: `${contentKey}:${viewKey}`, retainedViewHeight: view ? viewHeight.current : undefined, naturalBody, chromeVersion: `${readyContent?.revision}:${headerCount}:${actionCount}` });
   const contentRef = useCallback((element: HTMLDivElement | null) => setContentNode(element), []);
+  const [panelPaint] = useState(() => new PanelPaint());
+  useLayoutEffect(() => {
+    if (reduced) panelPaint.settle();
+    return () => panelPaint.settle();
+  }, [panelPaint, reduced]);
   const previousContent = useRef(`${contentKey}:${viewKey}:${view?.title}`);
   useLayoutEffect(() => {
     const next = `${contentKey}:${viewKey}:${view?.title}`;
-    if (previousContent.current !== next && contentNode && !reduced && !entering) {
+    if (kind === 'dialog' && previousContent.current !== next && contentNode && !reduced && !entering) {
       for (const part of contentNode.querySelectorAll<HTMLElement>(':scope > .dialog-header, :scope > .layer-custom-header, :scope > .dialog-body')) void trackFade(part, animate(part, { opacity: [.25, 1] }, motionTransition('fast')));
     }
     previousContent.current = next;
-  }, [contentKey, viewKey, view, reduced, entering, contentNode, trackFade]);
+  }, [contentKey, viewKey, view, reduced, entering, contentNode, trackFade, kind]);
   const entryFrame = useRef(frame);
   if (entering || !entryFrame.current) entryFrame.current = frame;
   useLayoutEffect(() => {
@@ -169,16 +177,20 @@ export function LayerShell({ onContentHost, kind, size = kind === 'panel' ? 'xl'
     layers.ready(id, node);
     return layers.observeOutsidePointer(id);
   }, [node, id]);
+  const focusReady = !!frame && (!onContentHost || readyContent?.key === `${contentKey}:${viewKey}`);
   useLayoutEffect(() => {
-    if (!node) return;
-    const focusFrame = requestAnimationFrame(() => {
+    if (!node || !focusReady) return;
+    const focusIncoming = () => {
       if (layers.top()?.id !== id) return;
       const active = document.activeElement;
-      if (!initialFocus && active instanceof HTMLElement && active !== node && node.contains(active) && !active.closest('[hidden], [inert]')) return;
-      (initialFocus ? node.querySelector<HTMLElement>(`#${CSS.escape(initialFocus)}`) ?? node : node).focus({ preventScroll: true });
-    });
+      if (!initialFocus && active instanceof HTMLElement && node.contains(active) && !active.closest('[hidden], [inert]')) return;
+      const target = initialFocus ? node.querySelector<HTMLElement>(`#${CSS.escape(initialFocus)}`) ?? node : node;
+      if (active !== target) target.focus({ preventScroll: true });
+    };
+    if (reduceMotion.current) { focusIncoming(); return; }
+    const focusFrame = requestAnimationFrame(focusIncoming);
     return () => cancelAnimationFrame(focusFrame);
-  }, [node, id, initialFocus, contentKey, viewKey]);
+  }, [node, id, initialFocus, contentKey, viewKey, focusReady]);
   const reportFrame = useRef(onPanelFrame); reportFrame.current = onPanelFrame;
   useLayoutEffect(() => {
     if (node && frame) reportFrame.current?.(node.getBoundingClientRect());
@@ -188,9 +200,9 @@ export function LayerShell({ onContentHost, kind, size = kind === 'panel' ? 'xl'
   const [feedback, setFeedback] = useState<{ message: string; error: boolean }>();
   const status = self?.dismissal ?? 'none';
   const close = () => { void layers.close(id); };
-  const renderContent = (props: DialogProps) => {
-    const { title, children, footer, actions, leading, headerDetail, headerNavigation, description, stepBar, headerless } = props as DialogProps & { headerNavigation?: ReactNode };
-    return <LayerOwnerContext.Provider value={id}><NaturalContentContext.Provider value={setNaturalBody}>
+  const renderContent = (props: PanelShellContent) => {
+    const { title, children, footer, actions, leading, headerDetail, headerNavigation, description, stepBar, headerless } = props;
+    const content = <LayerOwnerContext.Provider value={id}><NaturalContentContext.Provider value={setNaturalBody}>
         {headerless ? <><h2 className="sr-only" id={`${id}-title`}>{title}</h2><div className="layer-custom-header" ref={setHeaderTarget} hidden={!headerCount} /></> : <header className="dialog-header">
           {view ? <IconButton icon={ChevronLeft} label={t('back')} onClick={back} /> : leading}<h2 id={`${id}-title`} className={kind === 'panel' ? 'panel-title' : undefined}>{view ? <><span className="dialog-breadcrumb">{title}</span><span aria-hidden="true"> / </span>{view.title}</> : title}</h2>{headerNavigation}<div className="actions">{actions}<IconButton icon={X} label={closeLabel ?? t('close')} onClick={close} /></div>
         </header>}
@@ -211,11 +223,13 @@ export function LayerShell({ onContentHost, kind, size = kind === 'panel' ? 'xl'
         </CloseContext.Provider></PanelStateContext.Provider></HeaderContext.Provider>
         <LayerDismissalFooter id={id} status={status} cancellable={!!onCancel} close={close} />
     </NaturalContentContext.Provider></LayerOwnerContext.Provider>;
+    return kind === 'panel' ? <PanelCrossfade content={contentNode} paint={panelPaint} enabled={!reduced && !entering}
+      identity={`${contentKey}:${props.viewKey ?? viewKey}:${view?.title}`}>{content}</PanelCrossfade> : content;
   };
   const renderRef = useRef(renderContent); renderRef.current = renderContent;
   const render = useCallback((props: DialogProps) => renderRef.current(props), []);
   const contentHost = useMemo(() => contentNode ? { layerId: id, target: contentNode, render, ready } : undefined,
-    [contentNode, render, ready, view, status, headerTarget, headerCount, footerTarget, actionCount, viewBody, viewFooter, feedback, busy]);
+    [contentNode, render, ready, view, status, headerTarget, headerCount, footerTarget, actionCount, viewBody, viewFooter, feedback, busy, entering, reduced]);
   useLayoutEffect(() => { onContentHost?.(contentHost); return () => onContentHost?.(); }, [onContentHost, contentHost]);
   return <D.Root modal={kind === 'dialog'} open={open && allowed && portalReady} onOpenChange={next => { if (!next) void layers.close(id); }}>
     <LayerOwnerContext.Provider value={id}>
@@ -234,7 +248,9 @@ export function LayerShell({ onContentHost, kind, size = kind === 'panel' ? 'xl'
           event.preventDefault();
           const host = event.target instanceof HTMLElement ? event.target : node;
           const target = initialFocus ? host?.querySelector<HTMLElement>(`#${CSS.escape(initialFocus)}`) : undefined;
-          (target ?? host)?.focus({ preventScroll: true });
+          const destination = target ?? host;
+          if (destination && host?.style.visibility !== 'hidden' && destination !== document.activeElement)
+            destination.focus({ preventScroll: true });
         }}
         onCloseAutoFocus={event => { event.preventDefault(); layers.restoreFocus({ trigger: focusSource.current, returnFocus }); }}
         onEscapeKeyDown={event => { if (layers.top()?.id !== id) return; if (status === 'none') onEscapeKeyDown?.(event); if (event.defaultPrevented) return; event.preventDefault(); if (view && status === 'none') back(); else layers.dismiss(id); }}

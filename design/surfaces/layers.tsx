@@ -12,32 +12,31 @@ import { onboardingFrames } from '../fixtures/onboarding';
 
 const capture = { page: true as const, origin: '0 0', viewport: '1280x800' };
 
-function workspaceFrame(name: string, fixture?: string) {
+function workspaceFrame(name: string, fixture: string) {
   const settings = name === 'workspace-cap';
   const home = name === 'hosting-home';
   const deploy = name === 'deploy-dialog';
-  const side = name === 'proposed-hosting-side';
-  const slot = side ? 'side' : 'center';
   const scene = topologyScenes[settings ? 'workspace-cap' : 'workspace-fit'];
-  return <Frame name={name} width={1280} height={800} fixture={fixture} capture={fixture ? capture : undefined}
-    proposed={side ? 'desktop-cross-slot' : undefined}
-    note={side ? 'Desktop proposal. Switch to Settings to preview the side and center slots fading together. Narrow and portrait layouts keep the center slot.' : undefined}>
+  return <Frame name={name} width={1280} height={800} fixture={fixture} capture={capture}>
     <div class="relative w-[1280px] h-[800px]">
       <div inert={deploy || undefined}>
         <HomepageScene key="homepage" scene={scene} chrome={home} hosting active={home || deploy ? '' : settings ? 'settings' : 'relay-hosting'} />
-        {!home && <div class={`pointer-events-none absolute flex items-center justify-center pt-5 pb-[76px] ${side ? 'inset-y-0 right-0 w-[592px]' : 'inset-0'}`}>
-          <Panel key={slot} motionId={slot} closeLabel="Back to home" size={side ? 'm' : 'xl'} retainedHeight={settings ? 704 : 200}
+        {!home && <div class="pointer-events-none absolute inset-0 flex items-center justify-center pt-5 pb-[76px]">
+          <Panel key="center" motionId="center" closeLabel="Back to home" size="xl" retainedHeight={settings ? 704 : 200}
             headerHeight={settings ? 50 : undefined} title={settings ? 'Settings' : 'Relay hosting'}
             actions={<IconButton key="expand" icon="maximize-2" label="Expand panel width"/>}>
             <WorkspaceContent settings={settings} />
           </Panel>
         </div>}
       </div>
-      {deploy && <div class="absolute inset-0 bg-layer-scrim flex items-center justify-center pt-5 pb-4">
-        <Dialog key="deploy" motionId="deployment" title="Deploy new relay"
-          footer={<div class="flex justify-end"><Button variant="primary">Deploy new relay</Button></div>}>
-          <p class="text-body text-text-secondary">No account? Sign up for free on the login page.</p>
-        </Dialog>
+      {deploy && <div class="absolute inset-0 flex items-center justify-center pt-5 pb-4">
+        <div data-adg-id="deployment-scrim" class="absolute inset-0 bg-layer-scrim" />
+        <div class="relative flex w-full justify-center">
+          <Dialog key="deploy" motionId="deployment" title="Deploy new relay"
+            footer={<div class="flex justify-end"><Button variant="primary">Deploy new relay</Button></div>}>
+            <p class="text-body text-text-secondary">No account? Sign up for free on the login page.</p>
+          </Dialog>
+        </div>
       </div>}
     </div>
   </Frame>;
@@ -52,7 +51,6 @@ export default () => [
   workspaceFrame('workspace-fit', 'relay-hosting-light'),
   workspaceFrame('deploy-dialog', 'hosting-deploy'),
   workspaceFrame('workspace-cap', 'settings-about-light'),
-  workspaceFrame('proposed-hosting-side'),
   ...slots.map(slot => {
     const scene=topologyScenes[slot.scene], node=slot.name==='node-panel';
     return <Frame name={slot.name} width={scene.width} height={scene.height} fixture={slot.fixture}

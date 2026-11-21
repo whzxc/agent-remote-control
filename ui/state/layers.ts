@@ -187,7 +187,7 @@ export function createLayerStore() {
         const owner = active?.closest('[role="dialog"]');
         if (owner && active !== owner && owner.isConnected) return;
         const fallbacks = layer.returnFocus ? Array.from(document.querySelectorAll<HTMLElement>(layer.returnFocus)) : [];
-        for (const target of [layer.trigger, activeLayer?.node, ...fallbacks]) {
+        for (const target of [layer.trigger, activeLayer?.node, ...fallbacks, ...document.querySelectorAll<HTMLElement>('main[tabindex="-1"]')]) {
           if (!target?.isConnected || target === document.body || target.closest('[inert], [hidden]') || target.matches(':disabled')) continue;
           const style = getComputedStyle(target);
           if (style.display === 'none' || style.visibility === 'hidden') continue;

@@ -68,6 +68,7 @@
   --layer-top: var(--layer-top-desktop);
 
   /* Motion */
+  --motion-instant: 0ms;
   --motion-fast: 120ms;
   --motion-base: 160ms;
   --motion-panel: 180ms;
