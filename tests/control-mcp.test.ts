@@ -1522,7 +1522,10 @@ test('multi-root projects preserve legacy selection and resolve project cwd alte
   const agentArgs={agent:'tracking-example',project:'one',prompt:'',approval:'approved',purpose:'self-test',requestId:randomUUID()};
   const agent=await completed('agent_create',agentArgs);assert.equal(agent.state,'completed');
   const task=(await call('agent_read',{agent:'tracking-example',taskId:agent.taskId})).result;
-  assert.equal(task.cwd,await realpath(cwd));assert.equal(typeof task.origin.accountId,'string');
+  assert.equal(task.cwd,await realpath(cwd));
+  const agentReceipt=(await call('receipt',{requestId:agentArgs.requestId,includeOrigin:true})).result;
+  assert.equal(agentReceipt.taskId,agent.taskId);
+  assert.ok(agentReceipt.origin.sourceId);
   assert.equal((await completed('agent_create',agentArgs)).taskId,agent.taskId);
   const absolute=await completed('command',{cmd:'fixture',cwd,project:'missing',requestId:randomUUID()});
   assert.equal(absolute.state,'completed');
