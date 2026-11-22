@@ -11,8 +11,7 @@
         "components/switch.tsx",
         "components/single-choice.tsx",
         "components/tag.tsx",
-        "components/tooltip.tsx",
-        "components/theme-swatch.tsx"
+        "components/tooltip.tsx"
       ]
     },
     {

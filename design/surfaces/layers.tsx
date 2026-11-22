@@ -1,6 +1,7 @@
 import { Frame } from 'adg';
 import { HomepageScene, NodePanelHeading } from '../modules/homepage-scene';
 import { WorkspaceContent, NodePanelContent } from '../modules/layer-content';
+import { GeneralSettingsContent } from '../modules/general-settings';
 import { Button } from '../components/button';
 import { Dialog, Panel } from '../components/panel';
 import { IconButton } from '../components/icon-button';
@@ -19,13 +20,13 @@ function workspaceFrame(name: string, fixture: string) {
   const scene = topologyScenes[settings ? 'workspace-cap' : 'workspace-fit'];
   return <Frame name={name} width={1280} height={800} fixture={fixture} capture={capture}>
     <div data-adg-id="workspace-stage" class="relative w-[1280px] h-[800px]">
-      <div inert={deploy || undefined}>
+      <div inert={deploy || undefined} aria-hidden={deploy ? 'true' : undefined}>
         <HomepageScene key="homepage" scene={scene} chrome={home} hosting active={home || deploy ? '' : settings ? 'settings' : 'relay-hosting'} />
         {!home && <div class="pointer-events-none absolute inset-0 flex items-center justify-center pt-5 pb-[76px]">
           <Panel key="center" motionId="center" closeLabel="Back to home" size="xl" retainedHeight={settings ? 704 : 200}
             headerHeight={settings ? 50 : undefined} title={settings ? 'Settings' : 'Relay hosting'}
             actions={<IconButton key="expand" icon="maximize-2" label="Expand panel width"/>}>
-            <WorkspaceContent settings={settings} />
+            {settings ? <GeneralSettingsContent /> : <WorkspaceContent />}
           </Panel>
         </div>}
       </div>

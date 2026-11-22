@@ -2,34 +2,16 @@ export function ActivityHeading({ children }: { children: unknown }) { return <d
 export function TaskDateHeading({ children }: { children: unknown }) { return <h3 class="py-2 text-meta leading-4 font-semibold text-text-secondary">{children}</h3>; }
 import { Frame } from 'adg';
 import { Button } from '../components/button';
-import { Setting, SettingsSection } from '../components/settings-row';
-import { SingleChoice } from '../components/single-choice';
-import { Switch } from '../components/switch';
-import { Input } from '../components/field';
 import { QuotaCards } from '../components/quota';
 import { TaskCard } from '../components/task-card';
-import { IconButton } from '../components/icon-button';
-import { layerSettings, layerTask } from '../fixtures/layer-content';
-import { ThemeSwatch } from '../components/theme-swatch';
+import { layerTask } from '../fixtures/layer-content';
 import { agentQuotas } from '../fixtures/quota';
 
-export function WorkspaceContent({ settings = false }: { settings?: boolean }) {
-  if (!settings) return <div class="flex flex-col gap-5 pt-[6px]">
+export function WorkspaceContent() {
+  return <div class="flex flex-col gap-5 pt-[6px]">
     <div class="flex flex-col gap-3"><h2 class="text-body font-[650] leading-4">Hosted relays</h2>
       <p class="text-body text-text-secondary leading-4">You have not deployed a relay yet.</p></div>
     <div><Button anchor="deploy-relay" class="w-[186px]">Deploy new relay</Button></div>
-  </div>;
-  return <div class="flex flex-col gap-7 pt-2">
-    {layerSettings.map(section => <SettingsSection title={section.title}>
-      {section.rows.map(row => <Setting title={row.label} description={'description' in row ? row.description : undefined} toggle={'toggle' in row} width={'input' in row ? 104 : 300}>
-        {row.label === 'Theme color' ? <div class="flex gap-3">{['default','blue','purple','orange','green'].map(value=><ThemeSwatch value={value}/>)}</div>
-          : row.label === 'Privacy mode' ? <div class="w-20"><SingleChoice value="hidden" label="Privacy mode" options={[{value:'visible',label:'Show',icon:'eye'},{value:'hidden',label:'Hide',icon:'eye-off'}]} iconOnly compact fill/></div>
-          : 'toggle' in row && row.toggle != null ? <Switch checked={row.toggle === 'true'} label={row.label!} />
-          : 'input' in row && row.input != null ? <Input value={row.input} class="w-[104px]" />
-          : <div class="w-[300px]"><SingleChoice label={row.label!} value={row.options.find(o => o.selected)?.value ?? ''}
-            options={row.options} fill /></div>}
-      </Setting>)}
-    </SettingsSection>)}
   </div>;
 }
 export function NodePanelContent() {

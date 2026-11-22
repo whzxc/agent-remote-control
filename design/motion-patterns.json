@@ -1,5 +1,12 @@
 {
   "version": 1,
+  "ignore": [
+    {"file": "assets/promo/promo.html", "match": "web:requestAnimationFrame", "reason": "Previews the standalone promotional video on its authored timeline outside the product UI."},
+    {"file": "tooling/acceptance/families/layers.mjs", "match": "web:requestAnimationFrame", "within": "sample", "reason": "Reads panel geometry and entry state on successive frames for acceptance."},
+    {"file": "tooling/acceptance/families/layers.mjs", "match": "web:requestAnimationFrame", "within": "run", "reason": "Starts the acceptance sampler for panel entry geometry."},
+    {"file": "tooling/acceptance/families/timeline.mjs", "match": "web:requestAnimationFrame", "within": "sample", "reason": "Waits for the visible timeline and reads its initial scroll position for acceptance."},
+    {"file": "tooling/acceptance/families/timeline.mjs", "match": "web:requestAnimationFrame", "within": "run", "reason": "Starts the acceptance sampler for the initial timeline scroll position."}
+  ],
   "roles": {
     "duration-base": "--motion-base",
     "duration-fast": "--motion-fast",
@@ -36,9 +43,20 @@
     "topology-geometry-spring": {
       "extends": "size-transition",
       "parameters": {"spring": "--motion-spring-topology"},
-      "frames": [{"source": "design/modules/homepage-scene/index.tsx", "frame": "idle"}],
+      "frames": [{"source": "design/modules/homepage-scene/index.tsx", "frame": "idle"}, {"source": "design/modules/homepage-scene/index.tsx", "frame": "capsule"}],
       "consumers": [
-        {"file": "ui/topology/animate.ts", "match": "call:spring", "within": "TopologyAnimator"}
+        {"file": "ui/topology/animate.ts", "match": "call:spring", "within": "TopologyAnimator"},
+        {"file": "ui/topology/Topology.tsx", "match": "web:requestAnimationFrame", "within": "tick"},
+        {"file": "ui/topology/Topology.tsx", "match": "web:requestAnimationFrame", "within": "wake"},
+        {"file": "ui/components/ui/NodeCapsule.tsx", "match": "web:requestAnimationFrame", "within": "step"},
+        {"file": "ui/components/ui/NodeCapsule.tsx", "match": "web:requestAnimationFrame", "within": "NodeCapsule"}
+      ]
+    },
+    "pet-position-follow": {
+      "extends": "follow",
+      "consumers": [
+        {"file": "ui/pets/PetActor.tsx", "match": "web:requestAnimationFrame", "within": "tick"},
+        {"file": "ui/pets/PetActor.tsx", "match": "web:requestAnimationFrame", "within": "wake"}
       ]
     },
     "agent-position-reflow": {

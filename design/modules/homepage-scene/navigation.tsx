@@ -45,7 +45,7 @@ export function HomepageBar({ mode, compact = false, date = copy.date, time = co
   return <div class="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 text-text">
     <div class="flex items-baseline gap-2 min-w-0 overflow-visible">
       <time class="text-title leading-6 font-[650] tabular-nums">{time}</time>
-      <button class="flex items-center gap-0 min-w-0 h-9 text-small font-semibold whitespace-nowrap shrink-0">
+      <button class="flex items-center gap-1.5 min-w-0 h-9 text-small font-semibold whitespace-nowrap shrink-0">
         {title}{!compact && <span class="text-meta text-text-secondary font-semibold">{` · ${date}`}</span>}
       </button>
     </div>

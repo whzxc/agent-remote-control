@@ -1340,7 +1340,7 @@
           "part": "GeneralSettingsContent"
         },
         {
-          "source": "design/components/theme-swatch.tsx",
+          "source": "design/modules/general-settings.tsx",
           "part": "ThemeSwatch"
         },
         {
@@ -1524,6 +1524,10 @@
         {
           "source": "design/modules/relay-hosting.tsx",
           "part": "RelayHostingContent"
+        },
+        {
+          "source": "design/modules/layer-content.tsx",
+          "part": "WorkspaceContent"
         }
       ]
     },
@@ -2350,17 +2354,6 @@
       "design": [
         {
           "source": "design/surfaces/layers.tsx"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/SettingsPage.tsx"
-      },
-      "design": [
-        {
-          "source": "design/modules/layer-content.tsx",
-          "part": "WorkspaceContent"
         }
       ]
     },
