@@ -2,6 +2,9 @@ import {threadIds} from './codex-thread-ids.mjs';
 import { createInterface } from 'node:readline';
 import { readFileSync, writeFileSync, renameSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import path from 'node:path';
 const store = process.env.ARC_FIXTURE_DATA + '/dispatch-threads';
 mkdirSync(store, {recursive:true});
 const rows = () => readdirSync(store).filter(file => file.endsWith('.json')).map(file => JSON.parse(readFileSync(store+'/'+file,'utf8')));
@@ -12,6 +15,30 @@ const save = row => {
   renameSync(temporary, file);
 };
 const counts = new Map();
+const seedWriters = new Map();
+async function holdSeedWriter(threadId) {
+  const directory = path.join(process.env.CODEX_HOME, 'thread-writer-locks');
+  mkdirSync(directory, {recursive: true});
+  const writer = spawn('python3', ['-c', [
+    'import fcntl, select, sys',
+    'with open(sys.argv[1], "w") as lock:',
+    '    fcntl.flock(lock, fcntl.LOCK_EX)',
+    '    print("ready", flush=True)',
+    '    select.select([sys.stdin], [], [], 10)',
+  ].join('\n'), path.join(directory, threadId + '.lock')], {stdio: ['pipe', 'pipe', 'inherit']});
+  const ready = createInterface({input: writer.stdout});
+  const [line] = await Promise.race([
+    once(ready, 'line'),
+    once(writer, 'close').then(() => []),
+  ]);
+  ready.close();
+  if (line !== 'ready') throw new Error('Fixture seed writer did not start');
+  seedWriters.set(threadId, writer);
+}
+function releaseSeedWriter(threadId) {
+  seedWriters.get(threadId)?.stdin.end();
+  seedWriters.delete(threadId);
+}
 let sizeRevision=0;
 const emit = value => process.stdout.write(JSON.stringify(value) + '\n');
 for await (const line of createInterface({ input: process.stdin })) {
@@ -23,7 +50,7 @@ for await (const line of createInterface({ input: process.stdin })) {
   }
   if (id === undefined) continue;
   const calls = (counts.get(method) || 0) + 1; counts.set(method, calls);
-  const reply = () => {
+  const reply = async () => {
     if (params?.fail) return emit({ id, error: { code: -32042, message: 'native fixture rejection', data: { retryable: false, detail: params.fail } } });
     if (method === 'initialize') return emit({ id, result: { userAgent: 'fixture' } });
     if (method === 'fixture/change-size-item') {sizeRevision++;return emit({id,result:{revision:sizeRevision}});}
@@ -43,6 +70,7 @@ for await (const line of createInterface({ input: process.stdin })) {
       const thread = {id:randomUUID(),cwd:params.cwd,path:params.model.includes('lazy-seed')?null:process.env.ARC_FIXTURE_DATA+'/seed-'+randomUUID()+'.jsonl'};
       if(thread.path)writeFileSync(thread.path, '{}');
       save({thread,model:params.model,turns:[],archived:false,creator:process.pid});
+      if (params.model === 'fixture-dispatch-held-seed') await holdSeedWriter(thread.id);
       return emit({id,result:{thread,model:params.model}});
     }
     if (row) {
@@ -57,6 +85,9 @@ for await (const line of createInterface({ input: process.stdin })) {
         row.unsubscribed=true;save(row);return emit({id,result:{}});
       }
       if (method === 'thread/read') {
+        if (row.model === 'fixture-dispatch-held-seed' && !row.turns.length) {
+          return emit({id,result:{thread:{...row.thread,status:{type:'notLoaded'}}}});
+        }
         if(row.model.includes('lazy-seed') && !row.named)return emit({id,error:{code:-32000,message:'seed not durable until named'}});
         if(row.model.includes('lazy-seed') && process.pid!==row.creator && !row.independentReader){row.independentReader=true;save(row);}
         if (params.includeTurns && row.model.includes('question')) return emit({id,result:{thread:{...row.thread,turns:row.turns,status:{type:row.turns.at(-1)?.status==='inProgress'?'active':'idle'}}}});
@@ -64,6 +95,7 @@ for await (const line of createInterface({ input: process.stdin })) {
         return emit({id,result:{thread:{...row.thread,status:{type:row.turns.at(-1)?.status==='inProgress'?'active':'idle'}}}});
       }
       if (method === 'turn/start') {
+        releaseSeedWriter(params.threadId);
         if (row.model === 'fixture-dispatch-reject' || row.model === 'fixture-dispatch-unmaterialized-reject') return emit({id,error:{code:-32602,message:'invalid turn configuration'}});
         const overload=row.model.includes('overload') && (row.model.includes('exhausted') || row.model.includes('side-effect') || row.turns.length<2);
         row.turns.push({id:randomUUID(),status:overload?'failed':(row.model.includes('queue')||(row.model.includes('question')&&row.turns.length===0))?'inProgress':'completed',error:overload?{codexErrorInfo:'serverOverloaded',message:'Selected model is at capacity'}:null,items:overload?(row.model.includes('side-effect')?[{type:'commandExecution',status:'completed'}]:[]):[{id:randomUUID(),type:'agentMessage',status:'completed',text:'pong'}],input:params.input,model:params.model||row.model,effort:params.effort});
@@ -93,6 +125,7 @@ for await (const line of createInterface({ input: process.stdin })) {
         return emit({id,result:{data:rows.slice(offset,offset+1),nextCursor:offset+1<rows.length?String(offset+1):null}});
       }
       if (method === 'thread/archive') {
+        releaseSeedWriter(params.threadId);
         if(row.model.includes('archive-busy')) return emit({id,error:{code:-32600,message:'thread '+params.threadId+' already has an active writer'}});
         row.archived=true;save(row);
         return emit({id,result:{}});
@@ -171,5 +204,5 @@ for await (const line of createInterface({ input: process.stdin })) {
   };
   if (method==='command/exec' && params.command?.at(-1)==='fixture-delayed') setTimeout(() => params.timeoutMs === 2000 ? reply() : emit({id,error:{code:-32602,message:'process timeout changed'}}),100);
   else if (method==='command/exec' && params.command?.at(-1)==='fixture-mcp-deadline') setTimeout(reply,46000);
-  else if (params?.delay) setTimeout(reply, params.delay); else reply();
+  else if (params?.delay) setTimeout(reply, params.delay); else await reply();
 }

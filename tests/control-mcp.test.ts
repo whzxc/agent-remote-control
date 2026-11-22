@@ -720,6 +720,14 @@ test('creation starts its first turn without legacy history reads, cleans defini
     assert.equal(fresh.executionOwner, 'connector');
     let rows = await fixtureRows();
     assert.equal(rows[fresh.threadId].turns.length, 1);
+    if (process.platform !== 'win32') {
+      const held = await create('fixture-dispatch-held-seed');
+      assert.equal(held.state, 'completed', JSON.stringify(held));
+      assert.equal(held.executionOwner, 'connector');
+      const history = (await fixtureRows())[held.threadId];
+      assert.deepEqual(history.turns.map(turn => turn.id), [held.turnId]);
+      assert.equal(history.archived, false);
+    }
     const rejected = await create('fixture-dispatch-unmaterialized-reject');
     assert.equal(rejected.failureStage, 'turn-submitting');
     assert.deepEqual(rejected.cleanup, {archived:false,reason:'thread-not-materialized'});

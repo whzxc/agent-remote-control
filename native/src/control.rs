@@ -29,6 +29,13 @@ pub struct Control {
 type TaskRecords = crate::kernel::task_projection::TaskProjection;
 static RECEIPTS: crate::kernel::receipts::ReceiptStore =
     crate::kernel::receipts::ReceiptStore::new("");
+
+enum SubmissionRoute<'a> {
+    Existing,
+    FreshDesktop,
+    FreshAppServer(&'a Rpc),
+}
+
 // Fresh creations have no user history and may not be materialized until turn/start.
 async fn submission_history<F, Fut>(fresh_thread: bool, mut list: F) -> Result<Vec<Value>>
 where
@@ -63,6 +70,12 @@ where
 }
 fn unmaterialized_thread(error: &str) -> bool {
     error.contains("is not materialized yet")
+}
+fn native_writer_rejection(error: &str) -> bool {
+    error
+        .strip_prefix("RPC_REJECTED:")
+        .and_then(|body| serde_json::from_str::<Value>(body).ok())
+        .is_some_and(|rpc| string(&rpc, "message").contains("already has an active writer"))
 }
 fn cleanup_result(result: Result<Value>) -> Result<Value> {
     match result {
@@ -1126,7 +1139,7 @@ impl Control {
                         "thread/read",
                         json!({"threadId":thread,"includeTurns":false}),
                         10000,
-                        false,
+                        SubmissionRoute::Existing,
                     )
                     .await
                 {
@@ -1135,7 +1148,7 @@ impl Control {
                 }
             };
             let out = self
-                .request_inner(method, args.clone(), timeout, false)
+                .request_inner(method, args.clone(), timeout, SubmissionRoute::Existing)
                 .await?;
             if let Err(e) = crate::changes::record(thread, string(&out["turn"], "id"), &baseline) {
                 crate::logs::record("WARN", &e, None);
@@ -1144,7 +1157,7 @@ impl Control {
         }
         if method == "command/exec" {
             let mut result = self
-                .request_inner(method, args.clone(), timeout, false)
+                .request_inner(method, args.clone(), timeout, SubmissionRoute::Existing)
                 .await?;
             if cfg!(target_os = "macos") {
                 if let Some(hint) = crate::shell_command::local_network_hint(&result, &args) {
@@ -1155,7 +1168,7 @@ impl Control {
         }
         if method == "thread/turns/list" {
             let result = self
-                .request_inner(method, args.clone(), timeout, false)
+                .request_inner(method, args.clone(), timeout, SubmissionRoute::Existing)
                 .await?;
             crate::codex_progress::observe_snapshot(
                 &mut self.events.lock().await.codex_activity,
@@ -1164,18 +1177,19 @@ impl Control {
             );
             return Ok(result);
         }
-        self.request_inner(method, args, timeout, false).await
+        self.request_inner(method, args, timeout, SubmissionRoute::Existing)
+            .await
     }
     async fn request_inner(
         &self,
         method: &str,
         args: Value,
         timeout: u64,
-        fresh_thread: bool,
+        route: SubmissionRoute<'_>,
     ) -> Result<Value> {
         if matches!(method, "turn/start" | "turn/steer") {
             let thread = string(&args, "threadId");
-            let turns = submission_history(fresh_thread, |cursor| {
+            let turns = submission_history(!matches!(route, SubmissionRoute::Existing), |cursor| {
                 self.request_native("thread/turns/list", json!({"threadId":thread,"limit":100,"cursor":cursor,"sortDirection":"desc","itemsView":"full"}), timeout)
             }).await?;
             crate::external_inputs::observe(thread, &turns, None)?;
@@ -1186,14 +1200,18 @@ impl Control {
                 &args["expectedTurnId"],
             )?;
             // Register before submission so fast native events cannot escape the timeline.
-            let info = self
-                .request_native(
-                    "thread/read",
-                    json!({"threadId":thread,"includeTurns":false}),
-                    timeout.min(5000),
-                )
-                .await
-                .unwrap_or(Value::Null);
+            let info_args = json!({"threadId":thread,"includeTurns":false});
+            let info = match route {
+                SubmissionRoute::FreshAppServer(creator) => {
+                    self.app_server_request(creator, "thread/read", info_args, timeout.min(5000))
+                        .await
+                }
+                _ => {
+                    self.request_native("thread/read", info_args, timeout.min(5000))
+                        .await
+                }
+            }
+            .unwrap_or(Value::Null);
             {
                 let mut events = self.events.lock().await;
                 let unseen_history = !events.timelines.contains_key(thread) && !turns.is_empty();
@@ -1202,7 +1220,25 @@ impl Control {
                 timeline.info = json!({"runtimeSource":info["thread"]["runtimeSource"],"id":thread,"title":crate::task_tracking::codex_title(&info["thread"]).unwrap_or("Codex task"),"project":info["thread"]["cwd"],"startedAt":timeline.info.get("startedAt").cloned().unwrap_or(json!(now()))});
                 timeline.status = "running".into();
             }
-            let result = self.request_native(method, args.clone(), timeout).await;
+            let result = match route {
+                SubmissionRoute::FreshAppServer(creator) => {
+                    // The creator can hold the writer before metadata shows a
+                    // loaded thread. Submit on that connection and let Codex
+                    // enforce native writer ownership.
+                    let attempt = async {
+                        self.launches.check()?;
+                        creator.call(method, args.clone(), timeout).await
+                    }
+                    .await;
+                    match attempt {
+                        Err(error) if native_writer_rejection(&error) => {
+                            Err(self.writer_conflict(thread, Some(&error)).await.to_string())
+                        }
+                        result => result,
+                    }
+                }
+                _ => self.request_native(method, args.clone(), timeout).await,
+            };
             if result.is_err() {
                 if let Some(t) = self.events.lock().await.timelines.get_mut(thread) {
                     t.finish("unknown", &now());
@@ -2079,7 +2115,7 @@ impl Control {
             let result = if desktop && !shared {
                 self.ipc().await?.mutate("turn/start", &params).await?
             } else {
-                self.request_inner("turn/start", params, 10000, false)
+                self.request_inner("turn/start", params, 10000, SubmissionRoute::Existing)
                     .await?
             };
             let turn = string(&result["turn"], "id");
@@ -2371,8 +2407,15 @@ impl Control {
             r["submissionStage"] = json!("thread-submitting");
             self.checkpoint(r)?;
             let background = r["executionOwner"] == "connector";
-            let result = if background {
-                self.create_background(json!(seed), string(args, "title"), Some(r))
+            let creator = if background {
+                Some(self.utility().await?)
+            } else if r["desktopRecovery"]["transport"] == "local-daemon" {
+                Some(self.shared_desktop_rpc().await?)
+            } else {
+                None
+            };
+            let result = if let Some(creator) = &creator {
+                self.create_on_rpc(creator, json!(seed), string(args, "title"), Some(r))
                     .await?
             } else {
                 self.seed(json!(seed), string(args, "title"), Some(r))
@@ -2401,9 +2444,18 @@ impl Control {
             r["turnBaseline"] = baseline.clone();
             r["seedTimings"]["baselineMs"] = json!(step.elapsed().as_millis());
             let step = std::time::Instant::now();
-            self.prepare_thread(thread, true).await?;
+            let route = if let Some(creator) = &creator {
+                SubmissionRoute::FreshAppServer(creator)
+            } else {
+                self.prepare_thread(thread, true).await?;
+                SubmissionRoute::FreshDesktop
+            };
             r["seedTimings"]["ownerMs"] = json!(step.elapsed().as_millis());
-            let background = self.effective_background(thread).await?;
+            let background = if creator.is_some() {
+                background
+            } else {
+                self.effective_background(thread).await?
+            };
             r["executionOwner"] = json!(if background { "connector" } else { "desktop" });
             r["submissionStage"] = json!("turn-submitting");
             r["task"]["dispatch"]["submittedAt"] = json!(now());
@@ -2417,7 +2469,7 @@ impl Control {
                 .unwrap_or_else(|| result["model"].clone());
             retry_args["_retryTurn"] = retry_turn(&turn);
             let out = self
-                .request_inner("turn/start", turn, timeout, true)
+                .request_inner("turn/start", turn, timeout, route)
                 .await?;
             if string(&out["turn"], "id").is_empty() {
                 return Err("SUBMISSION_UNCONFIRMED: Codex returned no first turn ID. Read the original receipt and thread before retrying.".into());
@@ -2635,7 +2687,8 @@ impl Control {
             }
             out
         } else if method == "turn/start" && r["turnBaseline"].is_object() {
-            self.request_inner(&method, params, timeout, false).await?
+            self.request_inner(&method, params, timeout, SubmissionRoute::Existing)
+                .await?
         } else {
             self.request(&method, params, timeout).await?
         };

@@ -18,7 +18,8 @@ sequenceDiagram
     C->>D: verify the selected Desktop is connected before submission
   end
   alt Desktop uses the local daemon
-    C->>X: start thread and first turn on shared daemon
+    C->>X: start thread on shared daemon
+    C->>X: submit first turn on the creator connection
     C->>D: open the same thread
     D->>X: read and follow the thread
   else Desktop IPC or ARC background execution
