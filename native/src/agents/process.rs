@@ -1191,7 +1191,10 @@ pub(crate) fn launch_command(binary: &Path, args: &[String]) -> Result<tokio::pr
     Ok(c)
 }
 pub(super) async fn probe(binary: &Path, args: &[String]) -> Result<String> {
-    let mut command = launch_command(binary, args)?;
+    probe_command(launch_command(binary, args)?).await
+}
+
+pub(super) async fn probe_command(mut command: tokio::process::Command) -> Result<String> {
     command
         .stdin(std::process::Stdio::null())
         .kill_on_drop(true);

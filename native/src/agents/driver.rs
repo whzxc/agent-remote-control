@@ -79,6 +79,14 @@ impl AgentDriver {
             Self::Antigravity => json!({"displayName":"Antigravity","integration":"native"}),
         }
     }
+    async fn probe(&self, binary: &Path, args: &[String]) -> Result<String> {
+        let mut command = process::launch_command(binary, args)?;
+        if cfg!(target_os = "macos") && matches!(self, Self::Acp(m) if m.id == "cursor") {
+            // Cursor checks Keychain writability before parsing version or help flags over SSH.
+            command.env("AGENT_CLI_CREDENTIAL_STORE", "memory");
+        }
+        process::probe_command(command).await
+    }
     /// Verify launch conditions without starting ACP, logging in, or fetching packages.
     pub async fn discover(&self) -> (Option<PathBuf>, Option<String>, Option<String>) {
         if matches!(self, Self::Antigravity) {
@@ -100,13 +108,13 @@ impl AgentDriver {
             let version = if version_args.is_empty() {
                 Ok(String::new()) // Explicitly disabled for custom launchers without a version flag.
             } else {
-                process::probe(&binary, &version_args).await
+                self.probe(&binary, &version_args).await
             };
             let mut error = version.as_ref().err().cloned();
             if error.is_none() {
                 if let Self::Acp(m) = self {
                     if !m.compatibility.help_args.is_empty() {
-                        match process::probe(&binary, &m.compatibility.help_args).await {
+                        match self.probe(&binary, &m.compatibility.help_args).await {
                             Ok(help)
                                 if !m
                                     .compatibility
