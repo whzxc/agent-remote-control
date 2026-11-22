@@ -5,7 +5,14 @@
     {"file": "tooling/acceptance/families/layers.mjs", "match": "web:requestAnimationFrame", "within": "sample", "reason": "Reads panel geometry and entry state on successive frames for acceptance."},
     {"file": "tooling/acceptance/families/layers.mjs", "match": "web:requestAnimationFrame", "within": "run", "reason": "Starts the acceptance sampler for panel entry geometry."},
     {"file": "tooling/acceptance/families/timeline.mjs", "match": "web:requestAnimationFrame", "within": "sample", "reason": "Waits for the visible timeline and reads its initial scroll position for acceptance."},
-    {"file": "tooling/acceptance/families/timeline.mjs", "match": "web:requestAnimationFrame", "within": "run", "reason": "Starts the acceptance sampler for the initial timeline scroll position."}
+    {"file": "tooling/acceptance/families/timeline.mjs", "match": "web:requestAnimationFrame", "within": "run", "reason": "Starts the acceptance sampler for the initial timeline scroll position."},
+    {"file": "tooling/check-ui-motion.mjs", "match": "tailwind:transition", "within": "cssIssues", "reason": "Matches the CSS shorthand property name when validating motion declarations."},
+    {"file": "tooling/check-ui-motion.mjs", "match": "tailwind:transition-duration", "within": "checkMotion", "reason": "Names the CSS property that the reduced-motion lint requires to be reset."},
+    {"file": "tooling/coordination-report.mjs", "match": "tailwind:transition", "within": "result", "reason": "Describes a lifecycle outbox persistence failure in a tooling report."},
+    {"file": "tooling/ui-motion-scripts.mjs", "match": "tailwind:transition", "within": "invalid", "reason": "Spells out the recommended timing options in a lint diagnostic."},
+    {"file": "tooling/ui-motion-scripts.mjs", "match": "tailwind:transition", "within": "timing", "reason": "Labels a motion option in the static lint inventory."},
+    {"file": "tooling/ui-motion-scripts.mjs", "match": "tailwind:transition", "within": "transition", "reason": "Matches the motion prop name in a JSX syntax tree."},
+    {"file": "tooling/ui-motion-scripts.mjs", "match": "tailwind:transition", "within": "visit", "reason": "Matches the motion option key in a TypeScript syntax tree."}
   ],
   "roles": {
     "duration-base": "--motion-base",
