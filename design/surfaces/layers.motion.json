@@ -1,8 +1,16 @@
 {
   "version": 1,
+  "flows": [
+    {
+      "start": {"source": "design/surfaces/layers.tsx", "frame": "hosting-home"},
+      "anchor": {"anchor": "workspace-stage"},
+      "ends": []
+    }
+  ],
   "edges": [
     {
       "id": "open-hosting",
+      "label": "Open Relay hosting",
       "rememberTrigger": true,
       "from": {"source": "design/surfaces/layers.tsx", "frame": "hosting-home"},
       "to": {"source": "design/surfaces/layers.tsx", "frame": "workspace-fit"},
@@ -19,6 +27,7 @@
     },
     {
       "id": "open-deployment",
+      "label": "Open deployment dialog",
       "rememberTrigger": true,
       "from": {"source": "design/surfaces/layers.tsx", "frame": "workspace-fit"},
       "to": {"source": "design/surfaces/layers.tsx", "frame": "deploy-dialog"},

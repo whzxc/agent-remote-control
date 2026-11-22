@@ -27,7 +27,7 @@ const prepared = {
 };
 
 export default {
-  requires: '>=0.16.0',
+  requires: '>=0.17.0',
   design: 'design',
   check: { strictLayers: true, lifecycle: true, strictMotion: true },
   output: 'output/design',

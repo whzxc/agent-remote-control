@@ -18,7 +18,7 @@ function workspaceFrame(name: string, fixture: string) {
   const deploy = name === 'deploy-dialog';
   const scene = topologyScenes[settings ? 'workspace-cap' : 'workspace-fit'];
   return <Frame name={name} width={1280} height={800} fixture={fixture} capture={capture}>
-    <div class="relative w-[1280px] h-[800px]">
+    <div data-adg-id="workspace-stage" class="relative w-[1280px] h-[800px]">
       <div inert={deploy || undefined}>
         <HomepageScene key="homepage" scene={scene} chrome={home} hosting active={home || deploy ? '' : settings ? 'settings' : 'relay-hosting'} />
         {!home && <div class="pointer-events-none absolute inset-0 flex items-center justify-center pt-5 pb-[76px]">
