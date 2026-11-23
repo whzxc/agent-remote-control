@@ -1243,7 +1243,9 @@ pub(crate) fn migrate_history() -> Result<()> {
     ] {
         migrate_files(&root().join(dir), rows)?;
     }
-    // Codex operation receipts live directly under the state root.
+    // Each Codex receipt has an independent UUID and is converted in place. Snapshot
+    // the names before atomic replacements change the directory being enumerated.
+    let mut receipts = Vec::new();
     for e in std::fs::read_dir(root()).map_err(|e| e.to_string())? {
         crate::kernel::derived_index::check_cancelled()?;
         let p = e.map_err(|e| e.to_string())?.path();
@@ -1252,9 +1254,32 @@ pub(crate) fn migrate_history() -> Result<()> {
                 .and_then(|s| s.to_str())
                 .is_some_and(|s| uuid::Uuid::parse_str(s).is_ok())
         {
-            migrate_file(&p, rows)?;
+            receipts.push(p);
         }
     }
+    // Bound disk concurrency while keeping small migrations on the startup worker.
+    let chunk_size = receipts.len().div_ceil(4).max(256);
+    std::thread::scope(|scope| -> Result<()> {
+        let migrate = |paths: &[PathBuf]| -> Result<()> {
+            for path in paths {
+                crate::kernel::derived_index::check_cancelled()?;
+                migrate_file(path, rows)?;
+            }
+            Ok(())
+        };
+        let mut chunks = receipts.chunks(chunk_size);
+        let first = chunks.next().unwrap_or_default();
+        let workers: Vec<_> = chunks
+            .map(|chunk| scope.spawn(move || migrate(chunk)))
+            .collect();
+        migrate(first)?;
+        for worker in workers {
+            worker
+                .join()
+                .map_err(|_| "Receipt migration worker panicked")??;
+        }
+        Ok(())
+    })?;
     migrate_notification_keys()?;
     migrate_dispatch_origins()?;
     let pref_path = root().join("ui-preferences.json");
