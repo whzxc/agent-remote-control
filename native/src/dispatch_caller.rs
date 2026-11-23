@@ -138,7 +138,7 @@ mod tests {
                     attach_current(&mut receipt);
                     crate::dispatch_policy::record(&receipt).unwrap();
                 } else {
-                    crate::dispatch_policy::agent_record(&task, &args).unwrap();
+                    crate::dispatch_policy::agent_record(&task, &args, "agent_create").unwrap();
                 }
             })).await;
             let rows = crate::dispatch_policy::records(&session).unwrap();

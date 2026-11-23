@@ -132,6 +132,8 @@ A directly following turn satisfying [native retry rules](control-loop.md#72-nat
 
 Without native service_tier, effectiveConfiguration.serviceTier remains unknown in records. threadServiceTier separately reports the persisted thread settings at turn start. Codex Desktop may write the paired initial thread_settings_applied immediately after turn_context. A later settings change applies to subsequent turns. An explicit native turn tier takes precedence. History prefers native tier, then submitted tier, otherwise unknown internally.
 
+Send receipts and dispatch rows retain the follow-up `trigger`, defaulting to `unknown`. Queued sends retain the trigger through submission. Per-request records distinguish a steer from the send that started its turn.
+
 Terminal records measure submission to first terminal observation. This observed duration includes scheduling and observation delay.
 
 ## Review and rework
@@ -140,11 +142,15 @@ Terminal records measure submission to first terminal observation. This observed
 
 review stores verdict, note, reviewedAt, requestId, reviewer, dispatchOrigin, and dispatchRequestId. reviewer records the authenticated sourceId and controlSource, plus sessionId and target when available (otherwise null). dispatchOrigin is arc when an ARC dispatch record exists, with its dispatchRequestId, or external with a null dispatchRequestId. External reviews also snapshot model, effort, and serviceTier from native persisted turn context, turn metadata, then thread metadata; unavailable fields remain null. External reviews are stored separately from dispatch records and appear in reviews on full task/read results. The latest verdict replaces previous judgments. Safe retries reuse requestId. Changed verdicts use a new ID. Review and dispatch share the thread lock. Completion metadata cannot overwrite reviews.
 
+A review may store `defectClasses` with positive integer counts. The class total supplies an omitted `defects` count and must match an explicit one. ARC stores the classes in the current review and its retained observation, including external reviews. Undo removes the matching observation together with its class counts.
+
 Review verdicts are supplementary feedback. A subsequent dispatch does not read review storage or infer a rework association. Missing or unavailable reviews do not block dispatch. codex_tasks view:full returns available reviews separately from execution results. Completion notifications remain creation-time snapshots.
 
 ## History and usage boundaries
 
 History uses submittedAt for the last 30 days of new turns, grouped by Agent, model, and native options, including Codex effort/serviceTier. Native effective configuration takes precedence over submitted values. Same-turn duplicates are deduplicated. Steering is not another dispatch. Counts include dispatches, pass, rework, failed, interrupted, and unreviewed. Failure/interruption counts take precedence over verdicts. Unreviewed includes active turns and successful terminal turns without review. Only successful terminal durations contribute to the median and durationSamples.
+
+Within `history.quality`, `followUpTurnsByTrigger` counts accepted new-turn sends once, including an initial send to an existing task. Legacy rows lack the operation. Each legacy thread contributes its retained new turns beyond one possible create to `unknown`, excluding native retries. `defectsByClass` sums retained ARC and external review observations. A known defect total without classes contributes to `unclassified`. A missing total increments `unknownCounts`. Both breakdowns carry `counts` and attribution `coverage`. Complete attribution is `exact`, mixed or truncated data is `bounded`, and wholly missing attribution or an unknown history timestamp is `unknown`.
 
 External reviews enter history only with known model and effort. They use the same Agent/model/options/effort/serviceTier grouping and a 30-day window based on reviewedAt. Each turn contributes its latest verdict once. Each group's external object reports reviews, pass, and rework separately; ARC dispatches, outcome counts, and duration samples retain their existing meaning. External failed/interrupted turns retain their review verdict in external counts. No external duration is inferred. Missing configuration excludes the review from history without preventing review or rework linking.
 

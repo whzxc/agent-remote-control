@@ -4,6 +4,40 @@ use std::collections::{BTreeMap, HashSet};
 pub(super) const MAX_ROWS: usize = 4096;
 const MAX_REVIEWS: usize = 32;
 
+// JSON Schema accepts integral numbers written with a decimal point or exponent.
+fn count(value: &Value) -> Option<u64> {
+    value.as_u64().or_else(|| {
+        let n = value.as_f64()?;
+        (n >= 0.0 && n < u64::MAX as f64 && n.fract() == 0.0).then_some(n as u64)
+    })
+}
+
+fn class_total(classes: &serde_json::Map<String, Value>) -> Option<u64> {
+    classes
+        .values()
+        .try_fold(0u64, |sum, n| sum.checked_add(count(n)?))
+}
+
+pub(crate) fn validate_defect_classes(op: &str, args: &Value) -> Result<()> {
+    if let Some(classes) = args["defectClasses"].as_object() {
+        let sum = class_total(classes).ok_or_else(|| {
+            crate::egress::invalid_arguments(
+                op,
+                "/defectClasses",
+                "The sum of class counts must fit an unsigned 64-bit integer.",
+            )
+        })?;
+        if args.get("defects").is_some() && count(&args["defects"]) != Some(sum) {
+            return Err(crate::egress::invalid_arguments(
+                op,
+                "/defectClasses",
+                "The class counts must sum to defects.",
+            ));
+        }
+    }
+    Ok(())
+}
+
 pub(super) fn normalize(review: &mut Value, legacy: bool) {
     if review["qualityVersion"] == 1 {
         return;
@@ -33,6 +67,9 @@ pub(super) fn normalize(review: &mut Value, legacy: bool) {
         let omitted_gate = review["foundBy"].is_null();
         if omitted_gate {
             review["foundBy"] = json!("unknown");
+        }
+        if let Some(total) = review["defectClasses"].as_object().and_then(class_total) {
+            review["defects"] = json!(total);
         }
         if omitted_gate && review["verdict"] == "pass" && review["defects"].is_null() {
             review["defects"] = json!(0);
@@ -79,18 +116,73 @@ struct Findings {
     defects: u64,
     advisory: u64,
     unknown: u64,
+    overflow: bool,
 }
+
+fn add_count(bucket: &mut u64, amount: u64, overflow: &mut bool) {
+    *overflow |= bucket.checked_add(amount).is_none();
+    *bucket = bucket.saturating_add(amount);
+}
+
 impl Findings {
     fn add(&mut self, r: &Value) {
         self.reviews += 1;
-        self.defects += r["defects"].as_u64().unwrap_or(0);
-        self.advisory += r["advisory"].as_u64().unwrap_or(0);
+        add_count(
+            &mut self.defects,
+            r["defects"].as_u64().unwrap_or(0),
+            &mut self.overflow,
+        );
+        add_count(
+            &mut self.advisory,
+            r["advisory"].as_u64().unwrap_or(0),
+            &mut self.overflow,
+        );
         self.unknown +=
             u64::from(r["defects"].as_u64().is_none() || r["advisory"].as_u64().is_none());
     }
     fn value(&self) -> Value {
         json!({"reviews":self.reviews,"defects":self.defects,"advisory":self.advisory,
-            "unknownCounts":self.unknown,"coverage":if self.unknown == 0 {"exact"} else if self.unknown == self.reviews {"unknown"} else {"bounded"}})
+            "unknownCounts":self.unknown,"coverage":if self.overflow {"bounded"} else if self.unknown == 0 {"exact"} else if self.unknown == self.reviews {"unknown"} else {"bounded"}})
+    }
+}
+
+#[derive(Default)]
+struct DefectClasses {
+    counts: BTreeMap<String, u64>,
+    complete: u64,
+    incomplete: u64,
+    missing_totals: u64,
+    overflow: bool,
+}
+
+impl DefectClasses {
+    fn observe(&mut self, review: &Value) {
+        if let Some(classes) = review["defectClasses"].as_object() {
+            for (class, n) in classes {
+                add_count(
+                    self.counts.entry(class.clone()).or_default(),
+                    count(n).unwrap_or(0),
+                    &mut self.overflow,
+                );
+            }
+            self.complete += 1;
+        } else {
+            match count(&review["defects"]) {
+                Some(0) => self.complete += 1,
+                Some(n) => {
+                    self.incomplete += 1;
+                    add_count(
+                        self.counts.entry("unclassified".into()).or_default(),
+                        n,
+                        &mut self.overflow,
+                    );
+                }
+                None => {
+                    self.incomplete += 1;
+                    self.missing_totals += 1;
+                }
+            }
+        }
     }
 }
 
@@ -100,6 +192,10 @@ pub(super) fn aggregate(
     cutoff: chrono::DateTime<chrono::Utc>,
 ) -> Value {
     let mut by = BTreeMap::<String, Findings>::new();
+    let mut triggers = BTreeMap::from([("unknown", 0u64)]);
+    let mut classes = DefectClasses::default();
+    // Legacy dispatches omitted the operation. At most one turn per thread can be its create.
+    let mut legacy_threads = HashSet::new();
     let mut users = Findings::default();
     let mut external = Findings::default();
     let mut self_tests = 0;
@@ -148,6 +244,16 @@ pub(super) fn aggregate(
             continue;
         }
         if !is_external {
+            if matches!(row["operation"].as_str(), Some("send" | "agent_send")) {
+                *triggers
+                    .entry(row["trigger"].as_str().unwrap_or("unknown"))
+                    .or_default() += 1;
+            } else if row["operation"].is_null()
+                && row["dispatchSource"] != "native-retry"
+                && !legacy_threads.insert(string(row, "threadId"))
+            {
+                *triggers.get_mut("unknown").unwrap() += 1;
+            }
             if row["review"].is_object() {
                 reviewed += 1;
             } else {
@@ -189,6 +295,7 @@ pub(super) fn aggregate(
         for mut r in observations.into_iter().rev().take(MAX_REVIEWS) {
             crate::runtime_metrics::cost::rows(1);
             normalize(&mut r, true);
+            classes.observe(&r);
             if is_external {
                 external.add(&r);
                 continue;
@@ -202,7 +309,29 @@ pub(super) fn aggregate(
             }
         }
     }
+    let coverage = |missing: bool, has_evidence: bool, truncated: bool| {
+        if history_unknown > 0 || (missing && !has_evidence) {
+            "unknown"
+        } else if missing || truncated {
+            "bounded"
+        } else {
+            "exact"
+        }
+    };
+    let trigger_coverage = coverage(
+        triggers["unknown"] > 0 || !legacy_threads.is_empty(),
+        triggers.keys().any(|key| *key != "unknown"),
+        rows.len() > MAX_ROWS,
+    );
+    classes.counts.entry("unclassified".into()).or_default();
+    let class_coverage = coverage(
+        classes.incomplete > 0,
+        classes.complete > 0,
+        gap || classes.overflow,
+    );
     let mut result = json!({"reviewerFindings":by.into_iter().map(|(k,v)|(k,v.value())).collect::<BTreeMap<_,_>>(),
+        "followUpTurnsByTrigger":{"counts":triggers,"coverage":trigger_coverage},
+        "defectsByClass":{"counts":classes.counts,"unknownCounts":classes.missing_totals,"coverage":class_coverage},
         "laterUserFindings":users.value(),"unreviewedCompletions":{"count":completed,"coverage":if gap {"bounded"} else {"exact"}},
         "stillRunning":{"count":running,"unconfirmed":running_unknown,"coverage":if running_unknown > 0 {"unknown"} else if gap {"bounded"} else {"exact"}},"executionUnknown":unknown,
         "reviewCoverage":{"reviewed":reviewed,"unreviewed":unreviewed,"coverage":if gap {"bounded"} else {"exact"}},
@@ -315,6 +444,42 @@ mod tests {
         assert_eq!(
             result["agents"][0]["history"]["quality"]["laterFixCorrelation"],
             Value::Null
+        );
+    }
+
+    #[test]
+    fn legacy_turn_and_review_attribution_keeps_only_observable_counts() {
+        // Contract: policy quality exposes unknown legacy triggers, unclassified defects and missing external totals.
+        let time = chrono::Utc::now();
+        let row = |id: &str| {
+            json!({"agent":"codex","threadId":"thread","turnId":id,
+            "dispatchMode":"new-turn","submittedAt":time.to_rfc3339()})
+        };
+        let mut steer = row("second");
+        steer["dispatchMode"] = json!("steered");
+        let mut retry = row("retry");
+        retry["dispatchSource"] = json!("native-retry");
+        let mut external = row("external");
+        external["dispatchOrigin"] = json!("external");
+        external["review"] =
+            json!({"verdict":"rework","reviewedAt":time.to_rfc3339(),"note":"legacy note"});
+        let mut second = row("second");
+        second["review"] =
+            json!({"verdict":"rework","qualityVersion":1,"defects":2,"foundBy":"user"});
+        let history = summarize_history(
+            &[row("first"), second, steer, retry, external],
+            "codex",
+            false,
+            time - chrono::Duration::days(30),
+        );
+        let quality = &history["quality"];
+        assert_eq!(
+            quality["followUpTurnsByTrigger"],
+            json!({"counts":{"unknown":1},"coverage":"unknown"})
+        );
+        assert_eq!(
+            quality["defectsByClass"],
+            json!({"counts":{"unclassified":2},"unknownCounts":1,"coverage":"unknown"})
         );
     }
 

@@ -532,6 +532,9 @@ pub(crate) fn dispatch_summary(value: &Value) -> Option<Value> {
     if let Some(caller) = crate::dispatch_caller::validated(&value["caller"]) {
         summary["caller"] = caller;
     }
+    if let Some(trigger) = value["trigger"].as_str() {
+        summary["trigger"] = json!(trigger);
+    }
     if value["agentAccountId"].is_string() {
         summary["agentAccountId"] = value["agentAccountId"].clone();
     }
@@ -724,7 +727,11 @@ pub(crate) fn validate_op(spec: &Value, args: &Value) -> Result<()> {
                 }
             }
             validation_error(string(spec, "name"), &spec["inputSchema"], &error)
-        })
+        })?;
+    if matches!(string(spec, "name"), "codex_review" | "agent_review") {
+        crate::dispatch_policy::validate_defect_classes(string(spec, "name"), args)?;
+    }
+    Ok(())
 }
 
 /// Normalize accepted legacy aliases before defaults and receipt hashing.

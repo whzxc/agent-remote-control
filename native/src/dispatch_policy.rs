@@ -5,6 +5,7 @@ use crate::*;
 use serde::{Deserialize, Serialize};
 mod decision;
 mod quality;
+pub(crate) use quality::validate_defect_classes;
 static POLICY_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 static RECORDS_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 /// Dispatch records carry an outcome projection, never an operation phase.
@@ -1346,6 +1347,10 @@ fn read_row(path: &Path) -> Result<Value> {
     Ok(row)
 }
 
+pub(crate) fn send_trigger(args: &Value) -> Value {
+    json!(args["trigger"].as_str().unwrap_or("unknown"))
+}
+
 pub(crate) fn record(receipt: &Value) -> Result<()> {
     crate::src_conversations::record(receipt).map_err(|e| {
         format!("SUBMISSION_UNCONFIRMED: dispatch accepted; conversation record failed: {e}")
@@ -1360,6 +1365,9 @@ pub(crate) fn record(receipt: &Value) -> Result<()> {
         "coordination",
     ] {
         row[key] = receipt[key].clone();
+    }
+    if let Some(op) = receipt.get("operation") {
+        row["operation"] = op.clone();
     }
     row["acceptedAt"] = receipt["task"]["dispatch"]["submittedAt"]
         .as_str()
@@ -1721,6 +1729,9 @@ pub(crate) fn review_record(
     for field in ["foundBy", "defects", "advisory"] {
         review[field] = args[field].clone();
     }
+    if let Some(classes) = args.get("defectClasses") {
+        review["defectClasses"] = classes.clone();
+    }
     quality::normalize(&mut review, false);
     review
 }
@@ -1777,10 +1788,11 @@ fn save_review(thread: &str, turn: &str, args: &Value, external: &Value) -> Resu
 }
 
 /// Snapshot at submission; later session changes never rewrite this turn's choices.
-pub(crate) fn agent_record(task: &Value, args: &Value) -> Result<()> {
+pub(crate) fn agent_record(task: &Value, args: &Value, op: &str) -> Result<()> {
     let mut receipt = json!({"agentAccountId":task["agentAccountId"],"origin":crate::kernel::origin::current_origin(),"agent":task["agent"],"taskId":task["taskId"],"threadId":task["taskId"],
         "turnId":task["turnId"],"requestId":args["requestId"],"dispatchMode":"new-turn",
         "srcConversation":args["srcConversation"],"arguments":args,"task":{"dispatch":task["dispatch"]}});
+    receipt["operation"] = json!(op);
     receipt["coordination"] = task["coordination"].clone();
     crate::dispatch_caller::attach_current(&mut receipt);
     record(&receipt)

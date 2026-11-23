@@ -2778,3 +2778,35 @@ test('macOS runtime CPU milliseconds agree with native process accounting', asyn
   assert.ok(report.process.cpuTotalMs >= before - 10);
   assert.ok(report.process.cpuTotalMs <= after + 10);
 });
+
+test('Codex delivery attribution survives receipt and task reads and local review undo', async () => {
+  // Contract: send receipts, task timelines and undoable review records retain structured delivery fields.
+  const { threadId } = await dispatchFixture('fixture-dispatch');
+  const send = await completed('codex_send', { threadId, prompt: 'Revise fixture', trigger: 'acceptance', requestId: randomUUID() });
+  assert.equal(send.dispatch.trigger, 'acceptance');
+  const receipt = (await call('receipt', { requestId: send.requestId })).result;
+  assert.equal(receipt.dispatch.trigger, 'acceptance');
+  const timeline = await completeQuery('task_timeline', { agent: 'codex', id: threadId });
+  assert.equal(timeline.turnDispatchSummaries[send.turnId].trigger, 'acceptance');
+
+  const defectClasses = { states: 2, visual: 1 };
+  for (const [op, task] of [
+    ['codex_review', { threadId }],
+    ['agent_review', { agent: 'pi', taskId: threadId }],
+  ] as const) {
+    const mismatch = (await call(op, { ...task, verdict: 'pass', defects: 2, defectClasses })).result;
+    assert.equal(mismatch.error.code, 'INVALID_ARGUMENTS');
+    assert.equal(mismatch.error.field, '/defectClasses');
+  }
+  const review = await management('tasks/control', 'POST', {
+    op: 'codex_review', args: { threadId, turnId: send.turnId, verdict: 'pass', defects: 3, defectClasses },
+  });
+  assert.equal(review.state, 'completed');
+  const read = (await call('task_reviews', { id: threadId })).result;
+  assert.deepEqual(read.reviews.find((r: any) => r.turnId === send.turnId).review.defectClasses, defectClasses);
+  const undone = (await call('task_review_undo', {
+    id: threadId, turnId: send.turnId, reviewRequestId: review.requestId,
+  })).result;
+  assert.equal(undone.undone, true);
+  assert.deepEqual((await call('task_reviews', { id: threadId })).result.reviews, []);
+});

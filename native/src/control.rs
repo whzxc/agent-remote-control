@@ -1586,6 +1586,10 @@ impl Control {
             if !dispatch.is_null() {
                 receipt["task"]["dispatch"] = dispatch;
             }
+            if operation == "send" {
+                receipt["task"]["dispatch"]["trigger"] =
+                    crate::dispatch_policy::send_trigger(&args);
+            }
             receipt["task"]["origin"] = receipt["origin"].clone();
             receipt["arguments"] = args.clone();
             receipt["approval"] = json!({"decision":decision,"source":"cloud","at":now()});

@@ -1086,6 +1086,9 @@ impl AgentHost {
             args["srcConversation"] = crate::src_conversations::capture(&args).await?;
         }
         let mut receipt = json!({"origin":crate::kernel::origin::current_origin(),"requestId":request,"agent":agent,"taskId":task,"previousTurnId":previous_turn,"operation":name,"arguments":args,"digest":digest,"state":if needs_approval{ReceiptState::AwaitingApproval.wire()}else{ReceiptState::Reserved.wire()},"backendSession":self.session,"createdAt":now(),"nextAction":"receipt"});
+        if name == "agent_send" {
+            receipt["task"]["dispatch"]["trigger"] = crate::dispatch_policy::send_trigger(&args);
+        }
         if matches!(name, "agent_create" | "agent_send") {
             crate::dispatch_caller::attach_current(&mut receipt);
         }
@@ -1270,7 +1273,10 @@ impl AgentHost {
                     return Ok(snapshot);
                 }
                 match self.configure_dispatch(&p, args).await {
-                    Ok(selection) => {
+                    Ok(mut selection) => {
+                        if name == "agent_send" {
+                            selection["trigger"] = crate::dispatch_policy::send_trigger(args);
+                        }
                         let mut task = p.state.lock().await;
                         task["dispatch"] = selection;
                     }

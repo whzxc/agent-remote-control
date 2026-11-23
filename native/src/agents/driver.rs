@@ -307,7 +307,7 @@ impl AgentDriver {
             t["error"] = Value::Null;
             t["stopReason"] = Value::Null;
             t["outputTruncated"] = json!(false);
-            crate::dispatch_policy::agent_record(&t, args)?;
+            crate::dispatch_policy::agent_record(&t, args, op)?;
             save_task(&t)?;
             let result = crate::claude_notify::bind(
                 args,

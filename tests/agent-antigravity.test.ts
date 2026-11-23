@@ -239,3 +239,36 @@ test('Antigravity discovery and stream transport preserve terminal evidence and 
     await fixture.close();
   }
 });
+
+test('Agent dispatch history counts follow-up triggers and reviewed defects', { skip: process.platform === 'win32' }, async () => {
+  // Contract: accepted sends and persisted review observations supply the dispatch_policy quality counts.
+  const fixture = await setup();
+  try {
+    const agent = 'antigravity';
+    const created = await fixture.completed('agent_create', {
+      agent, cwd: fixture.directory, prompt: 'First', purpose: 'task', approval: 'approved',
+    });
+    const task = { agent, taskId: created.taskId };
+    const send = await fixture.completed('agent_send', { ...task, prompt: 'Expand', purpose: 'task', trigger: 'continuation' });
+    assert.equal(send.result.dispatch.trigger, 'continuation');
+    const defectClasses = { states: 2, requirement: 1 };
+    const review = await fixture.completed('agent_review', { ...task, turnId: send.turnId, verdict: 'rework', defectClasses });
+    assert.equal(review.result.review.defects, 3);
+    await fixture.completed('agent_review', { ...task, turnId: send.turnId, verdict: 'rework', defects: 2 });
+    const next = await fixture.completed('agent_send', { ...task, prompt: 'Revise', purpose: 'task' });
+    assert.equal(next.result.dispatch.trigger, 'unknown');
+    await fixture.restart();
+    const read = await completeResult(fixture, await fixture.call('agent_read', task));
+    const record = read.dispatches.find((r: any) => r.requestId === send.requestId);
+    assert.equal(record.trigger, 'continuation');
+    assert.deepEqual(record.reviewObservations[0].defectClasses, defectClasses);
+    for (const view of ['decision', 'full']) {
+      const policy = await completeResult(fixture, await fixture.call('dispatch_policy', { agent, all: true, view }));
+      const quality = policy.agents[0].history.quality;
+      assert.deepEqual(quality.followUpTurnsByTrigger, { counts: { continuation: 1, unknown: 1 }, coverage: 'bounded' });
+      assert.deepEqual(quality.defectsByClass, {
+        counts: { states: 2, requirement: 1, unclassified: 2 }, unknownCounts: 0, coverage: 'bounded',
+      });
+    }
+  } finally { await fixture.close(); }
+});

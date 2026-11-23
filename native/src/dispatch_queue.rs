@@ -123,6 +123,7 @@ fn public(row: &Value) -> Value {
             out[key] = row[key].clone();
         }
     }
+    out["trigger"] = crate::dispatch_policy::send_trigger(&row["args"]);
     out["text"] = row["args"]["prompt"].clone();
     out["preview"] = json!(string(&row["args"], "prompt")
         .chars()
