@@ -356,6 +356,121 @@
       "scope": "independent-own-backend",
       "command": "node --test behavior/cases/earlier-shared-tasks-unchanged/shared-writer.test.mjs",
       "fixture": "Existing holder-report branch should pass. This probe exercises Core restart and server grace; full pre-update dispatch requires the installed case. Set CODEX_163 and CODEX_166 to verified native executable paths."
+    },
+    {
+      "id": "missing-legacy",
+      "ruleId": "same-settings-as-main",
+      "thenIds": [
+        "same-settings"
+      ],
+      "harness": "installed MacBook runbook",
+      "path": "same-settings-as-main/installed.md",
+      "expectedRuntime": "5-20 min per trial, plus native grace for shared tasks",
+      "needsInstalledApp": true,
+      "scope": "independent-own-backend"
+    },
+    {
+      "id": "missing-modern",
+      "ruleId": "same-settings-as-main",
+      "thenIds": [
+        "same-settings"
+      ],
+      "harness": "installed MacBook runbook",
+      "path": "same-settings-as-main/installed.md",
+      "expectedRuntime": "5-20 min per trial, plus native grace for shared tasks",
+      "needsInstalledApp": true,
+      "scope": "independent-own-backend"
+    },
+    {
+      "id": "saved-disagreement",
+      "ruleId": "same-settings-as-main",
+      "thenIds": [
+        "same-settings"
+      ],
+      "harness": "installed MacBook runbook",
+      "path": "same-settings-as-main/installed.md",
+      "expectedRuntime": "5-20 min per trial, plus native grace for shared tasks",
+      "needsInstalledApp": true,
+      "scope": "independent-own-backend"
+    },
+    {
+      "id": "composer-choice",
+      "ruleId": "same-settings-as-main",
+      "thenIds": [
+        "same-settings"
+      ],
+      "harness": "installed MacBook runbook",
+      "path": "same-settings-as-main/installed.md",
+      "expectedRuntime": "5-20 min per trial, plus native grace for shared tasks",
+      "needsInstalledApp": true,
+      "scope": "independent-own-backend"
+    },
+    {
+      "id": "installed-policy-parity",
+      "ruleId": "same-settings-as-main",
+      "thenIds": [
+        "model-from-policy"
+      ],
+      "harness": "installed MacBook runbook",
+      "path": "same-settings-as-main/installed.md",
+      "expectedRuntime": "5-20 min per trial, plus native grace for shared tasks",
+      "needsInstalledApp": true,
+      "scope": "independent-own-backend"
+    },
+    {
+      "id": "policy-selection",
+      "ruleId": "same-settings-as-main",
+      "thenIds": [
+        "model-from-policy"
+      ],
+      "harness": "nativeControl / isolated native endpoint",
+      "path": "same-settings-as-main/policy.test.mjs",
+      "expectedRuntime": "Under 90 s after first compilation",
+      "needsInstalledApp": false,
+      "scope": "independent-own-backend",
+      "command": "node --test behavior/cases/same-settings-as-main/policy.test.mjs",
+      "fixture": "Runs policy-omitted, policy-pack and policy-explicit. Checks the selected fields on the receipt and the submitted native turn. Baseline selection can pass before private routing lands."
+    },
+    {
+      "id": "normal-first-ack",
+      "ruleId": "running-work-survives-arc-restart",
+      "thenIds": [
+        "follow-ups-work"
+      ],
+      "dimension": "D2",
+      "harness": "installed MacBook runbook",
+      "path": "running-work-survives-arc-restart/installed.md",
+      "expectedRuntime": "5-20 min per trial, plus native grace for shared tasks",
+      "needsInstalledApp": true,
+      "scope": "independent-own-backend"
+    },
+    {
+      "id": "retry-completion",
+      "ruleId": "running-work-survives-arc-restart",
+      "thenIds": [
+        "follow-ups-work"
+      ],
+      "dimension": "D2",
+      "harness": "installed MacBook runbook",
+      "path": "running-work-survives-arc-restart/installed.md",
+      "expectedRuntime": "5-20 min per trial, plus native grace for shared tasks",
+      "needsInstalledApp": true,
+      "scope": "independent-own-backend"
+    },
+    {
+      "id": "completion-delivery",
+      "ruleId": "running-work-survives-arc-restart",
+      "thenIds": [
+        "follow-ups-work"
+      ],
+      "dimension": "D2",
+      "harness": "nativeControl / isolated native endpoint",
+      "path": "running-work-survives-arc-restart/completion.test.mjs",
+      "expectedRuntime": "Under 90 s after first compilation",
+      "needsInstalledApp": false,
+      "scope": "independent-own-backend",
+      "command": "node --test behavior/cases/running-work-survives-arc-restart/completion.test.mjs",
+      "fixture": "Loopback receiver with a normal first acknowledgement and a retryable first refusal. Compares raw deliveries to recorded completion identity across Core recovery and checks the follow-up on the original thread. Private backend lifetime and a loss during acknowledgement are installed checks."
     }
   ],
   "reachabilityGaps": [
