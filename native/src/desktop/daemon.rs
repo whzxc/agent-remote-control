@@ -133,28 +133,39 @@ fn identity_environment(
     Some((home, profile, endpoint, launch_id))
 }
 
-pub(super) async fn process_rows() -> Result<Vec<(u32, u32, PathBuf)>> {
-    let uid = unsafe { libc::geteuid() }.to_string();
-    let processes = output("/bin/ps", &["-axww", "-o", "uid=,pid=,ppid=,comm="]).await?;
+pub(super) struct ProcessRow {
+    pub uid: u32,
+    pub pid: u32,
+    pub parent: u32,
+    pub tty: Option<String>,
+    pub executable: PathBuf,
+}
+
+pub(super) async fn process_rows() -> Result<Vec<ProcessRow>> {
+    let processes = output("/bin/ps", &["-axww", "-o", "uid=,pid=,ppid=,tty=,comm="]).await?;
     Ok(processes
         .lines()
         .filter_map(|line| {
-            let (user, rest) = line.trim().split_once(char::is_whitespace)?;
-            if user != uid {
-                return None;
-            }
+            let (uid, rest) = line.trim().split_once(char::is_whitespace)?;
             let (pid, rest) = rest.trim_start().split_once(char::is_whitespace)?;
-            let (parent, executable) = rest.trim_start().split_once(char::is_whitespace)?;
-            Some((
-                pid.parse().ok()?,
-                parent.parse().ok()?,
-                PathBuf::from(executable.trim_start()),
-            ))
+            let (parent, rest) = rest.trim_start().split_once(char::is_whitespace)?;
+            let (tty, executable) = rest.trim_start().split_once(char::is_whitespace)?;
+            Some(ProcessRow {
+                uid: uid.parse().ok()?,
+                pid: pid.parse().ok()?,
+                parent: parent.parse().ok()?,
+                tty: (!tty.starts_with('?') && tty != "-").then(|| tty.to_owned()),
+                executable: PathBuf::from(executable.trim_start()),
+            })
         })
         .collect())
 }
 
 pub(crate) async fn instances() -> Result<Vec<Instance>> {
+    instances_in(&process_rows().await?)
+}
+
+pub(super) fn instances_in(rows: &[ProcessRow]) -> Result<Vec<Instance>> {
     let Some(installation) = super::installation() else {
         return Ok(Vec::new());
     };
@@ -168,8 +179,10 @@ pub(crate) async fn instances() -> Result<Vec<Instance>> {
     let expected = crate::accounts::codex::default_home()?;
     let expected = expected.canonicalize().unwrap_or(expected);
     let mut instances = Vec::new();
-    for (pid, _, command) in process_rows().await? {
-        if command != executable {
+    let uid = unsafe { libc::geteuid() };
+    for row in rows {
+        let pid = row.pid;
+        if row.uid != uid || row.executable != executable {
             continue;
         }
         let Some(start) = crate::codex_host::process_start(pid) else {
@@ -229,8 +242,8 @@ pub(crate) async fn connected_profile(profile: Option<&Path>) -> Result<Option<I
         return Ok(None);
     };
     let expected = url(&socket);
-    let mut candidates: Vec<_> = instances()
-        .await?
+    let rows = process_rows().await?;
+    let mut candidates: Vec<_> = instances_in(&rows)?
         .into_iter()
         .filter(|instance| {
             instance.endpoint.as_deref() == Some(&expected)
@@ -244,10 +257,11 @@ pub(crate) async fn connected_profile(profile: Option<&Path>) -> Result<Option<I
     let Ok(daemon) = native_peer(&socket).await else {
         return Ok(None);
     };
-    let rows = process_rows().await?;
+    let uid = unsafe { libc::geteuid() };
     let parent: HashMap<_, _> = rows
         .into_iter()
-        .map(|(pid, parent, _)| (pid, parent))
+        .filter(|row| row.uid == uid)
+        .map(|row| (row.pid, row.parent))
         .collect();
     let owner = |mut pid| {
         for _ in 0..12 {

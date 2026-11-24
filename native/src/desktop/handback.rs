@@ -112,8 +112,7 @@ async fn require_unheld(thread: &str) -> Result<()> {
             return Err(json!({"code":"DESKTOP_TASK_HANDED_BACK","message":"This task is in use in your main Desktop. ARC did not deliver the input.",
                 "threadId":thread,"next":{"via":"query","op":"codex_owner","args":{"threadId":thread}}}).to_string());
         }
-        lock["origin"] = process["origin"].clone();
-        lock["processes"] = process["processes"].clone();
+        include_holder(&mut lock, &process);
         lock["owner"] = json!("external");
     }
     Err(crate::writer::busy(thread, lock).to_string())
@@ -372,34 +371,104 @@ pub(crate) async fn holder(thread: &str) -> Value {
     if shared {
         return json!({"origin":"shared-app-server","client":"unknown","processes":processes});
     }
-    // Follow process ancestry, never infer a UI from a bundled CLI path.
     let rows = daemon::process_rows().await.unwrap_or_default();
-    let desktop = daemon::instances().await.unwrap_or_default();
+    let desktop = daemon::instances_in(&rows).unwrap_or_default();
+    let by_pid: HashMap<_, _> = rows.iter().map(|row| (row.pid, row)).collect();
+    let mut terminal = None;
+    let mut nearest_parent = None;
     for process in processes.as_array().into_iter().flatten() {
-        let mut pid = process["pid"].as_u64().unwrap_or_default() as u32;
-        while let Some((_, parent, executable)) = rows.iter().find(|(id, _, _)| *id == pid) {
-            if let Some(instance) = desktop.iter().find(|i| i.pid == pid && i.running()) {
+        let Some(pid) = process["pid"].as_u64().and_then(|p| u32::try_from(p).ok()) else {
+            continue;
+        };
+        let mut current = by_pid.get(&pid).copied();
+        let mut seen = HashSet::new();
+        let mut tty = None;
+        let mut app = None;
+        while let Some(row) = current {
+            if !seen.insert(row.pid) {
+                break;
+            }
+            if let Some(instance) = desktop.iter().find(|i| i.pid == row.pid && i.running()) {
                 let origin = if instance.profile.is_none() {
                     "main-desktop"
                 } else {
                     "desktop-profile"
                 };
-                return json!({"origin":origin,"originPid":pid,"processes":processes});
+                return json!({"origin":origin,"originPid":row.pid,"processes":processes});
             }
-            if executable
+            if row
+                .executable
                 .file_name()
                 .and_then(|s| s.to_str())
                 .is_some_and(|s| matches!(s, "sshd" | "sshd-session"))
             {
-                return json!({"origin":"ssh","originPid":pid,"processes":processes});
+                return json!({"origin":"ssh","originPid":row.pid,"processes":processes});
             }
-            if *parent == pid || *parent <= 1 {
-                break;
+            if row.pid != pid
+                && nearest_parent.is_none()
+                && row
+                    .executable
+                    .file_name()
+                    .is_some_and(|name| name != "?" && name != "??")
+            {
+                nearest_parent = Some(row);
             }
-            pid = *parent;
+            if tty.is_none() {
+                tty = row.tty.as_deref().map(|name| (name, row.pid));
+            }
+            if app.is_none() {
+                app = terminal_app(&row.executable);
+            }
+            current = by_pid.get(&row.parent).copied();
+        }
+        // An sshd ancestor can appear above a shell with a perfectly valid tty.
+        // Defer this attribution until every candidate's ancestry has been checked.
+        if let Some((name, origin_pid)) = tty {
+            terminal.get_or_insert((name, origin_pid, app));
         }
     }
-    json!({"origin":"external","processes":processes})
+    if let Some((tty, pid, app)) = terminal {
+        let mut evidence =
+            json!({"origin":"terminal","originPid":pid,"tty":tty,"processes":processes});
+        if let Some(app) = app {
+            evidence["terminalApp"] = json!(app);
+        }
+        return evidence;
+    }
+    let mut evidence = json!({"origin":"unknown","processes":processes});
+    if let Some(parent) = nearest_parent {
+        evidence["parentPid"] = json!(parent.pid);
+        evidence["parentExecutable"] = json!(parent.executable);
+    }
+    evidence
+}
+
+// Only name a recognizable terminal bundle in the process chain. Other .app
+// bundles can contain a CLI (for example Python) that allocates its own pty.
+fn terminal_app(executable: &Path) -> Option<&Path> {
+    executable.ancestors().find(|p| {
+        matches!(
+            p.file_name().and_then(|s| s.to_str()),
+            Some(
+                "Terminal.app"
+                    | "iTerm.app"
+                    | "iTerm2.app"
+                    | "Ghostty.app"
+                    | "kitty.app"
+                    | "Alacritty.app"
+                    | "WezTerm.app"
+                    | "Warp.app"
+                    | "Hyper.app"
+                    | "Tabby.app"
+            )
+        )
+    })
+}
+
+pub(crate) fn include_holder(owner: &mut Value, holder: &Value) {
+    if let (Some(owner), Some(fields)) = (owner.as_object_mut(), holder.as_object()) {
+        owner.extend(fields.clone());
+    }
 }
 
 enum Next {

@@ -13,9 +13,12 @@ export default function TaskOwnership({ ownership }: { ownership?: Ownership }) 
   const process = holder?.processes?.[0];
   const origin = holder?.origin ?? owner;
   const originKey = origin === "shared-app-server" ? "shared" : origin === "main-desktop" ? "mainDesktop" :
+    origin === "terminal" || origin === "unknown" ? origin :
     origin === "ssh" ? "ssh" : origin === "desktop-profile" || origin === "desktop" ? "desktop" : "external";
   const processName = process && `${process.executable.split("/").pop()} (${process.pid})`;
-  const holderLabel = [t(`detail.handback.${originKey}`), processName].filter(Boolean).join(" · ");
+  const source = origin === "terminal" ? [holder?.terminalApp?.split("/").pop(), holder?.tty] :
+    origin === "unknown" && holder?.parentExecutable ? [t("detail.handback.parentProcess", { name: holder.parentExecutable.split("/").pop() })] : [];
+  const holderLabel = [t(`detail.handback.${originKey}`), ...source, processName].filter(Boolean).join(" · ");
   let label: string;
   if (handback && ["handed-back", "running", "unconfirmed", "subtree-held", "held"].includes(handback.state)) {
     label = t(`detail.handback.${handback.state}`);

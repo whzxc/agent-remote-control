@@ -183,14 +183,18 @@ export interface TurnTiming {
   endedAt?: string | null;
 }
 type WriterProcess = { pid: number; executable: string };
-type HandbackHolder = { origin: string; processes?: WriterProcess[] };
-export interface TaskOwnership {
+interface WriterEvidence {
   origin?: string;
   processes?: WriterProcess[];
+  tty?: string;
+  terminalApp?: string;
+  parentExecutable?: string;
+}
+export interface TaskOwnership extends WriterEvidence {
   handback?: {
     state: string;
-    holder?: HandbackHolder;
-    descendants?: { threadId: string; state: string; holder?: HandbackHolder }[];
+    holder?: WriterEvidence;
+    descendants?: { threadId: string; state: string; holder?: WriterEvidence }[];
     ownHold?: { state: "dropped"; connection: string; evidence: string; nativeStatus?: string; observedAt: string; reason: string };
   };
   owner?: string;

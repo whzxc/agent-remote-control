@@ -674,11 +674,7 @@ impl Control {
                 Some("main-desktop") => "desktop",
                 _ => "external",
             });
-            result["origin"] = holder["origin"].clone();
-            result["processes"] = holder["processes"].clone();
-            if holder["client"].is_string() {
-                result["client"] = holder["client"].clone();
-            }
+            desktop::handback::include_holder(&mut result, &holder);
             return result;
         }
         let shared = self.shared_desktop_thread(thread).unwrap_or(false);
@@ -743,11 +739,7 @@ impl Control {
             )
         {
             let holder = desktop::handback::holder(thread).await;
-            owner["origin"] = holder["origin"].clone();
-            owner["processes"] = holder["processes"].clone();
-            if holder["origin"] == "shared-app-server" {
-                owner["client"] = json!("unknown");
-            }
+            desktop::handback::include_holder(&mut owner, &holder);
         }
         let history = crate::claude_notify::ownership::observe(thread, &owner).await?;
         owner["currentOwner"] = history["currentOwner"].clone();
