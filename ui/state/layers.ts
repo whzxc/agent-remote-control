@@ -35,6 +35,7 @@ export function createLayerStore() {
   const closing = new Set<string>();
   let pendingSwitch: { id: string; open: () => void; toggle: boolean; trigger: HTMLElement | null } | undefined;
   let switchTrigger: HTMLElement | null | undefined;
+  let pendingRestore: number | undefined;
   const transients = new Map<HTMLElement, { owner: string; dismiss: () => void; isAnchor: (target: Element) => boolean }>();
   const finishClose = async (id: string, complete?: () => void | Promise<void>) => {
     const layer = current.find(item => item.id === id);
@@ -177,7 +178,9 @@ export function createLayerStore() {
       await finishClose(id);
     },
     restoreFocus(layer: Pick<Layer, 'trigger' | 'returnFocus'>) {
-      requestAnimationFrame(() => {
+      if (pendingRestore !== undefined) cancelAnimationFrame(pendingRestore);
+      pendingRestore = requestAnimationFrame(() => {
+        pendingRestore = undefined;
         const activeLayer = top();
         const active = document.activeElement;
         if (activeLayer && active instanceof Element && activeLayer.node?.contains(active) && active !== activeLayer.node) return;

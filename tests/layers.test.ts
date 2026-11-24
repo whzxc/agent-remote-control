@@ -346,9 +346,16 @@ test('closing a layer with an unavailable opener restores the main landmark', as
     const { layers } = await server.ssrLoadModule('/ui/state/layers.ts');
     const page = within(document.body);
     await act(async () => root.render(h('main', { tabIndex: -1 },
-      h('button', { disabled: true }, 'Unavailable opener'))));
+      h('button', { disabled: true }, 'Unavailable opener'),
+      h('button', { className: 'outer-opener' }, 'Outer opener'))));
     layers.restoreFocus({ trigger: page.getByRole('button', { name: 'Unavailable opener' }) });
     await settle();
     assertNodeIdentity(focused(), page.getByRole('main'));
+    document.body.focus();
+    // Same-frame nested close: the outer layer's deferred restore must supersede the inner layer's stale fallback.
+    layers.restoreFocus({ trigger: page.getByRole('button', { name: 'Unavailable opener' }) });
+    layers.restoreFocus({ trigger: page.getByRole('button', { name: 'Outer opener' }), returnFocus: '.outer-opener' });
+    await settle();
+    assertNodeIdentity(focused(), page.getByRole('button', { name: 'Outer opener' }));
   });
 });
