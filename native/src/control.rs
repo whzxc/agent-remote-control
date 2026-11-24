@@ -2632,18 +2632,6 @@ impl Control {
             })?;
             return Ok(json!({"responseSent":true,"backendSession":rpc.session,"id":key}));
         }
-        let mut desktop_args;
-        let args = if operation == "create" && r["desktopRecovery"]["backend"] == "arc" {
-            desktop_args = args.clone();
-            crate::dispatch_policy::use_desktop_defaults(
-                &mut desktop_args,
-                &mut r["task"]["dispatch"],
-            );
-            r["arguments"] = desktop_args.clone();
-            &desktop_args
-        } else {
-            args
-        };
         let mut retry_args = args.clone();
         let mut params = args["params"].clone();
         let mut method = string(args, "method").to_owned();
@@ -2712,17 +2700,6 @@ impl Control {
             let mut turn = configured(args, string(&result["thread"], "cwd"))?;
             if !background && turn["model"].is_null() {
                 turn["model"] = result["model"].clone();
-            }
-            if r["desktopRecovery"]["backend"] == "arc" {
-                let model = turn["model"].as_str().or_else(|| result["model"].as_str());
-                let effort = turn["effort"]
-                    .as_str()
-                    .or_else(|| result["reasoningEffort"].as_str());
-                crate::dispatch_policy::check_desktop_configuration(model, effort)?;
-                r["task"]["model"] = json!(model);
-                r["task"]["effort"] = json!(effort);
-                r["task"]["dispatch"]["model"] = json!(model);
-                r["task"]["dispatch"]["effort"] = json!(effort);
             }
             turn["threadId"] = json!(thread);
             turn["input"] = input;

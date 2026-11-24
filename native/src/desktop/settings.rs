@@ -72,44 +72,39 @@ fn permission_atoms(home: &Path) -> Result<Value> {
     Ok(atoms)
 }
 
-fn selection(atoms: &Value, project: bool) -> Result<Option<Value>> {
-    let choice = &atoms[SELECTION];
-    let mode = match choice["kind"].as_str() {
-        Some("profile") => {
-            return choice["profileId"]
-                .as_str()
-                .filter(|id| !id.is_empty())
-                .map(|id| Some(json!({"permissions":id})))
-                .ok_or_else(|| "DESKTOP_PERMISSION_PROFILE_INVALID".into())
+/// A saved override requires agreement on the local host. Returning None
+/// leaves thread/start to resolve permissions from native project configuration.
+fn saved_permissions(atoms: &Value, project: bool) -> Option<Value> {
+    let legacy = atoms[MODE]["local"].as_str()?;
+    let modern = &atoms[SELECTION];
+    if atoms[DERIVED]["local"] == legacy || modern["kind"] != "agent-mode" {
+        return None;
+    }
+    fn normalize(mode: &str, project: bool) -> &str {
+        match (mode, project) {
+            ("auto" | "granular", true) => "auto",
+            ("auto" | "granular", false) => "granular",
+            _ => mode,
         }
-        Some("custom" | "server-default") => return Ok(None),
-        Some("agent-mode") => choice["agentMode"].as_str(),
-        None if choice.is_null() => {
-            let saved = &atoms[MODE]["local"];
-            if saved == &atoms[DERIVED]["local"] {
-                return Ok(None);
-            }
-            saved.as_str()
-        }
-        _ => return Err("DESKTOP_PERMISSION_SELECTION_UNKNOWN".into()),
-    };
+    }
+    let mode = normalize(modern["agentMode"].as_str()?, project);
+    if mode != normalize(legacy, project) {
+        return None;
+    }
     let (profile, policy, reviewer) = match mode {
-        None | Some("custom") => return Ok(None),
-        Some("read-only") => (":read-only", json!("on-request"), "user"),
-        Some("full-access") => (":danger-full-access", json!("never"), "user"),
-        Some("guardian-approvals") => (":workspace", json!("on-request"), "guardian_subagent"),
-        Some("auto" | "granular") if project => (":workspace", json!("on-request"), "user"),
-        Some("auto" | "granular") => (
+        "read-only" => (":read-only", json!("on-request"), "user"),
+        "full-access" => (":danger-full-access", json!("never"), "user"),
+        "guardian-approvals" => (":workspace", json!("on-request"), "guardian_subagent"),
+        "auto" => (":workspace", json!("on-request"), "user"),
+        "granular" => (
             ":workspace",
             json!({"granular":{"sandbox_approval":false,
             "rules":false,"skill_approval":false,"request_permissions":true,"mcp_elicitations":true}}),
             "user",
         ),
-        _ => return Err("DESKTOP_PERMISSION_SELECTION_UNKNOWN".into()),
+        _ => return None,
     };
-    Ok(Some(
-        json!({"permissions":profile,"approvalPolicy":policy,"approvalsReviewer":reviewer}),
-    ))
+    Some(json!({"permissions":profile,"approvalPolicy":policy,"approvalsReviewer":reviewer}))
 }
 
 pub(crate) async fn apply(rpc: &rpc::Rpc, dispatch: &Value, seed: &mut Value) -> Result<()> {
@@ -128,10 +123,9 @@ pub(crate) async fn apply(rpc: &rpc::Rpc, dispatch: &Value, seed: &mut Value) ->
     }
     let home = accounts::codex::default_home()?;
     let atoms = permission_atoms(&home)?;
-    let project = seed["cwd"].is_string();
-    let modern = selection(&json!({SELECTION:atoms[SELECTION]}), project)?;
-    let legacy = selection(&json!({MODE:atoms[MODE], DERIVED:atoms[DERIVED]}), project)?;
-    let mut required = None;
+    let Some(mut saved) = saved_permissions(&atoms, seed["cwd"].is_string()) else {
+        return Ok(());
+    };
     let requirements = rpc.call("configRequirements/read", json!({}), 5000).await?;
     if let Some(models) = requirements
         .pointer("/requirements/autoReview/requiredOnModels")
@@ -170,24 +164,9 @@ pub(crate) async fn apply(rpc: &rpc::Rpc, dispatch: &Value, seed: &mut Value) ->
             .split_once('/')
             .map_or(model.as_str(), |(_, name)| name);
         if models.iter().any(|required| required == name) {
-            required = Some(
-                json!({"permissions":":workspace","approvalPolicy":"on-request","approvalsReviewer":"guardian_subagent"}),
-            );
+            saved = json!({"permissions":":workspace","approvalPolicy":"on-request","approvalsReviewer":"guardian_subagent"});
         }
     }
-    // Both permission pickers ship in the same Desktop build. Its renderer
-    // chooses one at runtime. Never infer an elevated policy from a stale
-    // preference belonging only to the other picker.
-    let saved = if required.is_some() {
-        required
-    } else if modern == legacy {
-        modern
-    } else {
-        return Err("DESKTOP_PERMISSION_SELECTION_UNCONFIRMED: Desktop's saved permission sources disagree. No thread was submitted.".into());
-    };
-    let Some(saved) = saved else {
-        return Ok(());
-    };
     let mut cursor = Value::Null;
     let mut seen = std::collections::HashSet::new();
     loop {
@@ -250,22 +229,24 @@ mod tests {
         let home = std::env::temp_dir().join(format!("arc-saved-permissions-{}", id()));
         std::fs::create_dir(&home).unwrap();
         let full = json!({"kind":"agent-mode","agentMode":"full-access"});
-        let restricted = json!({"kind":"profile","profileId":"review"});
+        let restricted = json!({"kind":"agent-mode","agentMode":"read-only"});
         let file = home.join(".codex-global-state.json");
-        save(&file, &json!({OWNER:"active", "electron-owner-atoms:previous":{SELECTION:full},
-            "electron-owner-atoms:active":{SELECTION:restricted}, SHARED:{"permission-selection-by-host-id:ssh":full}})).unwrap();
-        let permissions = || {
-            selection(&permission_atoms(&home).unwrap(), true)
-                .unwrap()
-                .unwrap()
-        };
-        assert_eq!(permissions(), json!({"permissions":"review"}));
+        save(&file, &json!({OWNER:"active", "electron-owner-atoms:previous":{MODE:{"local":"full-access"}},
+            "electron-owner-atoms:active":{SELECTION:full}, SHARED:{"permission-selection-by-host-id:ssh":full}})).unwrap();
+        let permissions = || saved_permissions(&permission_atoms(&home).unwrap(), true);
+        // Modern choice only: native configuration supplies the default.
+        assert_eq!(permissions(), None);
         let db = Connection::open(home.join(".codex-global-state.sqlite")).unwrap();
         db.execute_batch("CREATE TABLE settings(scope TEXT, key TEXT, value TEXT)")
             .unwrap();
         for (scope, key, value) in [
             ("global", OWNER, json!("active")),
             ("electron-owner-atoms:active", SELECTION, full),
+            (
+                "electron-owner-atoms:active",
+                MODE,
+                json!({"local":"full-access"}),
+            ),
             ("atom", SELECTION, restricted),
         ] {
             db.execute(
@@ -274,13 +255,19 @@ mod tests {
             )
             .unwrap();
         }
-        assert_eq!(permissions(), json!({"permissions":"review"}));
+        // The shared read-only choice and the active owner’s full-access choice disagree.
+        assert_eq!(permissions(), None);
         db.execute("DELETE FROM settings WHERE scope='atom'", [])
             .unwrap();
         assert_eq!(
             permissions(),
-            json!({"permissions":":danger-full-access","approvalPolicy":"never","approvalsReviewer":"user"})
+            Some(
+                json!({"permissions":":danger-full-access","approvalPolicy":"never","approvalsReviewer":"user"})
+            )
         );
+        db.execute("DELETE FROM settings WHERE key=?1", [SELECTION])
+            .unwrap();
+        assert_eq!(permissions(), None);
         drop(db);
         std::fs::remove_dir_all(home).unwrap();
     }
