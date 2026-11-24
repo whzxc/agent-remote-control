@@ -1,0 +1,32 @@
+# Installed macOS runner
+
+Use a disposable Apple Silicon macOS VM, a fresh GUI login named `arc-handback`, and guest-local installations in `/Applications`. Keep host folders, Keychain and GUI sessions disconnected. Begin each trial from a powered-off clean snapshot, with ARC, Codex Desktop and Codex daemons stopped. Install the previous signed ARC and stage its signed successor for update trials. Use the candidate for other trials. The update must replace only the guest bundle. Give the guest a test model account or a controlled provider that can hold a turn and finish it successfully or with a non-retryable failure. Keep the evidence outside the repository.
+
+Copy this cases directory to the guest. From its parent checkout (outside a coding lane), in one shell:
+
+```sh
+driver="$PWD/behavior/cases/installed.py"
+run=$(python3 "$driver" init) || exit 1
+h() { python3 "$driver" "$run" "$@"; }
+h login
+h arc-start
+h configure
+h dispatch "HB first" "Reply with HB ready." > "$run/create.json"
+```
+
+The launcher sets the guest GUI environment for relaunch, starts a native daemon under the new Codex home, checks its socket, and selects ARC state explicitly. Complete initial setup in the guest if prompted. The login command selects the new Codex home. Use the local ARC CLI under the same explicit state to approve a self-test if requested. Resolve a pending create by reading its original receipt through `h ctl receipt '{"requestId":"…"}'`. Record the returned thread and turn IDs. Inspect ARC task settings for auto-open and independent recovery. Record the installed version/build, selected state path, Core PID and native control-socket peer before each transition.
+
+1. Dispatch all seeds while only the independent instance is open. Read back the exact thread in that window and the native daemon's socket connection. Record the instance with `h instance > "$run/instance-before.json"`. If dispatch uses ordinary follower IPC or a background connector, the trial lacks its starting condition.
+2. Run `h main-start` once. This opens a second profile in the same isolated Codex home, with its own app-server. Verify the two process trees, distinct profile paths, and that only the independent tree connects to the case daemon's control socket. Bind GUI actions by PID and thread ID/title. If selecting a task in main already steals the writer, record the observed effect and stop that trial.
+3. Keep an identity ledger of all parent/child thread IDs, original turn IDs, titles and input markers. Confirm terminal state by reading the turn that actually ran. To seed an interrupted turn, explicitly stop the seed before the trial. To seed a failed turn, make the test provider return a non-retryable turn failure. For children, ask the test agent to spawn a subagent and record the actual child from its native relationship. A missing child, a model's claim to have spawned one, or an unsubmitted request cannot seed that row.
+4. Quit via the targeted independent window's Quit action. For close, close its last window and observe process exit. Record a window close that leaves a resident process separately. For a crash, use `h crash` after saving the current identity. It signals only the recorded independent PID whose executable, UID, launch time and profile still match. The main Desktop and daemon must remain alive across each exit.
+5. For Core restart use `h core-cycle`, let the installed Desktop reconnect or relaunch ARC with the same case environment, and verify a new Core PID. For update use the guest app's **Update and restart** with a ready signed successor. Read back the new bundle version and attached Core, same case state directory, same Codex home and same daemon PID. Never substitute app restart for a version change. Reseed from the older snapshot for each independent update trial.
+6. Restore the disposable VM snapshot after exporting the ledger, CLI results and per-task UI observations. This ends all guest processes and discards the guest launch environment. Never select a process by app name to quit it, restart the shared daemon to release a lock, delete locks, or copy data from the user's home.
+
+## Timing and readback
+
+Use the guest monotonic clock for both ends. The local driver provides `h stamp <event> <threadId>` for operator bookmarks. For the 30-second cases, run `h watch-exit > "$run/exit.json"` in a second case shell and wait for its armed message before triggering the exit and arm a read-only native `turn/completed` observer before releasing the provider gate. An alternative is to timestamp gate release (earliest possible completion) and the first confirmed terminal read for that original turn (latest possible completion). Using both bounds avoids timing a late observation as the start of a new 30-second window. Do not resume or subscribe to an unloaded thread to observe the transition. Record the exit/terminal event at observation, together with its observation latency. A timestamp taken after noticing a closed window, reopening the panel, or reading a later receipt cannot start the timer.
+
+Use separate, identically seeded trials for **send** and **archive** so that sending a new turn cannot postpone archive and archive cannot remove the send target. In main Desktop, send one unique marker to the original thread. Record the timestamp at which it is accepted as a new user turn and verify it remains in that thread after refresh. Archive via main Desktop's thread menu. Record the success timestamp, refresh Archived, and verify that exact thread is there and absent from the active list. A writable composer, enabled menu, ARC receipt, lock probe or disappearance alone is insufficient. On a read-only result retry only a definitively rejected action; reconcile an uncertain send in history before retrying.
+
+For each ID calculate elapsed time from the original event to acceptance. Require at most 30 seconds, including reconciliation across Core restart or update. Keep a timing interval if event capture has material latency. Pass only when its upper bound fits and fail only when the action is confirmed blocked past the deadline. Report an ambiguous boundary or late operator action as unmeasured. For a large batch use a PID-scoped Desktop driver or repeat the same loaded cohort with one designated target first per trial, until every parent and child has both measurements. Preserve per-item results, including the last item in the cohort.

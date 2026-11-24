@@ -1,0 +1,238 @@
+{
+  "scope": "desktop-instance-handback",
+  "runtimeBasis": "Estimates per trial on a prepared guest; provisioning and builds are separate.",
+  "installedSetup": "installed.md",
+  "testPrerequisite": "npm run check:tests",
+  "cases": [
+    {
+      "id": "live-boundaries",
+      "ruleId": "arc-instance-left-alone",
+      "thenIds": [
+        "instance-survives",
+        "tasks-usable-there",
+        "no-release-while-running"
+      ],
+      "dimension": "D2",
+      "harness": "installed guest runbook",
+      "path": "arc-instance-left-alone/installed.md",
+      "expectedRuntime": "5-15 min per boundary",
+      "needsInstalledApp": true
+    },
+    {
+      "id": "live-overlap",
+      "ruleId": "arc-instance-left-alone",
+      "thenIds": [
+        "instance-survives",
+        "tasks-usable-there",
+        "no-release-while-running"
+      ],
+      "dimension": "D3",
+      "harness": "installed guest runbook",
+      "path": "arc-instance-left-alone/installed.md",
+      "expectedRuntime": "5 min per trial",
+      "needsInstalledApp": true
+    },
+    {
+      "id": "exit-states",
+      "ruleId": "instance-exit-unlocks-tasks",
+      "thenIds": [
+        "finished-continuable",
+        "finished-archivable",
+        "running-not-interrupted",
+        "running-status-shown",
+        "reopen-shows-task",
+        "running-unlocks-after"
+      ],
+      "dimension": "D1",
+      "harness": "installed guest runbook",
+      "path": "instance-exit-unlocks-tasks/installed.md",
+      "expectedRuntime": "5-10 min per source state and probe",
+      "needsInstalledApp": true
+    },
+    {
+      "id": "exit-boundaries",
+      "ruleId": "instance-exit-unlocks-tasks",
+      "thenIds": [
+        "finished-continuable",
+        "finished-archivable",
+        "running-not-interrupted",
+        "running-status-shown",
+        "reopen-shows-task",
+        "running-unlocks-after"
+      ],
+      "dimension": "D2",
+      "harness": "installed guest runbook",
+      "path": "instance-exit-unlocks-tasks/installed.md",
+      "expectedRuntime": "5-15 min per fault and boundary",
+      "needsInstalledApp": true
+    },
+    {
+      "id": "exit-scale",
+      "ruleId": "instance-exit-unlocks-tasks",
+      "thenIds": [
+        "finished-continuable",
+        "finished-archivable",
+        "running-not-interrupted",
+        "running-status-shown",
+        "reopen-shows-task",
+        "running-unlocks-after"
+      ],
+      "dimension": "D11",
+      "harness": "installed guest runbook",
+      "path": "instance-exit-unlocks-tasks/installed.md",
+      "expectedRuntime": "10-60 min per seeded cohort and probe; repeat per target without a batch GUI driver",
+      "needsInstalledApp": true
+    },
+    {
+      "id": "closed-active-detail",
+      "ruleId": "instance-exit-unlocks-tasks",
+      "thenIds": [
+        "running-status-shown"
+      ],
+      "dimension": "D1",
+      "harness": "ActivityTimeline / happy-dom",
+      "path": "instance-exit-unlocks-tasks/detail.test.mjs",
+      "expectedRuntime": "2 s after fixture capture",
+      "needsInstalledApp": false,
+      "fixture": "Same-build capture-detail output; first capture requires the isolated guest.",
+      "command": "HANDBACK_DETAIL=/path/to/closed-active.json node --test behavior/cases/instance-exit-unlocks-tasks/detail.test.mjs",
+      "baselineCommand": "HANDBACK_DETAIL=baseline node --test behavior/cases/instance-exit-unlocks-tasks/detail.test.mjs"
+    },
+    {
+      "id": "upgrade-existing",
+      "ruleId": "earlier-held-tasks-unlock",
+      "thenIds": [
+        "unlocked-without-action"
+      ],
+      "dimension": "D7",
+      "harness": "installed guest runbook",
+      "path": "earlier-held-tasks-unlock/installed.md",
+      "expectedRuntime": "10-20 min per upgrade and probe",
+      "needsInstalledApp": true
+    },
+    {
+      "id": "upgrade-scale",
+      "ruleId": "earlier-held-tasks-unlock",
+      "thenIds": [
+        "unlocked-without-action"
+      ],
+      "dimension": "D11",
+      "harness": "installed guest runbook",
+      "path": "earlier-held-tasks-unlock/installed.md",
+      "expectedRuntime": "10-60 min per seeded cohort and probe",
+      "needsInstalledApp": true
+    },
+    {
+      "id": "terminal-owner",
+      "ruleId": "foreign-holder-reported",
+      "thenIds": [
+        "holder-named",
+        "steps-workable",
+        "holder-untouched"
+      ],
+      "dimension": "D1",
+      "harness": "nativeControl / CLI control / local Unix terminal",
+      "path": "foreign-holder-reported/terminal-owner.test.mjs",
+      "expectedRuntime": "4 s with compiled fixture, plus first build",
+      "needsInstalledApp": false,
+      "command": "node --test behavior/cases/foreign-holder-reported/terminal-owner.test.mjs",
+      "sourceState": "Completed, no children, local controlling tty"
+    },
+    {
+      "id": "foreign-states",
+      "ruleId": "foreign-holder-reported",
+      "thenIds": [
+        "holder-named",
+        "steps-workable",
+        "holder-untouched"
+      ],
+      "dimension": "D1",
+      "harness": "installed guest runbook",
+      "path": "foreign-holder-reported/installed.md",
+      "expectedRuntime": "5-10 min per holder and source state",
+      "needsInstalledApp": true
+    },
+    {
+      "id": "send-boundaries",
+      "ruleId": "no-take-back-from-user",
+      "thenIds": [
+        "stays-with-user",
+        "input-not-delivered",
+        "in-use-reported"
+      ],
+      "dimension": "D2",
+      "harness": "installed guest runbook",
+      "path": "no-take-back-from-user/installed.md",
+      "expectedRuntime": "5-15 min per fault and boundary",
+      "needsInstalledApp": true
+    },
+    {
+      "id": "send-replay",
+      "ruleId": "no-take-back-from-user",
+      "thenIds": [
+        "stays-with-user",
+        "input-not-delivered",
+        "in-use-reported"
+      ],
+      "dimension": "D3",
+      "harness": "installed guest runbook",
+      "path": "no-take-back-from-user/installed.md",
+      "expectedRuntime": "5 min per trial",
+      "needsInstalledApp": true
+    }
+  ],
+  "reachabilityGaps": [
+    {
+      "ruleId": "arc-instance-left-alone",
+      "thenIds": [
+        "instance-survives",
+        "tasks-usable-there",
+        "no-release-while-running"
+      ],
+      "seam": "Add a test-runner-owned macOS two-profile driver that identifies a window by PID, creation identity and AX window ID, reads its selected thread, and sends or archives a specified thread. Preserve both profiles and the daemon across a real Core restart or signed guest update."
+    },
+    {
+      "ruleId": "instance-exit-unlocks-tasks",
+      "thenIds": [
+        "finished-continuable",
+        "finished-archivable",
+        "running-unlocks-after"
+      ],
+      "seam": "Give the guest driver per-thread accepted-send and archived-list readback with monotonic acknowledgement times on the main Desktop. Feed parent and child IDs and the case PID-exit or original terminal-event timestamp into the driver. Add a fixture barrier after the first eligible thread releases and before the remaining releases to hit partial recovery deterministically."
+    },
+    {
+      "ruleId": "instance-exit-unlocks-tasks",
+      "thenIds": [
+        "running-not-interrupted",
+        "running-status-shown",
+        "reopen-shows-task"
+      ],
+      "seam": "Add a fixture-scoped independent-instance lifecycle source with two distinct profiles, exit while a controlled turn is gated, explicit natural completion/failure, and a recorded reopen destination. Bind the browser fixture to the same-build closed-active management projection. A real crash can already be induced by the guarded guest driver."
+    },
+    {
+      "ruleId": "earlier-held-tasks-unlock",
+      "thenIds": [
+        "unlocked-without-action"
+      ],
+      "seam": "Provision an old signed ARC guest with verified still-held native threads and a ready signed successor. Install on the same running guest while preserving the daemon process; a copied history directory alone loses the lock."
+    },
+    {
+      "ruleId": "foreign-holder-reported",
+      "thenIds": [
+        "holder-named",
+        "steps-workable",
+        "holder-untouched"
+      ],
+      "seam": "Provision a second disposable SSH client and expose its known peer, terminal and writer identity to the fixture driver. Execute each advertised manual recovery in that session. The local PTY contract covers one terminal and one completed task."
+    },
+    {
+      "ruleId": "no-take-back-from-user",
+      "thenIds": [
+        "stays-with-user",
+        "input-not-delivered",
+        "in-use-reported"
+      ],
+      "seam": "Let a fixture dispatch on the independent local-daemon route, observe exit and unlock, then accept a user-marked turn in a second Desktop on its own writer. Record accepted user messages and steers on both routes. Add receipt-admission and pre-delivery barriers so the runner can restart Core or install an update before inspecting or replaying a write."
+    }
+  ]
+}
