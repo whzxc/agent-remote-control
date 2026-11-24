@@ -1,6 +1,7 @@
 export function TaskFeedSection({ children }: { children: unknown }) { return <section class="text-small text-text-secondary">{children}</section>; }
 export function TaskFilter({ children }: { children: unknown }) { return <div class="rounded-full border border-accent-text/40 bg-accent-text/10 text-small font-semibold text-accent-text">{children}</div>; }
 import { Button } from "../components/button";
+import { BrandMark } from "../components/brand-mark";
 import { Panel } from "../components/panel";
 import { examples, listOrigins, type ListExample } from "../fixtures/task-list";
 import { TaskCard, type TaskSnapshotData } from '../components/task-card';
@@ -43,19 +44,20 @@ function toTaskSnapshot(task: ListExample): TaskSnapshotData {
   };
 }
 
-function SubtaskFooter({ count, attention }: { count: number; attention: number }) {
+function SubtaskPill({ count, attention }: { count: number; attention: number }) {
   return (
-    <button class="mx-2 mb-2 flex h-8 shrink-0 items-center gap-2 rounded-tile border border-border/70
-      bg-surface-subtle/60 px-[10px] text-small font-semibold text-text">
-      <Icon name="git-fork" size={14} class="text-text-secondary" />
-      <span>{count} 个子任务</span>
-      {Boolean(attention) && (
-        <span class="ml-auto rounded-full border border-warning/25 bg-warning/10 px-[7px] py-[1px]
-          text-caption font-semibold text-warning">
-          {attention} 个待确认
-        </span>
-      )}
-      <Icon name="chevron-right" size={14} class={attention ? 'text-text-secondary' : 'ml-auto text-text-secondary'} />
+    <button
+      type="button"
+      aria-label={attention ? `${count} 个子任务 · ${attention} 个待确认` : `${count} 个子任务`}
+      class={`inline-flex h-6 shrink-0 items-center gap-1 rounded-full border px-2 text-caption font-semibold tabular-nums ${
+        attention
+          ? 'border-warning/35 bg-warning/10 text-warning'
+          : 'border-border-strong bg-surface text-text'
+      }`}
+    >
+      <Icon name="git-fork" size={11} class={attention ? 'text-warning' : 'text-text-secondary'} />
+      <span>{attention ? `${count} · ${attention}` : count}</span>
+      <Icon name="chevron-right" size={11} class={attention ? 'text-warning' : 'text-text-tertiary'} />
     </button>
   );
 }
@@ -72,7 +74,7 @@ function gridTaskCard(task: ListExample, form: 'detail' | 'summary') {
     attention={attention > 0}
     class={detail ? 'min-h-[224px] h-full' : 'h-[106px]'}
     emptyBody={detail && emptyState ? <EmptyTaskBody state={emptyState} /> : undefined}
-    footer={detail && task.children?.length ? <SubtaskFooter count={task.children.length} attention={attention} /> : undefined}
+    metaAction={detail && task.children?.length ? <SubtaskPill count={task.children.length} attention={attention} /> : undefined}
   />;
 }
 
@@ -84,22 +86,53 @@ export function TaskGrid({ items, day }: {
   const split = items.length > limit ? limit - 1 : items.length;
   const overflow = items.length - split;
   const visible = day.expanded ? items : items.slice(0, split);
+  const hiddenItems = items.slice(split);
   return <div class={`${taskGrid} items-stretch gap-x-4 gap-y-6`}>
     {visible.map(task => gridTaskCard(task, day.form))}
-    {overflow > 0 && <DayOverflowCard count={overflow} form={day.form} expanded={day.expanded} />}
+    {overflow > 0 && <DayOverflowCard count={overflow} total={items.length} hiddenItems={hiddenItems} form={day.form} expanded={day.expanded} />}
   </div>;
 }
 
-function DayOverflowCard({ count, form, expanded = false }: { count: number; form: 'detail' | 'summary'; expanded?: boolean }) {
-  return <button type="button" aria-expanded={expanded}
+function DayOverflowCard({ count, total, hiddenItems, form, expanded = false }: {
+  count: number; total: number; hiddenItems: readonly ListExample[]; form: 'detail' | 'summary'; expanded?: boolean;
+}) {
+  const peekLimit = form === 'detail' ? 4 : 2;
+  const peek = hiddenItems.slice(0, peekLimit);
+  const more = Math.max(0, count - peek.length);
+  const label = `${expanded ? '收起' : '展开'} ${count} 个任务`;
+  return <button type="button" aria-expanded={expanded} aria-label={label}
     class={`relative isolate flex w-full min-w-0 flex-col text-left focus-visible:outline-2 focus-visible:outline-accent ${expanded ? '' : 'pt-3'} ${form === 'detail' ? 'min-h-[224px] h-full' : 'h-[106px]'}`}>
     {!expanded && <>
       <span aria-hidden="true" class="absolute inset-x-3 inset-y-0 rounded-card border border-border-strong bg-surface-subtle" />
       <span aria-hidden="true" class="absolute inset-x-1.5 top-1.5 bottom-0 rounded-card border border-border-strong bg-surface-subtle" />
     </>}
-    <span class={`relative flex w-full flex-1 items-center justify-between gap-2 rounded-card border px-[14px] shadow-md ${expanded ? 'border-border bg-surface-subtle' : 'border-border-strong bg-surface'}`}>
-      <strong class="text-body font-semibold text-text">{expanded ? '收起' : '展开'} {count} 个任务</strong>
-      <Icon name={expanded ? 'chevron-up' : 'chevron-down'} size={16} class="shrink-0 text-text-secondary" />
+    <span class={`relative flex w-full flex-1 flex-col gap-2 overflow-hidden rounded-card border p-3 shadow-md ${expanded ? 'justify-center border-border bg-surface-subtle' : 'justify-between border-border-strong bg-surface'}`}>
+      <span class="flex items-center justify-between gap-2">
+        <strong class="truncate text-body font-semibold text-text">{label}</strong>
+        <Icon name={expanded ? 'chevron-up' : 'chevron-down'} size={16} class="shrink-0 text-text-secondary" />
+      </span>
+      {!expanded && peek.length > 0 && (
+        <span aria-hidden="true" class="flex min-h-0 flex-1 flex-col justify-between gap-1.5 rounded-tile bg-surface-subtle px-2.5 py-2">
+          <span class="flex flex-col gap-1">
+            {peek.map(item => {
+              const brand = item.originKey === 'antigravity' ? 'antigravity' : item.viaClaude ? 'claude' : 'codex';
+              return (
+                <span class="flex items-center gap-1.5 text-caption leading-4 text-text-secondary">
+                  <BrandMark brand={brand} size={12} />
+                  <span class="min-w-0 flex-1 truncate">{item.title}</span>
+                  <span class="shrink-0 tabular-nums text-text-tertiary">{item.time}</span>
+                </span>
+              );
+            })}
+          </span>
+          {form === 'detail' && more > 0 && (
+            <span class="text-caption leading-4 tabular-nums text-text-tertiary">还有 {more} 项</span>
+          )}
+        </span>
+      )}
+      {expanded && (
+        <span aria-hidden="true" class="text-caption tabular-nums text-text-tertiary">共 {total} 个任务</span>
+      )}
     </span>
   </button>;
 }

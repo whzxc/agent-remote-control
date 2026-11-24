@@ -43,10 +43,10 @@ const scrollRow = 'min-w-0 overflow-x-auto overflow-y-hidden [scrollbar-width:no
 export const aurora = 'border-transparent [background:linear-gradient(var(--surface),var(--surface))_padding-box,conic-gradient(from_24deg,var(--border)_0deg,var(--border)_25deg,var(--aurora-tint)_75deg,var(--border)_142deg,var(--border)_215deg,var(--aurora-tint)_275deg,var(--border)_360deg)_border-box] [box-shadow:var(--shadow-md),0_0_15px_color-mix(in_srgb,var(--aurora-tint)_24%,transparent)]';
 
 
-export function TaskCardHeader({ task, heading = false, attention = false }: { task: TaskSnapshotData; heading?: boolean; attention?: boolean }) {
+export function TaskCardHeader({ task, heading = false, attention = false, metaAction }: { task: TaskSnapshotData; heading?: boolean; attention?: boolean; metaAction?: unknown }) {
   const timing = task.elapsed ?? task.lastSeen;
-  const hasMeta = Boolean(task.dispatch || task.project || task.turns !== undefined);
-  const hasPills = Boolean(task.dispatch || task.project);
+  const hasMeta = Boolean(task.dispatch || task.project || task.turns !== undefined || metaAction);
+  const hasPills = Boolean(task.dispatch || task.project || metaAction);
   const title = 'block w-max whitespace-nowrap text-left text-body leading-5 font-semibold text-text';
   const attentionDot = task.group === 'needs-me' || attention ? 'bg-warning' : task.group === 'unread' ? 'bg-accent' : '';
   return <header class={`flex w-full min-w-0 flex-col gap-2 py-3 ${heading ? "" : "px-[14px]"}`}>
@@ -69,16 +69,19 @@ export function TaskCardHeader({ task, heading = false, attention = false }: { t
     <div class={scrollRow}>{heading ? <h2 class={title}>{task.title}</h2>
       : <button aria-label={`${copy.open}: ${task.title}`} class={title}>{task.title}</button>}</div>
     {hasMeta && (
-      <div class={scrollRow}>
-        <div class={`flex w-max items-center gap-[6px] whitespace-nowrap ${hasPills ? 'h-6' : 'h-4'}`}>
-          {task.dispatch && <DispatchSpec {...task.dispatch} />}
-          {task.project && <ProjectLabel {...task.project} />}
-          {task.turns !== undefined && (
-            <span class="text-caption tabular-nums text-text-tertiary">
-              {task.turns} {task.turns === 1 ? 'turn' : 'turns'}
-            </span>
-          )}
+      <div class="flex min-w-0 items-center gap-[6px]">
+        <div class={`flex-1 ${scrollRow}`}>
+          <div class={`flex w-max items-center gap-[6px] whitespace-nowrap ${hasPills ? 'h-6' : 'h-4'}`}>
+            {task.dispatch && <DispatchSpec {...task.dispatch} />}
+            {task.project && <ProjectLabel {...task.project} />}
+            {task.turns !== undefined && (
+              <span class="text-caption tabular-nums text-text-tertiary">
+                {task.turns} {task.turns === 1 ? 'turn' : 'turns'}
+              </span>
+            )}
+          </div>
         </div>
+        {metaAction && <div class="flex shrink-0 items-center">{metaAction}</div>}
       </div>
     )}
   </header>;
@@ -105,8 +108,8 @@ function SnapshotNote({ tone, label, text }: { tone: 'source' | 'request'; label
 
 
 /** Shared task card in exactly two forms: summary (metadata header) and detail (header + structured preview). */
-export function TaskCard({ task, form, attention = false, emptyBody, footer, class: extra = '' }: {
-  task: TaskSnapshotData; form: 'summary' | 'detail'; attention?: boolean; emptyBody?: unknown; footer?: unknown; class?: string;
+export function TaskCard({ task, form, attention = false, emptyBody, metaAction, footer, class: extra = '' }: {
+  task: TaskSnapshotData; form: 'summary' | 'detail'; attention?: boolean; emptyBody?: unknown; metaAction?: unknown; footer?: unknown; class?: string;
 }) {
   const preview = form === 'detail';
   const phase = task.phase ?? (task.icon === 'brain' ? 'thinking' : task.icon === 'terminal' ? 'command' : undefined);
@@ -126,9 +129,10 @@ export function TaskCard({ task, form, attention = false, emptyBody, footer, cla
     : 'border-border bg-surface shadow-md';
   const boundedLines = task.previewLines?.slice(footer ? -3 : -4);
   const previewMargin = footer ? 'mb-[6px]' : 'mb-2';
+  const agentClamp = (boundedLines?.length ?? 0) <= 2 ? 'line-clamp-3' : 'line-clamp-2';
   return <article aria-label={task.title} style={{ '--aurora-tint': active ? tint : undefined }}
     class={`flex w-full min-w-0 flex-col rounded-card border ${shell} ${extra}`}>
-    <TaskCardHeader task={task} attention={attention} />
+    <TaskCardHeader task={task} attention={attention} metaAction={metaAction} />
     {preview && emptyBody ? (
       <div class={`mx-2 ${previewMargin} flex min-h-[88px] flex-1 flex-col justify-center overflow-hidden rounded-tile bg-surface-subtle p-[10px]`}>
         {emptyBody}
@@ -137,7 +141,7 @@ export function TaskCard({ task, form, attention = false, emptyBody, footer, cla
       <div class={`mx-2 ${previewMargin} flex min-h-10 flex-1 flex-col justify-start overflow-hidden rounded-tile bg-surface-subtle`}>
         <div class="flex shrink-0 flex-col gap-2 p-[10px]">
           {boundedLines.map(({ text, kind }) => kind === 'source' ? <SnapshotNote tone="source" text={text} />
-            : kind === 'agent' ? <p class="line-clamp-2 text-caption leading-4 text-text">{text}</p>
+            : kind === 'agent' ? <p class={`${agentClamp} text-caption leading-4 text-text`}>{text}</p>
             : <div class={`flex items-center gap-[6px] whitespace-nowrap text-caption leading-4 text-text-secondary ${kind === 'tool' ? 'tabular-nums' : ''}`}>
               <Icon name={kind === 'thinking' ? 'brain' : 'wrench'} size={12} class={kind === 'thinking' ? 'text-phase-thinking' : 'text-phase-file'} />
               <span class="min-w-0 truncate">{text}</span>
@@ -160,7 +164,7 @@ export function TaskCard({ task, form, attention = false, emptyBody, footer, cla
         )}
         {waiting && <SnapshotNote tone="request" label={`Request → ${route?.route ?? ''}`} text={task.detail} />}
         {(done || task.activity) && (
-          <p class="text-caption leading-4 text-text line-clamp-2">{task.change?.output ?? task.activity}</p>
+          <p class="text-caption leading-4 text-text line-clamp-3">{task.change?.output ?? task.activity}</p>
         )}
       </div>
     )}
