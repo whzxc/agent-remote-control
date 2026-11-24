@@ -1,11 +1,11 @@
 export const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-export function checkNodePanelBounds(box, viewportWidth, viewportHeight, top) {
+export function checkNodePanelBounds(box, viewportWidth, viewportHeight, top = 76) {
   if (!box) throw new Error('The node panel has no visible bounds.');
   const width = viewportWidth < 760 || viewportHeight > viewportWidth ? viewportWidth - 32 : 560;
   const x = (viewportWidth - width) / 2;
-  const bottom = viewportHeight - 76;
+  const bottom = viewportHeight - top;
   if (Math.abs(box.x - x) > 1 || Math.abs(box.y + box.height / 2 - (top + bottom) / 2) > 1 || Math.abs(box.width - width) > 1
-    || box.y + box.height > bottom + 1) throw new Error(`Node panel must use the centered M slot: ${JSON.stringify(box)}`);
+    || box.y < top - 1 || box.y + box.height > bottom + 1) throw new Error(`Node panel must use the centered M slot: ${JSON.stringify(box)}`);
 }
 export async function checkOverviewGrowth(dialog, initial, viewportWidth, viewportHeight, top) {
   checkNodePanelBounds(initial, viewportWidth, viewportHeight, top);

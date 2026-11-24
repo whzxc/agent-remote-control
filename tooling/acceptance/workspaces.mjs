@@ -5,13 +5,13 @@ export async function verifyWorkspace(page, fixture, messages, width, height) {
   await panel.waitFor();
   const box = await panel.boundingBox();
   // Updater fixtures install an IPC mock after startup; it does not change the app's runtime mode.
-  const top = await page.evaluate(async () => (await import('/platform.ts')).isDesktop ? 48 : 20);
+  const top = 76;
   const size = 960;
   const expectedWidth = width < 760 || height > width ? width - 32 : Math.min(size, width - 32);
   const dock = await page.locator('nav[data-workspace-switcher]').boundingBox();
-  const bottom = height - 76;
+  const bottom = height - top;
   if (!box || Math.abs(box.x - (width - expectedWidth) / 2) > 1 || Math.abs(box.y + box.height / 2 - (top + bottom) / 2) > 1
-    || Math.abs(box.width - expectedWidth) > 1 || box.y + box.height > bottom + 1 || dock && box.y + box.height >= dock.y) {
+    || Math.abs(box.width - expectedWidth) > 1 || box.y < top - 1 || box.y + box.height > bottom + 1 || dock && box.y + box.height >= dock.y) {
     throw new Error(`Workspace must use its center slot: expected ${expectedWidth}px wide within the vertical margins above y=${top}, got ${JSON.stringify(box)}.`);
   }
   if (fixture.page === 'relay-hosting' && box.y + box.height >= bottom - 1) {

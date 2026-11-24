@@ -8,7 +8,7 @@ export const checks = [
             try {
                 if (name === 'agent-panel-short' || name === 'agent-panel-loading') {
                     const dialog = page.getByRole('dialog', { name: 'Codex', exact: true });
-                    const top = await page.evaluate(async () => (await import('/platform.ts')).isDesktop ? 48 : 20);
+                    const top = 76;
                     let loadingBox;
                     if (fixture.historyDelayMs) {
                         await dialog.getByText('正在加载…', { exact: true }).waitFor();
@@ -41,7 +41,7 @@ export const checks = [
                     const content = fixture.slowDock === 'accounts' ? dialog.getByRole('region', { name: 'Studio' })
                         : dialog.getByRole('button', { name: /Review the example change/ });
                     await content.waitFor();
-                    await checkOverviewGrowth(dialog, initial, width, height, await page.evaluate(async () => (await import('/platform.ts')).isDesktop ? 48 : 20));
+                    await checkOverviewGrowth(dialog, initial, width, height, 76);
                     await loading.waitFor({ state: 'hidden' });
                 }
             }
@@ -97,7 +97,7 @@ export const checks = [
                     await page.getByRole('button', { name: /^OpenCode:/i }).click();
                     const opened = page.getByRole('dialog', { name: 'OpenCode', exact: true });
                     await opened.getByRole('button', { name: /Review project change 1/ }).waitFor();
-                    checkNodePanelBounds(await opened.boundingBox(), width, height, await page.evaluate(async () => (await import('/platform.ts')).isDesktop ? 48 : 20));
+                    checkNodePanelBounds(await opened.boundingBox(), width, height, 76);
                     if (screenshots)
                         await page.screenshot({ path: path.join(out, `${key}-clicked-node.png`) });
                 }

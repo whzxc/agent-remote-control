@@ -12,8 +12,9 @@ export const checks = [
                     const dialog = page.getByRole('dialog', { name: messages['detail.needsYou'], exact: true });
                     await dialog.waitFor();
                     const bounds = await dialog.boundingBox();
+                    const inset = await page.evaluate(async () => (await import('/platform.ts')).isDesktop ? 48 : 20);
                     if (!bounds || Math.abs(bounds.x - 16) > 1 || Math.abs(bounds.width - (width - 32)) > 1
-                        || Math.abs(bounds.y + bounds.height / 2 - (20 + height - 16) / 2) > 1 || bounds.y + bounds.height > height - 15) {
+                        || Math.abs(bounds.y + bounds.height / 2 - height / 2) > 1 || bounds.y < inset - 1 || bounds.y + bounds.height > height - inset + 1) {
                         throw new Error('Narrow requests must use the capped portrait dialog slot.');
                     }
                     if (fixture.tasks[fixture.detailTask].question === true) {
