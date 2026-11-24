@@ -14,6 +14,15 @@
         "D9": "The independent Desktop instance exists only on macOS",
         "D13": "The only new UI is a status label and reopen action built from existing task-detail components"
       }
+    },
+    "independent-own-backend": {
+      "changeTypes": [
+        "background-work",
+        "persistence"
+      ],
+      "review": {
+        "zh-CN": "ARC 派的任务改跑在 ARC 自己的 Codex 后台上，和你自己开的任务一样"
+      }
     }
   },
   "rules": [
@@ -217,6 +226,211 @@
         "D2"
       ],
       "risk": "normal"
+    },
+    {
+      "id": "own-backend-unlocks-promptly",
+      "statement": "Tasks ARC runs through its own Codex Desktop instance run on ARC's own Codex backend, so within 30 seconds of the instance process exiting, each finished task's writer lock is clear and the task is handed back, whatever version or settings the shared Codex background has, unless a client outside ARC has explicitly opened that task.",
+      "review": {
+        "zh-CN": {
+          "situation": "ARC 的 Desktop 进程退出后，它跑完的任务",
+          "now": "ARC 很快放开自己的占用，但任务还要等 Codex 后台自己卸载：新版后台约 1 分钟，旧版（比如 MacBook 上那个）要 30 分钟",
+          "after": "30 秒内就能在你的主窗口里接着聊、归档，和你自己开的任务一样，不再取决于 Codex 后台的版本"
+        }
+      },
+      "given": {
+        "state": "ARC's independent instance has finished tasks, some with subagent tasks; the shared Codex background ignores per-thread unload settings and unloads idle tasks after 30 minutes"
+      },
+      "when": {
+        "action": "The instance process exits (quit or crash)"
+      },
+      "then": [
+        {
+          "id": "clear-within-30s",
+          "expect": "Within 30 s of the exit, each finished task and its subagent tasks have a clear writer lock and ARC shows the task handed back"
+        },
+        {
+          "id": "main-continues",
+          "expect": "Right after that, the main Desktop can send to the parent task and archive it together with its subagent tasks"
+        }
+      ],
+      "origin": "request",
+      "expand": [
+        "D1",
+        "D11"
+      ],
+      "risk": "normal",
+      "proposed": "independent-own-backend"
+    },
+    {
+      "id": "other-computers-do-not-hold",
+      "statement": "Codex on another computer connected to this one through remote hosts does not subscribe to tasks on ARC's own backend or their subagent tasks, so it never keeps them locked; in exchange it no longer receives their live progress.",
+      "review": {
+        "zh-CN": {
+          "situation": "另一台电脑上的 Codex 通过“远程主机”连着这台电脑",
+          "now": "它可能自动订阅 ARC 任务的子任务，让它们一直锁着，在主窗口里归档整组时被挡住",
+          "after": "不再订阅 ARC 的任务，归档整组不受影响。代价：在另一台电脑上看不到 ARC 任务的实时进度，只能看已保存的记录"
+        }
+      },
+      "given": {
+        "state": "Another computer's Codex Desktop is connected to this computer's shared Codex background through remote hosts for the whole run"
+      },
+      "when": {
+        "action": "ARC dispatches tasks that spawn subagent tasks through its own instance, then the instance process exits"
+      },
+      "then": [
+        {
+          "id": "no-remote-hold",
+          "expect": "No task on ARC's backend and none of its subagent tasks is held by the other computer's connection at any point"
+        },
+        {
+          "id": "subtree-archive",
+          "expect": "Archiving a parent in the main Desktop archives all its subagent tasks while the other computer stays connected"
+        }
+      ],
+      "origin": "request",
+      "expand": [
+        "D1"
+      ],
+      "risk": "normal",
+      "proposed": "independent-own-backend"
+    },
+    {
+      "id": "running-work-survives-arc-restart",
+      "statement": "While ARC's instance runs or any task on ARC's backend has a running turn or a pending approval or input request, an ARC Core restart or ARC update keeps ARC's backend running: the turn continues, the pending request stays answerable, and ARC's notifications and follow-up sends for those tasks keep working.",
+      "review": {
+        "zh-CN": {
+          "situation": "ARC 的窗口里有任务正在跑，或在等你批准、回答，这时 ARC 重启或更新",
+          "now": "任务跑在共享的 Codex 后台上，ARC 重启不影响它",
+          "after": "任务改跑在 ARC 自己的后台上，ARC 重启或更新时这个后台不停：任务接着跑，等你批准的请求还能回答，通知和后续发送照常"
+        }
+      },
+      "given": {
+        "state": "ARC's instance has a task with a running turn and a task waiting on an approval or input request, both on ARC's backend"
+      },
+      "when": {
+        "action": "ARC Core restarts, or the ARC app updates"
+      },
+      "then": [
+        {
+          "id": "turn-continues",
+          "expect": "The running turn continues and ends on its own; it is not interrupted or restarted"
+        },
+        {
+          "id": "request-answerable",
+          "expect": "The pending approval or input request is still shown after the restart and the answer reaches the task"
+        },
+        {
+          "id": "follow-ups-work",
+          "expect": "The turn's completion notification arrives exactly once, and a follow-up send after the restart is delivered"
+        }
+      ],
+      "origin": "D2",
+      "expand": [
+        "D2",
+        "D7",
+        "D10"
+      ],
+      "risk": "high",
+      "proposed": "independent-own-backend"
+    },
+    {
+      "id": "earlier-shared-tasks-unchanged",
+      "statement": "Tasks dispatched before the change stay on the shared Codex background: ARC does not move, copy or restart them, and follow-ups, handback and holder reports for them work as the current rules describe.",
+      "review": {
+        "zh-CN": {
+          "situation": "改动装好之前派出、跑在共享 Codex 后台上的任务",
+          "now": "—",
+          "after": "保持原样：ARC 不搬、不复制、不重启它们，后续发送、交还、报告占用者都照旧"
+        }
+      },
+      "given": {
+        "state": "Tasks dispatched before the update are on the shared Codex background, some running and some finished"
+      },
+      "when": {
+        "action": "The update is installed and ARC starts"
+      },
+      "then": [
+        {
+          "id": "not-moved",
+          "expect": "Each such task keeps its ID and history, and no copy of it appears"
+        },
+        {
+          "id": "still-works",
+          "expect": "A running such task finishes, and follow-up sends, handback and holder reports for these tasks behave as before the update"
+        }
+      ],
+      "origin": "D7",
+      "expand": [
+        "D7"
+      ],
+      "risk": "normal",
+      "proposed": "independent-own-backend"
+    },
+    {
+      "id": "same-settings-as-main",
+      "statement": "Tasks on ARC's backend use the same Codex home and settings as tasks the user starts in the main Desktop, including permissions such as full access, default model, MCP servers, plugins and account, and they appear in the main Desktop's task list.",
+      "review": {
+        "zh-CN": {
+          "situation": "ARC 派的任务换到 ARC 自己的后台上跑",
+          "now": "—",
+          "after": "设置和你自己开的任务一样：完全访问权限、默认模型、MCP 服务、插件、账号都相同；任务照样出现在你主窗口的任务列表里"
+        }
+      },
+      "given": {
+        "state": "The main Desktop and ARC's instance are configured from the same Codex home"
+      },
+      "when": {
+        "op": "codex_create",
+        "action": "ARC dispatches a task through its own instance"
+      },
+      "then": [
+        {
+          "id": "same-settings",
+          "expect": "The task's effective permissions, default model, MCP servers, plugins and account match a task started in the main Desktop for the same project"
+        },
+        {
+          "id": "listed-in-main",
+          "expect": "The task appears with its title in the main Desktop's task list"
+        }
+      ],
+      "origin": "request",
+      "expand": [],
+      "risk": "normal",
+      "proposed": "independent-own-backend"
+    },
+    {
+      "id": "backend-unavailable-fallback",
+      "statement": "If ARC's backend cannot be started or reached when a task is dispatched through the independent instance, ARC dispatches the task through the shared Codex background as before instead of failing, and the receipt and task details say which background was used and why.",
+      "review": {
+        "zh-CN": {
+          "situation": "派任务时，ARC 自己的后台起不来或连不上",
+          "now": "—",
+          "after": "退回原来的共享 Codex 后台把任务派出去，不让派发失败；任务详情里注明这次走的是共享后台和原因（这类任务仍可能出现上面“锁 30 分钟”“被另一台电脑订阅”的情况）"
+        }
+      },
+      "given": {
+        "state": "ARC's backend fails to start or does not answer when a dispatch needs the independent instance"
+      },
+      "when": {
+        "op": "codex_create",
+        "action": "A control source dispatches a task"
+      },
+      "then": [
+        {
+          "id": "dispatched",
+          "expect": "The task is created and runs on the shared Codex background"
+        },
+        {
+          "id": "route-shown",
+          "expect": "The receipt and task details state that the shared background was used and the reason"
+        }
+      ],
+      "origin": "D4",
+      "expand": [
+        "D4"
+      ],
+      "risk": "normal",
+      "proposed": "independent-own-backend"
     }
   ]
 }

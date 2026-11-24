@@ -32,6 +32,42 @@
         "approvedAt": "2026-11-24",
         "sha256": "c3dc30b427c51e81446e0b8f02feb35816beca976b06616f6fee07619fcf2a98",
         "revision": 2
+      },
+      "own-backend-unlocks-promptly": {
+        "scope": "independent-own-backend",
+        "approvedAt": "2026-11-24",
+        "sha256": "3c0f98463fdd2c175ad94f8b5fb1a07cafa58c353f9db8f379d64fa98a132ac1",
+        "revision": 1
+      },
+      "other-computers-do-not-hold": {
+        "scope": "independent-own-backend",
+        "approvedAt": "2026-11-24",
+        "sha256": "48c300433ba7c02a25881cb264fa3e0d0dda3b034cd71153fd40cecb6ba246e9",
+        "revision": 1
+      },
+      "running-work-survives-arc-restart": {
+        "scope": "independent-own-backend",
+        "approvedAt": "2026-11-24",
+        "sha256": "9706993b9e782a5cc2b5661cc9132e685fed31e617771d21f129f348102f7153",
+        "revision": 1
+      },
+      "earlier-shared-tasks-unchanged": {
+        "scope": "independent-own-backend",
+        "approvedAt": "2026-11-24",
+        "sha256": "96b18108fccec9b70d24b919746ab464220b2913fe3d40ca9d4d488dfea8f5c8",
+        "revision": 1
+      },
+      "same-settings-as-main": {
+        "scope": "independent-own-backend",
+        "approvedAt": "2026-11-24",
+        "sha256": "9940356d8bfa176e4cf4e21bbad91be295cd66a1e29fadeabcabde86cce6e071",
+        "revision": 1
+      },
+      "backend-unavailable-fallback": {
+        "scope": "independent-own-backend",
+        "approvedAt": "2026-11-24",
+        "sha256": "06c3c37b4aa9cbe5cbdce1b1b9a969e9b1c81eada05bb21d7ab85f0d75fde991",
+        "revision": 1
       }
     }
   }
