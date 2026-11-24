@@ -1,6 +1,5 @@
 {
-  "scope": "desktop-instance-handback",
-  "runtimeBasis": "Estimates per trial on a prepared guest; provisioning and builds are separate.",
+  "runtimeBasis": "Estimates per trial on the prepared MacBook or local fixture, excluding installation and first compilation.",
   "installedSetup": "installed.md",
   "testPrerequisite": "npm run check:tests",
   "cases": [
@@ -13,10 +12,11 @@
         "no-release-while-running"
       ],
       "dimension": "D2",
-      "harness": "installed guest runbook",
+      "harness": "installed MacBook runbook",
       "path": "arc-instance-left-alone/installed.md",
       "expectedRuntime": "5-15 min per boundary",
-      "needsInstalledApp": true
+      "needsInstalledApp": true,
+      "scope": "desktop-instance-handback"
     },
     {
       "id": "live-overlap",
@@ -27,10 +27,11 @@
         "no-release-while-running"
       ],
       "dimension": "D3",
-      "harness": "installed guest runbook",
+      "harness": "installed MacBook runbook",
       "path": "arc-instance-left-alone/installed.md",
       "expectedRuntime": "5 min per trial",
-      "needsInstalledApp": true
+      "needsInstalledApp": true,
+      "scope": "desktop-instance-handback"
     },
     {
       "id": "exit-states",
@@ -46,10 +47,11 @@
         "running-handed-back-after"
       ],
       "dimension": "D1",
-      "harness": "installed guest runbook",
+      "harness": "installed MacBook runbook",
       "path": "instance-exit-unlocks-tasks/installed.md",
       "expectedRuntime": "5-10 min per source state and probe",
-      "needsInstalledApp": true
+      "needsInstalledApp": true,
+      "scope": "desktop-instance-handback"
     },
     {
       "id": "exit-boundaries",
@@ -65,10 +67,11 @@
         "running-handed-back-after"
       ],
       "dimension": "D2",
-      "harness": "installed guest runbook",
+      "harness": "installed MacBook runbook",
       "path": "instance-exit-unlocks-tasks/installed.md",
       "expectedRuntime": "5-15 min per fault and boundary",
-      "needsInstalledApp": true
+      "needsInstalledApp": true,
+      "scope": "desktop-instance-handback"
     },
     {
       "id": "exit-scale",
@@ -84,10 +87,11 @@
         "running-handed-back-after"
       ],
       "dimension": "D11",
-      "harness": "installed guest runbook",
+      "harness": "installed MacBook runbook",
       "path": "instance-exit-unlocks-tasks/installed.md",
       "expectedRuntime": "10-60 min per seeded cohort and probe; repeat per target without a batch GUI driver",
-      "needsInstalledApp": true
+      "needsInstalledApp": true,
+      "scope": "desktop-instance-handback"
     },
     {
       "id": "closed-active-detail",
@@ -100,9 +104,10 @@
       "path": "instance-exit-unlocks-tasks/detail.test.mjs",
       "expectedRuntime": "2 s after fixture capture",
       "needsInstalledApp": false,
-      "fixture": "Same-build capture-detail output; first capture requires the isolated guest.",
+      "fixture": "Same-build capture-detail output; first capture requires the MacBook.",
       "command": "HANDBACK_DETAIL=/path/to/closed-active.json node --test behavior/cases/instance-exit-unlocks-tasks/detail.test.mjs",
-      "baselineCommand": "HANDBACK_DETAIL=baseline node --test behavior/cases/instance-exit-unlocks-tasks/detail.test.mjs"
+      "baselineCommand": "HANDBACK_DETAIL=baseline node --test behavior/cases/instance-exit-unlocks-tasks/detail.test.mjs",
+      "scope": "desktop-instance-handback"
     },
     {
       "id": "upgrade-existing",
@@ -112,10 +117,11 @@
         "handed-back-or-holder"
       ],
       "dimension": "D7",
-      "harness": "installed guest runbook",
+      "harness": "installed MacBook runbook",
       "path": "earlier-held-tasks-unlock/installed.md",
       "expectedRuntime": "10-20 min per upgrade and probe",
-      "needsInstalledApp": true
+      "needsInstalledApp": true,
+      "scope": "desktop-instance-handback"
     },
     {
       "id": "upgrade-scale",
@@ -125,10 +131,11 @@
         "handed-back-or-holder"
       ],
       "dimension": "D11",
-      "harness": "installed guest runbook",
+      "harness": "installed MacBook runbook",
       "path": "earlier-held-tasks-unlock/installed.md",
       "expectedRuntime": "10-60 min per seeded cohort and probe",
-      "needsInstalledApp": true
+      "needsInstalledApp": true,
+      "scope": "desktop-instance-handback"
     },
     {
       "id": "terminal-owner",
@@ -144,7 +151,8 @@
       "expectedRuntime": "4 s with compiled fixture, plus first build",
       "needsInstalledApp": false,
       "command": "node --test behavior/cases/foreign-holder-reported/terminal-owner.test.mjs",
-      "sourceState": "Completed local terminal holder, no children; checks process liveness. Subscription continuity is exercised by the installed witness."
+      "sourceState": "Completed local terminal holder, no children; checks process liveness. Subscription continuity is exercised by the installed witness.",
+      "scope": "desktop-instance-handback"
     },
     {
       "id": "foreign-states",
@@ -155,10 +163,11 @@
         "holder-untouched"
       ],
       "dimension": "D1",
-      "harness": "installed guest runbook",
+      "harness": "installed MacBook runbook",
       "path": "foreign-holder-reported/installed.md",
       "expectedRuntime": "5-10 min per holder and source state",
-      "needsInstalledApp": true
+      "needsInstalledApp": true,
+      "scope": "desktop-instance-handback"
     },
     {
       "id": "send-boundaries",
@@ -169,10 +178,11 @@
         "in-use-reported"
       ],
       "dimension": "D2",
-      "harness": "installed guest runbook",
+      "harness": "installed MacBook runbook",
       "path": "no-take-back-from-user/installed.md",
       "expectedRuntime": "5-15 min per fault and boundary",
-      "needsInstalledApp": true
+      "needsInstalledApp": true,
+      "scope": "desktop-instance-handback"
     },
     {
       "id": "send-replay",
@@ -183,10 +193,169 @@
         "in-use-reported"
       ],
       "dimension": "D3",
-      "harness": "installed guest runbook",
+      "harness": "installed MacBook runbook",
       "path": "no-take-back-from-user/installed.md",
       "expectedRuntime": "5 min per trial",
-      "needsInstalledApp": true
+      "needsInstalledApp": true,
+      "scope": "desktop-instance-handback"
+    },
+    {
+      "id": "finished-exit",
+      "ruleId": "own-backend-unlocks-promptly",
+      "thenIds": [
+        "clear-within-30s",
+        "main-continues"
+      ],
+      "dimension": "D1",
+      "harness": "installed MacBook runbook",
+      "path": "own-backend-unlocks-promptly/installed.md",
+      "expectedRuntime": "5-20 min per trial, plus native grace for shared tasks",
+      "needsInstalledApp": true,
+      "scope": "independent-own-backend"
+    },
+    {
+      "id": "finished-cohort",
+      "ruleId": "own-backend-unlocks-promptly",
+      "thenIds": [
+        "clear-within-30s",
+        "main-continues"
+      ],
+      "dimension": "D11",
+      "harness": "installed MacBook runbook",
+      "path": "own-backend-unlocks-promptly/installed.md",
+      "expectedRuntime": "5-20 min per trial, plus native grace for shared tasks",
+      "needsInstalledApp": true,
+      "scope": "independent-own-backend"
+    },
+    {
+      "id": "remote-family",
+      "ruleId": "other-computers-do-not-hold",
+      "thenIds": [
+        "no-remote-hold",
+        "subtree-archive"
+      ],
+      "dimension": "D1",
+      "harness": "installed MacBook runbook",
+      "path": "other-computers-do-not-hold/installed.md",
+      "expectedRuntime": "5-20 min per trial, plus native grace for shared tasks",
+      "needsInstalledApp": true,
+      "scope": "independent-own-backend"
+    },
+    {
+      "id": "interrupt-active",
+      "ruleId": "running-work-survives-arc-restart",
+      "thenIds": [
+        "turn-continues",
+        "request-answerable",
+        "follow-ups-work"
+      ],
+      "dimension": "D2",
+      "harness": "installed MacBook runbook",
+      "path": "running-work-survives-arc-restart/installed.md",
+      "expectedRuntime": "5-20 min per trial, plus native grace for shared tasks",
+      "needsInstalledApp": true,
+      "scope": "independent-own-backend"
+    },
+    {
+      "id": "recover-records",
+      "ruleId": "running-work-survives-arc-restart",
+      "thenIds": [
+        "turn-continues",
+        "request-answerable",
+        "follow-ups-work"
+      ],
+      "dimension": "D7",
+      "harness": "installed MacBook runbook",
+      "path": "running-work-survives-arc-restart/installed.md",
+      "expectedRuntime": "5-20 min per trial, plus native grace for shared tasks",
+      "needsInstalledApp": true,
+      "scope": "independent-own-backend"
+    },
+    {
+      "id": "installed-cutover",
+      "ruleId": "running-work-survives-arc-restart",
+      "thenIds": [
+        "turn-continues",
+        "request-answerable",
+        "follow-ups-work"
+      ],
+      "dimension": "D10",
+      "harness": "installed MacBook runbook",
+      "path": "running-work-survives-arc-restart/installed.md",
+      "expectedRuntime": "5-20 min per trial, plus native grace for shared tasks",
+      "needsInstalledApp": true,
+      "scope": "independent-own-backend"
+    },
+    {
+      "id": "upgrade-shared",
+      "ruleId": "earlier-shared-tasks-unchanged",
+      "thenIds": [
+        "not-moved",
+        "still-works"
+      ],
+      "dimension": "D7",
+      "harness": "installed MacBook runbook",
+      "path": "earlier-shared-tasks-unchanged/installed.md",
+      "expectedRuntime": "5-20 min per trial, plus native grace for shared tasks",
+      "needsInstalledApp": true,
+      "scope": "independent-own-backend"
+    },
+    {
+      "id": "project-parity",
+      "ruleId": "same-settings-as-main",
+      "thenIds": [
+        "same-settings",
+        "listed-in-main"
+      ],
+      "harness": "installed MacBook runbook",
+      "path": "same-settings-as-main/installed.md",
+      "expectedRuntime": "5-20 min per trial, plus native grace for shared tasks",
+      "needsInstalledApp": true,
+      "scope": "independent-own-backend"
+    },
+    {
+      "id": "private-failure",
+      "ruleId": "backend-unavailable-fallback",
+      "thenIds": [
+        "dispatched",
+        "route-shown"
+      ],
+      "dimension": "D4",
+      "harness": "installed MacBook runbook",
+      "path": "backend-unavailable-fallback/installed.md",
+      "expectedRuntime": "5-20 min per trial, plus native grace for shared tasks",
+      "needsInstalledApp": true,
+      "scope": "independent-own-backend"
+    },
+    {
+      "id": "exit-family-replay",
+      "ruleId": "own-backend-unlocks-promptly",
+      "thenIds": [
+        "clear-within-30s"
+      ],
+      "dimension": "D1",
+      "harness": "public receipt, owner and lock observation replay",
+      "path": "own-backend-unlocks-promptly/exit-family.py",
+      "expectedRuntime": "1 s after capture",
+      "needsInstalledApp": false,
+      "scope": "independent-own-backend",
+      "command": "python3 behavior/cases/own-backend-unlocks-promptly/exit-family.py --receipt \"$run/receipt.json\" --before \"$run/before.jsonl\" --shared-pid \"$shared_pid\" --private-pid \"$private_pid\" --trigger \"$run/trigger.json\" --exit \"$run/exit.json\" --after \"$run/after.jsonl\"",
+      "fixture": "Expected red on pre-change independent dispatch using the shared writer. See installed.md for capture arguments."
+    },
+    {
+      "id": "shared-writer-restart",
+      "ruleId": "earlier-shared-tasks-unchanged",
+      "thenIds": [
+        "still-works"
+      ],
+      "dimension": "D7",
+      "harness": "nativeControl and real Codex shared writer",
+      "path": "earlier-shared-tasks-unchanged/shared-writer.test.mjs",
+      "expectedRuntime": "75 s plus first compile",
+      "needsInstalledApp": false,
+      "scope": "independent-own-backend",
+      "command": "node --test behavior/cases/earlier-shared-tasks-unchanged/shared-writer.test.mjs",
+      "fixture": "Existing holder-report branch should pass. This probe exercises Core restart and server grace; full pre-update dispatch requires the installed case. Set CODEX_163 and CODEX_166 to verified native executable paths."
     }
   ],
   "reachabilityGaps": [
@@ -197,7 +366,7 @@
         "tasks-usable-there",
         "no-release-while-running"
       ],
-      "seam": "Add a test-runner-owned macOS two-profile driver that identifies a window by PID, creation identity and AX window ID, reads its selected thread, and sends or archives a specified thread. Preserve both profiles and the daemon across a real Core restart or signed guest update."
+      "seam": "Add a test-runner-owned macOS two-profile driver that identifies a window by PID, creation identity and AX window ID, reads its selected thread, and sends or archives a specified thread. Preserve both profiles and the daemon across a real Core restart or signed MacBook update."
     },
     {
       "ruleId": "instance-exit-unlocks-tasks",
@@ -208,7 +377,7 @@
         "window-close-not-exit",
         "running-handed-back-after"
       ],
-      "seam": "Provide a passive native per-connection subscription trace (client identity, thread, acknowledgement/disconnect, monotonic time) to time ARC release while a witness still holds the same daemon writer. Add a barrier after the first eligible release and independent PID-scoped close/show, parent-send and parent-archive actions with per-child archive readback. Provision a guest ChatGPT update that exits the recorded instance."
+      "seam": "Provide a passive native per-connection subscription trace (client identity, thread, acknowledgement/disconnect, monotonic time) to time ARC release while a witness still holds the same daemon writer. Add a barrier after the first eligible release and independent PID-scoped close/show, parent-send and parent-archive actions with per-child archive readback. Provision a MacBook ChatGPT update that exits the recorded instance."
     },
     {
       "ruleId": "instance-exit-unlocks-tasks",
@@ -217,7 +386,7 @@
         "running-status-shown",
         "reopen-shows-task"
       ],
-      "seam": "Add a fixture-scoped independent-instance lifecycle source with two distinct profiles, exit while a controlled turn is gated, explicit natural completion/failure, and a recorded reopen destination. Bind the browser fixture to the same-build closed-active management projection. A real crash can already be induced by the guarded guest driver."
+      "seam": "Add a fixture-scoped independent-instance lifecycle source with two distinct profiles, exit while a controlled turn is gated, explicit natural completion/failure, and a recorded reopen destination. Bind the browser fixture to the same-build closed-active management projection. A real crash can already be induced by the guarded MacBook driver."
     },
     {
       "ruleId": "earlier-held-tasks-unlock",
@@ -225,7 +394,7 @@
         "own-hold-dropped-at-start",
         "handed-back-or-holder"
       ],
-      "seam": "Provision a guest old build with still-held native threads, a ready signed ARC successor, and a passive per-client subscription trace across startup. Retain the original daemon and independent witness to distinguish automatic ARC release from eventual lock clearance."
+      "seam": "Provision a MacBook old build with still-held native threads, a ready signed ARC successor, and a passive per-client subscription trace across startup. Retain the original daemon and independent witness to distinguish automatic ARC release from eventual lock clearance."
     },
     {
       "ruleId": "foreign-holder-reported",
@@ -234,7 +403,7 @@
         "steps-workable",
         "holder-untouched"
       ],
-      "seam": "Provision a second disposable SSH origin and compare its known parent/terminal evidence with the diagnosis. Use the guest subscribe command for the shared-server/unknown-client branch. Release from the same original witness connection and check its native acknowledgement after local observations."
+      "seam": "Provision a second disposable SSH origin and compare its known parent/terminal evidence with the diagnosis. Use the MacBook subscribe command for the shared-server/unknown-client branch. Release from the same original witness connection and check its native acknowledgement after local observations."
     },
     {
       "ruleId": "no-take-back-from-user",
@@ -245,5 +414,9 @@
       ],
       "seam": "Let a fixture dispatch on the independent local-daemon route, observe process exit, a cleared writer and the handed-back mark, then accept a user-marked turn in a second Desktop on its own writer. Record accepted user messages and steers on both routes. Add receipt-admission and pre-delivery barriers so the runner can restart Core or install an update before inspecting or replaying a write."
     }
+  ],
+  "scopes": [
+    "desktop-instance-handback",
+    "independent-own-backend"
   ]
 }

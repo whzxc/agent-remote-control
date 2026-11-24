@@ -1,4 +1,4 @@
-// The guarded guest driver passes an already-connected socketpair descriptor.
+// The guarded installed driver passes an already-connected socketpair descriptor.
 // This peer has no process discovery, filesystem lock access or TCP transport.
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
@@ -38,7 +38,7 @@ try {
   await once(ws, 'open');
   const server = await call('initialize', {clientInfo: {name: 'handback-witness', version: '1'},
     capabilities: {experimentalApi: true}});
-  if (server.codexHome !== process.env.CODEX_HOME) throw Error('Guest daemon home mismatch');
+  if (server.codexHome !== process.env.CODEX_HOME) throw Error('MacBook daemon home mismatch');
   ws.send(JSON.stringify({method: 'initialized'}));
   const resumed = await call('thread/resume', {threadId, excludeTurns: true});
   if (resumed.thread?.id !== threadId) throw Error('Subscription setup did not return the case thread');

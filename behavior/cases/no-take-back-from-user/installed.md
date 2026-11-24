@@ -7,7 +7,7 @@ Use the [installed runner](../installed.md). Dispatch, finish, exit the independ
 | send-boundaries (D2) | Use fresh seeds for normal quit and forced crash of the independent instance. Inject graceful ARC quit/reopen, Core crash/recovery, Core restart and signed ARC update separately at each boundary: after exit before main's send, after main accepts its turn before ARC submits, immediately after ARC submits before receipt inspection, and after the refusal before replay. Repeat the read after ARC reconnects. If a request is in flight when Core goes away, reconcile it by request ID. Record a missed boundary separately. |
 | send-replay (D3 origin) | Submit twice concurrently with the same request ID, then send the identical marker with a new ID while the earlier result is being read. Keep main writable and inspect the transcript again after its active turn ends. |
 
-Set `thread` to the confirmed ID, use one marker per trial, and retain all envelopes, including error exits. Commands below assume the guest has jq. Run the send pair at the boundary selected for this trial.
+Set `thread` to the confirmed ID, use one marker per trial, and retain all envelopes, including error exits. Commands below assume the MacBook has jq. Run the send pair at the boundary selected for this trial.
 
 ```sh
 marker="arc-follow-up-$(uuidgen)"
