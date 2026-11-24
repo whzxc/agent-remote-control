@@ -6,22 +6,46 @@ use std::{
     collections::{HashMap, HashSet},
     time::Duration,
 };
+use tokio::time::Instant;
 
 fn path(directory: &str, thread: &str) -> Result<PathBuf> {
     uuid::Uuid::parse_str(thread).map_err(|_| "INVALID_THREAD_ID")?;
     Ok(root().join(directory).join(format!("{thread}.json")))
 }
 
-pub(crate) fn observation(thread: &str) -> Result<Option<Value>> {
-    let p = path("desktop-handback", thread)?;
+fn record(directory: &str, thread: &str) -> Result<Option<Value>> {
+    let p = path(directory, thread)?;
     if !p.try_exists().map_err(|e| e.to_string())? {
         return Ok(None);
     }
     file_cache::load(&p).map(Some)
 }
 
+pub(crate) fn observation(thread: &str) -> Result<Option<Value>> {
+    let previous = record("desktop-handback", thread)?;
+    let binding = record("execution", thread)?.unwrap_or_default();
+    // Route acquisition commits in one atomic execution record. Even after a
+    // Core restart, an old release acknowledgement cannot override that owner.
+    if let Some(from) = binding.get("continuedFrom") {
+        let old = previous.as_ref().unwrap_or(&Value::Null);
+        if old.is_null() || old["instance"] == *from {
+            let mut current = old.clone();
+            current["rootThreadId"] = binding["handbackRoot"].clone();
+            if binding["transport"] == "local-daemon" {
+                current = json!({"rootThreadId":binding["handbackRoot"],"state":"in-instance",
+                    "instance":binding["desktopTarget"],"previousOwnHold":old["ownHold"]});
+            } else {
+                current["instance"] = from.clone();
+                current["state"] = json!("continued");
+            }
+            return Ok(Some(current));
+        }
+    }
+    Ok(previous)
+}
+
 fn publish(thread: &str, value: &Value) -> Result<()> {
-    if observation(thread)?.as_ref() != Some(value) {
+    if record("desktop-handback", thread)?.as_ref() != Some(value) {
         save(&path("desktop-handback", thread)?, value)?;
     }
     Ok(())
@@ -63,31 +87,43 @@ pub(crate) fn live_target(thread: &str) -> Option<Value> {
     (crate::codex_host::process_start(pid)? == target["start"].as_str()?).then_some(target)
 }
 
-pub(crate) async fn check_send(thread: &str) -> Result<()> {
-    let status = observation(thread)?;
-    let restricted = if let Some(status) = status {
-        status["ownHold"].is_object() || exited(&status["instance"])
-    } else {
-        let binding = path("execution", thread)?;
-        binding.try_exists().map_err(|e| e.to_string())?
-            && exited(&file_cache::load(&binding)?["desktopInstance"])
-    };
-    if !restricted {
+pub(crate) fn returned_instance(thread: &str) -> Result<Option<Value>> {
+    if uuid::Uuid::parse_str(thread).is_err() {
+        return Ok(None);
+    }
+    if let Some(status) = observation(thread)? {
+        if status["state"] == "continued" {
+            return Ok(None);
+        }
+        return Ok(exited(&status["instance"]).then(|| status["instance"].clone()));
+    }
+    Ok(record("execution", thread)?
+        .and_then(|r| exited(&r["desktopInstance"]).then(|| r["desktopInstance"].clone())))
+}
+
+async fn require_unheld(thread: &str) -> Result<()> {
+    let mut lock = crate::writer::probe(thread);
+    if lock["state"] == "unheld" {
         return Ok(());
     }
-    let held = crate::writer::probe(thread)["state"] == "held";
-    let message = if held && holder(thread).await["origin"] == "main-desktop" {
-        "This task is in use in your main Desktop. ARC did not deliver the input."
-    } else if held {
-        "The task is in use after its Desktop instance exited. Inspect its owner before continuing."
-    } else {
-        "This task was returned to Desktop. Continue it there."
-    };
-    Err(
-        json!({"code":"DESKTOP_TASK_HANDED_BACK","message":message,"threadId":thread,
-        "next":{"via":"query","op":"codex_owner","args":{"threadId":thread}}})
-        .to_string(),
-    )
+    if lock["state"] == "held" {
+        let process = holder(thread).await;
+        if process["origin"] == "main-desktop" {
+            return Err(json!({"code":"DESKTOP_TASK_HANDED_BACK","message":"This task is in use in your main Desktop. ARC did not deliver the input.",
+                "threadId":thread,"next":{"via":"query","op":"codex_owner","args":{"threadId":thread}}}).to_string());
+        }
+        lock["origin"] = process["origin"].clone();
+        lock["processes"] = process["processes"].clone();
+        lock["owner"] = json!("external");
+    }
+    Err(crate::writer::busy(thread, lock).to_string())
+}
+
+pub(crate) async fn check_send(thread: &str) -> Result<()> {
+    if returned_instance(thread)?.is_some() {
+        require_unheld(thread).await?;
+    }
+    Ok(())
 }
 
 async fn descendants(rpc: &Rpc, thread: &str) -> Result<Vec<(String, String)>> {
@@ -211,6 +247,9 @@ async fn member(
     reason: &str,
 ) -> Result<Value> {
     let previous = observation(thread)?.unwrap_or_default();
+    if previous["state"] == "continued" {
+        return Ok(previous);
+    }
     let target = previous.get("instance").unwrap_or(target);
     let mut status = json!({"rootThreadId":parent,"instance":target});
     if !exited(target) {
@@ -363,12 +402,26 @@ pub(crate) async fn holder(thread: &str) -> Value {
     json!({"origin":"external","processes":processes})
 }
 
-async fn reconcile(control: &Control, thread: &str, startup: bool) -> Result<bool> {
+enum Next {
+    Complete,
+    ProcessAlive,
+    Unsettled,
+    Writers(Vec<String>),
+}
+
+async fn reconcile(control: &Control, thread: &str, startup: bool) -> Result<Next> {
     let _guard = control.thread_lock(thread).await;
     let binding = file_cache::load(&path("execution", thread)?)?;
-    let target = &binding["desktopInstance"];
+    let target = if binding["pendingPreviousSubtree"] == true {
+        &binding["continuedFrom"]
+    } else {
+        &binding["desktopInstance"]
+    };
+    if target.is_null() {
+        return Ok(Next::Complete);
+    }
     if !exited(target) {
-        return Ok(false);
+        return Ok(Next::ProcessAlive);
     }
     let proxy = &binding["desktopProxy"];
     let rpc = match control.shared_desktop_rpc().await {
@@ -416,6 +469,16 @@ async fn reconcile(control: &Control, thread: &str, startup: bool) -> Result<boo
             .or_else(|_| indexed())?,
         None => indexed()?,
     };
+    // Only enter lock-only observation after every member has cleared ARC's hold.
+    let session = rpc
+        .as_ref()
+        .map(|r| r.session.as_str())
+        .or_else(|| proxy["connection"].as_str());
+    let mut all_released = released(&parent, session);
+    let mut held = Vec::new();
+    if parent["state"] == "held" {
+        held.push(thread.to_owned());
+    }
     let mut blockers = Vec::new();
     for (child, result) in stream::iter(children)
         .map(|(child, target)| {
@@ -454,10 +517,15 @@ async fn reconcile(control: &Control, thread: &str, startup: bool) -> Result<boo
                 value
             }
         };
-        if value["state"] != "handed-back" {
+        all_released &= released(&value, session);
+        if value["state"] == "held" {
+            held.push(child.clone());
+        }
+        if !matches!(value["state"].as_str(), Some("handed-back" | "continued")) {
             blockers.push(json!({"threadId":child,"state":value["state"]}));
         }
     }
+    parent.as_object_mut().unwrap().remove("descendants");
     if !blockers.is_empty() {
         blockers.sort_by(|a, b| string(a, "threadId").cmp(string(b, "threadId")));
         if parent["state"] == "handed-back" {
@@ -466,7 +534,28 @@ async fn reconcile(control: &Control, thread: &str, startup: bool) -> Result<boo
         parent["descendants"] = json!(blockers);
     }
     publish(thread, &parent)?;
-    Ok(parent["state"] == "handed-back")
+    if binding["pendingPreviousSubtree"] == true && blockers.is_empty() {
+        let mut binding = binding;
+        binding
+            .as_object_mut()
+            .unwrap()
+            .remove("pendingPreviousSubtree");
+        save(&path("execution", thread)?, &binding)?;
+    }
+    if all_released && blockers.is_empty() && held.is_empty() {
+        return Ok(Next::Complete);
+    }
+    if all_released && !held.is_empty() {
+        return Ok(Next::Writers(held));
+    }
+    Ok(Next::Unsettled)
+}
+
+fn released(status: &Value, session: Option<&str>) -> bool {
+    status["state"] == "continued"
+        || (status["checkedConnection"].as_str() == session
+            && status["ownHold"].is_object()
+            && matches!(status["state"].as_str(), Some("held" | "handed-back")))
 }
 
 pub(crate) async fn managed_instance(
@@ -515,10 +604,13 @@ async fn discover(control: &Control) -> Result<HashSet<String>> {
         let Ok(mut binding) = file_cache::load(&p) else {
             continue;
         };
-        if binding["transport"] != "local-daemon" {
+        if binding["transport"] != "local-daemon" && binding["pendingPreviousSubtree"] != true {
             continue;
         }
-        if binding["desktopInstance"].is_null() && recovery["target"]["start"].is_string() {
+        if binding["continuedFrom"].is_null()
+            && binding["desktopInstance"].is_null()
+            && recovery["target"]["start"].is_string()
+        {
             if !exited(&recovery["target"]) {
                 if instances.is_none() {
                     instances = Some(daemon::instances().await?);
@@ -536,7 +628,7 @@ async fn discover(control: &Control) -> Result<HashSet<String>> {
             binding["desktopInstance"] = recovery["target"].clone();
             save(&p, &binding)?;
         }
-        if binding["desktopInstance"].is_object()
+        if (binding["desktopInstance"].is_object() || binding["continuedFrom"].is_object())
             && observation(thread)?.is_none_or(|v| v["state"] != "handed-back")
         {
             tasks.insert(thread.to_owned());
@@ -545,12 +637,24 @@ async fn discover(control: &Control) -> Result<HashSet<String>> {
     Ok(tasks)
 }
 
-async fn watch(control: Arc<Control>, thread: String, startup: bool) -> String {
+const QUICK: Duration = Duration::from_secs(2);
+const RELEASE_WINDOW: Duration = Duration::from_secs(30);
+const ACTIVITY_CHECK: Duration = Duration::from_secs(10);
+const RETAINED_CHECK: Duration = Duration::from_secs(60);
+
+async fn watch(control: Arc<Control>, thread: String, startup: bool) -> (String, Vec<String>) {
     let mut last_error = None;
+    let mut since_exit = None;
     loop {
         match reconcile(&control, &thread, startup).await {
-            Ok(true) => return thread,
-            Ok(false) => last_error = None,
+            Ok(Next::Complete) => return (thread, vec![]),
+            Ok(Next::Writers(held)) => return (thread, held),
+            Ok(Next::ProcessAlive) => {
+                since_exit = None;
+                tokio::time::sleep(ACTIVITY_CHECK).await;
+                continue;
+            }
+            Ok(Next::Unsettled) => last_error = None,
             Err(error) => {
                 if last_error.as_ref() != Some(&error) {
                     crate::logs::record(
@@ -562,40 +666,84 @@ async fn watch(control: Arc<Control>, thread: String, startup: bool) -> String {
                 }
             }
         }
-        tokio::time::sleep(Duration::from_secs(2)).await;
+        let elapsed = since_exit.get_or_insert_with(Instant::now).elapsed();
+        tokio::time::sleep(if elapsed < RELEASE_WINDOW {
+            QUICK
+        } else {
+            ACTIVITY_CHECK
+        })
+        .await;
+    }
+}
+
+struct RetainedWriters {
+    threads: Vec<String>,
+    since: Instant,
+    next: Instant,
+}
+
+impl RetainedWriters {
+    fn changed(&mut self, now: Instant) -> bool {
+        if now < self.next {
+            return false;
+        }
+        self.next = now
+            + if now - self.since < RELEASE_WINDOW {
+                QUICK
+            } else {
+                RETAINED_CHECK
+            };
+        self.threads
+            .iter()
+            .any(|thread| crate::writer::probe(thread)["state"] != "held")
     }
 }
 
 pub(crate) fn start(control: Arc<Control>) {
     let mut shutdown = control.shutdown.subscribe();
     tokio::spawn(async move {
-        let mut workers = tokio::task::JoinSet::new();
+        let mut workers = tokio::task::JoinSet::<(String, Vec<String>)>::new();
         let mut watching = HashSet::new();
+        let mut retained = HashMap::<String, RetainedWriters>::new();
+        let mut pending = HashSet::new();
+        let mut discovered = HashSet::new();
         let mut discover_at_start = true;
-        let mut tick = tokio::time::interval(Duration::from_secs(2));
+        let mut tick = tokio::time::interval(QUICK);
+        tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
             tokio::select! {
                 _ = shutdown.changed() => break,
                 Some(result) = workers.join_next(), if !workers.is_empty() => {
-                    if let Ok(thread) = result { watching.remove(&thread); }
+                    if let Ok((root,held)) = result {
+                        watching.remove(&root);
+                        if !held.is_empty() {
+                            let now = Instant::now();
+                            retained.insert(root,RetainedWriters{threads:held,since:now,next:now+QUICK});
+                        }
+                    }
                 }
                 _ = tick.tick() => {
-                    let mut discovered = HashSet::new();
                     if discover_at_start {
                         match discover(&control).await {
-                            Ok(tasks) => { discovered = tasks; discover_at_start = false; }
+                            Ok(tasks) => { pending.extend(tasks.iter().cloned()); discovered=tasks; discover_at_start=false; }
                             Err(error) => crate::logs::record("WARN",&format!("Desktop handback discovery: {error}"),None),
                         }
                     }
-                    let mut pending = std::mem::take(&mut *control.handback_tasks.lock().await);
-                    pending.extend(discovered.iter().cloned());
-                    for thread in pending {
-                        if watching.insert(thread.clone()) {
-                            let at_start = discovered.contains(&thread) && path("execution",&thread)
-                                .and_then(|p|file_cache::load(&p)).is_ok_and(|v|exited(&v["desktopInstance"]));
-                            workers.spawn(watch(control.clone(),thread,at_start));
-                        }
-                    }
+                    pending.extend(std::mem::take(&mut *control.handback_tasks.lock().await));
+                    let now = Instant::now();
+                    retained.retain(|root,writers| {
+                        if pending.contains(root) || writers.changed(now) {
+                            pending.insert(root.clone());
+                            false
+                        } else { true }
+                    });
+                    pending.retain(|thread| {
+                        if !watching.insert(thread.clone()) {return true;}
+                        let startup = discovered.remove(thread) && path("execution",thread)
+                            .and_then(|p|file_cache::load(&p)).is_ok_and(|v|exited(&v["desktopInstance"]));
+                        workers.spawn(watch(control.clone(),thread.clone(),startup));
+                        false
+                    });
                 }
             }
         }
@@ -611,9 +759,8 @@ pub(crate) async fn reopen(control: &Control, thread: &str) -> Result<bool> {
         return Ok(false);
     }
     let parent = string(&status, "rootThreadId");
-    let _gate = control.desktop_preparation.lock().await;
     let _thread = control.thread_lock(parent).await;
-    let profile = daemon::independent_profile();
+    let _gate = control.desktop_preparation.lock().await;
     if observation(thread)?.is_none_or(|v| v["state"] != "running") {
         return Err("DESKTOP_TASK_ALREADY_SETTLED".into());
     }
@@ -621,6 +768,20 @@ pub(crate) async fn reopen(control: &Control, thread: &str) -> Result<bool> {
     if !active(control, &rpc, thread).await? {
         return Err("DESKTOP_TASK_ALREADY_SETTLED".into());
     }
+    let instance = independent_instance(control).await?;
+    if !active(control, &rpc, thread).await? {
+        return Err("DESKTOP_TASK_ALREADY_SETTLED".into());
+    }
+    daemon::reveal(instance.clone(), thread).await?;
+    publish(
+        thread,
+        &json!({"rootThreadId":parent,"instance":instance.identity(),"state":"in-instance"}),
+    )?;
+    Ok(true)
+}
+
+async fn independent_instance(control: &Control) -> Result<daemon::Instance> {
+    let profile = daemon::independent_profile();
     let existing = daemon::instances()
         .await?
         .into_iter()
@@ -632,7 +793,7 @@ pub(crate) async fn reopen(control: &Control, thread: &str) -> Result<bool> {
         Some(_) => {}
         None => daemon::launch(Some(&profile)).await?,
     }
-    let instance = tokio::time::timeout(Duration::from_secs(24), async {
+    tokio::time::timeout(Duration::from_secs(24), async {
         loop {
             if let Some(i) = daemon::connected_profile(Some(&profile)).await? {
                 if i.independent() {
@@ -644,14 +805,126 @@ pub(crate) async fn reopen(control: &Control, thread: &str) -> Result<bool> {
         }
     })
     .await
-    .map_err(|_| "DESKTOP_RECOVERY_READY_TIMEOUT")??;
-    if !active(control, &rpc, thread).await? {
-        return Err("DESKTOP_TASK_ALREADY_SETTLED".into());
+    .map_err(|_| "DESKTOP_RECOVERY_READY_TIMEOUT")?
+}
+
+// Called only for an admitted explicit write, with the ARC thread lock held.
+pub(crate) async fn prepare_followup(control: &Control, thread: &str) -> Result<()> {
+    let Some(previous) = returned_instance(thread)? else {
+        return Ok(());
+    };
+    require_unheld(thread).await?;
+    let old = observation(thread)?.unwrap_or_default();
+    let root_id = old["rootThreadId"].as_str().unwrap_or(thread);
+    let mut binding;
+    let mut independent = None;
+    if crate::claude_notify::settings()?["desktopRecovery"] == "independent" {
+        let _gate = control.desktop_preparation.lock().await;
+        daemon::start_daemon().await?;
+        let instance = independent_instance(control).await?;
+        let rpc = control.shared_desktop_rpc().await?;
+        // Claim the unheld writer on ARC's own connection before opening the
+        // window. A loaded thread on this shared server is not proof that the
+        // selected Desktop acquired it.
+        let state = rpc
+            .call(
+                "thread/read",
+                json!({"threadId":thread,"includeTurns":false}),
+                3000,
+            )
+            .await?;
+        require_unheld(thread).await?;
+        if state["thread"]["id"] != thread || state["thread"]["status"]["type"] != "notLoaded" {
+            return Err("DESKTOP_OWNER_UNCONFIRMED".into());
+        }
+        let resumed = rpc
+            .call(
+                "thread/resume",
+                json!({"threadId":thread,"excludeTurns":true}),
+                10000,
+            )
+            .await;
+        let resumed = match resumed {
+            Ok(resumed) => resumed,
+            Err(error) => {
+                require_unheld(thread).await?;
+                return Err(error);
+            }
+        };
+        if resumed["thread"]["id"] != thread
+            || resumed["thread"]["status"]["type"] != "idle"
+            || holder(thread).await["origin"] != "shared-app-server"
+        {
+            return Err(crate::writer::busy(thread, crate::writer::probe(thread)).to_string());
+        }
+        binding = json!({"owner":"desktop","transport":"local-daemon","desktopInstance":instance.identity(),
+            "desktopTarget":instance.identity(),"desktopProxy":rpc.proxy_identity()});
+        independent = Some(instance);
+    } else {
+        // The open is explicit. A silent discovery during launch can recover
+        // before the deadline, but a final timeout cannot authorize fallback.
+        if control.ipc().await.is_ok() || super::installation().is_some() {
+            require_unheld(thread).await?;
+            super::open_thread(thread).await?;
+        }
+        let deadline = Instant::now() + Duration::from_secs(20);
+        loop {
+            let owner = match control.ipc().await {
+                Ok(ipc) => ipc.owner(thread).await,
+                Err(error) => Err(error),
+            };
+            match owner {
+                Ok(_) => {
+                    binding = json!({"owner":"desktop","transport":"ipc"});
+                    break;
+                }
+                Err(error) if super::owner_missing(&error) || super::endpoint_missing(&error) => {
+                    if Instant::now() >= deadline {
+                        let rpc = control.utility().await?;
+                        require_unheld(thread).await?;
+                        rpc.call(
+                            "thread/resume",
+                            json!({"threadId":thread,"excludeTurns":true}),
+                            60000,
+                        )
+                        .await?;
+                        binding = json!({"owner":"connector","reason":"desktop-handback-no-owner"});
+                        break;
+                    }
+                }
+                Err(error)
+                    if super::owner_discovery_pending(&error) && Instant::now() < deadline => {}
+                Err(error) => return Err(error),
+            }
+            tokio::time::sleep(Duration::from_millis(250)).await;
+        }
     }
-    daemon::reveal(instance.clone(), thread).await?;
-    publish(
-        thread,
-        &json!({"rootThreadId":parent,"instance":instance.identity(),"state":"in-instance"}),
-    )?;
-    Ok(true)
+
+    binding["continuedFrom"] = previous;
+    binding["handbackRoot"] = json!(root_id);
+    // The old root may still owe an unsubscribe to a running descendant.
+    if root_id == thread
+        && old["state"] != "handed-back"
+        && (old["descendants"].as_array().is_some_and(|v| !v.is_empty())
+            || !old["ownHold"].is_object())
+    {
+        binding["pendingPreviousSubtree"] = json!(true);
+        if binding["desktopProxy"].is_null() {
+            if let Some(prior) = record("execution", thread)? {
+                binding["desktopProxy"] = prior["desktopProxy"].clone();
+            }
+        }
+    }
+    save(&path("execution", thread)?, &binding)?;
+    if independent.is_some() || binding["pendingPreviousSubtree"] == true || root_id != thread {
+        control
+            .handback_tasks
+            .lock()
+            .await
+            .insert(root_id.to_owned());
+    }
+    if let Some(instance) = independent {
+        daemon::reveal(instance, thread).await?;
+    }
+    Ok(())
 }

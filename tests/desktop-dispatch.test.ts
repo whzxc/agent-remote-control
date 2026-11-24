@@ -90,6 +90,26 @@ test('Desktop and connector owners dispatch FIFO and steer only a confirmed nati
     throw new Error(JSON.stringify(await fixture.call('codex_queue', {threadId, queueId})));
   };
   try {
+    // A returned, unheld thread uses the current owner even if its former daemon is gone.
+    const returned = randomUUID();
+    save({ ...read(), [returned]: { id: returned, cwd: directory, turns: [{ id: randomUUID(), status: 'completed', items: [] }] } });
+    await fixture.restart(async state => {
+      const instance = { pid: process.pid, start: 'earlier-process' };
+      for (const [folder, record] of [
+        ['execution', { owner: 'desktop', transport: 'local-daemon', desktopInstance: instance }],
+        ['desktop-handback', { rootThreadId: returned, instance, state: 'handed-back', ownHold: { state: 'dropped' } }],
+      ] as const) {
+        await mkdir(path.join(state, folder), { recursive: true });
+        await writeFile(path.join(state, folder, returned + '.json'), JSON.stringify(record));
+      }
+    });
+    const followup = { requestId: randomUUID(), threadId: returned, prompt: 'Continue returned thread' };
+    const delivered = await fixture.completed('codex_send', followup);
+    assert.equal(delivered.state, 'completed', JSON.stringify(delivered));
+    assert.equal(delivered.executionOwner, 'desktop');
+    assert.equal((await fixture.completed('codex_send', followup)).turnId, delivered.turnId);
+    assert.equal(readFileSync(openFile, 'utf8'), 'codex://threads/' + returned);
+    assert.equal(read()[returned].turns.length, 2);
     const fresh = await fixture.completed('codex_create',{prompt:'Fresh Desktop turn',thread:{cwd:directory}});
     assert.equal(fresh.state,'completed',JSON.stringify(fresh));
     assert.equal(fresh.executionOwner, 'desktop');

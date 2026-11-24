@@ -361,6 +361,16 @@ impl Control {
         Ok(path.exists() && crate::kernel::file_cache::load(&path)?["owner"] == "connector")
     }
     fn handed_to_desktop(&self, thread: &str) -> bool {
+        #[cfg(target_os = "macos")]
+        if self.background(thread).unwrap_or(false)
+            && crate::kernel::file_cache::load(
+                &root().join("execution").join(format!("{thread}.json")),
+            )
+            .is_ok_and(|b| b["continuedFrom"].is_object())
+        {
+            // This explicit connector acquisition is newer than the former Desktop owner.
+            return false;
+        }
         crate::claude_notify::ownership::read(thread)
             .ok()
             .is_some_and(|state| {
@@ -652,7 +662,12 @@ impl Control {
             return result;
         }
         #[cfg(target_os = "macos")]
-        if result["handback"].is_object() && result["handback"]["state"] != "in-instance" {
+        if result["handback"].is_object()
+            && !matches!(
+                result["handback"]["state"].as_str(),
+                Some("in-instance" | "continued")
+            )
+        {
             let holder = result["handback"]["holder"].clone();
             result["owner"] = json!(match holder["origin"].as_str() {
                 Some("shared-app-server") => "shared-app-server",
@@ -1357,6 +1372,14 @@ impl Control {
             method,
             "thread/read" | "thread/turns/list" | "thread/items/list"
         );
+        #[cfg(target_os = "macos")]
+        if read_only
+            && desktop::handback::returned_instance(thread)?.is_some()
+            && crate::writer::probe(thread)["state"] == "unheld"
+        {
+            crate::acceptance_fault::check_read(method, &args)?;
+            return self.utility().await?.call(method, args, timeout).await;
+        }
         if read_only
             && crate::writer::probe(thread)["state"] == "held"
             && self.writer_ownership(thread).await["owner"] == "external"
@@ -1390,6 +1413,8 @@ impl Control {
                     // is safe to route once through the newly observed Desktop;
                     // never do this after a timeout or an uncertain submission.
                     crate::claude_notify::ownership::observe(thread, &ownership).await?;
+                    #[cfg(target_os = "macos")]
+                    desktop::handback::check_send(thread).await?;
                     return self.request_native_raw(method, args, timeout).await;
                 }
                 return Err(self.writer_conflict(thread, Some(error)).await.to_string());
@@ -2100,6 +2125,16 @@ impl Control {
         if operation == "send" && args["sendMode"] == "queue" {
             return crate::dispatch_queue::enqueue(args, r).await;
         }
+        #[cfg(target_os = "macos")]
+        if operation == "send"
+            || (operation == "native"
+                && matches!(
+                    string(args, "method"),
+                    "thread/resume" | "turn/start" | "turn/steer"
+                ))
+        {
+            desktop::handback::prepare_followup(self, thread_key).await?;
+        }
         if matches!(operation, "send" | "interrupt")
             || (operation == "native"
                 && matches!(
@@ -2129,13 +2164,17 @@ impl Control {
                 return Err(crate::writer::busy(thread, ownership).to_string());
             }
             let shared = self.shared_desktop_thread(thread)?;
+            #[cfg(target_os = "macos")]
+            let returned = desktop::handback::returned_instance(thread)?.is_some();
+            #[cfg(not(target_os = "macos"))]
+            let returned = false;
             let desktop =
                 shared || ownership["owner"] == "desktop" || self.handed_to_desktop(thread);
-            let state = if desktop && !shared {
+            let state = if !returned && desktop && !shared {
                 let state = self.ipc().await?.read(thread, true).await?;
                 crate::control::thread(&state, true)?
             } else {
-                let rpc = if shared {
+                let rpc = if !returned && shared {
                     self.shared_desktop_rpc().await?
                 } else {
                     self.utility().await?
@@ -2174,7 +2213,21 @@ impl Control {
             {
                 return Err(json!({"code":"RESUME_TURN_ADVANCED","message":"Only the latest interrupted turn can resume. No input was submitted.","next":{"via":"query","op":"codex_read","args":{"threadId":thread,"statusOnly":true}}}).to_string());
             }
-            if !desktop {
+            #[cfg(target_os = "macos")]
+            if returned {
+                desktop::handback::prepare_followup(self, thread).await?;
+            }
+            let shared = if returned {
+                self.shared_desktop_thread(thread)?
+            } else {
+                shared
+            };
+            let desktop = if returned {
+                !self.effective_background(thread).await?
+            } else {
+                desktop
+            };
+            if !desktop && !returned {
                 if state["status"]["type"] == "notLoaded" {
                     self.background_request(
                         "thread/resume",

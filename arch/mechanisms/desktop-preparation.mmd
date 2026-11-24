@@ -24,3 +24,8 @@ flowchart TD
   locks -->|Yes| returned["Handed back to Desktop"]
   locks -->|No| held["Report remaining holder"]
   held --> locks
+  returned -->|Explicit follow-up| owner{"Current writer?"}
+  owner -->|Main Desktop or foreign holder| held
+  owner -->|Unheld| navigate["Open the same thread and wait for its owner"]
+  navigate -->|Verified owner| submit
+  navigate -->|Confirmed absence and unheld| fallback["Resume the same thread in ARC App Server"]
