@@ -179,10 +179,6 @@
         {
           "source": "design/components/task-card.tsx",
           "part": "TaskCard"
-        },
-        {
-          "source": "design/modules/tasks.tsx",
-          "part": "GroupedTaskCard"
         }
       ]
     },

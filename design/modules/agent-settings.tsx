@@ -1,28 +1,46 @@
-import { copy, samples } from '../fixtures/agent-settings';
-
-import { SettingsChoices as Choices, SettingsGroup as Group } from "../components/settings-row";
-import { Frame } from "adg";
+import { copy, samples, agentCards, uninstalledAgents, nativeCopy, type AgentCardSample } from '../fixtures/agent-settings';
+import { SettingsChoices as Choices, SettingsGroup as Group, SettingLine } from "../components/settings-row";
+import { Frame, Icon } from "adg";
 import { Panel, Dialog } from "../components/panel";
 import { Card } from "../components/card";
-import { SettingLine } from "../components/settings-row";
 import { Switch } from "../components/switch";
 import { IconButton } from "../components/icon-button";
 import { BrandMark } from "../components/brand-mark";
 
+const toneDot = {
+  success: 'bg-success',
+  warning: 'bg-warning',
+  danger: 'bg-danger',
+  muted: 'bg-text-tertiary',
+} as const;
 
-export function AgentInventoryCard() {
-  return (<Card padded>
-          <div class="flex items-center gap-4 py-2">
-            <BrandMark brand="codex" size={40} />
-            <div class="flex flex-col gap-[6px]">
-              <strong class="text-body leading-4 font-[650]">{copy.text1}</strong>
-              <span class="text-meta leading-4 text-text-secondary">{copy.text2}</span>
-            </div>
-            <div class="ml-auto">
-              <Switch checked label={copy.text3} />
-            </div>
-          </div>
-        </Card>);
+export function AgentInventoryCard({ agent = agentCards[0] }: { agent?: AgentCardSample }) {
+  return (
+    <Card class="gap-[10px]! p-[14px]!">
+      <div class="flex items-center gap-3">
+        <BrandMark brand={agent.brand} size={28} />
+        <div class="flex min-w-0 flex-1 flex-col gap-[2px]">
+          <strong class="truncate text-body leading-5 font-[650] text-text">{agent.name}</strong>
+          <span class="truncate text-caption leading-4 text-text-secondary">{agent.meta}</span>
+        </div>
+        <Switch checked={agent.enabled} label={agent.name} />
+      </div>
+      <div class="flex items-center gap-2 border-t border-border pt-[8px] text-caption leading-4 text-text-secondary">
+        {agent.quotaLabel && (
+          <span class="inline-flex min-w-0 items-center gap-[5px] truncate">
+            <span class={`size-[6px] shrink-0 rounded-full ${toneDot[agent.quotaTone ?? 'muted']}`} aria-hidden="true" />
+            <span class="truncate tabular-nums">{agent.quotaLabel}</span>
+          </span>
+        )}
+        {agent.spec && (
+          <span class="ml-auto shrink-0 rounded-full bg-surface px-2 py-[1px] text-caption text-text-secondary">
+            {agent.spec}
+          </span>
+        )}
+        <Icon name="chevron-right" size={14} class={`shrink-0 text-text-tertiary ${agent.spec ? '' : 'ml-auto'}`} />
+      </div>
+    </Card>
+  );
 }
 
 export function AgentDispatchSettings() {
@@ -60,24 +78,39 @@ export function AgentDetail() {
     </Dialog>
   );
 }
+
 export function Agents({ workspace = false }: { workspace?: boolean } = {}) {
   return (
     <Panel viewportHeight={workspace ? 800 : undefined}
       title={copy.text12}
       actions={<IconButton icon="refresh-cw" label={copy.text13} />}
     >
-      <div class="flex flex-col gap-[11px]">
-        <div class="flex h-[33px] items-center gap-[6px]">
-          <h3 class="mr-[13px] text-small font-[650] text-text-secondary">{copy.text14}</h3>
-          <IconButton icon="gauge" label={copy.text15} />
-          <IconButton icon="settings" label={copy.text16} />
+      <div class="flex flex-col gap-4">
+        <div class="flex flex-col gap-3">
+          <div class="flex h-[33px] items-center gap-[6px]">
+            <h3 class="mr-[13px] text-small font-[650] text-text-secondary">{copy.text14}</h3>
+            <IconButton icon="gauge" label={copy.text15} />
+            <IconButton icon="settings" label={copy.text16} />
+          </div>
+          <div class="grid grid-cols-3 gap-3">
+            {agentCards.map(agent => <AgentInventoryCard agent={agent} />)}
+          </div>
         </div>
-        <AgentInventoryCard  />
+        <div class="flex flex-col gap-2">
+          <h3 class="text-small font-[650] text-text-secondary">{copy.notInstalled}</h3>
+          <div class="grid grid-cols-4 gap-2">
+            {uninstalledAgents.map(agent => (
+              <div class="flex items-center gap-2 rounded-tile bg-surface-subtle px-3 py-2 text-small text-text-secondary">
+                <BrandMark brand={agent.brand} size={20} />
+                <span class="truncate">{agent.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </Panel>
   );
 }
-import { nativeCopy } from '../fixtures/agent-settings';
 
 export function NativeAgentInfo({ class: extra = 'mt-7' }: {class?:string}) {return (
 <div class={`flex items-start gap-2 rounded-card bg-surface-subtle px-4 py-[14px] ${extra}`}>
@@ -89,8 +122,8 @@ export function NativeAgentInfo({ class: extra = 'mt-7' }: {class?:string}) {ret
         </div>);}
 
 export default () => [
-  <Frame name="agent-inventory-card" width={672}>
-    <div class="w-full bg-surface-raised"><AgentInventoryCard  /></div>
+  <Frame name="agent-inventory-card" width={296}>
+    <div class="w-full bg-surface-raised"><AgentInventoryCard /></div>
   </Frame>,
   <Frame name="agent-dispatch-settings" width={672}>
     <div class="w-full bg-surface-raised"><AgentDispatchSettings  /></div>

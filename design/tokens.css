@@ -62,10 +62,10 @@
   --layer-m: 560px;
   --layer-xl: 960px;
   --layer-side-margin: 16px;
-  --layer-panel-bottom: 76px;
+  --layer-panel-inset: 76px;
   --layer-top-desktop: 48px;
   --layer-top-browser: 20px;
-  --layer-top: var(--layer-top-desktop);
+  --layer-top: var(--layer-panel-inset);
 
   /* Motion */
   --motion-instant: 0ms;

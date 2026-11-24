@@ -7,11 +7,13 @@ const chatgpt: OriginStep = { label: 'ChatGPT', brand: 'openai' };
 const claude: OriginStep = { label: 'Claude', brand: 'claude' };
 const controller: OriginStep = { label: 'Anchor Mac · controller', icon: 'monitor' };
 const member: OriginStep = { label: 'Cedar Mac · LAN · 4 ms', icon: 'laptop' };
+const antigravity: OriginStep = { label: 'Antigravity', brand: 'antigravity' };
 const codex: OriginStep = { label: 'Codex', brand: 'codex' };
 const cc: OriginStep = { label: 'Claude Code', brand: 'claude-code' };
 export const origins = {
   local: [chatgpt, { ...codex, label: 'Codex · Studio', caption: 'Studio' }],
   localClaude: [claude, cc],
+  antigravityToCodex: [antigravity, codex],
   remote: [controller, member, codex],
   remoteClaude: [controller, member, cc],
   member: [controller, codex],

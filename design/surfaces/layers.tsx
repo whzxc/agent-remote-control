@@ -22,15 +22,15 @@ function workspaceFrame(name: string, fixture: string) {
     <div data-adg-id="workspace-stage" class="relative w-[1280px] h-[800px]">
       <div inert={deploy || undefined} aria-hidden={deploy ? 'true' : undefined}>
         <HomepageScene key="homepage" scene={scene} chrome={home} hosting active={home || deploy ? '' : settings ? 'settings' : 'relay-hosting'} />
-        {!home && <div class="pointer-events-none absolute inset-0 flex items-center justify-center pt-5 pb-[76px]">
-          <Panel key="center" motionId="center" closeLabel="Back to home" size="xl" retainedHeight={settings ? 704 : 200}
+        {!home && <div class="pointer-events-none absolute inset-0 flex items-center justify-center py-[76px]">
+          <Panel key="center" motionId="center" closeLabel="Back to home" size="xl" retainedHeight={settings ? 648 : 200}
             headerHeight={settings ? 50 : undefined} title={settings ? 'Settings' : 'Relay hosting'}
             actions={<IconButton key="expand" icon="maximize-2" label="Expand panel width"/>}>
             {settings ? <GeneralSettingsContent /> : <WorkspaceContent />}
           </Panel>
         </div>}
       </div>
-      {deploy && <div class="absolute inset-0 flex items-center justify-center pt-5 pb-4">
+      {deploy && <div class="absolute inset-0 flex items-center justify-center py-5">
         <div data-adg-id="deployment-scrim" class="absolute inset-0 bg-layer-scrim" />
         <div class="relative flex w-full justify-center">
           <Dialog key="deploy" motionId="deployment" title="Deploy new relay"
@@ -58,7 +58,7 @@ export default () => [
       capture={{page:true,origin:'0 0',viewport:`${scene.width}x${scene.height}`}}>
       <div class="relative" style={{width:scene.width,height:scene.height}}>
         <HomepageScene scene={scene} chrome={node}/>
-        <div data-free class="absolute inset-0 flex items-center justify-center pt-5 pb-[76px]">
+        <div data-free class="absolute inset-0 flex items-center justify-center py-[76px]">
           <Panel size={node?'m':'xl'} viewportWidth={scene.width} retainedHeight={slot.height} height={node ? slot.height : undefined} headerHeight={node?46:undefined}
             title={node?<NodePanelHeading/>:'Relay hosting'}
             headerless={node} actions={node?undefined:<IconButton icon="maximize-2" label="Expand"/>}>
@@ -75,7 +75,7 @@ export default () => [
       <div aria-hidden="true" inert class="absolute top-[192px] left-[360px] w-[560px] h-[420px]">
         <SetupFlow step={onboardingFrames.find(s=>s.name==='source-connection')!}><SourceOnboarding step={onboardingFrames.find(s=>s.name==='source-connection')!}/></SetupFlow>
       </div>
-      <div class="absolute inset-0 bg-layer-scrim flex items-center justify-center pt-5 pb-4">
+      <div class="absolute inset-0 bg-layer-scrim flex items-center justify-center py-5">
         <SetupFlow step={onboardingFrames.find(s=>s.name==='stacked-method')!}>
           <ConnectionOnboarding step={onboardingFrames.find(s=>s.name==='stacked-method')!}/>
         </SetupFlow>

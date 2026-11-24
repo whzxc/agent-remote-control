@@ -43,12 +43,12 @@ const scrollRow = 'min-w-0 overflow-x-auto overflow-y-hidden [scrollbar-width:no
 export const aurora = 'border-transparent [background:linear-gradient(var(--surface),var(--surface))_padding-box,conic-gradient(from_24deg,var(--border)_0deg,var(--border)_25deg,var(--aurora-tint)_75deg,var(--border)_142deg,var(--border)_215deg,var(--aurora-tint)_275deg,var(--border)_360deg)_border-box] [box-shadow:var(--shadow-md),0_0_15px_color-mix(in_srgb,var(--aurora-tint)_24%,transparent)]';
 
 
-export function TaskCardHeader({ task, heading = false }: { task: TaskSnapshotData; heading?: boolean }) {
+export function TaskCardHeader({ task, heading = false, attention = false }: { task: TaskSnapshotData; heading?: boolean; attention?: boolean }) {
   const timing = task.elapsed ?? task.lastSeen;
   const hasMeta = Boolean(task.dispatch || task.project || task.turns !== undefined);
   const hasPills = Boolean(task.dispatch || task.project);
   const title = 'block w-max whitespace-nowrap text-left text-body leading-5 font-semibold text-text';
-  const attentionDot = task.group === 'needs-me' ? 'bg-warning' : task.group === 'unread' ? 'bg-accent' : '';
+  const attentionDot = task.group === 'needs-me' || attention ? 'bg-warning' : task.group === 'unread' ? 'bg-accent' : '';
   return <header class={`flex w-full min-w-0 flex-col gap-2 py-3 ${heading ? "" : "px-[14px]"}`}>
     <div class="flex h-5 min-w-0 items-center justify-between gap-2">
       <div class={`flex-1 ${scrollRow}`}><div class="flex w-max"><OriginChain steps={task.origin} /></div></div>
@@ -104,9 +104,9 @@ function SnapshotNote({ tone, label, text }: { tone: 'source' | 'request'; label
 }
 
 
-/** Portrait snapshot of one task. It reports status faithfully and carries no request actions. */
-export function TaskCard({ task, form }: {
-  task: TaskSnapshotData; form: 'summary' | 'detail';
+/** Shared task card in exactly two forms: summary (metadata header) and detail (header + structured preview). */
+export function TaskCard({ task, form, attention = false, emptyBody, footer, class: extra = '' }: {
+  task: TaskSnapshotData; form: 'summary' | 'detail'; attention?: boolean; emptyBody?: unknown; footer?: unknown; class?: string;
 }) {
   const preview = form === 'detail';
   const phase = task.phase ?? (task.icon === 'brain' ? 'thinking' : task.icon === 'terminal' ? 'command' : undefined);
@@ -124,13 +124,19 @@ export function TaskCard({ task, form }: {
   const shell = active ? aurora
     : preview && waiting ? 'border-warning/45 bg-surface shadow-md'
     : 'border-border bg-surface shadow-md';
+  const boundedLines = task.previewLines?.slice(footer ? -3 : -4);
+  const previewMargin = footer ? 'mb-[6px]' : 'mb-2';
   return <article aria-label={task.title} style={{ '--aurora-tint': active ? tint : undefined }}
-    class={`flex w-full min-w-0 flex-col rounded-card border ${shell}`}>
-    <TaskCardHeader task={task} />
-    {preview && task.previewLines ? (
-      <div class="mx-2 mb-2 flex min-h-10 max-h-[180px] flex-col justify-end overflow-clip rounded-tile bg-surface-subtle">
+    class={`flex w-full min-w-0 flex-col rounded-card border ${shell} ${extra}`}>
+    <TaskCardHeader task={task} attention={attention} />
+    {preview && emptyBody ? (
+      <div class={`mx-2 ${previewMargin} flex min-h-[88px] flex-1 flex-col justify-center overflow-hidden rounded-tile bg-surface-subtle p-[10px]`}>
+        {emptyBody}
+      </div>
+    ) : preview && boundedLines ? (
+      <div class={`mx-2 ${previewMargin} flex min-h-10 flex-1 flex-col justify-start overflow-hidden rounded-tile bg-surface-subtle`}>
         <div class="flex shrink-0 flex-col gap-2 p-[10px]">
-          {task.previewLines.map(({ text, kind }) => kind === 'source' ? <SnapshotNote tone="source" text={text} />
+          {boundedLines.map(({ text, kind }) => kind === 'source' ? <SnapshotNote tone="source" text={text} />
             : kind === 'agent' ? <p class="line-clamp-2 text-caption leading-4 text-text">{text}</p>
             : <div class={`flex items-center gap-[6px] whitespace-nowrap text-caption leading-4 text-text-secondary ${kind === 'tool' ? 'tabular-nums' : ''}`}>
               <Icon name={kind === 'thinking' ? 'brain' : 'wrench'} size={12} class={kind === 'thinking' ? 'text-phase-thinking' : 'text-phase-file'} />
@@ -140,13 +146,13 @@ export function TaskCard({ task, form }: {
         </div>
       </div>
     ) : preview && (
-      <div class="mx-2 mb-2 flex min-h-10 flex-col gap-2 rounded-tile bg-surface-subtle p-[10px]">
+      <div class={`mx-2 ${previewMargin} flex min-h-10 flex-1 flex-col justify-start gap-2 overflow-hidden rounded-tile bg-surface-subtle p-[10px]`}>
         {task.prompt && <SnapshotNote tone="source" text={task.prompt} />}
         {work && <div class="flex items-center gap-[6px] text-caption leading-4 text-text-secondary">
           <Icon name="wrench" size={12} class="shrink-0 text-phase-file" />
           <span class="min-w-0 truncate tabular-nums">{work}</span>
         </div>}
-        {steps.some(step => step.kind === 'thinking') && (
+        {steps.some(step => step.kind === 'thinking') && !(done || task.activity) && (
           <div class="flex items-center gap-[6px] text-caption leading-4 text-text-secondary">
             <Icon name="brain" size={12} class="shrink-0 text-phase-thinking" />
             <span class="min-w-0 truncate">{steps.findLast(step => step.kind === 'thinking')?.text}</span>
@@ -158,6 +164,7 @@ export function TaskCard({ task, form }: {
         )}
       </div>
     )}
+    {footer}
   </article>;
 }
 
@@ -175,7 +182,7 @@ export default () => [
       </section>)}
     </div>
   </Frame>,
-  ...Object.entries(origins).filter(([name]) => ['local', 'remote', 'member', 'offline'].includes(name))
+  ...Object.entries(origins).filter(([name]) => ['local', 'antigravityToCodex', 'remote', 'member', 'offline'].includes(name))
     .map(([name, steps]) => <Frame name={`origin-chain-${name}`}><OriginChain steps={steps} /></Frame>),
   ...['finished', 'offline'].map(id => <Frame name={`task-summary-${id}`} width={260}>
     <TaskCard task={tasks.find(task => task.id === id)!} form="summary" />
