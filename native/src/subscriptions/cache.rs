@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 struct CachedReading {
     observed_at: String,
+    source: Option<String>,
     windows: Vec<QuotaWindow>,
     raw_usage: Value,
     account_blocked: Option<bool>,
@@ -32,6 +33,7 @@ pub(super) fn restore(slot: &mut Slot) {
     else {
         return;
     };
+    slot.view.source = reading.source;
     slot.view.windows = reading.windows;
     slot.view.raw_usage = reading.raw_usage;
     slot.view.observed_at = Some(reading.observed_at);
@@ -48,6 +50,7 @@ pub(super) fn persist(slot: &Slot) {
     };
     let reading = CachedReading {
         observed_at: observed_at.clone(),
+        source: slot.view.source.clone(),
         windows: slot.view.windows.clone(),
         raw_usage: slot.view.raw_usage.clone(),
         account_blocked: slot.view.account_blocked,

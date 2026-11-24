@@ -1,5 +1,5 @@
 mod antigravity;
-mod claude;
+pub(super) mod claude;
 mod codex;
 mod cursor;
 mod grok;
@@ -90,7 +90,6 @@ pub async fn credential(id: &str) -> std::result::Result<Credential, Failure> {
     match id {
         "opencode-go" => opencode_go::credential(),
         "cursor" => cursor::credential().await,
-        "antigravity" => antigravity::credential().await,
         "grok" => grok::credential().await,
         "kimi-code" => Err("credentials-missing".into()),
         _ => Err("invalid-response".into()),
@@ -103,15 +102,14 @@ pub async fn read(
     if id == "codex" {
         return codex::read(control).await.map(|r| (r, "codex-account"));
     }
-    if id == "claude-code" {
-        return claude::read().await.map(|r| (r, "claude-login"));
+    if id == "antigravity" {
+        return antigravity::read().await;
     }
     let c = credential(id).await?;
     let client = client().await?;
     let reading = match id {
         "opencode-go" => opencode_go::read(&client, &c).await,
         "cursor" => cursor::read(&client, &c).await,
-        "antigravity" => antigravity::read(&client, &c).await,
         "grok" => grok::read(&client, &c).await,
         "kimi-code" => kimi::read(&client, &c).await,
         _ => Err("invalid-response".into()),
@@ -318,15 +316,4 @@ pub(super) fn credential_path(id: &str) -> PathBuf {
     root()
         .join("subscriptions/credentials")
         .join(format!("{id}.json"))
-}
-
-pub(crate) async fn account_read(
-    _control: &Control,
-    agent: &str,
-    profile: &str,
-) -> std::result::Result<Reading, Failure> {
-    match agent {
-        "claude" => claude::read_profile(profile).await,
-        _ => Err("provider-not-integrated".into()),
-    }
 }

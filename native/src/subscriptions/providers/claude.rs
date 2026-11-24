@@ -55,7 +55,15 @@ pub(crate) async fn read_profile(profile: &str) -> std::result::Result<Reading, 
     .map_err(|_| Failure::from("request-failed"))?;
     parse_output(output)
 }
+fn credentials_missing(text: &str) -> bool {
+    let text = text.to_ascii_lowercase();
+    text.contains("not logged in") || text.contains("please run /login")
+}
+
 fn parse_output(output: std::process::Output) -> std::result::Result<Reading, Failure> {
+    if !output.status.success() && credentials_missing(&String::from_utf8_lossy(&output.stderr)) {
+        return Err("credentials-missing".into());
+    }
     let value: Value = serde_json::from_slice(&output.stdout).map_err(|_| Failure {
         code: "request-failed",
         message: Some("Claude Code did not return a /usage result. Check `claude auth status`, then refresh usage.".into()),
@@ -70,6 +78,9 @@ fn parse_output(output: std::process::Output) -> std::result::Result<Reading, Fa
     let text = result["result"]
         .as_str()
         .ok_or(Failure::from("invalid-response"))?;
+    if credentials_missing(text) {
+        return Err("credentials-missing".into());
+    }
     if !output.status.success() || result["is_error"] == true {
         return Err(Failure {
             code: "request-failed",

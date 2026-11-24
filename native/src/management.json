@@ -1702,7 +1702,7 @@
       "name": "agents.conversations",
       "route": "agents/conversations",
       "method": "POST",
-      "description": "Read a metadata-only conversation page. Omit agent to list all indexed native sessions and ARC Agent tasks. Codex keeps native unarchived threads in descending creation order. Claude Code, Antigravity and Pi v3 merge read-only native sessions with ARC tasks (scope:native-and-arc-tasks); other Agents expose ARC tasks. Non-Codex rows sort by updatedAt descending, then id ascending. ARC task identity wins nativeSessionId matches. Native rows use source:native, bounded head/tail metadata and a 30-second on-demand cache; metadataPartial marks incomplete samples and messageCount is null when unavailable. Claude child/sidechain sessions are excluded. limit defaults to 20 and is capped at 50. Reuse nextCursor unchanged. Open the returned id with agents.conversations.timeline. Listing never builds timelines or resumes sessions; transcript paths remain private.",
+      "description": "Read a metadata-only conversation page. Omit agent, pass an empty agent, or specify agents to combine enabled Agents. Every row identifies its agent. Combined pages merge Codex native threads, indexed native sessions, and ARC tasks. Unavailable Codex history does not block other Agents. Sort by createdAt descending by default or updatedAt descending with sort:updated. Explicit Codex-only agent requests use the native cursor. ARC task identity wins nativeSessionId matches. Claude sidechains are excluded. limit defaults to 20 and is capped at 50. Pass nextCursor unchanged with the same filters. Open a returned row with agents.conversations.timeline.",
       "localOnly": true,
       "inputSchema": {
         "type": "object",
@@ -1711,8 +1711,11 @@
             "type": "object",
             "properties": {
               "agent": {
-                "type": "string",
-                "minLength": 1
+                "type": "string"
+              },
+              "agents": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 }
               },
               "cursor": {
                 "type": "string",
@@ -1726,7 +1729,7 @@
               },
               "includeSubagents": {
                 "type": "boolean",
-                "description": "Include spawned Codex subagent threads alongside interactive history."
+                "description": "Include Codex and Antigravity subagent conversations."
               },
               "limit": {
                 "type": "integer",

@@ -1,6 +1,8 @@
 import test from 'node:test';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { DatabaseSync } from 'node:sqlite';
+import { pathToFileURL } from 'node:url';
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -10,7 +12,7 @@ import { nativeControl } from './helpers/native-control.ts';
 const id = '11111111-1111-4111-8111-111111111111';
 const missing = '22222222-2222-4222-8222-222222222222';
 const target = `antigravity_${id}`;
-async function setup(desktop = false) {
+async function setup(desktop = false, rpc = '') {
   const home = await mkdtemp(path.join(tmpdir(), 'arc-antigravity-desktop-'));
   const log = path.join(home, 'calls.jsonl');
   const config = path.join(home, '.gemini/config/mcp_config.json');
@@ -38,7 +40,7 @@ if(process.argv.includes('--version')) { console.log('1.4.12');process.exit(); }
 if(process.argv.includes('--help')) { console.log('stream-json --conversation');process.exit(); }
 createInterface({input:process.stdin}).on('line',()=>console.log(JSON.stringify({event:'result',result:{conversation_id:'fixture-conversation',status:'SUCCESS',response:'Finished',num_turns:1}})));
 `, { mode: 0o755 });
-  const fixture = await nativeControl('', {
+  const fixture = await nativeControl(rpc, {
     HOME: home, USERPROFILE: home, XDG_CONFIG_HOME: home,
     ARC_ANTIGRAVITY_AGENTAPI: binary,
     ...(desktop ? { ARC_ANTIGRAVITY_BIN: binary } : {}),
@@ -159,13 +161,15 @@ test('Antigravity Desktop submits creates and resumed messages and discovers bot
     const timeline = await f.api('agents/conversations/timeline', { agent: 'antigravity', id });
     assert.equal(timeline.readOnly, true);
     assert.ok(timeline.entries.some((row: any) => row.role === 'user' && row.text === 'Explain the fixture'));
-    assert.ok(timeline.entries.some((row: any) => row.role === 'assistant' && row.text === 'Fixture response'));
+    assert.ok(timeline.entries.some((row: any) => row.role === 'assistant' && row.text === 'Fixture response' && row.phase === 'final_answer'));
     assert.ok(timeline.entries.some((row: any) => row.type === 'thinking' && row.text === 'Inspect fixture'));
     assert.ok(timeline.entries.some((row: any) => row.stepIndex === 1 && row.nativeStatus === 'DONE' && row.source === 'planner'));
     const inventory = await f.api('agents');
     const agent = inventory.agents.find((row: any) => row.agent === 'antigravity');
     assert.equal(agent.available, true);
     assert.equal(agent.protocol, 'antigravity-agentapi');
+    assert.equal(agent.capabilities.nativeConversations, true);
+    assert.equal(agent.capabilities.subagents, true);
     const created = await f.completed('agent_create', { agent: 'antigravity', cwd: f.home, prompt: 'Create fixture', approval: 'approved' });
     assert.equal(created.state, 'completed', JSON.stringify(created));
     const task = { agent: 'antigravity', taskId: created.taskId };
@@ -177,5 +181,62 @@ test('Antigravity Desktop submits creates and resumed messages and discovers bot
     assert.ok(calls.some(args => args[0] === 'new-conversation' && args.at(-1) === 'Create fixture'));
     assert.deepEqual(calls.at(-2), ['get-conversation-metadata', id]);
     assert.deepEqual(calls.at(-1), ['send-message', id, 'Continue fixture']);
+  } finally { await f.close(); }
+});
+
+test('Combined conversations include native Codex and Antigravity rows in one paged order', { skip: process.platform === 'win32' }, async () => {
+  // Contract: agents/conversations agent IDs, ordering, filters and nextCursor
+  const codex = '33333333-3333-4333-8333-333333333333';
+  const child = '44444444-4444-4444-8444-444444444444';
+  const f = await setup(true, `
+    import { createInterface } from 'node:readline';
+    for await (const line of createInterface({input:process.stdin})) {
+      const { id, method, params } = JSON.parse(line);
+      if (id === undefined) continue;
+      let result = {};
+      if (method === 'project/list') result = { data: [{ id: 'fixture-project', name: 'Fixture Project', roots: [{path:process.env.HOME}] }] };
+      if (method === 'thread/list') {
+        const parent = {id:'${codex}', preview:'Codex prompt', createdAt:1767312000, updatedAt:1767312000};
+        const child = { ...parent, id:'${child}', createdAt:1767398400, updatedAt:1767398400,
+          source:{subAgent:{thread_spawn:{parent_thread_id:'${codex}'}}} };
+        result = { data: params.sourceKinds?.includes('subAgentThreadSpawn') ? [child,parent] : [parent] };
+      }
+      process.stdout.write(JSON.stringify({ id, result }) + '\\n');
+    }
+  `);
+  try {
+    const directory = path.join(f.home, '.gemini/antigravity/brain', id, '.system_generated/logs');
+    await mkdir(directory, { recursive: true });
+    await writeFile(path.join(directory, 'transcript.jsonl'), JSON.stringify({
+      step_index: 0, type: 'USER_INPUT', content: 'Antigravity prompt', created_at: '2026-01-01T00:00:00Z',
+    }) + '\n');
+    const db = new DatabaseSync(path.join(f.home, '.gemini/antigravity/conversation_summaries.db'));
+    try {
+      db.exec(`CREATE TABLE conversation_summaries (
+        conversation_id TEXT, title TEXT, preview TEXT, workspace_uris TEXT,
+        parent_conversation_id TEXT, agent_name TEXT, status TEXT, last_modified_time TEXT
+      )`);
+      db.prepare("INSERT INTO conversation_summaries VALUES (?, '', '', ?, ?, 'Researcher', 'DONE', '')")
+        .run(id, JSON.stringify([pathToFileURL(f.home).href]), missing);
+    } finally { db.close(); }
+    const args = { agents: ['antigravity', 'codex'], includeSubagents: true, limit: 2 };
+    const codexOnly = await f.api('agents/conversations', { agent: 'codex', includeSubagents: true });
+    assert.ok(Array.isArray(codexOnly.data), JSON.stringify(codexOnly));
+    assert.ok(codexOnly.data.every((row: any) => row.agent === 'codex'));
+    const first = await f.api('agents/conversations', args);
+    assert.deepEqual(first.data.map((row: any) => [row.agent, row.id]), [['codex', child], ['codex', codex]]);
+    assert.equal(first.data[0].parentSessionId, codex);
+    assert.equal(typeof first.nextCursor, 'string');
+    const next = await f.api('agents/conversations', { ...args, cursor: first.nextCursor });
+    assert.deepEqual(next.data.map((row: any) => [row.agent, row.id]), [['antigravity', id]]);
+    assert.equal(next.data[0].parentSessionId, missing);
+    assert.equal(next.data[0].relationKind, 'subagent');
+    assert.equal(next.data[0].title, 'Researcher');
+    assert.equal(next.data[0].projectName, 'Fixture Project');
+    assert.equal(next.nextCursor, null);
+    const all = await f.api('agents/conversations', { agent: '', sort: 'updated' });
+    assert.deepEqual(all.data.map((row: any) => [row.agent, row.id]), [['codex', codex]]);
+    const updated = await f.api('agents/conversations', { sort: 'updated', includeSubagents: true });
+    assert.deepEqual(updated.data.map((row: any) => [row.agent, row.id]), [['antigravity', id], ['codex', child], ['codex', codex]]);
   } finally { await f.close(); }
 });

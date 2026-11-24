@@ -1,5 +1,6 @@
 //! On-demand native metadata. Transcript paths never enter the public row.
 use super::*;
+pub(super) mod antigravity;
 use crate::kernel::file_cache::{Cache as DirectoryCache, Stamp};
 use std::{io::Read, time::SystemTime};
 
@@ -21,6 +22,7 @@ struct Derived {
 pub(super) struct Index {
     directories: DirectoryCache<Value>,
     files: HashMap<PathBuf, Derived>,
+    summaries: antigravity::Summaries,
 }
 
 pub(super) fn roots() -> Vec<(String, PathBuf, Option<String>)> {
@@ -53,6 +55,10 @@ pub(super) fn roots() -> Vec<(String, PathBuf, Option<String>)> {
 }
 
 impl Index {
+    pub(super) fn refresh_summaries(&mut self, database: &Path) {
+        self.summaries.refresh(database);
+    }
+
     pub(super) fn scan(&mut self, roots: &[(String, PathBuf, Option<String>)]) -> Vec<Session> {
         let mut seen = HashSet::new();
         let mut sessions = Vec::new();
@@ -94,12 +100,16 @@ impl Index {
                     if stale {
                         // Do not serve the old row if a changed file is unreadable or races a write.
                         self.files.remove(path);
-                        let Ok((head, tail, complete)) = sample(path, metadata.len()) else {
-                            continue;
-                        };
                         let modified = metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH);
-                        let row =
-                            derive(agent, path, &head, &tail, complete, modified).map(Arc::new);
+                        let row = if agent == "antigravity" {
+                            antigravity::derive(path, modified)
+                        } else {
+                            let Ok((head, tail, complete)) = sample(path, metadata.len()) else {
+                                continue;
+                            };
+                            derive(agent, path, &head, &tail, complete, modified)
+                        }
+                        .map(Arc::new);
                         if Stamp::read(path).ok().flatten().as_ref() != Some(&stamp) {
                             continue;
                         }
@@ -114,7 +124,11 @@ impl Index {
                     }
                     if let Some(row) = self.files.get(path).and_then(|cached| cached.row.clone()) {
                         // Account attribution is configuration, not a transcript derivation.
-                        let row = if let Some(account) = account {
+                        let row = if agent == "antigravity" {
+                            let mut value = (*row).clone();
+                            self.summaries.enrich(&mut value);
+                            Arc::new(value)
+                        } else if let Some(account) = account {
                             let mut value = (*row).clone();
                             value["agentAccountId"] = json!(account);
                             Arc::new(value)
@@ -214,31 +228,6 @@ pub(super) fn derive(
     complete: bool,
     modified: SystemTime,
 ) -> Option<Value> {
-    if agent == "antigravity" {
-        let id = path.parent()?.parent()?.parent()?.file_name()?.to_str()?;
-        uuid::Uuid::parse_str(id).ok()?;
-        if path.file_name()? != "transcript.jsonl" {
-            return None;
-        }
-        let records: Vec<_> = head.iter().chain(tail).collect();
-        let first = records
-            .iter()
-            .find(|r| r["type"] == "USER_INPUT")
-            .map(|r| antigravity_text(r))
-            .unwrap_or_default();
-        let updated = chrono::DateTime::<chrono::Utc>::from(modified)
-            .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
-        let created = records
-            .iter()
-            .find_map(|r| normalized_time(&r["created_at"]))
-            .unwrap_or_else(|| updated.clone());
-        return Some(
-            json!({"agent":agent,"id":id,"nativeSessionId":id,"source":"native",
-            "title":short(&first, 120),"preview":short(&first, 240),"project":null,
-            "createdAt":created,"updatedAt":updated,"status":null,
-            "messageCount":if complete { Some(records.iter().filter(|r| matches!(r["type"].as_str(), Some("USER_INPUT" | "PLANNER_RESPONSE"))).count()) } else { None },"metadataPartial":!complete}),
-        );
-    }
     let records: Vec<_> = head
         .iter()
         .chain(tail)
@@ -313,7 +302,7 @@ pub(super) fn timeline(session: &Session) -> Result<Value> {
     }
     let (records, truncated) = activity::read_tail(&session.path, 8 * 1024 * 1024)?;
     if session.row["agent"] == "antigravity" {
-        return Ok(antigravity_timeline(id, &records, truncated));
+        return Ok(antigravity::timeline(id, &records, truncated));
     }
     Ok(pi_timeline(id, &records, truncated))
 }
@@ -374,79 +363,5 @@ pub(super) fn pi_timeline(id: &str, records: &[Value], truncated: bool) -> Value
     let mut result = timeline.response(id, 0);
     result["status"] = Value::Null;
     result["readOnly"] = json!(true);
-    result
-}
-
-fn antigravity_text(record: &Value) -> String {
-    let text = string(record, "content").trim();
-    if record["type"] == "USER_INPUT" {
-        text.strip_prefix("<USER_REQUEST>")
-            .and_then(|s| s.strip_suffix("</USER_REQUEST>"))
-            .unwrap_or(text)
-            .trim()
-            .to_owned()
-    } else {
-        text.to_owned()
-    }
-}
-
-pub(super) fn antigravity_timeline(id: &str, records: &[Value], truncated: bool) -> Value {
-    let mut timeline = crate::task_tracking::Timeline::default();
-    timeline.info = json!({"id":id,"agent":"antigravity"});
-    timeline.partial = truncated;
-    for record in records {
-        let first_entry = timeline.entries.len();
-        let at = string(record, "created_at");
-        let text = antigravity_text(record);
-        match string(record, "type") {
-            "USER_INPUT" => timeline.agent(
-                "arc/user",
-                &json!({"turnId":record["step_index"].to_string(),"text":text}),
-                at,
-            ),
-            "PLANNER_RESPONSE" => {
-                let mut content = Vec::new();
-                if let Some(thinking) = record["thinking"].as_str().filter(|s| !s.is_empty()) {
-                    content.push(json!({"type":"thinking","thinking":thinking}));
-                }
-                if !text.is_empty() {
-                    content.push(json!({"type":"text","text":text}));
-                }
-                for call in record["tool_calls"].as_array().into_iter().flatten() {
-                    content.push(json!({"type":"toolCall","id":call["id"],"name":call["name"],"arguments":call["arguments"]}));
-                }
-                timeline.agent(
-                    "message_end",
-                    &json!({"message":{"role":"assistant","content":content}}),
-                    at,
-                );
-            }
-            _ => {}
-        }
-        for entry in timeline.entries.iter_mut().skip(first_entry) {
-            entry["stepIndex"] = record["step_index"].clone();
-            entry["source"] = record["source"].clone();
-            entry["nativeStatus"] = record["status"].clone();
-            if let Some(status) = match string(record, "status") {
-                "DONE" | "COMPLETED" => Some("completed"),
-                "ERROR" | "FAILED" => Some("failed"),
-                "ACTIVE" | "RUNNING" => Some("running"),
-                _ => None,
-            } {
-                entry["status"] = json!(status);
-            }
-        }
-    }
-    let mut result = timeline.response(id, 0);
-    result["status"] = Value::Null;
-    result["readOnly"] = json!(true);
-    for entry in result["entries"].as_array_mut().into_iter().flatten() {
-        if entry["type"] == "user" {
-            entry["role"] = json!("user");
-        }
-        if matches!(entry["type"].as_str(), Some("text" | "thinking")) {
-            entry["role"] = json!("assistant");
-        }
-    }
     result
 }

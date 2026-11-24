@@ -1,6 +1,6 @@
 use super::*;
 
-const EFFORTS: &[&str] = &["low", "medium", "high", "xhigh", "max"];
+pub(super) const EFFORTS: &[&str] = &["low", "medium", "high", "xhigh", "max"];
 const MODES: &[&str] = &["accept-edits", "auto", "plan"];
 
 pub(crate) fn conversation_id(target: &str) -> Option<String> {
@@ -66,6 +66,19 @@ pub(crate) async fn agentapi_call(binary: &Path, args: &[String]) -> Result<Valu
     Ok(value)
 }
 
+static ROLES: std::sync::Mutex<std::collections::VecDeque<(String, String)>> =
+    std::sync::Mutex::new(std::collections::VecDeque::new());
+
+pub(super) fn cached_role(id: &str) -> Option<String> {
+    ROLES
+        .lock()
+        .ok()?
+        .iter()
+        .rev()
+        .find(|(conversation, _)| conversation == id)
+        .map(|(_, role)| role.clone())
+}
+
 pub(crate) async fn metadata(binary: &Path, id: &str) -> Result<Value> {
     uuid::Uuid::parse_str(id).map_err(|_| "INVALID_ANTIGRAVITY_SESSION")?;
     let value = agentapi_call(binary, &["get-conversation-metadata".into(), id.into()])
@@ -73,6 +86,20 @@ pub(crate) async fn metadata(binary: &Path, id: &str) -> Result<Value> {
         .map_err(|_| "CLAUDE_SESSION_NOT_FOUND: Antigravity conversation metadata unavailable")?;
     if !value["response"]["conversationMetadata"]["metadata"].is_object() {
         return Err("CLAUDE_SESSION_NOT_FOUND: Antigravity conversation metadata missing".into());
+    }
+    let response = &value["response"]["conversationMetadata"];
+    if let Some(role) = response["metadata"]["subagentSpec"]["role"]
+        .as_str()
+        .or_else(|| response["subagentSpec"]["role"].as_str())
+        .filter(|role| !role.trim().is_empty())
+    {
+        if let Ok(mut rows) = ROLES.lock() {
+            rows.retain(|(conversation, _)| conversation != id);
+            if rows.len() >= 256 {
+                rows.pop_front();
+            }
+            rows.push_back((id.to_owned(), role.to_owned()));
+        }
     }
     Ok(value)
 }

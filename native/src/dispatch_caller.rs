@@ -3,14 +3,10 @@ use crate::*;
 
 tokio::task_local! { pub(crate) static CALLER: Option<Value>; }
 
-const SESSION_ENV: &[(&str, &str)] = &[
-    ("claude", "CLAUDE_CODE_SESSION_ID"),
-    ("codex", "CODEX_THREAD_ID"),
-    ("pi", "PI_SESSION_ID"),
-];
+use crate::agents::capabilities::caller_env_entries;
 
 pub(crate) fn from_environment(mut read: impl FnMut(&str) -> Option<String>) -> Option<Value> {
-    let mut callers = SESSION_ENV.iter().filter_map(|(agent, key)| {
+    let mut callers = caller_env_entries().filter_map(|(agent, key)| {
         read(key)
             .filter(|id| !id.trim().is_empty() && id != "unknown")
             .map(|id| json!({"agent":agent,"conversationId":id}))
@@ -24,9 +20,8 @@ pub(crate) fn validated(value: &Value) -> Option<Value> {
     let id = value["conversationId"]
         .as_str()
         .filter(|id| !id.trim().is_empty() && *id != "unknown")?;
-    SESSION_ENV
-        .iter()
-        .any(|(known, _)| *known == agent)
+    caller_env_entries()
+        .any(|(known, _)| known == agent)
         .then(|| json!({"agent":agent,"conversationId":id}))
 }
 
@@ -65,13 +60,16 @@ mod tests {
             &format!("dispatch_caller::tests::{test}"),
             "--nocapture",
         ]);
-        for (_, key) in SESSION_ENV {
+        for (_, key) in caller_env_entries() {
             command.env_remove(key);
         }
         let result = command
             .env("ARC_CALLER_TEST", test)
             .env("ARC_STATE_DIR", &state)
-            .env("CLAUDE_CODE_SESSION_ID", "fixture-claude-conversation")
+            .env(
+                "ANTIGRAVITY_CONVERSATION_ID",
+                "fixture-antigravity-conversation",
+            )
             .output()
             .unwrap();
         let _ = std::fs::remove_dir_all(state);
@@ -88,9 +86,9 @@ mod tests {
     fn cli_dispatch_captures_caller() {
         // Recurring bug class: local CLI dispatches lost the calling Agent conversation and appeared only as local-cli.
         if isolated("cli_dispatch_captures_caller") {
-            for (agent, key) in SESSION_ENV {
+            for (agent, key) in caller_env_entries() {
                 assert_eq!(
-                    from_environment(|name| (name == *key).then(|| "session".into())),
+                    from_environment(|name| (name == key).then(|| "session".into())),
                     Some(json!({"agent":agent,"conversationId":"session"}))
                 );
             }
@@ -109,7 +107,7 @@ mod tests {
             let body = control_request(op, &args);
             assert_eq!(
                 body["caller"],
-                json!({"agent":"claude","conversationId":"fixture-claude-conversation"})
+                json!({"agent":"antigravity","conversationId":"fixture-antigravity-conversation"})
             );
             assert_eq!(body["args"], args);
             assert!(body.get("origin").is_none());

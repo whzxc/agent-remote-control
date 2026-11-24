@@ -9,10 +9,10 @@ ARC reads native provider login and upstream responses. Quota monitoring runs in
 | Source | Quota / plan |
 | --- | --- |
 | Codex / ChatGPT | Native account quota windows, plan, reset credits |
-| Claude | Native Claude Code `/usage` quota windows |
+| Claude | Native Claude Code `/usage`, with signed-in profile fallback |
 | OpenCode Go | Existing OpenCode subscription response |
 | Cursor | Native login, included-period quota, X Pass |
-| Antigravity | Running language server; macOS login fallback |
+| Antigravity | Local daemon quota windows and plan, with macOS login fallback |
 | Grok | Native login, CLI billing quota and reported plan |
 | Kimi | Saved API key and membership/quota response |
 
@@ -20,9 +20,9 @@ Display grouping puts Cursor Agent under Cursor and Grok CLI/Build under Grok. A
 
 ## Refresh and cached readings
 
-Successful quota readings persist in private ARC state. Startup restores them as stale while refresh runs. Failed requests retain the last reading and retry with backoff; 401/403 remain upstream errors. Readings become stale after 15 minutes; expired windows are hidden. Disabling an Agent or monitoring or explicitly removing credentials clears its quota cache.
+Successful quota readings persist in private ARC state. Startup restores them as stale while refresh runs. Failed requests retry with backoff and retain the last reading for up to 24 hours. Older readings are cleared during provider errors. Readings become stale after 15 minutes, and expired windows are hidden. Disabling an Agent or monitoring or explicitly removing credentials clears its quota cache.
 
-Codex obtains a native account reader on refresh. Claude runs the installed CLI's built-in `/usage` command without tools, project settings, MCP servers or a persisted session. Claude Code owns its login and renewal. Cursor reads its native Keychain token on macOS, then its native `auth.json`, then the desktop token. Its merged plans report one included weekly or monthly window according to the upstream plan; older plans retain their model pools. Antigravity token renewal belongs to Antigravity. Grok reads `GROK_HOME/auth.json`, defaulting to its native home, and requests `/v1/billing?format=credits`. After an upstream 401, ARC rereads the login, asks the installed `grok models` command to renew it when unchanged, then retries once. ARC never exchanges a rotating refresh token itself. Interrupted JSON writes are reread before reporting a failure. Both native commands honor ARC's network proxy setting.
+Codex obtains a native account reader on refresh. Claude runs the installed CLI's built-in `/usage` command without tools, project settings, MCP servers or a persisted session. If the default CLI login provides no windows or reports missing credentials, ARC uses the default signed-in profile or the most recently observed signed-in profile. That reading is shared between the profile and the subscription snapshot as `claude-profile`. Claude Code owns its login and renewal. Cursor reads its native Keychain token on macOS, then its native `auth.json`, then the desktop token. Its merged plans report one included weekly or monthly window according to the upstream plan; older plans retain their model pools. Grok reads `GROK_HOME/auth.json`, defaulting to its native home, and requests `/v1/billing?format=credits`. After an upstream 401, ARC rereads the login, asks the installed `grok models` command to renew it when unchanged, then retries once. ARC never exchanges a rotating refresh token itself. Interrupted JSON writes are reread before reporting a failure. Both native commands honor ARC's network proxy setting.
 
 ## Display and controls
 
@@ -57,6 +57,10 @@ Quota availability comes from the provider. Cached values do not trigger live al
 ```
 
 An explicit array replaces that agent's default association; an empty array removes it. Omitted agents retain their built-in association. Each provider is read once and its snapshot advertises `agentIds`; `agentId` still identifies its native credential source and branding. Agent quota displays and `dispatch_policy` use `agentIds`. Associations describe shared billing only and do not select the agent's model or route; configure the native route separately. `modelAssociation: "unknown"` remains explicit until the upstream provides that evidence.
+
+## Antigravity local quota
+
+ARC first reads live daemon registrations from the Antigravity and Antigravity CLI native daemon directories and queries their loopback quota and status endpoints. Legacy installations use process and listening-port discovery. When no local endpoint returns a usable response, macOS can read the native Keychain login for cloud quota. Antigravity owns token renewal. Gemini's weekly window drives the primary quota display when present.
 
 ## Antigravity control-source notifications
 

@@ -8,6 +8,7 @@ mod activity;
 mod adapter;
 pub(crate) mod antigravity;
 mod archive;
+pub(crate) mod capabilities;
 mod conversations;
 mod dispatch;
 pub(crate) mod driver;
@@ -52,6 +53,9 @@ pub struct AgentHost {
     task_records: std::sync::Mutex<crate::kernel::task_projection::TaskProjection>,
     lifecycle: Mutex<()>,
     wake: Arc<tokio::sync::Notify>,
+}
+fn agent_enabled(agent: &str, disabled: &HashSet<String>) -> bool {
+    !disabled.contains(agent) && (agent != "claude" || adapter::ready())
 }
 fn task_path(task: &str) -> Result<PathBuf> {
     uuid::Uuid::parse_str(task).map_err(|_| "INVALID_TASK_ID")?;
@@ -392,7 +396,7 @@ impl AgentHost {
         for row in inventory["agents"].as_array_mut().unwrap() {
             let agent_id = string(row, "agent").to_owned();
             let agent = agent_id.as_str();
-            let enabled = !disabled.contains(agent) && (agent != "claude" || adapter::ready());
+            let enabled = agent_enabled(agent, &disabled);
             if agent == "claude" {
                 row["adapter"] = json!({"state":if preparing {"preparing"} else if adapter_error.is_some() {"failed"} else if adapter::ready() {"ready"} else {"missing"},"error":adapter_error,"managed":true});
             }
@@ -401,6 +405,7 @@ impl AgentHost {
                     && p.state.try_lock().is_ok_and(|s| s["agent"] == agent)
             });
             row["enabled"] = json!(enabled);
+            row["capabilities"] = json!(capabilities::for_agent(agent));
             row["status"] = json!(if ready {
                 "ready"
             } else if row["available"] == true {

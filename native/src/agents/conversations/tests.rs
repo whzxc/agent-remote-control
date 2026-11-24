@@ -187,3 +187,131 @@ fn claude_list_metadata_confirms_only_the_latest_explicit_outcome() {
     let pending = json!({"type":"assistant","timestamp":"2026-01-01T00:00:02Z","message":{"role":"assistant","stop_reason":"tool_use","content":[]}});
     assert!(row(&[user("Inspect")], &[pending])["status"].is_null());
 }
+
+#[test]
+fn antigravity_projects_wal_summaries_and_transcript_turns() {
+    // Contract: Antigravity conversation row and timeline metadata
+    use native::antigravity::{timeline, Summaries};
+    let sandbox = Sandbox::new();
+    let db_path = sandbox.0.join("conversation_summaries.db");
+    let db = rusqlite::Connection::open(&db_path).unwrap();
+    db.execute_batch("PRAGMA journal_mode=WAL;
+        CREATE TABLE conversation_summaries (conversation_id TEXT, title TEXT, preview TEXT, workspace_uris TEXT,
+            parent_conversation_id TEXT, agent_name TEXT, status TEXT, last_modified_time TEXT);
+        PRAGMA wal_checkpoint(TRUNCATE);").unwrap();
+    let parent = "00000000-0000-4000-8000-000000000002";
+    let workspace_path = sandbox.0.join("Fixture Project");
+    let workspace_uri = url::Url::from_file_path(&workspace_path).unwrap();
+    db.execute(
+        "INSERT INTO conversation_summaries VALUES (?1, '', '', ?2, ?3, 'Researcher', 'DONE', '')",
+        rusqlite::params![
+            SESSION,
+            json!(["https://example.test", workspace_uri.as_str()]).to_string(),
+            parent
+        ],
+    )
+    .unwrap();
+
+    let transcript = [
+        json!({"type":"USER_INPUT","content":"<USER_REQUEST>Find the result</USER_REQUEST>","step_index":0,"created_at":"2026-01-01T00:00:00Z"}),
+        json!({"type":"PLANNER_RESPONSE","model":"gemini-4-neon-high","content":"Searching","thinking":"Check sources","tool_calls":[{"id":"read","name":"Read","arguments":{"path":"fixture.txt"}}],"step_index":1,"created_at":"2026-01-01T00:00:01Z"}),
+        json!({"type":"PLANNER_RESPONSE","model":"gemini-4-neon-xhigh","content":"The first result","step_index":2,"created_at":"2026-01-01T00:00:02Z"}),
+        json!({"type":"USER_INPUT","content":"","step_index":3,"created_at":"2026-01-01T00:00:04Z"}),
+        json!({"type":"PLANNER_RESPONSE","model":"gemini-preview","content":"The second result","step_index":4,"created_at":"2026-01-01T00:00:07Z"}),
+    ];
+    let brain = sandbox.0.join("brain");
+    let logs = brain.join(SESSION).join(".system_generated/logs");
+    std::fs::create_dir_all(&logs).unwrap();
+    std::fs::write(
+        logs.join("transcript.jsonl"),
+        transcript
+            .iter()
+            .map(|row| format!("{row}\n"))
+            .collect::<String>(),
+    )
+    .unwrap();
+    let sessions = native::Index::default().scan(&[("antigravity".into(), brain, None)]);
+    let mut row = (*sessions[0].row).clone();
+    assert_eq!(row["title"], "Find the result");
+    assert_eq!(row["dispatchSummary"], json!({"model":"gemini-preview"}));
+    assert_eq!(row["turnCount"], 2);
+    assert_eq!(row["turnDurationMs"], 3000);
+    let mut summaries = Summaries::default();
+    summaries.refresh(&db_path);
+    summaries.enrich(&mut row);
+    assert_eq!(row["title"], "Researcher");
+    assert_eq!(row["agentName"], "Researcher");
+    assert_eq!(row["status"], "completed");
+    assert_eq!(row["project"], json!(workspace_path));
+    assert_eq!(row["parentSessionId"], parent);
+    assert_eq!(row["relationKind"], "subagent");
+    db.execute(
+        "UPDATE conversation_summaries SET title = 'Native title'",
+        [],
+    )
+    .unwrap();
+    summaries.refresh(&db_path);
+    summaries.enrich(&mut row);
+    assert_eq!(row["title"], "Native title");
+
+    let history = timeline(SESSION, &transcript, false);
+    assert_eq!(history["dispatchSummary"], row["dispatchSummary"]);
+    assert_eq!(
+        history["turnDispatchSummaries"]["0"],
+        json!({"model":"gemini-4-neon","effort":"xhigh"})
+    );
+    assert_eq!(history["turnTimings"]["0"]["durationMs"], 2000);
+    assert_eq!(history["turnTimings"]["3"]["durationMs"], 3000);
+    let outcomes: Vec<_> = history["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|row| row["phase"] == "final_answer")
+        .map(|row| string(row, "text"))
+        .collect();
+    assert_eq!(outcomes, ["The first result", "The second result"]);
+}
+
+#[test]
+fn combined_page_keeps_unconsumed_codex_rows_across_cursors() {
+    // Contract: merged conversation pagination with native and local cursors
+    let row = |agent, id, updated| json!({"agent":agent,"id":id,"updatedAt":updated});
+    let newer = row("codex", "newer", "2026-01-03T00:00:00Z");
+    let older = row("codex", "older", "2026-01-01T00:00:00Z");
+    let middle = row("antigravity", "middle", "2026-01-02T00:00:00+00:00");
+    let mut cursor = ConversationCursor {
+        codex: Some(CodexCursor::default()),
+        local: None,
+    };
+    let (first, next) = conversation_page(
+        vec![middle.clone()],
+        Some((vec![newer.clone()], Some("older-codex".into()))),
+        &mut cursor,
+        2,
+        "updatedAt",
+    );
+    assert_eq!(first, vec![newer]);
+    let mut cursor: ConversationCursor = serde_json::from_str(&next.unwrap()).unwrap();
+    assert_eq!(
+        cursor.codex.as_ref().unwrap().cursor.as_deref(),
+        Some("older-codex")
+    );
+    let (second, next) = conversation_page(
+        vec![middle.clone()],
+        Some((vec![older.clone()], None)),
+        &mut cursor,
+        1,
+        "updatedAt",
+    );
+    assert_eq!(second, vec![middle]);
+    let mut cursor = serde_json::from_str(&next.unwrap()).unwrap();
+    let (third, next) = conversation_page(
+        vec![],
+        Some((vec![older.clone()], None)),
+        &mut cursor,
+        1,
+        "updatedAt",
+    );
+    assert_eq!(third, vec![older]);
+    assert!(next.is_none());
+}

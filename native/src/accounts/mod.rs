@@ -540,6 +540,42 @@ pub(crate) fn profile_account(profile: &str) -> Result<Value> {
         .ok_or("ACCOUNT_PROFILE_NOT_FOUND".into())
 }
 
+pub(crate) fn claude_default_signed_in_profile() -> Result<Option<String>> {
+    let observations = claude::observations()?;
+    Ok(select_signed_in_claude(&read()?, &observations))
+}
+
+fn select_signed_in_claude(rows: &[Value], observations: &[Value]) -> Option<String> {
+    rows.iter()
+        .filter(|row| live(row))
+        .flat_map(|row| profiles(row).map(move |profile| (row, profile)))
+        .filter(|(_, profile)| profile["agent"] == "claude" && profile["state"] == "signed-in")
+        .filter_map(|(row, profile)| {
+            let id = profile["profileId"].as_str().filter(|id| !id.is_empty())?;
+            let observed = observations
+                .iter()
+                .find(|p| p["profileId"] == id)
+                .and_then(|p| p["observedAt"].as_str())
+                .or_else(|| row["observedAt"].as_str())
+                .and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok());
+            Some((profile["default"] == true, observed, id))
+        })
+        .max()
+        .map(|(_, _, id)| id.to_owned())
+}
+
+pub(crate) fn save_claude_quota(profile: &str, quota: Value) -> Result<()> {
+    change(|rows| {
+        if let Some(account) = profile_owner(rows, profile) {
+            let id = account["id"].clone();
+            if let Some(row) = rows.iter_mut().find(|row| row["id"] == id) {
+                row["quota"] = quota;
+            }
+        }
+        Ok(())
+    })
+}
+
 pub(crate) fn claude_profile(account: &str) -> Result<String> {
     let row = resolve(account)?;
     if !live(&row) {
@@ -750,25 +786,10 @@ impl Manager {
                         .map(merge::shared_quota)
                 } else if let Some(p) = profiles(&account).find(|p| string(p, "agent") == "claude")
                 {
-                    let observed = account["quota"]["observedAt"]
-                        .as_str()
-                        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok());
-                    if force_quota
-                        || observed.is_none_or(|at| {
-                            chrono::Utc::now().signed_duration_since(at).num_seconds() >= 180
-                        })
-                    {
-                        Some(
-                            crate::subscriptions::account_quota(
-                                control,
-                                "claude",
-                                string(p, "profileId"),
-                            )
-                            .await,
-                        )
-                    } else {
-                        None
-                    }
+                    subscriptions
+                        .refresh_claude_profile(string(p, "profileId"), force_quota)
+                        .await?;
+                    None
                 } else {
                     None
                 };
@@ -960,6 +981,39 @@ impl Manager {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn claude_quota_prefers_the_default_signed_in_profile() {
+        // Contract: Claude quota profile selection by sign-in state, default and observation time
+        let account = |id, default, state| {
+            json!({"id":id,"agentProfiles":[
+                {"agent":"claude","profileId":id,"state":state,"default":default}
+            ]})
+        };
+        let mut accounts = vec![
+            account("first", true, "signed-in"),
+            account("latest", false, "signed-in"),
+        ];
+        let observations = vec![
+            json!({"profileId":"first","observedAt":"2026-01-01T00:00:00Z"}),
+            json!({"profileId":"latest","observedAt":"2026-01-02T00:00:00Z"}),
+        ];
+        assert_eq!(
+            select_signed_in_claude(&accounts, &observations).as_deref(),
+            Some("first")
+        );
+        accounts[0]["agentProfiles"][0]["default"] = json!(false);
+        assert_eq!(
+            select_signed_in_claude(&accounts, &observations).as_deref(),
+            Some("latest")
+        );
+        accounts[1]["agentProfiles"][0]["state"] = json!("signed-out");
+        assert_eq!(
+            select_signed_in_claude(&accounts, &observations).as_deref(),
+            Some("first")
+        );
+    }
+
     #[test]
     fn legacy_local_accounts_retire_without_losing_agent_membership() {
         // Recurring bug class: Local CLI created a removable Unidentified provider account.

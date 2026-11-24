@@ -3,7 +3,7 @@ mod cache;
 mod providers;
 pub mod types;
 use crate::{agents::AgentHost, control::Control, *};
-use providers::REGISTRY;
+use providers::{claude, REGISTRY};
 use std::{
     collections::BTreeMap,
     time::{Duration, Instant},
@@ -31,6 +31,7 @@ pub struct SubscriptionService {
     wake: tokio::sync::Notify,
     permits: Arc<tokio::sync::Semaphore>,
     started: std::sync::atomic::AtomicBool,
+    claude_read: Mutex<Option<(String, Reading, String)>>,
 }
 impl SubscriptionService {
     pub fn new(control: Arc<Control>, agents: Arc<AgentHost>) -> Result<Arc<Self>> {
@@ -109,6 +110,7 @@ impl SubscriptionService {
             wake: tokio::sync::Notify::new(),
             permits: Arc::new(tokio::sync::Semaphore::new(3)),
             started: false.into(),
+            claude_read: Mutex::new(None),
         });
         Ok(service)
     }
@@ -398,6 +400,65 @@ impl SubscriptionService {
             _ => Err("unknown subscription route".into()),
         }
     }
+    pub(crate) async fn refresh_claude_profile(&self, profile: &str, force: bool) -> Result<()> {
+        let mut recent = self.claude_read.lock().await;
+        let account = crate::accounts::profile_account(profile)?;
+        if !force && is_recent(account["quota"]["observedAt"].as_str(), 180) {
+            return Ok(());
+        }
+        let result = claude::read_profile(profile).await;
+        let observed = now();
+        crate::accounts::save_claude_quota(profile, profile_quota(&result, &observed))?;
+        if crate::accounts::claude_default_signed_in_profile()?.as_deref() == Some(profile) {
+            if let Ok(reading) = result {
+                let mut state = self.state.lock().await;
+                if !state.stopped {
+                    let interval = state.settings.refresh_minutes;
+                    let slot = state.slots.get_mut("claude-code").unwrap();
+                    // A queued scheduler job must not replace this fresher reading.
+                    slot.generation += 1;
+                    if let Some(job) = slot.job.take() {
+                        job.abort();
+                    }
+                    slot.view.refreshing = false;
+                    slot.view.last_attempt_at = Some(observed.clone());
+                    slot.due = Instant::now() + Duration::from_secs(interval * 60);
+                    apply_reading(slot, reading.clone(), "claude-profile", observed.clone());
+                    self.publish(&mut state);
+                }
+                *recent = Some((profile.into(), reading, observed));
+            }
+        }
+        Ok(())
+    }
+
+    async fn read_claude(
+        &self,
+        recent: &mut Option<(String, Reading, String)>,
+    ) -> std::result::Result<ResolvedReading, Failure> {
+        let default = claude::read().await;
+        resolve_claude(default, || async move {
+            let profile = crate::accounts::claude_default_signed_in_profile().ok()??;
+            if let Some((id, reading, observed)) = recent.as_ref() {
+                if id == &profile && is_recent(Some(observed), 180) {
+                    return Some(Ok((reading.clone(), "claude-profile", observed.clone())));
+                }
+            }
+            let result = claude::read_profile(&profile).await;
+            let observed = now();
+            if let Err(error) =
+                crate::accounts::save_claude_quota(&profile, profile_quota(&result, &observed))
+            {
+                crate::logs::record("WARN", &error, None);
+            }
+            Some(result.map(|reading| {
+                *recent = Some((profile, reading.clone(), observed.clone()));
+                (reading, "claude-profile", observed)
+            }))
+        })
+        .await
+    }
+
     async fn refresh(self: &Arc<Self>, id: &str) {
         let mut state = self.state.lock().await;
         if state.stopped {
@@ -429,10 +490,22 @@ impl SubscriptionService {
             let Ok(_permit) = s.permits.clone().acquire_owned().await else {
                 return;
             };
-            let result =
-                tokio::time::timeout(Duration::from_secs(120), providers::read(&id, &s.control))
-                    .await
-                    .unwrap_or_else(|_| Err("network-error".into()));
+            let mut claude = if id == "claude-code" {
+                Some(s.claude_read.lock().await)
+            } else {
+                None
+            };
+            let result = tokio::time::timeout(Duration::from_secs(120), async {
+                if let Some(recent) = claude.as_deref_mut() {
+                    s.read_claude(recent).await
+                } else {
+                    providers::read(&id, &s.control)
+                        .await
+                        .map(|(reading, source)| (reading, source, now()))
+                }
+            })
+            .await
+            .unwrap_or_else(|_| Err("network-error".into()));
             let mut state = s.state.lock().await;
             let refresh_minutes = state.settings.refresh_minutes;
             let slot = state.slots.get_mut(&id).unwrap();
@@ -443,20 +516,7 @@ impl SubscriptionService {
             slot.view.refreshing = false;
             slot.due = Instant::now() + Duration::from_secs(refresh_minutes * 60);
             match result {
-                Ok((reading, source)) => {
-                    slot.view.has_credential = true;
-                    slot.view.credential_source = Some(source.into());
-                    slot.view.source = Some(source.into());
-                    slot.view.windows = reading.windows;
-                    slot.view.raw_usage = reading.raw_usage;
-                    slot.view.account_blocked = reading.account_blocked;
-                    slot.view.blocked_pool_ids = reading.blocked_pool_ids;
-                    slot.view.observed_at = Some(now());
-                    slot.view.state = "ready".into();
-                    slot.view.error = None;
-                    slot.failures = 0;
-                    cache::persist(slot);
-                }
+                Ok((reading, source, observed)) => apply_reading(slot, reading, source, observed),
                 Err(error) => {
                     slot.failures += 1;
                     slot.view.has_credential = error.code != "credentials-missing";
@@ -480,20 +540,69 @@ impl SubscriptionService {
         self.publish(&mut state);
     }
 }
-fn clear_reading(s: &mut Slot) {
-    s.view.windows.clear();
-    s.view.observed_at = None;
-    s.view.raw_usage = Value::Null;
-    s.view.account_blocked = None;
-    s.view.blocked_pool_ids.clear();
-    s.view.display_window_id = None;
+type ResolvedReading = (Reading, &'static str, String);
+
+async fn resolve_claude<F>(
+    default: std::result::Result<Reading, Failure>,
+    profile: impl FnOnce() -> F,
+) -> std::result::Result<ResolvedReading, Failure>
+where
+    F: std::future::Future<Output = Option<std::result::Result<ResolvedReading, Failure>>>,
+{
+    let failure = match default {
+        Ok(reading) if !reading.windows.is_empty() => return Ok((reading, "claude-login", now())),
+        Ok(_) => Failure::from("no-limits-reported"),
+        Err(error) if matches!(error.code, "no-limits-reported" | "credentials-missing") => error,
+        Err(error) => return Err(error),
+    };
+    profile().await.unwrap_or(Err(failure))
+}
+
+fn is_recent(at: Option<&str>, seconds: i64) -> bool {
+    at.and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok())
+        .is_some_and(|at| chrono::Utc::now().signed_duration_since(at).num_seconds() < seconds)
+}
+
+fn profile_quota(result: &std::result::Result<Reading, Failure>, observed: &str) -> Value {
+    match result {
+        Ok(reading) => {
+            json!({"state":"ready","source":"claude-profile","observedAt":observed,"windows":reading.windows,"accountBlocked":reading.account_blocked,"blockedPoolIds":reading.blocked_pool_ids})
+        }
+        Err(error) => {
+            json!({"state":"unavailable","source":"claude-profile","observedAt":observed,"windows":[],"error":error})
+        }
+    }
+}
+
+fn apply_reading(slot: &mut Slot, reading: Reading, source: &str, observed: String) {
+    slot.view.has_credential = true;
+    slot.view.credential_source = Some(source.into());
+    slot.view.source = Some(source.into());
+    slot.view.windows = reading.windows;
+    slot.view.raw_usage = reading.raw_usage;
+    slot.view.account_blocked = reading.account_blocked;
+    slot.view.blocked_pool_ids = reading.blocked_pool_ids;
+    slot.view.observed_at = Some(observed);
+    slot.view.state = "ready".into();
+    slot.view.error = None;
+    slot.failures = 0;
+    cache::persist(slot);
+}
+
+fn clear_reading(view: &mut ProviderSnapshot) {
+    view.windows.clear();
+    view.observed_at = None;
+    view.raw_usage = Value::Null;
+    view.account_blocked = None;
+    view.blocked_pool_ids.clear();
+    view.display_window_id = None;
 }
 fn invalidate(s: &mut Slot) {
     s.generation += 1;
     if let Some(job) = s.job.take() {
         job.abort()
     }
-    clear_reading(s);
+    clear_reading(&mut s.view);
     s.view.refreshing = false;
     s.view.state = "idle".into();
     s.view.error = None;
@@ -501,16 +610,27 @@ fn invalidate(s: &mut Slot) {
     s.due = Instant::now();
     s.reset_seen.clear();
 }
-fn expire(s: &mut Slot) {
-    let age = s
-        .view
-        .observed_at
-        .as_ref()
-        .and_then(|v| chrono::DateTime::parse_from_rfc3339(v).ok())
-        .map(|d| chrono::Utc::now().signed_duration_since(d).num_seconds());
-    if age.is_some_and(|age| age >= 900) && s.view.state == "ready" {
-        s.view.state = "stale".into();
+fn expire(slot: &mut Slot) {
+    if expire_view(&mut slot.view, chrono::Utc::now()) {
+        cache::remove(&slot.view.provider_id);
     }
+}
+
+fn expire_view(view: &mut ProviderSnapshot, now: chrono::DateTime<chrono::Utc>) -> bool {
+    let age = view
+        .observed_at
+        .as_deref()
+        .and_then(|at| chrono::DateTime::parse_from_rfc3339(at).ok())
+        .map(|at| now.signed_duration_since(at).num_seconds());
+    if view.error.is_some() && age.is_some_and(|age| age >= 24 * 60 * 60) {
+        clear_reading(view);
+        view.state = "unavailable".into();
+        return true;
+    }
+    if age.is_some_and(|age| age >= 900) && view.state == "ready" {
+        view.state = "stale".into();
+    }
+    false
 }
 
 fn associated_agents(settings: &Settings, provider: &str) -> Vec<String> {
@@ -521,7 +641,9 @@ fn associated_agents(settings: &Settings, provider: &str) -> Vec<String> {
         .filter(|(_, providers)| providers.iter().any(|id| id == provider))
         .map(|(agent, _)| agent.clone())
         .collect();
-    if !settings.agent_providers.contains_key(registration.agent) {
+    if !settings.agent_providers.contains_key(registration.agent)
+        && crate::agents::capabilities::default_quota_provider(registration.agent) == Some(provider)
+    {
         agents.push(registration.agent.into());
     }
     agents
@@ -572,20 +694,64 @@ pub(crate) fn codex_dispatch_quota(value: &Value) -> Value {
     }).collect::<Vec<_>>()})
 }
 
-/// Read quota with the same native authentication that owns the selected execution profile.
-pub(crate) async fn account_quota(control: &Control, agent: &str, profile: &str) -> Value {
-    match providers::account_read(control, agent, profile).await {
-        Ok(reading) => {
-            let mut quota = json!({"state":"ready","source":"native-profile","observedAt":now(),"windows":reading.windows,"accountBlocked":reading.account_blocked,"blockedPoolIds":reading.blocked_pool_ids});
-            if agent == "codex" {
-                let native = codex_dispatch_quota(&reading.raw_usage);
-                quota["ordinaryUsageAllowed"] = native["ordinaryUsageAllowed"].clone();
-                quota["pools"] = native["pools"].clone();
-            }
-            quota
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn claude_uses_profile_when_native_default_has_no_quota() {
+        // Contract: Claude fallback readings identify their signed-in profile source
+        for code in ["credentials-missing", "no-limits-reported"] {
+            let (reading, source, observed) = resolve_claude(Err(code.into()), || async {
+                let reading = Reading::new(
+                    vec![window("weekly", "subscription", "seven_day", Some(32.), None).unwrap()],
+                    json!({}),
+                )
+                .unwrap();
+                Some(Ok((reading, "claude-profile", now())))
+            })
+            .await
+            .unwrap();
+            let quota = profile_quota(&Ok(reading), &observed);
+            assert_eq!(source, "claude-profile");
+            assert_eq!(quota["state"], "ready");
+            assert_eq!(quota["source"], source);
+            assert_eq!(quota["windows"][0]["usedPercent"], 32.);
+            assert_eq!(quota["observedAt"], observed);
         }
-        Err(error) => {
-            json!({"state":"unavailable","source":"native-profile","observedAt":now(),"windows":[],"error":error})
-        }
+    }
+
+    #[test]
+    fn old_windows_expire_during_provider_errors() {
+        // Recurring bug class: persistence expired weekly quota without a reset timestamp remained visible after provider failures.
+        let now = chrono::Utc::now();
+        let mut view = ProviderSnapshot {
+            provider_id: "claude-code".into(),
+            agent_id: "claude".into(),
+            agent_ids: vec!["claude".into()],
+            name: "Claude".into(),
+            eligible: true,
+            state: "stale".into(),
+            refreshing: false,
+            raw_usage: json!({"cliUsage":"Fixture"}),
+            observed_at: Some((now - chrono::Duration::hours(23)).to_rfc3339()),
+            last_attempt_at: None,
+            windows: vec![window("weekly", "subscription", "seven_day", Some(23.), None).unwrap()],
+            display_window_id: Some("weekly".into()),
+            account_blocked: None,
+            blocked_pool_ids: vec![],
+            source: Some("claude-profile".into()),
+            error: Some("request-failed".into()),
+            has_credential: true,
+            accepts_key: false,
+            credential_source: None,
+        };
+        assert!(!expire_view(&mut view, now));
+        assert_eq!(view.windows.len(), 1);
+        assert!(expire_view(&mut view, now + chrono::Duration::hours(1)));
+        assert!(view.windows.is_empty());
+        assert!(view.display_window_id.is_none());
+        assert_eq!(view.state, "unavailable");
+        assert_eq!(view.error.unwrap().code, "request-failed");
     }
 }

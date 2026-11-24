@@ -83,6 +83,7 @@ pub struct Snapshot {
     pub settings: Settings,
     pub providers: Vec<ProviderSnapshot>,
 }
+#[derive(Clone)]
 pub struct Reading {
     pub windows: Vec<QuotaWindow>,
     pub raw_usage: serde_json::Value,
