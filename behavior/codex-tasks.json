@@ -52,8 +52,7 @@
         "D2",
         "D3"
       ],
-      "risk": "normal",
-      "proposed": "desktop-instance-handback"
+      "risk": "normal"
     },
     {
       "id": "instance-exit-unlocks-tasks",
@@ -111,8 +110,7 @@
         "D2",
         "D11"
       ],
-      "risk": "high",
-      "proposed": "desktop-instance-handback"
+      "risk": "high"
     },
     {
       "id": "earlier-held-tasks-unlock",
@@ -144,8 +142,7 @@
       "expand": [
         "D11"
       ],
-      "risk": "high",
-      "proposed": "desktop-instance-handback"
+      "risk": "high"
     },
     {
       "id": "foreign-holder-reported",
@@ -182,8 +179,7 @@
       "expand": [
         "D1"
       ],
-      "risk": "normal",
-      "proposed": "desktop-instance-handback"
+      "risk": "normal"
     },
     {
       "id": "no-take-back-from-user",
@@ -220,8 +216,7 @@
       "expand": [
         "D2"
       ],
-      "risk": "normal",
-      "proposed": "desktop-instance-handback"
+      "risk": "normal"
     }
   ]
 }
