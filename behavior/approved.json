@@ -6,27 +6,32 @@
       "arc-instance-left-alone": {
         "scope": "desktop-instance-handback",
         "approvedAt": "2026-11-24",
-        "sha256": "22f64fac5a349bec2adb44db00efd6ac22eb999bae06c9702556dcb2b397a5cd"
+        "sha256": "22f64fac5a349bec2adb44db00efd6ac22eb999bae06c9702556dcb2b397a5cd",
+        "revision": 1
       },
       "instance-exit-unlocks-tasks": {
         "scope": "desktop-instance-handback",
         "approvedAt": "2026-11-24",
-        "sha256": "910ac902390eae5e4b41273df1245d88258b72ab33daa764c28ed7f5a6e25022"
+        "sha256": "8ba02501bb6b6552c6fb14a10ec7bac114847f85b8df09f0dcf9557c3091fb77",
+        "revision": 2
       },
       "earlier-held-tasks-unlock": {
         "scope": "desktop-instance-handback",
         "approvedAt": "2026-11-24",
-        "sha256": "d06cfdd8d1780b29cc4323f8e16eaa9df8bb2f39d27d7d4fd687a487363f0b56"
+        "sha256": "832c75791000a89d27eae126c88d621d3386ddf6aa9c4c87d9f5f13dd98477f8",
+        "revision": 2
       },
       "foreign-holder-reported": {
         "scope": "desktop-instance-handback",
         "approvedAt": "2026-11-24",
-        "sha256": "b06d650165554d5a42dd0fad191683b89c336ffdac5cb24e2a1e12c57340a9cf"
+        "sha256": "6bd3adea866a52118b67e567d3416a48b527aec020b2cdbdf5e1e850fc3854eb",
+        "revision": 2
       },
       "no-take-back-from-user": {
         "scope": "desktop-instance-handback",
         "approvedAt": "2026-11-24",
-        "sha256": "b3e70c5cc3708d87562efc309830cac5df280262cb6f6b0b4f787b2bf67fc9bb"
+        "sha256": "c3dc30b427c51e81446e0b8f02feb35816beca976b06616f6fee07619fcf2a98",
+        "revision": 2
       }
     }
   }
