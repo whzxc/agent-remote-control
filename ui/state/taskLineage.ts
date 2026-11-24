@@ -46,7 +46,7 @@ export function resolveTaskOriginChain(
     chain.push({ kind: 'controller', label: controllerLabel, caption: controllerLabel });
   } else if (callerAgent) {
     const callerLabel = name({ agent: callerAgent });
-    chain.push({ kind: 'agent', agent: callerAgent, label: callerLabel, caption: callerLabel, description: t('localCli') });
+    chain.push({ kind: 'agent', agent: callerAgent, label: callerLabel, description: t('localCli') });
   } else if (label) {
     const platform = recorded?.kind === 'local-cli' ? 'local-cli' : source?.product ?? recorded?.kind ?? origin?.controlSource ?? 'custom';
     const sourceIds = new Set(platformSources(sources, ingresses, controlSourcePlatform(platform).id).map(item => item.id));
@@ -61,6 +61,6 @@ export function resolveTaskOriginChain(
     const label = snapshot?.members.find(member => member.deviceId === deviceId)?.name ?? deviceId;
     chain.push({ kind: 'device', label, caption: label, description });
   }
-  chain.push({ kind: 'agent', agent, label: name({ agent }), caption: callerAgent && !controllerLabel ? name({ agent }) : undefined });
+  chain.push({ kind: 'agent', agent, label: name({ agent }) });
   return chain;
 }

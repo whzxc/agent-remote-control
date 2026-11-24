@@ -75,18 +75,19 @@ test('an expired platform reading falls back to the default signed-in quota', ()
   assert.equal(quota.resolveAgentQuota('claude', snapshot(provider), [alternate, { ...alternate, id: 'account-3' }]), provider);
 });
 
-test('fresh platform quota is retained and linked sources can use shared subscriptions', () => {
+test('ready quota outranks stale quota and linked sources can use shared subscriptions', () => {
   // Algorithmic core: source quota follows explicit subscription linkage or a unique signed-in Agent account.
   const ready = { ...provider, state: 'ready', error: undefined };
   const missing = { ...account, quota: { state: 'unavailable', windows: [] } };
   const fresh = { ...provider, observedAt: new Date().toISOString() };
   assert.equal(quota.resolveAgentQuota('claude', snapshot(ready), [account]), ready);
-  assert.equal(quota.resolveAgentQuota('claude', snapshot(fresh), [account]), fresh);
+  assert.deepEqual(quota.resolveAgentQuota('claude', snapshot(fresh), [account])?.windows, [window]);
+  assert.equal(quota.resolveAgentQuota('claude', snapshot(fresh), [missing]), fresh);
   assert.equal(quota.resolveSourceQuota('source-1', snapshot(ready), [missing]), ready);
   assert.equal(quota.resolveSourceQuota('source-1', snapshot(ready), [{ ...missing, quotaProviderId: ready.providerId, agentProfiles: [] }]), ready);
-  const sole = { ...missing, provider: ready.providerId, agentProfiles: [] };
-  assert.equal(quota.resolveSourceQuota('source-1', snapshot(ready), [sole]), ready);
-  assert.equal(quota.resolveSourceQuota('source-1', snapshot(ready), [sole, { ...sole, id: 'other-account', sources: [] }]), undefined);
+  const unlinked = { ...missing, provider: ready.providerId, agentProfiles: [] };
+  assert.equal(quota.resolveSourceQuota('source-1', snapshot(ready), [unlinked]), undefined);
+  assert.equal(quota.resolveSourceQuota('source-1', snapshot(ready), [missing, { ...missing, id: 'other-account', sources: [] }]), undefined);
   assert.equal(quota.resolveSourceQuota('other-source', snapshot(ready), [account]), undefined);
 });
 
@@ -102,6 +103,7 @@ test('local CLI caller marks identify the Agent that dispatched the task', () =>
     lineage.resolveTaskOriginChain({ agent: 'codex', session: { ...session, dispatchSummary } });
   assert.deepEqual(chain({ controlSource, caller }).map(mark => [mark.kind, mark.label]),
     [['agent', 'Antigravity'], ['agent', 'Codex']]);
+  assert.ok(chain({ controlSource, caller }).every(mark => mark.caption === undefined));
   const [plain] = chain({ controlSource });
   assert.ok(plain?.kind === 'source' && plain.platform === 'local-cli');
   assert.equal(chain({ controlSource: { kind: 'custom', id: 'external' }, caller })[0]?.kind, 'source');
