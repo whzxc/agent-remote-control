@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "hash": "SHA-256 of canonical JSON (sorted keys, no whitespace, UTF-8) of statement, given, when, then and review",
+  "rules": {
+    "codex-tasks": {
+      "arc-instance-left-alone": {
+        "scope": "desktop-instance-handback",
+        "approvedAt": "2026-11-24",
+        "sha256": "22f64fac5a349bec2adb44db00efd6ac22eb999bae06c9702556dcb2b397a5cd"
+      },
+      "instance-exit-unlocks-tasks": {
+        "scope": "desktop-instance-handback",
+        "approvedAt": "2026-11-24",
+        "sha256": "910ac902390eae5e4b41273df1245d88258b72ab33daa764c28ed7f5a6e25022"
+      },
+      "earlier-held-tasks-unlock": {
+        "scope": "desktop-instance-handback",
+        "approvedAt": "2026-11-24",
+        "sha256": "d06cfdd8d1780b29cc4323f8e16eaa9df8bb2f39d27d7d4fd687a487363f0b56"
+      },
+      "foreign-holder-reported": {
+        "scope": "desktop-instance-handback",
+        "approvedAt": "2026-11-24",
+        "sha256": "b06d650165554d5a42dd0fad191683b89c336ffdac5cb24e2a1e12c57340a9cf"
+      },
+      "no-take-back-from-user": {
+        "scope": "desktop-instance-handback",
+        "approvedAt": "2026-11-24",
+        "sha256": "b3e70c5cc3708d87562efc309830cac5df280262cb6f6b0b4f787b2bf67fc9bb"
+      }
+    }
+  }
+}

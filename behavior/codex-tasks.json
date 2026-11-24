@@ -1,0 +1,130 @@
+{
+  "version": 1,
+  "capability": "codex-tasks",
+  "scopes": {
+    "desktop-instance-handback": {
+      "changeTypes": ["background-work"],
+      "review": {
+        "zh-CN": "派发任务的 Desktop 实例：窗口在时不动，窗口没了自动解锁"
+      },
+      "notApplicable": {
+        "D8": "Local processes and sockets only; no network path is involved",
+        "D9": "The independent Desktop instance exists only on macOS",
+        "D13": "The only new UI is a status label and reopen action built from existing task-detail components"
+      }
+    }
+  },
+  "rules": [
+    {
+      "id": "arc-instance-left-alone",
+      "statement": "While ARC's Codex Desktop instance is running, ARC leaves the instance and its tasks as they are, and ARC restarts or updates do not close it.",
+      "review": {
+        "zh-CN": {
+          "situation": "ARC 的 Codex 窗口开着",
+          "now": "—",
+          "after": "ARC 不动它，也不动里面的任务，你随时在那个窗口里看进度、接手。ARC 自己重启或更新，也不会把这个窗口关掉"
+        }
+      },
+      "given": {"state": "ARC's independent Codex Desktop instance is running and shows dispatched tasks, some finished and some running"},
+      "when": {"action": "Time passes, ARC Core restarts, or the ARC app updates"},
+      "then": [
+        {"id": "instance-survives", "expect": "The same instance process and its window are still running after an ARC Core restart and after an ARC update"},
+        {"id": "tasks-usable-there", "expect": "Each of its tasks can still be continued from that window"},
+        {"id": "no-release-while-running", "expect": "ARC does not unload, release, archive or take over any of its tasks while the instance runs"}
+      ],
+      "origin": "request",
+      "expand": ["D2", "D3"],
+      "risk": "normal",
+      "proposed": "desktop-instance-handback"
+    },
+    {
+      "id": "instance-exit-unlocks-tasks",
+      "statement": "When ARC's Codex Desktop instance exits for any reason, its finished tasks and their subagent tasks become continuable and archivable from the main Desktop within 30 seconds, and a task still running finishes first, shown with a reopen action, then unlocks the same way.",
+      "review": {
+        "zh-CN": {
+          "situation": "ARC 的窗口没了：被关掉、闪退，或者别的原因退出",
+          "now": "它跑过的任务在你的 Desktop 里一直只读，不能接着聊，也不能归档",
+          "after": "已经跑完的任务（包括子任务）30 秒内自动解锁，你在自己的 Desktop 里就能接着聊、能归档。还在跑的任务会继续跑完，跑完后同样解锁；期间 ARC 显示“窗口已关闭，任务仍在运行”，可以一键重新打开窗口"
+        }
+      },
+      "given": {"state": "ARC's instance holds dispatched tasks, some finished (with subagent tasks) and one still running; the main Desktop runs on its own app-server"},
+      "when": {"action": "The instance quits, its window is closed, it crashes, or it exits for another reason"},
+      "then": [
+        {"id": "finished-continuable", "expect": "Within 30 s of the exit, the main Desktop can send a new message to each finished task"},
+        {"id": "finished-archivable", "expect": "Within 30 s of the exit, the main Desktop can archive each finished task, including its subagent tasks"},
+        {"id": "running-not-interrupted", "expect": "The running task's turn ends on its own (completed or failed); ARC does not interrupt it"},
+        {"id": "running-status-shown", "expect": "Until it ends, ARC's task details show that the window is closed and the task is still running, with a reopen action"},
+        {"id": "reopen-shows-task", "expect": "The reopen action brings back ARC's instance showing that task"},
+        {"id": "running-unlocks-after", "expect": "Within 30 s after the running turn ends, the main Desktop can continue and archive that task"}
+      ],
+      "origin": "request",
+      "expand": ["D1", "D2", "D11"],
+      "risk": "high",
+      "proposed": "desktop-instance-handback"
+    },
+    {
+      "id": "earlier-held-tasks-unlock",
+      "statement": "After the update is installed, tasks still locked by an ARC instance that had already exited unlock without manual steps.",
+      "review": {
+        "zh-CN": {
+          "situation": "改动装好之前，就因为窗口没了而被锁住的任务",
+          "now": "只能手动想办法",
+          "after": "改动装好后自动解锁"
+        }
+      },
+      "given": {"state": "Finished tasks dispatched before the update remain held by the shared app-server after ARC's instance exited"},
+      "when": {"action": "The update is installed and ARC starts"},
+      "then": [
+        {"id": "unlocked-without-action", "expect": "Each such task can be continued and archived from the main Desktop without any user action"}
+      ],
+      "origin": "D7",
+      "expand": ["D11"],
+      "risk": "high",
+      "proposed": "desktop-instance-handback"
+    },
+    {
+      "id": "foreign-holder-reported",
+      "statement": "A task held by a process ARC did not start is reported with that holder and where it comes from, ARC suggests only steps that can work, and ARC never terminates that process.",
+      "review": {
+        "zh-CN": {
+          "situation": "锁在不是 ARC 启动的程序手里，比如另一台电脑通过 SSH 连过来的 Codex",
+          "now": "ARC 让你去一个找不到的 App 里归档",
+          "after": "ARC 告诉你是哪个程序锁的、它从哪来，只给能做到的下一步，不强制结束它"
+        }
+      },
+      "given": {"state": "A dispatched task is held by a process ARC did not start, such as a Codex app-server serving a remote SSH client"},
+      "when": {"op": "codex_owner", "action": "The control source or the task panel asks who holds the task"},
+      "then": [
+        {"id": "holder-named", "expect": "The result names the holding process and its origin"},
+        {"id": "steps-workable", "expect": "Every suggested next step can be carried out; none points to a window or app that is not running"},
+        {"id": "holder-untouched", "expect": "The holding process keeps running"}
+      ],
+      "origin": "D4",
+      "expand": ["D1"],
+      "risk": "normal",
+      "proposed": "desktop-instance-handback"
+    },
+    {
+      "id": "no-take-back-from-user",
+      "statement": "A follow-up ARC send to an unlocked task that the user has continued in the main Desktop does not take the task back and is not delivered; ARC reports that the user is using it.",
+      "review": {
+        "zh-CN": {
+          "situation": "任务解锁后你接着在自己的 Desktop 里聊，这时 ARC 又要给它发消息",
+          "now": "可能和你抢",
+          "after": "不抢回来、不重复发，只报告“这个任务正在被你使用”"
+        }
+      },
+      "given": {"state": "A task unlocked after ARC's instance exited, and the user has continued it in the main Desktop"},
+      "when": {"op": "codex_send", "action": "A control source sends a follow-up to that task through ARC"},
+      "then": [
+        {"id": "stays-with-user", "expect": "The task stays writable in the main Desktop"},
+        {"id": "input-not-delivered", "expect": "The follow-up input is not delivered to the task, once or repeatedly"},
+        {"id": "in-use-reported", "expect": "The send result reports that the task is in use in the user's Desktop"}
+      ],
+      "origin": "D3",
+      "expand": ["D2"],
+      "risk": "normal",
+      "proposed": "desktop-instance-handback"
+    }
+  ]
+}
