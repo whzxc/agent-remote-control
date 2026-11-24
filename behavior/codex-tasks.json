@@ -368,12 +368,12 @@
     },
     {
       "id": "same-settings-as-main",
-      "statement": "With no explicit dispatch overrides, tasks on ARC's backend use the same Codex home and the same saved settings for that project as the main Desktop, including the saved full-access choice, default model, MCP servers, plugins and account; a choice held only in an unsent main-window composer applies only when the dispatch supplies it explicitly. The tasks appear in the main Desktop's task list.",
+      "statement": "With no explicit dispatch overrides, tasks on ARC's backend use the same Codex home as the main Desktop and the same saved permission, MCP server, plugin and account settings for that project; when Desktop's saved permission choices disagree, ARC uses the Codex configuration default as it does today instead of refusing the dispatch. Model, effort and speed tier follow ARC's dispatch policy as for every other dispatch. A choice held only in an unsent main-window composer applies only when the dispatch supplies it explicitly. The tasks appear in the main Desktop's task list.",
       "review": {
         "zh-CN": {
           "situation": "ARC 派的任务换到 ARC 自己的后台上跑",
           "now": "—",
-          "after": "设置和你在主窗口里保存的一样：完全访问权限、默认模型、MCP 服务、插件、账号都相同。你在主窗口输入框里临时选了、还没发出去的权限方案，ARC 读不到，不会跟着变，派发时明确指定才生效。任务照样出现在你主窗口的任务列表里"
+          "after": "完全访问权限、MCP 服务、插件、账号和你在主窗口里保存的一样。两处保存的权限设置对不上时，沿用 ARC 现在的做法（用 Codex 配置里的默认，你两台电脑都是完全访问），不拒绝派发。模型、推理强度、速度档仍按 ARC 派发策略选，和现在一样。你在主窗口输入框里临时选了、还没发出去的权限方案，ARC 读不到，派发时明确指定才生效。任务照样出现在你主窗口的任务列表里"
         }
       },
       "given": {
@@ -386,7 +386,11 @@
       "then": [
         {
           "id": "same-settings",
-          "expect": "Without dispatch overrides, the task's effective permissions, default model, MCP servers, plugins and account match the main Desktop's saved settings for the same project"
+          "expect": "Without dispatch overrides, the task's effective permissions, MCP servers, plugins and account match the main Desktop's saved settings for the same project, or the Codex configuration default when those saved permission choices disagree or one is missing; the dispatch is not refused for that reason"
+        },
+        {
+          "id": "model-from-policy",
+          "expect": "Model, effort and speed tier are the values ARC's dispatch policy selects for the same arguments, as for a dispatch through the main Desktop"
         },
         {
           "id": "listed-in-main",

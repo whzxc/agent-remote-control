@@ -60,8 +60,8 @@
       "same-settings-as-main": {
         "scope": "independent-own-backend",
         "approvedAt": "2026-11-24",
-        "sha256": "4f8cb407895e7f488b46452c0bf03cc842827c0572aeaf675e597a750c853014",
-        "revision": 2
+        "sha256": "e943ee339f971bd13558338716be9b53aeb36e9daca93eb919a8900271920ce8",
+        "revision": 3
       },
       "backend-unavailable-fallback": {
         "scope": "independent-own-backend",
