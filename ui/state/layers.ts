@@ -31,11 +31,39 @@ export function createLayerStore() {
   const contains = (id: string, target: EventTarget | null) => target instanceof Element
     && (current.find(layer => layer.id === id)?.node?.contains(target)
       || target.closest<HTMLElement>('[data-layer-owner]')?.dataset.layerOwner === id);
-  const remove = (id: string) => { if (current.some(layer => layer.id === id)) publish(current.filter(layer => layer.id !== id)); };
+  let pendingRestore: number | undefined;
+  const restoreFocus = (layer: Pick<Layer, 'trigger' | 'returnFocus'>) => {
+    if (pendingRestore !== undefined) cancelAnimationFrame(pendingRestore);
+    pendingRestore = requestAnimationFrame(() => {
+      pendingRestore = undefined;
+      const activeLayer = top();
+      const active = document.activeElement;
+      if (activeLayer && active instanceof Element && activeLayer.node?.contains(active) && active !== activeLayer.node) return;
+      // A subsequent user action may already have focused its trigger before this deferred restore.
+      if (active instanceof HTMLElement && active !== document.body && active.isConnected) return;
+      // A handoff may focus a Radix transient outside the layer registry.
+      const owner = active?.closest('[role="dialog"]');
+      if (owner && active !== owner && owner.isConnected) return;
+      const fallbacks = layer.returnFocus ? Array.from(document.querySelectorAll<HTMLElement>(layer.returnFocus)) : [];
+      for (const target of [layer.trigger, activeLayer?.node, ...fallbacks, ...document.querySelectorAll<HTMLElement>('main[tabindex="-1"]')]) {
+        if (!target?.isConnected || target === document.body || target.closest('[inert], [hidden]') || target.matches(':disabled')) continue;
+        const style = getComputedStyle(target);
+        if (style.display === 'none' || style.visibility === 'hidden') continue;
+        target.focus({ preventScroll: true });
+        if (document.activeElement === target) break;
+      }
+    });
+  };
+  const remove = (id: string) => {
+    const removed = current.find(layer => layer.id === id);
+    if (!removed) return;
+    publish(current.filter(layer => layer.id !== id));
+    // If an inner layer's deferred focus restore is still pending while its parent unmounts, hand off to the outer layer.
+    if (pendingRestore !== undefined) restoreFocus({ trigger: removed.trigger, returnFocus: removed.returnFocus });
+  };
   const closing = new Set<string>();
   let pendingSwitch: { id: string; open: () => void; toggle: boolean; trigger: HTMLElement | null } | undefined;
   let switchTrigger: HTMLElement | null | undefined;
-  let pendingRestore: number | undefined;
   const transients = new Map<HTMLElement, { owner: string; dismiss: () => void; isAnchor: (target: Element) => boolean }>();
   const finishClose = async (id: string, complete?: () => void | Promise<void>) => {
     const layer = current.find(item => item.id === id);
@@ -177,28 +205,7 @@ export function createLayerStore() {
       if (await layer.onCancel() === false) return;
       await finishClose(id);
     },
-    restoreFocus(layer: Pick<Layer, 'trigger' | 'returnFocus'>) {
-      if (pendingRestore !== undefined) cancelAnimationFrame(pendingRestore);
-      pendingRestore = requestAnimationFrame(() => {
-        pendingRestore = undefined;
-        const activeLayer = top();
-        const active = document.activeElement;
-        if (activeLayer && active instanceof Element && activeLayer.node?.contains(active) && active !== activeLayer.node) return;
-        // A subsequent user action may already have focused its trigger before this deferred restore.
-        if (active instanceof HTMLElement && active !== document.body && active.isConnected) return;
-        // A handoff may focus a Radix transient outside the layer registry.
-        const owner = active?.closest('[role="dialog"]');
-        if (owner && active !== owner && owner.isConnected) return;
-        const fallbacks = layer.returnFocus ? Array.from(document.querySelectorAll<HTMLElement>(layer.returnFocus)) : [];
-        for (const target of [layer.trigger, activeLayer?.node, ...fallbacks, ...document.querySelectorAll<HTMLElement>('main[tabindex="-1"]')]) {
-          if (!target?.isConnected || target === document.body || target.closest('[inert], [hidden]') || target.matches(':disabled')) continue;
-          const style = getComputedStyle(target);
-          if (style.display === 'none' || style.visibility === 'hidden') continue;
-          target.focus({ preventScroll: true });
-          if (document.activeElement === target) break;
-        }
-      });
-    },
+    restoreFocus,
   };
 }
 export const layers = createLayerStore();

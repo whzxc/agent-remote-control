@@ -352,9 +352,10 @@ test('closing a layer with an unavailable opener restores the main landmark', as
     await settle();
     assertNodeIdentity(focused(), page.getByRole('main'));
     document.body.focus();
-    // Same-frame nested close: the outer layer's deferred restore must supersede the inner layer's stale fallback.
+    // Same-frame nested close: removing the outer layer while an inner restore is pending must hand off to the outer opener.
+    layers.open({ id: 'outer-panel', kind: 'panel', node: null, trigger: page.getByRole('button', { name: 'Outer opener' }), returnFocus: '.outer-opener', onClose() {} });
     layers.restoreFocus({ trigger: page.getByRole('button', { name: 'Unavailable opener' }) });
-    layers.restoreFocus({ trigger: page.getByRole('button', { name: 'Outer opener' }), returnFocus: '.outer-opener' });
+    layers.remove('outer-panel');
     await settle();
     assertNodeIdentity(focused(), page.getByRole('button', { name: 'Outer opener' }));
   });
