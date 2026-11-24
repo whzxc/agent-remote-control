@@ -3,13 +3,19 @@ use crate::owned_children::SpawnOwned;
 use crate::*;
 use std::collections::BTreeSet;
 pub async fn list(c: &Control) -> Result<Vec<Value>> {
+    list_on(c, None).await
+}
+
+async fn list_on(c: &Control, rpc: Option<&crate::rpc::Rpc>) -> Result<Vec<Value>> {
     let mut out = Vec::new();
     let mut cursor = Value::Null;
     let mut seen = BTreeSet::new();
     loop {
-        let page = c
-            .request("project/list", json!({"cursor":cursor}), 60000)
-            .await?;
+        let params = json!({"cursor":cursor});
+        let page = match rpc {
+            Some(rpc) => rpc.call("project/list", params, 60000).await?,
+            None => c.request("project/list", params, 60000).await?,
+        };
         out.extend(
             page["data"]
                 .as_array()
@@ -74,11 +80,18 @@ pub(crate) fn display_name<'a>(
 
 /// Legacy project-only operations retain their established automatic root choice.
 pub async fn resolve(c: &Control, id: &str) -> Result<Value> {
-    resolve_root(c, id, None, false).await
+    resolve_root(c, id, None, false, None).await
 }
 
 pub(crate) async fn resolve_args(c: &Control, args: &Value) -> Result<Value> {
-    resolve_root(c, string(args, "project"), args["root"].as_str(), false).await
+    resolve_root(
+        c,
+        string(args, "project"),
+        args["root"].as_str(),
+        false,
+        None,
+    )
+    .await
 }
 
 /// New cwd alternatives require explicit selection for multi-root projects.
@@ -86,10 +99,15 @@ pub(crate) async fn working_directory(c: &Control, args: &Value) -> Result<Value
     if let Some(cwd) = args.get("cwd") {
         return Ok(cwd.clone());
     }
-    Ok(
-        resolve_root(c, string(args, "project"), args["root"].as_str(), true).await?["root"]
-            .clone(),
+    Ok(resolve_root(
+        c,
+        string(args, "project"),
+        args["root"].as_str(),
+        true,
+        None,
     )
+    .await?["root"]
+        .clone())
 }
 
 fn select_root<'a>(roots: &'a [Value], selector: &str) -> Result<&'a Value> {
@@ -170,6 +188,7 @@ async fn resolve_root(
     id: &str,
     selector: Option<&str>,
     for_execution: bool,
+    rpc: Option<&crate::rpc::Rpc>,
 ) -> Result<Value> {
     if id.is_empty() {
         return Err("PROJECT_REQUIRED_FOR_RELATIVE_PATH".into());
@@ -185,8 +204,11 @@ async fn resolve_root(
                 .into_owned(),
         )
     } else {
-        let catalog = catalog(c).await?;
-        let p = select_project(&catalog, id)?;
+        let projects = match rpc {
+            Some(rpc) => list_on(c, Some(rpc)).await?,
+            None => catalog(c).await?,
+        };
+        let p = select_project(&projects, id)?;
         let roots = p["roots"].as_array().ok_or("project has no directories")?;
         let named: Vec<_> = roots
             .iter()
@@ -1265,21 +1287,45 @@ pub async fn query(c: &Control, action: &str, args: &Value) -> Result<Value> {
     Ok(result)
 }
 
-pub async fn native_id(c: &Control, cwd: &str) -> Result<Option<String>> {
-    let target = Path::new(cwd).canonicalize().map_err(|e| e.to_string())?;
+pub(crate) async fn dispatch_project(
+    c: &Control,
+    args: &Value,
+    rpc: Option<&crate::rpc::Rpc>,
+) -> Result<(Value, Option<String>)> {
+    let project = resolve_root(
+        c,
+        string(args, "project"),
+        args["root"].as_str(),
+        false,
+        rpc,
+    )
+    .await?;
+    if !Path::new(string(&project, "id")).is_absolute() {
+        let id = string(&project, "id").to_owned();
+        return Ok((project, Some(id)));
+    }
+    let target = Path::new(string(&project, "root"));
     let mut matches = BTreeSet::new();
-    for project in list(c).await? {
+    for project in list_on(c, rpc).await? {
         for root in project["roots"].as_array().into_iter().flatten() {
-            if Path::new(string(root, "path")).canonicalize().ok().as_ref() == Some(&target) {
+            if Path::new(string(root, "path"))
+                .canonicalize()
+                .ok()
+                .as_deref()
+                == Some(target)
+            {
                 matches.insert(string(&project, "id").to_owned());
             }
         }
     }
-    Ok(if matches.len() == 1 {
-        matches.into_iter().next()
-    } else {
-        None
-    })
+    Ok((
+        project,
+        if matches.len() == 1 {
+            matches.into_iter().next()
+        } else {
+            None
+        },
+    ))
 }
 
 pub(crate) fn metadata(path: &Path) -> Value {

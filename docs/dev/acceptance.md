@@ -140,6 +140,7 @@ Task-detail fixtures use sanitized payloads matching `AgentTimeline` / `AgentInt
 | Scenario | Target |
 | --- | --- |
 | `task-owner-connector` | Confirmed ARC ownership shows a static owner chip. |
+| `task-owner-backend-*` | Independent task details identify the private backend or the shared fallback and its reason. |
 | `task-owner-desktop` | Confirmed Desktop ownership shows a static owner chip. |
 | `task-routing-deferred` | A 15-second countdown with pause and handoff controls. |
 | `task-routing-paused` | Paused routing with resume and handoff controls. |

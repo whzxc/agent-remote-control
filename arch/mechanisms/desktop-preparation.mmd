@@ -9,9 +9,11 @@ flowchart TD
   waiting -->|Cancel| stopped["Not executed"]
   waiting -->|Restart or independent once| gate
   policy -->|Authorized restart or new main| main["Start native daemon if needed<br/>Gracefully quit only the approved process<br/>Launch main Desktop"]
-  policy -->|Independent| independent["Start native daemon if needed<br/>Launch or reuse the independent Desktop"]
+  policy -->|Independent| independent["Verify detached ARC App Server<br/>Launch or reuse independent Desktop"]
   main --> verify{"Desktop socket peer and App Server verified?"}
-  independent --> verify
+  independent -->|Private endpoint verified| submit
+  independent -->|Private endpoint unavailable| shared["Prepare shared daemon and record fallback reason"]
+  shared --> verify
   verify -->|Yes| submit
   verify -->|Timeout or failure| stopped
   submit -->|Independent PID and creation token| watch["Observe recorded process"]

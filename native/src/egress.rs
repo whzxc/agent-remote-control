@@ -327,7 +327,7 @@ pub fn receipt(value: Value) -> Value {
         let recovery = &value["desktopRecovery"];
         out["desktopRecovery"] = json!({
             "state":recovery["state"],"decisionId":recovery["decisionId"],"reason":recovery["reason"],
-            "transport":recovery["transport"],"targetPid":recovery["target"]["pid"]
+            "transport":recovery["transport"],"backend":recovery["backend"],"targetPid":recovery["target"]["pid"]
         });
     }
     if let Some(by) = value
@@ -1762,6 +1762,9 @@ pub fn panel_state(panel: &Value) -> Value {
     if panel["timeline"].is_object() {
         result["timeline"] =
             json!({"entryCount":panel["timeline"]["entries"].as_array().map_or(0,Vec::len)});
+        if let Some(backend) = panel.pointer("/timeline/ownership/dispatchBackend") {
+            result["dispatchBackend"] = backend.clone();
+        }
         if let Some(handback) = panel.pointer("/timeline/ownership/handback") {
             result["handback"] = handback.clone();
         }

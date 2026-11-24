@@ -163,6 +163,23 @@ pub(crate) fn running(profile: &str) -> bool {
         .is_some()
 }
 
+pub(crate) async fn desktop_attached() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        crate::desktop::daemon::private_desktop_running().await
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        false
+    }
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn identity(profile: &str) -> Option<(u32, String)> {
+    let record = load(&record_path(profile).ok()?).ok()?;
+    Some((owned(&record)?, record["processStart"].as_str()?.to_owned()))
+}
+
 /// Profiles whose recorded detached server is still running.
 pub(crate) fn running_profiles() -> Vec<String> {
     let Ok(entries) = std::fs::read_dir(directory()) else {
@@ -493,6 +510,9 @@ pub(crate) fn executables() -> Vec<PathBuf> {
 /// that Control explicitly classified as active or uncertain during shutdown.
 pub(crate) async fn stop_unattached(retained: &[(u32, String)]) {
     for profile in running_profiles() {
+        if profile == "codex-home" && desktop_attached().await {
+            continue;
+        }
         let Ok(record) = record_path(&profile).and_then(|p| load(&p)) else {
             continue;
         };

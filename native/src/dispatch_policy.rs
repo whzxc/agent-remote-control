@@ -579,6 +579,52 @@ pub(crate) fn resolve_with_inheritance(args: &mut Value, inherited: &Value) -> R
     resolve_configuration(args, inherited, &task, &policy)
 }
 
+/// Route preparation happens after approval. Remove values the dispatch
+/// policy injected before the independent Desktop backend was selected.
+pub(crate) fn use_desktop_defaults(args: &mut Value, selection: &mut Value) {
+    for (key, mode_key) in [
+        ("model", "model"),
+        ("effort", "reasoning_effort"),
+        ("serviceTier", "serviceTier"),
+    ] {
+        if selection["source"][key] != "policy-default" {
+            continue;
+        }
+        if let Some(root) = args.as_object_mut() {
+            root.remove(key);
+        }
+        for scope in ["turn", "thread"] {
+            if scope == "thread" && key == "effort" {
+                continue;
+            }
+            if let Some(params) = args[scope].as_object_mut() {
+                params.remove(key);
+            }
+        }
+        if key != "serviceTier" {
+            if let Some(settings) = args
+                .pointer_mut("/turn/collaborationMode/settings")
+                .and_then(Value::as_object_mut)
+            {
+                settings.remove(mode_key);
+            }
+        }
+        selection["source"][key] = json!("native-default");
+        selection.as_object_mut().unwrap().remove(key);
+    }
+}
+
+pub(crate) fn check_desktop_configuration(model: Option<&str>, effort: Option<&str>) -> Result<()> {
+    let policy = read()?.codex;
+    check_known(model, &policy.allow_models, &policy.deny_models, "model")?;
+    check_known(
+        effort,
+        &policy.allow_efforts,
+        &policy.deny_efforts,
+        "effort",
+    )
+}
+
 /// Resolve structured Codex defaults without consulting advisory recommendations.
 pub(crate) fn resolve_configuration(
     args: &mut Value,

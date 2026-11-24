@@ -17,8 +17,8 @@ sequenceDiagram
     C-->>S: report preparation or the pending local choice
     C->>D: verify the selected Desktop is connected before submission
   end
-  alt Desktop uses the local daemon
-    C->>X: start thread on shared daemon
+  alt Desktop uses an app-server socket
+    C->>X: start thread on verified Desktop backend
     C->>X: submit first turn on the creator connection
     C->>D: open the same thread
     D->>X: read and follow the thread

@@ -191,6 +191,7 @@ interface WriterEvidence {
   parentExecutable?: string;
 }
 export interface TaskOwnership extends WriterEvidence {
+  dispatchBackend?: { backend: "arc" | "shared"; reason?: string | null };
   handback?: {
     state: string;
     holder?: WriterEvidence;

@@ -538,7 +538,7 @@ pub(crate) fn reconcile_interruption(value: &mut Value, selected: &str, history:
 async fn codex_source(control: &Arc<Control>, args: &Value) -> Result<CodexSource> {
     let thread = string(args, "threadId");
     let owner = if control.shared_desktop_thread(thread)? {
-        CodexOwner::Background(control.shared_desktop_rpc().await?)
+        CodexOwner::Background(control.desktop_thread_rpc(thread).await?)
     } else if control.effective_background(thread).await? {
         CodexOwner::Background(control.utility().await?)
     } else {

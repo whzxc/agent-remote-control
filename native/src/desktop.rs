@@ -19,6 +19,8 @@ pub(crate) mod handback;
 mod interactions;
 #[cfg(target_os = "macos")]
 pub(crate) mod recovery;
+#[cfg(target_os = "macos")]
+pub(crate) mod settings;
 #[cfg(windows)]
 mod windows;
 use tokio::{

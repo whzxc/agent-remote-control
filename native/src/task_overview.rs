@@ -175,7 +175,7 @@ pub(crate) fn display_record(record: &Value) -> Value {
     );
     if record["desktopRecovery"].is_object() {
         let recovery = &record["desktopRecovery"];
-        row["desktopRecovery"] = fields(recovery, &["state", "decisionId", "reason"]);
+        row["desktopRecovery"] = fields(recovery, &["state", "decisionId", "reason", "backend"]);
         if recovery["target"]["pid"].is_number() {
             row["desktopRecovery"]["target"] = fields(&recovery["target"], &["pid"]);
         }

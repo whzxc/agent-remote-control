@@ -1,0 +1,38 @@
+{
+  "theme": "light",
+  "language": "zh-CN",
+  "agents": [
+    "codex"
+  ],
+  "panel": {
+    "kind": "agent",
+    "id": "codex"
+  },
+  "detailTask": 0,
+  "tasks": [
+    {
+      "agent": "codex",
+      "phase": "command",
+      "title": "Desktop ownership fixture",
+      "headline": "Reviewing sample configuration",
+      "ownership": {
+        "owner": "desktop",
+        "currentOwner": "desktop",
+        "state": "held",
+        "observedAt": "2026-01-01T00:00:00Z",
+        "history": [
+          {
+            "eventId": "fixture-handoff-0",
+            "from": "connector",
+            "to": "desktop",
+            "observedAt": "2025-12-31T23:58:00Z"
+          }
+        ],
+        "dispatchBackend": {
+          "backend": "shared",
+          "reason": "private-unreachable"
+        }
+      }
+    }
+  ]
+}

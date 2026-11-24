@@ -6,13 +6,21 @@ import { Icon } from "./ui";
 import { OwnershipTag } from "./timeline/TaskPresentation";
 
 export default function TaskOwnership({ ownership }: { ownership?: Ownership }) {
+  const route = ownership?.dispatchBackend;
+  return <>
+    {route && <OwnershipTag data-dispatch-backend={route.backend}><Icon icon={Monitor} /><span>{t(route.backend === "arc" ? "detail.backend.arc" : "detail.backend.shared")}{route.reason && ` · ${t(route.reason === "private-start-failed" ? "detail.backend.startFailed" : "detail.backend.unreachable")}`}</span></OwnershipTag>}
+    <WriterOwnership ownership={ownership} />
+  </>;
+}
+
+function WriterOwnership({ ownership }: { ownership?: Ownership }) {
   const owner = ownership?.owner;
   const handback = ownership?.handback;
   const current = ownership?.state === "held" ? ownership : undefined;
   const holder = handback?.holder ?? handback?.descendants?.find(child => child.holder)?.holder ?? current;
   const process = holder?.processes?.[0];
   const origin = holder?.origin ?? owner;
-  const originKey = origin === "shared-app-server" ? "shared" : origin === "main-desktop" ? "mainDesktop" :
+  const originKey = origin === "arc-app-server" ? "arc" : origin === "shared-app-server" ? "shared" : origin === "main-desktop" ? "mainDesktop" :
     origin === "terminal" || origin === "unknown" ? origin :
     origin === "ssh" ? "ssh" : origin === "desktop-profile" || origin === "desktop" ? "desktop" : "external";
   const processName = process && `${process.executable.split("/").pop()} (${process.pid})`;
@@ -27,7 +35,7 @@ export default function TaskOwnership({ ownership }: { ownership?: Ownership }) 
     const evidence = drop && t("detail.handback.drop", { time: drop.observedAt, reason: drop.reason, evidence: drop.nativeStatus || drop.evidence });
     return <OwnershipTag aria-label={label} aria-description={evidence} title={evidence}><Icon icon={Monitor} /><span>{label}</span></OwnershipTag>;
   }
-  if (owner === "shared-app-server" || owner === "external") {
+  if (owner === "arc-app-server" || owner === "shared-app-server" || owner === "external") {
     return <OwnershipTag aria-label={holderLabel}><Icon icon={Monitor} /><span>{holderLabel}</span></OwnershipTag>;
   }
   if (ownership?.state !== "held" || owner !== "connector" && owner !== "desktop") return null;

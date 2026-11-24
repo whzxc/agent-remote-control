@@ -257,7 +257,7 @@ async fn member(
     }
     let prior_ack = &previous["ownHold"];
     let session = rpc
-        .map(|r| r.session.as_str())
+        .map(|r| r.connection.as_str())
         .or_else(|| proxy["connection"].as_str());
     if let Some(rpc) = rpc {
         if previous["checkedConnection"].as_str() == session && prior_ack.is_object() {
@@ -282,7 +282,7 @@ async fn member(
                 return Err("DESKTOP_HANDBACK_UNCONFIRMED".into());
             }
             status["ownHold"] = json!({"state":"dropped","evidence":"thread/unsubscribe","nativeStatus":reply["status"],
-            "connection":rpc.session,"observedAt":now(),"reason":if previous["state"]=="running" {"turn-settled"} else {reason}});
+            "connection":rpc.connection,"observedAt":now(),"reason":if previous["state"]=="running" {"turn-settled"} else {reason}});
         }
     } else if exited(proxy) {
         status["ownHold"] = json!({"state":"dropped","evidence":"connection-close","connection":session,
@@ -291,7 +291,13 @@ async fn member(
         return Err("DESKTOP_HANDBACK_CONNECTION_UNCONFIRMED".into());
     }
     if !prior_ack.is_object() && status["ownHold"]["nativeStatus"] != "unsubscribed" {
-        if let Ok(closed) = file_cache::load(&root().join("desktop-last-disconnect.json")) {
+        for closed in [
+            "desktop-last-disconnect.json",
+            "private-last-disconnect.json",
+        ]
+        .iter()
+        .filter_map(|p| file_cache::load(&root().join(p)).ok())
+        {
             if closed["connection"].is_string() && closed["connection"] == proxy["connection"] {
                 status["ownHold"] = json!({"state":"dropped","evidence":"connection-close",
                     "connection":closed["connection"],"observedAt":closed["observedAt"],"reason":reason,
@@ -370,6 +376,17 @@ pub(crate) async fn holder(thread: &str) -> Value {
     };
     if shared {
         return json!({"origin":"shared-app-server","client":"unknown","processes":processes});
+    }
+    if let Some((pid, start)) = crate::codex_host::identity("codex-home") {
+        if processes
+            .as_array()
+            .into_iter()
+            .flatten()
+            .any(|p| p["pid"] == pid)
+            && crate::codex_host::process_start(pid).as_deref() == Some(&start)
+        {
+            return json!({"origin":"arc-app-server","client":"unknown","processes":processes});
+        }
     }
     let rows = daemon::process_rows().await.unwrap_or_default();
     let desktop = daemon::instances_in(&rows).unwrap_or_default();
@@ -492,8 +509,17 @@ async fn reconcile(control: &Control, thread: &str, startup: bool) -> Result<Nex
     if !exited(target) {
         return Ok(Next::ProcessAlive);
     }
-    let proxy = &binding["desktopProxy"];
-    let rpc = match control.shared_desktop_rpc().await {
+    let proxy = binding
+        .get("previousSubtreeProxy")
+        .unwrap_or(&binding["desktopProxy"]);
+    let rpc = match control
+        .desktop_backend_rpc(
+            binding
+                .get("previousSubtreeBackend")
+                .unwrap_or(&binding["backend"]),
+        )
+        .await
+    {
         Ok(rpc) => Some(rpc),
         Err(_) if exited(proxy) => None,
         Err(error) => return Err(error),
@@ -541,7 +567,7 @@ async fn reconcile(control: &Control, thread: &str, startup: bool) -> Result<Nex
     // Only enter lock-only observation after every member has cleared ARC's hold.
     let session = rpc
         .as_ref()
-        .map(|r| r.session.as_str())
+        .map(|r| r.connection.as_str())
         .or_else(|| proxy["connection"].as_str());
     let mut all_released = released(&parent, session);
     let mut held = Vec::new();
@@ -609,6 +635,14 @@ async fn reconcile(control: &Control, thread: &str, startup: bool) -> Result<Nex
             .as_object_mut()
             .unwrap()
             .remove("pendingPreviousSubtree");
+        binding
+            .as_object_mut()
+            .unwrap()
+            .remove("previousSubtreeBackend");
+        binding
+            .as_object_mut()
+            .unwrap()
+            .remove("previousSubtreeProxy");
         save(&path("execution", thread)?, &binding)?;
     }
     if all_released && blockers.is_empty() && held.is_empty() {
@@ -833,11 +867,12 @@ pub(crate) async fn reopen(control: &Control, thread: &str) -> Result<bool> {
     if observation(thread)?.is_none_or(|v| v["state"] != "running") {
         return Err("DESKTOP_TASK_ALREADY_SETTLED".into());
     }
-    let rpc = control.shared_desktop_rpc().await?;
+    let backend = Control::desktop_backend(parent)?;
+    let rpc = control.desktop_backend_rpc(&backend).await?;
     if !active(control, &rpc, thread).await? {
         return Err("DESKTOP_TASK_ALREADY_SETTLED".into());
     }
-    let instance = independent_instance(control).await?;
+    let instance = independent_instance(control, &backend_socket(&backend)?).await?;
     if !active(control, &rpc, thread).await? {
         return Err("DESKTOP_TASK_ALREADY_SETTLED".into());
     }
@@ -849,22 +884,45 @@ pub(crate) async fn reopen(control: &Control, thread: &str) -> Result<bool> {
     Ok(true)
 }
 
-async fn independent_instance(control: &Control) -> Result<daemon::Instance> {
-    let profile = daemon::independent_profile();
-    let existing = daemon::instances()
-        .await?
-        .into_iter()
-        .find(|i| i.profile.as_ref() == Some(&profile));
-    match existing {
-        Some(i) if !managed_instance(control, &i).await? => {
-            return Err("DESKTOP_PROFILE_IN_USE".into())
-        }
-        Some(_) => {}
-        None => daemon::launch(Some(&profile)).await?,
+fn backend_socket(backend: &Value) -> Result<PathBuf> {
+    if backend == "arc" {
+        crate::codex_host::socket("codex-home")?
+            .canonicalize()
+            .map_err(|e| e.to_string())
+    } else {
+        daemon::socket()
     }
+}
+
+pub(super) async fn independent_instance(
+    control: &Control,
+    socket: &Path,
+) -> Result<daemon::Instance> {
+    let instances = daemon::instances().await?;
+    let primary = daemon::independent_profile();
+    let alternate = daemon::alternate_profile();
+    let existing = instances.iter().find(|i| {
+        i.profile
+            .as_deref()
+            .is_some_and(daemon::is_independent_profile)
+            && i.uses(socket)
+    });
+    let profile = if let Some(i) = existing {
+        if !managed_instance(control, i).await? {
+            return Err("DESKTOP_PROFILE_IN_USE".into());
+        }
+        i.profile.clone().ok_or("DESKTOP_PROFILE_IN_USE")?
+    } else {
+        let profile = [primary, alternate]
+            .into_iter()
+            .find(|p| !instances.iter().any(|i| i.profile.as_ref() == Some(p)))
+            .ok_or("DESKTOP_PROFILE_IN_USE")?;
+        daemon::launch(Some(&profile), socket).await?;
+        profile
+    };
     tokio::time::timeout(Duration::from_secs(24), async {
         loop {
-            if let Some(i) = daemon::connected_profile(Some(&profile)).await? {
+            if let Some(i) = daemon::connected_profile(Some(&profile), socket).await? {
                 if i.independent() {
                     return Ok::<_, String>(i);
                 }
@@ -889,9 +947,12 @@ pub(crate) async fn prepare_followup(control: &Control, thread: &str) -> Result<
     let mut independent = None;
     if crate::claude_notify::settings()?["desktopRecovery"] == "independent" {
         let _gate = control.desktop_preparation.lock().await;
-        daemon::start_daemon().await?;
-        let instance = independent_instance(control).await?;
-        let rpc = control.shared_desktop_rpc().await?;
+        let backend = Control::desktop_backend(root_id)?;
+        if backend != "arc" {
+            daemon::start_daemon().await?;
+        }
+        let rpc = control.desktop_backend_rpc(&backend).await?;
+        let instance = independent_instance(control, &backend_socket(&backend)?).await?;
         // Claim the unheld writer on ARC's own connection before opening the
         // window. A loaded thread on this shared server is not proof that the
         // selected Desktop acquired it.
@@ -922,12 +983,17 @@ pub(crate) async fn prepare_followup(control: &Control, thread: &str) -> Result<
         };
         if resumed["thread"]["id"] != thread
             || resumed["thread"]["status"]["type"] != "idle"
-            || holder(thread).await["origin"] != "shared-app-server"
+            || holder(thread).await["origin"]
+                != if backend == "arc" {
+                    "arc-app-server"
+                } else {
+                    "shared-app-server"
+                }
         {
             return Err(crate::writer::busy(thread, crate::writer::probe(thread)).to_string());
         }
-        binding = json!({"owner":"desktop","transport":"local-daemon","desktopInstance":instance.identity(),
-            "desktopTarget":instance.identity(),"desktopProxy":rpc.proxy_identity()});
+        binding = json!({"owner":"desktop","transport":"local-daemon","desktopInstance":instance.identity(),"backend":backend,
+            "desktopTarget":instance.identity(),"desktopProxy":rpc.proxy_identity().await});
         independent = Some(instance);
     } else {
         // The open is explicit. A silent discovery during launch can recover
@@ -969,6 +1035,13 @@ pub(crate) async fn prepare_followup(control: &Control, thread: &str) -> Result<
         }
     }
 
+    if binding["owner"] == "desktop" && binding["transport"] == "local-daemon" {
+        if let Some(prior) = record("execution", root_id)? {
+            if let Some(reason) = prior.get("backendReason") {
+                binding["backendReason"] = reason.clone();
+            }
+        }
+    }
     binding["continuedFrom"] = previous;
     binding["handbackRoot"] = json!(root_id);
     // The old root may still owe an unsubscribe to a running descendant.
@@ -978,8 +1051,10 @@ pub(crate) async fn prepare_followup(control: &Control, thread: &str) -> Result<
             || !old["ownHold"].is_object())
     {
         binding["pendingPreviousSubtree"] = json!(true);
-        if binding["desktopProxy"].is_null() {
-            if let Some(prior) = record("execution", thread)? {
+        if let Some(prior) = record("execution", thread)? {
+            binding["previousSubtreeBackend"] = prior["backend"].clone();
+            binding["previousSubtreeProxy"] = prior["desktopProxy"].clone();
+            if binding["desktopProxy"].is_null() {
                 binding["desktopProxy"] = prior["desktopProxy"].clone();
             }
         }

@@ -2,6 +2,13 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chooseSpec, escapeRegex } from './shared.mjs';
 export const checks = [
+    { stage: "verify", order: 26, async run({page, fixture, name, root}) {
+        if (!name.startsWith('task-owner-backend-')) return;
+        const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', fixture.language + '.json'), 'utf8'));
+        const route = fixture.tasks[0].ownership.dispatchBackend;
+        const text = messages['detail.backend.' + route.backend] + (route.reason ? ' · ' + messages['detail.backend.unreachable'] : '');
+        await page.getByRole('dialog').getByText(text, { exact: true }).waitFor();
+    } },
     { stage: "verify", order: 27, visual: false, async run(context) {
             const { page, fixture, name, root } = context;
             let { model } = context;

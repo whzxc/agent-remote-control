@@ -53,6 +53,13 @@ impl Drop for PendingCall {
         self.pending.lock().unwrap().remove(&self.key);
     }
 }
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ConnectionRole {
+    Connector,
+    SharedDesktop,
+    PrivateDesktop,
+}
+
 pub struct Rpc {
     input: Mutex<Option<Writer>>,
     /// The stdio app-server, or the disposable proxy of a detached host.
@@ -61,7 +68,8 @@ pub struct Rpc {
     pending: Pending,
     pub events: SharedEvents,
     pub session: String,
-    shared_desktop: bool,
+    pub(crate) connection: String,
+    role: ConnectionRole,
     alive: Arc<std::sync::atomic::AtomicBool>,
     pid: Option<u32>,
     started_at: String,
@@ -104,7 +112,7 @@ impl Rpc {
             pid,
             started_at,
             inherited_nofile,
-            false,
+            ConnectionRole::Connector,
         )
         .await
     }
@@ -120,7 +128,15 @@ impl Rpc {
         if cfg!(feature = "test-fixture") {
             return Self::start(binary, events, session).await;
         }
-        match Box::pin(Self::connect_host(binary, &events, session, launches)).await {
+        match Box::pin(Self::connect_host(
+            binary,
+            &events,
+            session,
+            launches,
+            ConnectionRole::Connector,
+        ))
+        .await
+        {
             Ok(rpc) => Ok(rpc),
             Err(error) if crate::codex_host::running("codex-home") => Err(error),
             Err(error) => {
@@ -130,18 +146,19 @@ impl Rpc {
             }
         }
     }
-    async fn connect_host(
+    pub(crate) async fn connect_host(
         binary: &Path,
         events: &SharedEvents,
         session: &str,
         launches: &crate::launches::Launches,
+        role: ConnectionRole,
     ) -> Result<Arc<Self>> {
         loop {
             let host = crate::codex_host::attach(binary, "codex-home", launches).await?;
             let mut failure = String::new();
             let mut connected = None;
             for _ in 0..3 {
-                match Self::bridge(binary, events.clone(), session, host.clone()).await {
+                match Self::bridge(binary, events.clone(), session, host.clone(), role).await {
                     Ok(rpc) => {
                         connected = Some(rpc);
                         break;
@@ -154,11 +171,14 @@ impl Rpc {
             }
             let rpc = connected.ok_or(failure)?;
             if host.adopted {
-                if host.outdated && !rpc.active().await {
+                if host.outdated
+                    && !rpc.active().await
+                    && !crate::codex_host::desktop_attached().await
+                {
                     rpc.stop().await;
                     continue;
                 }
-                rpc.resubscribe().await;
+                rpc.resubscribe().await?;
             }
             return Ok(rpc);
         }
@@ -168,9 +188,14 @@ impl Rpc {
         events: SharedEvents,
         session: &str,
         host: crate::codex_host::Host,
+        role: ConnectionRole,
     ) -> Result<Arc<Self>> {
         let socket = host.socket.clone();
-        Self::proxy(binary, events, session, &socket, Some(host)).await
+        #[cfg(target_os = "macos")]
+        if crate::desktop::daemon::native_peer(&socket).await? != host.pid {
+            return Err("CODEX_BACKEND_PEER_MISMATCH".into());
+        }
+        Self::proxy(binary, events, session, &socket, Some(host), role).await
     }
     #[cfg(target_os = "macos")]
     pub(crate) async fn connect_shared_desktop(
@@ -178,7 +203,15 @@ impl Rpc {
         events: SharedEvents,
         socket: &Path,
     ) -> Result<Arc<Self>> {
-        Self::proxy(binary, events, &id(), socket, None).await
+        Self::proxy(
+            binary,
+            events,
+            &id(),
+            socket,
+            None,
+            ConnectionRole::SharedDesktop,
+        )
+        .await
     }
     async fn proxy(
         binary: &Path,
@@ -186,6 +219,7 @@ impl Rpc {
         session: &str,
         socket: &Path,
         host: Option<crate::codex_host::Host>,
+        role: ConnectionRole,
     ) -> Result<Arc<Self>> {
         let mut command = command(binary);
         command.env("CODEX_HOME", crate::accounts::codex::default_home()?);
@@ -226,7 +260,6 @@ impl Rpc {
             .as_ref()
             .map(|host| host.inherited_nofile.clone())
             .unwrap_or(Value::Null);
-        let shared_desktop = host.is_none();
         Self::run(
             child,
             Writer::Socket(sink),
@@ -237,90 +270,92 @@ impl Rpc {
             pid,
             started_at,
             inherited_nofile,
-            shared_desktop,
+            role,
         )
         .await
     }
     #[cfg(target_os = "macos")]
-    pub(crate) fn proxy_identity(&self) -> Value {
-        json!({"connection":self.session,"pid":self.pid,"start":self.pid.and_then(crate::codex_host::process_start)})
+    pub(crate) async fn proxy_identity(&self) -> Value {
+        let pid = self.child.lock().await.id();
+        json!({"connection":self.connection,"pid":pid,"start":pid.and_then(crate::codex_host::process_start)})
     }
     pub(crate) fn runtime_source(&self) -> &'static str {
-        if self.shared_desktop {
-            "desktop-shared-app-server"
-        } else {
-            "connector-app-server"
+        match self.role {
+            ConnectionRole::Connector => "connector-app-server",
+            ConnectionRole::SharedDesktop => "desktop-shared-app-server",
+            ConnectionRole::PrivateDesktop => "desktop-private-app-server",
         }
     }
     /// Subscribe this connection to turns that kept running while no Core was
     /// attached. Codex re-sends their pending server requests on resume.
-    pub(crate) async fn resubscribe(&self) {
-        for thread in self.active_threads().await {
-            if let Err(error) = self
-                .call(
+    async fn resubscribe(&self) -> Result<()> {
+        for thread in self.loaded_threads().await? {
+            if !self.thread_idle(&thread).await? {
+                self.call(
                     "thread/resume",
                     json!({"threadId":thread,"excludeTurns":true}),
                     30000,
                 )
-                .await
-            {
-                crate::logs::record(
-                    "WARN",
-                    &format!("Adopted Codex thread {thread} could not be resubscribed: {error}"),
-                    None,
-                );
+                .await?;
             }
         }
+        Ok(())
     }
-    async fn active_threads(&self) -> Vec<String> {
-        let Ok(loaded) = self.call("thread/loaded/list", json!({}), 5000).await else {
-            return vec![];
-        };
-        let mut active = vec![];
-        for thread in loaded["data"].as_array().into_iter().flatten() {
-            let Some(thread) = thread.as_str() else {
-                continue;
-            };
-            let status = self
+
+    async fn loaded_threads(&self) -> Result<Vec<String>> {
+        let mut threads = Vec::new();
+        let mut cursor = Value::Null;
+        let mut seen = std::collections::HashSet::new();
+        loop {
+            let page = self
                 .call(
-                    "thread/read",
-                    json!({"threadId":thread,"includeTurns":false}),
+                    "thread/loaded/list",
+                    json!({"cursor":cursor,"limit":100}),
                     5000,
                 )
-                .await
-                .map(|v| v["thread"]["status"]["type"].clone());
-            if !matches!(
-                status.as_ref().ok().and_then(Value::as_str),
-                Some("idle" | "notLoaded")
-            ) {
-                active.push(thread.to_owned());
+                .await?;
+            for id in page["data"]
+                .as_array()
+                .ok_or("CODEX_HOST_INVALID_LOADED_THREADS")?
+            {
+                threads.push(
+                    id.as_str()
+                        .ok_or("CODEX_HOST_INVALID_LOADED_THREAD")?
+                        .to_owned(),
+                );
+            }
+            cursor = page["nextCursor"].clone();
+            if cursor.is_null() {
+                return Ok(threads);
+            }
+            if !seen.insert(cursor.to_string()) {
+                return Err("CODEX_HOST_REPEATED_CURSOR".into());
             }
         }
-        active
     }
-    /// Whether any loaded thread is not idle. Failures count as active.
+
+    async fn thread_idle(&self, thread: &str) -> Result<bool> {
+        let read = self
+            .call(
+                "thread/read",
+                json!({"threadId":thread,"includeTurns":false}),
+                5000,
+            )
+            .await?;
+        Ok(matches!(
+            read["thread"]["status"]["type"].as_str(),
+            Some("idle" | "notLoaded")
+        ))
+    }
+
+    /// Uncertain activity retains the host.
     pub(crate) async fn active(&self) -> bool {
-        let Ok(loaded) = self.call("thread/loaded/list", json!({}), 3000).await else {
+        let Ok(threads) = self.loaded_threads().await else {
             return true;
         };
-        let Some(ids) = loaded["data"].as_array() else {
-            return true;
-        };
-        for id in ids {
-            match self
-                .call(
-                    "thread/read",
-                    json!({"threadId":id,"includeTurns":false}),
-                    3000,
-                )
-                .await
-            {
-                Ok(v)
-                    if matches!(
-                        v["thread"]["status"]["type"].as_str(),
-                        Some("idle" | "notLoaded")
-                    ) => {}
-                _ => return true,
+        for thread in threads {
+            if !self.thread_idle(&thread).await.unwrap_or(false) {
+                return true;
             }
         }
         false
@@ -353,8 +388,9 @@ impl Rpc {
         pid: Option<u32>,
         started_at: String,
         inherited_nofile: Value,
-        shared_desktop: bool,
+        role: ConnectionRole,
     ) -> Result<Arc<Self>> {
+        let shared_desktop = role == ConnectionRole::SharedDesktop;
         let pending: Pending = Default::default();
         let alive = Arc::new(std::sync::atomic::AtomicBool::new(true));
         let rpc = Arc::new(Self {
@@ -364,7 +400,12 @@ impl Rpc {
             pending: pending.clone(),
             events: events.clone(),
             session: session.into(),
-            shared_desktop,
+            connection: if shared_desktop {
+                session.to_owned()
+            } else {
+                id()
+            },
+            role,
             alive: alive.clone(),
             pid,
             started_at,
@@ -372,9 +413,30 @@ impl Rpc {
         });
         let session = session.to_owned();
         let runtime_source = rpc.runtime_source();
+        #[cfg(target_os = "macos")]
+        let disconnect = (shared_desktop || rpc.detached()).then(|| {
+            (
+                rpc.connection.clone(),
+                if shared_desktop {
+                    "desktop-last-disconnect.json"
+                } else {
+                    "private-last-disconnect.json"
+                },
+            )
+        });
+        let connection = rpc.connection.clone();
         let response_id = move |session: &str, key: &Value| {
-            if shared_desktop {
-                json!(["desktop-daemon", session, key]).to_string()
+            if role != ConnectionRole::Connector {
+                json!([
+                    if shared_desktop {
+                        "desktop-daemon"
+                    } else {
+                        "private-desktop"
+                    },
+                    session,
+                    key
+                ])
+                .to_string()
             } else {
                 key.to_string()
             }
@@ -387,7 +449,7 @@ impl Rpc {
                 if msg.get("method").is_some() {
                     if let Some(key) = msg.get("id") {
                         let response = response_id(&session, key);
-                        let mut request = json!({"id":key,"responseId":response,"method":msg["method"],"params":msg["params"],"backendSession":session,"owner":runtime_source,"canRespond":true,"next":{"via":"act","op":"codex_respond","args":{"id":response,"backendSession":session},"hint":"Supply exactly one of result/error using the native response schema."}});
+                        let mut request = json!({"id":key,"responseId":response,"method":msg["method"],"params":msg["params"],"backendSession":session,"connection":connection,"owner":runtime_source,"canRespond":true,"next":{"via":"act","op":"codex_respond","args":{"id":response,"backendSession":session},"hint":"Supply exactly one of result/error using the native response schema."}});
                         let task = string(&request["params"], "threadId").to_owned();
                         if let Err(error) =
                             crate::claude_notify::routing::observe("codex", &task, &mut request)
@@ -422,10 +484,10 @@ impl Rpc {
                 }
             }
             #[cfg(target_os = "macos")]
-            if shared_desktop {
+            if let Some((connection, path)) = disconnect {
                 let _ = save(
-                    &root().join("desktop-last-disconnect.json"),
-                    &json!({"connection":session,"observedAt":now()}),
+                    &root().join(path),
+                    &json!({"connection":connection,"observedAt":now()}),
                 );
             }
             alive.store(false, std::sync::atomic::Ordering::SeqCst);
@@ -435,7 +497,7 @@ impl Rpc {
             let mut events = events.lock().await;
             events
                 .pending
-                .retain(|_, r| r["owner"] == "desktop" || r["backendSession"] != session);
+                .retain(|_, r| r["owner"] == "desktop" || r["connection"] != connection);
             for timeline in events.timelines.values_mut() {
                 if timeline.info["runtimeSource"] == runtime_source {
                     timeline.lose_observation();
@@ -443,9 +505,13 @@ impl Rpc {
             }
             events.wake.notify_waiters();
         });
-        let initialize_timeout = if shared_desktop { 5_000 } else { 60_000 };
+        let initialize_timeout = if shared_desktop || rpc.detached() {
+            5_000
+        } else {
+            60_000
+        };
         let initialized = rpc.call("initialize",json!({"clientInfo":{"name":"agent-remote-control","version":env!("ARC_BUILD_VERSION")},"capabilities":{"experimentalApi":true}}),initialize_timeout).await?;
-        if shared_desktop {
+        if shared_desktop || (cfg!(target_os = "macos") && rpc.detached()) {
             let expected = crate::accounts::codex::default_home()?
                 .canonicalize()
                 .map_err(|e| e.to_string())?;
@@ -559,7 +625,7 @@ impl Rpc {
     }
     /// Close this connection. A detached server keeps running; only its proxy ends.
     pub async fn close(&self) {
-        if self.host.is_some() || self.shared_desktop {
+        if self.host.is_some() || self.role == ConnectionRole::SharedDesktop {
             self.input.lock().await.take();
             let _ = self.child.lock().await.kill().await;
             self.alive.store(false, std::sync::atomic::Ordering::SeqCst);

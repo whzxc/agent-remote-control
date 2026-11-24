@@ -19,10 +19,10 @@ impl Instance {
         json!({"pid":self.pid,"start":self.start})
     }
     pub fn independent(&self) -> bool {
-        if self.profile.as_deref() != Some(&independent_profile()) {
+        if !self.profile.as_deref().is_some_and(is_independent_profile) {
             return false;
         }
-        crate::kernel::file_cache::load(&root().join("desktop-launch.json")).is_ok_and(|r| {
+        crate::kernel::file_cache::load(&launch_record(self.profile.as_deref())).is_ok_and(|r| {
             self.launch_id
                 .as_ref()
                 .is_some_and(|id| r["launchId"] == *id)
@@ -208,6 +208,45 @@ pub(crate) fn independent_profile() -> PathBuf {
     root().join("codex-desktop")
 }
 
+/// The second profile is needed only when an older or fallback instance is
+/// still attached to the other socket. Never redirect a running instance.
+pub(super) fn alternate_profile() -> PathBuf {
+    root().join("codex-desktop-alternate")
+}
+
+pub(super) fn is_independent_profile(path: &Path) -> bool {
+    path == independent_profile() || path == alternate_profile()
+}
+
+fn launch_record(profile: Option<&Path>) -> PathBuf {
+    root().join(if profile == Some(&alternate_profile()) {
+        "desktop-launch-alternate.json"
+    } else {
+        "desktop-launch.json"
+    })
+}
+
+impl Instance {
+    pub(super) fn uses(&self, socket: &Path) -> bool {
+        self.endpoint.as_deref() == Some(&url(socket))
+    }
+}
+
+/// Retain a host with a live independent Desktop across update and shutdown.
+/// An inaccessible process snapshot cannot establish absence.
+pub(crate) async fn private_desktop_running() -> bool {
+    let Ok(socket) = crate::codex_host::socket("codex-home")
+        .and_then(|p| p.canonicalize().map_err(|e| e.to_string()))
+    else {
+        return instances()
+            .await
+            .map_or(true, |items| items.iter().any(Instance::independent));
+    };
+    instances()
+        .await
+        .map_or(true, |items| items.iter().any(|i| i.uses(&socket)))
+}
+
 pub(crate) async fn native_peer(socket: &Path) -> Result<u32> {
     use std::os::fd::AsRawFd;
     let connection = tokio::net::UnixStream::connect(socket)
@@ -234,14 +273,17 @@ pub(crate) async fn native_peer(socket: &Path) -> Result<u32> {
 /// Verify a connected Unix socket from the target process tree to the daemon.
 /// A launch variable alone can also describe a Desktop that failed to connect.
 pub(crate) async fn connected() -> Result<Option<Instance>> {
-    connected_profile(None).await
-}
-
-pub(crate) async fn connected_profile(profile: Option<&Path>) -> Result<Option<Instance>> {
     let Ok(socket) = socket() else {
         return Ok(None);
     };
-    let expected = url(&socket);
+    connected_profile(None, &socket).await
+}
+
+pub(crate) async fn connected_profile(
+    profile: Option<&Path>,
+    socket: &Path,
+) -> Result<Option<Instance>> {
+    let expected = url(socket);
     let rows = process_rows().await?;
     let mut candidates: Vec<_> = instances_in(&rows)?
         .into_iter()
@@ -282,7 +324,7 @@ pub(crate) async fn connected_profile(profile: Option<&Path>) -> Result<Option<I
         .join(",");
     let mut lsof = command("/usr/sbin/lsof");
     lsof.kill_on_drop(true)
-        .args(["-nP", "-U", "-a", "-p", &pids]);
+        .args(["-nP", "-U", "-a", "-p", &pids, "-Fpfdn"]);
     let Ok(report) = tokio::time::timeout(Duration::from_secs(2), lsof.output()).await else {
         return Ok(None);
     };
@@ -290,19 +332,22 @@ pub(crate) async fn connected_profile(profile: Option<&Path>) -> Result<Option<I
     // may then exit nonzero even when it reports other live sockets.
     let report = report.map_err(|error| format!("DESKTOP_SOCKET_OBSERVATION_FAILED: {error}"))?;
     let sockets = String::from_utf8_lossy(&report.stdout);
+    let mut pid = None;
+    let mut device = None;
     let sockets: Vec<_> = sockets
         .lines()
-        .filter_map(|line| {
-            let fields: Vec<_> = line.split_whitespace().collect();
-            (fields.get(4) == Some(&"unix"))
-                .then(|| {
-                    Some((
-                        fields.get(1)?.parse::<u32>().ok()?,
-                        *fields.get(5)?,
-                        *fields.get(7)?,
-                    ))
-                })
-                .flatten()
+        .filter_map(|field| {
+            if let Some(value) = field.strip_prefix('p') {
+                pid = value.parse::<u32>().ok();
+                device = None;
+            }
+            if field.starts_with('f') {
+                device = None;
+            }
+            if let Some(value) = field.strip_prefix('d') {
+                device = Some(value);
+            }
+            Some((pid?, device?, field.strip_prefix('n')?))
         })
         .collect();
     let server_fds: std::collections::HashSet<_> = sockets
@@ -359,22 +404,19 @@ async fn run(binary: &Path, args: &[&str], timeout: Duration) -> Result<()> {
     ))
 }
 
-pub(crate) async fn launch(profile: Option<&Path>) -> Result<()> {
+pub(crate) async fn launch(profile: Option<&Path>, socket: &Path) -> Result<()> {
     let app = super::require_installation()?.app;
     let home = crate::accounts::codex::default_home()?;
     let home_env = format!("CODEX_HOME={}", home.display());
-    let url_env = format!("CODEX_APP_SERVER_WS_URL={}", url(&socket()?));
+    let url_env = format!("CODEX_APP_SERVER_WS_URL={}", url(socket));
     let app = app.to_str().ok_or("Invalid Desktop bundle path")?;
     let mut args = vec!["-g", "--env", &home_env, "--env", &url_env];
     let profile_env;
     let profile_arg;
     let launch_env;
-    if profile == Some(&independent_profile()) {
+    if profile.is_some_and(is_independent_profile) {
         let launch_id = id();
-        save(
-            &root().join("desktop-launch.json"),
-            &json!({"launchId":launch_id}),
-        )?;
+        save(&launch_record(profile), &json!({"launchId":launch_id}))?;
         launch_env = format!("ARC_DESKTOP_LAUNCH_ID={launch_id}");
         args.extend(["--env", &launch_env]);
     }
@@ -427,19 +469,22 @@ pub(crate) async fn quit(instance: Instance) -> Result<()> {
 }
 
 pub(crate) async fn open_thread(thread: &str, target: Option<&Value>) -> Result<()> {
-    let profile = if let Some(target) = target {
-        instances()
+    let instance = if let Some(target) = target {
+        let instance = instances()
             .await?
             .into_iter()
             .find(|i| i.identity() == *target)
-            .ok_or("DESKTOP_RECOVERY_TARGET_CHANGED")?
-            .profile
+            .ok_or("DESKTOP_RECOVERY_TARGET_CHANGED")?;
+        let private = crate::codex_host::socket("codex-home")?.canonicalize().ok();
+        let socket = match private {
+            Some(socket) if instance.uses(&socket) => socket,
+            _ => socket()?,
+        };
+        connected_profile(instance.profile.as_deref(), &socket).await?
     } else {
-        None
-    };
-    let instance = connected_profile(profile.as_deref())
-        .await?
-        .ok_or("DESKTOP_DAEMON_APP_NOT_RUNNING")?;
+        connected().await?
+    }
+    .ok_or("DESKTOP_DAEMON_APP_NOT_RUNNING")?;
     if target.is_some_and(|target| *target != instance.identity()) {
         return Err("DESKTOP_RECOVERY_TARGET_CHANGED".into());
     }

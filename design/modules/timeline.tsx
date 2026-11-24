@@ -480,6 +480,12 @@ export function RelayTimeline({ state, handback }: { state: "running" | "waiting
 }
 
 export default () => [
+  <Frame name="desktop-backend-arc" width={200} fixture="task-owner-backend-arc" capture={{selector:'[data-dispatch-backend="arc"]'}}>
+    <Tag form="ownership" icon="monitor">ARC App Server</Tag>
+  </Frame>,
+  <Frame name="desktop-backend-shared" width={340} fixture="task-owner-backend-shared" capture={{selector:'[data-dispatch-backend="shared"]'}}>
+    <Tag form="ownership" icon="monitor">共享 Codex 后台 · 无法连接 ARC App Server</Tag>
+  </Frame>,
   <Frame name="desktop-handback-running" width={440}>
     <div class="flex items-center gap-2"><HandbackStatus state="running" /></div>
   </Frame>,
