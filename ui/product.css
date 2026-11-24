@@ -561,8 +561,8 @@ button.timeline-summary { appearance: none; cursor: pointer; }
 }
 .hub-arc-top .hub-arc-action { bottom: calc(90% + var(--space-1)); translate: 0 5px; }
 .hub-arc-bottom .hub-arc-action { top: calc(90% + var(--space-1)); translate: 0 -5px; }
-.hub-arc:is(:hover, :focus-within) .hub-arc-bridge { pointer-events: auto; }
-.hub-arc:is(:hover, :focus-within) .hub-arc-action { opacity: 1; translate: none; pointer-events: auto; }
+.topology-hub[data-hub-open] .hub-arc-bridge, .hub-arc:is(:hover, :focus-within) .hub-arc-bridge { pointer-events: auto; }
+.topology-hub[data-hub-open] .hub-arc-action, .hub-arc:is(:hover, :focus-within) .hub-arc-action { opacity: 1; translate: none; pointer-events: auto; }
 :root[data-reduced-motion="true"] .hub-arc-action { transition: none; }
 @media (prefers-reduced-motion: reduce) { :root:not([data-reduced-motion]) .hub-arc-action { transition: none; } }
 .hub-recovery-reason { display: flex; flex-direction: column; gap: 8px; }

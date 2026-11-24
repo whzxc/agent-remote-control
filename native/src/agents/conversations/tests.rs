@@ -190,7 +190,7 @@ fn claude_list_metadata_confirms_only_the_latest_explicit_outcome() {
 
 #[test]
 fn antigravity_projects_wal_summaries_and_transcript_turns() {
-    // Contract: Antigravity conversation row and timeline metadata
+    // Contract: Antigravity conversation rows and timelines expose clean user prompts and native turn metadata
     use native::antigravity::{timeline, Summaries};
     let sandbox = Sandbox::new();
     let db_path = sandbox.0.join("conversation_summaries.db");
@@ -213,10 +213,10 @@ fn antigravity_projects_wal_summaries_and_transcript_turns() {
     .unwrap();
 
     let transcript = [
-        json!({"type":"USER_INPUT","content":"<USER_REQUEST>Find the result</USER_REQUEST>","step_index":0,"created_at":"2026-01-01T00:00:00Z"}),
+        json!({"type":"USER_INPUT","content":"<USER_REQUEST>\nFind the result\n</USER_REQUEST>\n<ADDITIONAL_METADATA>Local time</ADDITIONAL_METADATA>\n<USER_SETTINGS_CHANGE>Updated</USER_SETTINGS_CHANGE>","step_index":0,"created_at":"2026-01-01T00:00:00Z"}),
         json!({"type":"PLANNER_RESPONSE","model":"gemini-4-neon-high","content":"Searching","thinking":"Check sources","tool_calls":[{"id":"read","name":"Read","arguments":{"path":"fixture.txt"}}],"step_index":1,"created_at":"2026-01-01T00:00:01Z"}),
         json!({"type":"PLANNER_RESPONSE","model":"gemini-4-neon-xhigh","content":"The first result","step_index":2,"created_at":"2026-01-01T00:00:02Z"}),
-        json!({"type":"USER_INPUT","content":"","step_index":3,"created_at":"2026-01-01T00:00:04Z"}),
+        json!({"type":"USER_INPUT","content":"<CONTEXT_SUMMARY>Old context</CONTEXT_SUMMARY> Continue </USER_REQUEST> <GRILL_ME>Instructions</GRILL_ME>","step_index":3,"created_at":"2026-01-01T00:00:04Z"}),
         json!({"type":"PLANNER_RESPONSE","model":"gemini-preview","content":"The second result","step_index":4,"created_at":"2026-01-01T00:00:07Z"}),
     ];
     let brain = sandbox.0.join("brain");
@@ -233,6 +233,7 @@ fn antigravity_projects_wal_summaries_and_transcript_turns() {
     let sessions = native::Index::default().scan(&[("antigravity".into(), brain, None)]);
     let mut row = (*sessions[0].row).clone();
     assert_eq!(row["title"], "Find the result");
+    assert_eq!(row["preview"], "Find the result");
     assert_eq!(row["dispatchSummary"], json!({"model":"gemini-preview"}));
     assert_eq!(row["turnCount"], 2);
     assert_eq!(row["turnDurationMs"], 3000);
@@ -255,6 +256,14 @@ fn antigravity_projects_wal_summaries_and_transcript_turns() {
     assert_eq!(row["title"], "Native title");
 
     let history = timeline(SESSION, &transcript, false);
+    let prompts: Vec<_> = history["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|entry| entry["type"] == "user")
+        .map(|entry| string(entry, "text"))
+        .collect();
+    assert_eq!(prompts, ["Find the result", "Continue"]);
     assert_eq!(history["dispatchSummary"], row["dispatchSummary"]);
     assert_eq!(
         history["turnDispatchSummaries"]["0"],

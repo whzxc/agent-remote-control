@@ -3,7 +3,7 @@ import { capsuleItems, type HomepageTask } from '../state/activityModel';
 import './topology.css';
 import { participantPost, petSize, wanderPost, petPath, type Rect } from '../pets/geometry';
 import PetLayer, { type PetLayerHandle, type PetGeometry } from "../pets/PetLayer";
-import { arcActionRegion, hubMarkGeometry, hubControlGeometry } from "./geometry";
+import { arcActionRegion, hubMarkGeometry, hubControlGeometry, hubHoverRegion } from "./geometry";
 import ArcActions, { type ArcActionsHandle } from './ArcActions';
 import type { ActivityReadTarget } from '../state/activityBubbles';
 import { appEnvironment, envOverrides } from "../state/appEnvironment";
@@ -30,6 +30,10 @@ import { TopologyPainter, type PaintNode } from "./render";
 import { orderedSubset, moveToY } from "./order";
 import { topologyValues, topologyDebug } from "../state/topology";
 import type { LayerRect as SurfaceRect } from "../components/ui/layerFrame";
+
+function containsPoint(rect: Rect, x: number, y: number) {
+  return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height;
+}
 
 export interface NodeView extends Omit<PaintNode, "side"> { content: ReactNode; extent?: number; hasChildren?: boolean; deviceId?: string; remoteAgent?: string; upstreamSourceId?: string; capsuleMark?: ReactNode; reorderable?: boolean; children?: NodeView[]; collapsed?: boolean;
   unread?: ActivityReadTarget[];
@@ -71,6 +75,8 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
   const portraitSvg = useRef<SVGSVGElement>(null), portraitPainter = useRef<PortraitPainter | null>(null);
   const elements = useRef(new Map<string, HTMLDivElement>());
   const arcControls = useRef(new Map<string, ArcActionsHandle>());
+  const hubZoneRect = useRef<Rect>(null);
+  const ignoreHubFocus = useRef(false);
   const actionRegions = useRef(new Map<string, Rect>());
   const actionPointer = useRef<{ x: number; y: number } | null>(null);
   const pointerActionOwner = useRef<string | null>(null);
@@ -129,6 +135,27 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
   const [focus, setFocus] = useState<typeof hover>(null);
   const [hubInteraction, setHubInteraction] = useState<Scene["hubInteraction"]>();
   const [revealed, setRevealed] = useState<string | null>(null);
+  const [hubZoneOpen, setHubZoneOpen] = useState(false);
+  const hubZoneActive = useRef(false);
+  const hideHub = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const setHubZone = useCallback((open: boolean) => {
+    if (hideHub.current !== null) clearTimeout(hideHub.current);
+    hideHub.current = null;
+    if (hubZoneActive.current === open) return;
+    hubZoneActive.current = open;
+    setHubZoneOpen(open);
+  }, []);
+  const updateHubZone = useCallback((focused: EventTarget | null = document.activeElement) => {
+    const rect = hubZoneRect.current, pointer = actionPointer.current;
+    const inside = pointer && rect && containsPoint(rect, pointer.x - origin.current.x, pointer.y - origin.current.y);
+    const focusedInside = focused instanceof Element && graph.current?.contains(focused) &&
+      focused.closest('.topology-hub, [data-center-wing]');
+    if (inside || focusedInside) {
+      setHubZone(true);
+    } else if (hubZoneActive.current && hideHub.current === null) {
+      hideHub.current = setTimeout(() => setHubZone(false), 180);
+    }
+  }, [setHubZone]);
   const hideToggle = useRef<ReturnType<typeof setTimeout> | null>(null);
   const revealActions = useCallback((key: string | null) => {
     if (hideToggle.current !== null) clearTimeout(hideToggle.current);
@@ -145,25 +172,31 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
   const updateActionPointer = useCallback(() => {
     const pointer = actionPointer.current;
     if (!pointer) return;
+    updateHubZone();
     const x = pointer.x - origin.current.x, y = pointer.y - origin.current.y;
-    const owner = [...actionRegions.current].filter(([, r]) => x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height)
+    const owner = [...actionRegions.current].filter(([, r]) => containsPoint(r, x, y))
       .sort(([, a], [, b]) => a.width * a.height - b.width * b.height)[0]?.[0] ?? null;
     if (pointerActionOwner.current === owner) return;
     pointerActionOwner.current = owner;
     revealActions(owner);
-  }, [revealActions]);
+  }, [revealActions, updateHubZone]);
   // Transition blur clears highlights while its requested focus restoration waits.
   const clearInteraction = useCallback(() => {
     actionPointer.current = null; pointerActionOwner.current = null;
     setHover(null); setFocus(null); setRevealed(null); setHubInteraction(undefined);
+    setHubZone(false);
     if (hideToggle.current !== null) clearTimeout(hideToggle.current);
     hideToggle.current = null;
-  }, []);
+  }, [setHubZone]);
   useEffect(() => {
     const blur = () => { pendingGroupFocus.current = null; clearInteraction(); };
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape' && hubZoneActive.current) clearInteraction(); };
     window.addEventListener('blur', blur);
+    document.addEventListener('keydown', escape, true);
     return () => {
       window.removeEventListener('blur', blur);
+      document.removeEventListener('keydown', escape, true);
+      if (hideHub.current !== null) clearTimeout(hideHub.current);
       if (hideToggle.current !== null) clearTimeout(hideToggle.current);
     };
   }, [clearInteraction]);
@@ -316,6 +349,8 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
     const app = boundary.current?.closest<HTMLElement>('.app-scene');
     if (app) app.style.setProperty('--topology-hub-x', `${h.x + origin.current.x - app.getBoundingClientRect().left}px`);
     const portraitFrame = a.values('portrait');
+    hubZoneRect.current = hubHoverRegion({ x: h.x, y: h.y, Re: h.Re },
+      portrait && portraitFrame ? { earOffset: portraitFrame.earOffset, earHalf: portraitFrame.earHalf } : undefined);
     actionRegions.current.clear();
     for (const side of [-1, 1] as const) {
       const control = arcControls.current.get(`wing:${side}`);
@@ -325,8 +360,6 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
         start: { x: h.x + side * portraitFrame.earOffset, y: h.y },
         end: { x: h.x + side * (portraitFrame.earOffset + portraitFrame.earHalf), y: h.y }, outward: { x: 0, y: side } }
         : { kind: 'arc', x: h.x, y: h.y, radius: h.Re, lo: ear.lo, hi: ear.hi, side }, true);
-      const reach = portrait && portraitFrame ? portraitFrame.earOffset + portraitFrame.earHalf + 34 : h.Re + 34;
-      actionRegions.current.set(`wing:${side}`, { x: side === -1 ? h.x - reach : h.x, y: h.y - h.Re - 12, width: reach, height: 2 * (h.Re + 12) });
     }
     if (hub.current) {
       const mark = hubMarkGeometry(h.dotSource, h.dotAgent);
@@ -602,8 +635,19 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
   // A new pointer sequence clears the previous drag's click guard, including
   // controls that stop pointerdown before the draggable slot can receive it.
   return <div ref={graph} className="connection-graph topology-scene"
-    onPointerLeave={event => { if (event.pointerType !== 'touch') clearInteraction(); }}
-    onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) clearInteraction(); }}
+    onPointerLeave={event => {
+      if (event.pointerType === 'touch') return;
+      actionPointer.current = null; pointerActionOwner.current = null;
+      changeHover(null); setHubInteraction(undefined); revealActions(null); updateHubZone();
+    }}
+    onFocusCapture={event => { if (!ignoreHubFocus.current) updateHubZone(event.target); }}
+    onBlurCapture={event => {
+      if (!event.currentTarget.contains(event.relatedTarget)) {
+        setHover(null); setFocus(null); setHubInteraction(undefined);
+        if (!pointerActionOwner.current) revealActions(null);
+      }
+      if (!ignoreHubFocus.current) updateHubZone(event.relatedTarget);
+    }}
     onPointerDownCapture={event => { suppressedClick.current = null; if (!(event.target as Element).closest('.topology-arc-actions')) revealActions(null); }}
     onPointerMoveCapture={event => {
       if (event.pointerType !== 'touch') { actionPointer.current = { x: event.clientX, y: event.clientY }; updateActionPointer(); }
@@ -623,7 +667,7 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
     <PetLayer ref={pets} geometry={petGeometry} />
     <svg ref={svg} className="topology-wires" aria-hidden="true" />
     <svg ref={portraitSvg} className="topology-wires portrait-wires" aria-hidden="true" />
-    <div ref={hub} className="topology-hub"
+    <div ref={hub} className="topology-hub" data-hub-open={hubZoneOpen || undefined}
       onPointerMove={event => setHubInteraction((event.target as Element).closest('.hub-source') ? 'source' : (event.target as Element).closest('.hub-agent') ? 'agent' : 'hub')}
       onPointerLeave={() => setHubInteraction(undefined)}
       onFocusCapture={event => setHubInteraction((event.target as Element).closest('.hub-source') ? 'source' : (event.target as Element).closest('.hub-agent') ? 'agent' : 'hub')}
@@ -634,9 +678,13 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
       const key = `wing:${side}`, unread = (side === -1 ? inputLeft : inputRight).flatMap(unreadUnder);
       return <ArcActions key={key} side={side} label={t(side === -1 ? 'topology.sourceSide' : 'topology.agentSide')}
         ref={control => { if (control) arcControls.current.set(key, control); else arcControls.current.delete(key); }}
-        open={revealed === key} collapsed={closed} canCollapse={closed || !!(side === -1 ? inputRight : inputLeft).length}
+        centerWing open={hubZoneOpen || revealed === key} collapsed={closed} canCollapse={closed || !!(side === -1 ? inputRight : inputLeft).length}
         unread={!!unread.length} onRead={onMarkRead ? () => onMarkRead(unread) : undefined}
-        onOpen={open => revealActions(open ? key : null)} onDismiss={() => hub.current?.querySelector<HTMLButtonElement>(side === -1 ? '.hub-source' : '.hub-agent')?.focus({ preventScroll: true })}
+        onOpen={open => revealActions(open ? key : null)} onDismiss={() => {
+          ignoreHubFocus.current = true;
+          hub.current?.querySelector<HTMLButtonElement>(side === -1 ? '.hub-source' : '.hub-agent')?.focus({ preventScroll: true });
+          ignoreHubFocus.current = false;
+        }}
         onCollapse={() => {
           if (!closed) onCollapseSide?.(side);
           topologyCollapsed.set(old => ({ ...old, [`wing:${side}`]: !closed, [`wing:${-side}`]: false }));

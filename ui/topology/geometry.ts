@@ -7,6 +7,19 @@ export function hubControlGeometry(radius: number) {
   const size = radius * 240 / 130;
   return { size, powerBottom: size * 0.4 + 34 };
 }
+export function hubHoverRegion(hub: { x: number; y: number; Re: number }, portraitFrame?: { earOffset: number; earHalf: number }) {
+  const { x, y, Re } = hub;
+  const { size, powerBottom } = hubControlGeometry(Re);
+  // Cover paired controls even while the hub orbit rotates between orientations.
+  const popupReach = Math.hypot(powerBottom, 34);
+  const wingReach = portraitFrame
+    ? portraitFrame.earOffset + Math.max(portraitFrame.earHalf, portraitFrame.earHalf / 2 + 16 + 15)
+    : Re + 20 + 15;
+  const halfWidth = Math.max(size / 2, popupReach, wingReach) + 16;
+  const halfHeight = Math.max(size / 2, popupReach, portraitFrame ? 20 + 15 : wingReach) + 16;
+  return { x: x - halfWidth, y: y - halfHeight, width: 2 * halfWidth, height: 2 * halfHeight };
+}
+
 export type ArcActionGeometry = { kind: 'arc'; x: number; y: number; radius: number; lo: number; hi: number; side: Side }
   | { kind: 'line'; start: Point; end: Point; outward: Point };
 

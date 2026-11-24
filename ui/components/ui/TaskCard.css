@@ -31,7 +31,9 @@
 
 .task-card-header { display: flex; flex: none; flex-direction: column; gap: 8px; min-width: 0; padding: 12px 14px; }
 .task-card-first-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; height: 20px; }
-.task-card-first-row > .task-card-scroll { flex: 1; }
+.task-card-first-row > .task-card-scroll, .task-card-meta-row > .task-card-scroll { flex: 1; }
+.task-card-meta-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.task-card-meta-action { display: flex; flex: none; align-items: center; }
 .task-card-scroll { min-width: 0; overflow: auto hidden; scrollbar-width: none; }
 .task-card-scroll::-webkit-scrollbar { display: none; }
 .task-card-scroll:focus-visible, button.task-card-title:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
@@ -91,7 +93,7 @@
   font-size: var(--text-caption);
   line-height: 16px;
 }
-.task-snapshot-timeline:has(+ .task-card-footer) { margin-bottom: 6px; }
+.task-snapshot-tail[data-sparse] .task-snapshot-row[data-role=agent] > .task-snapshot-markdown { -webkit-line-clamp: 3; }
 .task-snapshot-request {
   flex: none;
   padding: 8px 10px;
@@ -132,40 +134,29 @@
 .task-card-origin-node { font-size: var(--text-caption); font-weight: 600; white-space: nowrap; }
 .task-empty-body { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; color: var(--text-secondary); font-size: var(--text-small); }
 .timeline-entries > .task-empty-body { min-height: 256px; }
-.task-card-footer { display: flex; flex: none; margin: 0 8px 8px; }
+@media (prefers-reduced-motion: reduce) { .task-empty-body[data-state=loading] > span > svg { animation: none; } }
+[data-reduced-motion=true] .task-empty-body[data-state=loading] > span > svg { animation: none; }
 
-.task-child-trigger {
-  display: flex;
-  flex: 1;
+.task-child-pill {
+  display: inline-flex;
+  flex: none;
   align-items: center;
-  gap: 8px;
-  min-width: 0;
-  height: 32px;
-  padding: 0 10px;
-  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  border-radius: var(--radius-tile);
-  background: color-mix(in srgb, var(--surface-subtle) 60%, transparent);
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
   color: var(--text);
-  font: 600 var(--text-small)/18px var(--font-ui);
-  text-align: start;
+  font: 600 var(--text-caption)/1 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   cursor: pointer;
 }
-.task-child-trigger > svg { flex: none; color: var(--text-secondary); }
-.task-child-count { min-width: 0; margin-inline-end: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.task-child-badge {
-  flex: none;
-  padding: 1px 7px;
-  border: 1px solid color-mix(in srgb, var(--warning) 25%, transparent);
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--warning) 10%, transparent);
-  color: var(--warning);
-  font-size: var(--text-caption);
-  font-weight: 600;
-  line-height: 1.5;
-  white-space: nowrap;
+.task-child-pill[data-tone=warning] { color: var(--warning); }
+.task-child-pill[data-tone=danger] { color: var(--danger); }
+.task-child-pill[data-tone] {
+  border-color: color-mix(in srgb, currentColor 35%, transparent);
+  background: color-mix(in srgb, currentColor 10%, var(--surface));
 }
-.task-child-badge[data-tone=danger] {
-  border-color: color-mix(in srgb, var(--danger) 25%, transparent);
-  background: color-mix(in srgb, var(--danger) 10%, transparent);
-  color: var(--danger);
-}
+.task-child-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

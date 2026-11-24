@@ -3,7 +3,7 @@
 flowchart TB
   preference[("Persisted homepage mode<br/>Topology or Tasks")]
   switch["User selects SingleChoice<br/>in one-row HomepageBar"]
-  topology["TOPOLOGY MODE<br/>sources LEFT · executors RIGHT<br/>ARC hub and earcups · one device hop"]
+  topology["TOPOLOGY MODE<br/>sources LEFT · executors RIGHT<br/>ARC hub and earcups share one hover zone · one device hop"]
   config["Configuration + viewport / structural disclosure<br/>sources · connections · Agents · paired devices"]
   positions["Static node / branch positions<br/>no task bubbles, queues or task arcs<br/>no task focus overlay"]
   observations["Native task observations"]
@@ -12,7 +12,7 @@ flowchart TB
   panel["Logo activation opens node panel<br/>narrow: explicit horizontal pan · fixed header"]
   jump["User activates node task state<br/>persist Tasks mode<br/>set transient node scope and focus its tasks"]
   tasks["TASKS MODE<br/>recent native conversations + ARC observations<br/>local calendar dates by latest activity"]
-  layout["Responsive grid within each date<br/>running, waiting, unread and today's tasks use one preview card<br/>summary and preview reuse the same three-row header"]
+  layout["Responsive grid within each date<br/>today's tasks use preview cards · earlier tasks use summary cards<br/>summary and preview reuse the same three-row header"]
   chain["Card origin icon chain<br/>source → remote device only → Agent<br/>controller: Anchor Mac → Cedar Mac → Codex<br/>member: Anchor Mac as source → Codex"]
   outcome["Task presentation<br/>explicit failure or interruption takes precedence<br/>observed activity remains active<br/>inactive tasks otherwise appear completed"]
   offline["Offline member tasks<br/>retain recorded outcomes and last observation<br/>no live verbs or counts"]
@@ -20,7 +20,7 @@ flowchart TB
   details["Snapshot zooms into centered task layer<br/>close returns to current snapshot position"]
   read["Opening a completed task marks it read"]
   order["Status-only snapshots · no request actions<br/>controller owns request handling"]
-  overflow["Visible preview cards read native activity<br/>Summary renders only the shared card header<br/>Opening a summary loads detail"]
+  overflow["Visible previews read native activity through a bounded queue<br/>Day overflow previews hidden tasks<br/>Opening a summary loads detail"]
   switch -->|"persist manual selection only"| preference
   preference -->|"restore Topology"| topology
   preference -->|"restore Tasks"| tasks
@@ -31,7 +31,7 @@ flowchart TB
   observations -->|"update cards without changing mode"| tasks
   topology -->|"explicit capsule task-area activation"| jump --> filter --> tasks
   panelLists["Agent and control-source task lists"]
-  shared["Shared task card<br/>origin + time · title · spec + project + turns<br/>per-row horizontal overflow · active preview border follows phase"]
+  shared["Shared task card<br/>origin + time · title · spec + project + turns<br/>Detail subtasks stay pinned beside scrolling metadata · active preview border follows phase"]
   panelLists --> shared
   layout --> shared
   outcome --> shared

@@ -29,7 +29,9 @@ export function resolveLocale(languages: readonly string[]): Locale {
 }
 export const locale = createStore<Locale>("en");
 export function t(key: string, params: Record<string, unknown> = {}): string {
-  const selected = locale.get();
+  return translate(locale.get(), key, params);
+}
+export function translate(selected: Locale, key: string, params: Record<string, unknown> = {}): string {
   return formatMessage(selected, selected === "zh-CN" ? zhCN : en, key, params)
     ?? formatMessage("en", en, key, params) ?? key;
 }

@@ -1,6 +1,6 @@
 //! Read-only Antigravity transcript and summary projection.
 use super::*;
-use std::io::BufRead;
+use std::{borrow::Cow, io::BufRead};
 
 #[derive(Default)]
 pub(in crate::agents::conversations) struct Summaries {
@@ -164,15 +164,39 @@ fn nonempty(text: &str) -> Option<&str> {
     (!text.is_empty()).then_some(text)
 }
 
-fn text(record: &Value) -> &str {
+fn clean_user_input(raw: &str) -> String {
+    const START: &str = "<USER_REQUEST>";
+    const END: &str = "</USER_REQUEST>";
+    let request = raw
+        .split_once(START)
+        .and_then(|(_, tail)| tail.split_once(END))
+        .map_or(raw, |(request, _)| request);
+    let mut clean = request.replace(START, "").replace(END, "");
+    for (open, close) in [
+        ("<ADDITIONAL_METADATA>", "</ADDITIONAL_METADATA>"),
+        ("<USER_SETTINGS_CHANGE>", "</USER_SETTINGS_CHANGE>"),
+        ("<CONTEXT_SUMMARY>", "</CONTEXT_SUMMARY>"),
+        ("<SYSTEM_MESSAGE>", "</SYSTEM_MESSAGE>"),
+        ("<EPHEMERAL_MESSAGE>", "</EPHEMERAL_MESSAGE>"),
+        ("<GRILL_ME>", "</GRILL_ME>"),
+    ] {
+        while let Some(start) = clean.find(open) {
+            let end_start = start + open.len();
+            let Some(end) = clean[end_start..].find(close) else {
+                break;
+            };
+            clean.replace_range(start..end_start + end + close.len(), "");
+        }
+    }
+    clean.trim().to_owned()
+}
+
+fn text(record: &Value) -> Cow<'_, str> {
     let text = string(record, "content").trim();
     if record["type"] == "USER_INPUT" {
-        text.strip_prefix("<USER_REQUEST>")
-            .and_then(|text| text.strip_suffix("</USER_REQUEST>"))
-            .unwrap_or(text)
-            .trim()
+        Cow::Owned(clean_user_input(text))
     } else {
-        text
+        Cow::Borrowed(text)
     }
 }
 
@@ -243,13 +267,13 @@ pub(super) fn derive(path: &Path, modified: SystemTime) -> Option<Value> {
             "USER_INPUT" => {
                 users += 1;
                 turn = Turn::default();
-                if let Some(text) = nonempty(text(&record)).filter(|_| prompt.is_none()) {
+                if let Some(text) = nonempty(&text(&record)).filter(|_| prompt.is_none()) {
                     prompt = Some(short(text, 240));
                 }
             }
             "PLANNER_RESPONSE" => {
                 replies += 1;
-                if let Some(text) = nonempty(text(&record)).filter(|_| reply.is_none()) {
+                if let Some(text) = nonempty(&text(&record)).filter(|_| reply.is_none()) {
                     reply = Some(short(text, 240));
                 }
             }

@@ -5,13 +5,14 @@ import { deviceTasks } from '../devices/tasks';
 import { locale, t } from '../i18n';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, ChevronUp, GitFork, Inbox, ListFilter, X } from 'lucide-react';
-import { Icon, IconButton, Panel } from './ui';
-import { TaskCard, taskTitle } from './ui/TaskCard';
+import { BrandMark, Icon, IconButton, Panel } from './ui';
+import { formatTaskCardTime, TaskCard, taskTitle } from './ui/TaskCard';
 import { homepageTaskFocus, remoteTaskPanel } from '../state/homepage';
 import { panelBack, selectAgentPanel } from '../state/overviewPanels';
 import { markHomepageTaskRead } from '../state/homepageTasks';
 import { activeHomepageTask, homepageTaskFamilies, localTaskDay, type TaskFamily, type HomepageTask } from '../state/activityModel';
 import { useAppNow } from '../state/appEnvironment';
+import { icons } from '../state/agents';
 import { taskException } from '../state/taskProjection';
 import { PanelRoute } from './ui/Panel';
 import './HomepageTasks.css';
@@ -45,24 +46,49 @@ function TaskDayGrid({ items, preview, now, open, openChildren }: {
   const shown = items.length > limit ? limit - 1 : items.length;
   const overflow = items.length - shown;
   const visible = expanded ? items : items.slice(0, shown);
+  const language = locale.use();
+  const label = t(expanded ? 'homepage.collapseTasks' : 'homepage.expandTasks', { count: overflow });
+  const hiddenItems = items.slice(shown, shown + (preview ? 4 : 2));
+  const more = overflow - hiddenItems.length;
   const form = preview ? 'detail' : 'summary';
   return <div ref={grid} className="homepage-task-grid" role="list">
     {visible.map(({ parent: task, children }) => {
       const attention = children.filter(child => child.group === 'needs-me').length;
       const failed = children.filter(child => taskException(child.session.status) === 'failed').length;
       return <TaskCard key={task.key} task={task} form={form} now={now} attention={attention > 0} snapshotKey={task.key} onOpen={() => open(task)}
-        footer={preview && children.length > 0 && <div className="task-card-footer"><button type="button" className="task-child-trigger" data-children onClick={event => openChildren(task.key, event.currentTarget)}>
-        <Icon icon={GitFork} size={14} /><span className="task-child-count">{t('homepage.childCount', { count: children.length })}</span>
-        {attention > 0 && <span className="task-child-badge">{t('homepage.childAttention', { count: attention })}</span>}
-        {failed > 0 && <span className="task-child-badge" data-tone="danger">{t('homepage.childFailures', { count: failed })}</span>}
-        <Icon icon={ChevronRight} size={14} /></button></div>} />;
+        metaAction={preview && children.length > 0 && <button type="button" className="task-child-pill" data-children
+          data-tone={attention > 0 ? 'warning' : failed > 0 ? 'danger' : undefined}
+          aria-label={[t('homepage.childCount', { count: children.length }),
+            attention > 0 ? t('homepage.childAttention', { count: attention }) : '',
+            failed > 0 ? t('homepage.childFailures', { count: failed }) : ''].filter(Boolean).join(' · ')}
+          onClick={event => { event.stopPropagation(); openChildren(task.key, event.currentTarget); }}>
+          <Icon icon={GitFork} size={11} />
+          <span>{children.length}{(attention || failed) > 0 && ` · ${attention || failed}`}</span>
+          <Icon icon={ChevronRight} size={11} />
+        </button>} />;
     })}
-    {overflow > 0 && <button ref={toggle} type="button" className="homepage-task-overflow" data-form={form} aria-expanded={expanded} onClick={() => {
+    {overflow > 0 && <button ref={toggle} type="button" className="homepage-task-overflow" data-form={form} aria-expanded={expanded} aria-label={label} onClick={() => {
       focusAfterToggle.current = expanded ? null : items[shown].parent.key;
       setExpanded(!expanded);
     }}><span className="homepage-task-overflow-face">
-      <strong>{t(expanded ? 'homepage.collapseTasks' : 'homepage.expandTasks', { count: overflow })}</strong>
-      <Icon icon={expanded ? ChevronUp : ChevronDown} size={16} />
+      <span className="homepage-task-overflow-heading">
+        <strong>{label}</strong>
+        <Icon icon={expanded ? ChevronUp : ChevronDown} size={16} />
+      </span>
+      {expanded ? <span className="homepage-task-overflow-caption" aria-hidden="true">{t('homepage.totalTasks', { count: items.length })}</span>
+        : <span className="homepage-task-overflow-peek" aria-hidden="true">
+          <span className="homepage-task-overflow-rows">
+            {hiddenItems.map(({ parent }) => {
+              const time = formatTaskCardTime(parent, now, language);
+              return <span className="homepage-task-overflow-row" key={parent.key}>
+                <BrandMark markup={icons[parent.agent]} size={12} />
+                <span className="homepage-task-overflow-title">{taskTitle(parent)}</span>
+                {time && <time className="homepage-task-overflow-caption" dateTime={time.dateTime} title={time.title}>{time.label}</time>}
+              </span>;
+            })}
+          </span>
+          {preview && more > 0 && <span className="homepage-task-overflow-caption">{t('homepage.moreTasks', { count: more })}</span>}
+        </span>}
     </span></button>}
   </div>;
 }

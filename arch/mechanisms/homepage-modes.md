@@ -19,7 +19,8 @@ is an explicit user navigation: persist Tasks mode, scope the list to the node,
 scroll to its first matching task and transfer keyboard focus. The highlighted node
 chip clears that transient scope. Manual Tasks selection opens all tasks. Mode
 choice persists across restarts; jump scope does not. Returning to Topology restores
-its configuration-based arrangement.
+its configuration-based arrangement. The hub mark and both earcups share a hover
+zone that keeps the center actions visible while the pointer moves between them.
 
 Tasks cards keep their source, optional remote device and Agent as a
 compact icon chain. Each icon exposes its identity by accessible name and tooltip.
@@ -29,8 +30,8 @@ step. The controller projection contains only tasks it dispatched to that member
 
 Tasks combines live activity, recent native Codex conversations and ARC dispatch records.
 Tasks are grouped by the local calendar date of their latest recorded activity. Each
-date section uses responsive columns. Active tasks, including waiting tasks, today's
-tasks and unread completions show previews. Older history shows compact summaries.
+date section uses responsive columns. Today's tasks show previews. Older history
+shows compact summaries.
 Inactive tasks show a recorded failure or interruption when available and
 otherwise appear completed. Offline history uses the last observation. Opening an
 unread completion marks it read.
@@ -62,7 +63,10 @@ selects the device and preserves the topology disclosure state.
 The homepage, Agent and control-source task lists share one task card. A summary
 renders the same three-row header as a detail preview: origin chain and time,
 title, then recorded execution specification, project and turn count. Each row
-stays on one line and scrolls horizontally when constrained. Running previews
+stays on one line. Metadata scrolls horizontally while the subtask control stays
+pinned on detail cards. The day overflow card shows a compact list of hidden tasks.
+Visible detail cards queue up to four background timeline reads at once and back off
+on transient failures. Opening the full detail starts its read immediately. Running previews
 use an Aurora border that follows the observed phase. Tool groups summarize
 recorded categories. Reasoning uses its own summary and replies stay inline.
 Card activation opens the full detail. Routing and request handling remain

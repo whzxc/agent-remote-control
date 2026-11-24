@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useSyncExternalStore, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { api } from "../api";
 import type { AgentTimeline } from "../types";
 import { createStore } from "./store";
@@ -60,34 +60,122 @@ export function useTaskExecution(agent: string, id: string, turnId: string | nul
   return execution;
 }
 
-/** Only mounted task snapshots request timeline previews. */
+const MAX_PREVIEW_CONCURRENCY = 4;
+const PREVIEW_BACKOFF = [400, 1200];
+const previewQueue: (() => Promise<void>)[] = [];
+let activePreviews = 0;
+
+function drainPreviewQueue() {
+  while (activePreviews < MAX_PREVIEW_CONCURRENCY && previewQueue.length) {
+    const read = previewQueue.shift()!;
+    activePreviews++;
+    void read().finally(() => {
+      activePreviews--;
+      drainPreviewQueue();
+    });
+  }
+}
+
+export function isTransientPreviewError(error: unknown): boolean {
+  const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : undefined;
+  const message = typeof error === 'object' && error !== null && 'message' in error ? error.message : error;
+  const text = [code, message].filter(part => typeof part === 'string').join(' ');
+  const namedError = text.match(/\b[A-Z]+(?:_[A-Z]+)+\b/)?.[0];
+  if (namedError) return /^(DESKTOP_BUSY|FRONT_DOOR_BUSY|FRONT_DOOR_UNAVAILABLE|FRONT_DOOR_CORE_LOST|CORE_UNAVAILABLE)$/.test(namedError);
+  return /\b(Cannot connect to local Core|Core is not ready|core shutting down|Failed to fetch|Load failed|timeout)\b/i.test(text);
+}
+
+/** Only visible task snapshots request background timeline previews. */
 export function useTaskPreview(agent: string, id: string, enabled: boolean, card: RefObject<HTMLElement | null>, settled: boolean, turn?: string | null) {
   const [failed, setFailed] = useState(false);
-  const retry = useCallback(() => {
-    setFailed(false);
-    void refreshTaskExecution(agent, id, true, true).catch(() => setFailed(true));
-  }, [agent, id]);
+  const retryRead = useRef<() => void>(undefined);
+  const retry = useCallback(() => retryRead.current?.(), []);
   useEffect(() => {
     setFailed(false);
-    if (!enabled || !card.current || typeof IntersectionObserver !== 'function') return;
-    let visible = false, stopped = false, loaded = false;
-    const read = () => {
-      if (stopped || !visible || document.hidden) return;
-      const cached = taskExecution(agent, id);
-      if (settled && (loaded || cached?.entries.some(entry => !turn || entry.turnId === turn))) return;
-      const olderTurn = !!turn && !!cached?.turnId && turn !== cached.turnId;
-      void refreshTaskExecution(agent, id, !olderTurn, settled && !!cached).then(() => {
-        loaded = true;
-        if (!stopped) setFailed(false);
-      }, () => { if (!stopped) setFailed(true); });
+    if (!enabled || !card.current) return;
+    let visible = false, stopped = false, loaded = false, blocked = false, pending = false;
+    let attempt = 0, retries = 0;
+    let backoff: ReturnType<typeof setTimeout> | undefined;
+    let cached = taskExecution(agent, id);
+    const unsubscribe = taskExecutions.subscribe(() => {
+      const execution = taskExecution(agent, id);
+      if (execution && execution !== cached) {
+        blocked = false;
+        if (backoff !== undefined) {
+          clearTimeout(backoff);
+          backoff = undefined;
+          retries = 0;
+        }
+        setFailed(false);
+      }
+      cached = execution;
+    });
+    const canRead = () => !stopped && visible && !document.hidden && !blocked &&
+      !(settled && (loaded || cached?.entries.some(entry => !turn || entry.turnId === turn)));
+    const schedule = (manual = false) => {
+      if (!manual && (pending || backoff !== undefined || !canRead())) return;
+      pending = true;
+      const current = attempt, started = generation;
+      const read = async () => {
+        if (current !== attempt || stopped) return;
+        try {
+          if (started !== generation || (!manual && !canRead())) return;
+          const olderTurn = !!turn && !!cached?.turnId && turn !== cached.turnId;
+          await refreshTaskExecution(agent, id, manual || !olderTurn, manual || settled && !!cached);
+          if (current === attempt && !stopped && started === generation) {
+            loaded = true;
+            retries = 0;
+            setFailed(false);
+          }
+        } catch (error) {
+          if (current !== attempt || stopped || started !== generation) return;
+          const delay = PREVIEW_BACKOFF[retries];
+          if (delay !== undefined && isTransientPreviewError(error)) {
+            retries++;
+            backoff = setTimeout(() => {
+              backoff = undefined;
+              schedule();
+            }, delay);
+          } else {
+            blocked = true;
+            setFailed(true);
+          }
+        } finally {
+          if (current === attempt) pending = false;
+        }
+      };
+      if (manual) void read();
+      else {
+        previewQueue.push(read);
+        drainPreviewQueue();
+      }
     };
-    const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; read(); });
-    observer.observe(card.current);
+    retryRead.current = () => {
+      attempt++;
+      clearTimeout(backoff);
+      backoff = undefined;
+      blocked = false;
+      loaded = false;
+      retries = 0;
+      setFailed(false);
+      schedule(true);
+    };
+    const read = () => schedule();
+    const observer = typeof IntersectionObserver === 'function' ? new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      read();
+    }) : undefined;
+    observer?.observe(card.current);
     document.addEventListener("visibilitychange", read);
     const timer = settled ? undefined : setInterval(read, 10000);
     return () => {
       stopped = true;
-      observer.disconnect(); clearInterval(timer); document.removeEventListener("visibilitychange", read);
+      retryRead.current = undefined;
+      unsubscribe();
+      observer?.disconnect();
+      clearTimeout(backoff);
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", read);
     };
   }, [agent, id, enabled, card, settled, turn]);
   return { failed, retry };

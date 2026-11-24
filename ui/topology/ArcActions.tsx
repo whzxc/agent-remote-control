@@ -7,8 +7,8 @@ import { t } from '../i18n';
 import { arcActionPositions, arcPath, type ArcActionGeometry } from './geometry';
 
 export interface ArcActionsHandle { place(geometry: ArcActionGeometry, visible: boolean): void }
-export default function ArcActions({ label, side, open, collapsed, canCollapse, unread, onCollapse, onRead, onOpen, onDismiss, onPointerDownCapture, ref }: {
-  label: string; side: -1 | 1; open: boolean; collapsed: boolean; canCollapse: boolean; unread: boolean;
+export default function ArcActions({ label, side, open, centerWing, collapsed, canCollapse, unread, onCollapse, onRead, onOpen, onDismiss, onPointerDownCapture, ref }: {
+  label: string; side: -1 | 1; open: boolean; centerWing?: boolean; collapsed: boolean; canCollapse: boolean; unread: boolean;
   onPointerDownCapture?: PointerEventHandler<HTMLDivElement>;
   onCollapse?: () => void; onRead?: () => void; onOpen: (open: boolean) => void; onDismiss: () => void; ref: Ref<ArcActionsHandle>;
 }) {
@@ -37,9 +37,9 @@ export default function ArcActions({ label, side, open, collapsed, canCollapse, 
   };
   useImperativeHandle(ref, () => ({ place }));
   useLayoutEffect(() => { if (frame.current) place(frame.current.geometry, frame.current.visible); });
-  return <div ref={root} onPointerDownCapture={onPointerDownCapture} className="topology-arc-actions" data-side={side} data-open={open || undefined} role="group" aria-label={label}
-    onPointerEnter={event => { if (event.pointerType !== 'touch') onOpen(true); }} onPointerLeave={event => { if (event.pointerType !== 'touch') onOpen(false); }} onPointerCancel={() => onOpen(false)}
-    onFocusCapture={() => onOpen(true)} onBlurCapture={event => { if (!event.currentTarget.contains(event.relatedTarget)) onOpen(false); }}
+  return <div ref={root} onPointerDownCapture={onPointerDownCapture} className="topology-arc-actions" data-side={side} data-center-wing={centerWing || undefined} data-open={open || undefined} role="group" aria-label={label}
+    onPointerEnter={event => { if (!centerWing && event.pointerType !== 'touch') onOpen(true); }} onPointerLeave={event => { if (!centerWing && event.pointerType !== 'touch') onOpen(false); }} onPointerCancel={() => onOpen(false)}
+    onFocusCapture={() => { if (!centerWing) onOpen(true); }} onBlurCapture={event => { if (!centerWing && !event.currentTarget.contains(event.relatedTarget)) onOpen(false); }}
     onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onOpen(false); onDismiss(); } }}>
     <svg className="arc-action-hit" aria-hidden="true"><path ref={hit} onPointerDown={event => {
       if (event.pointerType === 'touch') { event.preventDefault(); onOpen(!open); }

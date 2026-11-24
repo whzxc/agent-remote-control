@@ -16,7 +16,7 @@ The default exports declare presentations. Task cards have summary and detail fo
 
 ### ARC health
 
-The upper arc shows ARC's remote connection health. The lower arc shows local Core availability. Each arc stays continuous and uses its role color when healthy or the danger color when unhealthy. Hover or keyboard focus reveals icon buttons outside the arc. The hover region includes the space to the buttons. The upper arc always offers Connections and adds recovery when unhealthy. The lower arc offers Stop Core when healthy and Core recovery when unhealthy.
+The upper arc shows ARC's remote connection health. The lower arc shows local Core availability. Each arc stays continuous and uses its role color when healthy or the danger color when unhealthy. Hover or keyboard focus in the center zone reveals the ARC arc and wing controls together. The zone includes the hub, earcups, popup buttons and the paths between them. The upper arc always offers Connections and adds recovery when unhealthy. The lower arc offers Stop Core when healthy and Core recovery when unhealthy.
 
 The upper arc reports unhealthy when health identifies an unavailable ARC-owned listener or transport expected to run. An unconfigured or deliberately stopped remote connection adds no fault. A check failure without an identified connection leaves Connections available in the regular arc state. The lower arc uses Desktop's authenticated check of Core and its management listener. Both reads exclude source and Agent state, OAuth, account state, task activity, and local client bridges. A source lifecycle action cannot change ARC's expected remote transport state. A client leaving or losing its lease cannot stop Core while Desktop owns it.
 
@@ -44,14 +44,22 @@ Tasks groups cards by the local date of their latest recorded activity. A grid a
 its column count to the available width. Today's tasks show detail cards. Older history uses summary cards. Homepage, Agent,
 control-source and Board task entries use the shared card. Its three rows show
 the origin chain with time fixed at the right, the task title, then the recorded
-execution spec, project name and turn count. Each row scrolls horizontally when
-its single line exceeds the available width. Running detail cards use an Aurora
+execution spec, project name and turn count. Long content scrolls horizontally
+within its row. The detail card pins its subtask control beside the scrolling metadata. Running detail cards use an Aurora
 border colored by the active phase. Reduced motion keeps the phase tint static. The controller shows its member dispatches.
 On the member, that controller is the source.
 
-Today's detail cards have a 224px minimum height. Earlier summaries have a 106px minimum. The overflow card stretches with its row. Each day initially shows at most two rows at the current column count. When a day overflows, a stacked card with the hidden count takes the last cell of row two. Expanding restores all task cards in order and places a single-layer collapse card after the last task. Show platform icons on transparent backgrounds and identify the recorded account by alias when multiple accounts are available. End the chain at the executor. Running detail cards use the phase-colored Aurora border. The subtask panel uses summary cards. Group explicit subagent relations under the available parent within the visible device and executor scope. Use the family’s latest activity date, surface pending input and failures on today's parent cards, and keep unmatched children and side chats visible. Today's parent cards offer a subtask footer that opens the child list.
+Today's detail cards have a 224px minimum height. Earlier summaries and their overflow cards are 106px tall. The detail overflow card stretches with its row. Each day initially shows at most two rows at the current column count. When a day overflows, a stacked card with the hidden count and a peek at the first hidden tasks takes the last cell of row two. Expanding restores all task cards in order and places a single-layer collapse card after the last task. Show platform icons on transparent backgrounds and identify the recorded account by alias when multiple accounts are available. End the chain at the executor. Running detail cards use the phase-colored Aurora border. The subtask panel uses summary cards. Group explicit subagent relations under the available parent within the visible device and executor scope. Use the family’s latest activity date, surface pending input and failures on today's parent cards, and keep unmatched children and side chats visible. Today's parent cards open the child list from the subtask pill.
 
-Detail cards share the same structured preview across surfaces. A source quote and Markdown reply wrap to two lines, while grouped tool work and thinking each use one line. A pending request uses a warning box. The preview selects up to four rows, or three above a subtask footer, favoring the pending request, latest reply and grouped tool work. The selected rows follow transcript order, with the pending request at the end. Center loading, empty and failed read states when no body is available. Activating the card opens its detail. A summary reads its timeline when opened.
+Detail cards share the same structured preview across surfaces. Source quotes wrap to two
+lines. Markdown replies wrap to two lines, or three when the preview contains at most two
+rows and no request. Grouped tool work and thinking each use one line. A pending request
+uses a warning box. The preview has four slots, including any pending request. It
+prioritizes the latest final reply, tool group, source quote and thought, then fills
+spare slots with recent groups. The selected rows follow transcript order, with the
+pending request at the end. Loading, empty and failed read states are centered when no
+body is available. Background reads run up to four at a time and back off on transient
+local Core failures. Opening the full detail or manually retrying starts a read immediately.
 
 #### Recorded task fields and presentation limits
 
@@ -59,7 +67,7 @@ Detail cards share the same structured preview across surfaces. A source quote a
 | --- | --- | --- |
 | Current activity, state and origin | `ui/types.ts`: AgentActivitySession phase, headline, recentSteps, interaction, origin and dispatchSummary | Use the current observation. Explicit failure or interruption takes precedence. Inactive tasks without an explicit exception appear completed. |
 | Recent step icons and short text | AgentTimelineEntry type, status, title/text, command, operation, commandActions and excerpt fields; `ui/state/taskProjection.ts` | Reading/editing derive from file operations; waiting requires an observed pending item. Keep chronological order in the bounded tail. |
-| Elapsed time | AgentActivitySession turnStartedAt; AgentTimeline turnTimings; AgentTimelineEntry durationMs | Derive from recorded timing. Remote cards use the snapshot observation as their end time. Normalize numeric epoch seconds or milliseconds and omit unknown starts. Offline cards omit elapsed time. |
+| Time | AgentActivitySession turn timing; AgentTimeline turnTimings; task snapshot timestamps | Prefer elapsed duration. Remote cards use the snapshot observation for live elapsed time. When duration is unavailable, show a local 24-hour clock time. Stale cards without duration or an end timestamp show time since the last observation. |
 | Request and response state | AgentInteraction and AgentTimelineEntry response; `ui/state/activityModel.ts` approval submissions; native receipt state/result | Snapshots report the request and its controller routing state. Task details retain request handling. Pending/unconfirmed response state follows the receipt and is never inferred from the card. |
 | Remote path and freshness | `native/src/device_link/controller.rs`: list path, latency and lastSeen; `native/src/device_link/records.rs`: device/task/source associations | Compose the origin chain with current device facts. On the member, the controller remains the source without a local-device wrapper. |
 | Partial coverage | AgentTimeline coverage and executionEvidence | Detail surfaces disclose partial coverage. The task preview displays the available rows. |
