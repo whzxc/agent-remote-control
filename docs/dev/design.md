@@ -12,7 +12,7 @@ ARC uses warm neutral surfaces, restrained semantic tints, rounded shared contro
 
 The desktop targets are macOS and Windows. Headless Linux has no product UI. English and Simplified Chinese content follow its mapped fixture. Frame dimensions and capture viewports are declared in TSX. Landscape topology uses 1280×800 and portrait topology uses 640×800. Mobile forms are declared with their owning task or device surface. Rails reserve node and quota-ring space. The shared HomepageBar keeps the mode switch centered.
 
-The default exports declare presentations. Task cards have summary and detail forms with an identical header. Setup retains standalone and nested flows, including distinct method and ready controls. AX Board retains open, closed and detail forms. Detail replaces the list inside the same panel and can scroll beyond the viewport.
+The default exports declare presentations. Task cards have summary and detail forms with an identical header. Panels use symmetric 76px insets. Dialogs use symmetric 48px desktop and 20px browser insets. Agents settings uses compact inventory cards in a responsive grid. Setup retains standalone and nested flows, including distinct method and ready controls. AX Board retains open, closed and detail forms. Detail replaces the list inside the same panel and can scroll beyond the viewport.
 
 ### ARC health
 
@@ -49,12 +49,9 @@ its single line exceeds the available width. Running detail cards use an Aurora
 border colored by the active phase. Reduced motion keeps the phase tint static. The controller shows its member dispatches.
 On the member, that controller is the source.
 
-Today's grid cards are 224px tall. Earlier dates use 106px metadata cards. Each day initially shows at most two rows at the current column count. When a day overflows, a stacked card with the hidden count takes the last cell of row two. Expanding restores all task cards in order and places a single-layer collapse card after the last task. Show platform icons on transparent backgrounds and identify the recorded account by alias when multiple accounts are available. End the chain at the executor. Running cards and child rows use the phase-colored Aurora border. Group explicit subagent relations under the available parent within the visible device and executor scope. Use the family’s latest activity date, surface pending input and failures on today's parent cards, and keep unmatched children and side chats visible. Today's parent cards offer a subtask footer that opens the child list.
+Today's detail cards have a 224px minimum height. Earlier summaries have a 106px minimum. The overflow card stretches with its row. Each day initially shows at most two rows at the current column count. When a day overflows, a stacked card with the hidden count takes the last cell of row two. Expanding restores all task cards in order and places a single-layer collapse card after the last task. Show platform icons on transparent backgrounds and identify the recorded account by alias when multiple accounts are available. End the chain at the executor. Running detail cards use the phase-colored Aurora border. The subtask panel uses summary cards. Group explicit subagent relations under the available parent within the visible device and executor scope. Use the family’s latest activity date, surface pending input and failures on today's parent cards, and keep unmatched children and side chats visible. Today's parent cards offer a subtask footer that opens the child list.
 
-Visible local cards read a missing preview even for a completed task. While loading, show available recorded text. Center empty and failed read states with the applicable detail or retry action. The homepage preview fits up to four lines of recent activity with 12px padding on all sides. A footer action reserves one of those lines. Replies may wrap, while tool and thinking entries occupy one line each. Other full previews follow the newest native rows. Consecutive tools in a turn form a
-single-line summary of recorded operations. Reasoning uses its icon and summary.
-Replies render inline. Clicking a card or pressing Enter opens its detail in the
-centered task layer. An older summary reads its timeline when opened.
+Detail cards share the same structured preview across surfaces. A source quote and Markdown reply wrap to two lines, while grouped tool work and thinking each use one line. A pending request uses a warning box. The preview selects up to four rows, or three above a subtask footer, favoring the pending request, latest reply and grouped tool work. The selected rows follow transcript order, with the pending request at the end. Center loading, empty and failed read states when no body is available. Activating the card opens its detail. A summary reads its timeline when opened.
 
 #### Recorded task fields and presentation limits
 
@@ -69,7 +66,7 @@ centered task layer. An older summary reads its timeline when opened.
 
 No new canonical task field is assumed. The proposed card summary and node phase
 aggregate are new derived UI projections over these existing reads; the local cross-task
-card feed merges recent native Codex conversations, live activity and dispatch records
+card feed merges recent cross-Agent conversations, live activity and dispatch records
 in `ui/state/homepageTasks.ts`. Timeline summaries retain at most
 80 entries per task and use the existing recent-preview read. Remote cards join native controller-scoped `device/tasks` activity and up to 200
 records. Remote timeline/response forwarding and account/quota inventory remain

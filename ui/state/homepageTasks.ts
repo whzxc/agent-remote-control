@@ -26,7 +26,7 @@ function useRecentConversations(enabled: boolean) {
       if (document.hidden || reading) return;
       reading = true;
       try {
-        const result = await api<AgentConversationPage>("agents/conversations", "POST", { agent: 'codex', limit: 30, sort: 'updated', includeSubagents: true });
+        const result = await api<AgentConversationPage>("agents/conversations", "POST", { limit: 40, sort: 'updated', includeSubagents: true });
         if (!stopped) setRows(result.data);
       } catch { /* Keep the last native page through Core handoff. */ }
       finally { reading = false; }
@@ -37,6 +37,52 @@ function useRecentConversations(enabled: boolean) {
     return () => { stopped = true; clearInterval(timer); document.removeEventListener('visibilitychange', read); };
   }, [enabled]);
   return enabled ? rows : emptyHistory;
+}
+
+export function mergeHomepageConversations(
+  combined: Record<string, Map<string, TrackedActivity>>,
+  updates: Map<string, string | null | undefined>,
+  history: readonly AgentConversation[],
+) {
+  for (const row of history) {
+    const agent = row.agent ?? 'codex';
+    const sessions = combined[agent] ??= new Map();
+    const previous = sessions.get(row.id);
+    const key = JSON.stringify([agent, row.id]);
+    if (row.updatedAt) updates.set(key, row.updatedAt);
+    const parentSessionId = previous?.parentSessionId ?? row.parentSessionId;
+    const relationKind = previous?.relationKind ?? row.relationKind;
+    const fallbackHeadline = previous?.fallbackHeadline || row.preview;
+    const sameTurn = !row.turnId || row.turnId === previous?.turnId;
+    if (previous?.observed) {
+      const projectName = previous.projectName ?? (row.project && row.project === previous.project ? row.projectName : undefined);
+      const turnCount = previous.turnCount ?? row.turnCount ?? undefined;
+      const caller = sameTurn ? row.dispatchSummary?.caller : undefined;
+      const dispatchSummary = caller && !previous.dispatchSummary?.caller
+        ? { ...row.dispatchSummary, ...previous.dispatchSummary, caller } : previous.dispatchSummary;
+      if (projectName !== previous.projectName || turnCount !== previous.turnCount || parentSessionId !== previous.parentSessionId
+        || relationKind !== previous.relationKind || fallbackHeadline !== previous.fallbackHeadline || dispatchSummary !== previous.dispatchSummary) {
+        sessions.set(row.id, { ...previous, projectName, turnCount, parentSessionId, relationKind, fallbackHeadline, dispatchSummary });
+      }
+      continue;
+    }
+    sessions.set(row.id, {
+      ...previous, parentSessionId, relationKind, fallbackHeadline, id: row.id, source: row.source === 'native' ? 'transcript' : row.source, conversation: true,
+      title: row.title || previous?.title, turnCount: row.turnCount ?? previous?.turnCount, status: row.status ?? (sameTurn ? previous?.status : undefined),
+      project: row.project ?? previous?.project,
+      projectName: row.projectName ?? (!row.project || row.project === previous?.project ? previous?.projectName : undefined),
+      dispatchSummary: sameTurn ? { ...previous?.dispatchSummary, ...row.dispatchSummary } : row.dispatchSummary ?? undefined,
+      nativeSessionId: row.nativeSessionId ?? previous?.nativeSessionId,
+      turnId: row.turnId || previous?.turnId, open: row.open ?? previous?.open,
+      turnStartedAt: row.turnStartedAt ?? (sameTurn ? previous?.turnStartedAt : undefined),
+      turnEndedAt: row.turnEndedAt ?? (sameTurn ? previous?.turnEndedAt : undefined),
+      turnDurationMs: row.turnDurationMs ?? (sameTurn ? previous?.turnDurationMs : undefined),
+      endedAt: sameTurn ? previous?.endedAt : undefined,
+      origin: sameTurn ? previous?.origin : undefined,
+      startedAt: row.createdAt ?? previous?.startedAt, orderAt: Date.parse(row.createdAt ?? '') || previous?.orderAt || 0,
+      observed: false, timeline: true, phase: 'idle', phaseSince: null, headline: previous?.headline ?? '',
+    });
+  }
 }
 
 const recentlyOpened = createStore<{ agent: string; session: TrackedActivity }[]>([]);
@@ -88,37 +134,7 @@ export function useHomepageTasks(showHistory: boolean) {
         ...(timing?.endedAt ? { endedAt: Date.parse(timing.endedAt) } : {}) };
       (combined[agent] ??= new Map()).set(id, session);
     }
-    for (const row of history) {
-      const sessions = combined.codex ??= new Map();
-      const previous = sessions.get(row.id);
-      const key = JSON.stringify(['codex', row.id]);
-      if (row.updatedAt) updates.set(key, row.updatedAt);
-      const parentSessionId = previous?.parentSessionId ?? row.parentSessionId;
-      const relationKind = previous?.relationKind ?? row.relationKind;
-      const fallbackHeadline = previous?.fallbackHeadline || row.preview;
-      if (previous?.observed) {
-        const projectName = previous.projectName ?? (row.project && row.project === previous.project ? row.projectName : undefined);
-        const turnCount = previous.turnCount ?? row.turnCount ?? undefined;
-        if (projectName !== previous.projectName || turnCount !== previous.turnCount || parentSessionId !== previous.parentSessionId || relationKind !== previous.relationKind || fallbackHeadline !== previous.fallbackHeadline) sessions.set(row.id, { ...previous, projectName, turnCount, parentSessionId, relationKind, fallbackHeadline });
-        continue;
-      }
-      const sameTurn = !row.turnId || row.turnId === previous?.turnId;
-      sessions.set(row.id, {
-        ...previous, parentSessionId, relationKind, fallbackHeadline, id: row.id, source: row.source === 'native' ? 'transcript' : row.source, conversation: true,
-        title: row.title || previous?.title, turnCount: row.turnCount ?? previous?.turnCount, status: row.status ?? (sameTurn ? previous?.status : undefined),
-        project: row.project ?? previous?.project,
-        projectName: row.projectName ?? (!row.project || row.project === previous?.project ? previous?.projectName : undefined),
-        dispatchSummary: sameTurn ? { ...previous?.dispatchSummary, ...row.dispatchSummary } : row.dispatchSummary ?? undefined,
-        turnId: row.turnId || previous?.turnId, open: row.open ?? previous?.open,
-        turnStartedAt: row.turnStartedAt ?? (sameTurn ? previous?.turnStartedAt : undefined),
-        turnEndedAt: row.turnEndedAt ?? (sameTurn ? previous?.turnEndedAt : undefined),
-        turnDurationMs: row.turnDurationMs ?? (sameTurn ? previous?.turnDurationMs : undefined),
-        endedAt: sameTurn ? previous?.endedAt : undefined,
-        origin: sameTurn ? previous?.origin : undefined,
-        startedAt: row.createdAt ?? previous?.startedAt, orderAt: Date.parse(row.createdAt ?? '') || previous?.orderAt || 0,
-        observed: false, timeline: true, phase: 'idle', phaseSince: null, headline: previous?.headline ?? '',
-      });
-    }
+    mergeHomepageConversations(combined, updates, history);
     for (const { agent, session } of opened) {
       const sessions = combined[agent] ??= new Map();
       if (!sessions.has(session.id)) sessions.set(session.id, session);

@@ -1367,7 +1367,7 @@
       "implementation": {
         "file": "ui/components/AgentsSettings.tsx",
         "symbol": "AgentCard",
-        "anchor": "function AgentCard({ agent, onMove, children }: {"
+        "anchor": "function AgentCard({ agent, provider, activeCount, busy, now, onOpen, onError }: {"
       },
       "design": [
         {

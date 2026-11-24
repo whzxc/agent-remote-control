@@ -9,6 +9,13 @@ export const checks = [
                 if (name.startsWith('agent-settings-')) {
                     const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
                     await page.getByRole('button', { name: new RegExp(`${escapeRegex(messages.manageAgents)}|${escapeRegex(messages.addAgent)}`) }).click();
+                    const grid = page.getByRole('dialog', { name: messages.agents, exact: true }).locator('.agent-grid');
+                    await grid.waitFor();
+                    if (!await grid.evaluate(element => {
+                        const columns = getComputedStyle(element).gridTemplateColumns.trim().split(/\s+/).length;
+                        const expected = Math.max(1, Math.floor((element.clientWidth + 12) / (272 + 12)));
+                        return columns === expected && !element.querySelector('[data-reorderable]');
+                    })) throw new Error('Installed Agents must use the responsive inventory grid.');
                     if (fixture.agentDisplay) {
                         await page.getByRole('button', { name: messages.agentDisplaySettings, exact: true }).click();
                         const quota = page.getByRole('radiogroup', { name: messages.agentQuotaDisplay, exact: true });

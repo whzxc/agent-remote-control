@@ -11,10 +11,11 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import { ArrowUpRight, Settings, Maximize2, Minimize2, RefreshCw } from "lucide-react";
 import { api } from "../api";
 import { t } from "../i18n";
-import { useAccounts } from "../state/accounts";
+import { refreshAccountQuota, useAccounts } from "../state/accounts";
+import { resolveAgentQuota } from "../state/quota";
 import AgentQuota from "./AgentQuota";
 import { agentActivity } from "../state/activity";
-import { platformQuotaForAgent, refreshSubscription, subscriptions } from "../state/subscriptions";
+import { refreshSubscription, subscriptions } from "../state/subscriptions";
 import { compactAgentVersion, name, type Agent } from "../state/agents";
 import { connector } from "../state/connector";
 import { AgentQuotaIcon } from "../subscriptions/AgentQuotaIcon";
@@ -33,7 +34,8 @@ function AgentView({ agent, onSettings, expanded, onToggleWidth, active, platfor
   const { snapshot } = subscriptions.use(), { status } = connector.use();
   const activity = agentActivity.use().snapshot;
   const [error, setError] = useState(""), [refreshing, setRefreshing] = useState(false);
-  const provider = platformQuotaForAgent(snapshot, agent.agent);
+  const { items: accounts } = useAccounts();
+  const provider = resolveAgentQuota(agent.agent, snapshot, accounts);
   const title = name(agent);
   const sessions = activity?.agents[agent.agent]?.sessions ?? [];
   const providerError = provider?.error && !["no-subscription", "no-limits-reported", "unsupported-platform"].includes(provider.error.code)
@@ -41,7 +43,10 @@ function AgentView({ agent, onSettings, expanded, onToggleWidth, active, platfor
   async function refresh() {
     if (!provider) return;
     setRefreshing(true); setError("");
-    try { await refreshSubscription(provider.providerId); }
+    try {
+      if (provider.quotaAccountId) await refreshAccountQuota(provider.quotaAccountId);
+      else await refreshSubscription(provider.providerId);
+    }
     catch (error) { setError(String(error)); }
     finally { setRefreshing(false); }
   }

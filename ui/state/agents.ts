@@ -6,7 +6,20 @@ import builtins from "../../native/src/agents/builtins.json";
 import { agentIcons } from "../assets/brand-reserve/magpie";
 import junieIcon from "../assets/brand-reserve/agents/junie/color.svg?raw";
 
+export interface AgentCapabilities {
+  nativeConversations: boolean;
+  liveActivity: boolean;
+  quota: boolean;
+  metadataProjection: boolean;
+  timeline: boolean;
+  callerAttribution: boolean;
+  subagents: boolean;
+  navigation: boolean;
+  dispatchDefaults: boolean;
+}
+
 export type Agent = {
+  capabilities?: AgentCapabilities;
   adapter?: { state: string; error?: string | null };
   agent: string;
   installed?: boolean;

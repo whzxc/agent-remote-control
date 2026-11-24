@@ -1,5 +1,10 @@
 import type { LayerKind, LayerTokens } from "./layerFrame";
 
+export function layerInsetToken(kind: LayerKind, desktop: boolean) {
+  if (kind === 'panel') return '--layer-panel-inset';
+  return desktop ? '--layer-top-desktop' : '--layer-top-browser';
+}
+
 export function readLayerTokens(kind: LayerKind): LayerTokens {
   const css = getComputedStyle(document.documentElement);
   const value = (name: string, defaultValue: number) => {
@@ -9,7 +14,7 @@ export function readLayerTokens(kind: LayerKind): LayerTokens {
   };
   const margin = value('--layer-side-margin', 16);
   return { sizes: { m: value('--layer-m', 560), xl: value('--layer-xl', 960) }, margin,
-    bottom: kind === 'panel' ? value('--layer-panel-bottom', 76) : margin,
-    desktopTop: value('--layer-top-desktop', 48), browserTop: value('--layer-top-browser', 20) };
+    desktopInset: value(layerInsetToken(kind, true), kind === 'panel' ? 76 : 48),
+    browserInset: value(layerInsetToken(kind, false), kind === 'panel' ? 76 : 20) };
 }
 

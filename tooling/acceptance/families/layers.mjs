@@ -168,7 +168,8 @@ export const checks = [
                     const entry = samples.filter(row => row.entering);
                     if (new Set(entry.map(row => row.targetHeight)).size < 2)
                         throw new Error('Entry fixture did not receive content during its fade.');
-                    if (entry.some(row => Math.abs(row.y - row.targetY) > 1 || Math.abs(row.height - row.targetHeight) > 1))
+                    if (entry.some(row => Math.abs(row.y - row.targetY) > 1 || Math.abs(row.height - row.targetHeight) > 1
+                        || Math.abs(2 * row.y + row.height - row.viewportHeight) > 2))
                         throw new Error('Layer geometry interpolated during its entry fade.');
                     if (samples.at(-1).entering)
                         throw new Error('Entry geometry gate did not finish with the fade.');
@@ -195,7 +196,7 @@ export const checks = [
                                 if (node && getComputedStyle(node).visibility !== 'hidden') {
                                     start ??= now;
                                     const rect = node.getBoundingClientRect();
-                                    rows.push({ entering: node.hasAttribute('data-layer-entering'), y: rect.y, height: rect.height,
+                                    rows.push({ entering: node.hasAttribute('data-layer-entering'), y: rect.y, height: rect.height, viewportHeight: innerHeight,
                                         targetY: Number(node.dataset.layerFrameTop), targetHeight: Number(node.dataset.layerFrameHeight) });
                                     if (now - start >= 600) {
                                         resolve(rows);

@@ -128,7 +128,7 @@ export function changedFiles(entries: readonly AgentTimelineEntry[]) {
 
 export type TaskStepKind = 'reading' | 'editing' | 'command' | 'thinking' | 'waiting' | 'tool';
 export type TaskCardStep = { kind: TaskStepKind; text: string; status: AgentTimelineEntry['status']; durationMs?: number };
-export type TaskSnapshotRow = { id: string; turnId: string; role: 'source' | 'agent' | 'request' | 'step'; text: string; kind?: TaskStepKind; status: AgentTimelineEntry['status']; tool?: AgentTimelineEntry };
+export type TaskSnapshotRow = { id: string; turnId: string; role: 'source' | 'agent' | 'request' | 'step'; text: string; kind?: TaskStepKind; status: AgentTimelineEntry['status']; tool?: AgentTimelineEntry; final?: true };
 export function toolTitle(entry: AgentTimelineEntry) {
   return entry.command || entry.path || (entry.title === 'exec' ? entry.input?.text?.trimStart().split('\n', 1)[0] : undefined) || entry.title || entry.input?.text;
 }
@@ -155,7 +155,7 @@ export function taskCardActivity(entries: readonly AgentTimelineEntry[]) {
       : entry.text || entry.title;
     if (!text) return [];
     const tool = role === 'step' && kind !== 'thinking' ? entry : undefined;
-    return [{ id: entry.id, turnId: entry.turnId, role, text, kind, status: entry.status, tool }];
+    return [{ id: entry.id, turnId: entry.turnId, role, text, kind, status: entry.status, tool, ...(entry.phase === 'final_answer' ? { final: true as const } : {}) }];
   });
   return { steps, snapshot };
 }

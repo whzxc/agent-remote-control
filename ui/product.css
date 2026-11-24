@@ -609,7 +609,18 @@ button.timeline-summary { appearance: none; cursor: pointer; }
 .agent-summary-meta > p { margin: 0; }
 
 /* Preserve the approved workspace content inside the shared layer shell. */
-.agent-grid .agent-card { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 8px 16px; padding: 24px 16px; }
+.agent-grid .agent-card { gap: 10px; padding: 14px; cursor: pointer; }
+.agent-card-heading { display: flex; align-items: center; gap: 12px; }
+.agent-card-telemetry { display: flex; align-items: center; gap: 8px; margin-top: auto; padding-block-start: 8px; border-top: var(--stroke-thin) solid var(--border); color: var(--text-secondary); font-size: var(--text-caption); line-height: var(--line-compact); }
+.agent-card-telemetry > svg { flex: none; color: var(--text-tertiary); }
+.agent-card-quota { display: inline-flex; align-items: center; gap: 5px; min-width: 0; font-variant-numeric: tabular-nums; }
+.agent-card-quota > svg { flex: none; color: var(--danger); }
+.agent-card-quota > span:last-child, .agent-uninstalled > span:last-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.agent-card-quota-dot { flex: none; width: 6px; height: 6px; border-radius: var(--radius-pill); background: var(--text-tertiary); }
+.agent-card-quota-dot[data-tone=success] { background: var(--success); }
+.agent-card-quota-dot[data-tone=warning] { background: var(--warning); }
+.agent-card-quota-dot[data-tone=danger] { background: var(--danger); }
+.agent-card-status { margin-inline-start: auto; max-width: 55%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding: 1px 8px; border-radius: var(--radius-pill); background: var(--surface); }
 .agents-toolbar { display: flex; align-items: center; margin-bottom: 11px; min-height: 33px; margin-top: 0; gap: 6px; }
 .agents-toolbar > h3 { margin: 0 4px 0 0; margin-right: 13px; }
 .display-settings.settings-stack { padding-top: 8px; gap: 30px; }

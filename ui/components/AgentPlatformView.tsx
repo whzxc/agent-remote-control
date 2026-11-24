@@ -5,6 +5,8 @@ import PetPicker from '../pets/PetPicker';
 import { controlSourcePlatform } from '../controlSources';
 import { Plus, RefreshCw, Settings, X } from 'lucide-react';
 import { t } from '../i18n';
+import { resolveAgentQuota } from '../state/quota';
+import { subscriptions } from '../state/subscriptions';
 import { refreshAccounts, useAccounts } from '../state/accounts';
 import { name, refreshAgents, type Agent } from '../state/agents';
 import { managesAgentAccounts, selectAgentPanel } from '../state/overviewPanels';
@@ -22,12 +24,13 @@ export default function AgentPlatformView({ agent, onSettings, widthControl }: {
   const [login, setLogin] = useState<{ account?: ProviderAccount }>();
   const closeLogin = useCallback(() => setLogin(undefined), []);
   const state = useAccounts();
+  const { snapshot } = subscriptions.use();
   const kind = managesAgentAccounts(agent.agent) ? agent.agent : undefined;
   const canLogin = kind && agent.installed && !readOnlyBrowser;
   const accounts = state.items.filter(account => account.agentProfiles.some(profile => profile.agent === agent.agent));
   return <EntitySection as="section" className="agent-panel-layer agent-platform-view">
     <PanelHeader><header className="dialog-header agent-panel-header">
-      <AgentQuotaIcon agent={agent.agent} />
+      <AgentQuotaIcon agent={agent.agent} provider={resolveAgentQuota(agent.agent, snapshot, state.items)} />
       <div className="agent-panel-heading"><h2>{name(agent)}</h2></div>
       <div className="actions">
         {canLogin && <Button data-add-agent-account onClick={() => setLogin({})}><Icon icon={Plus} />{t('accounts.addAgentAccount')}</Button>}

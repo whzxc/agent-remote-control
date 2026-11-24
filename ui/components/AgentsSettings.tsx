@@ -1,26 +1,30 @@
-import { motionTransition } from "../motion/tokens";
 import { Tooltip as HoverHelp } from "./ui/index";
 import Panel from "./ui/Panel";
 import { readOnlyBrowser } from "../browserMode";
-import { useReducedMotion } from "../state/appEnvironment";
-import { useState, type ReactNode } from "react";
-import { motion, Reorder, useDragControls } from "motion/react";
-import { RefreshCw, Settings, Gauge } from "lucide-react";
+import { useRef, useState } from "react";
+import { ChevronRight, CircleAlert, RefreshCw, Settings, Gauge } from "lucide-react";
 import { t } from "../i18n";
 import { openUrl } from "../platform";
-import { agents, orderedAgents, moveAgent, reorderAgents, name, icons, compactAgentVersion, agentLinks, toggleAgent, refreshAgents, type Agent } from "../state/agents";
+import { agents, orderedAgents, name, icons, compactAgentVersion, agentLinks, toggleAgent, refreshAgents, type Agent } from "../state/agents";
+import { refreshAccountQuota, useAccounts } from "../state/accounts";
+import { agentActivity } from "../state/activity";
+import { captureLayerTrigger } from "../state/layers";
+import { resolveAgentQuota } from "../state/quota";
+import { iconWindows } from "../subscriptions/AgentQuotaIcon";
+import { quotaDisplay, quotaLabel, quotaPercent } from "../subscriptions/displayPreferences";
+import { windowLabel } from "../subscriptions/labels";
+import { errorLabels, readingStatus } from "../subscriptions/presentation";
+import type { ProviderSnapshot } from "../subscriptions/types";
+import { useAppNow } from "../state/appEnvironment";
 import { subscriptions } from "../state/subscriptions";
 import UsageOverview from "../subscriptions/UsageOverview";
 import QuotaBubble from "../subscriptions/QuotaBubble";
 import AgentDisplaySettings from "./AgentDisplaySettings";
 import AgentDispatchDefaults from "./AgentDispatchDefaults";
-import { BrandMark, IconButton, Switch, Notice, Loading } from "./ui";
+import { BrandMark, Icon, IconButton, Switch, Notice, Loading } from "./ui";
 
 import { SettingsDialog as Dialog } from "./ui/Settings";
 import { Card } from "./ui/card";
-
-const canReorder = (agent: Agent) =>
-  !readOnlyBrowser && agent.installed === true && agent.enabled === true;
 
 const discoveryMessage = (agent: Agent) => {
   if (!agent.discoveryError) return "";
@@ -34,52 +38,60 @@ const readiness = (agent: Agent) => {
   return t(agent.enabled ? "agentReady" : "agentDisabled");
 };
 
-function AgentCard({ agent, onMove, children }: {
-  agent: Agent;
-  onMove: (by: number) => void;
-  children: ReactNode;
+function AgentCard({ agent, provider, activeCount, busy, now, onOpen, onError }: {
+  agent: Agent; provider?: ProviderSnapshot; activeCount: number; busy: boolean; now: number;
+  onOpen: () => void; onError: (error: string) => void;
 }) {
-  const controls = useDragControls();
-  const reduced = useReducedMotion();
-  const transition = reduced ? { duration: 0 } : motionTransition();
-  if (!canReorder(agent)) {
-    return <Card asChild><motion.article className="agent-card" layout="position" transition={transition}>
-      {children}
-    </motion.article></Card>;
-  }
-  return (
-    <Card asChild><Reorder.Item
-      as="article"
-      value={agent.agent}
-      className="agent-card"
-      data-reorderable
-      tabIndex={0}
-      aria-label={t("reorderAgent", { agent: name(agent) })}
-      layout="position"
-      transition={transition}
-      dragListener={false}
-      dragControls={controls}
-      dragMomentum={false}
-      dragElastic={!reduced}
-      whileDrag={{ cursor: "grabbing", boxShadow: "var(--shadow-md)" }}
-      onPointerDown={(event) => {
-        if (event.button !== 0 || !event.isPrimary ||
-          (event.target as Element).closest("button, a, input, select, textarea, [role='button'], [role='switch']")) return;
-        event.preventDefault();
-        event.currentTarget.focus({ preventScroll: true });
-        controls.start(event);
-      }}
-      onKeyDown={(event) => {
-        if (event.target !== event.currentTarget) return;
-        if (["ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight"].includes(event.key)) {
+  const trigger = useRef<HTMLButtonElement>(null);
+  const link = agentLinks[agent.agent];
+  const title = name(agent);
+  const window = provider && iconWindows(provider, now, true)[0];
+  const quotaError = provider?.error;
+  const quotaText = quotaError ? t(errorLabels[quotaError.code] ?? "usageUnavailable")
+    : window ? `${windowLabel(window.label)} · ${quotaLabel()} ${quotaPercent(window)}` : t("usageUnavailable");
+  const rank = provider && readingStatus(window, provider, now).rank;
+  const tone = rank === 4 ? "danger" : rank === 3 || rank === 2 ? "warning" : rank === 1 ? "success" : "muted";
+  const adapter = agent.adapter;
+  const open = () => { captureLayerTrigger(trigger.current); onOpen(); };
+
+  return <Card asChild><article className="agent-card" onClick={event => {
+    if (!(event.target as Element).closest("button, a")) open();
+  }}>
+    <div className="agent-card-heading">
+      <button ref={trigger} type="button" className="agent-detail-trigger" aria-label={title} aria-haspopup="dialog" onClick={open}>
+        <BrandMark markup={icons[agent.agent]} size={28} />
+      </button>
+      <div className="agent-copy">
+        {link ? <a href={link} onClick={event => {
           event.preventDefault();
-          onMove(["ArrowUp", "ArrowLeft"].includes(event.key) ? -1 : 1);
-        }
-      }}
-    >
-      {children}
-    </Reorder.Item></Card>
-  );
+          void openUrl(link).catch(error => onError(String(error)));
+        }}>{title}</a> : <strong>{title}</strong>}
+        <HoverHelp text={agent.version || undefined}><span>
+          {[compactAgentVersion(agent.version), readiness(agent)].filter(Boolean).join(" · ")}
+        </span></HoverHelp>
+      </div>
+      <span onClick={event => event.stopPropagation()}>
+        <Switch label={t("allowConnectorToUseValue", { agent: title })} checked={agent.enabled === true}
+          disabled={readOnlyBrowser || busy || adapter?.state === "preparing" || typeof agent.enabled !== "boolean"}
+          onChange={enabled => void toggleAgent(agent, enabled)} />
+      </span>
+    </div>
+    <div className="agent-card-telemetry">
+      {provider && <span className="agent-card-quota" title={quotaError?.message || quotaText}>
+        {quotaError ? <Icon icon={CircleAlert} size={12} /> : <span className="agent-card-quota-dot" data-tone={tone} aria-hidden="true" />}
+        <span>{quotaText}</span>
+      </span>}
+      <span className="agent-card-status">{activeCount ? t("agentPanel.inProgress", { count: activeCount }) : readiness(agent)}</span>
+      <Icon icon={ChevronRight} size={14} />
+    </div>
+    {adapter && adapter.state !== "ready" && (
+      <p className="agent-adapter" role={adapter.state === "failed" ? "alert" : "status"}>
+        {t(adapter.state === "preparing" ? "agentAdapterPreparing"
+          : adapter.state === "failed" ? "agentAdapterFailed" : "agentAdapterMissing")}
+        {adapter.error && ` · ${t({ CLAUDE_ADAPTER_DOWNLOAD_FAILED: "agentAdapterDownloadFailed", CLAUDE_ADAPTER_CHECKSUM_FAILED: "agentAdapterChecksumFailed", CLAUDE_ADAPTER_EXTRACT_FAILED: "agentAdapterExtractFailed", CLAUDE_ADAPTER_PROBE_FAILED: "agentAdapterProbeFailed" }[adapter.error] || "agentAdapterSetupFailed")}`}
+      </p>
+    )}
+  </article></Card>;
 }
 
 export function AgentDetails({
@@ -95,11 +107,9 @@ export function AgentDetails({
   const agent = inventory.items.find((item) => item.agent === selected.agent) || selected;
   const { snapshot } = subscriptions.use();
   const [savingDefaults, setSavingDefaults] = useState(false);
-  const provider = snapshot?.settings.enabled
-    ? snapshot.providers.find(
-        (p) => p.agentIds.includes(agent.agent) && p.eligible,
-      )
-    : undefined;
+  const { items: accounts } = useAccounts();
+  const provider = resolveAgentQuota(agent.agent, snapshot, accounts);
+  const quotaAccountId = provider?.quotaAccountId;
   return (
     <Dialog busy={savingDefaults} title={name(agent)} onClose={onClose} headerless>
       <div className="agent-summary">
@@ -112,7 +122,7 @@ export function AgentDetails({
       </div>
       {agent.discoveryError && agent.discoveryError !== "AGENT_NOT_INSTALLED" &&
         <Notice>{<>{discoveryMessage(agent)}<br /><small>{agent.discoveryError}</small></>}</Notice>}
-      {provider && <QuotaBubble provider={provider} />}
+      {provider && <QuotaBubble provider={provider} onRefresh={quotaAccountId ? () => refreshAccountQuota(quotaAccountId) : undefined} />}
       {agent.installed && <AgentDispatchDefaults agent={agent.agent} onBusy={setSavingDefaults} />}
     </Dialog>
   );
@@ -124,11 +134,13 @@ export default function AgentsSettings({ onClose, initialAgent }: { onClose: () 
     [display, setDisplay] = useState(false),
     [overview, setOverview] = useState(false),
     [error, setError] = useState("");
-  function move(id: string, by: number) {
-    const list = items.filter(canReorder),
-      index = list.findIndex((a) => a.agent === id);
-    if (list[index + by]) moveAgent(id, list[index + by]!.agent);
-  }
+  const { snapshot } = subscriptions.use();
+  const { items: accounts } = useAccounts();
+  const activity = agentActivity.use().snapshot;
+  const now = useAppNow(60000);
+  quotaDisplay.use();
+  const installed = items.filter(agent => agent.installed);
+  const uninstalled = items.filter(agent => !agent.installed);
   return (
     <>
       <Panel className="settings-dialog"
@@ -159,89 +171,18 @@ export default function AgentsSettings({ onClose, initialAgent }: { onClose: () 
         {!state.loaded && !state.loading && !state.error && <Notice>{t("agentsNotLoaded")}</Notice>}
         {!!state.error && <Notice>{<>{t("agentsRequestFailed")}<br /><small>{state.error}</small></>}</Notice>}
         {state.loaded && !state.error && items.length === 0 && <Notice>{t("agentsEmpty")}</Notice>}
-        {items.some((agent) => agent.installed) && <>
-        <Reorder.Group
-          as="div"
-          axis="xy"
-          className="agent-grid"
-          values={items.filter(canReorder).map(agent => agent.agent)}
-          onReorder={reorderAgents}
-        >
-          {items.filter(agent => agent.installed).map((agent) => (
-            <AgentCard
-              key={agent.agent}
-              agent={agent}
-              onMove={by => move(agent.agent, by)}
-            >
-              <button
-                type="button"
-                className="agent-detail-trigger"
-                aria-label={name(agent)}
-                aria-haspopup="dialog"
-                onClick={() => setDetail(agent)}
-              >
-                <BrandMark markup={icons[agent.agent]} />
-              </button>
-              <div className="agent-copy">
-                {agentLinks[agent.agent] ? (
-                  <a
-                    href={agentLinks[agent.agent]}
-                    draggable={false}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      void openUrl(agentLinks[agent.agent]!).catch((e) =>
-                        setError(String(e)),
-                      );
-                    }}
-                  >
-                    {name(agent)}
-                  </a>
-                ) : (
-                  <strong>{name(agent)}</strong>
-                )}
-                <HoverHelp text={agent.version || undefined}><span>
-                  {[compactAgentVersion(agent.version), readiness(agent)].filter(Boolean).join(" · ")}
-                </span></HoverHelp>
-              </div>
-              {agent.installed && (
-                <Switch
-                  label={t("allowConnectorToUseValue", { agent: name(agent) })}
-                  checked={agent.enabled === true}
-                  disabled={
-                    readOnlyBrowser || !!state.saving ||
-                    state.loading ||
-                    agent.adapter?.state === "preparing" ||
-                    typeof agent.enabled !== "boolean"
-                  }
-                  onChange={(enabled) => void toggleAgent(agent, enabled)}
-                />
-              )}
-              {agent.installed &&
-                agent.adapter &&
-                agent.adapter.state !== "ready" && (
-                  <p
-                    className="agent-adapter"
-                    role={agent.adapter.state === "failed" ? "alert" : "status"}
-                  >
-                    {t(
-                      agent.adapter.state === "preparing"
-                        ? "agentAdapterPreparing"
-                        : agent.adapter.state === "failed"
-                          ? "agentAdapterFailed"
-                          : "agentAdapterMissing",
-                    )}
-                    {agent.adapter.error &&
-                      ` · ${t({ CLAUDE_ADAPTER_DOWNLOAD_FAILED: "agentAdapterDownloadFailed", CLAUDE_ADAPTER_CHECKSUM_FAILED: "agentAdapterChecksumFailed", CLAUDE_ADAPTER_EXTRACT_FAILED: "agentAdapterExtractFailed", CLAUDE_ADAPTER_PROBE_FAILED: "agentAdapterProbeFailed" }[agent.adapter.error] || "agentAdapterSetupFailed")}`}
-                  </p>
-                )}
-            </AgentCard>
-          ))}
-        </Reorder.Group>
-        </>}
-        {items.some((agent) => !agent.installed) && <>
+        {installed.length > 0 && <div className="agent-grid">
+          {installed.map(agent => {
+            const activeCount = activity?.agents[agent.agent]?.sessions.length ?? 0;
+            return <AgentCard key={agent.agent} agent={agent} provider={resolveAgentQuota(agent.agent, snapshot, accounts)}
+              activeCount={activeCount} busy={state.loading || !!state.saving} now={now}
+              onOpen={() => setDetail(agent)} onError={setError} />;
+          })}
+        </div>}
+        {uninstalled.length > 0 && <>
         <h3 className="agent-section-title">{t("notInstalledAgents")}</h3>
         <div className="uninstalled-agents">
-          {items.filter(agent => !agent.installed).map(agent => (
+          {uninstalled.map(agent => (
             <a
               key={agent.agent}
               className="agent-uninstalled"
@@ -251,7 +192,7 @@ export default function AgentsSettings({ onClose, initialAgent }: { onClose: () 
                 void openUrl(agentLinks[agent.agent]!).catch(error => setError(String(error)));
               }}
             >
-              <BrandMark markup={icons[agent.agent]} size={24} />
+              <BrandMark markup={icons[agent.agent]} size={20} />
               <span>{name(agent)}</span>
             </a>
           ))}
@@ -261,7 +202,7 @@ export default function AgentsSettings({ onClose, initialAgent }: { onClose: () 
       </Panel>
       {detail && (
         <AgentDetails showOfficialLink agent={detail} onClose={() => setDetail(undefined)} />
-      )}{" "}
+      )}
       {overview && <UsageOverview onClose={() => setOverview(false)} onNavigate={() => { setOverview(false); setDisplay(true); }} />}
       {display && <AgentDisplaySettings onClose={() => setDisplay(false)} />}
     </>

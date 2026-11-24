@@ -25,13 +25,14 @@
 .agent-summary-meta { font-size: var(--text-meta); line-height: 18px; color: var(--text-secondary); }
 .agent-summary-meta > a { color: var(--accent-text); font-size: var(--text-small); }
 .agents-toolbar > h3 { font-size: var(--text-small); font-weight: 650; line-height: 16px; color: var(--text-secondary); }
-.agent-copy > a, .agent-copy > strong { font-size: var(--text-body); font-weight: 650; line-height: 18px; color: inherit; text-decoration: none; }
+.agent-copy > a, .agent-copy > strong { font-size: var(--text-body); font-weight: 650; line-height: var(--line-body); color: inherit; text-decoration: none; }
 .agent-copy > a:hover {
   text-decoration: underline;
 }
 .agent-copy > span,
 .agent-adapter {
-  font-size: 12px;
+  font-size: var(--text-caption);
+  line-height: var(--line-compact);
   color: var(--text-secondary);
 }
 .agent-detail-trigger {
@@ -39,7 +40,7 @@
   border: 0;
   border-radius: var(--radius-tile);
 }
-.agent-uninstalled { background: transparent; border: 0; border-radius: var(--radius-tile); color: inherit; text-decoration: none; }
+.agent-uninstalled { background: var(--surface-subtle); border: 0; border-radius: var(--radius-tile); color: inherit; text-decoration: none; }
 .agent-uninstalled:hover { background: var(--hover); }
 .hosted-relay + .hosted-relay { border-top: 1px solid var(--border); }
 .hosting-empty-group h2 { font-weight:650; }

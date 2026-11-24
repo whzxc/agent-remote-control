@@ -166,13 +166,10 @@ async function verifyDailyOverflow(page, viewport) {
   if (await yesterday.getByRole('article').count() !== visible || await today.getByRole('article').count() !== (singleColumn ? 1 : 4)) {
     throw new Error('Each date must use its own two-row budget.');
   }
-  await today.locator('.task-excerpt-lines').first().waitFor();
-  if (!await today.locator('.task-card-excerpt').evaluateAll(previews => previews.every(preview => {
-    const bounds = preview.getBoundingClientRect();
-    const body = preview.querySelector('.task-excerpt-lines')?.getBoundingClientRect();
-    return body && [body.top - bounds.top, bounds.bottom - body.bottom, body.left - bounds.left, bounds.right - body.right]
-      .every(inset => Math.abs(inset - 12) < 1);
-  }))) throw new Error('Preview text must have 12px of padding on every side.');
+  await today.locator('.task-snapshot-tail').first().waitFor();
+  if (await today.getByRole('article').evaluateAll(cards => cards.some(card => card.getBoundingClientRect().height < 224))) {
+    throw new Error('Detail cards must meet the homepage minimum height.');
+  }
   if (!await toggle.evaluate(node => {
     const row = node.getBoundingClientRect().top;
     const previousRows = new Set([...node.parentElement.children].map(card => card.getBoundingClientRect().top));
@@ -217,22 +214,27 @@ async function verifyGroupedTasks(page, fixture) {
   const children = parent.getByRole('button', { name: /4 个子任务.*1 个待确认/ });
   await children.waitFor();
   if (await feed.getByRole('article').count() !== 7) throw new Error('Explicit subagents must group and side chats must stay visible.');
-  const heights = await feed.getByRole('region', { name: '今天', exact: true }).getByRole('article').evaluateAll(cards => cards.map(card => card.getBoundingClientRect().height));
-  if (heights.some(height => height !== 224)) throw new Error('Homepage card heights differ.');
-  const previews = await feed.locator('.task-card-excerpt:has(.task-excerpt-lines)').evaluateAll(items => items.map(preview => {
-    const footer = preview.nextElementSibling;
-    const lines = getComputedStyle(preview.querySelector('.task-excerpt-lines'));
-    return {
-      padding: getComputedStyle(preview).padding,
-      budget: parseFloat(lines.maxHeight) / parseFloat(lines.lineHeight),
-      expected: 4 - Number(Boolean(footer)) - Number(Boolean(preview.querySelector('.task-excerpt-retry'))),
-      bottomInset: preview.parentElement.getBoundingClientRect().bottom - (footer ?? preview).getBoundingClientRect().bottom,
-    };
+  const grid = feed.getByRole('region', { name: '今天', exact: true }).locator('.homepage-task-grid');
+  if (!await grid.evaluate(element => {
+    const heights = new Map();
+    return [...element.children].every(card => {
+      const { top, height } = card.getBoundingClientRect();
+      if (!heights.has(top)) heights.set(top, height);
+      return height >= 224 && Math.abs(height - heights.get(top)) < 1;
+    });
+  })) throw new Error('Cards and disclosure controls must align within each homepage row.');
+  const previews = await grid.locator('.task-snapshot-timeline').evaluateAll(items => items.every(preview => {
+    const rows = [...preview.querySelectorAll('.task-snapshot-tail > :is(.task-snapshot-row, .task-snapshot-source, .task-snapshot-work, .task-snapshot-request)')];
+    const budget = preview.nextElementSibling?.matches('.task-card-footer') ? 3 : 4;
+    const bounds = preview.getBoundingClientRect();
+    return rows.length <= budget && rows.every(row => {
+      const rect = row.getBoundingClientRect();
+      return rect.top >= bounds.top && rect.bottom <= bounds.bottom + 1;
+    });
   }));
-  if (previews.some(item => item.padding !== '12px' || item.budget !== item.expected || Math.round(item.bottomInset) !== 9)) throw new Error('Activity lines must fill the card above its footer or bottom inset.');
-
+  if (!previews) throw new Error('Structured previews must fit their row budget without clipping.');
   const past = feed.getByRole('region', { name: '昨天', exact: true }).getByRole('article');
-  if ((await past.boundingBox()).height >= heights[0] || await past.getByRole('region').count()) throw new Error('Earlier dates must use compact metadata cards.');
+  if ((await past.boundingBox()).height >= 224 || await past.getByRole('region').count()) throw new Error('Earlier dates must use compact metadata cards.');
   if (!await parent.getAttribute('data-aurora') || await parent.getByText('进行中', { exact: true }).count()) throw new Error('Running task must use Aurora.');
   const spec = parent.getByRole('img', { name: /ultrafast/ });
   if (/ultrafast/i.test(await spec.innerText()) || await spec.locator('.dispatch-spec-ultrafast svg').count() !== 2) throw new Error('Ultrafast must display two bolts.');
@@ -242,7 +244,7 @@ async function verifyGroupedTasks(page, fixture) {
   await history.scrollIntoViewIfNeeded();
   const heading = history.getByRole('heading', { name: '安装和升级均已通过。', exact: true });
   await heading.waitFor();
-  const list = history.locator('.task-excerpt-text ul');
+  const list = history.locator('.task-snapshot-markdown ul');
   const headingBox = await heading.boundingBox(), listBox = await list.boundingBox();
   if (!listBox || Math.abs(listBox.y - headingBox.y - headingBox.height) > 1) throw new Error('Markdown headings and lists must occupy consecutive preview lines.');
   const failed = feed.getByRole('article', { name: fixture.tasks[4].title, exact: true });
@@ -254,6 +256,7 @@ async function verifyGroupedTasks(page, fixture) {
   await panel.getByRole('heading', { name: fixture.tasks[0].title, exact: true }).waitFor();
   if (await panel.locator('.dialog-description').count() || await panel.evaluate(el => getComputedStyle(el).backgroundColor) !== 'rgba(0, 0, 0, 0)') throw new Error('Child list must use a transparent panel with a single parent title.');
   const row = panel.getByRole('button', { name: /核对重试上限/ });
+  if (await panel.getByRole('article').count() !== 4 || await panel.locator('.task-snapshot-timeline').count()) throw new Error('The subtask panel must use only summary cards.');
   await row.click();
   const detail = page.getByRole('dialog', { name: 'Curie', exact: true });
   await detail.getByRole('button', { name: '返回', exact: true }).click();

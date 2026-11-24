@@ -33,6 +33,7 @@ import { acceptTaskExecution } from "../state/taskExecution";
 import { executionStatus, executionSnapshot, executionPhase, terminalState } from "../state/taskExecutionModel";
 import { timelineDuration, timelineGroups, turnDuration } from "../state/timelineGroups";
 import RelayRoute from "./RelayRoute";
+import { resolveEffectiveSource } from "../state/taskLineage";
 import TaskNeedsYou from "./TaskNeedsYou";
 import TaskOwnership from "./TaskOwnership";
 import { activityHeadline, type TrackedActivity } from "../state/activityModel";
@@ -213,7 +214,8 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   const projectName = timeline?.projectName || nativeSession.projectName || session.projectName;
   const projectPath = nativeSession.project || session.project;
   const latestSummary = live ? live.dispatchSummary : (historyTurn && timeline?.turnDispatchSummaries?.[historyTurn]) || (!session.selectedTurnId ? timeline?.dispatchSummary : undefined) || nativeSession.dispatchSummary;
-  const source = latestSummary?.controlSource;
+  const origin = !session.selectedTurnId || session.selectedTurnId === session.turnId ? nativeSession.origin : undefined;
+  const { controlSource: source, callerAgent } = resolveEffectiveSource(latestSummary, origin);
   const plan = running ? [...(groups.at(-1)?.entries ?? [])].reverse().find(entry => entry.type === "plan" && entry.plan?.length) : undefined;
   const hasPending = !external && !timeline?.readOnly && running && pendingSessions(agent, nativeSession, timeline?.entries ?? [], submissions).length > 0;
   const timelineStatus = timeline ? executionStatus(executionSnapshot(timeline), nativeSession.turnId) : undefined;
@@ -309,7 +311,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   useLayerNaturalContent(content, true, { version: `${loading ? 'loading' : 'ready'}:${title}`, flexibleFooter: true, resetHeight: true });
   return <TimelineSurface ref={detail} className="agent-panel-layer" data-related={!!relationKind || undefined} data-narrow={narrow || undefined}>
     <PanelHeader><div className="dialog-header task-detail-header" data-related={!!relationKind || undefined} role="banner">
-      <div className="task-detail-navigation"><TaskBackButton aria-label={t("back")} title={backLabel ?? agentName} onClick={onBack}><Icon icon={ArrowLeft} /><RelayRoute source={source} agent={agent} /></TaskBackButton>
+      <div className="task-detail-navigation"><TaskBackButton aria-label={t("back")} title={backLabel ?? agentName} onClick={onBack}><Icon icon={ArrowLeft} /><RelayRoute source={source} callerAgent={callerAgent} agent={agent} /></TaskBackButton>
         {!narrow && <div className="actions">{!readOnlyBrowser && validId && !reopen && nativeSession.open && <IconButton icon={ArrowUpRight} label={t("activity.open")} onClick={() => { setOpenError(""); void openActivitySession(agent, nativeSession).catch(error => setOpenError(String(error))); }} />}
           {resizable && <IconButton icon={expanded ? Minimize2 : Maximize2} label={t(expanded ? "restorePanelWidth" : "expandPanelWidth")} aria-pressed={expanded} onClick={onToggleWidth} />}</div>}
         {narrow && (!readOnlyBrowser && validId && !reopen && nativeSession.open || resizable) && <div className="task-narrow-menu"><Menu label={t("detail.taskActions")} trigger={<IconButton icon={MoreHorizontal} label={t("detail.taskActions")} />} items={[
@@ -397,10 +399,10 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
               .map((text, index) => <p key={index}>{text}</p>)}
           </section>}
           {!error && timeline?.entries.length === 0 && <EmptyTaskBody state="empty" action={t("homepage.reload")} onAction={() => retryTimeline.current?.()} />}
-          <TimelineEntries narrow={narrow} key={session.id} entries={timeline?.entries ?? []} agent={agent} session={nativeSession} now={now} running={activeState} turnTimings={timeline?.turnTimings} status={status} turnStatuses={timeline?.turnStatuses} turnDispatchSummaries={timeline?.turnDispatchSummaries}
+          <TimelineEntries narrow={narrow} key={session.id} entries={timeline?.entries ?? []} agent={agent} session={nativeSession} now={now} running={activeState} turnTimings={timeline?.turnTimings} status={status} currentDispatchSummary={latestSummary} turnStatuses={timeline?.turnStatuses} turnDispatchSummaries={timeline?.turnDispatchSummaries}
             onResume={!readOnlyBrowser && agent === "codex" && !external && !timeline?.readOnly && state === "interrupted" && turnId ? () => continueTurn("resume") : undefined}
             onRetry={!readOnlyBrowser && !external && !timeline?.readOnly && state === "failed" && turnId ? () => continueTurn("retry") : undefined} continuing={continuing} />
-          {state === "needsYou" && !groups.some(group => !nativeSession.turnId || !group.turnId || group.turnId === nativeSession.turnId) && <TaskNeedsYou agent={agent} session={nativeSession} entries={timeline?.entries ?? []} source={source} narrow={narrow} inline />}
+          {state === "needsYou" && !groups.some(group => !nativeSession.turnId || !group.turnId || group.turnId === nativeSession.turnId) && <TaskNeedsYou agent={agent} session={nativeSession} entries={timeline?.entries ?? []} source={source} callerAgent={callerAgent} narrow={narrow} inline />}
           <TaskQueuedMessages queue={queue} agent={agent} />
           {recordedTerminal && review && <TaskContentCard reply className="task-final task-review-info" data-verdict={review.verdict}>
             <header><Icon icon={ClipboardCheck} /><strong>{t("detail.reviewInfo")}</strong></header>

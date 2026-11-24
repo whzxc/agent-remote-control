@@ -23,6 +23,7 @@ import { BrandMark, Button, Icon, IconButton } from "./ui";
 import { SourceBadge, dispatchSourceLabel } from "./activity";
 import { PhaseLabel } from "./ui/TaskPhase";
 import RelayRoute from "./RelayRoute";
+import { resolveEffectiveSource } from "../state/taskLineage";
 import TaskNeedsYou from "./TaskNeedsYou";
 import { answerLabel, interactionSummary, pendingSessions } from "../state/taskInteractions";
 import { copyText } from "../platform";
@@ -139,10 +140,11 @@ function ThoughtEntry({ entry }: { entry: AgentTimelineEntry }) {
     <TimelineMarkdown text={entry.text || entry.title || ""} />
   </Fold></RailStep>;
 }
-function Prompt({ entry, agent, followup = false }: { entry: AgentTimelineEntry; agent: string; followup?: boolean }) {
+function Prompt({ entry, agent, followup = false, summary }: { entry: AgentTimelineEntry; agent: string; followup?: boolean; summary?: DispatchSummary }) {
   const [open, setOpen] = useState(false);
+  const { controlSource: source, callerAgent } = resolveEffectiveSource({ ...summary, controlSource: entry.controlSource ?? summary?.controlSource });
   return <div className="relay-message">
-    {entry.controlSource ? <RelayRoute source={entry.controlSource} agent={agent} label={t(followup ? "relay.followup" : "relay.dispatch")} /> : <div className="relay-local-route"><Icon icon={UserRound} size={13} /><strong>{t("relay.prompt")}</strong></div>}
+    {source ? <RelayRoute source={source} callerAgent={callerAgent} agent={agent} label={t(followup ? "relay.followup" : "relay.dispatch")} /> : <div className="relay-local-route"><Icon icon={UserRound} size={13} /><strong>{t("relay.prompt")}</strong></div>}
     <UserMessage text={entry.text ?? ""} truncated={entry.truncated} open={open} onChange={setOpen} />
   </div>;
 }
@@ -234,7 +236,7 @@ function processLabel(duration?: number) {
 
 type TurnProps = {
   narrow?: boolean; group: TimelineGroup; index: number; latest: boolean; current: boolean; live: boolean; agent: string;
-  session: AgentActivitySession & { selectedTurnId?: string }; now: number; status?: string; timing?: TurnTiming;
+  session: AgentActivitySession & { selectedTurnId?: string }; now: number; status?: string; timing?: TurnTiming; summary?: DispatchSummary;
   onResume?: () => void; onRetry?: () => void; continuing?: boolean;
 };
 const sameEntries = (a: readonly AgentTimelineEntry[], b: readonly AgentTimelineEntry[]) => a.length === b.length && a.every((entry, index) => entry === b[index]);
@@ -244,9 +246,10 @@ function sameTurn(a: TurnProps, b: TurnProps) {
     && a.narrow === b.narrow && a.latest === b.latest && a.current === b.current && a.agent === b.agent && a.status === b.status
     && a.timing?.startedAt === b.timing?.startedAt && a.timing?.endedAt === b.timing?.endedAt
     && a.session.id === b.session.id && a.session.project === b.session.project && a.session.selectedTurnId === b.session.selectedTurnId
+    && a.summary?.controlSource === b.summary?.controlSource && a.summary?.caller?.agent === b.summary?.caller?.agent
     && a.onResume === b.onResume && a.onRetry === b.onRetry && a.continuing === b.continuing;
 }
-const TurnCard = memo(function TurnCard({ narrow, group, index, latest, current, live, agent, session, now, status, timing, onResume, onRetry, continuing }: TurnProps) {
+const TurnCard = memo(function TurnCard({ narrow, group, index, latest, current, live, agent, session, now, status, timing, summary, onResume, onRetry, continuing }: TurnProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const submissions = activityApprovals.use();
   const change = (id: string) => (open: boolean) => setExpanded(previous => ({ ...previous, [id]: open }));
@@ -256,7 +259,7 @@ const TurnCard = memo(function TurnCard({ narrow, group, index, latest, current,
   const projection = projectTurn(group.entries, state);
   const { prompt, final, rows, activity } = projection;
   const duration = turnDuration(group.entries, now, live, latest && current ? session.turnStartedAt : undefined, timing);
-  const source = prompt?.controlSource;
+  const { controlSource: source, callerAgent } = resolveEffectiveSource({ ...summary, controlSource: prompt?.controlSource ?? summary?.controlSource });
   const workId = `process:${state}`, turnOpen = (session.selectedTurnId ? group.turnId === session.selectedTurnId : latest) || pending || (expanded.turn ?? false);
   const visibleRows = rows.filter(row => row.kind !== "entry" || !(pending && row.entry.type === "interaction" && !row.entry.response && row.entry.status !== "completed"));
   const newestNarration = [...group.entries].reverse().find(entry => entry.type === "text");
@@ -279,7 +282,7 @@ const TurnCard = memo(function TurnCard({ narrow, group, index, latest, current,
     {!latest && <div className="task-turn-heading">
       <button type="button" className="task-previous-turn" data-state={state} aria-expanded={turnOpen} onClick={() => change("turn")(!turnOpen)}>
         <span className="task-previous-turn-badge">{t("relay.turn", { count: index + 1 })}</span>
-        <RelayRoute source={source} agent={agent} marksOnly />
+        <RelayRoute source={source} callerAgent={callerAgent} agent={agent} marksOnly />
         {!turnOpen && <span className="task-previous-turn-result">{final?.text?.trim().split("\n")[0] || [...group.entries].reverse().find(entry => entry.type === "error" || entry.status === "failed")?.text?.split("\n")[0] || t(`detail.state.${state}`)}</span>}
         {!turnOpen && <Icon icon={outcomeIcon} size={14} className="task-previous-turn-status" />}
         <time>{duration !== undefined && durationText(duration)}</time>
@@ -288,17 +291,17 @@ const TurnCard = memo(function TurnCard({ narrow, group, index, latest, current,
       {turnOpen && !!visibleRows.length && processTrigger}
     </div>}
     {turnOpen && <div className="task-turn-content">
-      {prompt && <Prompt entry={prompt} agent={agent} followup={index > 0} />}
+      {prompt && <Prompt entry={prompt} agent={agent} followup={index > 0} summary={summary} />}
       {hasProcess && (live ? process : <div className="task-process">{latest && processTrigger}<Collapsible.Content>{process}</Collapsible.Content></div>)}
-      {pending && <TaskNeedsYou agent={agent} session={session} entries={group.entries} source={source} narrow={!!narrow} inline />}
+      {pending && <TaskNeedsYou agent={agent} session={session} entries={group.entries} source={source} callerAgent={callerAgent} narrow={!!narrow} inline />}
       {(state === "failed" || state === "interrupted") && <TaskOutcome state={state} entries={group.entries} project={session.project} onResume={latest && current ? onResume : undefined} onRetry={latest && current ? onRetry : undefined} continuing={continuing} agent={agent} source={source} />}
       <TaskReceiptHistory agent={agent} id={session.id} turnId={group.turnId} latest={latest} />
-      {final && state !== "failed" && state !== "interrupted" && <TaskReplyCard><header><RelayRoute source={source} agent={agent} reverse tone="success" label={t("relay.reply")} /><CopyReply text={final.text ?? ""} /></header><TimelineMarkdown text={final.text ?? ""} />{final.truncated && <span className="timeline-meta">{t("timeline.truncated")}</span>}<footer><ChangedFiles entries={group.entries} project={session.project} /></footer></TaskReplyCard>}
+      {final && state !== "failed" && state !== "interrupted" && <TaskReplyCard><header><RelayRoute source={source} callerAgent={callerAgent} agent={agent} reverse tone="success" label={t("relay.reply")} /><CopyReply text={final.text ?? ""} /></header><TimelineMarkdown text={final.text ?? ""} />{final.truncated && <span className="timeline-meta">{t("timeline.truncated")}</span>}<footer><ChangedFiles entries={group.entries} project={session.project} /></footer></TaskReplyCard>}
     </div>}
   </section></Collapsible.Root>;
 }, sameTurn);
-export default function TimelineEntries({ narrow, entries, agent, session, now, running = false, turnStatuses, turnTimings, status, onResume, onRetry, continuing }: {
-  narrow?: boolean; entries: AgentTimelineEntry[]; agent: string; session: AgentActivitySession & { selectedTurnId?: string }; now: number; running?: boolean; turnDispatchSummaries?: Record<string, DispatchSummary>; turnStatuses?: Record<string, string>; status?: string; turnTimings?: Record<string, TurnTiming>;
+export default function TimelineEntries({ narrow, entries, agent, session, now, running = false, turnStatuses, turnTimings, turnDispatchSummaries, currentDispatchSummary, status, onResume, onRetry, continuing }: {
+  narrow?: boolean; entries: AgentTimelineEntry[]; agent: string; session: AgentActivitySession & { selectedTurnId?: string }; now: number; running?: boolean; turnDispatchSummaries?: Record<string, DispatchSummary>; currentDispatchSummary?: DispatchSummary; turnStatuses?: Record<string, string>; status?: string; turnTimings?: Record<string, TurnTiming>;
   onResume?: () => void; onRetry?: () => void; continuing?: boolean;
 }) {
   const groups = timelineGroups(entries);
@@ -308,6 +311,7 @@ export default function TimelineEntries({ narrow, entries, agent, session, now, 
     const live = latest && current && running;
     return <TurnCard narrow={narrow} key={group.id} group={group} index={index} latest={latest} current={current} live={live} agent={agent} session={session}
       now={live ? now : 0} status={(group.turnId ? turnStatuses?.[group.turnId] : undefined) ?? (latest && current ? status : undefined)}
+      summary={(group.turnId ? turnDispatchSummaries?.[group.turnId] : undefined) ?? (current ? currentDispatchSummary : undefined)}
       timing={group.turnId ? turnTimings?.[group.turnId] : undefined}
       onResume={latest && current ? onResume : undefined} onRetry={latest && current ? onRetry : undefined} continuing={latest && current ? continuing : undefined} />;
   })}</TimelineResources>;

@@ -24,10 +24,10 @@ import { useAccounts } from '../state/accounts';
 import { agentPanel, selectAgentPanel, ingressPanel, selectIngressPanel, selectSourcePlatform, sourcePanelId, agentPanelId, managesAgentAccounts } from "../state/overviewPanels";
 import { resetActivityCore, useActivityTracking } from "../state/activity";
 import { maxVisibleAgents } from "../subscriptions/displayPreferences";
-import { platformQuotaForAgent, subscriptions } from "../state/subscriptions";
+import { subscriptions } from "../state/subscriptions";
 import { navigation, openConnections } from "../state/navigation";
 import { AgentQuotaIcon } from "../subscriptions/AgentQuotaIcon";
-import { accountQuotaProvider } from "../subscriptions/accountQuota";
+import { resolveAgentQuota, resolveSourceQuota } from "../state/quota";
 import { useEffect, useCallback, useState, useRef } from "react";
 import { t } from "../i18n";
 import { ingressState, connector, notify, refreshConnector, refreshHubHealth, orderedSources, reorderSources } from "../state/connector";
@@ -180,9 +180,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     const selected = !!sourceSelection && !sourceSelection.closing && "ingress" in sourceSelection && sourceSelection.client?.id === source.id;
     const platform = controlSourcePlatform(source.product), platformLabel = platform.displayName;
     const nodeLabel = source.label;
-    const account = accounts.find(account => account.sources.includes(source.id));
-    const quotaAgent = account?.quotaProviderId ?? account?.agentProfiles[0]?.agent;
-    const quota = account && quotaAgent && account.quota.windows.length ? accountQuotaProvider(quotaAgent, account.quota) : undefined;
+    const quota = resolveSourceQuota(source.id, snapshot, accounts);
     const sourceIcon = <SourceIcon platform={source.product} panelVisual />;
     const icon = quota ? <AgentQuotaIcon agent={quota.agentId} provider={quota} summary={quota.agentId !== 'claude'}>
       <SourceIcon platform={source.product} size={28} />
@@ -200,7 +198,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   });
   const agentViews: NodeView[] = agents.map(agent => {
     const selected = !selection?.closing && selection?.agent === agent.agent;
-    const provider = platformQuotaForAgent(snapshot, agent.agent);
+    const provider = resolveAgentQuota(agent.agent, snapshot, accounts);
     const icon = <AgentQuotaIcon agent={agent.agent} provider={provider} summary={agent.agent !== "claude"} />;
     const open = managesAgentAccounts(agent.agent)
       ? { type: 'platform' as const, agent: agent.agent, toggle: true }

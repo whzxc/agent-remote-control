@@ -165,12 +165,14 @@ function respondToScenario(path: string, method: string, body?: unknown): unknow
     throw new Error('SCENARIO_TIMELINE_UNAVAILABLE');
   }
   if (path === 'agents/conversations' && method === 'POST') {
-    const { agent, cursor, limit = 20, includeSubagents } = body as { agent: string; cursor?: string; limit?: number; includeSubagents?: boolean };
+    const { agent, cursor, limit = 20, includeSubagents } = body as { agent?: string; cursor?: string; limit?: number; includeSubagents?: boolean };
     const start = Number(cursor?.replace('fixture-page-', '') ?? 0);
-    const rows = (conversations[agent] ?? []).filter(row => agent !== 'codex' || includeSubagents || row.relationKind !== 'subagent');
+    const rows = agent ? conversations[agent] ?? [] : Object.values(conversations).flat().sort((a, b) =>
+      (b.updatedAt ?? b.createdAt ?? '').localeCompare(a.updatedAt ?? a.createdAt ?? ''));
+    const visible = rows.filter(row => row.agent !== 'codex' || includeSubagents || row.relationKind !== 'subagent');
     const size = Math.max(1, Math.min(50, limit));
-    const page = { data: structuredClone(rows.slice(start, start + size)), nextCursor: start + size < rows.length ? `fixture-page-${start + size}` : null,
-      scope: agent === 'codex' ? 'native-unarchived' : 'arc-tasks' };
+    const page = { data: structuredClone(visible.slice(start, start + size)), nextCursor: start + size < visible.length ? `fixture-page-${start + size}` : null,
+      scope: agent === 'codex' ? 'native-unarchived' : agent ? 'arc-tasks' : 'native-and-arc-tasks' };
     const delay = !cursor && responses.historyDelayMs;
     return typeof delay === 'number' ? new Promise(resolve => setTimeout(() => resolve(page), delay)) : page;
   }
@@ -365,7 +367,7 @@ export async function installScenario(name: string) {
       ], cursor: 2, executionEvidence: true, coverage: { state: 'complete', truncated: false }, turnStatuses: { [turnId]: status ?? 'completed' } };
       return { id, source: agent === 'codex' ? 'codex-thread' : 'arc-task', title, project: '/workspace/acceptance', createdAt, status };
     }) : [];
-    return [agent, [...current, ...history]];
+    return [agent, [...current, ...history].map(row => ({ ...row, agent }))];
   }));
   const records: import("./state/tasks").TaskRecord[] = fixture.tasks.flatMap((task, index) => {
     if (task.direct) return [];

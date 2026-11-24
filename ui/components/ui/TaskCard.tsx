@@ -31,8 +31,8 @@ const phaseInk: Partial<Record<AgentPhase, string>> = {
   thinking: 'var(--phase-thinking)', tool: 'var(--phase-tool)', text: 'var(--phase-text)',
   command: 'var(--phase-command)', file: 'var(--phase-file)',
 };
-const SnapshotMarkdown = memo(function SnapshotMarkdown({ text, excerpt = false }: { text: string; excerpt?: boolean }) {
-  return <div className={excerpt ? 'task-snapshot-markdown task-excerpt-text' : 'task-snapshot-markdown'}><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml disallowedElements={['img']}
+const SnapshotMarkdown = memo(function SnapshotMarkdown({ text }: { text: string }) {
+  return <div className="task-snapshot-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml disallowedElements={['img']}
     components={{ a: ({ children }) => <span>{children}</span> }}>{text}</ReactMarkdown></div>;
 });
 
@@ -44,18 +44,31 @@ function SnapshotNote({ tone, label, text }: { tone: 'source' | 'request'; label
   </div>;
 }
 
-const SnapshotRows = memo(function SnapshotRows({ rows, project, requestLabel }: { rows: TaskSnapshotRow[]; project?: string | null; requestLabel?: string }) {
+const SnapshotRows = memo(function SnapshotRows({ rows, project, request, limit }: { rows: TaskSnapshotRow[]; project?: string | null; request?: { label: string; text: string }; limit: number }) {
   const groups: TaskSnapshotRow[][] = [];
   for (const row of rows) {
     const group = groups.at(-1);
     if (row.tool && group?.[0].tool && group[0].turnId === row.turnId) group.push(row);
     else groups.push([row]);
   }
-  const latestRequest = requestLabel ? [...rows].reverse().find(row => row.role === 'request') : undefined;
-  return groups.map(group => {
+  const latest = (matches: (row: TaskSnapshotRow) => boolean) => {
+    for (let index = groups.length - 1; index >= 0; index--) {
+      if (matches(groups[index][0])) return index;
+    }
+    return -1;
+  };
+  const reply = latest(row => row.role === 'agent' && row.final === true);
+  const candidates = [
+    reply < 0 ? latest(row => row.role === 'agent') : reply,
+    latest(row => !!row.tool),
+    latest(row => row.role === 'source'),
+    latest(row => row.kind === 'thinking'),
+  ];
+  const selected = candidates.filter(index => index >= 0).slice(0, limit - Number(Boolean(request))).sort((a, b) => a - b);
+  return <>{selected.map(index => {
+    const group = groups[index];
     const first = group[0];
     if (first.role === 'source') return <SnapshotNote key={first.id} tone="source" text={first.text} />;
-    if (first.role === 'request') return <SnapshotNote key={first.id} tone="request" label={first === latestRequest ? requestLabel : undefined} text={first.text} />;
     if (first.role !== 'step') return <div key={first.id} className="task-snapshot-row" data-role={first.role}><SnapshotMarkdown text={first.text} /></div>;
     const latest = group.at(-1)!;
     const kind = first.tool ? 'tool' : latest.kind ?? 'running';
@@ -71,12 +84,12 @@ const SnapshotRows = memo(function SnapshotRows({ rows, project, requestLabel }:
         <FilePath path={path} project={project} cwd={latest.tool?.cwd} />
       </> : <span className="task-snapshot-work-text">{labels.length > 0 && <>{labels.join(' · ')} · </>}{text}</span>}
     </div>;
-  });
+  })}{request && <SnapshotNote tone="request" {...request} />}</>;
 });
 type CardHeaderProps = {
   task: TaskCardData; now: number; onOpen?: () => void; description?: string; titleId?: string; heading?: boolean;
   trigger?: Pick<ButtonHTMLAttributes<HTMLButtonElement>, 'disabled' | 'id'> & { 'data-activity-session'?: string };
-  grid?: boolean; spec?: ReactNode; duration?: number; attention?: boolean;
+  spec?: ReactNode; duration?: number; attention?: boolean;
 };
 
 export function TaskCardScrollRow({ children, label }: { children: ReactNode; label?: string }) {
@@ -121,9 +134,9 @@ function TaskTime({ task, now, duration }: { task: TaskCardData; now: number; du
   </time>;
 }
 
-export function TaskCardHeader({ task, now, onOpen, trigger, description, titleId, heading, spec, duration, grid, attention }: CardHeaderProps) {
+export function TaskCardHeader({ task, now, onOpen, trigger, description, titleId, heading, spec, duration, attention }: CardHeaderProps) {
   const origins = useTaskOrigins(task), title = taskTitle(task);
-  const shownException = !grid ? taskException(task.session.status) : undefined;
+  const shownException = taskException(task.session.status);
   const dot = !shownException ? (task.group === 'needs-me' || attention ? 'warning' : task.group === 'unread' ? 'accent' : undefined) : undefined;
   const summary = task.session.dispatchSummary, tier = summary?.serviceTier?.trim();
   const hasPills = Boolean(spec || summary?.model?.trim() || summary?.effort?.trim() || (tier && tier !== 'default') || projectLabelParts(task.session.projectName, task.session.project));
@@ -162,42 +175,32 @@ export function EmptyTaskBody({ state, action, onAction }: { state: 'loading' | 
 }
 
 type CardNotice = { text: string; danger?: boolean };
-function TaskCardPreview({ task, now, rows, notice, compact, lineCount, pending, failed, retry, onOpen }: { compact: boolean; lineCount: number; pending: boolean; failed: boolean; retry: () => void; onOpen?: () => void; task: TaskCardData; now: number; rows: TaskSnapshotRow[]; notice?: CardNotice }) {
-  const waiting = task.group === 'needs-me';
-  const { routing, error } = useRequestRouting(task.agent, task.session.id, !task.deviceId && waiting ? task.session.interaction : undefined);
+function TaskCardPreview({ task, now, rows, notice, limit, pending, failed, retry, onOpen }: {
+  task: TaskCardData; now: number; rows: TaskSnapshotRow[]; notice?: CardNotice; limit: number;
+  pending: boolean; failed: boolean; retry: () => void; onOpen?: () => void;
+}) {
+  const interaction = task.group === 'needs-me' ? task.session.interaction : undefined;
+  const { routing, error } = useRequestRouting(task.agent, task.session.id, task.deviceId ? undefined : interaction);
   const source = task.session.origin?.sourceLabel || task.session.dispatchSummary?.controlSource?.label || t('homepage.controller');
   const route = routing ? t(routing.state === 'deferred' ? 'routing.countdown' : routing.state === 'paused' ? 'routing.paused'
     : routing.state === 'not-routable' ? 'routing.nextCheck' : 'routing.routed', { source, seconds: Math.max(0, Math.ceil(((routing.deferUntil ?? now) - now) / 1000)) }) : undefined;
-  const requestLabel = waiting && task.session.interaction ? error || route || t('homepage.requestTo', { source }) : undefined;
+  const request = interaction && { label: error || route || t('homepage.requestTo', { source }), text: interaction.summary };
   const headline = task.session.headline || task.session.fallbackHeadline;
-  if (compact) {
-    const request = waiting && task.session.interaction?.summary;
-    const lines = failed ? lineCount - 1 : lineCount;
-    const recent = rows.slice(-lines);
-    const fallback = request || (!recent.length && headline);
-    const state = failed ? 'error' : pending ? 'loading' : 'empty';
-    return <div className="task-snapshot-timeline task-card-excerpt" style={{ '--excerpt-lines': lines } as CSSProperties} role="region" aria-label={t('homepage.recentSteps')}>
-      {!fallback && !recent.length
-        ? <EmptyTaskBody state={state} action={failed ? t('retry') : pending ? undefined : t('homepage.viewDetail')} onAction={failed ? retry : onOpen} />
-        : <><div className="task-excerpt-lines">
-          {fallback ? <div className="task-excerpt-text">{fallback}</div> : recent.map(row => row.role === 'step'
-            ? <div key={row.id} className="task-excerpt-step"><Icon icon={taskPhaseIcons[row.kind ?? 'running']} size={12} />
-              <span>{row.kind === 'thinking' ? thoughtLine(row.text) : row.text}</span></div>
-            : <SnapshotMarkdown key={row.id} excerpt text={row.text.slice(0, 600)} />)}
-        </div>{failed && <Button variant="link" className="task-excerpt-retry" onClick={retry}><Icon icon={RotateCcw} size={12} />{t('retry')}</Button>}</>}
-    </div>;
-  }
-  return <div className="task-snapshot-timeline" role="region" aria-label={t('homepage.recentSteps')}>
-    <div className="task-snapshot-tail">
-      {rows.length ? <SnapshotRows rows={rows} project={task.session.project} requestLabel={requestLabel} /> : headline && <div className="task-snapshot-row" data-role="agent"><SnapshotMarkdown text={headline} /></div>}
-      {waiting && task.session.interaction && !rows.some(row => row.role === 'request') && <SnapshotNote tone="request" label={requestLabel} text={task.session.interaction.summary} />}
-      {notice && (notice.danger ? <Notice layout="inline">{notice.text}</Notice> : <p className="task-snapshot-routing" role="status">{notice.text}</p>)}
-    </div>
+  const hasRows = rows.some(row => row.role !== 'request');
+  const hasPreview = hasRows || !!request || (!!headline && !failed);
+  const state = failed ? 'error' : pending ? 'loading' : 'empty';
+  return <div className="task-snapshot-timeline" data-empty={!hasPreview || undefined} role="region" aria-label={t('homepage.recentSteps')}>
+    {hasPreview ? <div className="task-snapshot-tail">
+      {!hasRows && headline && <div className="task-snapshot-row" data-role="agent"><SnapshotMarkdown text={headline} /></div>}
+      <SnapshotRows rows={rows} project={task.session.project} request={request} limit={limit} />
+      {failed && <Button variant="link" onClick={retry}><Icon icon={RotateCcw} size={14} />{t('retry')}</Button>}
+    </div> : <EmptyTaskBody state={state} action={failed ? t('retry') : pending ? undefined : t('homepage.viewDetail')} onAction={failed ? retry : onOpen} />}
+    {notice && (notice.danger ? <Notice layout="inline">{notice.text}</Notice> : <p className="task-snapshot-routing" role="status">{notice.text}</p>)}
   </div>;
 }
 
-export function TaskCard({ task, now, form, onOpen, trigger, description, snapshotKey, notice, grid = false, attention, footer, readTimeline = true }: Omit<CardHeaderProps, 'titleId' | 'heading' | 'spec' | 'duration'> & {
-  form: 'summary' | 'detail'; snapshotKey?: string; notice?: CardNotice; grid?: boolean; footer?: ReactNode; readTimeline?: boolean;
+export function TaskCard({ task, now, form, onOpen, trigger, description, snapshotKey, notice, attention, footer, readTimeline = true }: Omit<CardHeaderProps, 'titleId' | 'heading' | 'spec' | 'duration'> & {
+  form: 'summary' | 'detail'; snapshotKey?: string; notice?: CardNotice; footer?: ReactNode; readTimeline?: boolean;
 }) {
   const card = useRef<HTMLElement>(null);
   const detail = form === 'detail';
@@ -225,14 +228,14 @@ export function TaskCard({ task, now, form, onOpen, trigger, description, snapsh
   const title = taskTitle(task);
   const phaseDescription = aurora && phaseInk[phase] ? t(`activity.phase.${phase}`) : undefined;
   return <article ref={card} className="task-card" aria-label={title} aria-description={phaseDescription ?? description ?? t(`detail.state.${state}`)} data-task-snapshot={snapshotKey}
-    data-grid={grid || undefined} data-form={form} data-offline={task.stale || undefined} data-waiting={!aurora && detail && presentation.group === 'needs-me' || undefined} data-aurora={aurora ? phase : undefined}
+    data-form={form} data-offline={task.stale || undefined} data-waiting={!aurora && detail && presentation.group === 'needs-me' || undefined} data-aurora={aurora ? phase : undefined}
     style={aurora ? { '--task-aurora-ink': phaseInk[phase] ?? 'var(--role-agent)' } as CSSProperties : undefined}
     onClick={onOpen && !trigger?.disabled ? event => {
       if (!(event.target instanceof Element) || event.target.closest('button, [tabindex="0"], a') || window.getSelection()?.toString()) return;
       onOpen();
     } : undefined}>
-    <TaskCardHeader task={presentation} now={now} grid={grid} attention={attention} description={description ?? t(`detail.state.${state}`)} onOpen={onOpen} trigger={trigger} />
-    {detail && <TaskCardPreview task={presentation} now={now} rows={rows} notice={notice} compact={grid} lineCount={footer ? 3 : 4}
+    <TaskCardHeader task={presentation} now={now} attention={attention} description={description ?? t(`detail.state.${state}`)} onOpen={onOpen} trigger={trigger} />
+    {detail && <TaskCardPreview task={presentation} now={now} rows={rows} notice={notice} limit={footer ? 3 : 4}
       failed={preview.failed} retry={preview.retry} pending={canRead && !execution} onOpen={onOpen} />}
     {footer}
   </article>;

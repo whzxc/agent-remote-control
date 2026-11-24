@@ -23,8 +23,8 @@ import { FilePath } from "./ui/ProjectPath";
 export function taskReceipts(records: TaskRecord[], agent: string, id: string) {
   return records.filter(record => (record.agent || "codex") === agent && (record.taskId || record.threadId || record.task.threadId) === id);
 }
-export default function TaskNeedsYou({ agent, session, entries, source, narrow, inline = false }: {
-  agent: string; session: AgentActivitySession; entries: AgentTimelineEntry[]; source?: DispatchSummary["controlSource"]; narrow: boolean; inline?: boolean;
+export default function TaskNeedsYou({ agent, session, entries, source, callerAgent, narrow, inline = false }: {
+  agent: string; session: AgentActivitySession; entries: AgentTimelineEntry[]; source?: DispatchSummary["controlSource"]; callerAgent?: string; narrow: boolean; inline?: boolean;
 }) {
   const submissions = activityApprovals.use();
   const [page, setPage] = useState(0);
@@ -62,7 +62,7 @@ export default function TaskNeedsYou({ agent, session, entries, source, narrow, 
   const passive = routing.routing && !["deferred", "paused"].includes(routing.routing.state) && !routing.error ? route("passive", false) : undefined;
   const inlineCard = inline && !narrow;
   const dock = <section ref={focus} tabIndex={-1} className="task-needs-you" onFocusCapture={pauseOnInteraction} onPointerDownCapture={pauseOnInteraction} onClickCapture={pauseOnInteraction} onKeyDownCapture={pauseOnInteraction} onChangeCapture={pauseOnInteraction} aria-label={t("detail.needsYou")}>
-    {!narrow && <header><RelayRoute source={source} agent={agent} reverse tone="warning" label={t("relay.request")} />{!inline && passive}</header>}
+    {!narrow && <header><RelayRoute source={source} callerAgent={callerAgent} agent={agent} reverse tone="warning" label={t("relay.request")} />{!inline && passive}</header>}
     {count > 1 && <nav className="actions" aria-label={t("detail.needsYou")}><IconButton compact icon={ChevronLeft} label={t("detail.previousRequest")} disabled={index === 0} onClick={() => setPage(index - 1)} /><span>{t("detail.pager", { current: index + 1, total: count })}</span><IconButton compact icon={ChevronRight} label={t("detail.nextRequest")} disabled={index === count - 1} onClick={() => setPage(index + 1)} /></nav>}
     {pending && interaction && <TaskContentCard reply={interaction.kind !== "question"} className={`task-request-card ${interaction.kind === "question" ? "" : "task-permission-card"}`}>
       {interaction.kind === "question" ? <TaskQuestion key={identity} sheet={narrow} agent={agent} session={pending} answers={drafts[identity!] ?? {}} onAnswersChange={answers => setDrafts(old => ({ ...old, [identity!]: answers }))} routing={inlineCard ? undefined : route("actionable", false)} /> : <>
@@ -79,7 +79,7 @@ export default function TaskNeedsYou({ agent, session, entries, source, narrow, 
   if (inlineCard) return count ? <div className="relay-request">{dock}</div> : null;
   if (!narrow) return count ? <footer className="dialog-footer task-detail-footer">{dock}</footer> : null;
   return <>{count > 0 && <footer className="dialog-footer task-detail-footer" onFocusCapture={pauseOnInteraction} onPointerDownCapture={pauseOnInteraction} onClickCapture={pauseOnInteraction} onKeyDownCapture={pauseOnInteraction}>
-    <RelayRoute source={source} agent={agent} reverse tone="warning" label={t("relay.request")} /><RequestEntry title={`${t("detail.needsYou")} · ${count}`} summary={interaction?.title || interaction?.summary} action={t("detail.openRequest")} onOpen={() => { if (!readOnlyBrowser) void routing.change("pause"); setSheetOpen(true); }} />
+    <RelayRoute source={source} callerAgent={callerAgent} agent={agent} reverse tone="warning" label={t("relay.request")} /><RequestEntry title={`${t("detail.needsYou")} · ${count}`} summary={interaction?.title || interaction?.summary} action={t("detail.openRequest")} onOpen={() => { if (!readOnlyBrowser) void routing.change("pause"); setSheetOpen(true); }} />
   </footer>}
     {sheetOpen && <Dialog layerId={layerId} dirty={!resolved && interaction?.kind === "question" && Object.values(drafts[identity!] ?? {}).some(values => values.some(value => value.length > 0))}
       busy={!resolved && (!!identity && submissions[identity]?.status === "submitting" || routing.busy)} title={t("detail.needsYou")} description={!resolved ? passive : undefined} onClose={() => setSheetOpen(false)} returnFocus=".request-entry button"><div className="task-input-sheet">{resolved ? <p role="status">{t("timeline.resolved")}</p> : dock}</div></Dialog>}

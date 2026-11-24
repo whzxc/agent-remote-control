@@ -3,42 +3,18 @@ import { taskSnapshotElement } from './timeline/taskSnapshotElement';
 import { layers, captureLayerTrigger } from '../state/layers';
 import { deviceTasks } from '../devices/tasks';
 import { locale, t } from '../i18n';
-import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { ChevronDown, ChevronRight, ChevronUp, CircleCheck, CircleHelp, CirclePause, CircleX, GitFork, Inbox, ListFilter, X } from 'lucide-react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown, ChevronRight, ChevronUp, GitFork, Inbox, ListFilter, X } from 'lucide-react';
 import { Icon, IconButton, Panel } from './ui';
 import { TaskCard, taskTitle } from './ui/TaskCard';
 import { homepageTaskFocus, remoteTaskPanel } from '../state/homepage';
 import { panelBack, selectAgentPanel } from '../state/overviewPanels';
 import { markHomepageTaskRead } from '../state/homepageTasks';
-import { activeHomepageTask, homepageTaskFamilies, homepageTaskTime, localTaskDay, type TaskFamily, type HomepageTask } from '../state/activityModel';
+import { activeHomepageTask, homepageTaskFamilies, localTaskDay, type TaskFamily, type HomepageTask } from '../state/activityModel';
 import { useAppNow } from '../state/appEnvironment';
-import { presentTaskState, taskException } from '../state/taskProjection';
-import { useTaskPreview } from '../state/taskExecution';
+import { taskException } from '../state/taskProjection';
 import { PanelRoute } from './ui/Panel';
 import './HomepageTasks.css';
-
-function ChildTaskRow({ task, today, onOpen }: { today: number; task: HomepageTask; onOpen: () => void }) {
-  const row = useRef<HTMLButtonElement>(null);
-  useTaskPreview(task.agent, task.session.id, localTaskDay(homepageTaskTime(task) ?? 0) === today && !task.deviceId && task.session.timeline, row, !activeHomepageTask(task), task.session.turnId);
-  const state = presentTaskState(task.session.status ?? undefined, activeHomepageTask(task), task.group === 'needs-me');
-  const title = taskTitle(task);
-  const assignment = task.session.fallbackHeadline || title;
-  const activity = task.session.interaction?.summary || task.activity.snapshot.at(-1)?.text || task.session.headline;
-  const stateIcon = state === 'needsYou' ? CircleHelp : state === 'failed' ? CircleX : state === 'interrupted' ? CirclePause : CircleCheck;
-  return <button ref={row} type="button" className="task-card task-child-row" id={`subagent-${task.key}`} data-child={task.key}
-    data-state={state} data-aurora={state === 'running' ? task.session.phase : undefined}
-    style={{ '--task-aurora-ink': `var(--phase-${task.session.phase}, var(--role-agent))` } as CSSProperties}
-    aria-description={t(`detail.state.${state}`)} onClick={onOpen}>
-    <span className="task-child-body">
-      <span className="task-child-heading">
-        <strong>{assignment}</strong>
-        {state !== 'running' && <span className="task-child-state" data-state={state}><Icon icon={stateIcon} size={12} />{t(`detail.state.${state}`)}</span>}
-      </span>
-      <span className="task-child-description">{[assignment !== title ? title : undefined, activity !== assignment ? activity : undefined].filter(Boolean).join(' · ')}</span>
-    </span>
-    <Icon icon={ChevronRight} size={14} />
-  </button>;
-}
 
 function TaskDayGrid({ items, preview, now, open, openChildren }: {
   items: TaskFamily[]; preview: boolean; now: number;
@@ -74,7 +50,7 @@ function TaskDayGrid({ items, preview, now, open, openChildren }: {
     {visible.map(({ parent: task, children }) => {
       const attention = children.filter(child => child.group === 'needs-me').length;
       const failed = children.filter(child => taskException(child.session.status) === 'failed').length;
-      return <TaskCard key={task.key} task={task} grid form={form} now={now} attention={attention > 0} snapshotKey={task.key} onOpen={() => open(task)}
+      return <TaskCard key={task.key} task={task} form={form} now={now} attention={attention > 0} snapshotKey={task.key} onOpen={() => open(task)}
         footer={preview && children.length > 0 && <div className="task-card-footer"><button type="button" className="task-child-trigger" data-children onClick={event => openChildren(task.key, event.currentTarget)}>
         <Icon icon={GitFork} size={14} /><span className="task-child-count">{t('homepage.childCount', { count: children.length })}</span>
         {attention > 0 && <span className="task-child-badge">{t('homepage.childAttention', { count: attention })}</span>}
@@ -159,7 +135,13 @@ export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
       returnFocus={`[data-task-snapshot="${CSS.escape(family.parent.key)}"] [data-children]`}
       initialFocus={returnChild ? `subagent-${returnChild}` : undefined}
       onClose={() => setFamilyKey(undefined)}>
-      <div className="homepage-child-list">{family.children.map(child => <ChildTaskRow today={today} task={child} key={child.key} onOpen={() => open(child, family)} />)}</div>
+      <div className="homepage-child-list">{family.children.map(child => {
+        const title = taskTitle(child), assignment = child.session.fallbackHeadline;
+        const task = assignment && assignment !== title
+          ? { ...child, session: { ...child.session, title: `${title} · ${assignment}` } } : child;
+        return <TaskCard form="summary" task={task} now={now} key={child.key}
+          trigger={{ id: `subagent-${child.key}` }} onOpen={() => open(child, family)} />;
+      })}</div>
     </Panel>}</PanelRoute>
     {omitted > 0 && <p className="homepage-task-omitted" role="status" aria-label={t('homepage.partial')}>{t('homepage.omitted', { count: omitted })}</p>}
   </main>;

@@ -61,6 +61,7 @@ export interface CoreSnapshot {
 
 export type AgentPhase = "thinking" | "command" | "file" | "tool" | "text" | "interaction" | "idle";
 export interface DispatchSummary {
+  caller?: { agent: string; conversationId: string };
   controlSource?: { id?: string; accountId?: string; label?: string; kind?: string; deviceId?: string };
   model?: string;
   effort?: string;
@@ -114,6 +115,7 @@ export interface AgentActivitySnapshot {
   agents: Record<string, { sessions: AgentActivitySession[] }>;
 }
 export interface AgentConversation {
+  agent?: string;
   parentSessionId?: string;
   relationKind?: AgentActivitySession["relationKind"];
   preview?: string;
@@ -138,7 +140,7 @@ export interface AgentConversation {
 export interface AgentConversationPage {
   data: AgentConversation[];
   nextCursor: string | null;
-  scope: "native-unarchived" | "arc-tasks";
+  scope: "native-unarchived" | "arc-tasks" | "native-and-arc-tasks";
 }
 export interface AnsweredBy { kind: "source" | "local-ui" | "unknown"; sourceId?: string; label?: string; brand?: string; }
 export interface AgentTimelineEntry {
