@@ -134,7 +134,8 @@ elif cmd in {"crash", "terminate", "watch-exit"}:
     if expected != {"pid": pid, "identity": identity, "profile": str(state / "codex-desktop")}:
         stop("The recorded independent instance changed.")
     if cmd == "watch-exit":
-        with select.kqueue() as queue:
+        queue = select.kqueue()
+        try:
             event = select.kevent(pid, filter=select.KQ_FILTER_PROC, flags=select.KQ_EV_ADD,
                                   fflags=select.KQ_NOTE_EXIT)
             queue.control([event], 0, 0)
@@ -142,6 +143,8 @@ elif cmd in {"crash", "terminate", "watch-exit"}:
             if not queue.control(None, 1, 300):
                 stop("Exit observation timed out")
             print(json.dumps({"event": "instance-exit", "pid": pid, "monotonicNs": host_time_ns()}))
+        finally:
+            queue.close()
     else:
         os.kill(pid, signal.SIGKILL if cmd == "crash" else signal.SIGTERM)
 elif cmd in {"core-cycle", "core-crash"}:
@@ -180,8 +183,9 @@ elif cmd in {"locks", "sample"}:
         print(json.dumps(row), flush=True)
 elif cmd == "subscribe":
     thread = str(uuid.UUID(args[0]))
-    endpoint = home / "app-server-control/app-server-control.sock"
-    if endpoint.resolve() != endpoint or not stat.S_ISSOCK(endpoint.stat().st_mode) or endpoint.stat().st_uid != os.getuid():
+    endpoint = (home / "app-server-control/app-server-control.sock").resolve(strict=True)
+    info = endpoint.stat()
+    if not stat.S_ISSOCK(info.st_mode) or info.st_uid != os.getuid():
         stop("Invalid MacBook daemon endpoint.")
     script = Path(__file__).resolve().parent / "foreign-holder-reported/subscriber.mjs"
     local, remote = socket.socketpair()
