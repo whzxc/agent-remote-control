@@ -258,8 +258,7 @@
         "D1",
         "D11"
       ],
-      "risk": "normal",
-      "proposed": "independent-own-backend"
+      "risk": "normal"
     },
     {
       "id": "other-computers-do-not-hold",
@@ -291,8 +290,7 @@
       "expand": [
         "D1"
       ],
-      "risk": "normal",
-      "proposed": "independent-own-backend"
+      "risk": "normal"
     },
     {
       "id": "running-work-survives-arc-restart",
@@ -330,8 +328,7 @@
         "D7",
         "D10"
       ],
-      "risk": "high",
-      "proposed": "independent-own-backend"
+      "risk": "high"
     },
     {
       "id": "earlier-shared-tasks-unchanged",
@@ -363,8 +360,7 @@
       "expand": [
         "D7"
       ],
-      "risk": "normal",
-      "proposed": "independent-own-backend"
+      "risk": "normal"
     },
     {
       "id": "same-settings-as-main",
@@ -399,8 +395,7 @@
       ],
       "origin": "request",
       "expand": [],
-      "risk": "normal",
-      "proposed": "independent-own-backend"
+      "risk": "normal"
     },
     {
       "id": "backend-unavailable-fallback",
@@ -433,8 +428,7 @@
       "expand": [
         "D4"
       ],
-      "risk": "normal",
-      "proposed": "independent-own-backend"
+      "risk": "normal"
     }
   ]
 }
