@@ -296,12 +296,12 @@
     },
     {
       "id": "running-work-survives-arc-restart",
-      "statement": "While ARC's instance runs or any task on ARC's backend has a running turn or a pending approval or input request, an ARC Core restart or ARC update keeps ARC's backend running: the turn continues, the pending request stays answerable, and ARC's notifications and follow-up sends for those tasks keep working.",
+      "statement": "While ARC's instance runs or any task on ARC's backend has a running turn or a pending approval or input request, an ARC Core restart or ARC update keeps ARC's backend running: the turn continues, the pending request stays answerable, the turn's completion notification is not lost, and follow-up sends for those tasks keep working.",
       "review": {
         "zh-CN": {
           "situation": "ARC 的窗口里有任务正在跑，或在等你批准、回答，这时 ARC 重启或更新",
           "now": "任务跑在共享的 Codex 后台上，ARC 重启不影响它",
-          "after": "任务改跑在 ARC 自己的后台上，ARC 重启或更新时这个后台不停：任务接着跑，等你批准的请求还能回答，通知和后续发送照常"
+          "after": "任务改跑在 ARC 自己的后台上，ARC 重启或更新时这个后台不停：任务接着跑，等你批准的请求还能回答。通知不会丢，正常情况下只收到一次；只有 ARC 恰好在发通知那一瞬间退出时，可能补发一次，带同一个编号，能认出是同一条。后续发送照常"
         }
       },
       "given": {
@@ -321,7 +321,7 @@
         },
         {
           "id": "follow-ups-work",
-          "expect": "The turn's completion notification arrives exactly once, and a follow-up send after the restart is delivered"
+          "expect": "ARC records the turn completion once and keeps its event ID across delivery retries; a healthy destination receives one notification when the first delivery is acknowledged normally; a follow-up send after the restart reaches the original task"
         }
       ],
       "origin": "D2",
@@ -368,12 +368,12 @@
     },
     {
       "id": "same-settings-as-main",
-      "statement": "Tasks on ARC's backend use the same Codex home and settings as tasks the user starts in the main Desktop, including permissions such as full access, default model, MCP servers, plugins and account, and they appear in the main Desktop's task list.",
+      "statement": "With no explicit dispatch overrides, tasks on ARC's backend use the same Codex home and the same saved settings for that project as the main Desktop, including the saved full-access choice, default model, MCP servers, plugins and account; a choice held only in an unsent main-window composer applies only when the dispatch supplies it explicitly. The tasks appear in the main Desktop's task list.",
       "review": {
         "zh-CN": {
           "situation": "ARC 派的任务换到 ARC 自己的后台上跑",
           "now": "—",
-          "after": "设置和你自己开的任务一样：完全访问权限、默认模型、MCP 服务、插件、账号都相同；任务照样出现在你主窗口的任务列表里"
+          "after": "设置和你在主窗口里保存的一样：完全访问权限、默认模型、MCP 服务、插件、账号都相同。你在主窗口输入框里临时选了、还没发出去的权限方案，ARC 读不到，不会跟着变，派发时明确指定才生效。任务照样出现在你主窗口的任务列表里"
         }
       },
       "given": {
@@ -386,7 +386,7 @@
       "then": [
         {
           "id": "same-settings",
-          "expect": "The task's effective permissions, default model, MCP servers, plugins and account match a task started in the main Desktop for the same project"
+          "expect": "Without dispatch overrides, the task's effective permissions, default model, MCP servers, plugins and account match the main Desktop's saved settings for the same project"
         },
         {
           "id": "listed-in-main",

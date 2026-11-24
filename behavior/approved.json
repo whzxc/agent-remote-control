@@ -48,8 +48,8 @@
       "running-work-survives-arc-restart": {
         "scope": "independent-own-backend",
         "approvedAt": "2026-11-24",
-        "sha256": "9706993b9e782a5cc2b5661cc9132e685fed31e617771d21f129f348102f7153",
-        "revision": 1
+        "sha256": "6cd12cf7f6f8dc0700c6e7d2c799c62c073da42ce27d867b6af958102e25da06",
+        "revision": 2
       },
       "earlier-shared-tasks-unchanged": {
         "scope": "independent-own-backend",
@@ -60,8 +60,8 @@
       "same-settings-as-main": {
         "scope": "independent-own-backend",
         "approvedAt": "2026-11-24",
-        "sha256": "9940356d8bfa176e4cf4e21bbad91be295cd66a1e29fadeabcabde86cce6e071",
-        "revision": 1
+        "sha256": "4f8cb407895e7f488b46452c0bf03cc842827c0572aeaf675e597a750c853014",
+        "revision": 2
       },
       "backend-unavailable-fallback": {
         "scope": "independent-own-backend",
