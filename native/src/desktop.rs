@@ -14,6 +14,8 @@ type DesktopStream = UnixStream;
 type DesktopStream = tokio::net::windows::named_pipe::NamedPipeClient;
 #[cfg(target_os = "macos")]
 pub(crate) mod daemon;
+#[cfg(target_os = "macos")]
+pub(crate) mod handback;
 mod interactions;
 #[cfg(target_os = "macos")]
 pub(crate) mod recovery;

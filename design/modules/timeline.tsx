@@ -1,3 +1,4 @@
+import { Tag } from "../components/tag";
 import { Card } from '../components/card';
 export function TaskReplyCard({ children }: { children: unknown }) {
   return <Card variant="reply" padded class="border border-border bg-transparent text-small leading-[22px]">{children}</Card>;
@@ -420,7 +421,14 @@ export function TimelineEarlierTurn({ state = "done", turn = relayCopy.turn }: {
 
 const s = relaySteps;
 /** Task detail: relay header, flat work rail and directional messages. */
-export function RelayTimeline({ state }: { state: "running" | "waiting" | "done" | "failed" }) {
+export function HandbackStatus({ state }: { state: "running" | "held" | "returned" }) {
+  return <>
+    <Tag form="ownership" icon="monitor">{state === "running" ? "窗口已关闭，任务仍在运行" :
+      state === "held" ? "写入锁仍被占用 · 共享 App Server，客户端未知" : "已交还"}</Tag>
+    {state === "running" && <Button>重新打开窗口</Button>}
+  </>;
+}
+export function RelayTimeline({ state, handback }: { state: "running" | "waiting" | "done" | "failed"; handback?: "running" | "held" | "returned" }) {
   const failed = state === "failed", done = state === "done", waiting = state === "waiting";
   const bars = failed ? ["bg-danger"] : ["bg-success", done ? "bg-success" : waiting ? "bg-warning" : "bg-accent-text"];
   return (
@@ -436,6 +444,7 @@ export function RelayTimeline({ state }: { state: "running" | "waiting" | "done"
       <div class="mt-3 flex shrink-0 items-center gap-2">
         <StatePill class="pr-[10px]" state={state}>{relayCopy.state[state]}</StatePill>
         <DispatchSpec {...taskDispatch} />
+        {handback && <HandbackStatus state={handback} />}
         <ProjectLabel label="项目" name={agent.workspace} path="/workspace/acceptance" />
         <span class="ml-auto text-meta tabular-nums text-text-tertiary">{relayCopy.duration[state]}</span>
       </div>
@@ -471,6 +480,11 @@ export function RelayTimeline({ state }: { state: "running" | "waiting" | "done"
 }
 
 export default () => [
+  <Frame name="desktop-handback-running" width={440}>
+    <div class="flex items-center gap-2"><HandbackStatus state="running" /></div>
+  </Frame>,
+  <Frame name="desktop-handback-held" width={440}><HandbackStatus state="held" /></Frame>,
+
   <Frame name="relay-route" width={420}><RelayRoute label={relayCopy.kind.dispatch} time="13:58" /></Frame>,
   ...(["dispatch", "queued", "local"] as const).map((kind) => (
     <Frame name={`relay-message-${kind}`} width={512}>

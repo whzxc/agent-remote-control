@@ -38,6 +38,7 @@ export function TaskDetailHeader({
   phase,
   tone,
   parentTitle,
+  handback,
 }: {
   agent: string;
   title: string;
@@ -45,6 +46,7 @@ export function TaskDetailHeader({
   phase: string;
   tone: TileTone;
   parentTitle: string;
+  handback?: unknown;
 }) {
   return (
     <section class="flex w-[424px] flex-col rounded-panel bg-surface-raised px-4 py-4 shadow-lg">
@@ -55,6 +57,7 @@ export function TaskDetailHeader({
       <TaskCardHeader task={relatedTask(title)} heading />
       <div class="mt-1 flex items-center gap-5 text-meta leading-4">
         <TaskRelation kind={kind} />
+        {handback}
         <span
           class={tone === "thinking" ? "text-phase-thinking font-semibold" : "text-success font-semibold"}
         >

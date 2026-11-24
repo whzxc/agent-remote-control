@@ -895,6 +895,8 @@ pub async fn serve_mode(daemon: bool) -> Result<()> {
                     _ = stopping.changed() => return None,
                     _ = async { tokio::join!(index_service.agents.reattach(), index_service.control.reattach()); } => {}
                 }
+                #[cfg(target_os = "macos")]
+                crate::desktop::handback::start(index_service.control.clone());
                 crate::claude_notify::start(&index_service);
                 crate::coordination::messages::start(&index_service);
                 crate::dispatch_queue::start(&index_service.control);

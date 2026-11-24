@@ -469,6 +469,9 @@
               "agent": {
                 "type": "string"
               },
+              "reopen": {
+                "type": "boolean"
+              },
               "taskId": {
                 "type": "string"
               }

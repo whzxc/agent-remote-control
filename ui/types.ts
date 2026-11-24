@@ -182,7 +182,17 @@ export interface TurnTiming {
   startedAt?: string | null;
   endedAt?: string | null;
 }
+type WriterProcess = { pid: number; executable: string };
+type HandbackHolder = { origin: string; processes?: WriterProcess[] };
 export interface TaskOwnership {
+  origin?: string;
+  processes?: WriterProcess[];
+  handback?: {
+    state: string;
+    holder?: HandbackHolder;
+    descendants?: { threadId: string; state: string; holder?: HandbackHolder }[];
+    ownHold?: { state: "dropped"; connection: string; evidence: string; nativeStatus?: string; observedAt: string; reason: string };
+  };
   owner?: string;
   currentOwner?: string;
   state?: string;

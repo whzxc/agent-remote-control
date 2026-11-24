@@ -18,7 +18,9 @@ pub struct Control {
     rpc: Mutex<Option<Arc<Rpc>>>,
     desktop_daemon: Mutex<Option<Arc<Rpc>>>,
     #[cfg(target_os = "macos")]
-    desktop_preparation: Mutex<()>,
+    pub(crate) desktop_preparation: Mutex<()>,
+    #[cfg(target_os = "macos")]
+    pub(crate) handback_tasks: Mutex<std::collections::HashSet<String>>,
     monitor: Mutex<Option<Arc<Ipc>>>,
     jobs: Mutex<HashMap<String, tokio::task::JoinHandle<()>>>,
     schemas: Mutex<Option<Value>>,
@@ -102,6 +104,8 @@ impl Control {
             desktop_daemon: Mutex::new(None),
             #[cfg(target_os = "macos")]
             desktop_preparation: Mutex::new(()),
+            #[cfg(target_os = "macos")]
+            handback_tasks: Default::default(),
             requests: Default::default(),
             projects: Default::default(),
             task_records: Default::default(),
@@ -410,13 +414,28 @@ impl Control {
         let title = dispatch_title(
             &json!({"title":title,"prompt":receipt.as_deref().map(|r| &r["task"]["prompt"])}),
         );
-        let selection = if rpc.runtime_source() == "desktop-shared-app-server" {
+        let mut selection = if rpc.runtime_source() == "desktop-shared-app-server" {
             json!({"owner":"desktop","transport":"local-daemon"})
         } else {
             json!({"owner":"connector"})
         };
         let mut args = args;
         args["ephemeral"] = json!(false);
+        if let Some(recovery) = receipt.as_ref().map(|r| &r["desktopRecovery"]) {
+            if selection["transport"] == "local-daemon" && recovery["target"].is_object() {
+                selection["desktopTarget"] = recovery["target"].clone();
+            }
+            if recovery["independent"] == true && selection["transport"] == "local-daemon" {
+                selection["desktopInstance"] = recovery["target"].clone();
+                #[cfg(target_os = "macos")]
+                {
+                    selection["desktopProxy"] = rpc.proxy_identity();
+                }
+                if args["config"].is_null() || args["config"].is_object() {
+                    args["config"]["thread_unload_delay_secs"] = json!(0);
+                }
+            }
+        }
         let result = rpc.call("thread/start", args, 60000).await?;
         let thread = string(&result["thread"], "id");
         if uuid::Uuid::parse_str(thread).is_ok() {
@@ -624,7 +643,27 @@ impl Control {
     pub(crate) async fn writer_ownership(&self, thread: &str) -> Value {
         let mut result = crate::writer::probe(thread);
         result["threadId"] = json!(thread);
+        #[cfg(target_os = "macos")]
+        if let Ok(Some(status)) = desktop::handback::observation(thread) {
+            result["handback"] =
+                desktop::handback::diagnosis(thread, status, result["state"] == "held").await;
+        }
         if result["state"] != "held" {
+            return result;
+        }
+        #[cfg(target_os = "macos")]
+        if result["handback"].is_object() && result["handback"]["state"] != "in-instance" {
+            let holder = result["handback"]["holder"].clone();
+            result["owner"] = json!(match holder["origin"].as_str() {
+                Some("shared-app-server") => "shared-app-server",
+                Some("main-desktop") => "desktop",
+                _ => "external",
+            });
+            result["origin"] = holder["origin"].clone();
+            result["processes"] = holder["processes"].clone();
+            if holder["client"].is_string() {
+                result["client"] = holder["client"].clone();
+            }
             return result;
         }
         let shared = self.shared_desktop_thread(thread).unwrap_or(false);
@@ -649,6 +688,14 @@ impl Control {
                     Some("active" | "idle")
                 ) {
                     result["owner"] = json!(if shared { "desktop" } else { "connector" });
+                    #[cfg(target_os = "macos")]
+                    if shared {
+                        if desktop::handback::live_target(thread).is_none() {
+                            result["owner"] = json!("shared-app-server");
+                        }
+                        result["origin"] = json!("shared-app-server");
+                        result["client"] = json!("unknown");
+                    }
                     result["runtimeStatus"] = metadata["thread"]["status"]["type"].clone();
                     return result;
                 }
@@ -672,6 +719,21 @@ impl Control {
     }
     pub(crate) async fn observe_ownership(&self, thread: &str) -> Result<Value> {
         let mut owner = self.writer_ownership(thread).await;
+        #[cfg(target_os = "macos")]
+        if owner["state"] == "held"
+            && !owner["processes"].is_array()
+            && matches!(
+                owner["owner"].as_str(),
+                Some("external" | "shared-app-server")
+            )
+        {
+            let holder = desktop::handback::holder(thread).await;
+            owner["origin"] = holder["origin"].clone();
+            owner["processes"] = holder["processes"].clone();
+            if holder["origin"] == "shared-app-server" {
+                owner["client"] = json!("unknown");
+            }
+        }
         let history = crate::claude_notify::ownership::observe(thread, &owner).await?;
         owner["currentOwner"] = history["currentOwner"].clone();
         owner["history"] = history["history"].clone();
@@ -1037,7 +1099,10 @@ impl Control {
                     result["snapshotHash"],
                     ownership["currentOwner"],
                     ownership["state"],
-                    ownership["history"]
+                    ownership["history"],
+                    ownership["handback"],
+                    ownership["origin"],
+                    ownership["processes"]
                 ])
                 .to_string()
             ));
@@ -1066,7 +1131,10 @@ impl Control {
                             result["snapshotHash"],
                             ownership["currentOwner"],
                             ownership["state"],
-                            ownership["history"]
+                            ownership["history"],
+                            ownership["handback"],
+                            ownership["origin"],
+                            ownership["processes"]
                         ])
                         .to_string()
                     ));
@@ -1105,7 +1173,10 @@ impl Control {
                         result["snapshotHash"],
                         ownership["currentOwner"],
                         ownership["state"],
-                        ownership["history"]
+                        ownership["history"],
+                        ownership["handback"],
+                        ownership["origin"],
+                        ownership["processes"]
                     ])
                     .to_string()
                 ));
@@ -1278,6 +1349,10 @@ impl Control {
     }
     async fn request_native(&self, method: &str, args: Value, timeout: u64) -> Result<Value> {
         let thread = string(&args, "threadId");
+        #[cfg(target_os = "macos")]
+        if matches!(method, "thread/resume" | "turn/start" | "turn/steer") {
+            desktop::handback::check_send(thread).await?;
+        }
         let read_only = matches!(
             method,
             "thread/read" | "thread/turns/list" | "thread/items/list"
@@ -1298,7 +1373,10 @@ impl Control {
             && crate::writer::probe(thread)["state"] == "held"
         {
             let mut ownership = self.writer_ownership(thread).await;
-            if ownership["owner"] == "external" {
+            if matches!(
+                ownership["owner"].as_str(),
+                Some("external" | "shared-app-server")
+            ) {
                 ownership["processes"] = crate::writer::processes(thread).await;
                 return Err(crate::writer::busy(thread, ownership).to_string());
             }
@@ -1529,6 +1607,10 @@ impl Control {
         if let Some(receipt) = RECEIPTS.replay(&request, &digest, &self.session)? {
             return Ok(receipt);
         }
+        #[cfg(target_os = "macos")]
+        if operation == "send" {
+            desktop::handback::check_send(string(&args, "threadId")).await?;
+        }
         if matches!(operation, "create" | "send") {
             crate::dispatch_policy::apply_pack(&mut args, "codex", &format!("codex_{operation}"))?;
         }
@@ -1640,7 +1722,7 @@ impl Control {
                     receipt["desktopRecovery"] = json!({"state":"ready","transport":"ipc"})
                 }
                 Preparation::Shared(instance) => {
-                    receipt["desktopRecovery"] = json!({"state":"ready","transport":"local-daemon","target":instance.identity()});
+                    receipt["desktopRecovery"] = json!({"state":"ready","transport":"local-daemon","target":instance.identity(),"independent":desktop::handback::managed_instance(self,&instance).await?});
                 }
                 Preparation::Awaiting { reason, target } => {
                     receipt["desktopRecovery"] = json!({"state":"waiting-for-local","decisionId":id(),"reason":reason,"target":target.map(|instance| instance.identity())});
@@ -1726,6 +1808,12 @@ impl Control {
                         }
                         receipt["result"] = json!({"error":error});
                     }
+                }
+            }
+            #[cfg(target_os = "macos")]
+            if op == "create" && receipt["desktopRecovery"]["independent"] == true {
+                if let Some(thread) = receipt["threadId"].as_str() {
+                    c.handback_tasks.lock().await.insert(thread.to_owned());
                 }
             }
             // Publish a parked receipt while holding the jobs lock so a local
@@ -1987,9 +2075,6 @@ impl Control {
         Ok(())
     }
     async fn perform(&self, operation: &str, args: &Value, r: &mut Value) -> Result<Value> {
-        if operation == "send" && args["sendMode"] == "queue" {
-            return crate::dispatch_queue::enqueue(args, r).await;
-        }
         let thread_key = args["threadId"]
             .as_str()
             .or_else(|| args["params"]["threadId"].as_str())
@@ -2008,6 +2093,13 @@ impl Control {
             None
         };
 
+        #[cfg(target_os = "macos")]
+        if matches!(operation, "send" | "resume") {
+            desktop::handback::check_send(thread_key).await?;
+        }
+        if operation == "send" && args["sendMode"] == "queue" {
+            return crate::dispatch_queue::enqueue(args, r).await;
+        }
         if matches!(operation, "send" | "interrupt")
             || (operation == "native"
                 && matches!(
@@ -2850,7 +2942,10 @@ impl Control {
             "codex_owner" => {
                 let mut owner = self.observe_ownership(string(&args, "threadId")).await?;
                 if owner["state"] == "held" {
-                    owner["processes"] = crate::writer::processes(string(&args, "threadId")).await;
+                    if !owner["processes"].is_array() {
+                        owner["processes"] =
+                            crate::writer::processes(string(&args, "threadId")).await;
+                    }
                     owner["next"] = crate::writer::release_step(string(&args, "threadId"), &owner);
                 }
                 Ok(owner)

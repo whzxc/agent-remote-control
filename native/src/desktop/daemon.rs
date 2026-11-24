@@ -11,15 +11,37 @@ pub(crate) struct Instance {
     pub start: String,
     pub profile: Option<PathBuf>,
     endpoint: Option<String>,
+    launch_id: Option<String>,
 }
 
 impl Instance {
     pub fn identity(&self) -> Value {
         json!({"pid":self.pid,"start":self.start})
     }
+    pub fn independent(&self) -> bool {
+        if self.profile.as_deref() != Some(&independent_profile()) {
+            return false;
+        }
+        crate::kernel::file_cache::load(&root().join("desktop-launch.json")).is_ok_and(|r| {
+            self.launch_id
+                .as_ref()
+                .is_some_and(|id| r["launchId"] == *id)
+                || r["legacyInstance"] == self.identity()
+        })
+    }
     pub fn running(&self) -> bool {
         crate::codex_host::process_start(self.pid).as_deref() == Some(&self.start)
     }
+}
+
+pub(super) fn adopt_legacy(instance: &Instance) -> Result<()> {
+    if instance.running() && instance.launch_id.is_none() && !instance.independent() {
+        save(
+            &root().join("desktop-launch.json"),
+            &json!({"legacyInstance":instance.identity()}),
+        )?;
+    }
+    Ok(())
 }
 
 pub(crate) fn socket() -> Result<PathBuf> {
@@ -39,7 +61,14 @@ fn url(socket: &Path) -> String {
 
 // Read only the launch variables that identify an instance. sysctl keeps argument
 // and environment boundaries intact when this user's home or profile contains spaces.
-fn identity_environment(pid: u32) -> Option<(Option<PathBuf>, Option<PathBuf>, Option<String>)> {
+fn identity_environment(
+    pid: u32,
+) -> Option<(
+    Option<PathBuf>,
+    Option<PathBuf>,
+    Option<String>,
+    Option<String>,
+)> {
     let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid as libc::c_int];
     let mut size = 0;
     if unsafe {
@@ -82,6 +111,7 @@ fn identity_environment(pid: u32) -> Option<(Option<PathBuf>, Option<PathBuf>, O
     let mut home = None;
     let mut profile = None;
     let mut endpoint = None;
+    let mut launch_id = None;
     for entry in rest[argv..]
         .split(|&byte| byte == 0)
         .skip(argc)
@@ -96,12 +126,14 @@ fn identity_environment(pid: u32) -> Option<(Option<PathBuf>, Option<PathBuf>, O
             profile = Some(PathBuf::from(value));
         } else if let Some(value) = entry.strip_prefix("CODEX_APP_SERVER_WS_URL=") {
             endpoint = Some(value.to_owned());
+        } else if let Some(value) = entry.strip_prefix("ARC_DESKTOP_LAUNCH_ID=") {
+            launch_id = Some(value.to_owned());
         }
     }
-    Some((home, profile, endpoint))
+    Some((home, profile, endpoint, launch_id))
 }
 
-async fn process_rows() -> Result<Vec<(u32, u32, PathBuf)>> {
+pub(super) async fn process_rows() -> Result<Vec<(u32, u32, PathBuf)>> {
     let uid = unsafe { libc::geteuid() }.to_string();
     let processes = output("/bin/ps", &["-axww", "-o", "uid=,pid=,ppid=,comm="]).await?;
     Ok(processes
@@ -143,7 +175,7 @@ pub(crate) async fn instances() -> Result<Vec<Instance>> {
         let Some(start) = crate::codex_host::process_start(pid) else {
             continue;
         };
-        let (home, profile, endpoint) =
+        let (home, profile, endpoint, launch_id) =
             identity_environment(pid).ok_or("DESKTOP_PROCESS_SCOPE_UNAVAILABLE")?;
         let home = home.unwrap_or_else(|| user_home.clone());
         if home.canonicalize().unwrap_or(home) == expected {
@@ -152,6 +184,7 @@ pub(crate) async fn instances() -> Result<Vec<Instance>> {
                 start,
                 profile,
                 endpoint,
+                launch_id,
             });
         }
     }
@@ -188,6 +221,10 @@ pub(crate) async fn native_peer(socket: &Path) -> Result<u32> {
 /// Verify a connected Unix socket from the target process tree to the daemon.
 /// A launch variable alone can also describe a Desktop that failed to connect.
 pub(crate) async fn connected() -> Result<Option<Instance>> {
+    connected_profile(None).await
+}
+
+pub(crate) async fn connected_profile(profile: Option<&Path>) -> Result<Option<Instance>> {
     let Ok(socket) = socket() else {
         return Ok(None);
     };
@@ -195,7 +232,10 @@ pub(crate) async fn connected() -> Result<Option<Instance>> {
     let mut candidates: Vec<_> = instances()
         .await?
         .into_iter()
-        .filter(|instance| instance.endpoint.as_deref() == Some(&expected))
+        .filter(|instance| {
+            instance.endpoint.as_deref() == Some(&expected)
+                && profile.is_none_or(|p| instance.profile.as_deref() == Some(p))
+        })
         .collect();
     if candidates.is_empty() {
         return Ok(None);
@@ -314,6 +354,16 @@ pub(crate) async fn launch(profile: Option<&Path>) -> Result<()> {
     let mut args = vec!["-g", "--env", &home_env, "--env", &url_env];
     let profile_env;
     let profile_arg;
+    let launch_env;
+    if profile == Some(&independent_profile()) {
+        let launch_id = id();
+        save(
+            &root().join("desktop-launch.json"),
+            &json!({"launchId":launch_id}),
+        )?;
+        launch_env = format!("ARC_DESKTOP_LAUNCH_ID={launch_id}");
+        args.extend(["--env", &launch_env]);
+    }
     if let Some(profile) = profile {
         private_dir(profile)?;
         profile_env = format!("CODEX_ELECTRON_USER_DATA_PATH={}", profile.display());
@@ -363,10 +413,26 @@ pub(crate) async fn quit(instance: Instance) -> Result<()> {
 }
 
 pub(crate) async fn open_thread(thread: &str, target: Option<&Value>) -> Result<()> {
-    let instance = connected().await?.ok_or("DESKTOP_DAEMON_APP_NOT_RUNNING")?;
+    let profile = if let Some(target) = target {
+        instances()
+            .await?
+            .into_iter()
+            .find(|i| i.identity() == *target)
+            .ok_or("DESKTOP_RECOVERY_TARGET_CHANGED")?
+            .profile
+    } else {
+        None
+    };
+    let instance = connected_profile(profile.as_deref())
+        .await?
+        .ok_or("DESKTOP_DAEMON_APP_NOT_RUNNING")?;
     if target.is_some_and(|target| *target != instance.identity()) {
         return Err("DESKTOP_RECOVERY_TARGET_CHANGED".into());
     }
+    reveal(instance, thread).await
+}
+
+pub(crate) async fn reveal(instance: Instance, thread: &str) -> Result<()> {
     send_event(
         instance,
         *b"GURL",

@@ -76,7 +76,7 @@ impl Rpc {
         #[cfg(not(feature = "test-fixture"))]
         command.arg("app-server");
         // Unsubscribe must unload an idle ARC-owned thread instead of retaining
-        // its writer for the native default grace period (30 minutes).
+        // its writer for the native inactivity grace period.
         command.args(["-c", "thread_unload_delay_secs=0"]);
         #[cfg(unix)]
         command.process_group(0);
@@ -240,6 +240,10 @@ impl Rpc {
             shared_desktop,
         )
         .await
+    }
+    #[cfg(target_os = "macos")]
+    pub(crate) fn proxy_identity(&self) -> Value {
+        json!({"connection":self.session,"pid":self.pid,"start":self.pid.and_then(crate::codex_host::process_start)})
     }
     pub(crate) fn runtime_source(&self) -> &'static str {
         if self.shared_desktop {
@@ -416,6 +420,13 @@ impl Rpc {
                         let _ = tx.send(result);
                     }
                 }
+            }
+            #[cfg(target_os = "macos")]
+            if shared_desktop {
+                let _ = save(
+                    &root().join("desktop-last-disconnect.json"),
+                    &json!({"connection":session,"observedAt":now()}),
+                );
             }
             alive.store(false, std::sync::atomic::Ordering::SeqCst);
             for (_, tx) in pending.lock().unwrap().drain() {

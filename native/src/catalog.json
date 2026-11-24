@@ -6983,7 +6983,7 @@
     },
     {
       "name": "codex_owner",
-      "description": "Probe the native writer without loading a thread. Reports held/unheld/unknown and connector/desktop/external ownership; unheld is a point-in-time observation, not permission to bypass native checks. Includes observed handoff history; Desktop Resume after connector shutdown is a supported handoff. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
+      "description": "Probe the native writer without loading a thread. Reports the current lock state, writer process evidence, and observed ownership history. Independent Desktop handback includes the per-thread ARC connection acknowledgement or observed close, time, reason, and remaining holder. A shared app-server can have an unknown subscribing client. Optional device selects one directly paired member; task reads are limited to tasks dispatched by this controller.",
       "inputSchema": {
         "type": "object",
         "properties": {

@@ -5,7 +5,7 @@ use rusqlite::{Connection, OpenFlags};
 use std::collections::HashSet;
 const PREFIX: &str = "archive-index:";
 
-pub(crate) fn list(args: &Value) -> Result<Option<Value>> {
+fn database_path() -> Result<Option<PathBuf>> {
     let home = crate::accounts::codex::default_home()?;
     let path = std::fs::read_dir(home)
         .ok()
@@ -23,6 +23,39 @@ pub(crate) fn list(args: &Value) -> Result<Option<Value>> {
         })
         .max_by_key(|(version, _)| *version)
         .map(|(_, path)| path);
+    Ok(path)
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) fn spawned_descendants(thread: &str) -> Result<Vec<(String, String)>> {
+    let db = Connection::open_with_flags(
+        database_path()?.ok_or("CODEX_STATE_INDEX_MISSING")?,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(|e| e.to_string())?;
+    let indexed: bool = db
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM threads WHERE id=?1)",
+            [thread],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if !indexed {
+        return Err("DESKTOP_HANDBACK_THREAD_NOT_INDEXED".into());
+    }
+    let mut stmt = db.prepare("WITH RECURSIVE subtree(id) AS (
+        SELECT child_thread_id FROM thread_spawn_edges WHERE parent_thread_id=?1
+        UNION SELECT child_thread_id FROM thread_spawn_edges JOIN subtree ON parent_thread_id=subtree.id
+    ) SELECT e.child_thread_id,e.parent_thread_id FROM thread_spawn_edges e JOIN subtree ON e.child_thread_id=subtree.id").map_err(|e|e.to_string())?;
+    let rows = stmt
+        .query_map([thread], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map_err(|e| e.to_string())?;
+    rows.collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|e| e.to_string())
+}
+
+pub(crate) fn list(args: &Value) -> Result<Option<Value>> {
+    let path = database_path()?;
     let result = (|| {
         let Some(path) = path else {
             return Ok(None);

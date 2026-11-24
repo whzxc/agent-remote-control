@@ -14,3 +14,13 @@ flowchart TD
   independent --> verify
   verify -->|Yes| submit
   verify -->|Timeout or failure| stopped
+  submit -->|Independent PID and creation token| watch["Observe recorded process"]
+  watch -->|Process exited| busy{"Active turn or pending input?"}
+  busy -->|Yes| running["Keep execution and offer Reopen"]
+  running -->|Turn settled| release
+  running -->|Reopen exact thread| watch
+  busy -->|No| release["Drop Core subscription per idle thread"]
+  release --> locks{"Parent and descendant writers clear?"}
+  locks -->|Yes| returned["Handed back to Desktop"]
+  locks -->|No| held["Report remaining holder"]
+  held --> locks

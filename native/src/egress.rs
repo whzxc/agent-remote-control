@@ -1762,6 +1762,9 @@ pub fn panel_state(panel: &Value) -> Value {
     if panel["timeline"].is_object() {
         result["timeline"] =
             json!({"entryCount":panel["timeline"]["entries"].as_array().map_or(0,Vec::len)});
+        if let Some(handback) = panel.pointer("/timeline/ownership/handback") {
+            result["handback"] = handback.clone();
+        }
         for key in ["status", "cursor", "snapshotHash", "coverage"] {
             if let Some(value) = panel["timeline"].get(key) {
                 result["timeline"][key] = value.clone();

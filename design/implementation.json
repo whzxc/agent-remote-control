@@ -3,6 +3,18 @@
   "mappings": [
     {
       "implementation": {
+        "file": "ui/components/TaskOwnership.tsx",
+        "symbol": "TaskOwnership"
+      },
+      "design": [
+        {
+          "source": "design/modules/timeline.tsx",
+          "part": "HandbackStatus"
+        }
+      ]
+    },
+    {
+      "implementation": {
         "file": "ui/components/ui/ProjectPath.tsx",
         "symbol": "ProjectLabel"
       },

@@ -201,6 +201,11 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   const historyTurn = session.selectedTurnId || groups.at(-1)?.turnId || session.turnId;
   const nativeSession = live ?? { ...session, turnId: historyTurn, interaction: undefined,
     dispatchSummary: historyTurn === session.turnId ? session.dispatchSummary : undefined };
+  const reopen = timeline?.ownership?.handback?.state === "running" && !readOnlyBrowser && validId;
+  const reopenAction = reopen && <Button onClick={() => {
+    setOpenError("");
+    void api("tasks/open", "POST", { agent, taskId: session.id, reopen: true }).catch(error => setOpenError(String(error)));
+  }}>{t("detail.handback.reopen")}</Button>;
   const agentName = name(orderedAgents().find(a => a.agent === agent) ?? { agent });
   const selectedEntries = session.selectedTurnId ? groups.find(group => group.turnId === session.selectedTurnId)?.entries : undefined;
   const duration = session.selectedTurnId ? turnDuration(selectedEntries ?? [], now, running, nativeSession.turnStartedAt, timeline?.turnTimings?.[session.selectedTurnId])
@@ -305,10 +310,10 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
   return <TimelineSurface ref={detail} className="agent-panel-layer" data-related={!!relationKind || undefined} data-narrow={narrow || undefined}>
     <PanelHeader><div className="dialog-header task-detail-header" data-related={!!relationKind || undefined} role="banner">
       <div className="task-detail-navigation"><TaskBackButton aria-label={t("back")} title={backLabel ?? agentName} onClick={onBack}><Icon icon={ArrowLeft} /><RelayRoute source={source} agent={agent} /></TaskBackButton>
-        {!narrow && <div className="actions">{!readOnlyBrowser && validId && nativeSession.open && <IconButton icon={ArrowUpRight} label={t("activity.open")} onClick={() => { setOpenError(""); void openActivitySession(agent, nativeSession).catch(error => setOpenError(String(error))); }} />}
+        {!narrow && <div className="actions">{!readOnlyBrowser && validId && !reopen && nativeSession.open && <IconButton icon={ArrowUpRight} label={t("activity.open")} onClick={() => { setOpenError(""); void openActivitySession(agent, nativeSession).catch(error => setOpenError(String(error))); }} />}
           {resizable && <IconButton icon={expanded ? Minimize2 : Maximize2} label={t(expanded ? "restorePanelWidth" : "expandPanelWidth")} aria-pressed={expanded} onClick={onToggleWidth} />}</div>}
-        {narrow && (!readOnlyBrowser && validId && nativeSession.open || resizable) && <div className="task-narrow-menu"><Menu label={t("detail.taskActions")} trigger={<IconButton icon={MoreHorizontal} label={t("detail.taskActions")} />} items={[
-          ...(!readOnlyBrowser && validId && nativeSession.open ? [{ label: t("activity.open"), action: () => { setOpenError(""); void openActivitySession(agent, nativeSession).catch(error => setOpenError(String(error))); } }] : []),
+        {narrow && (!readOnlyBrowser && validId && !reopen && nativeSession.open || resizable) && <div className="task-narrow-menu"><Menu label={t("detail.taskActions")} trigger={<IconButton icon={MoreHorizontal} label={t("detail.taskActions")} />} items={[
+          ...(!readOnlyBrowser && validId && !reopen && nativeSession.open ? [{ label: t("activity.open"), action: () => { setOpenError(""); void openActivitySession(agent, nativeSession).catch(error => setOpenError(String(error))); } }] : []),
           ...(resizable ? [{ label: t(expanded ? "restorePanelWidth" : "expandPanelWidth"), action: onToggleWidth }] : []),
         ]} /></div>}
       </div>
@@ -318,7 +323,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
           ? <PhaseLabel phase={detailPhase} running>{t(`activity.phase.${detailPhase}`)}</PhaseLabel>
           : !taskException(state) && <StatePill state={state}>{t(`detail.state.${state}`)}</StatePill>}
           {selectedTurnTag}
-          <TaskOwnership ownership={timeline?.ownership} />
+          <TaskOwnership ownership={timeline?.ownership} />{reopenAction}
         </div>
         {parentSession && <TaskListCard task={localTaskCard(agent, parentSession)} now={now} form="summary" description={t("activity.parentThread")}
           onOpen={() => selectAgentPanel({ type: "task", agent, session: parentSession })} />}
@@ -330,7 +335,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
           <ProjectLabel name={projectName} path={projectPath} />
           {card.session.turnCount != null && <span className="task-card-turns">{t("timeline.turnCount", { count: card.session.turnCount })}</span>}
           {selectedTurnTag}
-          <TaskOwnership ownership={timeline?.ownership} />
+          <TaskOwnership ownership={timeline?.ownership} />{reopenAction}
           {duration !== undefined && <time className="task-detail-duration">{durationText(duration)}</time>}
         </div>
       </>}

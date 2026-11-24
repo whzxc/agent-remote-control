@@ -931,6 +931,23 @@ impl Service {
                 }
                 ("POST", "tasks/open") => {
                     let task = string(&body, "taskId");
+                    #[cfg(target_os = "macos")]
+                    if body["agent"] == "codex" {
+                        if crate::desktop::handback::reopen(&self.control, task).await? {
+                            return Ok(
+                                json!({"state":"opened","url":format!("codex://threads/{task}")}),
+                            );
+                        }
+                        if body["reopen"] == true {
+                            return Err("DESKTOP_TASK_ALREADY_SETTLED".into());
+                        }
+                        if let Some(target) = crate::desktop::handback::live_target(task) {
+                            crate::desktop::daemon::open_thread(task, Some(&target)).await?;
+                            return Ok(
+                                json!({"state":"opened","url":format!("codex://threads/{task}")}),
+                            );
+                        }
+                    }
                     self.agents.open_task(string(&body, "agent"), task).await
                 }
                 ("GET", route) if route.starts_with("tasks/runtime/") => {
