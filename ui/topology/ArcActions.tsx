@@ -48,7 +48,13 @@ export default function ArcActions({ label, side, open, centerWing, collapsed, c
       <span className="arc-action-bridge" aria-hidden="true" />
       <GraphAction compact variant="ghost" icon={action.icon} label={action.label} disabled={action.disabled}
         aria-expanded={action.id === 'collapse' ? !collapsed : undefined} onPointerDown={event => event.stopPropagation()} onClick={() => {
-          try { action.run(); onOpen(false); requestAnimationFrame(onDismiss); } catch (error) { notify(String(error), { errorSource: `topology:${action.id}` }); }
+          try {
+            action.run(); onOpen(false);
+            requestAnimationFrame(() => {
+              const active = document.activeElement;
+              if (!active || active === document.body || root.current?.contains(active)) onDismiss();
+            });
+          } catch (error) { notify(String(error), { errorSource: `topology:${action.id}` }); }
         }} />
     </div>)}
   </div>;

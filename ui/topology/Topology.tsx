@@ -190,7 +190,9 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
   }, [setHubZone]);
   useEffect(() => {
     const blur = () => { pendingGroupFocus.current = null; clearInteraction(); };
-    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape' && hubZoneActive.current) clearInteraction(); };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.defaultPrevented && !latest.current.panelKey && !layerStore.get().length && hubZoneActive.current) clearInteraction();
+    };
     window.addEventListener('blur', blur);
     document.addEventListener('keydown', escape, true);
     return () => {
