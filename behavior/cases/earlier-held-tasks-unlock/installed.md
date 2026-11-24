@@ -1,12 +1,13 @@
-# Upgrade existing held tasks
+# Startup reconciliation of pre-update tasks
 
-Use the [installed runner](../installed.md) on the previous released build. Keep both the isolated Codex home and ARC state on the guest disk and preserve the **running** native daemon across installation. Begin each destructive probe with independent data.
+Use the [installed runner](../installed.md) on the previous ARC release. Dispatch the tasks there, finish the seeds and record the original IDs. In one cohort only ARC has a subscription. In the other, `h subscribe "$thread"` adds an independent client before the old instance process exits. Keep the witness connected, the native daemon running, and both case data roots intact throughout the update.
 
 | Case | Starting population |
 | --- | --- |
-| upgrade-existing (D7) | On the old binary dispatch one task, finish it in the independent instance, then quit that instance. Confirm that main can read its title/history but an actual continuation and an archive attempt are rejected. Record the old build ID, thread/turn IDs and daemon PID. |
-| upgrade-scale (D11) | Repeat with 1, 8 and 32 existing parent tasks. Mix completed, failed and interrupted turns and include children in the larger populations. Confirm every subject is locked before the update. Record each ID even if it is outside the first page of tasks. |
+| upgrade-existing (D7) | Run with a sole-held family and again with a co-subscribed family. On the old build confirm the process has exited, main cannot continue the parent, and the native writer remains held. Record every parent and child separately. |
+| upgrade-scale (D11) | Repeat with 1, 8 and 32 pre-existing parents. Mix completed, failed and interrupted turns, families with and without children, and both holder outcomes. Keep one co-subscribed child to check that ARC reports each item's own result. |
 
-1. Prepare the signed update on the old build before closing the independent window. A precondition that cannot reproduce the old lock is an invalid trial.
-2. Install the successor and start ARC. Preserve the same main window, native daemon and both data roots. Leave ARC task details closed. Perform no owner query, dispatch, reopen, release, archive-through-ARC or migration command. Allow startup recovery to run autonomously.
-3. **earlier-held-tasks-unlock / unlocked-without-action** — for every original ID, main accepts a uniquely marked new turn in the send trial and archives it in the archive trial. Read back the accepted turn and Archived membership as in the shared protocol. Record elapsed time from candidate startup. The approved migration rule gives no time limit. If a bounded runner window expires, retain the observed duration and report pending instead of applying the exit rule's deadline.
+Pre-stage the signed ARC successor before exiting the old independent process. Install and start it. Verify the new build and same state, home and daemon identity. Keep task details closed during startup and allow recovery without issuing an owner, resume, release, open or archive request. Observe the independent native writer and any available passive trace from outside ARC. Read the displayed results only after this observation interval.
+
+- **earlier-held-tasks-unlock / own-hold-dropped-at-start** — on startup ARC relinquishes its own holds for the original IDs without a user action. Record per-thread native release evidence and subsequent main usability for a clear writer. When the witness keeps the same writer held, collect the connection-attributed release evidence described in the shared protocol, or mark ARC-specific release unmeasured. Record elapsed time; the startup rule specifies no deadline.
+- **earlier-held-tasks-unlock / handed-back-or-holder** — compare each mark with its independently observed writer. Main can continue a handed-back parent and archive its whole clear family via the parent action. A still-held task names its remaining holder and stays out of the handed-back state. The witness remains subscribed until its own operator releases it. After actual clearance check the new handback mark.

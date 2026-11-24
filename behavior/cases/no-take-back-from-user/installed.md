@@ -1,6 +1,6 @@
 # User continues in main Desktop
 
-Use the [installed runner](../installed.md). Dispatch, finish, exit the independent instance and continue the unlocked thread **from main Desktop**. Record its accepted user turn ID and unique marker. Keep main open. Run once with that user turn active and once with it ended but still open for writing.
+Use the [installed runner](../installed.md). Dispatch, finish, exit the independent instance and observe ARC mark the parent handed back after its writer clears, then continue that parent **from main Desktop**. Record its accepted user turn ID and unique marker. Keep main open. Run once with that user turn active and once with it ended but still open for writing.
 
 | Case | Interruption and repetition |
 | --- | --- |

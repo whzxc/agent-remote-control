@@ -36,12 +36,14 @@
       "id": "exit-states",
       "ruleId": "instance-exit-unlocks-tasks",
       "thenIds": [
-        "finished-continuable",
-        "finished-archivable",
+        "own-hold-dropped",
+        "handed-back",
+        "holder-shown",
+        "window-close-not-exit",
         "running-not-interrupted",
         "running-status-shown",
         "reopen-shows-task",
-        "running-unlocks-after"
+        "running-handed-back-after"
       ],
       "dimension": "D1",
       "harness": "installed guest runbook",
@@ -53,12 +55,14 @@
       "id": "exit-boundaries",
       "ruleId": "instance-exit-unlocks-tasks",
       "thenIds": [
-        "finished-continuable",
-        "finished-archivable",
+        "own-hold-dropped",
+        "handed-back",
+        "holder-shown",
+        "window-close-not-exit",
         "running-not-interrupted",
         "running-status-shown",
         "reopen-shows-task",
-        "running-unlocks-after"
+        "running-handed-back-after"
       ],
       "dimension": "D2",
       "harness": "installed guest runbook",
@@ -70,12 +74,14 @@
       "id": "exit-scale",
       "ruleId": "instance-exit-unlocks-tasks",
       "thenIds": [
-        "finished-continuable",
-        "finished-archivable",
+        "own-hold-dropped",
+        "handed-back",
+        "holder-shown",
+        "window-close-not-exit",
         "running-not-interrupted",
         "running-status-shown",
         "reopen-shows-task",
-        "running-unlocks-after"
+        "running-handed-back-after"
       ],
       "dimension": "D11",
       "harness": "installed guest runbook",
@@ -102,7 +108,8 @@
       "id": "upgrade-existing",
       "ruleId": "earlier-held-tasks-unlock",
       "thenIds": [
-        "unlocked-without-action"
+        "own-hold-dropped-at-start",
+        "handed-back-or-holder"
       ],
       "dimension": "D7",
       "harness": "installed guest runbook",
@@ -114,7 +121,8 @@
       "id": "upgrade-scale",
       "ruleId": "earlier-held-tasks-unlock",
       "thenIds": [
-        "unlocked-without-action"
+        "own-hold-dropped-at-start",
+        "handed-back-or-holder"
       ],
       "dimension": "D11",
       "harness": "installed guest runbook",
@@ -136,7 +144,7 @@
       "expectedRuntime": "4 s with compiled fixture, plus first build",
       "needsInstalledApp": false,
       "command": "node --test behavior/cases/foreign-holder-reported/terminal-owner.test.mjs",
-      "sourceState": "Completed, no children, local controlling tty"
+      "sourceState": "Completed local terminal holder, no children; checks process liveness. Subscription continuity is exercised by the installed witness."
     },
     {
       "id": "foreign-states",
@@ -194,11 +202,13 @@
     {
       "ruleId": "instance-exit-unlocks-tasks",
       "thenIds": [
-        "finished-continuable",
-        "finished-archivable",
-        "running-unlocks-after"
+        "own-hold-dropped",
+        "handed-back",
+        "holder-shown",
+        "window-close-not-exit",
+        "running-handed-back-after"
       ],
-      "seam": "Give the guest driver per-thread accepted-send and archived-list readback with monotonic acknowledgement times on the main Desktop. Feed parent and child IDs and the case PID-exit or original terminal-event timestamp into the driver. Add a fixture barrier after the first eligible thread releases and before the remaining releases to hit partial recovery deterministically."
+      "seam": "Provide a passive native per-connection subscription trace (client identity, thread, acknowledgement/disconnect, monotonic time) to time ARC release while a witness still holds the same daemon writer. Add a barrier after the first eligible release and independent PID-scoped close/show, parent-send and parent-archive actions with per-child archive readback. Provision a guest ChatGPT update that exits the recorded instance."
     },
     {
       "ruleId": "instance-exit-unlocks-tasks",
@@ -212,9 +222,10 @@
     {
       "ruleId": "earlier-held-tasks-unlock",
       "thenIds": [
-        "unlocked-without-action"
+        "own-hold-dropped-at-start",
+        "handed-back-or-holder"
       ],
-      "seam": "Provision an old signed ARC guest with verified still-held native threads and a ready signed successor. Install on the same running guest while preserving the daemon process; a copied history directory alone loses the lock."
+      "seam": "Provision a guest old build with still-held native threads, a ready signed ARC successor, and a passive per-client subscription trace across startup. Retain the original daemon and independent witness to distinguish automatic ARC release from eventual lock clearance."
     },
     {
       "ruleId": "foreign-holder-reported",
@@ -223,7 +234,7 @@
         "steps-workable",
         "holder-untouched"
       ],
-      "seam": "Provision a second disposable SSH client and expose its known peer, terminal and writer identity to the fixture driver. Execute each advertised manual recovery in that session. The local PTY contract covers one terminal and one completed task."
+      "seam": "Provision a second disposable SSH origin and compare its known parent/terminal evidence with the diagnosis. Use the guest subscribe command for the shared-server/unknown-client branch. Release from the same original witness connection and check its native acknowledgement after local observations."
     },
     {
       "ruleId": "no-take-back-from-user",
@@ -232,7 +243,7 @@
         "input-not-delivered",
         "in-use-reported"
       ],
-      "seam": "Let a fixture dispatch on the independent local-daemon route, observe exit and unlock, then accept a user-marked turn in a second Desktop on its own writer. Record accepted user messages and steers on both routes. Add receipt-admission and pre-delivery barriers so the runner can restart Core or install an update before inspecting or replaying a write."
+      "seam": "Let a fixture dispatch on the independent local-daemon route, observe process exit, a cleared writer and the handed-back mark, then accept a user-marked turn in a second Desktop on its own writer. Record accepted user messages and steers on both routes. Add receipt-admission and pre-delivery barriers so the runner can restart Core or install an update before inspecting or replaying a write."
     }
   ]
 }

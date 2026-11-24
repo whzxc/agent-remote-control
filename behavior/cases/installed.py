@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Installed handback runbooks. Run inside a disposable Apple Silicon macOS VM."""
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -11,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
 
 
 def stop(reason):
@@ -156,6 +158,44 @@ elif cmd in {"core-cycle", "core-crash"}:
         stop("Core launch identity changed.")
     os.kill(pid, signal.SIGKILL if cmd == "core-crash" else signal.SIGTERM)
     print("Reconnect to this ARC instance and verify a new Core PID before continuing.")
+elif cmd == "locks":
+    for identifier in args:
+        thread = str(uuid.UUID(identifier))
+        lock = home / "thread-writer-locks" / (thread + ".lock")
+        if lock.parent.resolve() != lock.parent:
+            stop("Invalid case lock directory.")
+        try:
+            fd = os.open(lock, os.O_RDONLY | os.O_NOFOLLOW)
+        except FileNotFoundError:
+            status = "clear"
+        else:
+            with os.fdopen(fd, "rb") as probe:
+                try:
+                    fcntl.flock(probe, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    status = "clear"
+                except BlockingIOError:
+                    status = "held"
+        print(json.dumps({"threadId": thread, "writer": status, "monotonicNs": time.monotonic_ns()}))
+elif cmd == "subscribe":
+    thread = str(uuid.UUID(args[0]))
+    endpoint = home / "app-server-control/app-server-control.sock"
+    if endpoint.resolve() != endpoint or not stat.S_ISSOCK(endpoint.stat().st_mode) or endpoint.stat().st_uid != os.getuid():
+        stop("Invalid guest daemon endpoint.")
+    script = Path(__file__).resolve().parent / "foreign-holder-reported/subscriber.mjs"
+    local, remote = socket.socketpair()
+    with local, remote:
+        proxy = subprocess.Popen([app / native_cli, "app-server", "proxy", "--sock", endpoint],
+                                 stdin=remote, stdout=remote)
+        remote.close()
+        try:
+            subprocess.run(["node", script, str(local.fileno()), thread], pass_fds=(local.fileno(),), check=True)
+        finally:
+            local.close()
+            try:
+                proxy.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                proxy.kill()
+                proxy.wait()
 elif cmd == "capture-detail":
     thread, = args
     def read_call(name, body):
