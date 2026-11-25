@@ -18,6 +18,7 @@ let previews: typeof import('../ui/state/taskExecution.ts');
 let quota: typeof import('../ui/state/quota.ts');
 let lineage: typeof import('../ui/state/taskLineage.ts');
 let homepage: typeof import('../ui/state/homepageTasks.ts');
+let presentation: typeof import('../ui/subscriptions/presentation.ts');
 const browser = new Window({ url: 'http://localhost' });
 
 before(async () => {
@@ -28,6 +29,7 @@ before(async () => {
   taskCard = await server.ssrLoadModule('/ui/components/ui/TaskCard.tsx');
   previews = await server.ssrLoadModule('/ui/state/taskExecution.ts');
   homepage = await server.ssrLoadModule('/ui/state/homepageTasks.ts');
+  presentation = await server.ssrLoadModule('/ui/subscriptions/presentation.ts');
 });
 
 after(async () => {
@@ -97,6 +99,9 @@ test('ready quota outranks stale quota and linked sources can use shared subscri
   assert.equal(quota.resolveSourceQuota('source-1', snapshot(ready), [unlinked]), undefined);
   assert.equal(quota.resolveSourceQuota('source-1', snapshot(ready), [missing, { ...missing, id: 'other-account', sources: [] }]), undefined);
   assert.equal(quota.resolveSourceQuota('other-source', snapshot(ready), [account]), undefined);
+  assert.equal(presentation.isSoftProviderError('client-not-running'), true);
+  assert.equal(presentation.isSoftProviderError('authentication-failed'), false);
+  assert.equal(presentation.errorLabels['client-not-running'], 'usageClientNotRunning');
 });
 
 const session: AgentActivitySession = {

@@ -388,6 +388,7 @@
   "usageCredentialDenied": "读取当前登录被拒绝或超时。",
   "usageNoSubscription": "来源确认没有订阅。",
   "usageNoLimits": "来源没有返回可读额度。",
+  "usageClientNotRunning": "未运行 · 打开后自动同步额度",
   "usageRateLimited": "来源限制请求频率，请等待后重试。",
   "usageNetworkError": "暂时无法连接订阅服务。",
   "usageInvalidResponse": "无法解析订阅响应。",

@@ -25,7 +25,9 @@ export function compactAge(value: string | undefined, now: number) {
   if (minutes < 1440) return format.format(-Math.floor(minutes / 60), "hour");
   return format.format(-Math.floor(minutes / 1440), "day");
 }
-export const errorLabels:Record<string,string>={'credentials-missing':'usageCredentialsMissing','authentication-failed':'usageAuthenticationFailed','request-forbidden':'usageRequestForbidden','request-failed':'usageRequestFailed','credential-access-denied':'usageCredentialDenied','no-subscription':'usageNoSubscription','no-limits-reported':'usageNoLimits','rate-limited':'usageRateLimited','network-error':'usageNetworkError','invalid-response':'usageInvalidResponse','unsupported-platform':'usageUnsupported'};
+export const softErrorCodes = new Set(['no-subscription','no-limits-reported','unsupported-platform','client-not-running']);
+export const isSoftProviderError = (code?: string) => !!code && softErrorCodes.has(code);
+export const errorLabels:Record<string,string>={'credentials-missing':'usageCredentialsMissing','authentication-failed':'usageAuthenticationFailed','request-forbidden':'usageRequestForbidden','request-failed':'usageRequestFailed','credential-access-denied':'usageCredentialDenied','no-subscription':'usageNoSubscription','no-limits-reported':'usageNoLimits','client-not-running':'usageClientNotRunning','rate-limited':'usageRateLimited','network-error':'usageNetworkError','invalid-response':'usageInvalidResponse','unsupported-platform':'usageUnsupported'};
 
 export function compactReset(value: string | undefined, now: number) {
   const minutes = Math.max(0, Math.ceil((Date.parse(value || "") - now) / 60000));

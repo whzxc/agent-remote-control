@@ -318,8 +318,11 @@ impl SubscriptionService {
                 for (id, slot) in &mut state.slots {
                     slot.view.agent_ids = associated_agents(&settings, id);
                     if interval_changed && slot.view.error.is_none() {
-                        slot.due =
-                            Instant::now() + Duration::from_secs(settings.refresh_minutes * 60);
+                        slot.due = Instant::now()
+                            + Duration::from_secs(provider_interval_secs(
+                                id,
+                                settings.refresh_minutes,
+                            ));
                     }
                     if enabled_changed {
                         invalidate(slot)
@@ -514,7 +517,8 @@ impl SubscriptionService {
             }
             slot.job = None;
             slot.view.refreshing = false;
-            slot.due = Instant::now() + Duration::from_secs(refresh_minutes * 60);
+            slot.due =
+                Instant::now() + Duration::from_secs(provider_interval_secs(&id, refresh_minutes));
             match result {
                 Ok((reading, source, observed)) => apply_reading(slot, reading, source, observed),
                 Err(error) => {
@@ -541,6 +545,11 @@ impl SubscriptionService {
     }
 }
 type ResolvedReading = (Reading, &'static str, String);
+
+fn provider_interval_secs(id: &str, refresh_minutes: u64) -> u64 {
+    let min_minutes = if id == "antigravity" { 10 } else { 1 };
+    refresh_minutes.max(min_minutes) * 60
+}
 
 async fn resolve_claude<F>(
     default: std::result::Result<Reading, Failure>,
@@ -753,5 +762,8 @@ mod tests {
         assert!(view.display_window_id.is_none());
         assert_eq!(view.state, "unavailable");
         assert_eq!(view.error.unwrap().code, "request-failed");
+        assert_eq!(provider_interval_secs("antigravity", 3), 600);
+        assert_eq!(provider_interval_secs("antigravity", 15), 900);
+        assert_eq!(provider_interval_secs("codex", 3), 180);
     }
 }

@@ -11,7 +11,7 @@ import { refreshSubscription } from "../state/subscriptions";
 import { Button, IconButton, Icon } from "../components/ui";
 import { quotaDisplay, resetDisplay } from "./displayPreferences";
 import { windowLabel, subscriptionLabel } from "./labels";
-import { compactAge, preciseTime, errorLabels } from "./presentation";
+import { compactAge, preciseTime, errorLabels, isSoftProviderError } from "./presentation";
 import { quotaPace } from "./pace";
 import { usageLink } from "./usageLinks";
 import type { ProviderSnapshot } from "./types";
@@ -69,12 +69,7 @@ export default function QuotaBubble({
   const hasError =
     !!error ||
     !!provider.accountBlocked ||
-    (!!provider.error &&
-      ![
-        "no-subscription",
-        "no-limits-reported",
-        "unsupported-platform",
-      ].includes(provider.error.code));
+    (!!provider.error && !isSoftProviderError(provider.error.code));
   const productRows = provider.productUsage?.rows ?? [];
   const productRemainder = provider.productUsage?.basis === "allowance"
     ? Math.max(0, 100 - productRows.reduce((sum, row) => sum + row.percent, 0)) : 0;

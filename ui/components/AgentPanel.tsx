@@ -19,7 +19,7 @@ import { refreshSubscription, subscriptions } from "../state/subscriptions";
 import { compactAgentVersion, name, type Agent } from "../state/agents";
 import { connector } from "../state/connector";
 import { AgentQuotaIcon } from "../subscriptions/AgentQuotaIcon";
-import { errorLabels } from "../subscriptions/presentation";
+import { errorLabels, isSoftProviderError } from "../subscriptions/presentation";
 import { Button,  IconButton, Notice } from "./ui";
 import AgentPlatformView from "./AgentPlatformView";
 import AgentConversations, { readConversationPage, type InitialAgentHistory } from "./AgentConversations";
@@ -38,8 +38,10 @@ function AgentView({ agent, onSettings, expanded, onToggleWidth, active, platfor
   const provider = resolveAgentQuota(agent.agent, snapshot, accounts);
   const title = name(agent);
   const sessions = activity?.agents[agent.agent]?.sessions ?? [];
-  const providerError = provider?.error && !["no-subscription", "no-limits-reported", "unsupported-platform"].includes(provider.error.code)
+  const providerError = provider?.error && !isSoftProviderError(provider.error.code)
     ? provider.error.message || t(errorLabels[provider.error.code] || "usageUnavailable") : undefined;
+  const providerHint = provider?.error?.code === "client-not-running"
+    ? t(errorLabels[provider.error.code]) : undefined;
   async function refresh() {
     if (!provider) return;
     setRefreshing(true); setError("");
@@ -77,7 +79,9 @@ function AgentView({ agent, onSettings, expanded, onToggleWidth, active, platfor
     <div className="agent-view-scroll">
       {error && <p className="timeline-error" role="alert">{error}</p>}
       {providerError && <Notice>{providerError}</Notice>}
-      {provider ? <AgentQuota provider={provider} /> : <p className="timeline-meta agent-no-quota">{t("agentPanel.noQuota")}</p>}
+      {providerHint && <p className="timeline-meta agent-no-quota" role="status">{providerHint}</p>}
+      {provider ? (providerHint && !provider.windows.some(window => Number.isFinite(window.usedPercent)) ? null : <AgentQuota provider={provider} />)
+        : <p className="timeline-meta agent-no-quota">{t("agentPanel.noQuota")}</p>}
       <AgentConversations key={agent.agent} agent={agent.agent} active={active} initial={initial} />
     </div>
   </section>;

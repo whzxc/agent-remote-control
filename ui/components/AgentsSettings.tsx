@@ -13,7 +13,7 @@ import { resolveAgentQuota } from "../state/quota";
 import { iconWindows } from "../subscriptions/AgentQuotaIcon";
 import { quotaDisplay, quotaLabel, quotaPercent } from "../subscriptions/displayPreferences";
 import { windowLabel } from "../subscriptions/labels";
-import { errorLabels, readingStatus } from "../subscriptions/presentation";
+import { errorLabels, isSoftProviderError, readingStatus } from "../subscriptions/presentation";
 import type { ProviderSnapshot } from "../subscriptions/types";
 import { useAppNow } from "../state/appEnvironment";
 import { subscriptions } from "../state/subscriptions";
@@ -47,6 +47,7 @@ function AgentCard({ agent, provider, activeCount, busy, now, onOpen, onError }:
   const title = name(agent);
   const window = provider && iconWindows(provider, now, true)[0];
   const quotaError = provider?.error;
+  const hardQuotaError = !!quotaError && !isSoftProviderError(quotaError.code);
   const quotaText = quotaError ? t(errorLabels[quotaError.code] ?? "usageUnavailable")
     : window ? `${windowLabel(window.label)} · ${quotaLabel()} ${quotaPercent(window)}` : t("usageUnavailable");
   const rank = provider && readingStatus(window, provider, now).rank;
@@ -78,7 +79,7 @@ function AgentCard({ agent, provider, activeCount, busy, now, onOpen, onError }:
     </div>
     <div className="agent-card-telemetry">
       {provider && <span className="agent-card-quota" title={quotaError?.message || quotaText}>
-        {quotaError ? <Icon icon={CircleAlert} size={12} /> : <span className="agent-card-quota-dot" data-tone={tone} aria-hidden="true" />}
+        {hardQuotaError ? <Icon icon={CircleAlert} size={12} /> : <span className="agent-card-quota-dot" data-tone={tone} aria-hidden="true" />}
         <span>{quotaText}</span>
       </span>}
       <span className="agent-card-status">{activeCount ? t("agentPanel.inProgress", { count: activeCount }) : readiness(agent)}</span>

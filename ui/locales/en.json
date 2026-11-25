@@ -388,6 +388,7 @@
   "usageCredentialDenied": "Access to the current login was denied or timed out.",
   "usageNoSubscription": "The source reports no subscription.",
   "usageNoLimits": "The source did not report readable limits.",
+  "usageClientNotRunning": "Not running · open to sync quota",
   "usageRateLimited": "The source requested a pause before retrying.",
   "usageNetworkError": "Unable to reach the subscription service.",
   "usageInvalidResponse": "The subscription response could not be interpreted.",

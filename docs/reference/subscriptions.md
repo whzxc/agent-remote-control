@@ -12,7 +12,7 @@ ARC reads native provider login and upstream responses. Quota monitoring runs in
 | Claude | Native Claude Code `/usage`, with signed-in profile fallback |
 | OpenCode Go | Existing OpenCode subscription response |
 | Cursor | Native login, included-period quota, X Pass |
-| Antigravity | Local daemon quota windows and plan, with macOS login fallback |
+| Antigravity | Local daemon quota windows and plan (no cloud OAuth fallback) |
 | Grok | Native login, CLI billing quota and reported plan |
 | Kimi | Saved API key and membership/quota response |
 
@@ -60,7 +60,7 @@ An explicit array replaces that agent's default association; an empty array remo
 
 ## Antigravity local quota
 
-ARC first reads live daemon registrations from the Antigravity and Antigravity CLI native daemon directories and queries their loopback quota and status endpoints. Legacy installations use process and listening-port discovery. When no local endpoint returns a usable response, macOS can read the native Keychain login for cloud quota. Antigravity owns token renewal. Gemini's weekly window drives the primary quota display when present.
+ARC reads live daemon registrations from the Antigravity and Antigravity CLI native daemon directories and queries their loopback quota and status endpoints at a low automatic refresh cadence (at least 10 minutes between background polls; manual refresh runs immediately). ARC never reads Antigravity Keychain OAuth tokens, never sends requests to Google cloud quota endpoints, and never scrapes process arguments. When Antigravity is closed, ARC retains recent cached readings as stale and displays a muted `client-not-running` hint until Antigravity is opened again. Gemini's weekly window drives the primary quota display when present.
 
 ## Antigravity control-source notifications
 
