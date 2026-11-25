@@ -1,0 +1,22 @@
+[
+  {
+    "section": "features",
+    "en": "Independent Codex Desktop tasks can run on ARC's own backend and return to ARC after the Desktop instance exits, while keeping the configured permissions and dispatch policy.",
+    "zh-CN": "独立 Codex Desktop 任务可以在 ARC 自有后端运行，并在 Desktop 实例退出后交还给 ARC，同时保留已配置的权限和派发策略。"
+  },
+  {
+    "section": "improvements",
+    "en": "Task previews, subtask indicators, Agent inventory, quota forecasts and panel transitions are clearer and more consistent.",
+    "zh-CN": "任务预览、子任务标识、Agent 列表、配额预测和面板切换更加清晰统一。"
+  },
+  {
+    "section": "improvements",
+    "en": "Antigravity quota comes from its local daemon; cached readings remain available when the client is closed.",
+    "zh-CN": "Antigravity 配额通过本地服务读取；关闭客户端后仍可查看缓存数据。"
+  },
+  {
+    "section": "fixes",
+    "en": "Improved Codex follow-up delivery and task ownership handback, and fixed focus restoration when nested panels close.",
+    "zh-CN": "改进 Codex 后续消息投递和任务归属交还，修复嵌套面板关闭时的焦点恢复问题。"
+  }
+]
