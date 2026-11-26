@@ -802,12 +802,18 @@
     },
     "native/src/desktop/daemon.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/desktop_daemon_darwin.go",
+        "internal/core/desktop_backend.go"
+      ],
+      "status": "ported"
     },
     "native/src/desktop/handback.rs": {
       "segment": "A",
-      "go": [],
+      "go": [
+        "internal/core/desktop_handback.go",
+        "internal/core/desktop_handback_darwin.go"
+      ],
       "status": "pending"
     },
     "native/src/desktop/interactions.rs": {
@@ -821,9 +827,11 @@
     "native/src/desktop/recovery.rs": {
       "segment": "A",
       "go": [
-        "internal/core/desktop_recovery.go"
+        "internal/core/desktop_recovery.go",
+        "internal/core/desktop_recovery_darwin.go",
+        "internal/core/control_approval.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/desktop/settings.rs": {
       "segment": "A",
@@ -838,7 +846,7 @@
       "go": [
         "internal/core/desktop_windows.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/desktop.rs": {
       "segment": "A",

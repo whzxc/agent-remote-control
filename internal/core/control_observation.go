@@ -77,14 +77,19 @@ func nativeTurnConflict(turn turnTransition) object {
 	return object{"threadId": turn.key.session, "turnId": turn.key.turn, "records": turn.checkpoint()["terminals"]}
 }
 
-func nativeDispatchLifecycle(row object, incoming any) (string, any) {
+func dispatchRecordTransition(row object) turnTransition {
 	agent := nonemptyTaskText(text(row, "agent"), "codex")
 	key := turnKey{agent, str(dispatchFirstString(row["threadId"], row["taskId"])), text(row, "turnId")}
 	prior, ok := restoreTurnTransition(row["_turnLifecycle"])
 	if !ok || prior.key != key {
-		prior = turnTransition{key: key}
+		prior = turnTransition{key: key}.advance(codexTerminalEvidence(key, text(row["terminal"], "state"), 0, false))
 	}
-	if observed, ok := restoreTurnTransition(incoming); ok && observed.key == key {
+	return prior
+}
+
+func nativeDispatchLifecycle(row object, incoming any) (string, any) {
+	prior := dispatchRecordTransition(row)
+	if observed, ok := restoreTurnTransition(incoming); ok && observed.key == prior.key {
 		prior = prior.observe(observed)
 	}
 	state, _ := prior.wait()
@@ -310,6 +315,20 @@ func nativeCodexWatchSource(ctx context.Context, s *service, thread string, sele
 	if err != nil {
 		return source, err
 	}
+	if binding, err := codexExecutionRecord(thread); err != nil {
+		return source, err
+	} else if binding["transport"] == "local-daemon" {
+		rpc, err := s.desktopBackendRPC(ctx, text(binding, "backend"))
+		if err != nil {
+			return source, err
+		}
+		source.alive = rpc.alive.Load
+		source.observe = func(ctx context.Context) (object, error) {
+			return readCodexObservationPages(ctx, s, thread, *selected, true, string(rpc.role),
+				func(method string, params object) (any, error) { return rpc.call(ctx, method, params, 10*time.Second) })
+		}
+		return source, nil
+	}
 	background := codexBackground(thread) || fixtureUsesDesktop != nil && !fixtureUsesDesktop()
 	if probeWriter(home, thread)["state"] == "held" {
 		switch s.nativeWriterOwnership(ctx, home, thread)["owner"] {
@@ -422,6 +441,10 @@ func init() {
 	compactControlWaitResponse = compactNativeWaitResponse
 	mergeNotificationLifecycle = nativeNotificationLifecycle
 	mergeDispatchLifecycle = nativeDispatchLifecycle
+	dispatchLifecycleOutcome = func(row object) string {
+		return dispatchRecordTransition(row).push()
+	}
+	dispatchNativeTurnMetadata = nativePersistedTurnMetadata
 	dispatchNativeTurnOutcome = func(thread string, turns []any, selected string) (string, any) {
 		transition := codexTurnSnapshots(thread, turns, selected)
 		state, _ := transition.wait()

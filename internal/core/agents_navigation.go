@@ -19,7 +19,7 @@ func nativeAgentNavigation(agent, task string) any {
 	return nil
 }
 
-func openNativeAgentTask(ctx context.Context, body object) (any, error) {
+func openNativeAgentTask(ctx context.Context, s *service, body object) (any, error) {
 	agent, task := text(body, "agent"), text(body, "taskId")
 	if _, exists := nativeAgentDriverByID(agent); !exists {
 		return nil, errors.New("UNKNOWN_AGENT")
@@ -28,6 +28,17 @@ func openNativeAgentTask(ctx context.Context, body object) (any, error) {
 		return nil, errors.New("AGENT_TASK_OPEN_UNSUPPORTED_OR_INVALID_ID")
 	}
 	url := "codex://threads/" + task
+	if fixtureUsesDesktop == nil && reopenNativeDesktopTask != nil {
+		status, err := desktopHandbackObservation(task)
+		if err != nil {
+			return nil, err
+		}
+		if reopened, err := reopenNativeDesktopTask(ctx, s, task, status); err != nil {
+			return nil, err
+		} else if reopened {
+			return object{"state": "opened", "url": url}, nil
+		}
+	}
 	if err := openNativeDesktopURL(ctx, url); err != nil {
 		return nil, err
 	}
@@ -82,14 +93,14 @@ func init() {
 		_, err := openNativeClaudeLogin(ctx)
 		return err
 	}
-	registerRoute(http.MethodPost, "tasks/open", func(ctx context.Context, _ *service, body object, _ []string) (any, error) {
-		return openNativeAgentTask(ctx, body)
+	registerRoute(http.MethodPost, "tasks/open", func(ctx context.Context, s *service, body object, _ []string) (any, error) {
+		return openNativeAgentTask(ctx, s, body)
 	})
 	registerRoute(http.MethodPost, "agents/open", func(ctx context.Context, _ *service, body object, _ []string) (any, error) {
 		return openNativeAgentInteractive(ctx, text(body, "agent"))
 	})
 	registerOperation("task_open", func(ctx context.Context, request operationRequest) (any, error) {
-		return openNativeAgentTask(ctx, object{"agent": request.args["agent"], "taskId": request.args["id"]})
+		return openNativeAgentTask(ctx, request.service, object{"agent": request.args["agent"], "taskId": request.args["id"]})
 	}, nil)
 }
 

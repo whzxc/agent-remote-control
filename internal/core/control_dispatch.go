@@ -155,8 +155,10 @@ func codexMutationCheckpoint(ctx context.Context, row object, stage string) erro
 
 func createBackgroundCodex(ctx context.Context, r operationRequest, row object) (object, error) {
 	background := row["executionOwner"] == "connector"
+	recovery := obj(row["desktopRecovery"])
+	daemon := !background && recovery["transport"] == "local-daemon"
 	var desktop *nativeDesktopIPC
-	if !background {
+	if !background && !daemon {
 		var err error
 		desktop, err = r.service.nativeDesktop(ctx)
 		if err != nil {
@@ -195,6 +197,8 @@ func createBackgroundCodex(ctx context.Context, r operationRequest, row object) 
 	var err error
 	if background {
 		rpc, err = r.service.codexUtility(ctx)
+	} else if daemon {
+		rpc, err = r.service.desktopBackendRPC(ctx, text(recovery, "backend"))
 	} else {
 		var binary, home string
 		binary, home, err = codexInputs()
@@ -209,12 +213,12 @@ func createBackgroundCodex(ctx context.Context, r operationRequest, row object) 
 	if err != nil {
 		return nil, err
 	}
-	if !background {
+	if !background && !daemon {
 		defer rpc.close()
-		if operatingSystem == "darwin" {
-			if err := applyNativeDesktopPermissions(ctx, rpc, args, seed); err != nil {
-				return nil, err
-			}
+	}
+	if !background && operatingSystem == "darwin" && (!daemon || recovery["backend"] == "arc") {
+		if err := applyNativeDesktopPermissions(ctx, rpc, args, seed); err != nil {
+			return nil, err
 		}
 	}
 	if err := codexMutationCheckpoint(ctx, row, "thread-submitting"); err != nil {
@@ -230,7 +234,13 @@ func createBackgroundCodex(ctx context.Context, r operationRequest, row object) 
 	}
 	cwd := text(field(created, "thread"), "cwd")
 	binding := object{"owner": row["executionOwner"]}
-	if !background {
+	if daemon {
+		binding["transport"], binding["backend"], binding["desktopTarget"] = "local-daemon", recovery["backend"], recovery["target"]
+		binding["desktopProxy"], binding["backendReason"] = nativeDesktopProxyIdentity(rpc), recovery["backendReason"]
+		if recovery["independent"] == true {
+			binding["desktopInstance"] = recovery["target"]
+		}
+	} else if !background {
 		binding["transport"] = "ipc"
 	}
 	if err := save(filepath.Join(root(), "execution", thread+".json"), binding); err != nil {
@@ -292,8 +302,13 @@ func createBackgroundCodex(ctx context.Context, r operationRequest, row object) 
 		return cleanup(err)
 	}
 	var result any
-	if background {
-		result, err = rpc.call(ctx, "turn/start", params, codexMutationTimeout(args))
+	if background || daemon {
+		if daemon && revealNativeDesktopBackendTask != nil {
+			err = revealNativeDesktopBackendTask(ctx, thread, binding)
+		}
+		if err == nil {
+			result, err = rpc.call(ctx, "turn/start", params, codexMutationTimeout(args))
+		}
 	} else if err = revealNativeDesktopThread(ctx, desktop, thread); err == nil {
 		result, err = desktop.mutate(ctx, "turn/start", params)
 	}
@@ -311,7 +326,7 @@ func createBackgroundCodex(ctx context.Context, r operationRequest, row object) 
 	response := object{"threadId": thread, "turnId": turn, "resolved": created, "submitted": true, "executionOwner": row["executionOwner"],
 		"desktop": object{"state": "not-opened", "sharedBackend": false}}
 	if !background {
-		response["desktop"] = object{"state": "owner-confirmed", "sharedBackend": false}
+		response["desktop"] = object{"state": "owner-confirmed", "sharedBackend": daemon && recovery["backend"] == "shared"}
 		response["desktopUrl"] = "codex://threads/" + thread
 	}
 	return response, nil

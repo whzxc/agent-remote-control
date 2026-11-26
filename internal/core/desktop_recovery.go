@@ -13,6 +13,7 @@ import (
 )
 
 var openFixtureDesktopURL func(string) error
+var nativeWindowsCodexOpen func(string) error
 
 func openNativeDesktopURL(ctx context.Context, url string) error {
 	if fixtureUsesDesktop != nil {
@@ -21,8 +22,11 @@ func openNativeDesktopURL(ctx context.Context, url string) error {
 		}
 		return errors.New("DESKTOP_IPC_ENDPOINT_MISSING")
 	}
+	if operatingSystem == "windows" && nativeWindowsCodexOpen != nil {
+		return nativeWindowsCodexOpen(url)
+	}
 	if operatingSystem != "darwin" {
-		return errors.New(PortPending)
+		return errors.New("DESKTOP_UNSUPPORTED: this operation requires Codex Desktop.")
 	}
 	binary := desktopCodexBinary()
 	if binary == "" {
@@ -67,6 +71,22 @@ func revealNativeDesktopThread(ctx context.Context, d *nativeDesktopIPC, thread 
 
 func prepareDesktopCodexCreate(ctx context.Context, s *service, row object, settings object) {
 	row["submissionStage"] = "desktop-preparing"
+	if prepareNativeDesktopBackend != nil {
+		recovery, err := prepareNativeDesktopBackend(ctx, s, row, settings)
+		if err != nil {
+			row["failureStage"], row["state"] = "desktop-preparing", "not-executed"
+			row["desktopRecovery"] = object{"state": "failed"}
+			row["result"] = object{"error": controlFailure(err)}
+			return
+		}
+		if recovery != nil {
+			row["desktopRecovery"] = recovery
+			if recovery["state"] == "waiting-for-local" {
+				row["state"] = "awaiting-approval"
+			}
+			return
+		}
+	}
 	if _, err := s.nativeDesktop(ctx); err == nil {
 		row["desktopRecovery"] = object{"state": "ready", "transport": "ipc"}
 	} else if desktopMissingEndpoint(err) || strings.Contains(strings.ToLower(err.Error()), "connection refused") {
@@ -79,17 +99,22 @@ func prepareDesktopCodexCreate(ctx context.Context, s *service, row object, sett
 	}
 }
 
-func returnedCodexDesktopThread(thread string) bool {
-	if uuid.Validate(thread) != nil {
-		return false
-	}
-	value, _ := cachedLoad(filepath.Join(root(), "desktop-handback", thread+".json"))
-	return field(value, "state") == "handed-back"
-}
-
 func prepareNativeCodexSend(ctx context.Context, s *service, thread string) (string, error) {
 	if operatingSystem == "linux" || fixtureUsesDesktop != nil && !fixtureUsesDesktop() {
 		return "connector", nil
+	}
+	if previous, err := returnedDesktopInstance(thread); err != nil {
+		return "", err
+	} else if previous != nil {
+		return prepareReturnedDesktopThread(ctx, s, thread, previous)
+	}
+	if binding, err := codexExecutionRecord(thread); err != nil {
+		return "", err
+	} else if binding["transport"] == "local-daemon" {
+		if _, err := s.desktopBackendRPC(ctx, text(binding, "backend")); err != nil {
+			return "", err
+		}
+		return "desktop", nil
 	}
 	if codexBackground(thread) {
 		_, home, err := codexInputs()
@@ -102,11 +127,7 @@ func prepareNativeCodexSend(ctx context.Context, s *service, thread string) (str
 	}
 	d, err := s.nativeDesktop(ctx)
 	if err == nil {
-		if returnedCodexDesktopThread(thread) {
-			err = revealNativeDesktopThread(ctx, d, thread)
-		} else {
-			_, err = d.owner(ctx, thread)
-		}
+		_, err = d.owner(ctx, thread)
 		if err == nil {
 			return "desktop", nil
 		}
@@ -146,6 +167,6 @@ func prepareNativeCodexSend(ctx context.Context, s *service, thread string) (str
 func init() {
 	registerRoute(http.MethodPost, "tasks/decision", func(ctx context.Context, s *service, body object, _ []string) (any, error) {
 		origin := object{"authType": "local", "ingressId": "local", "sourceId": "local"}
-		return decideCodexReceipt(withOrigin(ctx, origin), operationRequest{name: "receipt", source: requestSource{local: true}, service: s, args: body})
+		return decideCodexReceipt(withOrigin(ctx, origin), operationRequest{name: "receipt", source: requestSource{local: true}, service: s, args: body}, true)
 	})
 }

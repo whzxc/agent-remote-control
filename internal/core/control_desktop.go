@@ -252,7 +252,12 @@ func requestDesktopCodex(ctx context.Context, s *service, method string, args an
 	return d.mutate(ctx, method, obj(args))
 }
 
+var nativeWindowsCodexBinary func() string
+
 func desktopCodexBinary() string {
+	if operatingSystem == "windows" && nativeWindowsCodexBinary != nil {
+		return nativeWindowsCodexBinary()
+	}
 	if operatingSystem != "darwin" {
 		return ""
 	}

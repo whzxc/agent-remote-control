@@ -98,10 +98,12 @@ func archiveCodexThread(ctx context.Context, s *service, args, receipt object) (
 	if err != nil {
 		return nil, err
 	}
+	var connection *rpcConnection
 	if binding["owner"] == "desktop" && binding["transport"] == "local-daemon" {
-		return nil, errors.New(PortPending)
+		connection, err = s.desktopBackendRPC(ctx, text(binding, "backend"))
+	} else {
+		connection, err = s.codexUtility(ctx)
 	}
-	connection, err := s.codexUtility(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -24,6 +24,7 @@ type nativeCodexState struct {
 	activity     codexActivityMonitor
 	desktopMu    sync.Mutex
 	desktop      *nativeDesktopIPC
+	backends     nativeDesktopBackends
 	queue        nativeDispatchQueue
 }
 
@@ -91,6 +92,7 @@ func (s *service) closeNativeCodex() {
 	state := &s.codex
 	state.activity.close()
 	s.closeNativeDesktop()
+	s.closeDesktopBackendConnections()
 	state.launches.close()
 	state.mu.Lock()
 	connection := state.utility
@@ -156,6 +158,33 @@ func (s *service) nativeWriterOwnership(ctx context.Context, home, thread string
 	result := probeWriter(home, thread)
 	result["threadId"] = thread
 	if result["state"] != "held" {
+		return result
+	}
+	if binding, _ := codexExecutionRecord(thread); binding["transport"] == "local-daemon" && nativeDesktopWriterEvidence != nil {
+		evidence := nativeDesktopWriterEvidence(ctx, home, thread)
+		expected := "shared-app-server"
+		if binding["backend"] == "arc" {
+			expected = "arc-app-server"
+		}
+		if evidence["origin"] != expected {
+			result["owner"], result["holder"] = "external", evidence
+			return result
+		}
+		wait, cancel := context.WithTimeout(ctx, 1500*time.Millisecond)
+		rpc, err := s.desktopBackendRPC(wait, text(binding, "backend"))
+		if err == nil {
+			metadata, err := rpc.call(wait, "thread/read", object{"threadId": thread, "includeTurns": false}, time.Second)
+			native := field(metadata, "thread")
+			status := text(field(native, "status"), "type")
+			if err == nil && field(native, "id") == thread && (status == "active" || status == "idle") {
+				result["owner"], result["runtimeStatus"] = "desktop", status
+			}
+		}
+		cancel()
+		if result["owner"] == nil {
+			result["owner"] = expected
+		}
+		result["holder"] = evidence
 		return result
 	}
 	if codexBackground(thread) {
@@ -245,6 +274,54 @@ func requestCodexNative(ctx context.Context, service *service, method string, ar
 		}
 	}
 	var externallyHeld, desktopHeld bool
+	returned, err := returnedDesktopInstance(thread)
+	if err != nil {
+		return nil, err
+	}
+	if returned != nil && !directFixture {
+		if method == "thread/resume" || method == "turn/start" || method == "turn/steer" {
+			if err := requireUnheldDesktopWriter(ctx, home, thread); err != nil {
+				return nil, err
+			}
+		}
+		if read && probeWriter(home, thread)["state"] == "unheld" {
+			rpc, err := service.codexUtility(ctx)
+			if err != nil {
+				return nil, err
+			}
+			return rpc.call(ctx, method, args, timeout)
+		}
+	}
+	if thread != "" && (read || mutation) && !directFixture {
+		if binding, err := codexExecutionRecord(thread); err != nil {
+			return nil, err
+		} else if binding["transport"] == "local-daemon" && (returned == nil || !mutation) {
+			if read && probeWriter(home, thread)["state"] == "held" && service.nativeWriterOwnership(ctx, home, thread)["owner"] == "external" {
+				rpc, err := service.codexUtility(ctx)
+				if err != nil {
+					return nil, err
+				}
+				return rpc.call(ctx, method, args, timeout)
+			}
+			rpc, err := service.desktopBackendRPC(ctx, text(binding, "backend"))
+			if err != nil {
+				return nil, err
+			}
+			if mutation {
+				owner := service.nativeWriterOwnership(ctx, home, thread)
+				if owner["state"] != "unheld" && owner["owner"] != "desktop" {
+					return nil, errors.New(wire(writerBusy(thread, owner)))
+				}
+			}
+			value, err := rpc.call(ctx, method, args, timeout)
+			if err == nil && method == "thread/read" {
+				if state := obj(field(value, "thread")); state != nil {
+					state["runtimeSource"] = string(rpc.role)
+				}
+			}
+			return value, err
+		}
+	}
 	if thread != "" && (read || mutation) && probeWriter(home, thread)["state"] == "held" {
 		owner := service.nativeWriterOwnership(ctx, home, thread)
 		externallyHeld = owner["owner"] == "external"
@@ -331,6 +408,15 @@ func nativeCodexOwner(ctx context.Context, request operationRequest) (any, error
 		for _, key := range []string{"currentOwner", "history", "observedAt"} {
 			owner[key] = history[key]
 		}
+	}
+	if handback, err := desktopHandbackObservation(thread); err != nil {
+		return nil, err
+	} else if handback != nil {
+		if owner["state"] == "held" && nativeDesktopWriterEvidence != nil {
+			handback = clone(handback)
+			handback["holder"] = nativeDesktopWriterEvidence(ctx, home, thread)
+		}
+		owner["handback"] = handback
 	}
 	if owner["state"] == "held" {
 		owner["processes"] = writerProcesses(ctx, home, thread)

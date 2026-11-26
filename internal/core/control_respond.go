@@ -38,6 +38,15 @@ func respondCodexMutation(ctx context.Context, r operationRequest, row object) (
 		if len(row) >= 2 && row[0] == "desktop" {
 			thread = str(row[1])
 			if d, err := r.service.nativeDesktop(ctx); err == nil {
+				if session != d.session && text(resolved, "owner") != "desktop" {
+					known, err := recoverableNotificationResponse(ctx, key, session)
+					if err != nil {
+						return nil, err
+					}
+					if !known {
+						return nil, codexStaleInteraction(thread)
+					}
+				}
 				if owner, err := d.owner(ctx, thread); err == nil {
 					if _, err := d.refreshInteractions(ctx, thread, owner); err != nil {
 						return nil, err
@@ -78,10 +87,8 @@ func respondCodexMutation(ctx context.Context, r operationRequest, row object) (
 		}
 		return respondDesktopMutation(ctx, r.service, row, args, pending, thread, key)
 	}
-	s.codex.mu.Lock()
-	rpc := s.codex.utility
-	s.codex.mu.Unlock()
-	if rpc == nil || !rpc.alive.Load() || rpc.connection != pending["connection"] || rpc.session != session {
+	rpc := s.interactionRPC(session, text(pending, "connection"))
+	if rpc == nil {
 		return nil, codexStaleInteraction(thread)
 	}
 	row["threadId"], row["turnId"] = thread, field(pending["params"], "turnId")
