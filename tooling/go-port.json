@@ -1,6 +1,9 @@
 {
   "baseline": "b04516d7148af7ae84b1ded31aa583c0871d7188",
-  "postBaselineRustCommits": [],
+  "postBaselineRustCommits": [
+    "856104fa7dfa24041125acffbf6f9217d6da03af",
+    "2acee2731139c0530c54f680084e10caaf2b9501"
+  ],
   "files": {
     "native/src/acceptance_fault.rs": {
       "segment": "A",
