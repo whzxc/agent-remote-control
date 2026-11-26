@@ -5,12 +5,20 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 )
 
 const testReceiptSession = "fixture-session"
+
+func testReceiptCosts(t *testing.T) (context.Context, func(string, string) uint64) {
+	t.Helper()
+	costs := new(runtimeCostSet)
+	ctx := context.WithValue(t.Context(), runtimeCostKey{}, runtimeCostContext{set: costs})
+	return ctx, func(owner, key string) uint64 { return uintOr(field(costs.snapshot()[owner], key), 0) }
+}
 
 func testReceiptStore(t *testing.T) receiptStore {
 	t.Helper()
@@ -47,6 +55,12 @@ func TestReceiptTimeoutReturnsExecutionProgress(t *testing.T) {
 	for _, op := range []string{"command", "create", "send", "agent_create", "agent_send", "write", "fs", "notice_post", "ax_report", "message_send"} {
 		row := reserveTestReceipt(t, store, object{"state": "reserved", "operation": op, "createdAt": "2000-01-01T00:00:00Z"})
 		request := text(row, "requestId")
+		pending := publicReceipt(assertProjectedReceipt(t, store, request, testReceiptSession, "reserved"))
+		receiptNext(pending, nil)
+		if pending["submissionState"] != "reserved" || pending["executionState"] != nil ||
+			field(field(pending["next"], "args"), "requestId") != request || field(field(pending["next"], "args"), "action") != "read" {
+			t.Fatalf("%s reserved progress = %v", op, pending)
+		}
 		owner, err := store.begin(ctx, row)
 		if err != nil {
 			t.Fatal(err)
@@ -70,7 +84,17 @@ func TestReceiptTimeoutReturnsExecutionProgress(t *testing.T) {
 				t.Fatalf("%s progress = %v", op, public)
 			}
 		}
-		assertProjectedReceipt(t, store, request, testReceiptSession, "executing")
+		if row := assertProjectedReceipt(t, store, request, testReceiptSession, "executing"); row["submissionState"] != "submitted" {
+			t.Fatalf("%s projected progress = %v", op, row)
+		}
+		row["state"], row["result"] = "completed", object{"outcome": "late confirmed result"}
+		if err := store.checkpoint(ctx, row); err != nil {
+			t.Fatal(err)
+		}
+		settled, err := store.read(request, testReceiptSession)
+		if err != nil || settled["state"] != "completed" || field(settled["result"], "outcome") != "late confirmed result" {
+			t.Fatalf("%s late completion = %v, %v", op, settled, err)
+		}
 	}
 }
 
@@ -110,7 +134,12 @@ func TestReceiptRetainsUnconfirmedOriginalAcrossOwnerLoss(t *testing.T) {
 	if _, err := store.begin(ctx, replay); err == nil {
 		t.Fatal("unconfirmed original was resubmitted")
 	}
-	assertProjectedReceipt(t, store, request, testReceiptSession, "unconfirmed")
+	for _, value := range []object{restarted, lost, assertProjectedReceipt(t, store, request, testReceiptSession, "unconfirmed")} {
+		if value["state"] != "unconfirmed" || value["submissionState"] != "unconfirmed" || value["executionState"] != nil ||
+			value["requestId"] != request || value["progressStalled"] != false {
+			t.Fatalf("receipt owner loss projection = %v", value)
+		}
+	}
 	replay["state"] = string(advanceReceipt(receiptUnconfirmed, receiptComplete, ""))
 	if err := store.checkpoint(ctx, replay); err != nil {
 		t.Fatal(err)
@@ -122,13 +151,18 @@ func TestSettledReceiptPreservesOutcomeAfterRestart(t *testing.T) {
 	// Recurring bug class: persistence ownership changes discarded settled operation results and errors.
 	store := testReceiptStore(t)
 	for _, state := range []string{"completed", "failed"} {
-		row := reserveTestReceipt(t, store, object{"state": state, "operation": "create", "result": object{"threadId": "fixture"},
-			"error": object{"message": "failure"}, "origin": object{"sourceId": "controller"}})
+		row := object{"state": state, "operation": "command", "createdAt": "2000-01-01T00:00:00Z",
+			"result": object{"stdout": "original output", "exitCode": 0}, "error": nil, "origin": object{"sourceId": "controller"}}
+		if state == "failed" {
+			obj(row["result"])["exitCode"] = 1
+			row["error"] = object{"code": "OPERATION_FAILED", "message": "original error"}
+		}
+		reserveTestReceipt(t, store, row)
 		read, err := store.read(text(row, "requestId"), "next-session")
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, key := range []string{"requestId", "state", "operation", "result", "error", "origin"} {
+		for _, key := range []string{"requestId", "state", "operation", "createdAt", "result", "error", "origin"} {
 			if wire(read[key]) != wire(row[key]) {
 				t.Fatalf("%s %s lost after owner restart: %v", state, key, read)
 			}
@@ -142,8 +176,13 @@ func TestSettledReceiptPreservesOutcomeAfterRestart(t *testing.T) {
 
 func TestReceiptAndTaskPollsRefreshOnlyChangedRows(t *testing.T) {
 	// Recurring bug class: persistence retained receipts were reprojected on unchanged polls or one changed row.
-	ctx := context.Background()
+	type pollCost struct{ receiptRows, parsed, taskRows uint64 }
+	var baseline pollCost
 	for _, history := range []int{4, 40} {
+		ctx, metric := testReceiptCosts(t)
+		cost := func() pollCost {
+			return pollCost{metric("receiptProjection", "rowsVisited"), metric("receiptProjection", "bytesParsed"), metric("taskRecords", "rowsVisited")}
+		}
 		store := testReceiptStore(t)
 		for range history {
 			reserveTestReceipt(t, store, object{"state": "completed"})
@@ -164,18 +203,28 @@ func TestReceiptAndTaskPollsRefreshOnlyChangedRows(t *testing.T) {
 			return rows
 		}
 		poll()
+		warm := cost()
 		poll()
-		if visits != history+1 {
-			t.Fatalf("idle projected %d rows", visits-history-1)
+		if visits != history+1 || cost() != warm {
+			t.Fatalf("idle projection visits=%d, cost=%v (after warmup=%v)", visits-history-1, cost(), warm)
 		}
 		active["state"] = "completed"
 		if err := store.checkpoint(ctx, active); err != nil {
 			t.Fatal(err)
 		}
-		for _, row := range poll() {
-			if row["requestId"] == request && row["state"] != "completed" {
-				t.Fatalf("changed row = %v", row)
-			}
+		before := cost()
+		rows := poll()
+		at := slices.IndexFunc(rows, func(row object) bool { return row["requestId"] == request })
+		if at < 0 || rows[at]["state"] != "completed" {
+			t.Fatalf("changed row = %v", rows)
+		}
+		after := cost()
+		change := pollCost{after.receiptRows - before.receiptRows, after.parsed - before.parsed, after.taskRows - before.taskRows}
+		if history == 4 {
+			baseline = change
+		}
+		if change != baseline || change.taskRows != 1 {
+			t.Fatalf("history %d changed poll cost = %v, want %v with one task", history, change, baseline)
 		}
 		if visits != history+2 {
 			t.Fatalf("checkpoint reprojected %d rows", visits-history-1)
@@ -187,7 +236,7 @@ func TestReceiptAndTaskPollsRefreshOnlyChangedRows(t *testing.T) {
 
 func TestReceiptIndexRestartAdoptsAndRepairsInterruptedKey(t *testing.T) {
 	// Recurring bug class: persistence restart rebuilt receipt history and lost a checkpoint interrupted after the canonical write.
-	ctx := context.Background()
+	ctx, metric := testReceiptCosts(t)
 	store := testReceiptStore(t)
 	for range 40 {
 		reserveTestReceipt(t, store, object{"state": "completed", "result": object{"payload": strings.Repeat("x", 8192)}})
@@ -208,7 +257,16 @@ func TestReceiptIndexRestartAdoptsAndRepairsInterruptedKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	saveKernelRow(t, path, row)
+	beforeRepair := metric("indexRepair", "rowsVisited")
+	beforeSeed := metric("receiptSeed", "bytesParsed")
+	if err := seedReceiptIndex(ctx, store.base); err != nil {
+		t.Fatal(err)
+	}
 	assertProjectedReceipt(t, store, request, "next-session", "completed")
+	if metric("indexRepair", "rowsVisited") != beforeRepair+1 || metric("receiptSeed", "bytesParsed") != beforeSeed {
+		t.Fatalf("restart repair rows=%d, canonical rebuild bytes=%d", metric("indexRepair", "rowsVisited")-beforeRepair,
+			metric("receiptSeed", "bytesParsed")-beforeSeed)
+	}
 	after, err := indexCurrent(store.base)
 	if err != nil || before != after {
 		t.Fatalf("repair did not adopt prior generation: %v, %v", after, err)
@@ -217,7 +275,13 @@ func TestReceiptIndexRestartAdoptsAndRepairsInterruptedKey(t *testing.T) {
 		t.Fatalf("repair marker remained: %v", err)
 	}
 	closeReceiptIndex(store.base)
+	if err := seedReceiptIndex(ctx, store.base); err != nil {
+		t.Fatal(err)
+	}
 	assertProjectedReceipt(t, store, request, "next-session", "completed")
+	if metric("indexRepair", "rowsVisited") != beforeRepair+1 || metric("receiptSeed", "bytesParsed") != beforeSeed {
+		t.Fatal("clean restart reparsed canonical receipts")
+	}
 }
 
 func TestReceiptIndexRebuildsInvalidOrInterruptedGeneration(t *testing.T) {
@@ -227,9 +291,22 @@ func TestReceiptIndexRebuildsInvalidOrInterruptedGeneration(t *testing.T) {
 	row := reserveTestReceipt(t, store, object{"state": "reserved"})
 	request := text(row, "requestId")
 	cancelled, cancel := context.WithCancel(ctx)
-	cancel()
-	if err := seedReceiptIndex(cancelled, store.base); err == nil {
-		t.Fatal("cancelled rebuild was published")
+	defer cancel()
+	projectedRows := 0
+	triedInstall := false
+	err := openIndex(cancelled, store.base, "receipts", isReceiptPath, func(value any) bool { return obj(value) != nil },
+		func(value any) (any, error) {
+			result, err := receiptSummary(value)
+			projectedRows++
+			cancel()
+			return result, err
+		},
+		func(map[string]indexEntry) error { triedInstall = true; return nil })
+	if err == nil || projectedRows == 0 || triedInstall {
+		t.Fatalf("interrupted scan: projected %d, attempted install=%v, error=%v", projectedRows, triedInstall, err)
+	}
+	if _, err := indexCurrent(store.base); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("interrupted index was published: %v", err)
 	}
 	assertProjectedReceipt(t, store, request, "new-session", "unconfirmed")
 	for _, mode := range []string{"missing", "corrupt", "version"} {
@@ -267,7 +344,7 @@ func TestReceiptIndexRebuildsInvalidOrInterruptedGeneration(t *testing.T) {
 
 func TestReceiptIndexRebuildsChangedSourceAttribution(t *testing.T) {
 	// Recurring bug class: persistence interrupted source migration left stale attribution in the receipt projection.
-	ctx := context.Background()
+	ctx, metric := testReceiptCosts(t)
 	store := testReceiptStore(t)
 	row := reserveTestReceipt(t, store, object{"state": "completed", "origin": object{"sourceId": "unmigrated"}})
 	request := text(row, "requestId")
@@ -286,20 +363,35 @@ func TestReceiptIndexRebuildsChangedSourceAttribution(t *testing.T) {
 	if wire(result["origin"]) != wire(row["origin"]) {
 		t.Fatalf("rebuild kept stale origin: %v", result["origin"])
 	}
+	closeReceiptIndex(store.base)
+	before := metric("receiptSeed", "bytesParsed")
+	if err := seedReceiptIndex(ctx, store.base); err != nil {
+		t.Fatal(err)
+	}
+	if metric("receiptSeed", "bytesParsed") != before || metric("receiptAdopt", "rowsVisited") != 1 {
+		t.Fatal("restart rebuilt the corrected index instead of adopting it")
+	}
 }
 
 func TestOversizedReceiptRetainsSmallProjection(t *testing.T) {
 	// Recurring bug class: persistence oversized receipt payloads evicted their visible projections on every poll.
-	ctx := context.Background()
+	ctx, metric := testReceiptCosts(t)
 	store := testReceiptStore(t)
 	row := reserveTestReceipt(t, store, object{"state": "completed", "operation": "create",
 		"result": object{"threadId": "fixture-thread", "payload": strings.Repeat("x", 33<<20)}})
 	request := text(row, "requestId")
+	if _, err := store.projected(ctx, request, testReceiptSession); err != nil {
+		t.Fatal(err)
+	}
+	beforeRead, beforeParse := metric("receiptProjection", "bytesRead"), metric("receiptProjection", "bytesParsed")
 	for range 3 {
-		result := assertProjectedReceipt(t, store, request, testReceiptSession, "completed")
-		if field(result["result"], "threadId") != "fixture-thread" || field(result["result"], "payload") != nil {
+		result, err := store.projected(ctx, request, testReceiptSession)
+		if err != nil || result["state"] != "completed" || field(result["result"], "threadId") != "fixture-thread" || field(result["result"], "payload") != nil {
 			t.Fatal("projection lost the thread or retained its opaque payload")
 		}
+	}
+	if metric("receiptProjection", "bytesRead") != beforeRead || metric("receiptProjection", "bytesParsed") != beforeParse {
+		t.Fatal("polling the oversized receipt summary reread canonical data")
 	}
 	row["result"] = object{"threadId": "changed-thread"}
 	if err := store.checkpoint(ctx, row); err != nil {
@@ -313,7 +405,7 @@ func TestOversizedReceiptRetainsSmallProjection(t *testing.T) {
 
 func TestTaskDependencyChangeRefreshesOnlyItsReceipt(t *testing.T) {
 	// Recurring bug class: persistence an updated runtime snapshot triggered reprojecting unrelated receipt history.
-	ctx := context.Background()
+	ctx, metric := testReceiptCosts(t)
 	store := testReceiptStore(t)
 	for range 40 {
 		reserveTestReceipt(t, store, object{"state": "completed"})
@@ -347,13 +439,15 @@ func TestTaskDependencyChangeRefreshesOnlyItsReceipt(t *testing.T) {
 	}
 	poll()
 	saveKernelRow(t, path, object{"state": "completed"})
+	before := metric("receiptProjection", "bytesParsed")
 	for _, row := range poll() {
 		if row["requestId"] == request && field(row["runtime"], "state") != "completed" {
 			t.Fatalf("runtime state = %v", row)
 		}
 	}
-	if visits != 42 {
-		t.Fatalf("changed snapshot reprojected %d rows", visits-41)
+	if visits != 42 || metric("receiptProjection", "bytesParsed") != before {
+		t.Fatalf("changed runtime reprojected %d rows and parsed %d bytes of receipts", visits-41,
+			metric("receiptProjection", "bytesParsed")-before)
 	}
 }
 

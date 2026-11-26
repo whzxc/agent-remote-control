@@ -302,7 +302,7 @@
     },
     "native/src/cli.rs": {
       "runtime_failures_do_not_prescribe_argument_corrections": ["internal/core/cli_test.go#TestRuntimeFailureKeepsCommandUsageSeparate"],
-      "revoked_source_error_preserves_authorization_recovery": {"tests": ["internal/core/cli_test.go#TestRevokedCLISourceOffersAuthorizationRecovery"], "remaining": "Exercise revoked and removed source authority errors through the real CLI call."}
+      "revoked_source_error_preserves_authorization_recovery": ["internal/core/cli_test.go#TestRevokedCLISourceOffersAuthorizationRecovery"]
     },
     "native/src/control.rs": {
       "fresh_submission_skips_unmaterialized_history_but_existing_turns_are_read": ["internal/core/control_test.go#TestSubmissionHistorySkipsFreshThreads"],
@@ -536,9 +536,9 @@
       "checkpoint_failure_preserves_observed_outcome_and_recovery": ["internal/core/egress_test.go#TestReceiptCheckpointFailurePreservesObservedResultAndRecovery"],
       "codex_dispatch_signatures_expose_account_and_service_tier": ["internal/core/egress_test.go#TestCodexDispatchSignaturesExposeAccountAndServiceTier"],
       "image_review_is_discoverable_in_common_and_review_guides": ["internal/core/egress_test.go#TestImageReadsAreDiscoverableFromDefaultAndReviewGuides"],
-      "ax_guide_common_signatures": {"tests": ["internal/core/egress_test.go#TestDefaultGuideBudgetAndProgressiveSignatures"], "remaining": "Compare the full default guide signatures."},
+      "ax_guide_common_signatures": ["internal/core/egress_test.go#TestDefaultGuideBudgetAndProgressiveSignatures"],
       "review_notes_accept_per_invariant_evidence": ["internal/core/egress_test.go#TestReviewNoteAcceptsEvidenceForSeveralInvariants"],
-      "ax_followup_command_validation_points_to_its_field_contract": {"tests": ["internal/core/egress_test.go#TestCommandValidationLinksToCorrectFieldContract"], "remaining": "Follow the returned recovery arguments through command guide validation."},
+      "ax_followup_command_validation_points_to_its_field_contract": ["internal/core/egress_test.go#TestCommandValidationLinksToCorrectFieldContract"],
       "ax_followup_triage_guide_names_accepted_verification_receipts": ["internal/core/egress_test.go#TestAXTriageGuideNamesAcceptedEvidenceReceipts"],
       "ax_contracts_coordination_guides_disclose_resource_forms": ["internal/core/egress_test.go#TestCoordinationGuidesDiscloseAcceptedResourceForms"],
       "creation_receipts_explain_missing_titles": ["internal/core/egress_test.go#TestPublicCreationReceiptsExplainTitleFallback"],
@@ -552,10 +552,10 @@
     },
     "native/src/front_door.rs": {
       "maintenance_resumes_admissions_unless_shutdown_supersedes_it": ["internal/core/front_door_test.go#TestMaintenanceReopensOnlyAServiceThatIsNotShuttingDown"],
-      "maintenance_ends_reads_and_only_writes_can_expire_the_drain": {"tests": ["internal/core/front_door_test.go#TestMaintenanceCancelsReadsAndWaitsOnlyForWrites"], "remaining": "Check maintenance interruption of an active subscription and the write-drain counts."},
+      "maintenance_ends_reads_and_only_writes_can_expire_the_drain": ["internal/core/front_door_test.go#TestMaintenanceCancelsReadsAndWaitsOnlyForWrites"],
       "framing_bounds_count_encoded_bytes_including_escapes": ["internal/core/front_door_test.go#TestFramingBoundsCountEscapesAndMultibyteUTF8"],
-      "protocol_refuses_stale_expired_and_oversized_deliveries": {"tests": ["internal/core/front_door_test.go#TestPrivateDeliveryRejectsStaleExpiredAndOversizedFrames"], "remaining": "Exercise expired and oversized input through the real receive and delivery path."},
-      "protocol_handshake_cancellation_and_drain_acknowledgement": {"tests": ["internal/core/front_door_test.go#TestPrivateCancellationAndDrainRetainGeneration"], "remaining": "Exercise the ordinary drain readiness and final acknowledgement after release."}
+      "protocol_refuses_stale_expired_and_oversized_deliveries": ["internal/core/front_door_test.go#TestPrivateDeliveryRejectsStaleExpiredAndOversizedFrames"],
+      "protocol_handshake_cancellation_and_drain_acknowledgement": ["internal/core/front_door_test.go#TestPrivateCancellationAndDrainRetainGeneration"]
     },
     "native/src/front_door/process.rs": {
       "windows_pipe_connects_when_a_busy_listener_is_replenished": ["internal/platform/ipc_windows_test.go#TestWindowsIPCRetriesBusyPipe"],
@@ -565,42 +565,42 @@
       "waiting_requests_expire_without_changing_identity_or_deadline": ["internal/core/front_door_process_test.go#TestWaitingRequestExpiresWithOriginalIdentity"],
       "fresh_front_door_launch_uses_the_installed_build_with_the_same_protocol": ["internal/core/front_door_process_test.go#TestStagedFrontDoorUsesCurrentInstalledBuild"],
       "sent_reads_fail_and_sent_writes_retain_the_original_receipt_action": ["internal/core/front_door_process_test.go#TestLostPrivateResponseRetainsWriteReceiptButFailsRead"],
-      "generated_write_identity_is_the_identity_sent_to_the_receipt_owner": {"tests": ["internal/core/front_door_process_test.go#TestPrivateWriteUsesSameGeneratedReceiptID"], "remaining": "Check the wire envelope for a read request with an outer request ID."},
+      "generated_write_identity_is_the_identity_sent_to_the_receipt_owner": ["internal/core/front_door_process_test.go#TestPrivateWriteUsesSameGeneratedReceiptID"],
       "private_framing_refuses_an_oversized_length_before_reading_a_body": ["internal/core/front_door_process_test.go#TestPrivateFrameRejectsLengthBeforeReadingBody"]
     },
     "native/src/front_door_tests.rs": {
-      "mcp_browser_oauth_local_wire_contract": {"tests": ["internal/core/front_door_wire_test.go#TestLocalFrontDoorRetainsAuthenticationAndReplyWire", "internal/core/ingress_oauth_test.go#TestExternalOAuthRevocationWire", "internal/core/https_test.go#TestPublicIngressRetainsBearerAndMCPWire"], "remaining": "Browser cookie, snapshot, rotation, and idle-stream wire still need an equivalent combined Go fixture."}
+      "mcp_browser_oauth_local_wire_contract": ["internal/core/front_door_wire_test.go#TestLocalFrontDoorRetainsAuthenticationAndReplyWire", "internal/core/ingress_oauth_test.go#TestExternalOAuthRevocationWire", "internal/core/https_test.go#TestPublicIngressRetainsBearerAndMCPWire", "internal/core/browser_test.go#TestBrowserFrontDoorWire"]
     },
     "native/src/ingress.rs": {
       "authentication_requires_a_successful_poll_and_rejections_win": ["internal/core/ingress_openai_tunnel_test.go#TestTunnelControlPlaneHealthRequiresAnAuthenticatedPoll"]
     },
     "native/src/kernel/file_cache.rs": {
-      "eviction_preserves_hot_snapshots_and_in_flight_readers": {"tests": ["internal/core/kernel_file_cache_test.go#TestCacheEvictionPreservesHotAndInFlightValues"], "remaining": "Check reloading the evicted value alongside held hot snapshots."},
+      "eviction_preserves_hot_snapshots_and_in_flight_readers": ["internal/core/kernel_file_cache_test.go#TestCacheEvictionPreservesHotAndInFlightValues"],
       "unchanged_polls_open_no_files_and_writes_refresh_only_the_changed_record": ["internal/core/kernel_file_cache_test.go#TestCachePollingOpensOnlyChangedFiles"],
       "task_projection_invalidates_when_receipts_runtime_or_owner_change": ["internal/core/kernel_file_cache_test.go#TestCacheProjectionChecksAllDependenciesBeforePublishing"],
       "external_changes_and_failed_reads_are_not_hidden_by_cached_snapshots": ["internal/core/kernel_file_cache_test.go#TestCacheDiscoversExternalWritesAndDeletion"],
-      "failed_refresh_retains_remaining_keys_and_unpublished_changes": {"tests": ["internal/core/kernel_file_cache_test.go#TestCollectionRetriesUnpublishedChanges"], "remaining": "Check the original retained row after retrying a failed refresh."}
+      "failed_refresh_retains_remaining_keys_and_unpublished_changes": ["internal/core/kernel_file_cache_test.go#TestCollectionRetriesUnpublishedChanges"]
     },
     "native/src/kernel/receipts.rs": {
-      "receipt_wait_returns_execution_progress_instead_of_a_pending_snapshot": {"tests": ["internal/core/kernel_receipts_test.go#TestReceiptTimeoutReturnsExecutionProgress"], "remaining": "Check projected submission state, the pending wait action, and a late completion on normal read."},
-      "lost_execution_owner_retains_the_original_receipt_across_reads": {"tests": ["internal/core/kernel_receipts_test.go#TestReceiptRetainsUnconfirmedOriginalAcrossOwnerLoss"], "remaining": "Check the raw as well as projected wait and receipt states."},
-      "settled_receipts_keep_existing_outcomes_and_results_after_owner_restart": {"tests": ["internal/core/kernel_receipts_test.go#TestSettledReceiptPreservesOutcomeAfterRestart"], "remaining": "Check retained creation time and null/error output for settled outcomes."},
-      "receipt_and_task_polls_read_only_changed_summaries_after_warmup": {"tests": ["internal/core/kernel_receipts_test.go#TestReceiptAndTaskPollsRefreshOnlyChangedRows"], "remaining": "Compare warm and changed-key costs across retained history sizes."},
-      "restart_adopts_receipts_and_repairs_only_the_interrupted_key": {"tests": ["internal/core/kernel_receipts_test.go#TestReceiptIndexRestartAdoptsAndRepairsInterruptedKey"], "remaining": "Count exactly one dirty-key repair and zero on the subsequent restart."},
-      "invalid_receipt_index_rebuilds_once_and_partial_migration_is_not_adopted": {"tests": ["internal/core/kernel_receipts_test.go#TestReceiptIndexRebuildsInvalidOrInterruptedGeneration"], "remaining": "Interrupt the scan after it has produced rows."},
-      "interrupted_owner_migration_rebuilds_changed_provenance_before_projection": {"tests": ["internal/core/kernel_receipts_test.go#TestReceiptIndexRebuildsChangedSourceAttribution"], "remaining": "Measure clean adoption after the provenance rebuild."},
-      "oversized_receipt_payload_does_not_evict_its_summary": {"tests": ["internal/core/kernel_receipts_test.go#TestOversizedReceiptRetainsSmallProjection"], "remaining": "Assert zero canonical data reads on repeated oversized-summary polls."},
-      "runtime_changes_refresh_the_dependent_task_without_reading_other_receipts": {"tests": ["internal/core/kernel_receipts_test.go#TestTaskDependencyChangeRefreshesOnlyItsReceipt"], "remaining": "Assert zero receipt parsing after a runtime-only change."},
+      "receipt_wait_returns_execution_progress_instead_of_a_pending_snapshot": ["internal/core/kernel_receipts_test.go#TestReceiptTimeoutReturnsExecutionProgress"],
+      "lost_execution_owner_retains_the_original_receipt_across_reads": ["internal/core/kernel_receipts_test.go#TestReceiptRetainsUnconfirmedOriginalAcrossOwnerLoss"],
+      "settled_receipts_keep_existing_outcomes_and_results_after_owner_restart": ["internal/core/kernel_receipts_test.go#TestSettledReceiptPreservesOutcomeAfterRestart"],
+      "receipt_and_task_polls_read_only_changed_summaries_after_warmup": ["internal/core/kernel_receipts_test.go#TestReceiptAndTaskPollsRefreshOnlyChangedRows"],
+      "restart_adopts_receipts_and_repairs_only_the_interrupted_key": ["internal/core/kernel_receipts_test.go#TestReceiptIndexRestartAdoptsAndRepairsInterruptedKey"],
+      "invalid_receipt_index_rebuilds_once_and_partial_migration_is_not_adopted": ["internal/core/kernel_receipts_test.go#TestReceiptIndexRebuildsInvalidOrInterruptedGeneration"],
+      "interrupted_owner_migration_rebuilds_changed_provenance_before_projection": ["internal/core/kernel_receipts_test.go#TestReceiptIndexRebuildsChangedSourceAttribution"],
+      "oversized_receipt_payload_does_not_evict_its_summary": ["internal/core/kernel_receipts_test.go#TestOversizedReceiptRetainsSmallProjection"],
+      "runtime_changes_refresh_the_dependent_task_without_reading_other_receipts": ["internal/core/kernel_receipts_test.go#TestTaskDependencyChangeRefreshesOnlyItsReceipt"],
       "receipt_updates_and_restart_preserve_neighbors_in_the_same_prefix": ["internal/core/kernel_receipts_test.go#TestReceiptIndexUpdatePreservesNeighborsInShard"]
     },
     "native/src/kernel/receipts/progress.rs": {
-      "progress_transition_separates_submission_execution_and_owner_loss": {"tests": ["internal/core/kernel_receipts_progress_test.go#TestProgressSeparatesExecutionFromSubmissionAndOwnerLoss"], "remaining": "Assert the complete submission/execution pair on both sides of begin and at the owner-loss age boundary."}
+      "progress_transition_separates_submission_execution_and_owner_loss": ["internal/core/kernel_receipts_progress_test.go#TestProgressSeparatesExecutionFromSubmissionAndOwnerLoss"]
     },
     "native/src/kernel/results.rs": {
       "single_method_excludes_unrelated_definitions_and_keeps_recursion": ["internal/core/kernel_results_test.go#TestSingleMethodSchemaClosure"]
     },
     "native/src/launches.rs": {
-      "shutdown_rejects_queued_launches_and_adoptions": {"tests": ["internal/core/launches_test.go#TestShutdownRejectsLaunchesAndAdoptions"], "remaining": "Check the full failed-admission envelope."}
+      "shutdown_rejects_queued_launches_and_adoptions": ["internal/core/launches_test.go#TestShutdownRejectsLaunchesAndAdoptions"]
     },
     "native/src/local_gateway.rs": {
       "loopback_origin_rejects_remote_hosts": ["internal/core/local_gateway_test.go#TestGatewayLoopbackOrigin"],
@@ -618,7 +618,7 @@
       "front_door_authority_loss_preserves_existing_grants": ["internal/core/oauth_test.go#TestOAuthAuthorityOutageKeepsStoredGrant"]
     },
     "native/src/operations.rs": {
-      "management_writes_share_execution_and_lost_submission_progress": {"tests": ["internal/core/operations_test.go#TestManagementWritesShareExecutionAndLostSubmissionProgress"], "remaining": "Check the full public lost-submission response and continuations."}
+      "management_writes_share_execution_and_lost_submission_progress": ["internal/core/operations_test.go#TestManagementWritesShareExecutionAndLostSubmissionProgress"]
     },
     "native/src/owned_children.rs": {
       "crashed_core_children_are_reclaimed_without_signalling_reused_pids": ["internal/core/owned_children_test.go#TestReclaimChildOwnerAndProcessIdentity"]
@@ -657,9 +657,9 @@
     },
     "native/src/runtime.rs": {
       "live_desktop_keeps_its_lease_after_a_delayed_heartbeat": ["internal/core/runtime_test.go#TestLiveDesktopKeepsLeaseWhenHeartbeatIsDelayed"],
-      "repeated_process_identity_reads_never_rehash_the_executable": {"tests": ["internal/core/runtime_test.go#TestProcessIdentityCanBeReadRepeatedly"], "remaining": "Measure zero executable rehashes instead of checking repeated values only."},
+      "repeated_process_identity_reads_never_rehash_the_executable": ["internal/core/runtime_test.go#TestProcessIdentityCanBeReadRepeatedly"],
       "streamed_build_identity_matches_sha256_and_observes_replaced_files": ["internal/core/runtime_test.go#TestBuildIDStreamsAndObservesReplacedBytes"],
-      "local_uninstall_stops_headless_core_without_granting_cli_shutdown": {"tests": ["internal/core/runtime_test.go#TestUninstallProofDoesNotGrantOrdinaryCLIShutdown"], "remaining": "Verify that successful uninstall fences subsequent RPC launches."},
+      "local_uninstall_stops_headless_core_without_granting_cli_shutdown": ["internal/core/runtime_test.go#TestUninstallProofDoesNotGrantOrdinaryCLIShutdown"],
       "explicit_update_stops_core_with_other_local_clients_attached": ["internal/core/runtime_test.go#TestDesktopShutdownClosesLaunchesWithOtherClientsAttached"],
       "restart_handoff_never_attaches_to_a_core_already_tearing_down": ["internal/core/runtime_test.go#TestRestartHandoffRejectsNewLeasesAfterIdleShutdown"]
     },
@@ -718,11 +718,11 @@
       "shared_codex_event_window_marks_only_observed_thread_partial": ["internal/core/task_tracking_test.go#TestTrackedWindowAndSharedEventEvictionExposePartialCoverage"]
     },
     "native/src/transport.rs": {
-      "desktop_requests_are_bounded_and_abandoned_reads_release_their_work": {"tests": ["internal/core/transport_test.go#TestDesktopAdmissionAndDisconnectCancellation"], "remaining": "Distinguish overflow refusal or closure from a socket timeout."}
+      "desktop_requests_are_bounded_and_abandoned_reads_release_their_work": ["internal/core/transport_test.go#TestDesktopAdmissionAndDisconnectCancellation"]
     },
     "native/src/wait_transport.rs": {
-      "heartbeats_preserve_final_response_and_only_negotiate_progress": {"tests": ["internal/core/wait_transport_test.go#TestWaitStreamProgressAndFinalResponse"], "remaining": "Exercise multiple heartbeats and both numeric and string progress-token sequences."},
-      "dropped_body_and_disconnected_socket_cancel_the_operation": {"tests": ["internal/core/wait_transport_test.go#TestWaitStreamCancelsWhenTheClientDisconnects"], "remaining": "Observe body closure and socket disconnect independently."}
+      "heartbeats_preserve_final_response_and_only_negotiate_progress": ["internal/core/wait_transport_test.go#TestWaitStreamProgressAndFinalResponse"],
+      "dropped_body_and_disconnected_socket_cancel_the_operation": ["internal/core/wait_transport_test.go#TestWaitStreamCancelsWhenTheClientDisconnects"]
     }
   },
   "added": {

@@ -300,6 +300,7 @@ func serveBrowserAPI(w http.ResponseWriter, req *http.Request, ingress browserIn
 		}
 		_ = ingress.stream(req.Context(), authority, kind, func(frame string) error {
 			_ = controller.SetWriteDeadline(time.Now().Add(2 * time.Second))
+			defer controller.SetWriteDeadline(time.Time{})
 			if _, err := io.WriteString(w, frame); err != nil {
 				return err
 			}

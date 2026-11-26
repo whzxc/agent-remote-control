@@ -117,9 +117,20 @@ func TestDefaultGuideBudgetAndProgressiveSignatures(t *testing.T) {
 		}
 	}
 	full := testGuide(requestSource{}, object{"view": "full"})
+	allSignatures := make(map[string]string)
 	for _, op := range full["ops"].([]object) {
-		if !strings.HasPrefix(text(op, "signature"), text(op, "op")+"(") {
+		name := text(op, "op")
+		perOp := testGuide(requestSource{}, object{"op": name})
+		actual := text(op, "signature")
+		if !strings.HasPrefix(actual, name+"(") || actual != perOp["signature"] {
 			t.Fatalf("full guide signature = %v", op)
+		}
+		allSignatures[name] = actual
+	}
+	for _, row := range guideSpecs() {
+		name := text(row, "name")
+		if allSignatures[name] == "" {
+			t.Errorf("full guide omitted signature for catalog operation %s", name)
 		}
 	}
 }
@@ -158,6 +169,14 @@ func TestCommandValidationLinksToCorrectFieldContract(t *testing.T) {
 			field(next, "via") != "query" || field(next, "op") != "guide" || field(field(next, "args"), "op") != "command" ||
 			!strings.Contains(text(next, "hint"), key) || !strings.Contains(text(next, "hint"), strconv.FormatUint(limit, 10)) {
 			t.Fatalf("%s validation = %v, %v", key, out, err)
+		}
+		recovery := obj(field(next, "args"))
+		if rejected := checkSchema("op", "guide", "guide", operation("guide")["inputSchema"], recovery); rejected != nil {
+			t.Fatalf("%s recovery arguments rejected: %v", key, rejected)
+		}
+		guide := testGuide(requestSource{}, recovery)
+		if text(guide, "op") != "command" || !strings.Contains(text(guide, "signature"), key) {
+			t.Fatalf("%s recovery resolved to the wrong guide: %v", key, guide)
 		}
 	}
 	missingWorkdir := checkSchema("op", "command", "command", spec["inputSchema"], object{"cmd": "true"})

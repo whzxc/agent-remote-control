@@ -2,7 +2,10 @@ package core
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
+	"io"
+	"net"
 	"strings"
 	"testing"
 	"time"
@@ -72,6 +75,10 @@ func TestMaintenanceCancelsReadsAndWaitsOnlyForWrites(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer maintenance.close()
+	if maintenance.endedReads != 2 || maintenance.outstandingWrites() != 1 {
+		endWrite()
+		t.Fatalf("maintenance ended %d reads and retained %d writes", maintenance.endedReads, maintenance.outstandingWrites())
+	}
 	for _, item := range []struct {
 		ctx context.Context
 		id  string
@@ -88,12 +95,12 @@ func TestMaintenanceCancelsReadsAndWaitsOnlyForWrites(t *testing.T) {
 	now, stop := context.WithCancel(ctx)
 	stop()
 	_, err = maintenance.drain(now)
-	if err == nil || !strings.HasPrefix(err.Error(), "FRONT_DOOR_DRAIN_DEADLINE:") {
+	if err == nil || !strings.HasPrefix(err.Error(), "FRONT_DOOR_DRAIN_DEADLINE:") || maintenance.outstandingWrites() != 1 {
 		endWrite()
 		t.Fatalf("write did not block the drain: %v", err)
 	}
 	endWrite()
-	if ack, err := maintenance.drain(ctx); err != nil || ack.Outstanding != 0 {
+	if ack, err := maintenance.drain(ctx); err != nil || ack.Outstanding != 0 || maintenance.outstandingWrites() != 0 {
 		t.Fatalf("reads blocked a drained write: %v, %v", ack, err)
 	}
 }
@@ -135,6 +142,57 @@ func TestPrivateDeliveryRejectsStaleExpiredAndOversizedFrames(t *testing.T) {
 	if _, err := boundedPrivateJSON(reply, maxFrameBytes); err == nil || err.Error() != frontDoorFrameTooLarge {
 		t.Fatalf("oversized response result: %v", err)
 	}
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	endpoint := newInProcess(localWireTarget{})
+	token := "test-private-token"
+	for _, expired := range []bool{true, false} {
+		request := requestForEndpoint(endpoint, "Health", object{})
+		client, server := net.Pipe()
+		stopped := make(chan struct{})
+		go func() {
+			defer close(stopped)
+			defer server.Close()
+			servePrivate(ctx, endpoint, token, server, nil)
+		}()
+		func() {
+			defer func() { _ = client.Close(); <-stopped }()
+			var hello frontDoorHello
+			if err := privateHello(ctx, client, token, &hello); err != nil {
+				t.Fatal(err)
+			}
+			_ = client.SetDeadline(time.Now().Add(2 * time.Second))
+			if expired {
+				request.Deadline = afterDeadline(0)
+			} else {
+				request.Body = strings.Repeat("x", maxRequestBytes)
+			}
+			if err := writeFrame(client, object{"Request": request}); err != nil {
+				t.Fatal(err)
+			}
+			var discarded frontDoorResponse
+			if err := readFrame(client, maxFrameBytes, &discarded); !errors.Is(err, io.EOF) {
+				t.Fatalf("received rejected request (expired=%v): %v, %v", expired, discarded, err)
+			}
+		}()
+	}
+	client, server := net.Pipe()
+	stopped := make(chan struct{})
+	go func() {
+		defer close(stopped)
+		defer server.Close()
+		var envelope object
+		if readFrame(server, maxRequestBytes, &envelope) == nil {
+			var header [4]byte
+			binary.BigEndian.PutUint32(header[:], maxFrameBytes+1)
+			_, _ = server.Write(header[:])
+		}
+	}()
+	defer func() { _ = client.Close(); <-stopped }()
+	if _, err := exchangePrivate(ctx, client, requestForEndpoint(endpoint, "Health", object{}), "Request"); err == nil ||
+		!strings.Contains(err.Error(), frontDoorFrameTooLarge) {
+		t.Fatalf("oversized response delivery = %v", err)
+	}
 }
 
 func TestPrivateCancellationAndDrainRetainGeneration(t *testing.T) {
@@ -161,20 +219,16 @@ func TestPrivateCancellationAndDrainRetainGeneration(t *testing.T) {
 		release()
 		t.Fatalf("matching cancellation = %v, %v", err, admitted.Err())
 	}
-	maintenance, err := endpoint.enterMaintenance()
-	if err != nil {
-		release()
-		t.Fatal(err)
-	}
-	defer maintenance.close()
-	stop, end := context.WithCancel(ctx)
-	end()
-	if _, err := maintenance.drain(stop); err == nil {
+	if _, err := endpoint.drainRequests(admitted); err == nil || !strings.HasPrefix(err.Error(), "FRONT_DOOR_DRAIN_DEADLINE:") {
 		release()
 		t.Fatal("acknowledged drain before admitted request finished")
 	}
+	if hello, err := endpoint.hello(frontDoorVersion); err != nil || hello.Readiness != "Draining" {
+		release()
+		t.Fatalf("ordinary drain readiness = %v, %v", hello, err)
+	}
 	release()
-	ack, err := maintenance.drain(ctx)
+	ack, err := endpoint.drainRequests(ctx)
 	if err != nil || ack.Generation != r.Generation || ack.Outstanding != 0 {
 		t.Fatalf("ack = %v, %v", ack, err)
 	}

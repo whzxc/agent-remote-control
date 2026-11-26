@@ -460,7 +460,7 @@
         "internal/core/cli.go",
         "internal/core/cli_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/cli_acceptance.rs": {
       "segment": "A",
@@ -1065,7 +1065,7 @@
         "internal/core/egress.go",
         "internal/core/egress_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/execution.rs": {
       "segment": "S0",
@@ -1272,7 +1272,7 @@
         "internal/core/kernel_file_cache.go",
         "internal/core/kernel_file_cache_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/kernel/file_changes.rs": {
       "segment": "S0",
@@ -1317,7 +1317,7 @@
         "internal/core/kernel_receipts_progress.go",
         "internal/core/kernel_receipts_progress_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/kernel/receipts/projection.rs": {
       "segment": "S0",
@@ -1333,7 +1333,7 @@
         "internal/core/kernel_receipts.go",
         "internal/core/kernel_receipts_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/kernel/results.rs": {
       "segment": "S0",
@@ -1358,7 +1358,7 @@
         "internal/core/launches.go",
         "internal/core/launches_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/lib.rs": {
       "segment": "S0",
@@ -1449,7 +1449,7 @@
         "internal/core/operations.go",
         "internal/core/operations_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/output.rs": {
       "segment": "S0",
@@ -1912,7 +1912,7 @@
         "internal/core/front_door_process.go",
         "internal/core/front_door_wire_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/turn_lifecycle.rs": {
       "segment": "A",
@@ -1946,7 +1946,7 @@
         "internal/core/transport.go",
         "internal/core/output.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/waiter.rs": {
       "segment": "A",

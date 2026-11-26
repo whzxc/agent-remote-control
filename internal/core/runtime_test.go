@@ -47,8 +47,20 @@ func TestProcessIdentityCanBeReadRepeatedly(t *testing.T) {
 	if err != nil || len(id) != 64 {
 		t.Fatalf("process identity = %q, %v", id, err)
 	}
+	path := filepath.Join(t.TempDir(), "executable")
+	content := []byte("running executable")
+	if err := os.WriteFile(path, content, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	identity := cachedExecutableBuildID(func() (string, error) { return path, nil })
+	if value, err := identity(); err != nil || value != hash(content) {
+		t.Fatalf("original executable identity = %q, %v", value, err)
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
 	for range 1024 {
-		if next, err := processBuildID(); err != nil || next != id {
+		if next, err := identity(); err != nil || next != hash(content) {
 			t.Fatalf("cached process identity = %q, %v", next, err)
 		}
 	}
@@ -92,6 +104,12 @@ func TestUninstallProofDoesNotGrantOrdinaryCLIShutdown(t *testing.T) {
 	}
 	if result, err := runtime.uninstall(token, proof); err != nil || result["closing"] != true {
 		t.Fatalf("process-bound uninstall = %v, %v", result, err)
+	}
+	if err := runtime.launches.run(func() error {
+		t.Fatal("uninstall allowed new RPC launch work")
+		return nil
+	}); err == nil || err.Error() != "CORE_SHUTTING_DOWN: retry after Core restarts" {
+		t.Fatalf("launch after uninstall = %v", err)
 	}
 	if _, err := runtime.request("runtime/lease", object{"id": cli, "kind": "cli", "pid": 2}); err == nil {
 		t.Fatal("shutting-down runtime took a new lease")

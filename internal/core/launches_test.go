@@ -1,9 +1,6 @@
 package core
 
-import (
-	"strings"
-	"testing"
-)
+import "testing"
 
 func TestShutdownRejectsLaunchesAndAdoptions(t *testing.T) {
 	// Recurring bug class: concurrency shutdown rejects spawns and adoptions after the publication barrier closes.
@@ -13,7 +10,7 @@ func TestShutdownRejectsLaunchesAndAdoptions(t *testing.T) {
 	}
 	launches.close()
 	err := launches.run(func() error { t.Fatal("launch admitted after shutdown"); return nil })
-	if err == nil || !strings.HasPrefix(err.Error(), "CORE_SHUTTING_DOWN:") {
+	if err == nil || err.Error() != "CORE_SHUTTING_DOWN: retry after Core restarts" {
 		t.Fatalf("expected shutdown error, got %v", err)
 	}
 }

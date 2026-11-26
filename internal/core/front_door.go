@@ -56,6 +56,18 @@ func (p *inProcess) drain() {
 	}
 }
 
+func (p *inProcess) drainRequests(ctx context.Context) (frontDoorDrainAck, error) {
+	p.drain()
+	drained := make(chan struct{})
+	go func() { p.active.Wait(); close(drained) }()
+	select {
+	case <-drained:
+		return frontDoorDrainAck{Generation: p.generation}, nil
+	case <-ctx.Done():
+		return frontDoorDrainAck{}, errors.New("FRONT_DOOR_DRAIN_DEADLINE: Admitted requests are still active.")
+	}
+}
+
 func (p *inProcess) cancel(frame frontDoorCancellation) error {
 	if err := generationFence(p.generation, frame.Generation); err != nil {
 		return err

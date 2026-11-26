@@ -13,12 +13,16 @@ func TestManagementWritesShareExecutionAndLostSubmissionProgress(t *testing.T) {
 	for _, offset := range []time.Duration{45 * time.Second, 5 * time.Minute, time.Hour} {
 		ms := start.Add(offset).UnixMilli()
 		live := projectManagementReceipt(clone(receipt), "owner", ms)
-		if live["state"] != "executing" || live["progressStalled"] != false {
+		if live["state"] != "executing" || live["submissionState"] != "submitted" ||
+			live["executionState"] != "executing" || live["progressStalled"] != false {
 			t.Errorf("live receipt: %v", live)
 		}
 		lost := projectManagementReceipt(clone(receipt), "new-owner", ms)
-		if lost["state"] != "unconfirmed" || field(lost["next"], "operation") != "operations.get" ||
-			field(field(lost["next"], "arguments"), "id") != receipt["requestId"] || lost["nextAction"] != nil {
+		if lost["state"] != "unconfirmed" || lost["previousState"] != "executing" ||
+			lost["requestId"] != receipt["requestId"] || lost["submissionState"] != "unconfirmed" ||
+			lost["executionState"] != nil || lost["progressStalled"] != false ||
+			wire(lost["next"]) != `{"arguments":{"id":"original-management-request"},"operation":"operations.get"}` ||
+			lost["nextAction"] != nil {
 			t.Errorf("lost receipt: %v", lost)
 		}
 	}

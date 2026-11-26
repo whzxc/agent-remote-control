@@ -2,11 +2,13 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -102,12 +104,15 @@ func TestDesktopAdmissionAndDisconnectCancellation(t *testing.T) {
 	}
 	overflow, err := net.DialTimeout("tcp4", ip, time.Second)
 	if err != nil {
+		if !errors.Is(err, syscall.ECONNREFUSED) && !errors.Is(err, syscall.ECONNRESET) {
+			t.Fatalf("cannot establish whether overflow was rejected: %v", err)
+		}
 		return
 	}
 	defer overflow.Close()
 	_ = overflow.SetReadDeadline(time.Now().Add(2 * time.Second))
 	var responseByte [1]byte
-	if n, err := overflow.Read(responseByte[:]); n != 0 || err == nil {
+	if n, err := overflow.Read(responseByte[:]); n != 0 || (!errors.Is(err, io.EOF) && !errors.Is(err, syscall.ECONNRESET)) {
 		t.Fatalf("extra idle connection retained an active socket: %d bytes, %v", n, err)
 	}
 }

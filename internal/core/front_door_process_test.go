@@ -210,6 +210,16 @@ func TestPrivateWriteUsesSameGeneratedReceiptID(t *testing.T) {
 				t.Fatalf("read allocated a write receipt: %v", sent)
 			}
 		}
+		envelope := object{"op": "logs", "args": object{}, "requestId": "outer-read-id"}
+		body := envelope
+		if mode == "Mcp" {
+			body = object{"method": "tools/call", "params": object{"name": "query", "arguments": envelope}}
+		}
+		read := newPrivateRequest(ctx, mode, "Management", body)
+		if sent := privateEnvelope(mode, obj(read.Body)); read.ID != "outer-read-id" ||
+			wire(sent) != wire(envelope) || isPrivateWrite(read) {
+			t.Fatalf("%s read wire ID = %s, envelope = %v", mode, read.ID, sent)
+		}
 	}
 }
 

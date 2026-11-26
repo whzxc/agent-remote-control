@@ -32,13 +32,17 @@ func buildID(path string) (string, error) {
 	return fmt.Sprintf("%x", digest.Sum(nil)), nil
 }
 
-var processBuildID = sync.OnceValues(func() (string, error) {
-	path, err := os.Executable()
-	if err != nil {
-		return "", err
-	}
-	return buildID(path)
-})
+var processBuildID = cachedExecutableBuildID(os.Executable)
+
+func cachedExecutableBuildID(executable func() (string, error)) func() (string, error) {
+	return sync.OnceValues(func() (string, error) {
+		path, err := executable()
+		if err != nil {
+			return "", err
+		}
+		return buildID(path)
+	})
+}
 
 func lockCore() (*os.File, error) {
 	if err := platform.PrivateDir(root()); err != nil {
@@ -323,14 +327,9 @@ loop:
 			}
 		}
 	}
-	core.drain()
-	drained := make(chan struct{})
-	go func() { core.active.Wait(); close(drained) }()
-	timer := time.NewTimer(drainTimeout)
-	defer timer.Stop()
-	select {
-	case <-drained:
-	case <-timer.C:
+	drain, cancelDrain := context.WithTimeout(context.WithoutCancel(ctx), drainTimeout)
+	defer cancelDrain()
+	if _, err := core.drainRequests(drain); err != nil {
 		recordLog("WARN", "FRONT_DOOR_CORE_DRAIN_TIMEOUT", nil)
 	}
 	s.runtime.launches.close()

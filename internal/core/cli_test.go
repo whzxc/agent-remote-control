@@ -2,9 +2,13 @@ package core
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"io"
+	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestRuntimeFailureKeepsCommandUsageSeparate(t *testing.T) {
@@ -53,16 +57,58 @@ func TestCLIRejectsUnknownFieldsAndKeepsStdinCorrectionScoped(t *testing.T) {
 
 func TestRevokedCLISourceOffersAuthorizationRecovery(t *testing.T) {
 	// Contract: CLI authorization errors preserve the code, upstream identity and human recovery.
-	for _, message := range []string{"SOURCE_REVOKED", "SOURCE_REVOKED: source example-source on ingress example-ingress"} {
-		reply := cliErrorResponse(message, "cli app status", []string{"app", "status"}, false)
-		detail, next := obj(reply["error"]), obj(reply["next"])
-		if reply["schemaVersion"] != 1 || reply["ok"] != false || detail["code"] != "SOURCE_REVOKED" ||
-			detail["usage"] != nil || strings.Contains(text(detail, "message"), "Correct usage") ||
-			next["op"] != nil || text(next, "hint") == "" {
-			t.Errorf("invalid CLI recovery for %q: %v", message, reply)
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	token, err := ensureFrontDoorSecret()
+	if err != nil {
+		t.Fatal(err)
+	}
+	errorsToReturn := make(chan error, 1)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	listener, err := listenPrivate(ctx, "core", token, newInProcess(cliAuthorizationTarget{errorsToReturn}), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	credential := object{"type": "ingress"}
+	revoked := object{"id": "example-source", "ingressId": "example-ingress", "state": "revoked", "credential": credential}
+	removed := clone(revoked)
+	removed["state"], removed["connectionRemoved"] = "disconnected", true
+	for _, failure := range []error{errors.New("SOURCE_REVOKED"), checkSourceAnchor(revoked, "example-ingress", credential),
+		checkSourceAnchor(removed, "example-ingress", credential)} {
+		if failure == nil {
+			t.Fatal("invalid source retained authority")
 		}
-		if strings.Contains(message, "example-source") && detail["message"] != message {
-			t.Errorf("source evidence was lost: %v", detail)
+		errorsToReturn <- failure
+		var output bytes.Buffer
+		code := runCLI(ctx, []string{"app", "status"}, strings.NewReader(""), &output, io.Discard)
+		var reply object
+		if err := decodeObject(output.Bytes(), &reply); err != nil || code != 1 {
+			t.Fatalf("CLI authorization exit=%d, response=%s, decode=%v", code, &output, err)
+		}
+		detail, next := obj(reply["error"]), obj(reply["next"])
+		if uintOr(reply["schemaVersion"], 0) != 1 || reply["ok"] != false || detail["code"] != "SOURCE_REVOKED" ||
+			detail["usage"] != nil || strings.Contains(text(detail, "message"), "Correct usage") ||
+			next["op"] != nil || text(next, "hint") == "" || !strings.HasPrefix(text(detail, "message"), failure.Error()) {
+			t.Errorf("invalid CLI recovery for %v: %v", failure, reply)
 		}
 	}
+}
+
+type cliAuthorizationTarget struct{ errors <-chan error }
+
+func (c cliAuthorizationTarget) management(ctx context.Context, route, method string, _ object) (any, error) {
+	if route != "app" || method != http.MethodGet {
+		return nil, errors.New("unexpected CLI request")
+	}
+	select {
+	case err := <-c.errors:
+		return nil, err
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+func (cliAuthorizationTarget) mcp(context.Context, string, object) (object, error) {
+	return nil, errors.New("unexpected MCP request")
 }

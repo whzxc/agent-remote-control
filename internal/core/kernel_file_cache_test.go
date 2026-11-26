@@ -54,7 +54,11 @@ func TestCacheEvictionPreservesHotAndInFlightValues(t *testing.T) {
 	if row := readKernelRow(t, &cache, a); row["value"] != "updated" || activeA["value"] != "a" || activeB["value"] != "b" {
 		t.Fatalf("active snapshot or replacement lost: %v %v %v", row, activeA, activeB)
 	}
-	readKernelRow(t, &cache, b)
+	before = cache.io
+	if row := readKernelRow(t, &cache, b); row["value"] != "b" || cache.io.fileOpens != before.fileOpens+1 ||
+		activeA["value"] != "a" || activeB["value"] != "b" {
+		t.Fatalf("evicted value did not reload alongside the active snapshots: %v, %v, %v", row, activeA, activeB)
+	}
 }
 
 func TestCachePollingOpensOnlyChangedFiles(t *testing.T) {
@@ -200,6 +204,12 @@ func TestCollectionRetriesUnpublishedChanges(t *testing.T) {
 	changed, err := collection.refresh(cachedJSON)
 	if err != nil || len(changed) != 3 || len(collection.rows) != 3 {
 		t.Fatalf("recovery = %v, %v, %v", changed, collection.rows, err)
+	}
+	for sequence := range 3 {
+		path := filepath.Join(dir, fmt.Sprintf("%d.json", sequence))
+		if row := collection.rows[physicalPath(path)]; wire(row) != wire(object{"id": sequence}) {
+			t.Errorf("recovered row %d = %v", sequence, row)
+		}
 	}
 	changed, err = collection.refresh(cachedJSON)
 	if err != nil || len(changed) != 0 {

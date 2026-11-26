@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -17,27 +18,49 @@ func TestWaitStreamProgressAndFinalResponse(t *testing.T) {
 	result := object{"jsonrpc": "2.0", "id": 7, "result": object{"events": []any{}, "state": "timeout"}}
 	for _, token := range []any{nil, "caller-token", json.Number("42")} {
 		request := object{"id": 7, "params": object{"_meta": object{"progressToken": token}}}
-		frame := waitHeartbeat(request, 1, true) + waitFrame(result, true)
+		response := func(accept string) []byte {
+			t.Helper()
+			var payload []byte
+			synctest.Test(t, func(t *testing.T) {
+				req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/mcp", nil)
+				req.Header.Set("Accept", accept)
+				rec := httptest.NewRecorder()
+				serveWaitStream(rec, req, request, func(context.Context) (object, error) {
+					time.Sleep(61 * time.Second)
+					return result, nil
+				})
+				payload = rec.Body.Bytes()
+			})
+			return payload
+		}
+		frame := response("text/event-stream")
 		var progress bytes.Buffer
-		message, err := forwardSSE(strings.NewReader(frame), &progress)
+		message, err := forwardSSE(bytes.NewReader(frame), &progress)
 		if err != nil || wire(message) != wire(result) {
 			t.Fatalf("reply after token %v: %v (%v)", token, message, err)
 		}
 		if token == nil {
-			if progress.Len() != 0 || !strings.HasPrefix(frame, ": keepalive\n\n") {
-				t.Fatalf("unexpected progress without a token: %s", progress.String())
+			if progress.Len() != 0 || bytes.Count(frame, []byte(": keepalive\n\n")) != 3 {
+				t.Fatalf("unexpected progress without a token: %s", frame)
 			}
 		} else {
-			var notification object
-			if err := decodeObject(progress.Bytes(), &notification); err != nil ||
-				notification["method"] != "notifications/progress" ||
-				field(notification["params"], "progressToken") != token {
-				t.Fatalf("progress %v (%v)", notification, err)
+			decoder := json.NewDecoder(&progress)
+			decoder.UseNumber()
+			for index := uint64(1); index <= 3; index++ {
+				var notification object
+				if err := decoder.Decode(&notification); err != nil ||
+					notification["method"] != "notifications/progress" ||
+					field(notification["params"], "progressToken") != token ||
+					uintOr(field(notification["params"], "progress"), 0) != index {
+					t.Fatalf("progress %d = %v (%v)", index, notification, err)
+				}
+			}
+			if err := decoder.Decode(new(object)); err != io.EOF {
+				t.Fatalf("unexpected extra progress: %v", err)
 			}
 		}
 		var decoded object
-		payload := waitHeartbeat(request, 1, false) + waitFrame(result, false)
-		if err := decodeObject([]byte(payload), &decoded); err != nil || wire(decoded) != wire(result) {
+		if err := decodeObject(response("application/json"), &decoded); err != nil || wire(decoded) != wire(result) {
 			t.Fatalf("JSON response %v (%v)", decoded, err)
 		}
 	}
@@ -61,14 +84,17 @@ func TestWaitStreamCancelsWhenTheClientDisconnects(t *testing.T) {
 		}
 		if raw {
 			server.CloseClientConnections()
+		} else {
+			_ = result.Body.Close()
 		}
-		_ = result.Body.Close()
 		select {
 		case <-finished:
 		case <-time.After(time.Second):
+			_ = result.Body.Close()
 			server.Close()
-			t.Fatal("disconnected wait remained active")
+			t.Fatalf("disconnected wait remained active (socket closed by server=%v)", raw)
 		}
+		_ = result.Body.Close()
 		server.Close()
 	}
 }

@@ -17,6 +17,9 @@ func (localWireTarget) management(_ context.Context, route, method string, _ obj
 	if route == "preferences" && method == "GET" {
 		return preferenceDefaults(), nil
 	}
+	if route == "subscriptions" && method == "GET" {
+		return object{"accounts": []any{}}, nil
+	}
 	return nil, errors.New("UNKNOWN_ROUTE")
 }
 func (localWireTarget) mcp(context.Context, string, object) (object, error) {

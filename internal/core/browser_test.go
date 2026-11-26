@@ -1,11 +1,16 @@
 package core
 
 import (
+	"bufio"
+	"context"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 )
 
 func TestBrowserFrontDoorWire(t *testing.T) {
@@ -69,10 +74,79 @@ func TestBrowserFrontDoorWire(t *testing.T) {
 	if reply.Code != http.StatusOK || reply.Body.String() != allowed.Body.String() {
 		t.Fatalf("cookie read = %d, %s", reply.Code, reply.Body)
 	}
-	if _, err := browserAccess(t.Context(), &service{}, true); err != nil {
+
+	ctx, cancel := context.WithTimeout(t.Context(), 6*time.Second)
+	defer cancel()
+	token, err := ensureFrontDoorSecret()
+	if err != nil {
+		t.Fatal(err)
+	}
+	private, err := listenPrivate(ctx, "core", token, ingress.core, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer private.Close()
+	bridge := &gatewayBridge{}
+	local := httptest.NewUnstartedServer(nil)
+	port := local.Listener.Addr().(*net.TCPAddr).Port
+	local.Config.Handler = localHandler(bridge, port, token)
+	local.Start()
+	defer local.Close()
+	public := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		serveBrowser(w, req, ingress)
+	}))
+	defer public.Close()
+	openEvents := func(server *httptest.Server, route, host, bearer string) *http.Response {
+		t.Helper()
+		request, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+route, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if host != "" {
+			request.Host = host
+		}
+		request.Header.Set("Authorization", "Bearer "+bearer)
+		reply, err := server.Client().Do(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if reply.StatusCode != http.StatusOK || reply.Header.Get("Content-Type") != "text/event-stream" {
+			reply.Body.Close()
+			t.Fatalf("%s events = %d, %v", route, reply.StatusCode, reply.Header)
+		}
+		return reply
+	}
+	browserEvents := openEvents(public, "/view-api/subscriptions/events", "browser.example", key)
+	defer browserEvents.Body.Close()
+	localEvents := openEvents(local, "/api/subscriptions/events", "", token)
+	defer localEvents.Body.Close()
+	browserBody, localBody := bufio.NewReader(browserEvents.Body), bufio.NewReader(localEvents.Body)
+	wantFrame := snapshotMessage(object{"accounts": []any{}})
+	for _, stream := range []*bufio.Reader{browserBody, localBody} {
+		frame := make([]byte, len(wantFrame))
+		if _, err := io.ReadFull(stream, frame); err != nil || string(frame) != wantFrame {
+			t.Fatalf("subscription snapshot = %q, %v", frame, err)
+		}
+	}
+	ended := make(chan error, 1)
+	go func() { _, err := browserBody.ReadByte(); ended <- err }()
+	select {
+	case err := <-ended:
+		t.Fatalf("unchanged browser subscription sent an early frame or closed: %v", err)
+	case <-time.After(25 * time.Millisecond):
+	}
+	if _, err := browserAccess(ctx, &service{}, true); err != nil {
 		t.Fatal(err)
 	}
 	if reply := send("GET", preferences, "", cookie, ""); reply.Code != http.StatusUnauthorized {
 		t.Fatalf("rotated cookie read = %d", reply.Code)
+	}
+	select {
+	case err := <-ended:
+		if err != io.EOF {
+			t.Fatalf("rotated key did not close the browser stream: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatal("rotated key left the browser stream open")
 	}
 }

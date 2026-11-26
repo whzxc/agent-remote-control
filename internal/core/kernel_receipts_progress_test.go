@@ -41,6 +41,29 @@ func TestProgressSeparatesExecutionFromSubmissionAndOwnerLoss(t *testing.T) {
 			t.Errorf("owner-loss projection changed identity or repeated outcome: %v", projected)
 		}
 	}
+	for _, phase := range []struct {
+		state      receiptState
+		submission string
+		execution  any
+	}{
+		{receiptReserved, "reserved", nil},
+		{advanceReceipt(receiptReserved, receiptBegin, ""), "submitted", "executing"},
+	} {
+		for _, ownerLive := range []bool{false, true} {
+			for _, age := range []int64{29_999, 30_000} {
+				row := projectReceipt(object{"state": string(phase.state), "createdAt": "2000-01-01T00:00:00Z"},
+					ownerLive, 946684800000+age)
+				submission, execution := phase.submission, phase.execution
+				if !ownerLive {
+					submission, execution = "unconfirmed", nil
+				}
+				stalled := ownerLive && phase.state == receiptReserved && age == 30_000
+				if row["submissionState"] != submission || row["executionState"] != execution || row["progressStalled"] != stalled {
+					t.Errorf("phase %s at %d with owner alive=%v: %v", phase.state, age, ownerLive, row)
+				}
+			}
+		}
+	}
 	absent := object{"requestId": "original-request", "state": "not-found", "executionState": "no-reservation"}
 	before := wire(absent)
 	if wire(projectReceipt(absent, false, 946684845000)) != before {
