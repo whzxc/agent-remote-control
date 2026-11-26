@@ -278,9 +278,27 @@
         "internal/core/cli.go",
         "internal/core/cli_test.go"
       ],
-      "status": "ported",
-      "remaining": "Help, usage, schema discovery, control, logs, configuration and management dispatch are available. Remaining CLI adapters and validation are pending.",
-      "note": "CLI adapters for app snapshot and readiness wait require A; setup/skills/uninstall require D."
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "S0",
+          "items": [
+            "Validate CLI commands and transport arguments, including schema and stream modes."
+          ]
+        },
+        {
+          "owner": "A",
+          "items": [
+            "App snapshot and readiness adapters."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Setup, skills, and uninstall CLI adapters."
+          ]
+        }
+      ]
     },
     "native/src/cli_acceptance.rs": {
       "segment": "A",
@@ -314,16 +332,30 @@
       "go": [
         "internal/core/context.go"
       ],
-      "status": "ported",
-      "remaining": "Excerpt projection is available. Task and project evidence projection remain."
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "S0",
+          "items": [
+            "Compare task and project evidence projection with the Rust contract."
+          ]
+        }
+      ]
     },
     "native/src/context_provider.rs": {
       "segment": "S0",
       "go": [
         "internal/core/context_provider.go"
       ],
-      "status": "ported",
-      "remaining": "The provider process protocol is implemented. Owned-child registration, ACP and the control-operation wiring remain."
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "S0",
+          "items": [
+            "Complete owned-child registration, ACP and control operation wiring."
+          ]
+        }
+      ]
     },
     "native/src/control.rs": {
       "segment": "S0",
@@ -335,7 +367,35 @@
         "internal/core/kernel_receipts.go"
       ],
       "status": "ported",
-      "note": "Native writer and task ownership come from A, observation from B, dispatch policy and notifications from C, and account and workspace selection from D."
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Codex app-server control and desktop transport.",
+            "Background create and resume.",
+            "Native request (request_native), launch and approval.",
+            "Task records and tool execution."
+          ]
+        },
+        {
+          "owner": "B",
+          "items": [
+            "Observation and task tracking."
+          ]
+        },
+        {
+          "owner": "C",
+          "items": [
+            "Dispatch policy and notification integration."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Account and workspace selection."
+          ]
+        }
+      ]
     },
     "native/src/control_metrics.rs": {
       "segment": "S0",
@@ -351,8 +411,14 @@
         "internal/core/egress_test.go"
       ],
       "status": "ported",
-      "remaining": "Profile validation, derivation and guide rendering are implemented. Source authority is pending D.",
-      "note": "Authenticated source profiles are supplied by D."
+      "remaining": [
+        {
+          "owner": "D",
+          "items": [
+            "Authenticated source authority and profiles."
+          ]
+        }
+      ]
     },
     "native/src/control_sources.rs": {
       "segment": "S0",
@@ -360,8 +426,7 @@
         "internal/core/control_sources.go",
         "internal/core/control_sources_test.go"
       ],
-      "status": "ported",
-      "remaining": "The wait-limit unit case still needs the egress continuation port."
+      "status": "ported"
     },
     "native/src/coordination/ax/import.rs": {
       "segment": "B",
@@ -490,9 +555,27 @@
         "internal/core/egress.go",
         "internal/core/egress_test.go"
       ],
-      "status": "ported",
-      "remaining": "File-local dispatch, origin context and digest continuation work. Full authorization, cancellation and result projection remain.",
-      "note": "File-local hooks connect C event methods and E peer forwarding to the frozen MCP surface."
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "S0",
+          "items": [
+            "Complete authorization, cancellation and result projection."
+          ]
+        },
+        {
+          "owner": "C",
+          "items": [
+            "Register notification event methods."
+          ]
+        },
+        {
+          "owner": "E",
+          "items": [
+            "Register peer forwarding and ingress authorization."
+          ]
+        }
+      ]
     },
     "native/src/desktop/daemon.rs": {
       "segment": "A",
@@ -697,9 +780,33 @@
         "internal/core/egress.go",
         "internal/core/egress_test.go"
       ],
-      "status": "ported",
-      "remaining": "Protocol hash, guide, validation and base tool envelopes are available. Receipt and task result projections remain.",
-      "note": "A, B and C supply native interaction, task and notification evidence."
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "S0",
+          "items": [
+            "Complete receipt and task result projection."
+          ]
+        },
+        {
+          "owner": "A",
+          "items": [
+            "Supply native task and interaction evidence."
+          ]
+        },
+        {
+          "owner": "B",
+          "items": [
+            "Supply task tracking evidence."
+          ]
+        },
+        {
+          "owner": "C",
+          "items": [
+            "Supply notification evidence."
+          ]
+        }
+      ]
     },
     "native/src/execution.rs": {
       "segment": "S0",
@@ -709,9 +816,45 @@
         "internal/core/control.go",
         "internal/core/core_requests.go"
       ],
-      "status": "ported",
-      "remaining": "File-local dispatch is active. Complete the remaining request adapters and cross-segment projection seams.",
-      "note": "A–E register operation owners, optional projections and observation hooks in their files."
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "S0",
+          "items": [
+            "Complete request adapters and common dispatch projection."
+          ]
+        },
+        {
+          "owner": "A",
+          "items": [
+            "Register agent and task operation owners."
+          ]
+        },
+        {
+          "owner": "B",
+          "items": [
+            "Register coordination operations and observation."
+          ]
+        },
+        {
+          "owner": "C",
+          "items": [
+            "Register notification and policy operations."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Register account and setup operations."
+          ]
+        },
+        {
+          "owner": "E",
+          "items": [
+            "Register network operations."
+          ]
+        }
+      ]
     },
     "native/src/external_inputs.rs": {
       "segment": "A",
@@ -724,7 +867,26 @@
         "internal/core/front_door_authority.go"
       ],
       "status": "ported",
-      "note": "Source and credential lifecycle are delegated to segment D through private authority registrations. Browser and peer authority require A and E."
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Register browser authority."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Register private source and credential lifecycle."
+          ]
+        },
+        {
+          "owner": "E",
+          "items": [
+            "Register peer and ingress authority."
+          ]
+        }
+      ]
     },
     "native/src/front_door/owner.rs": {
       "segment": "S0",
@@ -732,7 +894,14 @@
         "internal/core/front_door_owner.go"
       ],
       "status": "ported",
-      "note": "Provider construction, ingress configuration and provider lifecycle are supplied by segment E."
+      "remaining": [
+        {
+          "owner": "E",
+          "items": [
+            "Register ingress configuration, provider construction and lifecycle."
+          ]
+        }
+      ]
     },
     "native/src/front_door/process.rs": {
       "segment": "S0",
@@ -741,8 +910,15 @@
         "internal/core/front_door_supervision.go",
         "internal/core/front_door_process_test.go"
       ],
-      "status": "ported",
-      "remaining": "Production startup, authenticated IPC and detach work. Full stream transport, reconnect queue, macOS replacement and remaining Rust units remain."
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "S0",
+          "items": [
+            "Complete streaming, reconnect queue, macOS replacement and related unit coverage."
+          ]
+        }
+      ]
     },
     "native/src/front_door/protocol.rs": {
       "segment": "S0",
@@ -751,8 +927,15 @@
         "internal/core/front_door_test.go",
         "internal/core/front_door_process_test.go"
       ],
-      "status": "ported",
-      "remaining": "Private handshake generation framing now has a Go contract case. Port remaining authority types and their validation."
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "S0",
+          "items": [
+            "Complete authority types and validation."
+          ]
+        }
+      ]
     },
     "native/src/front_door.rs": {
       "segment": "S0",
@@ -761,8 +944,15 @@
         "internal/core/front_door_test.go",
         "internal/core/front_door_authority.go"
       ],
-      "status": "ported",
-      "remaining": "Private management admission, request cancellation, deadlines and generation checks are implemented. Streaming, queue, update drain and remaining authorities are pending."
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "S0",
+          "items": [
+            "Complete streaming, reconnect queue, update drain and remaining local authorities."
+          ]
+        }
+      ]
     },
     "native/src/front_door_tests.rs": {
       "segment": "S0",
@@ -772,7 +962,20 @@
         "internal/core/front_door_process_test.go"
       ],
       "status": "ported",
-      "note": "Shared wire golden covers local HTTP on Go. External HTTPS and OAuth wire cases require A browser and E ingress."
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Enable browser wire coverage against the Go front door."
+          ]
+        },
+        {
+          "owner": "E",
+          "items": [
+            "Enable external HTTPS and OAuth ingress wire coverage."
+          ]
+        }
+      ]
     },
     "native/src/headless.rs": {
       "segment": "S0",
@@ -829,8 +1032,15 @@
         "internal/core/kernel_derived_index.go",
         "internal/core/kernel_receipts_test.go"
       ],
-      "status": "ported",
-      "remaining": "Background index publication, adoption, lifecycle and the fixture gate are pending."
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "S0",
+          "items": [
+            "Complete background publication, adoption, lifecycle and startup fixture gate."
+          ]
+        }
+      ]
     },
     "native/src/kernel/digests.rs": {
       "segment": "S0",
@@ -906,7 +1116,14 @@
         "internal/core/kernel_receipts_test.go"
       ],
       "status": "ported",
-      "note": "The Go unit cases exercise index and receipt behavior; public cost counters belong to segment B runtime_metrics."
+      "remaining": [
+        {
+          "owner": "B",
+          "items": [
+            "Expose receipt index cost counters."
+          ]
+        }
+      ]
     },
     "native/src/kernel/receipts.rs": {
       "segment": "S0",
@@ -915,7 +1132,14 @@
         "internal/core/kernel_receipts_test.go"
       ],
       "status": "ported",
-      "note": "The Go unit cases exercise index and receipt behavior; public cost counters belong to segment B runtime_metrics."
+      "remaining": [
+        {
+          "owner": "B",
+          "items": [
+            "Connect public receipt and task cost counters."
+          ]
+        }
+      ]
     },
     "native/src/kernel/results.rs": {
       "segment": "S0",
@@ -924,8 +1148,15 @@
         "internal/core/kernel_results_test.go",
         "internal/core/kernel_digests.go"
       ],
-      "status": "ported",
-      "remaining": "Digest and ordinary output reads work. Complete startup quota pruning and align error projection."
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "S0",
+          "items": [
+            "Complete startup quota pruning and error projection."
+          ]
+        }
+      ]
     },
     "native/src/kernel/task_projection.rs": {
       "segment": "S0",
@@ -951,9 +1182,33 @@
         "internal/core/egress.go",
         "internal/core/transport.go"
       ],
-      "status": "ported",
-      "remaining": "State and JSON helpers are present. Shared file caching, cost instrumentation and remaining helpers are pending.",
-      "note": "Native event consumers are registered by their Agent, tracking and notification owners."
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "S0",
+          "items": [
+            "Complete shared file caching, cost instrumentation and common helper parity."
+          ]
+        },
+        {
+          "owner": "A",
+          "items": [
+            "Register agent event consumers."
+          ]
+        },
+        {
+          "owner": "B",
+          "items": [
+            "Register tracking event consumers and public cost metrics."
+          ]
+        },
+        {
+          "owner": "C",
+          "items": [
+            "Register notification event consumers."
+          ]
+        }
+      ]
     },
     "native/src/local_access.rs": {
       "segment": "S0",
@@ -991,9 +1246,27 @@
         "internal/core/front_door_owner.go",
         "internal/core/management_test.go"
       ],
-      "status": "ported",
-      "remaining": "Static and coordination catalogs and management dispatch are available. Dynamic MCP hub, device and ingress schemas remain.",
-      "note": "E registers its ingress configuration descriptor and device management entries. F supplies the packaged Desktop launch callback."
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "S0",
+          "items": [
+            "Complete the dynamic MCP hub schema and local management dispatch."
+          ]
+        },
+        {
+          "owner": "E",
+          "items": [
+            "Register device and ingress schemas."
+          ]
+        },
+        {
+          "owner": "F",
+          "items": [
+            "Register the packaged Desktop launch callback."
+          ]
+        }
+      ]
     },
     "native/src/mcp_hub.rs": {
       "segment": "S0",
@@ -1008,7 +1281,14 @@
         "internal/core/mcp_transport.go"
       ],
       "status": "ported",
-      "note": "The hub suite covers the stdio connection. The saved proxy policy for downstream HTTP is registered by A's proxy module."
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Register saved network proxy policy for the downstream HTTP client."
+          ]
+        }
+      ]
     },
     "native/src/oauth.rs": {
       "segment": "D",
@@ -1029,8 +1309,15 @@
         "internal/core/output.go",
         "internal/core/main.go"
       ],
-      "status": "ported",
-      "remaining": "Line writing is implemented. Full streaming and broken-pipe behavior remain."
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "S0",
+          "items": [
+            "Complete flushing and broken-pipe behavior for command and streaming output."
+          ]
+        }
+      ]
     },
     "native/src/owned_children.rs": {
       "segment": "S0",
@@ -1132,9 +1419,27 @@
         "internal/core/runtime_test.go",
         "internal/core/front_door_supervision.go"
       ],
-      "status": "ported",
-      "remaining": "Production serve, metadata, leases, drain and basic uninstall authorization are implemented. Port leased clients and remaining lifecycle cases.",
-      "note": "Installed Desktop and uninstall integration require F and D respectively."
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "S0",
+          "items": [
+            "Complete leased clients and lifecycle parity."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Connect installed uninstall integration."
+          ]
+        },
+        {
+          "owner": "F",
+          "items": [
+            "Connect installed Desktop lifecycle."
+          ]
+        }
+      ]
     },
     "native/src/runtime_metrics/cost.rs": {
       "segment": "B",
@@ -1159,9 +1464,39 @@
         "internal/core/control.go",
         "internal/core/diagnostics.go"
       ],
-      "status": "ported",
-      "remaining": "Production and tagged fixture serve and use file-local registration. Complete management/status projection and cross-segment ownership seams.",
-      "note": "Provider status, task records, and source decoration come from owner lanes."
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "S0",
+          "items": [
+            "Complete management and status projection."
+          ]
+        },
+        {
+          "owner": "A",
+          "items": [
+            "Supply task and Agent records."
+          ]
+        },
+        {
+          "owner": "C",
+          "items": [
+            "Supply policy and task settings."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Supply source decoration."
+          ]
+        },
+        {
+          "owner": "E",
+          "items": [
+            "Supply ingress provider status."
+          ]
+        }
+      ]
     },
     "native/src/setup.rs": {
       "segment": "D",
@@ -1321,9 +1656,27 @@
         "internal/core/front_door_process.go",
         "internal/core/front_door_wire_test.go"
       ],
-      "status": "ported",
-      "remaining": "Loopback HTTP, CLI requests with authenticated private IPC and JSON-lines stdio are implemented. Full route, stream and Desktop callback parity is pending.",
-      "note": "The Desktop listener and lease forwarder are ready for F; public ingress authentication remains in E."
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "S0",
+          "items": [
+            "Complete local route and stream parity and Desktop callback dispatch."
+          ]
+        },
+        {
+          "owner": "E",
+          "items": [
+            "Connect public ingress authentication."
+          ]
+        },
+        {
+          "owner": "F",
+          "items": [
+            "Register Desktop callbacks."
+          ]
+        }
+      ]
     },
     "native/src/turn_lifecycle.rs": {
       "segment": "A",
@@ -1341,8 +1694,15 @@
         "internal/core/wait_transport.go",
         "internal/core/wait_transport_test.go"
       ],
-      "status": "ported",
-      "remaining": "Long wait framing and stdio progress forwarding are implemented. EOF cancellation and full transport regression parity are pending."
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "S0",
+          "items": [
+            "Complete EOF cancellation and transport regression parity."
+          ]
+        }
+      ]
     },
     "native/src/waiter.rs": {
       "segment": "A",
@@ -1450,9 +1810,39 @@
         "cmd/contract-fixture/main.go",
         "internal/core/fixture.go"
       ],
-      "status": "ported",
-      "remaining": "Tagged digest data and named-source fixture requests work. Remaining gates, desktop containers and native provider hooks are pending.",
-      "note": "The tagged fixture exercises isolated HTTP, private snapshot lifecycle, and the detached runtime with deterministic gates."
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "S0",
+          "items": [
+            "Complete common runtime, startup and stream fixture gates."
+          ]
+        },
+        {
+          "owner": "A",
+          "items": [
+            "Provide Agent, native task/writer, Desktop and source-container fixture support."
+          ]
+        },
+        {
+          "owner": "C",
+          "items": [
+            "Provide notification fixture data and gates."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Provide accounts and source authority fixtures."
+          ]
+        },
+        {
+          "owner": "E",
+          "items": [
+            "Provide network and ingress fixtures."
+          ]
+        }
+      ]
     }
   },
   "nativeTests": {
