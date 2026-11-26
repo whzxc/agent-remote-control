@@ -469,9 +469,28 @@ func nativeTaskPanel(ctx context.Context, r operationRequest) (any, error) {
 	return panelState(panel), nil
 }
 
+func nativeTaskBubble(ctx context.Context, r operationRequest) (any, error) {
+	args := clone(r.args)
+	if r.name == "task_mark_read" {
+		args["action"] = "mark-read"
+	}
+	result, err := r.service.managementRequest(ctx, "app/snapshot", http.MethodPost, object{"modelOnly": true, "taskBubble": args})
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range decodedTaskList(field(field(result, "model"), "taskBubbles")) {
+		if field(row, "agent") == args["agent"] && field(row, "id") == args["id"] {
+			return row, nil
+		}
+	}
+	return nil, errors.New("TASK_BUBBLE_NOT_FOUND: read app.snapshot model.taskBubbles for current renderer task IDs")
+}
+
 func init() {
 	registerOperation("task_panel", nativeTaskPanel, nil)
 	registerOperation("task_panel_control", nativeTaskPanel, nil)
+	registerOperation("task_bubble", nativeTaskBubble, nil)
+	registerOperation("task_mark_read", nativeTaskBubble, nil)
 	readContextTask = nativeAgentContext
 	registerRoute(http.MethodPost, "agents/conversations", func(ctx context.Context, s *service, body object, _ []string) (any, error) {
 		return listNativeConversations(ctx, s, body)

@@ -29,7 +29,7 @@ func init() {
 	deviceCoreTaskRead = func(ctx context.Context, s *service, source requestSource, op string, args object) (object, error) {
 		ctx = context.WithValue(ctx, &peerControlKey, true)
 		if op == "task_activity" {
-			return readNativeAgentActivity(ctx, s)
+			return taskActivity(ctx, s, text(source.origin, "deviceId"))
 		}
 		request := operationRequest{name: op, args: args, source: source, service: s}
 		var result any

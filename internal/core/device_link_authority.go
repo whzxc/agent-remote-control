@@ -92,9 +92,6 @@ func dispatchDeviceControl(ctx context.Context, s *service, id string, body obje
 		if err != nil {
 			return egressTool(object{"error": controlFailure(err)}, true), nil
 		}
-		if op == "task_activity" {
-			filterDeviceActivity(ctx, obj(result), id)
-		}
 		return egressTool(result, false), nil
 	}
 	spec := operation(op)

@@ -861,6 +861,9 @@ func init() {
 	registerOperation("agent_read", readNativeAgentOperation, nil)
 	registerOperation("agent_wait", waitNativeAgentOperation, nil)
 	registerOperation("agent_tasks", listNativeAgentOperation, nil)
+	registerOperation("task_activity", func(ctx context.Context, r operationRequest) (any, error) {
+		return taskActivity(ctx, r.service, "")
+	}, nil)
 	registerRoute(http.MethodGet, "agents", func(ctx context.Context, s *service, _ object, _ []string) (any, error) {
 		return nativeAgentInventory(ctx, s, false)
 	})

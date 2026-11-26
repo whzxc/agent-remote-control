@@ -3,6 +3,8 @@ package core
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -11,6 +13,43 @@ import (
 	"testing"
 	"time"
 )
+
+func TestTaskBubbleReadAndAcknowledgeUseDesktopSnapshot(t *testing.T) {
+	// Contract: task bubble operations use the renderer's model and keep the requested Agent/task identity.
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	unread := true
+	target := &service{desktop: func(_ context.Context, route, method string, body object) (any, error) {
+		bubble := obj(body["taskBubble"])
+		if route != "app/snapshot" || method != http.MethodPost || body["modelOnly"] != true {
+			return nil, fmt.Errorf("unexpected renderer request %s %s %v", method, route, body)
+		}
+		if bubble["id"] == "task" && bubble["agent"] == "codex" && bubble["action"] == "mark-read" {
+			unread = false
+		}
+		return object{"model": object{"taskBubbles": []any{
+			object{"id": "task", "agent": "pi", "unread": true},
+			object{"id": "task", "agent": "codex", "unread": unread},
+		}}}, nil
+	}}
+	source := requestSource{local: true, policy: "all"}
+	request := object{"agent": "codex", "id": "task"}
+	for _, step := range []struct {
+		op     string
+		unread bool
+	}{{"task_bubble", true}, {"task_mark_read", false}, {"task_bubble", false}} {
+		reply := localControl(t.Context(), target, source, object{"op": step.op, "args": request})
+		value, err := egressToolValue(reply)
+		if err != nil || reply["isError"] == true || field(value, "agent") != "codex" || field(value, "id") != "task" ||
+			field(value, "unread") != step.unread {
+			t.Fatalf("%s = %s, %v", step.op, wire(value), err)
+		}
+	}
+	reply := localControl(t.Context(), target, source, object{"op": "task_bubble", "args": object{"agent": "codex", "id": "missing"}})
+	value, err := egressToolValue(reply)
+	if err != nil || reply["isError"] != true || !strings.Contains(text(field(value, "error"), "message"), "TASK_BUBBLE_NOT_FOUND") {
+		t.Fatalf("missing task bubble = %s, %v", wire(value), err)
+	}
+}
 
 func TestAntigravityNativeConversationShowsWALSummaryAndTurnEvidence(t *testing.T) {
 	// Contract: native Antigravity metadata and read-only timelines expose clean prompts and explicit turn evidence.

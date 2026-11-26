@@ -574,6 +574,31 @@ func readNativeAgentActivity(ctx context.Context, s *service) (object, error) {
 	return object{"agents": agents, "activeAgents": ids, "observedAt": now(), "scope": "selected-local-transcripts-and-connector-live-sessions"}, nil
 }
 
+func taskActivity(ctx context.Context, s *service, peer string) (object, error) {
+	activity, err := readNativeAgentActivity(ctx, s)
+	if err != nil {
+		return nil, err
+	}
+	inventory, err := nativeAgentInventory(ctx, s, false)
+	if err != nil {
+		return nil, err
+	}
+	codex, agents, err := s.taskDisplayRecords(ctx)
+	if err != nil {
+		return nil, err
+	}
+	records := listTaskRecords(codex, agents)
+	if peer != "" {
+		records = slices.DeleteFunc(records, func(row object) bool {
+			return !deviceOwnsOrigin(obj(row["origin"]), peer)
+		})
+		filterDeviceActivity(ctx, activity, peer)
+	}
+	count := min(len(records), 200)
+	activity["availableAgents"], activity["records"], activity["omittedRecords"] = inventory["agents"], records[:count], len(records)-count
+	return activity, nil
+}
+
 func nativeCodexLiveActivity(events *nativeEvents) map[string]object {
 	pending := map[string]bool{}
 	for _, request := range events.pendingInteractions() {

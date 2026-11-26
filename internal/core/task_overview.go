@@ -16,7 +16,6 @@ var taskRecordNavigation func(agent, task string) object
 var peerCanReadTask func(context.Context, string, string) bool
 var taskListRetryStatus func(thread, turn string) object
 var taskListQueueCounts func(context.Context, *service) (map[string]object, error)
-var taskListReviews func(thread string) ([]object, error)
 var taskListOrigin func(thread string) any
 var taskListSourceReference func(agent, thread string) any
 
@@ -388,19 +387,15 @@ func compactCodexListEntry(row, metadata, turn any, pending bool, retry, queue o
 	}
 	if full {
 		out["preview"] = field(row, "preview")
-		for _, history := range []struct {
-			name string
-			read func(string) ([]object, error)
-		}{{"reviews", taskListReviews}, {"dispatches", readNativeDispatchHistory}} {
-			var value any = object{"unavailable": PortPending}
-			if history.read != nil {
-				if data, err := history.read(thread); err == nil {
-					value = data
-				} else {
-					value = object{"unavailable": err.Error()}
-				}
-			}
-			out[history.name] = value
+		if reviews, err := dispatchReviews(thread); err == nil {
+			out["reviews"] = reviews
+		} else {
+			out["reviews"] = object{"unavailable": err.Error()}
+		}
+		if records, err := dispatchRecords(thread); err == nil {
+			out["dispatches"] = records
+		} else {
+			out["dispatches"] = object{"unavailable": err.Error()}
 		}
 	}
 	return out
