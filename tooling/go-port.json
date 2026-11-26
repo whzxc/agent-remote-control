@@ -15,7 +15,7 @@
         "internal/core/acceptance_fault.go",
         "internal/core/acceptance_fault_fixture.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/accounts/codex.rs": {
       "segment": "D",
@@ -815,12 +815,17 @@
     },
     "native/src/desktop/interactions.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/desktop_interactions.go",
+        "internal/core/desktop_interactions_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/desktop/recovery.rs": {
       "segment": "A",
-      "go": [],
+      "go": [
+        "internal/core/desktop_recovery.go"
+      ],
       "status": "pending"
     },
     "native/src/desktop/settings.rs": {
@@ -830,12 +835,19 @@
     },
     "native/src/desktop/windows.rs": {
       "segment": "A",
-      "go": [],
+      "go": [
+        "internal/core/desktop_windows.go"
+      ],
       "status": "pending"
     },
     "native/src/desktop.rs": {
       "segment": "A",
-      "go": [],
+      "go": [
+        "internal/core/desktop.go",
+        "internal/core/desktop_unix.go",
+        "internal/core/control_desktop.go",
+        "internal/core/desktop_test.go"
+      ],
       "status": "pending"
     },
     "native/src/device_link/addresses.rs": {
@@ -1124,8 +1136,11 @@
     },
     "native/src/dispatch_queue.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/dispatch_queue.go",
+        "internal/core/dispatch_queue_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/egress.rs": {
       "segment": "S0",

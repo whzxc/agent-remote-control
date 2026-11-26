@@ -62,6 +62,13 @@ func init() {
 		}
 		return binary, home, nil
 	}
+	openFixtureDesktopURL = func(url string) error {
+		path := os.Getenv("ARC_FIXTURE_OPEN_FILE")
+		if !filepath.IsAbs(path) {
+			return errors.New("DESKTOP_IPC_ENDPOINT_MISSING")
+		}
+		return os.WriteFile(path, []byte(url), 0o600)
+	}
 	fixtureUsesDesktop = func() bool {
 		_, enabled := os.LookupEnv("ARC_FIXTURE_DESKTOP")
 		return enabled

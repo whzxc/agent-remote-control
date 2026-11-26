@@ -104,6 +104,14 @@ func readCodexObservation(ctx context.Context, s *service, thread string, select
 		}
 		return requestCodexNative(ctx, s, method, params, 10*time.Second)
 	}
+	role := ""
+	if historical {
+		role = string(rpcConnector)
+	}
+	return readCodexObservationPages(ctx, s, thread, selected, issueTokens, role, request)
+}
+
+func readCodexObservationPages(ctx context.Context, s *service, thread string, selected *string, issueTokens bool, role string, request func(string, object) (any, error)) (object, error) {
 	value, err := request("thread/read", object{"threadId": thread, "includeTurns": false})
 	if err != nil {
 		return nil, err
@@ -137,6 +145,17 @@ func readCodexObservation(ctx context.Context, s *service, thread string, select
 	}
 	slices.Reverse(turns)
 	native["turns"] = turns
+	if role != "" {
+		native["runtimeSource"] = role
+	}
+	return hydrateCodexObservation(ctx, s, native, thread, selected, issueTokens)
+}
+
+func hydrateCodexObservation(ctx context.Context, s *service, native object, thread string, selected *string, issueTokens bool) (object, error) {
+	if native["id"] != thread {
+		return nil, errors.New("native-thread-id-mismatch")
+	}
+	turns := arr(native["turns"])
 	if path := text(native, "path"); path != "" {
 		s.codex.mu.Lock()
 		if s.codex.historyPaths == nil {
@@ -150,9 +169,6 @@ func readCodexObservation(ctx context.Context, s *service, thread string, select
 		}
 		s.codex.historyPaths[thread] = path
 		s.codex.mu.Unlock()
-	}
-	if historical {
-		native["runtimeSource"] = string(rpcConnector)
 	}
 	target := selected
 	if target == nil && len(turns) > 0 {
@@ -288,29 +304,97 @@ func nativeEventWake(events *nativeEvents) <-chan struct{} {
 	return events.changed
 }
 
+func nativeCodexWatchSource(ctx context.Context, s *service, thread string, selected **string) (nativeWaitSource, error) {
+	source := nativeWaitSource{wake: func() <-chan struct{} { return nativeEventWake(&s.events) }}
+	_, home, err := codexInputs()
+	if err != nil {
+		return source, err
+	}
+	background := codexBackground(thread) || fixtureUsesDesktop != nil && !fixtureUsesDesktop()
+	if probeWriter(home, thread)["state"] == "held" {
+		switch s.nativeWriterOwnership(ctx, home, thread)["owner"] {
+		case "desktop":
+			background = false
+		case "external":
+			background = true
+		}
+	}
+	if background {
+		rpc, err := s.codexUtility(ctx)
+		if err != nil {
+			return source, err
+		}
+		source.alive = rpc.alive.Load
+		source.observe = func(ctx context.Context) (object, error) {
+			return readCodexObservationPages(ctx, s, thread, *selected, true, string(rpc.role),
+				func(method string, params object) (any, error) { return rpc.call(ctx, method, params, 10*time.Second) })
+		}
+		return source, nil
+	}
+	desktop, err := s.nativeDesktop(ctx)
+	if err != nil {
+		return source, err
+	}
+	source.alive = desktop.alive.Load
+	var desktopOwner string
+	source.observe = func(ctx context.Context) (object, error) {
+		owner, err := desktop.owner(ctx, thread)
+		if err != nil {
+			return nil, err
+		}
+		if desktopOwner != "" && desktopOwner != owner {
+			return nil, errors.New("runtime-owner-changed")
+		}
+		desktopOwner = owner
+		state, err := desktop.readOwned(ctx, thread, true, owner)
+		if err != nil {
+			return nil, err
+		}
+		native, err := desktopControlThread(state, true)
+		if err != nil {
+			return nil, err
+		}
+		return hydrateCodexObservation(ctx, s, native, thread, *selected, true)
+	}
+	return source, nil
+}
+
 func nativeCodexWait(ctx context.Context, r operationRequest) (any, error) {
 	started := time.Now()
 	thread := text(r.args, "threadId")
 	selected := optionalProjectString(r.args["turnId"])
 	var lifecycle turnTransition
 	var nativeTurns []any
-	source := nativeWaitSource{
-		observe: func(ctx context.Context) (object, error) {
-			return readCodexObservation(ctx, r.service, thread, selected, false, true)
-		},
-		classify: func(value object, turn **string) object {
-			out, next := projectCodexObservation(value, turn)
-			applyCodexProgress(ctx, &r.service.events, out, obj(value["thread"]))
-			lifecycle, selected = next, *turn
-			nativeTurns = arr(field(value["thread"], "turns"))
-			return out
-		},
-		alive: func() bool { return true },
-		wake:  func() <-chan struct{} { return nativeEventWake(&r.service.events) },
-	}
 	shutdown := r.service.codex.shutdown
 	if shutdown == nil {
 		shutdown = context.Background()
+	}
+	connect, cancel := context.WithTimeout(ctx, time.Duration(min(uintOr(r.args["timeoutMs"], 30000), 10000))*time.Millisecond)
+	stop := context.AfterFunc(shutdown, cancel)
+	source, err := nativeCodexWatchSource(connect, r.service, thread, &selected)
+	connectErr := connect.Err()
+	stop()
+	cancel()
+	if err != nil {
+		reason := err.Error()
+		switch {
+		case shutdown.Err() != nil:
+			reason = "connector-shutdown"
+		case ctx.Err() != nil:
+			return nil, ctx.Err()
+		case errors.Is(connectErr, context.DeadlineExceeded):
+			reason = "native-connect-timeout"
+		}
+		result := finishNativeWait(waitInitialResult(r.args), waitUnconfirmed, reason, started, nil)
+		nativeWaitCondition(result, r.args)
+		return result, nil
+	}
+	source.classify = func(value object, turn **string) object {
+		out, next := projectCodexObservation(value, turn)
+		applyCodexProgress(ctx, &r.service.events, out, obj(value["thread"]))
+		lifecycle, selected = next, *turn
+		nativeTurns = arr(field(value["thread"], "turns"))
+		return out
 	}
 	result, err := runNativeWait(ctx, shutdown, source, r.args, started)
 	if err != nil {

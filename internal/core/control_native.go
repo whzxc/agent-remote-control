@@ -23,6 +23,9 @@ type nativeCodexState struct {
 	shutdown     context.Context
 	historyPaths map[string]string
 	activity     codexActivityMonitor
+	desktopMu    sync.Mutex
+	desktop      *nativeDesktopIPC
+	queue        nativeDispatchQueue
 }
 
 var readNativeDispatchHistory func(string) ([]object, error)
@@ -88,6 +91,7 @@ func (s *service) codexUtility(ctx context.Context) (*rpcConnection, error) {
 func (s *service) closeNativeCodex() {
 	state := &s.codex
 	state.activity.close()
+	s.closeNativeDesktop()
 	state.launches.close()
 	state.mu.Lock()
 	connection := state.utility
@@ -241,25 +245,24 @@ func requestCodexNative(ctx context.Context, service *service, method string, ar
 			return nil, writerFailure(ctx, service, home, thread, err)
 		}
 	}
-	var externallyHeld bool
+	var externallyHeld, desktopHeld bool
 	if thread != "" && (read || mutation) && probeWriter(home, thread)["state"] == "held" {
 		owner := service.nativeWriterOwnership(ctx, home, thread)
 		externallyHeld = owner["owner"] == "external"
+		desktopHeld = owner["owner"] == "desktop"
 		if mutation && (externallyHeld || owner["owner"] == "shared-app-server") {
 			owner["processes"] = writerProcesses(ctx, home, thread)
 			return nil, errors.New(wire(writerBusy(thread, owner)))
 		}
 	}
 
-	useUtility := directFixture || read && externallyHeld || codexBackground(thread)
+	useUtility := directFixture || read && externallyHeld || codexBackground(thread) && !desktopHeld
 	switch {
 	case !useUtility && (read || mutation || method == "thread/start" || method == "thread/resume"):
 		if desktopNativeRequest == nil {
 			return nil, errors.New(PortPending)
 		}
 		return desktopNativeRequest(ctx, service, method, args, timeout)
-	case !directFixture && (method == "thread/start" || method == "turn/start" || method == "turn/steer"):
-		return nil, errors.New(PortPending)
 	case !useUtility && (strings.HasPrefix(method, "thread/") || strings.HasPrefix(method, "turn/")) &&
 		method != "thread/list" && method != "thread/loaded/list":
 		return nil, errors.New("DESKTOP_METHOD_UNSUPPORTED: " + method)

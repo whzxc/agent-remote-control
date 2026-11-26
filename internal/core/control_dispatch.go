@@ -85,12 +85,20 @@ func prepareCodexMutation(ctx context.Context, r operationRequest, row object) e
 			}
 			inherited = inheritedDispatchConfiguration(state, records)
 		}
+		resolvedArgs := args
+		deferSelection := operation == "send" && (args["sendMode"] == "queue" || args["sendMode"] == "next")
+		if deferSelection {
+			resolvedArgs = clone(args)
+		}
 		var err error
-		dispatch, err = resolveDispatchPolicy(args, inherited)
+		dispatch, err = resolveDispatchPolicy(resolvedArgs, inherited)
 		if err != nil {
 			return err
 		}
-		if operation == "send" {
+		if deferSelection {
+			dispatch = nil
+		}
+		if operation == "send" && dispatch != nil {
 			dispatch["trigger"] = dispatchSendTrigger(args)
 		}
 		source, err := captureSRCReference(ctx, r.service, args)
@@ -134,6 +142,9 @@ func prepareCodexMutation(ctx context.Context, r operationRequest, row object) e
 		approval["answeredBy"] = interactionAnsweredBy(currentOrigin(ctx))
 	}
 	row["approval"] = approval
+	if operation == "create" && row["executionOwner"] == "desktop" && row["state"] == "reserved" {
+		prepareDesktopCodexCreate(ctx, r.service, row, settings)
+	}
 	return nil
 }
 
@@ -143,8 +154,14 @@ func codexMutationCheckpoint(ctx context.Context, row object, stage string) erro
 }
 
 func createBackgroundCodex(ctx context.Context, r operationRequest, row object) (object, error) {
-	if row["executionOwner"] != "connector" {
-		return nil, errors.New(PortPending)
+	background := row["executionOwner"] == "connector"
+	var desktop *nativeDesktopIPC
+	if !background {
+		var err error
+		desktop, err = r.service.nativeDesktop(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 	args, task := obj(row["arguments"]), obj(row["task"])
 	seed := maps.Clone(obj(args["thread"]))
@@ -152,7 +169,10 @@ func createBackgroundCodex(ctx context.Context, r operationRequest, row object) 
 		seed = object{}
 	}
 	if seed["ephemeral"] == true {
-		return nil, errors.New("BACKGROUND_TASK_MUST_PERSIST")
+		if background {
+			return nil, errors.New("BACKGROUND_TASK_MUST_PERSIST")
+		}
+		return nil, errors.New("DESKTOP_TASK_MUST_PERSIST")
 	}
 	seed["ephemeral"] = false
 	for _, key := range []string{"model", "serviceTier"} {
@@ -171,9 +191,26 @@ func createBackgroundCodex(ctx context.Context, r operationRequest, row object) 
 		}
 	}
 	task["directory"] = seed["cwd"]
-	rpc, err := r.service.codexUtility(ctx)
+	var rpc *rpcConnection
+	var err error
+	if background {
+		rpc, err = r.service.codexUtility(ctx)
+	} else {
+		var binary, home string
+		binary, home, err = codexInputs()
+		if err == nil {
+			err = r.service.codex.launches.run(func() error {
+				var issue error
+				rpc, issue = startRPC(ctx, binary, home, id(), rpcObserver{})
+				return issue
+			})
+		}
+	}
 	if err != nil {
 		return nil, err
+	}
+	if !background {
+		defer rpc.close()
 	}
 	if err := codexMutationCheckpoint(ctx, row, "thread-submitting"); err != nil {
 		return nil, err
@@ -187,7 +224,11 @@ func createBackgroundCodex(ctx context.Context, r operationRequest, row object) 
 		return nil, errors.New("SUBMISSION_UNCONFIRMED: Codex returned no thread ID. Read the original receipt before retrying.")
 	}
 	cwd := text(field(created, "thread"), "cwd")
-	if err := save(filepath.Join(root(), "execution", thread+".json"), object{"owner": "connector"}); err != nil {
+	binding := object{"owner": row["executionOwner"]}
+	if !background {
+		binding["transport"] = "ipc"
+	}
+	if err := save(filepath.Join(root(), "execution", thread+".json"), binding); err != nil {
 		return nil, fmt.Errorf("SUBMISSION_UNCONFIRMED: thread accepted; execution record failed: %w", err)
 	}
 	row["threadId"], task["directory"] = thread, cwd
@@ -197,12 +238,40 @@ func createBackgroundCodex(ctx context.Context, r operationRequest, row object) 
 	cleanup := func(cause error) (object, error) {
 		if !strings.HasPrefix(cause.Error(), "SUBMISSION_UNCONFIRMED") && !strings.HasPrefix(cause.Error(), "RPC_TIMEOUT:") && ctx.Err() == nil {
 			_, archiveErr := rpc.call(ctx, "thread/archive", object{"threadId": thread}, 10*time.Second)
-			row["cleanup"], _ = nativeCleanupResult(archiveErr)
+			switch {
+			case nativeWriterRejected(archiveErr):
+				owner, _ := nativeCodexOwner(ctx, operationRequest{args: object{"threadId": thread}, service: r.service})
+				row["cleanup"] = object{"archived": false, "reason": "writer-busy", "error": archiveErr.Error(), "next": writerReleaseStep(thread, obj(owner))}
+			default:
+				cleaned, err := nativeCleanupResult(archiveErr)
+				if err != nil {
+					cleaned = object{"archived": false, "error": err.Error()}
+				}
+				row["cleanup"] = cleaned
+			}
 		}
 		return nil, cause
 	}
-	if title := text(task, "title"); title != "" {
+	title := text(task, "title")
+	if !background && title == "" {
+		title = "ARC task"
+	}
+	if title != "" {
 		if _, err := rpc.call(ctx, "thread/name/set", object{"threadId": thread, "name": title}, time.Minute); err != nil {
+			return cleanup(err)
+		}
+	}
+	if !background {
+		reader, err := r.service.codexUtility(ctx)
+		if err != nil {
+			return cleanup(err)
+		}
+		persisted, err := reader.call(ctx, "thread/read", object{"threadId": thread, "includeTurns": false}, time.Minute)
+		if err != nil {
+			return cleanup(err)
+		}
+		obj(created)["thread"] = field(persisted, "thread")
+		if _, err := rpc.call(ctx, "thread/unsubscribe", object{"threadId": thread}, time.Minute); err != nil {
 			return cleanup(err)
 		}
 	}
@@ -217,7 +286,12 @@ func createBackgroundCodex(ctx context.Context, r operationRequest, row object) 
 	if err := codexMutationCheckpoint(ctx, row, "turn-submitting"); err != nil {
 		return cleanup(err)
 	}
-	result, err := rpc.call(ctx, "turn/start", params, codexMutationTimeout(args))
+	var result any
+	if background {
+		result, err = rpc.call(ctx, "turn/start", params, codexMutationTimeout(args))
+	} else if err = revealNativeDesktopThread(ctx, desktop, thread); err == nil {
+		result, err = desktop.mutate(ctx, "turn/start", params)
+	}
 	if err != nil {
 		return cleanup(err)
 	}
@@ -229,8 +303,13 @@ func createBackgroundCodex(ctx context.Context, r operationRequest, row object) 
 	if err := finishCodexDispatch(ctx, row, params, cwd); err != nil {
 		return nil, err
 	}
-	return object{"threadId": thread, "turnId": turn, "resolved": created, "submitted": true, "executionOwner": "connector",
-		"desktop": object{"state": "not-opened", "sharedBackend": false}}, nil
+	response := object{"threadId": thread, "turnId": turn, "resolved": created, "submitted": true, "executionOwner": row["executionOwner"],
+		"desktop": object{"state": "not-opened", "sharedBackend": false}}
+	if !background {
+		response["desktop"] = object{"state": "owner-confirmed", "sharedBackend": false}
+		response["desktopUrl"] = "codex://threads/" + thread
+	}
+	return response, nil
 }
 
 func codexMutationTimeout(args object) time.Duration {
@@ -292,8 +371,14 @@ func sendCodexMutation(ctx context.Context, r operationRequest, row object) (obj
 		return nil, err
 	}
 	if args["sendMode"] == "queue" {
-		return nil, errors.New(PortPending)
+		return enqueueCodexDispatch(r.service, args, row)
 	}
+	owner, err := prepareNativeCodexSend(ctx, r.service, thread)
+	if err != nil {
+		return nil, err
+	}
+	row["executionOwner"] = owner
+
 	if resume := obj(args["resume"]); resume != nil {
 		resume = maps.Clone(resume)
 		resume["threadId"] = thread
@@ -310,13 +395,24 @@ func sendCodexMutation(ctx context.Context, r operationRequest, row object) (obj
 		return nil, errors.New("THREAD_STATE_UNCONFIRMED: native runtime is active without a confirmed active turn; read codex_read and keep queued messages pending")
 	}
 	if active && args["sendMode"] == "next" {
-		return nil, errors.New(PortPending)
+		return enqueueCodexDispatch(r.service, args, row)
 	}
 	if args["sendMode"] == "steer" && (!active || args["_expectedActiveTurn"] != nil && args["_expectedActiveTurn"] != latest["id"]) {
 		return nil, errors.New("NO_ACTIVE_TURN: steering was not submitted; queue the message or send a new turn explicitly")
 	}
 	if args["_newTurn"] == true && (active || args["_expectedPreviousTurn"] != nil && args["_expectedPreviousTurn"] != latest["id"]) {
 		return nil, errors.New("QUEUED_OR_RETRY_THREAD_ADVANCED: no message submitted")
+	}
+	if task["dispatch"] == nil {
+		records, err := dispatchRecords(thread)
+		if err != nil {
+			return nil, err
+		}
+		selection, err := resolveDispatchPolicy(args, inheritedDispatchConfiguration(state, records))
+		if err != nil {
+			return nil, err
+		}
+		selection["trigger"], task["dispatch"] = dispatchSendTrigger(args), selection
 	}
 	cwd := text(state, "cwd")
 	params, err := configuredTurn(args, cwd)

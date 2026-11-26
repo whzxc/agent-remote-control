@@ -29,8 +29,18 @@ func decideCodexReceipt(ctx context.Context, r operationRequest) (any, error) {
 	if !r.source.local && origin["sourceId"] != field(row["origin"], "sourceId") {
 		return nil, errors.New("RECEIPT_SOURCE_MISMATCH")
 	}
-	if row["state"] != "awaiting-approval" || field(row["desktopRecovery"], "state") == "waiting-for-local" {
+	if row["state"] != "awaiting-approval" {
 		return row, nil
+	}
+	if recovery := obj(row["desktopRecovery"]); recovery["state"] == "waiting-for-local" {
+		if !r.source.local || action != "reject" {
+			return row, nil
+		}
+		if r.args["desktopDecisionId"] != recovery["decisionId"] {
+			return nil, errors.New("DESKTOP_RECOVERY_DECISION_STALE")
+		}
+		recovery["state"], row["state"] = "cancelled", "not-executed"
+		return row, store.checkpoint(ctx, row)
 	}
 	var perform func(context.Context, operationRequest, object) (object, error)
 	switch row["operation"] {

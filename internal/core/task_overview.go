@@ -15,7 +15,7 @@ import (
 var taskRecordNavigation func(agent, task string) object
 var peerCanReadTask func(context.Context, string, string) bool
 var taskListRetryStatus func(thread, turn string) object
-var taskListQueueCounts func() (map[string]object, error)
+var taskListQueueCounts func(context.Context, *service) (map[string]object, error)
 var taskListReviews func(thread string) ([]object, error)
 var taskListOrigin func(thread string) any
 var taskListSourceReference func(agent, thread string) any
@@ -228,7 +228,7 @@ func listCodexTasks(ctx context.Context, request operationRequest) (any, error) 
 	}
 	queues := map[string]object{}
 	if taskListQueueCounts != nil {
-		counts, err := taskListQueueCounts()
+		counts, err := taskListQueueCounts(ctx, service)
 		if err != nil {
 			return nil, err
 		}

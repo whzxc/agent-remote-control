@@ -118,7 +118,7 @@ func runControlMutation(ctx context.Context, request operationRequest, name stri
 		request.service.jobs.finish()
 		return nil, err
 	}
-	if row["state"] == "awaiting-approval" {
+	if row["state"] != "reserved" {
 		unlock()
 		request.service.jobs.finish()
 		return row, nil
@@ -169,6 +169,9 @@ func launchControlMutation(ctx context.Context, service *service, store receiptS
 				state = "unconfirmed"
 			case strings.HasPrefix(err.Error(), "RPC_REJECTED"), strings.HasPrefix(err.Error(), "DESKTOP_REJECTED"):
 				state = "rejected"
+			}
+			if row["failureStage"] == nil && row["submissionStage"] != nil {
+				row["failureStage"] = row["submissionStage"]
 			}
 			row["state"], row["error"] = state, transportError(err)
 		}
