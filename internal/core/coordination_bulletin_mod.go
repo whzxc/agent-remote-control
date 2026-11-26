@@ -20,7 +20,7 @@ var bulletinResident struct {
 
 var coordinationRevokedSources func() ([]string, error)
 var coordinationNotificationAttention func(context.Context) (object, error)
-var coordinationDispatchLinks func(context.Context, object, coordinationPrincipal) ([]bulletinLink, error)
+var readCoordinationCodexHead func(context.Context, *service, string) (object, error)
 var coordinationLocalGit func(context.Context, string, ...string) (string, error)
 var coordinationDispatchAdmission func(thread, request string) (bool, error)
 var coordinationGitCommon func(string) (string, error)
@@ -180,8 +180,8 @@ func reconcileBulletin() error {
 }
 
 func maintainBulletin(ctx context.Context) error {
-	context := withRuntimeCost(ctx, "bulletinMaintenance", "poll")
-	cost := currentRuntimeCost(context)
+	ctx = withRuntimeCost(ctx, "bulletinMaintenance", "poll")
+	cost := currentRuntimeCost(ctx)
 	var revoked []string
 	if coordinationRevokedSources != nil {
 		var err error
@@ -192,41 +192,8 @@ func maintainBulletin(ctx context.Context) error {
 	}
 	_, err := withBulletinStore(func(s *bulletinStore) (struct{}, error) {
 		clock := currentBulletinClock()
-		if !s.state.DispatchAdmissionCleanupComplete && coordinationDispatchAdmission != nil {
-			remove, changed := map[string]bool{}, map[string]bool{}
-			for _, row := range s.state.Notices {
-				if row.DispatchID == nil {
-					continue
-				}
-				cost.rows.Add(1)
-				if len(row.ThreadLinks) > 0 {
-					present, err := coordinationDispatchAdmission(row.ThreadLinks[0].ThreadID, *row.DispatchID)
-					if err == nil && !present {
-						remove[row.ID], changed[row.ID] = true, true
-					}
-				}
-				if row.Association != nil && !slices.Equal(row.Resources, row.Association.Resources) {
-					row.Resources = row.Association.Resources
-					row.Revision++
-					changed[row.ID] = true
-				}
-			}
-			s.state.Notices = slices.DeleteFunc(s.state.Notices, func(row *bulletinRecord) bool { return remove[row.ID] })
-			s.state.Pending = slices.DeleteFunc(s.state.Pending, func(event coordinationEventInput) bool {
-				return slices.ContainsFunc(event.EvidenceRefs, func(e coordinationEvidenceRef) bool { return e.Kind == "notice" && changed[e.ID] })
-			})
-			for _, row := range s.state.Notices {
-				if changed[row.ID] {
-					if err := s.event(row, false); err != nil {
-						return struct{}{}, err
-					}
-				}
-			}
-			s.state.DispatchAdmissionCleanupComplete = true
-			s.state.Revision++
-			if err := s.save(clock); err != nil {
-				return struct{}{}, err
-			}
+		if err := s.cleanupDispatchAdmissions(clock, coordinationDispatchAdmission, cost); err != nil {
+			return struct{}{}, err
 		}
 		return struct{}{}, s.maintain(clock, revoked, cost)
 	})
@@ -240,9 +207,9 @@ func bulletinAuthenticatedActivity(ctx context.Context, reader coordinationReade
 	_, err := withBulletinStore(func(store *bulletinStore) (struct{}, error) {
 		clock := currentBulletinClock()
 		if clock.certain {
-			for _, rows := range [][]*bulletinRecord{store.state.Notices, store.state.Blockers} {
+			for _, rows := range [][]*bulletinRecord{store.liveNotices, store.liveBlockers} {
 				for _, row := range rows {
-					if row.live() && sameCoordinationOwner(row.Owner, reader.principal) && clock.elapsed > row.LastActiveAt {
+					if sameCoordinationOwner(row.Owner, reader.principal) && clock.elapsed > row.LastActiveAt {
 						row.LastActiveAt, row.freshActivity, store.dirty = clock.elapsed, true, true
 						store.maintainedAt = 0
 					}
@@ -319,7 +286,7 @@ func executeBulletin(ctx context.Context, request operationRequest) (object, err
 	if err != nil {
 		return nil, err
 	}
-	if err := bulletinAuthenticatedActivity(ctx, reader); err != nil {
+	if err := maintainBulletin(ctx); err != nil {
 		return nil, err
 	}
 	projectionErr := reconcileBulletin()
@@ -333,10 +300,7 @@ func executeBulletin(ctx context.Context, request operationRequest) (object, err
 	}
 	links := []bulletinLink{}
 	if len(arr(args["threadIds"])) > 0 {
-		if coordinationDispatchLinks == nil {
-			return nil, errors.New(PortPending)
-		}
-		links, err = coordinationDispatchLinks(ctx, args, reader.principal)
+		links, err = linkedCoordinationThreads(ctx, request.service, args, reader.principal)
 		if err != nil {
 			return nil, err
 		}
@@ -701,4 +665,78 @@ func init() {
 		}
 		return bulletinWarnings(ctx, keys, coordinationCommandSource(body)), nil
 	})
+}
+
+func linkedCoordinationThreads(ctx context.Context, service *service, args object, actor coordinationPrincipal) ([]bulletinLink, error) {
+	if taskTrackingDispatchRecords == nil {
+		return nil, errors.New(PortPending)
+	}
+	threads := axStrings(args["threadIds"])
+	live := taskTimelineLiveTurns(ctx, service, threads)
+	clock := currentBulletinClock()
+	result := make([]bulletinLink, 0, len(threads))
+	for _, thread := range threads {
+		records, err := taskTrackingDispatchRecords(thread)
+		if err != nil {
+			return nil, err
+		}
+		if len(records) == 0 {
+			return nil, errors.New("COORDINATION_THREAD_UNAVAILABLE: link an evidenced thread dispatched by your source")
+		}
+		record := records[len(records)-1]
+		origin, err := coordinationPrincipalFromOrigin(obj(record["origin"]))
+		if err != nil {
+			return nil, err
+		}
+		if origin == nil || !sameCoordinationOwner(actor, *origin) {
+			return nil, errors.New("COORDINATION_OWNER_REQUIRED: thread links require your own dispatch origin")
+		}
+		turn := axOptional(record["turnId"])
+		status := coordinationTerminalStatus(record, text(record["terminal"], "state"))
+		if status == "" && field(record, "_turnLifecycle") != nil {
+			status = trackedTurnStatus(record["_turnLifecycle"])
+		}
+		link := bulletinLink{ThreadID: thread, ObservedTurnID: turn, ScopeState: coordinationScope(status), Terminals: map[string]any{}}
+		if session := text(args, "sessionId"); session != "" && origin.SourceID != "" {
+			sessions, err := coordinationSessionRoutes(origin.SourceID)
+			if err != nil {
+				return nil, err
+			}
+			for _, row := range sessions {
+				if row.ID == session && row.Route != nil {
+					link.SessionBindingID = row.Route.BindingID
+					break
+				}
+			}
+		}
+		if turn != nil {
+			checkpoint := obj(record["_turnLifecycle"])
+			if checkpoint == nil {
+				checkpoint = trackedCheckpoint(nonemptyTaskText(text(record, "agent"), "codex"), thread, *turn, status, 0)
+			}
+			link.Terminals[*turn] = checkpoint
+			for _, observed := range live {
+				if observed.Thread == thread && observed.Turn == *turn {
+					mergeBulletinLink(&link, *turn, observed.Status, observed.Checkpoint)
+					if link.ScopeState != "unknown" {
+						link.ObservedAt = new(clock.elapsed)
+					}
+					break
+				}
+			}
+			if link.ObservedAt == nil && text(record, "agent") == "codex" && readCoordinationCodexHead != nil {
+				bounded, cancel := context.WithTimeout(ctx, 2*time.Second)
+				head, err := readCoordinationCodexHead(bounded, service, thread)
+				cancel()
+				if err == nil && text(head, "id") == *turn {
+					mergeBulletinLink(&link, *turn, text(head, "status"), obj(head["_turnLifecycle"]))
+					if link.ScopeState != "unknown" {
+						link.ObservedAt = new(clock.elapsed)
+					}
+				}
+			}
+		}
+		result = append(result, link)
+	}
+	return result, nil
 }

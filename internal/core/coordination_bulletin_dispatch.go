@@ -90,6 +90,16 @@ func bulletinFromDispatch(input coordinationEventInput) error {
 	if input.Kind != "dispatch.accepted" || input.Observation == nil || input.Observation.DispatchAssociation == nil {
 		return nil
 	}
+	_, err := withBulletinStore(func(store *bulletinStore) (struct{}, error) {
+		return struct{}{}, store.dispatchNotice(input, currentBulletinClock())
+	})
+	return err
+}
+
+func (store *bulletinStore) dispatchNotice(input coordinationEventInput, clock bulletinClock) error {
+	if input.Observation == nil || input.Observation.DispatchAssociation == nil {
+		return nil
+	}
 	dispatch := ""
 	for _, ref := range input.EvidenceRefs {
 		if ref.Kind == "request" {
@@ -100,49 +110,92 @@ func bulletinFromDispatch(input coordinationEventInput) error {
 	if dispatch == "" {
 		return nil
 	}
-	clock := currentBulletinClock()
-	_, err := withBulletinStore(func(store *bulletinStore) (struct{}, error) {
-		for _, row := range store.state.Notices {
-			if strPtr(row.DispatchID) == dispatch {
-				return struct{}{}, nil
-			}
+	if store.dispatchNotices[dispatch] {
+		return nil
+	}
+	store.prune(clock)
+	if len(store.state.Notices) >= 256 {
+		return errors.New("COORDINATION_CAPACITY: retain dispatch projection until bulletin capacity is available")
+	}
+	association := input.Observation.DispatchAssociation
+	owner := coordinationPrincipal{Type: "arc"}
+	if input.Origin != nil {
+		owner = *input.Origin
+	}
+	links := []bulletinLink{}
+	for _, ref := range input.ThreadRefs {
+		if ref.TurnID != nil {
+			links = append(links, bulletinLink{ThreadID: ref.ThreadID, ObservedTurnID: ref.TurnID, ScopeState: "unknown", Terminals: map[string]any{}})
 		}
-		store.prune(clock)
-		if len(store.state.Notices) >= 256 {
-			return struct{}{}, errors.New("COORDINATION_CAPACITY: retain dispatch projection until bulletin capacity is available")
+	}
+	at := clock.utc
+	if input.OccurredAt != nil {
+		if phase, err := time.Parse(time.RFC3339Nano, *input.OccurredAt); err == nil {
+			at = phase.UnixMilli()
 		}
-		association := input.Observation.DispatchAssociation
-		owner := coordinationPrincipal{Type: "arc"}
-		if input.Origin != nil {
-			owner = *input.Origin
-		}
-		links := []bulletinLink{}
-		for _, ref := range input.ThreadRefs {
-			if ref.TurnID != nil {
-				links = append(links, bulletinLink{ThreadID: ref.ThreadID, ObservedTurnID: ref.TurnID, ScopeState: "unknown", Terminals: map[string]any{}})
-			}
-		}
-		at := clock.utc
-		if input.OccurredAt != nil {
-			if phase, err := time.Parse(time.RFC3339Nano, *input.OccurredAt); err == nil {
-				at = phase.UnixMilli()
-			}
-		}
-		row := &bulletinRecord{ID: "dispatch-" + hash([]byte(dispatch)), DispatchID: &dispatch, Association: association, Revision: 1, Owner: owner,
-			Resources: association.Resources, Intent: new("ARC dispatch"), ThreadLinks: links, EvidenceIDs: []string{}, CreatedAt: at, LastActiveAt: at, State: "active"}
-		if err := store.event(row, false); err != nil {
-			return struct{}{}, err
-		}
-		store.state.Notices = append(store.state.Notices, row)
-		return struct{}{}, store.save(clock)
-	})
-	return err
+	}
+	row := &bulletinRecord{ID: "dispatch-" + hash([]byte(dispatch)), DispatchID: &dispatch, Association: association, Revision: 1, Owner: owner,
+		Resources: association.Resources, Intent: new("ARC dispatch"), ThreadLinks: links, EvidenceIDs: []string{}, CreatedAt: at, LastActiveAt: at, State: "active"}
+	if err := store.event(row, false); err != nil {
+		return err
+	}
+	store.state.Notices = append(store.state.Notices, row)
+	return store.save(clock)
 }
 
 func init() {
 	coordinationEventProjections = append(coordinationEventProjections, bulletinFromDispatch)
-	registerOperationProjection("receipt", func(ctx context.Context, _ operationRequest, receipt object) error {
-		refreshCoordinationDispatchAdvisory(ctx, receipt)
+	registerOperationPreparation("command", prepareCommandAdvisory)
+	for _, op := range []string{"receipt", "codex_create", "codex_send", "agent_create", "agent_send", "resume", "codex_resume", "agent_resume"} {
+		registerOperationProjection(op, func(ctx context.Context, request operationRequest, value object) error {
+			action := text(request.args, "action")
+			if request.name == "receipt" && (action == "" || action == "read") || value["replayed"] == true {
+				refreshCoordinationDispatchAdvisory(ctx, value)
+			}
+			return nil
+		})
+	}
+}
+
+func prepareCommandAdvisory(ctx context.Context, request operationRequest) operationProjection {
+	args := request.args
+	var words []string
+	if command, ok := args["cmd"].(string); ok {
+		if strings.ContainsAny(command, ";&|`$<>\\\n\"'") {
+			return nil
+		}
+		words = strings.Fields(command)
+	} else {
+		raw := arr(field(args["params"], "command"))
+		words = axStrings(raw)
+		if len(raw) != len(words) {
+			return nil
+		}
+	}
+	if len(words) < 2 {
 		return nil
-	})
+	}
+	name := filepath.Base(words[0])
+	if strings.TrimSuffix(name, filepath.Ext(name)) != "git" {
+		return nil
+	}
+	index := 1
+	cwd := firstTaskText(args["cwd"], field(args["params"], "cwd"))
+	if words[index] == "-C" {
+		if len(words) < 4 {
+			return nil
+		}
+		cwd, index = words[2], 3
+	}
+	if words[index] != "push" {
+		return nil
+	}
+	warnings := object{"conflicts": []object{}, "conflictCoverage": "unknown"}
+	if resources, err := coordinationRepositoryResources(cwd); err == nil {
+		warnings = bulletinWarnings(ctx, resources, "")
+	}
+	return func(_ context.Context, _ operationRequest, value object) error {
+		value["conflicts"], value["conflictCoverage"] = warnings["conflicts"], warnings["conflictCoverage"]
+		return nil
+	}
 }

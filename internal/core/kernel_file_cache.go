@@ -2,6 +2,7 @@ package core
 
 import (
 	"container/list"
+	"context"
 	"errors"
 	"fmt"
 	"maps"
@@ -114,8 +115,11 @@ func (c *fileCache[T]) remove(path string) {
 	}
 }
 func (c *fileCache[T]) read(path string, decode func([]byte) (T, error)) (T, error) {
+	return c.readInContext(nil, path, decode)
+}
+func (c *fileCache[T]) readInContext(ctx context.Context, path string, decode func([]byte) (T, error)) (T, error) {
 	var empty T
-	cost := fileCost{Path: path, Rows: 1}
+	cost := fileCost{Context: ctx, Path: path, Rows: 1}
 	defer func() { recordFileCost(cost) }()
 	stamp, err := readStamp(path)
 	if err != nil {
@@ -394,9 +398,12 @@ var readCache struct {
 }
 
 func cachedJSON(path string) (any, error) {
+	return cachedJSONInContext(nil, path)
+}
+func cachedJSONInContext(ctx context.Context, path string) (any, error) {
 	readCache.Lock()
 	defer readCache.Unlock()
-	return readCache.values.read(path, func(data []byte) (any, error) {
+	return readCache.values.readInContext(ctx, path, func(data []byte) (any, error) {
 		var value any
 		if err := unmarshalJSON(data, &value); err != nil {
 			return nil, fmt.Errorf("INVALID_JSON: %w", err)
@@ -405,7 +412,10 @@ func cachedJSON(path string) (any, error) {
 	})
 }
 func cachedLoad(path string) (any, error) {
-	value, err := cachedJSON(path)
+	return cachedLoadInContext(nil, path)
+}
+func cachedLoadInContext(ctx context.Context, path string) (any, error) {
+	value, err := cachedJSONInContext(ctx, path)
 	if err != nil {
 		return nil, err
 	}

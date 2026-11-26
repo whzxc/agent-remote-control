@@ -100,6 +100,7 @@ func prepareRuntimeIndexes(s *service) func(context.Context) {
 		owners[i] = physicalPath(index.owner())
 	}
 	prepareIndexes(owners)
+	s.indexStartupDone = make(chan struct{})
 	var cancel context.CancelFunc
 	var stopped chan struct{}
 	s.cleanup = append(s.cleanup, func() {
@@ -124,6 +125,7 @@ func prepareRuntimeIndexes(s *service) func(context.Context) {
 		stopped = make(chan struct{})
 		go func() {
 			defer close(stopped)
+			defer close(s.indexStartupDone)
 			err := initializeRuntimeIndexes(context.WithValue(work, indexInitializer{}, true), s, registered, owners)
 			if err == nil {
 				err = runIndexPhases(work, s, afterIndexStartup)
@@ -154,6 +156,7 @@ func initializeRuntimeIndexes(ctx context.Context, s *service, registered []star
 	if err := runIndexPhases(ctx, s, startupIndexPreparations); err != nil {
 		return err
 	}
+	ctx = withReceiptAdoptionPass(ctx)
 	for _, index := range registered {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -260,21 +263,22 @@ func indexAtomic(path string, bytes []byte) error {
 func indexWrite(path string, value any) error {
 	return indexAtomic(path, []byte(wire(value)))
 }
-func indexRead(path string, value any) error {
+func indexRead(ctx context.Context, path string, value any) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("File operation failed at read-index for %s: %w", path, err)
 	}
-	recordFileCost(fileCost{Path: path, Rows: 1, BytesRead: len(data), BytesParsed: len(data)})
+	recordFileCost(fileCost{Context: ctx, Path: path, BytesRead: len(data), BytesParsed: len(data)})
 	return unmarshalJSON(data, value)
 }
-func indexCurrent(owner string) (indexManifest, error) {
+func indexCurrent(owner string) (indexManifest, error) { return indexCurrentInContext(nil, owner) }
+func indexCurrentInContext(ctx context.Context, owner string) (indexManifest, error) {
 	result := indexManifest{}
 	dir := indexDirectory(owner)
 	if _, err := os.Stat(filepath.Join(dir, "invalid")); err == nil {
 		return result, errors.New("DERIVED_INDEX_INVALIDATED: rebuild required")
 	}
-	if err := indexRead(filepath.Join(dir, "current.json"), &result); err != nil {
+	if err := indexRead(ctx, filepath.Join(dir, "current.json"), &result); err != nil {
 		return result, err
 	}
 	if _, err := uuid.Parse(result.Generation); result.Version != derivedVersion || err != nil {
@@ -286,16 +290,16 @@ func indexShard(name string) string {
 	s := []rune(name)
 	return string(s[:min(2, len(s))]) + ".json"
 }
-func indexReadShard(generation, name string) (map[string]indexEntry, error) {
+func indexReadShard(ctx context.Context, generation, name string) (map[string]indexEntry, error) {
 	result := map[string]indexEntry{}
-	err := indexRead(filepath.Join(generation, indexShard(name)), &result)
+	err := indexRead(ctx, filepath.Join(generation, indexShard(name)), &result)
 	if errors.Is(err, os.ErrNotExist) {
 		err = nil
 	}
 	return result, err
 }
-func indexReplace(generation, name string, row *indexEntry) (bool, error) {
-	rows, err := indexReadShard(generation, name)
+func indexReplace(ctx context.Context, generation, name string, row *indexEntry) (bool, error) {
+	rows, err := indexReadShard(ctx, generation, name)
 	if err != nil {
 		return false, err
 	}
@@ -327,9 +331,10 @@ func indexMark(path string) error {
 	}
 	return indexSyncDirectory(owner)
 }
-func indexCommit(path string, row any) error {
+func indexCommit(ctx context.Context, path string, row any) error {
+	ctx = withRuntimeCost(ctx, "indexUpdate", "dirty")
 	owner := filepath.Dir(path)
-	current, err := indexCurrent(owner)
+	current, err := indexCurrentInContext(ctx, owner)
 	if err != nil {
 		return nil
 	}
@@ -342,7 +347,7 @@ func indexCommit(path string, row any) error {
 		}
 		entry = &indexEntry{stamp, row}
 	}
-	existed, err := indexReplace(generation, filepath.Base(path), entry)
+	existed, err := indexReplace(ctx, generation, filepath.Base(path), entry)
 	if err != nil {
 		return err
 	}
@@ -357,6 +362,7 @@ func indexCommit(path string, row any) error {
 		}
 	}
 	dirty := indexDirty(path)
+	defer recordFileCost(fileCost{Context: ctx, Path: path, Changed: 1})
 	if err := os.Remove(dirty); errors.Is(err, os.ErrNotExist) {
 		return nil
 	} else if err != nil {
@@ -408,7 +414,7 @@ func indexChange(ctx context.Context, path string, write func() (any, error)) er
 	if migrating {
 		return nil
 	}
-	return indexCommit(path, row)
+	return indexCommit(ctx, path, row)
 }
 func indexUpdate(ctx context.Context, path string, row any) error {
 	owner := filepath.Dir(path)
@@ -419,9 +425,10 @@ func indexUpdate(ctx context.Context, path string, row any) error {
 	if _, err := os.Stat(indexDirty(path)); err == nil {
 		return nil
 	}
-	if current, err := indexCurrent(owner); err == nil {
+	check := withRuntimeCost(ctx, "indexUpdate", "dirty")
+	if current, err := indexCurrentInContext(check, owner); err == nil {
 		name := filepath.Base(path)
-		if previous, err := indexReadShard(filepath.Join(indexDirectory(owner), current.Generation), name); err == nil {
+		if previous, err := indexReadShard(check, filepath.Join(indexDirectory(owner), current.Generation), name); err == nil {
 			before := previous[name]
 			stamp, err := readStamp(path)
 			if err != nil {
@@ -435,12 +442,16 @@ func indexUpdate(ctx context.Context, path string, row any) error {
 	if err := indexMark(path); err != nil {
 		return err
 	}
-	return indexCommit(path, row)
+	return indexCommit(ctx, path, row)
 }
 
-type indexProfile struct{ read, project, write time.Duration }
+type indexProfile struct {
+	read, project, write time.Duration
+	ctx                  context.Context
+}
 
 func indexCanonical(path string, project func(any) (any, error), profile *indexProfile) (*indexEntry, error) {
+	recordFileCost(fileCost{Context: profile.ctx, Path: path, Rows: 1})
 	before, err := readStamp(path)
 	if err != nil || before == nil {
 		return nil, err
@@ -456,7 +467,7 @@ func indexCanonical(path string, project func(any) (any, error), profile *indexP
 	}
 	at = time.Now()
 	var value any
-	recordFileCost(fileCost{Path: path, Rows: 1, BytesRead: len(data), BytesParsed: len(data)})
+	recordFileCost(fileCost{Context: profile.ctx, Path: path, BytesRead: len(data), BytesParsed: len(data)})
 	err = unmarshalJSON(data, &value)
 	if err == nil {
 		value, err = project(value)
@@ -475,7 +486,7 @@ func indexCanonical(path string, project func(any) (any, error), profile *indexP
 	}
 	return &indexEntry{stamp, value}, nil
 }
-func indexReadRows(generation string) (map[string]indexEntry, error) {
+func indexReadRows(ctx context.Context, generation string) (map[string]indexEntry, error) {
 	paths, err := os.ReadDir(generation)
 	if err != nil {
 		return nil, err
@@ -486,19 +497,20 @@ func indexReadRows(generation string) (map[string]indexEntry, error) {
 			continue
 		}
 		var entries map[string]indexEntry
-		if err := indexRead(filepath.Join(generation, path.Name()), &entries); err != nil {
+		if err := indexRead(ctx, filepath.Join(generation, path.Name()), &entries); err != nil {
 			return nil, err
 		}
+		recordFileCost(fileCost{Context: ctx, Path: generation, Rows: len(entries)})
 		maps.Copy(result, entries)
 	}
 	return result, nil
 }
-func indexAdopt(owner string, dirty bool, selected func(string) bool, valid func(any) bool) (indexManifest, map[string]indexEntry, error) {
-	manifest, err := indexCurrent(owner)
+func indexAdopt(ctx context.Context, owner string, dirty bool, selected func(string) bool, valid func(any) bool) (indexManifest, map[string]indexEntry, error) {
+	manifest, err := indexCurrentInContext(ctx, owner)
 	if err != nil {
 		return manifest, nil, err
 	}
-	rows, err := indexReadRows(filepath.Join(indexDirectory(owner), manifest.Generation))
+	rows, err := indexReadRows(ctx, filepath.Join(indexDirectory(owner), manifest.Generation))
 	if err != nil {
 		return manifest, nil, err
 	}
@@ -545,6 +557,9 @@ func indexRebuild(ctx context.Context, owner string, selected func(string) bool,
 				rows[filepath.Base(path)] = *entry
 			}
 		}
+		if cost := currentRuntimeCost(profile.ctx); cost != nil {
+			cost.scanSet.Store(uint64(len(rows)))
+		}
 		if cursor.dir == nil {
 			break
 		}
@@ -563,7 +578,8 @@ func indexRebuild(ctx context.Context, owner string, selected func(string) bool,
 		if ctx.Err() != nil {
 			return manifest, nil, errors.New("INDEX_STARTUP_CANCELLED")
 		}
-		if err := indexAtomic(filepath.Join(generation, name), []byte(wire(shards[name]))); err != nil {
+		// An unpublished generation is disposable. Adoption validates the complete row count.
+		if err := os.WriteFile(filepath.Join(generation, name), []byte(wire(shards[name])), 0o600); err != nil {
 			return manifest, nil, err
 		}
 	}
@@ -605,13 +621,24 @@ func openIndex(ctx context.Context, owner, kind string, selected func(string) bo
 	if err != nil {
 		return err
 	}
+	adoptContext := ctx
+	seedOwner := ""
+	switch kind {
+	case "receipts":
+		adoptContext, seedOwner = receiptAdoptionContext(ctx), "receiptSeed"
+	case "notifications":
+		adoptContext, seedOwner = withRuntimeCost(ctx, "notificationAdopt", "startup"), "notificationSeed"
+	}
 	adopting := time.Now()
-	manifest, rows, err := indexAdopt(owner, len(markers) > 0, selected, valid)
+	manifest, rows, err := indexAdopt(adoptContext, owner, len(markers) > 0, selected, valid)
 	adopt := time.Since(adopting)
 	rebuilt := err != nil
 	mode := "adopt"
 	if rebuilt {
 		mode = "rebuild"
+		if seedOwner != "" {
+			profile.ctx = withRuntimeCost(ctx, seedOwner, "startup")
+		}
 		manifest, rows, err = indexRebuild(ctx, owner, selected, project, &profile)
 		if err != nil {
 			return err
@@ -619,6 +646,7 @@ func openIndex(ctx context.Context, owner, kind string, selected func(string) bo
 	}
 	generation := filepath.Join(directory, manifest.Generation)
 	repairing := time.Now()
+	profile.ctx = withRuntimeCost(ctx, "indexRepair", "startup")
 	for _, marker := range markers {
 		if ctx.Err() != nil {
 			return errors.New("INDEX_STARTUP_CANCELLED")
@@ -642,7 +670,7 @@ func openIndex(ctx context.Context, owner, kind string, selected func(string) bo
 		if err != nil {
 			return err
 		}
-		if _, err := indexReplace(generation, key, row); err != nil {
+		if _, err := indexReplace(profile.ctx, generation, key, row); err != nil {
 			return err
 		}
 		if row == nil {

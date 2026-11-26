@@ -597,8 +597,8 @@ func flushCoordinationMessages(ctx context.Context) error {
 	return nil
 }
 
-func startCoordinationMessages(ctx context.Context, service *service) error {
-	return startCoordinationWorker(ctx, service, "coordinationMessages", []string{
+func runCoordinationMessages(ctx context.Context) {
+	runCoordinationWorker(ctx, "coordinationMessages", []string{
 		"coordination/messages/state.json", "coordination/events/manifest.json", "coordination/state.json", "coordination/projects.json",
 		"sources.json", "notifications/subscriptions/state.json", "notifications/tasks",
 	}, func(ctx context.Context) (time.Time, error) {
@@ -628,5 +628,4 @@ func init() {
 			return localCoordinationMessages(ctx, method, body)
 		})
 	}
-	registerServiceStartup(startCoordinationMessages)
 }

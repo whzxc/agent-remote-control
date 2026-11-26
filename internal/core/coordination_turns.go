@@ -1,6 +1,7 @@
 package core
 
 import (
+	"cmp"
 	"context"
 	"maps"
 	"slices"
@@ -95,19 +96,7 @@ func mergeBulletinLink(link *bulletinLink, turn, status string, checkpoint objec
 	}
 	scope := coordinationScope(status)
 	if checkpoint != nil {
-		if prior := arr(field(previous, "terminals")); len(prior) > 0 {
-			checkpoint = clone(checkpoint)
-			records := slices.Clone(arr(checkpoint["terminals"]))
-			for _, row := range prior {
-				if !slices.ContainsFunc(records, func(known any) bool { return wire(known) == wire(row) }) {
-					records = append(records, row)
-				}
-			}
-			if len(records) > 3 {
-				records = records[:3]
-			}
-			checkpoint["terminals"] = records
-		}
+		checkpoint = mergeCoordinationCheckpoint(obj(previous), checkpoint)
 		if len(arr(checkpoint["terminals"])) > 0 {
 			scope = coordinationScope(coordinationCheckpointTerminal(checkpoint))
 		}
@@ -140,10 +129,7 @@ func bulletinFromTurn(input coordinationEventInput) error {
 	}
 	_, err := withBulletinStore(func(store *bulletinStore) (struct{}, error) {
 		updated := false
-		for _, notice := range store.state.Notices {
-			if !notice.live() {
-				continue
-			}
+		for _, notice := range store.liveNotices {
 			for i := range notice.ThreadLinks {
 				link := &notice.ThreadLinks[i]
 				if input.Kind == "turn.successor" {
@@ -188,20 +174,7 @@ func bulletinTick(ctx context.Context, service *service) error {
 	if coordinationLiveTurns != nil {
 		cost := currentRuntimeCost(ctx)
 		keys, err := withBulletinStore(func(store *bulletinStore) ([]string, error) {
-			threads := []string{}
-			live := 0
-			for _, notice := range store.state.Notices {
-				if !notice.live() {
-					continue
-				}
-				live++
-				cost.rows.Add(1)
-				for _, link := range notice.ThreadLinks {
-					threads = append(threads, link.ThreadID)
-				}
-			}
-			cost.scanSet.Store(uint64(live))
-			return axSet(threads), nil
+			return store.linkedThreads(cost), nil
 		})
 		if err != nil {
 			return err
@@ -209,10 +182,7 @@ func bulletinTick(ctx context.Context, service *service) error {
 		live := coordinationLiveTurns(ctx, service, keys)
 		_, err = withBulletinStore(func(store *bulletinStore) (struct{}, error) {
 			clock := currentBulletinClock()
-			for _, notice := range store.state.Notices {
-				if !notice.live() {
-					continue
-				}
+			for _, notice := range store.liveNotices {
 				cost.rows.Add(1)
 				for i := range notice.ThreadLinks {
 					link := &notice.ThreadLinks[i]
@@ -255,4 +225,78 @@ func bulletinTick(ctx context.Context, service *service) error {
 
 func init() {
 	coordinationEventProjections = append(coordinationEventProjections, bulletinFromTurn)
+}
+
+func mergeCoordinationCheckpoint(previous, incoming object) object {
+	result := clone(incoming)
+	records := append(slices.Clone(arr(incoming["terminals"])), arr(previous["terminals"])...)
+	var newest uint64
+	for _, record := range records {
+		if seq, ok := uintValue(field(record, "sequence")); ok {
+			newest = max(newest, seq)
+		}
+	}
+	terminals := []any{}
+	for _, record := range records {
+		seq, known := uintValue(field(record, "sequence"))
+		if known && seq != newest {
+			continue
+		}
+		if !slices.ContainsFunc(terminals, func(row any) bool { return wire(row) == wire(record) }) {
+			terminals = append(terminals, record)
+		}
+	}
+	rank := func(value any) int {
+		switch str(value) {
+		case "completed":
+			return 0
+		case "failed":
+			return 1
+		case "interrupted", "cancelled":
+			return 2
+		}
+		return 3
+	}
+	slices.SortFunc(terminals, func(a, b any) int {
+		if order := cmp.Compare(rank(field(a, "status")), rank(field(b, "status"))); order != 0 {
+			return order
+		}
+		if field(a, "sequence") == nil && field(b, "sequence") != nil {
+			return -1
+		}
+		if field(a, "sequence") != nil && field(b, "sequence") == nil {
+			return 1
+		}
+		return 0
+	})
+	result["terminals"] = terminals
+	ownerRank := func(value any) int {
+		switch field(value, "state") {
+		case "running":
+			return 4
+		case "interaction-required":
+			return 5
+		case "unconfirmed":
+			switch field(value, "reason") {
+			case "turn-not-found":
+				return 1
+			case "runtime-ownership-unknown":
+				return 2
+			case "inconsistent-native-state":
+				return 3
+			}
+		}
+		return 0
+	}
+	for _, key := range []string{"owner", "lastLive"} {
+		old, current := previous[key], result[key]
+		if old == nil {
+			continue
+		}
+		oldRev, newRev := uintOr(field(old, "revision"), 0), uintOr(field(current, "revision"), 0)
+		if current == nil || oldRev > newRev || oldRev == newRev && ownerRank(old) > ownerRank(current) {
+			result[key] = old
+		}
+	}
+	return result
 }

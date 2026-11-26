@@ -21,7 +21,7 @@ func TestRuntimeCostsAttributeNestedCacheReadsOnce(t *testing.T) {
 		outer := withRuntimeCost(ctx, "taskRecords", "poll")
 		outer = withRuntimeCost(outer, "taskRecords", "poll")
 		inner := withRuntimeCost(outer, "receiptProjection", "poll")
-		if _, err := cachedJSONWithRuntimeCost(path, currentRuntimeCost(inner)); err != nil {
+		if _, err := cachedJSONInContext(inner, path); err != nil {
 			t.Fatal(err)
 		}
 	}

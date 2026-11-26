@@ -265,7 +265,7 @@ func coordinationOwnerInputs(owner string, row object, resources []string) ([]co
 			}
 			event.ThreadRefs = append([]coordinationThreadRef{{text(row, "threadId"), &prior}}, event.ThreadRefs...)
 		}
-		if status := coordinationTerminalStatus(row["terminal"], text(row["terminal"], "state")); status != "" {
+		if status := coordinationTerminalStatus(row, text(row["terminal"], "state")); status != "" {
 			thread, turn := text(row, "threadId"), text(row, "turnId")
 			event, err := appendEvent("terminal:"+thread+":"+turn, "turn.terminal", status, "")
 			if err != nil {
@@ -377,12 +377,28 @@ func coordinationProject(ctx context.Context, path string, row object) error {
 	return coordinationProjectAt(ctx, path, coordinationCheckpoint(path), row)
 }
 
+var coordinationProjected struct {
+	sync.Mutex
+	stamps map[[2]string][]*fileStamp
+}
+
 func coordinationProjectAt(ctx context.Context, path, checkpoint string, row object) error {
 	cost := currentRuntimeCost(ctx)
 	if len(arr(row["coordinationPending"])) == 0 {
 		return nil
 	}
 	defer lockIndex(checkpoint)()
+	before, err := projectionStamps([]string{path, checkpoint})
+	if err != nil {
+		return err
+	}
+	key := [2]string{path, checkpoint}
+	coordinationProjected.Lock()
+	cached := coordinationProjected.stamps[key]
+	coordinationProjected.Unlock()
+	if cached != nil && slices.EqualFunc(cached, before, stampSame) {
+		return nil
+	}
 	payload, err := cachedLoad(checkpoint)
 	done := obj(payload)
 	if errors.Is(err, os.ErrNotExist) {
@@ -443,7 +459,19 @@ func coordinationProjectAt(ctx context.Context, path, checkpoint string, row obj
 			cost.changed.Add(1)
 		}
 	}
-	return nil
+	after, err := projectionStamps([]string{path, checkpoint})
+	if err == nil && stampSame(after[0], before[0]) {
+		coordinationProjected.Lock()
+		if coordinationProjected.stamps == nil {
+			coordinationProjected.stamps = map[[2]string][]*fileStamp{}
+		}
+		if len(coordinationProjected.stamps) >= maxCoordinationPending {
+			clear(coordinationProjected.stamps)
+		}
+		coordinationProjected.stamps[key] = after
+		coordinationProjected.Unlock()
+	}
+	return err
 }
 
 func coordinationDiscover(dir string, depth int, paths map[string]bool, cost *runtimeCost) {
@@ -558,7 +586,6 @@ var coordinationGitActive func() bool
 var coordinationAgentSession func(*service) string
 var coordinationNativeDesktopTurns func(any) []object
 var coordinationCaptureTerminalChanges func(context.Context, string, string)
-var coordinationWorkersReady func(context.Context, *service) error
 
 func coordinationObserveNativeTerminal(method string, params any) {
 	thread := text(params, "threadId")
@@ -585,209 +612,238 @@ func coordinationObserveNativeTerminal(method string, params any) {
 	if err != nil {
 		return
 	}
-	for _, turn := range turns {
+	native := map[string]object{}
+	for i := len(turns) - 1; i >= 0; i-- {
+		turn := turns[i]
 		turnID, status := text(turn, "id"), coordinationTerminalStatus(turn, text(turn, "status"))
-		if !coordinationIdentifier(turnID) || status == "" {
+		if !coordinationIdentifier(turnID) || status == "" && len(arr(field(turn["_turnLifecycle"], "terminals"))) == 0 {
 			continue
 		}
+		incoming := obj(turn["_turnLifecycle"])
+		if incoming == nil {
+			incoming = trackedCheckpoint("codex", thread, turnID, status, 0)
+		}
+		native[turnID] = mergeCoordinationCheckpoint(native[turnID], incoming)
+	}
+	for _, turnID := range slices.Sorted(maps.Keys(native)) {
+		incoming := native[turnID]
 		input := newCoordinationEvent(hash([]byte("terminal:"+thread+":"+turnID)), "turn.terminal", []string{host, "app:installed"})
-		input.Status, input.Origin = &status, &coordinationPrincipal{Type: "arc"}
+		input.Origin = &coordinationPrincipal{Type: "arc"}
 		input.ThreadRefs = append(input.ThreadRefs, coordinationThreadRef{thread, &turnID})
-		if coordinationGitTerminal != nil {
-			coordinationGitTerminal(thread, turnID)
+		path := filepath.Join(root(), "coordination/observations", input.TransitionID+".json")
+		coordinationObservationWrite.Lock()
+		prior, _ := cachedLoad(path)
+		known := obj(field(prior, "_turnLifecycle"))
+		if known == nil {
+			for _, item := range arr(field(prior, "coordinationPending")) {
+				if state := text(item, "status"); state != "" {
+					known = mergeCoordinationCheckpoint(known, trackedCheckpoint("codex", thread, turnID, state, 0))
+				}
+			}
 		}
-		if coordinationCaptureTerminalChanges != nil {
-			coordinationCaptureTerminalChanges(context.Background(), thread, turnID)
+		merged := mergeCoordinationCheckpoint(known, incoming)
+		var writeErr error
+		var terminal string
+		changed := wire(known["terminals"]) != wire(merged["terminals"]) || field(prior, "_turnLifecycle") == nil
+		if changed {
+			pending := []coordinationEventInput{}
+			terminal = coordinationCheckpointTerminal(merged)
+			if terminal != "" {
+				input.Status = &terminal
+				pending = append(pending, input)
+			}
+			writeErr = coordinationDurable(path, object{"_turnLifecycle": merged, "coordinationPending": pending})
 		}
-		if _, err := coordinationPersist(input); err != nil {
+		coordinationObservationWrite.Unlock()
+		if writeErr != nil {
 			coordinationGap("terminal", "persistence-failed")
+			continue
+		}
+		if terminal != "" {
+			if coordinationGitTerminal != nil {
+				coordinationGitTerminal(thread, turnID)
+			}
+			if coordinationCaptureTerminalChanges != nil {
+				coordinationCaptureTerminalChanges(context.Background(), thread, turnID)
+			}
+		}
+		if changed {
+			markCoordinationOwner(path)
 		}
 	}
 }
 
-func startCoordinationWorker(ctx context.Context, service *service, name string, dependencies []string, work func(context.Context) (time.Time, error)) error {
-	ctx, cancel := context.WithCancel(ctx)
-	done := make(chan struct{})
-	service.cleanup = append(service.cleanup, func() { cancel(); <-done })
-	go func() {
-		defer close(done)
-		watcher := newFileChanges()
-		defer watcher.close()
-		paths := make([]string, 0, len(dependencies))
-		for _, path := range dependencies {
-			path = filepath.Join(root(), path)
-			paths = append(paths, path)
-			watcher.add(path)
+func runCoordinationWorker(ctx context.Context, name string, dependencies []string, work func(context.Context) (time.Time, error)) {
+	watcher := newFileChanges()
+	defer watcher.close()
+	paths := make([]string, 0, len(dependencies))
+	for _, path := range dependencies {
+		path = filepath.Join(root(), path)
+		paths = append(paths, path)
+		watcher.add(path)
+	}
+	reason := "startup"
+	var last []*fileStamp
+	var next time.Time
+	for ctx.Err() == nil {
+		pass := withRuntimeCost(ctx, name, reason)
+		cost := currentRuntimeCost(pass)
+		_, failed := watcher.drain()
+		stamps, err := projectionStamps(paths)
+		if err == nil && last != nil && slices.EqualFunc(stamps, last, stampSame) && (next.IsZero() || time.Now().Before(next)) && !failed {
+			cost.hits.Add(1)
+		} else if err == nil {
+			last = nil
+			next, err = work(pass)
+			if after, readErr := projectionStamps(paths); err == nil && readErr == nil && slices.EqualFunc(stamps, after, stampSame) {
+				last = after
+			}
 		}
-		reason := "startup"
-		var last []*fileStamp
-		var next time.Time
-		for ctx.Err() == nil {
-			pass := withRuntimeCost(ctx, name, reason)
-			cost := currentRuntimeCost(pass)
-			_, failed := watcher.drain()
-			stamps, err := projectionStamps(paths)
-			if err == nil && last != nil && slices.EqualFunc(stamps, last, stampSame) && (next.IsZero() || time.Now().Before(next)) && !failed {
-				cost.hits.Add(1)
-			} else if err == nil {
-				last = nil
-				next, err = work(pass)
-				if after, readErr := projectionStamps(paths); err == nil && readErr == nil && slices.EqualFunc(stamps, after, stampSame) {
-					last = after
-				}
-			}
-			if err != nil || failed {
-				next = time.Now().Add(5 * time.Second)
-				if name == "coordinationMessages" {
-					coordinationGap("messages", "projection-or-delivery-unavailable")
-				}
-			}
+		if err != nil || failed {
+			next = time.Now().Add(5 * time.Second)
 			if name == "coordinationMessages" {
-				state := "observed"
-				if failed {
-					state = "watch-unavailable"
-				}
-				coordinationGap("messages-watch", state)
-			}
-			var timer *time.Timer
-			var deadline <-chan time.Time
-			if !next.IsZero() {
-				timer = time.NewTimer(max(time.Second, time.Until(next)))
-				deadline = timer.C
-			}
-			select {
-			case <-ctx.Done():
-			case <-watcher.wake:
-				reason = "dirty"
-			case <-deadline:
-				reason = "deadline"
-			}
-			if timer != nil {
-				timer.Stop()
+				coordinationGap("messages", "projection-or-delivery-unavailable")
 			}
 		}
-	}()
-	return nil
+		if name == "coordinationMessages" {
+			state := "observed"
+			if failed {
+				state = "watch-unavailable"
+			}
+			coordinationGap("messages-watch", state)
+		}
+		var timer *time.Timer
+		var deadline <-chan time.Time
+		if !next.IsZero() {
+			timer = time.NewTimer(max(time.Second, time.Until(next)))
+			deadline = timer.C
+		}
+		select {
+		case <-ctx.Done():
+		case <-watcher.wake:
+			reason = "dirty"
+		case <-deadline:
+			reason = "deadline"
+		}
+		if timer != nil {
+			timer.Stop()
+		}
+	}
 }
 
-func startCoordinationObservers(parent context.Context, service *service) error {
-	ctx, cancel := context.WithCancel(parent)
-	done := make(chan struct{})
+func runCoordinationObservers(ctx context.Context, service *service) {
 	queue := &coordinationObserverQueue
 	queue.Lock()
 	queue.wake = make(chan struct{}, 1)
 	wake := queue.wake
 	queue.Unlock()
-	service.cleanup = append(service.cleanup, func() { cancel(); <-done })
-	go func() {
-		defer close(done)
-		if coordinationWorkersReady != nil && coordinationWorkersReady(ctx, service) != nil {
-			return
+	receiptPath, agentPath := coreReceiptStore().base, agentReceiptStore().base
+	pending := map[string]bool{}
+	cost := currentRuntimeCost(withRuntimeCost(ctx, "coordinationObservers", "startup"))
+	for _, entry := range []struct {
+		path  string
+		depth int
+	}{{"dispatches", 1}, {"agents/requests", 0}, {"agents/tasks", 0}, {"coordination/observations", 0}, {"coordination/tooling", 0}, {"", 0}} {
+		coordinationDiscover(filepath.Join(root(), entry.path), entry.depth, pending, cost)
+	}
+	host, err := coordinationHost()
+	if err == nil {
+		input := newCoordinationEvent(id(), "app.restarted", []string{host})
+		input.Origin, input.Status = &coordinationPrincipal{Type: "arc"}, new("running")
+		coordinationEventEvidence(&input, "core-instance", text(service.metadata, "instance"))
+		if _, err := coordinationPersist(input); err != nil {
+			coordinationGap("restart", "persistence-failed")
 		}
-		receiptPath, agentPath := coreReceiptStore().base, agentReceiptStore().base
-		for indexAvailable(ctx, receiptPath) != nil || indexAvailable(ctx, agentPath) != nil {
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(50 * time.Millisecond):
-			}
-		}
-		pending := map[string]bool{}
-		cost := currentRuntimeCost(withRuntimeCost(ctx, "coordinationObservers", "startup"))
-		for _, entry := range []struct {
-			path  string
-			depth int
-		}{{"dispatches", 1}, {"agents/requests", 0}, {"agents/tasks", 0}, {"coordination/observations", 0}, {"coordination/tooling", 0}, {"", 0}} {
-			coordinationDiscover(filepath.Join(root(), entry.path), entry.depth, pending, cost)
-		}
-		host, err := coordinationHost()
-		if err == nil {
-			input := newCoordinationEvent(id(), "app.restarted", []string{host})
-			input.Origin, input.Status = &coordinationPrincipal{Type: "arc"}, new("running")
-			coordinationEventEvidence(&input, "core-instance", text(service.metadata, "instance"))
-			if _, err := coordinationPersist(input); err != nil {
-				coordinationGap("restart", "persistence-failed")
-			}
-		}
-		observer := coordinationReceiptObserver{waiting: map[string]bool{}, failed: map[string]bool{}, invalid: map[string]bool{}}
-		reason := "startup"
-		var gitAt, slowAt time.Time
-		for ctx.Err() == nil {
-			pass := withRuntimeCost(ctx, "coordinationObservers", reason)
-			cost := currentRuntimeCost(pass)
-			queue.Lock()
-			maps.Copy(pending, queue.paths)
-			clear(queue.paths)
-			queue.Unlock()
-			if time.Since(slowAt) >= 5*time.Second {
-				for path := range observer.waiting {
-					cost.rows.Add(1)
-					pending[path] = true
-				}
-				if err := bulletinTick(pass, service); err != nil {
-					coordinationGap("bulletin", "projection-or-activity-unavailable")
-				}
-				slowAt = time.Now()
-			}
-			batch := slices.Sorted(maps.Keys(pending))
-			clear(pending)
-			cost.scanSet.Store(uint64(len(batch)))
-			for _, path := range batch {
-				if ctx.Err() != nil {
-					return
-				}
+	}
+	observer := coordinationReceiptObserver{waiting: map[string]bool{}, failed: map[string]bool{}, invalid: map[string]bool{}}
+	reason := "startup"
+	var gitAt, slowAt time.Time
+	for ctx.Err() == nil {
+		pass := withRuntimeCost(ctx, "coordinationObservers", reason)
+		cost := currentRuntimeCost(pass)
+		queue.Lock()
+		maps.Copy(pending, queue.paths)
+		clear(queue.paths)
+		queue.Unlock()
+		if time.Since(slowAt) >= 5*time.Second {
+			for path := range observer.waiting {
 				cost.rows.Add(1)
-				row, err := cachedJSONWithRuntimeCost(path, cost)
-				if err != nil {
-					if !errors.Is(err, os.ErrNotExist) && len(pending) < maxCoordinationPending {
-						pending[path] = true
-						coordinationGap("projection", "owner-read-unavailable")
-					}
+				pending[path] = true
+			}
+			if err := bulletinTick(pass, service); err != nil {
+				coordinationGap("bulletin", "projection-or-activity-unavailable")
+			}
+			slowAt = time.Now()
+		}
+		batch := slices.Sorted(maps.Keys(pending))
+		clear(pending)
+		cost.scanSet.Store(uint64(len(batch)))
+		for _, path := range batch {
+			if ctx.Err() != nil {
+				return
+			}
+			cost.rows.Add(1)
+			row, err := cachedJSONInContext(pass, path)
+			if err != nil {
+				if !errors.Is(err, os.ErrNotExist) && len(pending) < maxCoordinationPending {
+					pending[path] = true
+					coordinationGap("projection", "owner-read-unavailable")
+				}
+				continue
+			}
+			dir := filepath.Dir(path)
+			if (dir == receiptPath || dir == agentPath) && isReceiptPath(path) || field(row, "requestId") != nil && field(row, "operation") != nil {
+				session := text(service.metadata, "instance")
+				if dir == agentPath && coordinationAgentSession != nil {
+					session = coordinationAgentSession(service)
+				}
+				if host != "" && !observer.observe(path, obj(row), session, host, time.Now().UnixMilli()) {
 					continue
 				}
-				dir := filepath.Dir(path)
-				if (dir == receiptPath || dir == agentPath) && isReceiptPath(path) || field(row, "requestId") != nil && field(row, "operation") != nil {
-					session := text(service.metadata, "instance")
-					if dir == agentPath && coordinationAgentSession != nil {
-						session = coordinationAgentSession(service)
-					}
-					if host != "" && !observer.observe(path, obj(row), session, host, time.Now().UnixMilli()) {
-						continue
-					}
-				}
-				if err := coordinationProject(pass, path, obj(row)); err != nil && len(pending) < maxCoordinationPending {
-					pending[path] = true
-					coordinationGap("projection", "pending-retry")
-				}
 			}
-			observer.report()
-			gitDelay := 30 * time.Second
-			if coordinationGitActive != nil && coordinationGitActive() {
-				gitDelay = 5 * time.Second
+			if err := coordinationProject(pass, path, obj(row)); err != nil && len(pending) < maxCoordinationPending {
+				pending[path] = true
+				coordinationGap("projection", "pending-retry")
 			}
-			if coordinationGitPoll != nil && time.Since(gitAt) >= gitDelay {
-				_ = coordinationGitPoll(withRuntimeCost(pass, "coordinationGit", "timer"))
-				gitAt = time.Now()
-			}
-			timer := time.NewTimer(5 * time.Second)
-			select {
-			case <-ctx.Done():
-			case <-timer.C:
-				reason = "timer"
-			case <-wake:
-				reason = "dirty"
-			}
-			timer.Stop()
 		}
-	}()
-	return nil
+		observer.report()
+		gitDelay := 30 * time.Second
+		if coordinationGitActive != nil && coordinationGitActive() {
+			gitDelay = 5 * time.Second
+		}
+		if coordinationGitPoll != nil && time.Since(gitAt) >= gitDelay {
+			_ = coordinationGitPoll(withRuntimeCost(pass, "coordinationGit", "timer"))
+			gitAt = time.Now()
+		}
+		timer := time.NewTimer(5 * time.Second)
+		select {
+		case <-ctx.Done():
+		case <-timer.C:
+			reason = "timer"
+		case <-wake:
+			reason = "dirty"
+		}
+		timer.Stop()
+	}
 }
 
 func init() {
 	coordinationObserverCoverage = coordinationCoverageSnapshot
-	onReceiptSaved = append(onReceiptSaved, markCoordinationOwner)
-	onReceiptCheckpoint = append(onReceiptCheckpoint, func(path string, row object) error { return coordinationCaptureOwner(path, row, "receipt") })
-	observeReceiptUnconfirmed = append(observeReceiptUnconfirmed, func(row object) {
+	onReceiptSaved = append(onReceiptSaved, func(path string) {
+		if coordinationOwnsReceiptPath(path) {
+			markCoordinationOwner(path)
+		}
+	})
+	onReceiptCheckpoint = append(onReceiptCheckpoint, func(path string, row object) error {
+		if !coordinationOwnsReceiptPath(path) {
+			return nil
+		}
+		return coordinationCaptureOwner(path, row, "receipt")
+	})
+	observeReceiptUnconfirmed = append(observeReceiptUnconfirmed, func(path string, row object) {
+		if !coordinationOwnsReceiptPath(path) {
+			return
+		}
 		if events, err := coordinationOwnerEvents("receipt", row); err == nil {
 			for _, event := range events {
 				if _, err := coordinationPersist(event); err != nil {
@@ -797,5 +853,73 @@ func init() {
 		}
 	})
 	nativeTerminalObserved = append(nativeTerminalObserved, coordinationObserveNativeTerminal)
-	registerServiceStartup(startCoordinationObservers)
+	registerServiceStartup(startCoordinationConsumers)
+	registerAfterIndexStartup(40, readyCoordinationConsumers)
+}
+
+type coordinationStartup struct {
+	once  sync.Once
+	ready chan struct{}
+}
+
+func coordinationStartSignal(service *service) chan struct{} {
+	start := &service.coordinationStart
+	start.once.Do(func() { start.ready = make(chan struct{}) })
+	return start.ready
+}
+
+func readyCoordinationConsumers(_ context.Context, service *service) error {
+	close(coordinationStartSignal(service))
+	return nil
+}
+
+func startCoordinationConsumers(parent context.Context, service *service) error {
+	ctx, cancel := context.WithCancel(parent)
+	done := make(chan struct{})
+	signal := coordinationStartSignal(service)
+	service.cleanup = append(service.cleanup, func() {
+		cancel()
+		<-done
+	})
+	go func() {
+		defer close(done)
+		select {
+		case <-ctx.Done():
+			return
+		case <-signal:
+		}
+		var workers sync.WaitGroup
+		workers.Go(func() { runCoordinationObservers(ctx, service) })
+		workers.Go(func() { runCoordinationMessages(ctx) })
+		workers.Wait()
+	}()
+	return nil
+}
+
+func coordinationOwnsReceiptPath(path string) bool {
+	dir := physicalPath(filepath.Dir(path))
+	return dir == physicalPath(coreReceiptStore().base) || dir == physicalPath(agentReceiptStore().base)
+}
+
+// Dispatch and Agent owners save the metadata descriptor with the canonical row.
+// Only the observer worker projects the descriptor to the journal.
+func saveCoordinationOwner(path string, row object, owner string) error {
+	next := clone(row)
+	if err := coordinationCaptureOwner(path, next, owner); err != nil {
+		return err
+	}
+	pending := arr(next["coordinationPending"])
+	checkpoint, _ := cachedJSON(coordinationCheckpoint(path))
+	needsProjection := slices.ContainsFunc(pending, func(value any) bool { return field(checkpoint, text(value, "transitionId")) == nil })
+	if needsProjection {
+		if err := coordinationDurable(path, next); err != nil {
+			return err
+		}
+	} else if err := save(path, next); err != nil {
+		return err
+	}
+	if needsProjection || owner == "receipt" {
+		markCoordinationOwner(path)
+	}
+	return nil
 }

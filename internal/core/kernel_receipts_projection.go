@@ -123,10 +123,14 @@ func (i *receiptIndex) refresh(ctx context.Context, path string) error {
 	}
 	var candidate *indexEntry
 	if stamp != nil {
-		candidate, err = indexCanonical(path, receiptSummary, &indexProfile{})
+		recordFileCost(fileCost{Context: ctx, Path: path, CacheMisses: 1})
+		candidate, err = indexCanonical(path, receiptSummary, &indexProfile{ctx: ctx})
 		if err != nil {
 			return err
 		}
+	}
+	if stamp == nil {
+		recordFileCost(fileCost{Context: ctx, Path: path, Rows: 1})
 	}
 	var summary any
 	if candidate != nil {
@@ -165,6 +169,7 @@ func (i *receiptIndex) drain(ctx context.Context) error {
 	if !failed {
 		return nil
 	}
+	ctx = withRuntimeCost(ctx, "indexRepair", "dirty")
 	keys := slices.Sorted(maps.Keys(i.rows))
 	begin, _ := slices.BinarySearch(keys, i.after)
 	if begin < len(keys) && keys[begin] == i.after {
@@ -175,6 +180,7 @@ func (i *receiptIndex) drain(ctx context.Context) error {
 	if len(batch) > 0 {
 		i.after = batch[len(batch)-1]
 	}
+	recordFileCost(fileCost{Context: ctx, Path: i.owner, Rows: len(batch)})
 	for _, path := range batch {
 		if err := i.refresh(ctx, path); err != nil {
 			return err
@@ -184,6 +190,7 @@ func (i *receiptIndex) drain(ctx context.Context) error {
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
+	recordFileCost(fileCost{Context: ctx, Path: i.owner, Rows: len(next)})
 	for _, path := range next {
 		if isReceiptPath(path) {
 			if err := i.refresh(ctx, path); err != nil {
@@ -194,6 +201,7 @@ func (i *receiptIndex) drain(ctx context.Context) error {
 	return nil
 }
 func readReceiptProjection(ctx context.Context, path string) (object, error) {
+	ctx = withRuntimeCost(ctx, "receiptProjection", "poll")
 	index, err := findReceiptIndex(ctx, filepath.Dir(path))
 	if err != nil {
 		return nil, err
@@ -207,6 +215,7 @@ func readReceiptProjection(ctx context.Context, path string) (object, error) {
 	if err := index.refresh(ctx, path); err != nil {
 		return nil, err
 	}
+	recordFileCost(fileCost{Context: ctx, Path: path, CacheHits: 1})
 	row := obj(index.rows[path].Row)
 	if row == nil {
 		return nil, errors.New("INVALID_RECEIPT")
@@ -220,6 +229,7 @@ type receiptProjectionUpdate struct {
 }
 
 func receiptProjectionUpdates(ctx context.Context, owner string, revision *uint64) (uint64, bool, []receiptProjectionUpdate, error) {
+	ctx = withRuntimeCost(ctx, "receiptProjection", "poll")
 	index, err := findReceiptIndex(ctx, owner)
 	if err != nil {
 		return 0, false, nil, err
@@ -246,6 +256,8 @@ func receiptProjectionUpdates(ctx context.Context, owner string, revision *uint6
 			}
 		}
 	}
+	currentRuntimeCost(ctx).scanSet.Store(uint64(len(selected)))
+	recordFileCost(fileCost{Context: ctx, Path: owner, Rows: len(selected)})
 	updates := []receiptProjectionUpdate{}
 	for _, path := range slices.Sorted(maps.Keys(selected)) {
 		key := strings.TrimSuffix(filepath.Base(path), ".json")

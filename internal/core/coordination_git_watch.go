@@ -412,7 +412,7 @@ func (watcher *coordinationGitWatcher) scan(ctx context.Context, project, key, r
 	repository := hash([]byte(project + ":" + snapshot.common))
 	path := filepath.Join(dir, repository+".json")
 	checkpoint := filepath.Join(dir, repository+".checkpoint.json")
-	oldValue, err := cachedJSONWithRuntimeCost(path, currentRuntimeCost(ctx))
+	oldValue, err := cachedJSONInContext(ctx, path)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
@@ -528,7 +528,7 @@ func (watcher *coordinationGitWatcher) scan(ctx context.Context, project, key, r
 
 func pollCoordinationGit(ctx context.Context) error {
 	cost := currentRuntimeCost(ctx)
-	snapshot, err := cachedJSONWithRuntimeCost(filepath.Join(root(), "coordination/projects.json"), cost)
+	snapshot, err := cachedJSONInContext(ctx, filepath.Join(root(), "coordination/projects.json"))
 	projects := arr(field(snapshot, "projects"))
 	if err != nil || projects == nil {
 		coordinationGap("git", "project-catalog-unavailable")

@@ -169,7 +169,7 @@ func observeCoordinationFixes(ctx context.Context, root, common, branch, before,
 }
 
 func coordinationFixSummary(ctx context.Context, rows []object, path string) object {
-	value, _ := cachedJSONWithRuntimeCost(path, currentRuntimeCost(ctx))
+	value, _ := cachedJSONInContext(ctx, path)
 	cost := currentRuntimeCost(ctx)
 	selected := map[[2]string]bool{}
 	for _, row := range rows {

@@ -38,6 +38,7 @@ var authorizeReviewDefects func(string, object) error
 var decorateControlSource func(context.Context, object)
 var controlPushAvailable func(any) bool
 var decorateControlResult []func(context.Context, operationRequest, object)
+var onAuthenticatedControl []func(context.Context, requestSource)
 var localControlCallerKey struct{}
 var peerControlKey struct{}
 var mcpIngressKey struct{}
@@ -128,6 +129,9 @@ func callToolInner(ctx context.Context, service *service, source requestSource, 
 				return egressFailure(name, opUnavailable(requested))
 			}
 		}
+		for _, observe := range onAuthenticatedControl {
+			observe(ctx, source)
+		}
 		return egressTool(egressGuide(source, args, source.enabledOps()), false)
 	}
 	op := operation(name)
@@ -139,6 +143,9 @@ func callToolInner(ctx context.Context, service *service, source requestSource, 
 	}
 	if name != "device" && tool != via(op) {
 		return egressFailure(name, object{"code": "WRONG_TOOL", "op": name, "message": "Use the op's assigned tool.", "via": via(op), "example": example(op)})
+	}
+	for _, observe := range onAuthenticatedControl {
+		observe(ctx, source)
 	}
 	if name == "receipt" || retryContract(op)["mode"] == "receipt" {
 		if requestID, ok := field(envelope, "requestId").(string); ok && args["requestId"] == nil {

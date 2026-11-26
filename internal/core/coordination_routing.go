@@ -168,3 +168,18 @@ func coordinationRoutingStatus(ctx context.Context, source string) (object, erro
 	result["sessions"] = rows
 	return result, nil
 }
+
+func init() {
+	registerOperationProjection("whoami", func(ctx context.Context, request operationRequest, result object) error {
+		source := text(result, "sourceId")
+		if source == "" || request.source.local {
+			return nil
+		}
+		routing, err := coordinationRoutingStatus(ctx, source)
+		if err != nil {
+			return err
+		}
+		result["coordinationDelivery"] = routing
+		return nil
+	})
+}

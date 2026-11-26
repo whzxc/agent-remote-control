@@ -15,6 +15,7 @@ type nativeEvent struct {
 type nativeEvents struct {
 	sync.Mutex
 	rows           []nativeEvent
+	taskTimelines  map[string]*taskTimeline
 	bytes          int
 	sequence       uint64
 	threadSequence map[string]uint64
@@ -125,6 +126,11 @@ func (e *nativeEvents) pendingInteractions() []object {
 		settled := func(value string) bool {
 			return slices.Contains([]string{"completed", "failed", "cancelled", "interrupted"}, value)
 		}
+		if timeline := e.taskTimelines[text(row["params"], "threadId")]; timeline != nil && !settled(text(row, "turnStatus")) {
+			if status := timeline.turnStatus(text(row["params"], "turnId")); status != "" {
+				row["turnStatus"] = status
+			}
+		}
 		if nativeTurnStatus != nil && !settled(text(row, "turnStatus")) {
 			if next := nativeTurnStatus(text(row["params"], "threadId"), text(row["params"], "turnId")); next != "" {
 				row["turnStatus"] = next
@@ -191,6 +197,9 @@ func (e *nativeEvents) rpcObserver() rpcObserver {
 			maps.DeleteFunc(e.pending, func(_ string, row object) bool {
 				return row["owner"] != "desktop" && row["connection"] == c.connection
 			})
+			for _, timeline := range e.taskTimelines {
+				timeline.loseObservation()
+			}
 			e.signal()
 			e.Unlock()
 			for _, observe := range nativeRPCDisconnected {

@@ -32,34 +32,44 @@ func (s receiptStore) path(request string) (string, error) {
 	return filepath.Join(s.base, request+".json"), nil
 }
 
-var observeReceiptUnconfirmed []func(object)
+var observeReceiptUnconfirmed []func(string, object)
 var onReceiptCheckpoint []func(string, object) error
+var onReceiptSaved []func(string)
 
 func normalizeReceipt(raw any, session string) (object, error) {
 	row := obj(raw)
 	if row == nil {
 		return nil, errors.New("INVALID_RECEIPT")
 	}
-	before := row["state"]
 	ownerLive := row["backendSession"] == session
-	row = projectReceipt(row, ownerLive, time.Now().UnixMilli())
-	if row["state"] == "unconfirmed" && before != "unconfirmed" {
-		for _, observe := range observeReceiptUnconfirmed {
-			observe(row)
+	return projectReceipt(row, ownerLive, time.Now().UnixMilli()), nil
+}
+func (s receiptStore) normalize(value any, session string) (object, error) {
+	before := field(value, "state")
+	row, err := normalizeReceipt(value, session)
+	if err == nil && row["state"] == "unconfirmed" && before != "unconfirmed" {
+		if path, pathErr := s.path(text(row, "requestId")); pathErr == nil {
+			for _, observe := range observeReceiptUnconfirmed {
+				observe(path, row)
+			}
 		}
 	}
-	return row, nil
+	return row, err
 }
+
 func (s receiptStore) read(request, session string) (object, error) {
+	return s.readInContext(nil, request, session)
+}
+func (s receiptStore) readInContext(ctx context.Context, request, session string) (object, error) {
 	path, err := s.path(request)
 	if err != nil {
 		return nil, err
 	}
-	value, err := cachedLoad(path)
+	value, err := cachedLoadInContext(ctx, path)
 	if err != nil {
 		return nil, err
 	}
-	return normalizeReceipt(value, session)
+	return s.normalize(value, session)
 }
 func (s receiptStore) projected(ctx context.Context, request, session string) (object, error) {
 	path, err := s.path(request)
@@ -70,7 +80,7 @@ func (s receiptStore) projected(ctx context.Context, request, session string) (o
 	if err != nil {
 		return nil, err
 	}
-	return normalizeReceipt(row, session)
+	return s.normalize(row, session)
 }
 func (s receiptStore) replay(ctx context.Context, request, digest, session string) (object, error) {
 	path, err := s.path(request)
@@ -82,7 +92,7 @@ func (s receiptStore) replay(ctx context.Context, request, digest, session strin
 			return nil, errors.New("REQUEST_ID_CONFLICT")
 		}
 	}
-	row, err := s.read(request, session)
+	row, err := s.readInContext(ctx, request, session)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}
@@ -100,7 +110,7 @@ func (s receiptStore) reserve(ctx context.Context, row object) error {
 	if err != nil {
 		return err
 	}
-	return indexChange(ctx, path, func() (any, error) {
+	err = indexChange(ctx, path, func() (any, error) {
 		before, err := readStamp(s.base)
 		if err != nil {
 			return nil, err
@@ -122,7 +132,14 @@ func (s receiptStore) reserve(ctx context.Context, row object) error {
 		markCachedFileChanged(path, before)
 		return receiptSummary(row)
 	})
+	if err == nil {
+		for _, saved := range onReceiptSaved {
+			saved(path)
+		}
+	}
+	return err
 }
+
 func (s receiptStore) checkpoint(ctx context.Context, row object) error {
 	for _, key := range []string{"submissionState", "executionState", "progressStalled", "phaseAgeMs"} {
 		delete(row, key)
@@ -145,7 +162,7 @@ func (s receiptStore) checkpoint(ctx context.Context, row object) error {
 		}
 	}
 	row["updatedAt"] = now()
-	return indexChange(ctx, path, func() (any, error) {
+	err = indexChange(ctx, path, func() (any, error) {
 		for _, observe := range onReceiptCheckpoint {
 			if err := observe(path, row); err != nil {
 				return nil, err
@@ -156,7 +173,14 @@ func (s receiptStore) checkpoint(ctx context.Context, row object) error {
 		}
 		return receiptSummary(row)
 	})
+	if err == nil {
+		for _, saved := range onReceiptSaved {
+			saved(path)
+		}
+	}
+	return err
 }
+
 func (s receiptStore) abandon(ctx context.Context, request string) error {
 	path, err := s.path(request)
 	if err != nil {
@@ -258,7 +282,7 @@ func readControlReceipt(ctx context.Context, request operationRequest) (any, err
 	}
 	session := text(request.service.metadata, "instance")
 	for _, store := range []receiptStore{coreReceiptStore(), agentReceiptStore()} {
-		result, err := store.read(name, session)
+		result, err := store.readInContext(ctx, name, session)
 		if errors.Is(err, os.ErrNotExist) {
 			continue
 		}

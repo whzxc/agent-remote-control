@@ -126,6 +126,13 @@ func runFixtureService(parent context.Context, mode string, stdin io.Reader, std
 	}
 	switch mode {
 	case "http":
+		if os.Getenv("ARC_FIXTURE_INDEX_GATE") == "" {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-s.indexStartupDone:
+			}
+		}
 		if err := outputLine(stdout, wire(object{"port": port, "token": token})); err != nil {
 			return err
 		}

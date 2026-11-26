@@ -18,17 +18,19 @@ type nativeSchemaCache struct {
 }
 
 type service struct {
-	metadata       object
-	fixtureIngress func(string) (requestSource, error)
-	runtime        *runtimeState
-	source         requestSource
-	hub            hubPool
-	jobs           controlJobs
-	events         nativeEvents
-	waits          waitCalls
-	schemas        nativeSchemaCache
-	cleanup        []func()
-	desktop        func(context.Context, string, string, object) (any, error)
+	metadata          object
+	fixtureIngress    func(string) (requestSource, error)
+	runtime           *runtimeState
+	source            requestSource
+	hub               hubPool
+	jobs              controlJobs
+	events            nativeEvents
+	waits             waitCalls
+	schemas           nativeSchemaCache
+	cleanup           []func()
+	indexStartupDone  chan struct{}
+	coordinationStart coordinationStartup
+	desktop           func(context.Context, string, string, object) (any, error)
 }
 
 func (s *service) start(ctx context.Context) error {
@@ -91,6 +93,7 @@ func (s *service) management(ctx context.Context, route, method string, body obj
 }
 
 func (s *service) managementRequest(ctx context.Context, route, method string, body object) (any, error) {
+	ctx = runtimeReadCost(ctx, route, method)
 	if handler, params := resolveRoute(method, route); handler != nil {
 		return handler(ctx, s, body, params)
 	}
@@ -284,6 +287,7 @@ func (s *service) ingressStatuses(ctx context.Context) ([]object, error) {
 }
 
 func (s *service) status(ctx context.Context) (object, error) {
+	defer beginRuntimeWork("status")()
 	items, err := s.ingressStatuses(ctx)
 	if err != nil {
 		return nil, err

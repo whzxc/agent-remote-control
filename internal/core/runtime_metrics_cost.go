@@ -2,7 +2,9 @@ package core
 
 import (
 	"context"
+	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 )
 
@@ -69,6 +71,9 @@ func withRuntimeCost(ctx context.Context, owner, reason string) context.Context 
 }
 
 func currentRuntimeCost(ctx context.Context) *runtimeCost {
+	if ctx == nil {
+		return nil
+	}
 	scope, ok := ctx.Value(runtimeCostKey{}).(runtimeCostContext)
 	if !ok || scope.owner == "" {
 		return nil
@@ -139,4 +144,56 @@ func runtimePollCost(ctx context.Context, owner string) context.Context {
 	ctx = withRuntimeCost(ctx, owner, "poll")
 	currentRuntimeCost(ctx).scanSet.Store(1)
 	return ctx
+}
+
+type receiptAdoptionKey struct{}
+
+func withReceiptAdoptionPass(ctx context.Context) context.Context {
+	adopt := sync.OnceValue(func() context.Context {
+		return withRuntimeCost(ctx, "receiptAdopt", "startup")
+	})
+	return context.WithValue(ctx, receiptAdoptionKey{}, adopt)
+}
+
+func receiptAdoptionContext(ctx context.Context) context.Context {
+	if adopt, ok := ctx.Value(receiptAdoptionKey{}).(func() context.Context); ok {
+		return adopt()
+	}
+	return withRuntimeCost(ctx, "receiptAdopt", "startup")
+}
+
+func observeRuntimeFileCost(event fileCost) {
+	cost := currentRuntimeCost(event.Context)
+	if cost == nil {
+		return
+	}
+	cost.rows.Add(uint64(event.Rows))
+	cost.read.Add(uint64(event.BytesRead))
+	cost.parsed.Add(uint64(event.BytesParsed))
+	cost.changed.Add(uint64(event.Changed))
+	cost.hits.Add(uint64(event.CacheHits))
+	cost.misses.Add(uint64(event.CacheMisses))
+}
+
+func observeRuntimeWorkCost(ctx context.Context, event runtimeWorkCost) {
+	name := event.Owner
+	switch event.Owner {
+	case "runtime-lease":
+		name = "runtimeLease"
+	case "scoped-wait":
+		name = "scopedWait"
+	case "wait-heartbeat":
+		name = "waitHeartbeat"
+	}
+	if !slices.Contains(runtimeCostOwners[:], name) || !slices.Contains(runtimeCostReasons[:], event.Reason) {
+		return
+	}
+	cost := currentRuntimeCost(withRuntimeCost(ctx, name, event.Reason))
+	cost.rows.Add(uint64(event.Rows))
+	cost.scanSet.Store(uint64(event.ScanSet))
+}
+
+func init() {
+	registerFileCostObserver(observeRuntimeFileCost)
+	registerRuntimeWorkObserver(observeRuntimeWorkCost)
 }

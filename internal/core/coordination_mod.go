@@ -172,6 +172,13 @@ func coordinationDesktopResources(context.Context, *service, object, []string) (
 }
 
 func init() {
+	onAuthenticatedControl = append(onAuthenticatedControl, observeAuthenticatedCoordination)
+	registerOwnedErrorClassifier(coordinationErrorCode, func(code, message string, parsed object) object {
+		if parsed != nil {
+			return parsed
+		}
+		return object{"code": code, "message": message}
+	})
 	registerOperation("events", coordinationEventQuery, nil)
 	registerRoute("POST", "coordination/events", coordinationDesktopRequest("events", coordinationEventQuery))
 	registerRoute("GET", "coordination/resources", coordinationDesktopResources)
@@ -187,4 +194,25 @@ func init() {
 			"inputSchema": object{"type": "object", "properties": object{}, "additionalProperties": false}})
 		result["operations"] = ops
 	})
+}
+
+func observeAuthenticatedCoordination(ctx context.Context, source requestSource) {
+	reader, err := coordinationReadAuthority(ctx, source.local)
+	if err == nil {
+		err = bulletinAuthenticatedActivity(ctx, reader)
+	}
+	if err != nil && err.Error() != PortPending {
+		coordinationGap("bulletin-activity", "activity-unavailable")
+	}
+}
+
+func coordinationErrorCode(message string) string {
+	code, _, _ := strings.Cut(message, ":")
+	switch {
+	case strings.HasPrefix(code, "COORDINATION_"), strings.HasPrefix(code, "AX_"), strings.HasPrefix(code, "MESSAGES_"),
+		strings.HasPrefix(code, "MESSAGE_"), strings.HasPrefix(code, "NEGOTIATION_"), code == "COVERAGE_GAP",
+		code == "RESOURCE_UNKNOWN", code == "RESOURCE_AMBIGUOUS", code == "MAINTAINER_MODE_REQUIRED", code == "SOURCE_REQUIRED", code == "SESSION_NOT_FOUND":
+		return code
+	}
+	return ""
 }

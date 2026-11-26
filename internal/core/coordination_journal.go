@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"math"
 	"os"
@@ -108,11 +109,22 @@ func decodeCoordinationRecord(data []byte, target any) error {
 }
 
 func coordinationAtomicBytes(path string, data []byte) error {
+	before, _ := readStamp(filepath.Dir(path))
 	if err := indexAtomic(path, data); err != nil {
 		_ = os.Remove(strings.TrimSuffix(path, filepath.Ext(path)) + ".tmp")
 		return errCoordinationJournalIO
 	}
+	markCachedFileChanged(path, before)
 	return nil
+}
+
+func readCoordinationSegment(path string) ([]byte, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	return io.ReadAll(io.LimitReader(file, coordinationSegmentBytes+1))
 }
 
 func openCoordinationJournal(dir string, ms int64) (*coordinationJournal, error) {
@@ -125,7 +137,7 @@ func openCoordinationJournal(dir string, ms int64) (*coordinationJournal, error)
 	}
 	var manifest coordinationManifest
 	path := filepath.Join(dir, "manifest.json")
-	data, err := os.ReadFile(path)
+	data, err := readCoordinationSegment(path)
 	switch {
 	case err == nil:
 		if len(data) > coordinationSegmentBytes || decodeCoordinationRecord(data, &manifest) != nil {
@@ -209,11 +221,12 @@ func saturatingIncrement(value uint64) uint64 {
 
 func (j *coordinationJournal) loadSegment(segment uint64, last bool, expected *uint64) error {
 	path := j.segmentPath(segment)
-	data, err := os.ReadFile(path)
+	data, err := readCoordinationSegment(path)
 	if errors.Is(err, os.ErrNotExist) && last {
+		j.tailBytes = 0
 		return nil
 	}
-	if err != nil {
+	if err != nil || len(data) > coordinationSegmentBytes {
 		return errCoordinationJournalCorrupt
 	}
 	valid := 0

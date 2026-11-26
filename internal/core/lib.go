@@ -148,6 +148,7 @@ func load(path string) (any, error) {
 }
 
 type fileCost struct {
+	Context                               context.Context
 	Path                                  string
 	Rows, BytesRead, BytesParsed, Changed int
 	CacheHits, CacheMisses                int

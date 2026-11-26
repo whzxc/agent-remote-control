@@ -33,6 +33,8 @@ type contextTaskEvidence struct {
 	Partial           bool
 }
 
+var contextTrackingProjection func(contextTaskEvidence) contextTaskEvidence
+
 var readContextTask func(context.Context, *service, string, string) (contextTaskEvidence, error)
 var resolveContextProject func(context.Context, *service, string) (object, error)
 var readContextWorkspace func(context.Context, *service, object) (object, error)
@@ -72,6 +74,9 @@ func contextOperation(parent context.Context, request operationRequest) (any, er
 			}
 			missing = append(missing, "TASK_UNAVAILABLE")
 		default:
+			if contextTrackingProjection != nil {
+				facts = contextTrackingProjection(facts)
+			}
 			t := facts.Task
 			if selected, ok := args["turnId"].(string); ok && selected != t["turnId"] {
 				return nil, errors.New("TURN_NOT_AVAILABLE")

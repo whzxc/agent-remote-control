@@ -44,12 +44,18 @@ func registerOperationFallback(name string, handler operationHandler) {
 
 type operationObserver func(context.Context, operationRequest, any, error)
 type operationProjection func(context.Context, operationRequest, object) error
+type operationPreparation func(context.Context, operationRequest) operationProjection
 
 var operationObservers []operationObserver
+var operationPreparations = make(map[string][]operationPreparation)
 var operationProjections = make(map[string][]operationProjection)
 
 func registerOperationObserver(observe operationObserver) {
 	operationObservers = append(operationObservers, observe)
+}
+
+func registerOperationPreparation(op string, prepare operationPreparation) {
+	operationPreparations[op] = append(operationPreparations[op], prepare)
 }
 
 func registerOperationProjection(op string, project operationProjection) {
@@ -74,12 +80,19 @@ func executeOperation(ctx context.Context, request operationRequest) (any, error
 	if handler == nil {
 		return nil, errors.New(PortPending)
 	}
+	ctx = runtimeOperationCost(ctx, request.name)
+	var projections []operationProjection
+	for _, prepare := range operationPreparations[request.name] {
+		if project := prepare(ctx, request); project != nil {
+			projections = append(projections, project)
+		}
+	}
 	value, err := handler(ctx, request)
 	for _, observe := range operationObservers {
 		observe(ctx, request, value, err)
 	}
 	if row := obj(value); err == nil && row != nil {
-		for _, project := range operationProjections[request.name] {
+		for _, project := range append(projections, operationProjections[request.name]...) {
 			if err := project(ctx, request, row); err != nil {
 				return nil, err
 			}

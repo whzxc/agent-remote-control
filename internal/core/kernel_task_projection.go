@@ -85,6 +85,11 @@ func (p *taskProjection) rebind(request string, row object, paths func(object) [
 }
 
 func (p *taskProjection) update(ctx context.Context, store receiptStore, session string, dependencies func(object) []string, project func(object) (object, error), display func(object) object) ([]object, error) {
+	owner := "taskRecords"
+	if physicalPath(store.base) == physicalPath(agentReceiptStore().base) {
+		owner = "agentTaskRecords"
+	}
+	ctx = withRuntimeCost(ctx, owner, "poll")
 	if p.watch == nil || p.session != session {
 		p.reset(session)
 	}
@@ -109,6 +114,8 @@ func (p *taskProjection) update(ctx context.Context, store receiptStore, session
 			begin++
 		}
 		end := min(begin+64, len(keys))
+		repair := withRuntimeCost(ctx, "indexRepair", "dirty")
+		recordFileCost(fileCost{Context: repair, Path: store.base, Rows: end - begin})
 		for _, path := range keys[begin:end] {
 			_ = p.refreshDependency(path)
 		}
@@ -136,11 +143,12 @@ func (p *taskProjection) update(ctx context.Context, store receiptStore, session
 		p.records = slices.Clone(p.records)
 		p.display = slices.Clone(p.display)
 	}
+	recordRuntimeWork(ctx, runtimeWorkCost{Owner: owner, Reason: "poll", Rows: len(changed), ScanSet: len(changed)})
 	for _, request := range slices.Sorted(maps.Keys(changed)) {
 		receipt := changed[request]
 		var row object
 		if receipt != nil {
-			receipt, err = normalizeReceipt(receipt, session)
+			receipt, err = store.normalize(receipt, session)
 			if err != nil {
 				return nil, err
 			}

@@ -609,12 +609,6 @@
           "items": [
             "Supply native Agent task and turn records to the context projection."
           ]
-        },
-        {
-          "owner": "B",
-          "items": [
-            "Supply selected-turn tracking evidence and output redaction for context reads."
-          ]
         }
       ]
     },
@@ -651,12 +645,6 @@
             "Background create and resume.",
             "Native request (request_native), launch and approval.",
             "Task records and tool execution."
-          ]
-        },
-        {
-          "owner": "B",
-          "items": [
-            "Observation and task tracking."
           ]
         }
       ]
@@ -704,7 +692,14 @@
         "internal/core/coordination_ax_mod.go"
       ],
       "status": "ported",
-      "note": "D supplies coordinationTaskOrigin for owner-scoped thread references."
+      "remaining": [
+        {
+          "owner": "D",
+          "items": [
+            "Supply coordinationTaskOrigin for owner-scoped thread references."
+          ]
+        }
+      ]
     },
     "native/src/coordination/ax/store.rs": {
       "segment": "B",
@@ -715,8 +710,10 @@
     },
     "native/src/coordination/ax/tests.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_ax_tests_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/coordination/bulletin/dispatch.rs": {
       "segment": "B",
@@ -724,7 +721,20 @@
         "internal/core/coordination_bulletin_dispatch.go"
       ],
       "status": "ported",
-      "note": "A supplies the pre-submission Git baseline and C supplies acceptance and replay records that consume the admission advisory."
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Pass the retained pre-submission Git baseline and apply coordinationDispatchAdvisory at admission."
+          ]
+        },
+        {
+          "owner": "C",
+          "items": [
+            "Retain admission and replay records and pass accepted dispatch checkpoints to saveCoordinationOwner."
+          ]
+        }
+      ]
     },
     "native/src/coordination/bulletin/mod.rs": {
       "segment": "B",
@@ -732,7 +742,26 @@
         "internal/core/coordination_bulletin_mod.go"
       ],
       "status": "ported",
-      "note": "C supplies coordinationDispatchLinks, coordinationDispatchAdmission, coordinationRevokedSources and notification attention, with source revocations owned by D. D supplies coordinationLocalGit."
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Supply readCoordinationCodexHead for linked threads without live turn evidence."
+          ]
+        },
+        {
+          "owner": "C",
+          "items": [
+            "Supply coordinationDispatchAdmission and coordinationNotificationAttention."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Supply coordinationRevokedSources and bounded coordinationLocalGit."
+          ]
+        }
+      ]
     },
     "native/src/coordination/bulletin/store.rs": {
       "segment": "B",
@@ -743,25 +772,37 @@
     },
     "native/src/coordination/bulletin/tests.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_bulletin_tests_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/coordination/cost_tests.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_cost_tests_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/coordination/git_watch/fixes.rs": {
       "segment": "B",
       "go": [
-        "internal/core/coordination_git_watch_fixes.go"
+        "internal/core/coordination_git_watch_fixes.go",
+        "internal/core/coordination_git_watch_fixes_test.go"
       ],
-      "status": "pending",
-      "note": "C consumes coordinationFixSummary. D supplies bounded local Git reads.",
+      "status": "ported",
       "remaining": [
         {
-          "owner": "B",
-          "items": ["Port the Rust inline unit cases."]
+          "owner": "C",
+          "items": [
+            "Include coordinationFixSummary in dispatch quality readback."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Supply bounded coordinationLocalGit."
+          ]
         }
       ]
     },
@@ -771,7 +812,20 @@
         "internal/core/coordination_git_watch.go"
       ],
       "status": "ported",
-      "note": "D calls observeCoordinationProjects after a successful upstream project read and supplies coordinationLocalGit. A feeds retained and live baselines."
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Feed observeCoordinationBaseline and coordinationRetainedBaselines."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Call observeCoordinationProjects after a successful upstream project read and supply coordinationLocalGit."
+          ]
+        }
+      ]
     },
     "native/src/coordination/journal.rs": {
       "segment": "B",
@@ -789,7 +843,20 @@
         "internal/core/coordination_lifecycle_windows.go"
       ],
       "status": "ported",
-      "note": "D supplies coordinationProjectCatalog and coordinationLocalGit. A calls coordinationCommandEnvironment from authenticated command execution."
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Apply coordinationCommandEnvironment from authenticated command execution."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Supply coordinationProjectCatalog and coordinationLocalGit."
+          ]
+        }
+      ]
     },
     "native/src/coordination/messages/mod.rs": {
       "segment": "B",
@@ -797,7 +864,26 @@
         "internal/core/coordination_messages_mod.go"
       ],
       "status": "ported",
-      "note": "C supplies coordinationValidateTarget, coordinationVerifiedTarget, coordinationEffectiveRoute and deliverCoordinationBatch. D supplies recipient authorization. E provides named ingress setup for native parity."
+      "remaining": [
+        {
+          "owner": "C",
+          "items": [
+            "Supply coordinationValidateTarget, coordinationVerifiedTarget, coordinationEffectiveRoute and deliverCoordinationBatch."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Supply durable recipient authorization."
+          ]
+        },
+        {
+          "owner": "E",
+          "items": [
+            "Supply named ingress management and authenticated MCP setup for legacy negotiation recovery."
+          ]
+        }
+      ]
     },
     "native/src/coordination/messages/store.rs": {
       "segment": "B",
@@ -808,8 +894,10 @@
     },
     "native/src/coordination/messages/tests.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_messages_tests_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/coordination/mod.rs": {
       "segment": "B",
@@ -817,7 +905,14 @@
         "internal/core/coordination_mod.go"
       ],
       "status": "ported",
-      "note": "D supplies readCoordinationSource, localSourceOrigin, and the durable credential revision. C supplies coordinationNotificationAttention."
+      "remaining": [
+        {
+          "owner": "D",
+          "items": [
+            "Supply readCoordinationSource, localSourceOrigin and durable credential revisions."
+          ]
+        }
+      ]
     },
     "native/src/coordination/observers.rs": {
       "segment": "B",
@@ -825,20 +920,28 @@
         "internal/core/coordination_observers.go"
       ],
       "status": "ported",
-      "note": "A supplies Agent session, Desktop turn decoding, terminal change capture and live turn observations. C passes dispatch checkpoints. S0 supplies a readiness handoff across all startup indexes and owners."
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Supply Agent session identity and live turns, Desktop turn decoding, and terminal change capture. Save Agent owner checkpoints through saveCoordinationOwner."
+          ]
+        },
+        {
+          "owner": "C",
+          "items": [
+            "Save accepted dispatch owner checkpoints through saveCoordinationOwner."
+          ]
+        }
+      ]
     },
     "native/src/coordination/recovery.rs": {
       "segment": "B",
       "go": [
-        "internal/core/coordination_recovery.go"
+        "internal/core/coordination_recovery.go",
+        "internal/core/coordination_recovery_test.go"
       ],
-      "status": "pending",
-      "remaining": [
-        {
-          "owner": "B",
-          "items": ["Port the Rust inline unit cases."]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/coordination/routing.rs": {
       "segment": "B",
@@ -847,12 +950,21 @@
         "internal/core/coordination_routing_test.go"
       ],
       "status": "ported",
-      "note": "C supplies effective notification route verification and fallback ranking."
+      "remaining": [
+        {
+          "owner": "C",
+          "items": [
+            "Supply effective route verification and fallback ranking."
+          ]
+        }
+      ]
     },
     "native/src/coordination/tests.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_tests_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/coordination/turns.rs": {
       "segment": "B",
@@ -888,12 +1000,6 @@
           "owner": "A",
           "items": [
             "Supply task-summary projection, image blocks, and wait outcome compaction."
-          ]
-        },
-        {
-          "owner": "B",
-          "items": [
-            "Supply authenticated coordination activity and refresh task advisory data."
           ]
         }
       ]
@@ -1144,12 +1250,6 @@
           ]
         },
         {
-          "owner": "B",
-          "items": [
-            "Supply task tracking evidence."
-          ]
-        },
-        {
           "owner": "E",
           "items": [
             "Register device-transfer error classification."
@@ -1171,12 +1271,6 @@
           "owner": "A",
           "items": [
             "Register agent and task operation owners."
-          ]
-        },
-        {
-          "owner": "B",
-          "items": [
-            "Register coordination operations and observation."
           ]
         },
         {
@@ -1356,15 +1450,7 @@
         "internal/core/kernel_receipts_test.go",
         "internal/core/kernel_derived_index_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "B",
-          "items": [
-            "Consume index and file cost events in public runtime_metrics."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/kernel/digests.rs": {
       "segment": "S0",
@@ -1439,15 +1525,7 @@
         "internal/core/kernel_receipts_projection.go",
         "internal/core/kernel_receipts_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "B",
-          "items": [
-            "Expose receipt index cost counters."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/kernel/receipts.rs": {
       "segment": "S0",
@@ -1455,15 +1533,7 @@
         "internal/core/kernel_receipts.go",
         "internal/core/kernel_receipts_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "B",
-          "items": [
-            "Connect public receipt and task cost counters."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/kernel/results.rs": {
       "segment": "S0",
@@ -1504,12 +1574,6 @@
           "owner": "A",
           "items": [
             "Register agent event consumers."
-          ]
-        },
-        {
-          "owner": "B",
-          "items": [
-            "Register tracking event consumers and public cost metrics."
           ]
         }
       ]
@@ -1778,12 +1842,6 @@
           ]
         },
         {
-          "owner": "B",
-          "items": [
-            "Start coordination consumers after their indexes are ready."
-          ]
-        },
-        {
           "owner": "E",
           "items": [
             "Supply ingress callback restoration, daemon autostart and remote fault status."
@@ -1798,7 +1856,32 @@
         "internal/core/runtime_metrics_cost_test.go"
       ],
       "status": "ported",
-      "note": "C, A, D, E, F and S0 instrument their respective owner scopes with the shared context API. C owns notification index initialization and observation; A owns the tasks index reader used by the startup benchmark."
+      "remaining": [
+        {
+          "owner": "C",
+          "items": [
+            "Register the notifications/tasks startup index and attribute owner scans, observation and delivery to their cost scopes."
+          ]
+        },
+        {
+          "owner": "A",
+          "items": [
+            "Attribute native task and Agent read paths to their owner scopes."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Attribute account and subscription reads to their owner scopes."
+          ]
+        },
+        {
+          "owner": "F",
+          "items": [
+            "Attribute the Desktop timeline and frame paths to their owner scopes."
+          ]
+        }
+      ]
     },
     "native/src/runtime_metrics.rs": {
       "segment": "B",
@@ -1810,7 +1893,32 @@
         "internal/core/runtime_metrics_other.go"
       ],
       "status": "ported",
-      "note": "C records notification observer passes, delivery work and binding diagnostics. D records accounts work. F supplies desktop work and IPC diagnostics. A supplies activity work."
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Record task activity work."
+          ]
+        },
+        {
+          "owner": "C",
+          "items": [
+            "Record notification observer passes and delivery work and supply notification binding diagnostics."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Record account work."
+          ]
+        },
+        {
+          "owner": "F",
+          "items": [
+            "Supply Desktop IPC diagnostics and frame timings."
+          ]
+        }
+      ]
     },
     "native/src/screen.rs": {
       "segment": "A",
@@ -2061,23 +2169,55 @@
     },
     "native/src/task_tracking/antigravity.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/task_tracking_antigravity.go",
+        "internal/core/task_tracking_antigravity_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/task_tracking/transcript_input.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/task_tracking_transcript_input.go",
+        "internal/core/task_tracking_transcript_input_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/task_tracking/transcripts.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/task_tracking_transcripts.go",
+        "internal/core/task_tracking_transcripts_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/task_tracking.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/task_tracking.go",
+        "internal/core/task_tracking_test.go"
+      ],
+      "status": "ported",
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Supply resolveTrackedConversation and readTaskTrackingAnswers using native session, turn and transcript owners. Consume task tracking projections in native task routes including /api/tasks."
+          ]
+        },
+        {
+          "owner": "C",
+          "items": [
+            "Supply taskTrackingDispatchRecords."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Supply taskTrackingDecorateSource for retained dispatch origins."
+          ]
+        }
+      ]
     },
     "native/src/text_files/binary.rs": {
       "segment": "A",
@@ -2148,15 +2288,7 @@
         "internal/core/transport.go",
         "internal/core/output.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "B",
-          "items": [
-            "Consume wait-heartbeat accounting with the runtime metrics owner."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/waiter.rs": {
       "segment": "A",

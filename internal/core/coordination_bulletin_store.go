@@ -160,6 +160,10 @@ type bulletinStore struct {
 	savedAt                      int64
 	maintainedAt, maintenanceDue int64
 	revoked                      []string
+	liveNotices, liveBlockers    []*bulletinRecord
+	noticeClaims, blockerClaims  map[string][]*bulletinRecord
+	dispatchNotices              map[string]bool
+	retentionAt                  int64
 }
 
 func openBulletinStore(path string) (*bulletinStore, error) {
@@ -212,6 +216,7 @@ func openBulletinStore(path string) (*bulletinStore, error) {
 		}
 	}
 	store.restarted = true
+	store.reindex()
 	return store, nil
 }
 
@@ -225,8 +230,56 @@ func (store *bulletinStore) save(clock bulletinClock) error {
 	}
 	store.dirty = false
 	store.savedAt = clock.elapsed
-	store.maintainedAt = 0
+	store.reindex()
 	return nil
+}
+
+func (store *bulletinStore) reindex() {
+	store.liveNotices, store.liveBlockers = store.liveNotices[:0], store.liveBlockers[:0]
+	store.noticeClaims, store.blockerClaims = map[string][]*bulletinRecord{}, map[string][]*bulletinRecord{}
+	store.dispatchNotices = map[string]bool{}
+	store.retentionAt, store.maintainedAt = 0, 0
+	protected := map[string]bool{}
+	for _, event := range store.state.Pending {
+		for _, ref := range event.EvidenceRefs {
+			protected[ref.ID] = true
+		}
+	}
+	for i, rows := range [][]*bulletinRecord{store.state.Notices, store.state.Blockers} {
+		live, claims := &store.liveNotices, store.noticeClaims
+		if i == 1 {
+			live, claims = &store.liveBlockers, store.blockerClaims
+		}
+		for _, row := range rows {
+			if row.DispatchID != nil {
+				store.dispatchNotices[*row.DispatchID] = true
+			}
+			if row.live() {
+				*live = append(*live, row)
+				for _, key := range row.Resources {
+					claims[key] = append(claims[key], row)
+				}
+			}
+			if row.EndedAt != nil && !protected[row.ID] {
+				at := *row.EndedAt + bulletinRetentionMS
+				if store.retentionAt == 0 || at < store.retentionAt {
+					store.retentionAt = at
+				}
+			}
+		}
+	}
+}
+
+func (store *bulletinStore) linkedThreads(cost *runtimeCost) []string {
+	threads := []string{}
+	cost.scanSet.Store(uint64(len(store.liveNotices)))
+	for _, notice := range store.liveNotices {
+		cost.rows.Add(1)
+		for _, link := range notice.ThreadLinks {
+			threads = append(threads, link.ThreadID)
+		}
+	}
+	return axSet(threads)
 }
 
 func (store *bulletinStore) event(row *bulletinRecord, blocker bool) error {
@@ -302,29 +355,62 @@ func (store *bulletinStore) prune(clock bulletinClock) {
 	}
 }
 
+func (store *bulletinStore) cleanupDispatchAdmissions(clock bulletinClock, admission func(thread, request string) (bool, error), cost *runtimeCost) error {
+	if store.state.DispatchAdmissionCleanupComplete || admission == nil {
+		return nil
+	}
+	remove, changed := map[string]bool{}, map[string]bool{}
+	for _, row := range store.state.Notices {
+		if row.DispatchID == nil {
+			continue
+		}
+		cost.rows.Add(1)
+		if len(row.ThreadLinks) > 0 {
+			present, err := admission(row.ThreadLinks[0].ThreadID, *row.DispatchID)
+			if err != nil {
+				coordinationGap("dispatch-notice-cleanup", "owner-unavailable")
+			} else if !present {
+				remove[row.ID], changed[row.ID] = true, true
+				continue
+			}
+		}
+		if row.Association != nil && !slices.Equal(row.Resources, row.Association.Resources) {
+			row.Resources = row.Association.Resources
+			row.Revision++
+			changed[row.ID] = true
+		}
+	}
+	store.state.Notices = slices.DeleteFunc(store.state.Notices, func(row *bulletinRecord) bool { return remove[row.ID] })
+	store.state.Pending = slices.DeleteFunc(store.state.Pending, func(event coordinationEventInput) bool {
+		return slices.ContainsFunc(event.EvidenceRefs, func(e coordinationEvidenceRef) bool { return e.Kind == "notice" && changed[e.ID] })
+	})
+	for _, row := range store.state.Notices {
+		if changed[row.ID] {
+			if err := store.event(row, false); err != nil {
+				return err
+			}
+		}
+	}
+	store.state.DispatchAdmissionCleanupComplete = true
+	store.state.Revision++
+	return store.save(clock)
+}
+
 func (store *bulletinStore) maintain(clock bulletinClock, revoked []string, cost *runtimeCost) error {
 	if clock.certain && store.maintainedAt != 0 && clock.elapsed >= store.maintainedAt && (store.maintenanceDue == 0 || clock.elapsed < store.maintenanceDue) && slices.Equal(revoked, store.revoked) {
 		return store.flush(clock)
 	}
-	changed := false
+	changed := clock.certain && store.retentionAt != 0 && clock.elapsed >= store.retentionAt
 	due := int64(0)
 	schedule := func(at int64) {
 		if at > clock.elapsed && (due == 0 || at < due) {
 			due = at
 		}
 	}
-	for index, rows := range [][]*bulletinRecord{store.state.Notices, store.state.Blockers} {
+	schedule(store.retentionAt)
+	for index, rows := range [][]*bulletinRecord{store.liveNotices, store.liveBlockers} {
 		blocker := index == 1
 		for _, row := range rows {
-			if !row.live() {
-				if row.EndedAt != nil {
-					schedule(*row.EndedAt + bulletinRetentionMS)
-					if clock.certain && clock.elapsed-*row.EndedAt >= bulletinRetentionMS {
-						changed = true
-					}
-				}
-				continue
-			}
 			cost.rows.Add(1)
 			isRevoked := row.Owner.Type == "source" && slices.Contains(revoked, row.Owner.SourceID)
 			age := clock.age(row.LastActiveAt)
@@ -369,10 +455,14 @@ func (store *bulletinStore) maintain(clock bulletinClock, revoked []string, cost
 		if err := store.save(clock); err != nil {
 			return err
 		}
+		schedule(store.retentionAt)
 	} else if err := store.flush(clock); err != nil {
 		return err
 	}
-	store.maintainedAt, store.maintenanceDue, store.revoked = clock.elapsed, due, slices.Clone(revoked)
+	store.maintainedAt, store.maintenanceDue, store.revoked = 0, due, slices.Clone(revoked)
+	if clock.certain {
+		store.maintainedAt = clock.elapsed
+	}
 	return nil
 }
 
@@ -389,7 +479,7 @@ func (store *bulletinStore) conflicts(resources []string, exclude, source string
 		if resource == "unattributed:dispatch" {
 			continue
 		}
-		for index, rows := range [][]*bulletinRecord{store.state.Notices, store.state.Blockers} {
+		for index, rows := range [][]*bulletinRecord{store.noticeClaims[resource], store.blockerClaims[resource]} {
 			kind := "notice"
 			if index == 1 {
 				kind = "blocker"
@@ -398,8 +488,7 @@ func (store *bulletinStore) conflicts(resources []string, exclude, source string
 				if len(result) == 100 {
 					return result
 				}
-				if row.ID == exclude || source != "" && row.Owner.SourceID == source || index == 0 && row.State != "active" ||
-					index == 1 && !row.live() || !slices.Contains(row.Resources, resource) {
+				if row.ID == exclude || source != "" && row.Owner.SourceID == source {
 					continue
 				}
 				result = append(result, object{"id": row.ID, kind + "Id": row.ID, "kind": kind, "resource": resource, "state": row.State,
