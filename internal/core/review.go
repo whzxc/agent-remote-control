@@ -243,3 +243,19 @@ func readCodexTurnPage(ctx context.Context, s *service, args object) (object, er
 		cursor = next
 	}
 }
+
+func enrichNativeReviewProgress(ctx context.Context, thread string, progress object) {
+	wait, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	evidence := nativeGitProgress(wait, thread, text(progress, "turnId"))
+	if errors.Is(wait.Err(), context.DeadlineExceeded) {
+		progress["gitUnavailable"] = "git-progress-timeout"
+		return
+	}
+	for _, key := range []string{"commits", "elapsedMs", "baseline"} {
+		progress[key] = evidence[key]
+	}
+	if reason := evidence["unavailable"]; reason != nil {
+		progress["gitUnavailable"] = reason
+	}
+}

@@ -43,6 +43,22 @@ func browserAccess(ctx context.Context, s *service, rotate bool) (object, error)
 		}
 	}
 	ingresses, err := s.ingressStatuses(ctx)
+	if errors.Is(err, fs.ErrNotExist) {
+		// There is no front-door owner yet. Configured URLs can still be linked.
+		entries, readErr := cachedEntries(filepath.Join(root(), "ingresses"))
+		if readErr != nil {
+			return nil, readErr
+		}
+		ingresses, err = []object{}, nil
+		for _, entry := range entries {
+			if !entry.kind.IsDir() {
+				continue
+			}
+			if config, readErr := cachedLoad(filepath.Join(entry.path, "config.json")); readErr == nil && obj(config) != nil {
+				ingresses = append(ingresses, obj(config))
+			}
+		}
+	}
 	if err != nil {
 		return nil, err
 	}

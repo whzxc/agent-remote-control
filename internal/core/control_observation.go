@@ -410,7 +410,7 @@ func nativeCodexWait(ctx context.Context, r operationRequest) (any, error) {
 	nativeWaitCondition(result, r.args)
 	if wantsTaskSummary(r.name, r.args) {
 		if turn := find(nativeTurns, "id", text(result, "turnId")); turn != nil {
-			if err := addCodexTaskSummaryEvidence(result, turn); err != nil {
+			if err := addCodexTaskSummaryEvidence(ctx, thread, result, turn); err != nil {
 				return nil, err
 			}
 		}

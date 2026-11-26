@@ -431,6 +431,7 @@ func nativeAgentPrompt(ctx context.Context, r operationRequest, process *nativeA
 	if !agentTurnTerminal(task) {
 		return nil, errors.New("SUBMISSION_UNCONFIRMED: Agent exited without a native turn outcome")
 	}
+	captureTerminalNativeChanges(ctx, taskID, turn)
 	if err := recordAgentDispatchObservation(ctx, task, "accepted"); err != nil {
 		recordLog("WARN", "Agent dispatch: "+err.Error(), nil)
 	}

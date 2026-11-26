@@ -63,6 +63,11 @@ func waitNativeAgentOperation(ctx context.Context, r operationRequest) (any, err
 	result["agent"], result["taskId"] = agent, taskID
 	delete(result, "threadId")
 	nativeWaitCondition(result, r.args)
+	if wantsTaskSummary(r.name, r.args) {
+		if err := addAgentTaskSummaryEvidence(result); err != nil {
+			return nil, err
+		}
+	}
 	return result, nil
 }
 

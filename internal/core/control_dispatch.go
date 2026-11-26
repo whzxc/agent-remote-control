@@ -211,6 +211,11 @@ func createBackgroundCodex(ctx context.Context, r operationRequest, row object) 
 	}
 	if !background {
 		defer rpc.close()
+		if operatingSystem == "darwin" {
+			if err := applyNativeDesktopPermissions(ctx, rpc, args, seed); err != nil {
+				return nil, err
+			}
+		}
 	}
 	if err := codexMutationCheckpoint(ctx, row, "thread-submitting"); err != nil {
 		return nil, err

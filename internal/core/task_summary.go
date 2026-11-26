@@ -1,6 +1,8 @@
 package core
 
 import (
+	"context"
+	"errors"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -84,7 +86,7 @@ func summarizeTaskResult(name string, args, value object) object {
 	return summary
 }
 
-func addCodexTaskSummaryEvidence(value object, turn any) error {
+func addCodexTaskSummaryEvidence(ctx context.Context, thread string, value object, turn any) error {
 	items := arr(field(turn, "items"))
 	value["files"] = nativeReviewFiles(items)
 	state, _ := parseTurnWaitState(text(value, "state"))
@@ -99,6 +101,58 @@ func addCodexTaskSummaryEvidence(value object, turn any) error {
 			break
 		}
 	}
+	turnID := text(turn, "id")
+	baseline, _ := load(nativeChangeBaselinePath(thread, turnID))
+	git := nativeChangeEvidence(ctx, thread, turnID, text(baseline, "cwd"), isNativeTerminal(turn))
+	if git["fallback"] == false {
+		files := []object{}
+		for _, file := range arr(git["files"]) {
+			files = append(files, selectFields(obj(file), "path", "added", "removed"))
+		}
+		value["files"], value["changeEvidence"], value["attribution"] = files, git["changeEvidence"], git["attribution"]
+	} else if decodedTaskList(value["files"]) == nil {
+		value["changeEvidence"], value["changeCorrection"] = "unavailable: "+text(git, "reason"), git["next"]
+	}
+	return addTaskSummaryContinuation(value)
+}
+
+func addAgentTaskSummaryEvidence(value object) error {
+	if value["state"] == nil {
+		if status, known := value["status"].(string); known {
+			value["state"], value["recordedStatus"] = status, status
+		}
+	}
+	if tail, hasOutput := value["finalResponse"].(string); value["outputTruncated"] == true && hasOutput {
+		turn := value["turnId"]
+		var output strings.Builder
+		var selected, found bool
+		err := visitEventArchive(text(value, "taskId"), func(row any) error {
+			method, params := field(row, "method"), field(row, "params")
+			if method == "arc/user" {
+				selected = field(params, "turnId") == turn
+				found = found || selected
+			}
+			if selected && method == "session/update" {
+				update := field(field(params, "params"), "update")
+				part := field(update, "content")
+				if field(update, "sessionUpdate") == "agent_message_chunk" && field(part, "type") == "text" {
+					output.WriteString(text(part, "text"))
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		if !found || !strings.HasSuffix(output.String(), tail) {
+			return errors.New("FINAL_RESPONSE_UNAVAILABLE: The selected turn's complete message could not be recovered from its event archive")
+		}
+		value["finalResponse"] = output.String()
+	}
+	return addTaskSummaryContinuation(value)
+}
+
+func addTaskSummaryContinuation(value object) error {
 	if response := waitResponseText(value); utf8.RuneCountInString(response) > 800 {
 		next, err := textContinuation(response)
 		if err != nil {

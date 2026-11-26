@@ -47,9 +47,6 @@ func readCodexControl(ctx context.Context, r operationRequest) (any, error) {
 	}
 
 	statusOnly, summary, full, review := args["statusOnly"] == true, args["view"] == "summary", args["view"] == "full", args["view"] == "review"
-	if args["includeImages"] == true {
-		return nil, errors.New(PortPending)
-	}
 	params := maps.Clone(args)
 	if full && params["limit"] == nil {
 		params["limit"] = 2
@@ -88,7 +85,7 @@ func readCodexControl(ctx context.Context, r operationRequest) (any, error) {
 	if statusOnly || summary {
 		if summary {
 			if turn := find(raw, "id", text(status, "turnId")); turn != nil {
-				if err := addCodexTaskSummaryEvidence(status, turn); err != nil {
+				if err := addCodexTaskSummaryEvidence(ctx, id, status, turn); err != nil {
 					return nil, err
 				}
 			}
@@ -97,13 +94,16 @@ func readCodexControl(ctx context.Context, r operationRequest) (any, error) {
 			}
 		} else if args["turnId"] == nil {
 			status["turns"], status["stateScope"] = nil, "turn"
+			if progress := obj(status["progress"]); progress != nil {
+				enrichNativeReviewProgress(ctx, id, progress)
+			}
 		}
 		return project(status), nil
 	}
 	if review {
 		rows := make([]any, 0, len(raw))
 		for _, turn := range raw {
-			rows = append(rows, nativeControlReviewTurn(id, turn))
+			rows = append(rows, nativeControlReviewTurn(ctx, id, turn))
 		}
 		return project(object{"threadId": id, "turns": rows, "nextCursor": page["nextCursor"]}), nil
 	}
@@ -147,6 +147,17 @@ func readCodexControl(ctx context.Context, r operationRequest) (any, error) {
 		rows = append(rows, row)
 	}
 	result["turns"] = rows
+	if args["includeImages"] == true {
+		var items []any
+		for _, turn := range raw {
+			turnItems := arr(field(turn, "items"))
+			tail := turnItems[max(0, len(turnItems)-15):]
+			for _, item := range slices.Backward(tail) {
+				items = append(items, item)
+			}
+		}
+		attachNativeImages(result, nativeImagesFromItems(items, id, text(thread, "cwd"), args))
+	}
 	if full {
 		reviews, err := dispatchReviews(id)
 		if err != nil {
@@ -168,7 +179,7 @@ func readNativeTurnDispatchField(thread, turn, key string) any {
 	return nil
 }
 
-func nativeControlReviewTurn(thread string, turn any) object {
+func nativeControlReviewTurn(ctx context.Context, thread string, turn any) object {
 	items := arr(field(turn, "items"))
 	checks := []any{}
 	for _, item := range items {
@@ -186,7 +197,13 @@ func nativeControlReviewTurn(thread string, turn any) object {
 		}
 	}
 	id := text(turn, "id")
-	out := object{"turnId": id, "recordedStatus": field(turn, "status"), "finalResponse": message, "checks": checks, "files": nativeReviewFiles(items)}
+	out := object{"turnId": id, "recordedStatus": field(turn, "status"), "finalResponse": message, "checks": checks}
+	evidence := reviewNativeChangeEvidence(ctx, thread, turn)
+	for _, key := range []string{"files", "changeEvidence", "attribution", "reason", "next"} {
+		if value, found := evidence[key]; found {
+			out[key] = value
+		}
+	}
 	for _, key := range []string{"usage", "pack"} {
 		if value := dispatchTurnFact(thread, id, key); value != nil {
 			out[key] = value
@@ -251,9 +268,6 @@ func readCodexItems(ctx context.Context, r operationRequest) (any, error) {
 	}
 	if full && arr(args["knownItemKeys"]) != nil {
 		return nil, dispatchObjectError(invalidArguments("codex_items", "/knownItemKeys", "Use compact view to omit known compact items; full view retains all metadata."))
-	}
-	if args["includeImages"] == true {
-		return nil, errors.New(PortPending)
 	}
 	params := maps.Clone(args)
 	params["sortDirection"] = "asc"
@@ -328,6 +342,9 @@ func readCodexItems(ctx context.Context, r operationRequest) (any, error) {
 	}
 	if truncated {
 		result["readMore"] = "Repeat this page with view:full for textHash/offset/nextOffset pagination."
+	}
+	if err := attachCodexItemImages(ctx, r, result, page, latest); err != nil {
+		return nil, err
 	}
 	return result, nil
 }

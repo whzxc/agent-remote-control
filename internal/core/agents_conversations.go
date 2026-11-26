@@ -69,12 +69,8 @@ func readNativeAgentOperation(ctx context.Context, r operationRequest) (any, err
 	}
 	out["dispatches"] = records
 	if wantsTaskSummary(r.name, r.args) {
-		if output := waitResponseText(out); len([]rune(output)) > 800 {
-			next, err := textContinuation(output)
-			if err != nil {
-				return nil, err
-			}
-			out["finalResponseNext"] = next
+		if err := addAgentTaskSummaryEvidence(out); err != nil {
+			return nil, err
 		}
 	}
 	return out, nil

@@ -141,7 +141,10 @@
     "native/src/agents/driver.rs": {
       "segment": "A",
       "go": [
-        "internal/core/agents_driver.go"
+        "internal/core/agents_driver.go",
+        "internal/core/agents_navigation.go",
+        "internal/core/agents_navigation_windows.go",
+        "internal/core/agents_navigation_other.go"
       ],
       "status": "pending"
     },
@@ -182,7 +185,9 @@
     },
     "native/src/agents/resources.rs": {
       "segment": "A",
-      "go": [],
+      "go": [
+        "internal/core/agents_resources.go"
+      ],
       "status": "pending"
     },
     "native/src/agents/wait.rs": {
@@ -220,9 +225,10 @@
     "native/src/changes.rs": {
       "segment": "A",
       "go": [
-        "internal/core/changes.go"
+        "internal/core/changes.go",
+        "internal/core/changes_test.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/claude_accounts/browsers.rs": {
       "segment": "D",
@@ -792,15 +798,7 @@
         "internal/core/egress_test.go",
         "internal/core/core_requests_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Supply task-summary projection, image blocks, and wait outcome compaction."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/desktop/daemon.rs": {
       "segment": "A",
@@ -829,8 +827,11 @@
     },
     "native/src/desktop/settings.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/desktop_settings.go",
+        "internal/core/desktop_settings_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/desktop/windows.rs": {
       "segment": "A",
@@ -1274,7 +1275,10 @@
     },
     "native/src/images.rs": {
       "segment": "A",
-      "go": [],
+      "go": [
+        "internal/core/images.go",
+        "internal/core/images_test.go"
+      ],
       "status": "pending"
     },
     "native/src/ingress/config.rs": {
@@ -1672,9 +1676,10 @@
     "native/src/review.rs": {
       "segment": "A",
       "go": [
-        "internal/core/review.go"
+        "internal/core/review.go",
+        "internal/core/control_read.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/rpc.rs": {
       "segment": "S0",
@@ -1769,8 +1774,10 @@
     },
     "native/src/screen.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/screen.go"
+      ],
+      "status": "ported"
     },
     "native/src/service.rs": {
       "segment": "S0",
@@ -1790,12 +1797,6 @@
       ],
       "status": "ported",
       "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Supply native login, setupTaskRecords, setupObserveCodex, setupCreateCodex and setupCodexNavigation."
-          ]
-        },
         {
           "owner": "C",
           "items": [
@@ -1992,7 +1993,7 @@
       "go": [
         "internal/core/task_summary.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/task_tracking/antigravity.rs": {
       "segment": "B",

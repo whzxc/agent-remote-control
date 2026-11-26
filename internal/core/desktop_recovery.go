@@ -36,7 +36,11 @@ func openNativeDesktopURL(ctx context.Context, url string) error {
 		}
 		app = parent
 	}
-	return exec.CommandContext(ctx, "/usr/bin/open", "-a", app, url).Run()
+	args := []string{"-a", app}
+	if url != "" {
+		args = append(args, url)
+	}
+	return exec.CommandContext(ctx, "/usr/bin/open", args...).Run()
 }
 
 func revealNativeDesktopThread(ctx context.Context, d *nativeDesktopIPC, thread string) error {
