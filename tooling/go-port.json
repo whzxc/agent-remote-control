@@ -245,7 +245,7 @@
         "internal/core/browser.go",
         "internal/core/browser_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/changes.rs": {
       "segment": "A",
@@ -1150,7 +1150,7 @@
         "internal/core/front_door_test.go",
         "internal/core/front_door_process_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/headless.rs": {
       "segment": "S0",
@@ -1226,7 +1226,7 @@
         "internal/core/ingress_openai_tunnel.go",
         "internal/core/ingress_openai_tunnel_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/ingress_observation.rs": {
       "segment": "E",
@@ -2104,7 +2104,7 @@
         "internal/core/fixture.go",
         "internal/core/kernel_derived_index_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     }
   },
   "nativeTests": {
