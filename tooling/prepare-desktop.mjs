@@ -1,14 +1,26 @@
 import { build } from 'vite';
-import { rm, mkdir } from 'node:fs/promises';
+import { copyFile, mkdir } from 'node:fs/promises';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { syncDirectory } from './build-cache.mjs';
-import { stageTimer } from './release-support.mjs';
-const timed = (name, operation) => process.env.ARC_RELEASE_TIMINGS_FILE ? stageTimer().run(name, operation) : operation();
-// Node is a build tool only. The installed application contains Rust + static UI.
-await rm(new URL('../desktop/runtime/', import.meta.url), { recursive: true, force: true });
-await timed('frontend build', async () => {
-  const staging = fileURLToPath(new URL('../target/frontend-stage', import.meta.url));
-  await build({ configFile: fileURLToPath(new URL('../vite.config.ts', import.meta.url)), build: { outDir: staging } });
-  await syncDirectory(staging, fileURLToPath(new URL('../dist/ui', import.meta.url)));
-});
-await mkdir(new URL('../dist/native/', import.meta.url), { recursive: true });
+
+const root = fileURLToPath(new URL('../', import.meta.url));
+
+export async function stageBrowserBundle() {
+  const source = path.join(root, 'dist/ui');
+  const destination = path.join(root, 'internal/core/browser_dist');
+  await mkdir(destination, { recursive: true });
+  await copyFile(path.join(source, 'browser.html'), path.join(destination, 'browser.html'));
+  await syncDirectory(path.join(source, 'assets'), path.join(destination, 'assets'));
+}
+
+export async function prepareDesktop() {
+  // Build to a sibling directory before staging, so a failed frontend build
+  // leaves the last usable resources available.
+  const staging = path.join(root, 'dist/frontend-stage');
+  await build({ configFile: path.join(root, 'vite.config.ts'), build: { outDir: staging } });
+  await syncDirectory(staging, path.join(root, 'dist/ui'));
+  await stageBrowserBundle();
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) await prepareDesktop();

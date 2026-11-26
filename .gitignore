@@ -38,3 +38,6 @@ output/
 
 # Local installation recovery artifacts
 /.local/install-backups/
+
+# Generated Go embed inputs
+/internal/core/browser_dist/

@@ -2306,12 +2306,10 @@
       }
     },
     "tests/browser-native.test.ts": {
-      "result": "blocked",
+      "result": "passed",
       "cases": {
         "browser ingress requires an independent key, exposes reads only, and revokes sessions on rotation": {
-          "result": "blocked",
-          "owner": "G",
-          "reason": "The Go binary has no authenticated browser bundle bound to GET /.",
+          "result": "passed",
           "rust": [
             "native/src/browser.rs",
             "native/src/front_door_tests.rs",

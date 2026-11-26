@@ -9,21 +9,25 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+function buildTestBinary(output: string, entry: string, tags: string[] = []) {
+  execFileSync('go', ['build', ...tags, '-o', output, entry], {
+    cwd: fileURLToPath(new URL('../../', import.meta.url)),
+    env: { ...process.env, CGO_ENABLED: '0' }, stdio: 'inherit',
+  });
+}
+
 export function prepareFixtureBinary(target: string) {
   if (process.env.ARC_TEST_FIXTURE_BINARY) return process.env.ARC_TEST_FIXTURE_BINARY;
-  execFileSync('cargo', ['build', '--locked', '--quiet', '-p', 'contract-fixture', '--target-dir', target], {
-    cwd: fileURLToPath(new URL('../../', import.meta.url)), stdio: 'inherit',
-  });
-  return path.join(target, 'debug', process.platform === 'win32' ? 'contract-fixture.exe' : 'contract-fixture');
+  const destination = path.join(target, process.platform === 'win32' ? 'contract-fixture.exe' : 'contract-fixture');
+  buildTestBinary(destination, './cmd/contract-fixture', ['-tags', 'arcfixture']);
+  return destination;
 }
 
 export async function prepareCoreBinary(target: string) {
   const executable = `arc${process.platform === 'win32' ? '.exe' : ''}`;
-  const source = process.env.ARC_TEST_BINARY || path.join(target, 'debug', executable);
+  const source = process.env.ARC_TEST_BINARY || path.join(target, executable);
   if (!process.env.ARC_TEST_BINARY) {
-    execFileSync('cargo', ['build', '--locked', '--quiet', '-p', 'arc-core', '--bin', 'arc', '--target-dir', target], {
-      cwd: fileURLToPath(new URL('../../', import.meta.url)), stdio: 'inherit',
-    });
+    buildTestBinary(source, './cmd/arc');
   }
   const binDirectory = path.join(target, 'debug', 'bin');
   const destination = path.join(binDirectory, executable);
@@ -61,7 +65,7 @@ export async function nativeControl(script: string, extraEnv: Record<string, str
   }
   const fixture = path.join(directory, 'server.mjs');
   await writeFile(fixture, script);
-  const target = process.env.CARGO_TARGET_DIR || path.resolve('target');
+  const target = process.env.ARC_TEST_TARGET_DIR || path.resolve('dist/native-tests');
   const executable = prepareFixtureBinary(target);
   await prepareCoreBinary(target);
   const launch = async () => {

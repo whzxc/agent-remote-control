@@ -42,49 +42,34 @@ export function runTestCommand(file, args, { env = testEnvironment(), timeoutMs 
 
 async function main() {
   const args = process.argv.slice(2);
-  if (args.length && (args.length !== 1 || args[0] !== '--extended')) throw new Error('Usage: npm test | npm run test:extended');
+  const selected = args[0] === '--native' ? args.slice(1) : [];
+  if (args.length && !(args.length === 1 && args[0] === '--extended') && !(selected.length && selected.every(file => /^tests\/[\w-]+\.test\.ts$/.test(file)))) {
+    throw new Error('Usage: npm test | npm run test:extended | node tooling/test.mjs --native tests/<name>.test.ts');
+  }
   const extended = args[0] === '--extended';
-  const go = process.env.ARC_IMPL === 'go';
-  if (extended && !go) (await import('./heavy-build.mjs')).enterHeavyBuild();
+  const native = extended || selected.length > 0;
+  if (native) (await import('./heavy-build.mjs')).enterHeavyBuild();
   const started = performance.now();
   // Leave one second for npm startup and process teardown.
-  const deadline = extended ? undefined : started + 29_000;
+  const deadline = native ? undefined : started + 29_000;
   const env = testEnvironment();
   const run = (file, argv) => runTestCommand(file, argv, { env, timeoutMs: deadline === undefined ? undefined : deadline - performance.now() });
   await run(process.execPath, ['tooling/check-tests.mjs']);
   await run(process.execPath, ['tooling/check-ui-styles.mjs']);
   if (extended) await testGo(run);
-  if (extended && go) {
-    env.CARGO_TARGET_DIR = path.resolve(env.CARGO_TARGET_DIR || 'target', 'go-parity');
-    Object.assign(env, await buildGoTestBinaries((file, argv) => runTestCommand(file, argv, { env: { ...env, CGO_ENABLED: '0' } }), env));
-    const results = [];
-    for (const args of [
-      ['--test', startupBenchmark],
-      ['--test', '--test-concurrency=4', ...(await testFiles(true)).filter(file => file !== startupBenchmark)],
-    ]) {
-      try { await run(process.execPath, args); }
-      catch (error) { results.push(error.message); }
-    }
-    if (results.length) throw new Error(results.join('\n'));
-  } else if (extended) {
-    try {
-      await run('cargo', ['test', '--locked', '--manifest-path', 'native/Cargo.toml', '--lib']);
-      if (process.platform === 'darwin') await run('cargo', ['test', '--locked', '-p', 'agent-remote-control', '--bin', 'agent-remote-control-desktop', 'src_conversations']);
-      await run('cargo', ['build', '--locked', '-p', 'arc-core', '--bin', 'arc']);
-      await run('cargo', ['build', '--locked', '-p', 'contract-fixture']);
-      const debug = path.resolve(env.CARGO_TARGET_DIR || 'target', 'debug');
-      const suffix = process.platform === 'win32' ? '.exe' : '';
-      env.ARC_TEST_BINARY = path.join(debug, 'arc' + suffix);
-      env.ARC_TEST_FIXTURE_BINARY = path.join(debug, 'contract-fixture' + suffix);
-      // Measure startup and request latency without other process fixtures competing for CPU.
-      const files = await testFiles(true);
-      await run(process.execPath, ['--test', startupBenchmark]);
-      await run(process.execPath, ['--test', '--test-concurrency=4', ...files.filter(file => file !== startupBenchmark)]);
-    } finally { await run(process.execPath, ['tooling/prune-build-cache.mjs', '--keep=target/debug']); }
+  if (native) {
+    env.CGO_ENABLED = '0';
+    env.ARC_TEST_TARGET_DIR = path.resolve('dist/native-tests');
+    Object.assign(env, await buildGoTestBinaries(run, env));
+    const files = extended ? await testFiles(true) : selected;
+    // Run the startup benchmark without other process fixtures competing for CPU.
+    if (files.includes(startupBenchmark)) await run(process.execPath, ['--test', startupBenchmark]);
+    const others = files.filter(file => file !== startupBenchmark);
+    if (others.length) await run(process.execPath, ['--test', '--test-concurrency=4', ...others]);
   } else {
     await run(process.execPath, ['--test', '--test-concurrency=4', ...await testFiles()]);
   }
-  console.log(`${extended ? 'Extended' : 'Daily'} tests passed in ${((performance.now() - started) / 1000).toFixed(2)}s${extended ? '' : ' (30s budget)'}.`);
+  console.log(`${native ? 'Native' : 'Daily'} tests passed in ${((performance.now() - started) / 1000).toFixed(2)}s${native ? '' : ' (30s budget)'}.`);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

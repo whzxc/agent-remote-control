@@ -1,61 +1,50 @@
 import { execFileSync } from 'node:child_process';
-import { mkdir, copyFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { developmentConfig } from './dev-identity.mjs';
-import { buildEnv } from './build-env.mjs';
-import { macosSigningIdentity, macosSigningArgs } from './macos-signing.mjs';
+import { buildEnv, coreFlags, goTarget } from './build-env.mjs';
+import { macosSigningArgs } from './macos-signing.mjs';
+import { prepareDesktop } from './prepare-desktop.mjs';
 
-export async function buildNative({ release = false, target, bundled = release, developmentDesktop = false, stageOnly = false } = {}) {
-  const root = fileURLToPath(new URL('../', import.meta.url));
-  if (release && !target) target = process.platform === 'darwin' ? 'aarch64-apple-darwin' : process.platform === 'win32' ? 'x86_64-pc-windows-msvc' : undefined;
-  const args = ['build', '--locked', '--manifest-path', 'desktop/Cargo.toml', ...(developmentDesktop ? ['--bins'] : ['--bin', 'arc']), '--features', bundled ? 'core-bin,tauri/custom-protocol' : 'core-bin'];
-  if (release) args.push('--release');
-  if (target) args.push('--target', target);
-  const env = buildEnv(release);
-  // Packaging identity is independent of the Rust optimization profile.
-  const identity = macosSigningIdentity(env, { release: release || bundled });
-  // The Core is itself a desktop resource, so its build must not copy resources
-  // that have not been produced yet (notably on a clean Actions checkout).
-  const config = developmentDesktop ? developmentConfig(env) : {};
-  env.TAURI_CONFIG = JSON.stringify({ ...config, version: env.ARC_BUILD_VERSION, bundle: { ...config.bundle, resources: [] } });
-  execFileSync(process.execPath, [path.join(root, 'tooling/prune-build-cache.mjs'), `--keep=target/${target || (release ? 'release' : 'debug')}`], { cwd: root, stdio: 'inherit' });
-  try { if (!stageOnly) execFileSync('cargo', args, { cwd: root, env, stdio: 'inherit' }); }
-  finally {
-    execFileSync(process.execPath, [path.join(root, 'tooling/prune-build-cache.mjs'), `--keep=target/${target || (release ? 'release' : 'debug')}`], { cwd: root, stdio: 'inherit' });
+const root = fileURLToPath(new URL('../', import.meta.url));
+
+export async function buildNative({
+  release = false, target, directory = path.join(root, 'dist/native'), bundled = true,
+  pack = false, identity = '-', identifier = 'com.whzxc.agent-remote-control',
+} = {}) {
+  const platform = goTarget(target);
+  const env = { ...buildEnv(), GOOS: platform.os, GOARCH: platform.arch };
+  const run = (command, args) => execFileSync(command, args, { cwd: root, env, stdio: 'inherit' });
+  await mkdir(directory, { recursive: true });
+  const binary = path.join(directory, 'arc' + platform.suffix);
+  run('go', ['build', ...coreFlags(env.ARC_BUILD_VERSION, release), ...(bundled ? ['-tags', 'arcbrowser'] : []), '-o', binary, './cmd/arc']);
+  const helper = path.join(directory, 'arc-screen');
+  await rm(helper, { force: true });
+  if (pack && platform.os === 'darwin') {
+    if (process.platform !== 'darwin') throw new Error('The macOS screen helper must be built on macOS.');
+    const arch = platform.arch === 'amd64' ? 'x86_64' : platform.arch;
+    run('xcrun', ['swiftc', '-O', '-target', `${arch}-apple-macos11.0`, path.join(root, 'native/screen/main.swift'), '-o', helper]);
+    run('codesign', [...macosSigningArgs(identity, `${identifier}.core`), binary]);
+    run('codesign', [...macosSigningArgs(identity, `${identifier}.screen`), helper]);
   }
-  const name = process.platform === 'win32' ? 'arc.exe' : 'arc';
-  const binary = path.join(root, 'target', ...(target ? [target] : []), release ? 'release' : 'debug', name);
-  if (process.platform === 'darwin') execFileSync('codesign', [
-    ...macosSigningArgs(identity, 'com.whzxc.agent-remote-control.core'), binary,
-  ], { env, stdio: 'inherit' });
-  const destination = path.join(root, 'dist/native', name);
-  await rm(path.dirname(destination), { recursive: true, force: true });
-  await mkdir(path.dirname(destination), { recursive: true });
-  await copyFile(binary, destination);
-  if (process.platform === 'darwin') {
-    const helper = path.join(root, 'dist/native/arc-screen');
-    execFileSync('xcrun', ['swiftc', '-O', '-target', `${process.arch === 'arm64' ? 'arm64' : 'x86_64'}-apple-macos11.0`, path.join(root, 'native/screen/main.swift'), '-o', helper], { env, stdio: 'inherit' });
-    execFileSync('codesign', [...macosSigningArgs(identity, 'com.whzxc.agent-remote-control.screen'), helper], { env, stdio: 'inherit' });
-  }
-  // Package source identity without embedding checkout paths or user configuration.
-  const git = (...args) => execFileSync('git', args, { cwd: fileURLToPath(new URL('../', import.meta.url)), encoding: 'utf8' }).trim();
-  const commits = git('log', '-100', '--format=%H%x09%s').split('\n').filter(Boolean).map(line => { const [build, ...subject] = line.split('\t'); return { build, subject: subject.join('\t') }; });
-  const metadata = { build: git('rev-parse', 'HEAD'), branch: git('branch', '--show-current'), landedLanes: git('branch', '--merged', 'HEAD', '--format=%(refname:short)').split('\n').filter(name => name.startsWith('wt/')).map(name => name.slice(3)), commits };
-  await writeFile(new URL('../dist/native/build-metadata.json', import.meta.url), JSON.stringify(metadata));
+  const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+  const commits = git('log', '-100', '--format=%H%x09%s').split('\n').filter(Boolean).map(line => {
+    const [build, ...subject] = line.split('\t');
+    return { build, subject: subject.join('\t') };
+  });
+  const metadata = { build: git('rev-parse', 'HEAD'), branch: git('branch', '--show-current'),
+    landedLanes: git('branch', '--merged', 'HEAD', '--format=%(refname:short)').split('\n').filter(name => name.startsWith('wt/')).map(name => name.slice(3)), commits };
+  await writeFile(path.join(directory, 'build-metadata.json'), JSON.stringify(metadata));
   return binary;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
-  const targetArg = args.find(a => a === '--target' || a.startsWith('--target='));
-  const target = targetArg === '--target' ? args[args.indexOf(targetArg) + 1] : targetArg?.slice('--target='.length);
-  if (targetArg && !target) throw new Error('--target requires a target triple');
-  try {
-    if (args.includes('--check')) execFileSync('cargo', ['check', '--manifest-path', 'desktop/Cargo.toml'], {
-      cwd: fileURLToPath(new URL('../', import.meta.url)), env: buildEnv(), stdio: 'inherit',
-    });
-    else await buildNative({ release: args.includes('--release'), target, developmentDesktop: args.includes('--dev-desktop') });
+  const targetFlag = args.find(arg => arg.startsWith('--target='));
+  const target = targetFlag?.slice(9);
+  if (args.some(arg => arg !== '--release' && arg !== targetFlag) || targetFlag && !target) {
+    throw new Error('Usage: node tooling/build-native.mjs [--release] [--target=GOOS/GOARCH]');
   }
-  catch (error) { console.error(`Native build failed: ${error.status ? `exit ${error.status}` : error.message}`); process.exitCode = 1; }
+  await prepareDesktop();
+  await buildNative({ release: args.includes('--release'), target });
 }

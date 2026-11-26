@@ -3,6 +3,8 @@ import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stableVersion } from './version.mjs';
+import { coreFlags } from './build-env.mjs';
+import { prepareDesktop } from './prepare-desktop.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const tagged = ['-tags', 'arcfixture'];
@@ -22,7 +24,7 @@ export function repositoryGoFiles() {
   });
 }
 
-export async function testGo(run) {
+export async function testGo(run, { vetOnly = false } = {}) {
   const directories = [...new Set(repositoryGoFiles().map(file => './' + path.posix.dirname(file)))];
   for (const tags of [[], tagged]) {
     // Go decides which repository directories are packages for this platform and tag set.
@@ -32,12 +34,13 @@ export async function testGo(run) {
     }).trim().split('\n').filter(Boolean);
     if (!packages.length) throw new Error('No repository Go packages found.');
     await run('go', ['vet', ...tags, ...packages]);
-    await run('go', ['test', ...tags, ...packages]);
+    if (!vetOnly) await run('go', ['test', ...tags, ...packages]);
   }
 }
 
 export async function buildGoTestBinaries(run, env) {
-  const target = path.resolve(env.CARGO_TARGET_DIR || path.join(root, 'target'), 'go-native-tests');
+  await prepareDesktop();
+  const target = path.resolve(env.ARC_TEST_TARGET_DIR || path.join(root, 'dist/native-tests'));
   mkdirSync(target, { recursive: true });
   const suffix = process.platform === 'win32' ? '.exe' : '';
   const binaries = {
@@ -45,9 +48,9 @@ export async function buildGoTestBinaries(run, env) {
     ARC_TEST_FIXTURE_BINARY: path.join(target, 'contract-fixture' + suffix),
   };
   const version = stableVersion(env.ARC_BUILD_VERSION);
-  const flags = ['-ldflags', `-X github.com/whzxc/agent-remote-control/internal/core.buildVersion=${version}`];
-  await run('go', ['build', ...flags, '-o', binaries.ARC_TEST_BINARY, './cmd/arc']);
-  await run('go', ['build', ...tagged, ...flags, '-o', binaries.ARC_TEST_FIXTURE_BINARY, './cmd/contract-fixture']);
+  const flags = coreFlags(version);
+  await run('go', ['build', '-tags', 'arcbrowser', ...flags, '-o', binaries.ARC_TEST_BINARY, './cmd/arc']);
+  await run('go', ['build', '-tags', 'arcfixture,arcbrowser', ...flags, '-o', binaries.ARC_TEST_FIXTURE_BINARY, './cmd/contract-fixture']);
   return binaries;
 }
 
@@ -55,7 +58,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
     const run = (command, args) => execFileSync(command, args, { cwd: root, stdio: 'inherit' });
     run(process.execPath, ['tooling/check-tests.mjs']);
-    await testGo(run);
+    await testGo(run, { vetOnly: process.argv.includes('--vet-only') });
   } catch (error) {
     process.exitCode = error.status ?? 1;
   }

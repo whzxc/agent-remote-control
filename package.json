@@ -11,7 +11,7 @@
     "wt": "node tooling/worktree.mjs",
     "brand": "node tooling/brand.mjs",
     "check": "tsc --noEmit -p ui/tsconfig.json",
-    "build": "vite build --config vite.config.ts && node tooling/build-native.mjs",
+    "build": "node tooling/build-native.mjs",
     "artifacts:prune": "node tooling/retain-build-artifacts.mjs",
     "cache:prune": "node tooling/prune-build-cache.mjs",
     "test": "node tooling/test.mjs",
@@ -23,7 +23,6 @@
     "desktop:prepare": "node tooling/prepare-desktop.mjs",
     "desktop:build": "node tooling/desktop-build.mjs",
     "desktop:check": "node tooling/check-native.mjs",
-    "check:format": "cargo fmt --all -- --check",
     "check:native": "node tooling/check-native.mjs",
     "release:stage": "node tooling/release.mjs stage",
     "release:finalize": "node tooling/release.mjs finalize",
@@ -44,7 +43,8 @@
     "agent-scenarios:capture": "node tooling/agent-scenarios.mjs capture",
     "agent-scenarios:check": "node tooling/agent-scenarios.mjs check",
     "agent-scenarios:approve": "node tooling/agent-scenarios.mjs approve",
-    "design:topology": "node tooling/design-topology.mjs"
+    "design:topology": "node tooling/design-topology.mjs",
+    "check:go-format": "node tooling/go-format.mjs"
   },
   "devDependencies": {
     "@ast-grep/lang-rust": ">=0.0.7 <1",

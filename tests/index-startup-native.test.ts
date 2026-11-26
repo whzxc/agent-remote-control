@@ -1,7 +1,7 @@
 import {toolResult} from '../tooling/mcp-result.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
@@ -10,7 +10,7 @@ import path from 'node:path';
 import { prepareFixtureBinary } from './helpers/native-control.ts';
 import { canonicalSnapshot, indexPublications, writeRetainedState } from './helpers/index-state.ts';
 
-const target = process.env.CARGO_TARGET_DIR || path.resolve('target');
+const target = process.env.ARC_TEST_TARGET_DIR || path.resolve('dist/native-tests');
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 async function eventually<T>(read: () => Promise<T | undefined>, limit = 12000): Promise<T> {
   const until = performance.now() + limit;
@@ -173,7 +173,6 @@ test('real Core serves health, leases, guide and query before realistic retained
       }
     } finally {
       await rm(directory, { recursive: true, force: true });
-      execFileSync(process.execPath, ['tooling/prune-build-cache.mjs', '--keep=target/debug'], { stdio: 'inherit' });
     }
   }
 });
