@@ -2423,33 +2423,33 @@
       "benchmarkMs": {
         "rust": {
           "initial": {
-            "metadata": 1247.379,
-            "health": 1271.986,
-            "lease": 1276.724,
-            "guide": 1347.219,
-            "query": 1363.508
+            "metadata": 1034.808,
+            "health": 1078.621,
+            "lease": 1082.704,
+            "guide": 1364.822,
+            "query": 1377.061
           },
           "restart": {
-            "metadata": 417.899,
-            "health": 483.434,
-            "lease": 491.099,
-            "guide": 2239.759,
-            "query": 2252.497
+            "metadata": 380.985,
+            "health": 422.25,
+            "lease": 426.501,
+            "guide": 721.158,
+            "query": 730.368
           },
-          "receiptAfterGate": 1661,
+          "receiptAfterGate": 1646,
           "maxLatency": {
-            "guide": 23.121,
-            "unrelated": 21.426,
-            "pending": 36.975,
-            "published": 10.005
+            "guide": 19.889,
+            "unrelated": 13.341,
+            "pending": 9.094,
+            "published": 12.627
           }
         },
         "go": {
           "initial": {
-            "metadata": 271.873,
-            "health": 292.119,
-            "lease": 296.238,
-            "guide": 304.112,
+            "metadata": 256.51,
+            "health": 287.404,
+            "lease": 291.654,
+            "guide": 300.21,
             "query": null
           },
           "restart": null,
@@ -2680,7 +2680,7 @@
     }
   },
   "nativeRun": {
-    "goSource": "3b772bdb12efa3b33bb1151718afdbcadb65f10e",
+    "goSource": "941b0e91fd4c844b10e03980833fbaf88660df6b",
     "s0CasesPassed": 18,
     "platform": "darwin/arm64",
     "toolchain": "go1.27.4",
