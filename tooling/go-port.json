@@ -937,8 +937,14 @@
     },
     "native/src/device_link/addresses.rs": {
       "segment": "E",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/device_link_addresses.go",
+        "internal/core/device_link_addresses_darwin.go",
+        "internal/core/device_link_addresses_linux.go",
+        "internal/core/device_link_addresses_windows.go",
+        "internal/core/device_link_addresses_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/device_link/client.rs": {
       "segment": "E",
@@ -947,8 +953,10 @@
     },
     "native/src/device_link/connections.rs": {
       "segment": "E",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/device_link_connections.go"
+      ],
+      "status": "ported"
     },
     "native/src/device_link/controller/path.rs": {
       "segment": "E",
@@ -982,8 +990,10 @@
     },
     "native/src/device_link/identity.rs": {
       "segment": "E",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/device_link_identity.go"
+      ],
+      "status": "ported"
     },
     "native/src/device_link/mod.rs": {
       "segment": "E",
@@ -997,13 +1007,17 @@
     },
     "native/src/device_link/tests.rs": {
       "segment": "E",
-      "go": [],
+      "go": [
+        "internal/core/device_link_test.go"
+      ],
       "status": "pending"
     },
     "native/src/device_link/tls.rs": {
       "segment": "E",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/device_link_tls.go"
+      ],
+      "status": "ported"
     },
     "native/src/device_link/topology.rs": {
       "segment": "E",
@@ -1042,7 +1056,9 @@
     },
     "native/src/device_link/transport.rs": {
       "segment": "E",
-      "go": [],
+      "go": [
+        "internal/core/device_link_transport.go"
+      ],
       "status": "pending"
     },
     "native/src/device_link/tunnel.rs": {
