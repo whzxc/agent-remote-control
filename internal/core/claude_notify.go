@@ -889,7 +889,7 @@ func deliverNotificationSession(ctx context.Context, channel, profile, target, b
 	return fmt.Errorf("CLAUDE_SEND_REJECTED: %s", wire(result["error"]))
 }
 
-func sendAccountNotification(ctx context.Context, args object) (object, error) {
+func deliverAccountNotification(ctx context.Context, args object) (object, error) {
 	target, err := notificationSessionID(text(args, "target"))
 	if err != nil {
 		return nil, err
@@ -1202,6 +1202,7 @@ func projectNotificationControlResult(ctx context.Context, r operationRequest, v
 
 func init() {
 	notificationSessionSend = deliverNotificationSession
+	sendAccountNotification = deliverAccountNotification
 	decorateControlResult = append(decorateControlResult, projectNotificationControlResult)
 }
 
