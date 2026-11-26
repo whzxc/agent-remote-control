@@ -407,7 +407,7 @@ func (p *nativeAgentProcess) setDispatchOption(ctx context.Context, facts object
 		}
 		return p.checkpoint(func(task object) {
 			dispatchSetSection(task, "metadata")["configOptions"] = reply["configOptions"]
-			task["configurationObservedAt"] = now()
+			rememberAgentProcessConfiguration(task)
 		})
 	}
 	method, argument, section, current := "session/set_model", "modelId", "models", "currentModelId"
@@ -424,6 +424,6 @@ func (p *nativeAgentProcess) setDispatchOption(ctx context.Context, facts object
 	}
 	return p.checkpoint(func(task object) {
 		dispatchSetSection(dispatchSetSection(task, "metadata"), section)[current] = value
-		task["configurationObservedAt"] = now()
+		rememberAgentProcessConfiguration(task)
 	})
 }

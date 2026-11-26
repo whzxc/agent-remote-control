@@ -17,7 +17,10 @@ import (
 	"github.com/whzxc/agent-remote-control/internal/platform"
 )
 
-const agentOutputLimit = 256 << 10
+const (
+	agentOutputLimit     = 256 << 10
+	agentCheckpointDelay = time.Second
+)
 
 type nativeAgentProcess struct {
 	mu, writeMu, dispatch sync.Mutex
@@ -34,6 +37,7 @@ type nativeAgentProcess struct {
 	activePrompt          string
 	attachmentSession     string
 	settled               chan struct{}
+	streamCheckpoint      *time.Timer
 }
 
 var useFixtureAgentTransport bool
@@ -99,7 +103,7 @@ func (p *nativeAgentProcess) appendOutput(value string, replace bool) {
 	p.task["outputTruncated"] = truncated || !replace && p.task["outputTruncated"] == true
 }
 
-func (p *nativeAgentProcess) persistLocked() error {
+func (p *nativeAgentProcess) publishLocked() {
 	p.task["updatedAt"] = now()
 	interactions := make([]object, 0, len(p.pending))
 	for _, key := range keysObjectMap(p.pending) {
@@ -115,6 +119,18 @@ func (p *nativeAgentProcess) persistLocked() error {
 	p.events.Unlock()
 	close(p.changed)
 	p.changed = make(chan struct{})
+}
+
+func (p *nativeAgentProcess) persistLocked() error {
+	if p.streamCheckpoint != nil {
+		p.streamCheckpoint.Stop()
+		p.streamCheckpoint = nil
+	}
+	p.publishLocked()
+	return p.saveLocked()
+}
+
+func (p *nativeAgentProcess) saveLocked() error {
 	if err := saveNativeAgentTask(p.task); err != nil {
 		return err
 	}
@@ -130,6 +146,63 @@ func (p *nativeAgentProcess) checkpoint(edit func(object)) error {
 	defer p.mu.Unlock()
 	edit(p.task)
 	return p.persistLocked()
+}
+
+func (p *nativeAgentProcess) flushStreamCheckpoint() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.streamCheckpoint != nil {
+		if err := p.persistLocked(); err != nil {
+			recordLog("WARN", "Agent task persistence: "+err.Error(), nil)
+		}
+	}
+}
+
+func agentContentDelta(agent string, frame object) bool {
+	switch agent {
+	case "pi":
+		if frame["type"] == "message_update" {
+			switch field(frame["assistantMessageEvent"], "type") {
+			case "text_delta", "thinking_delta", "toolcall_delta":
+				return true
+			}
+		}
+	case "antigravity":
+		return frame["type"] == "step_update" && field(frame["step_update"], "state") == "ACTIVE"
+	default:
+		if frame["method"] == "session/update" {
+			switch field(field(frame["params"], "update"), "sessionUpdate") {
+			case "agent_message_chunk", "agent_thought_chunk":
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (p *nativeAgentProcess) checkpointStdoutLocked(data []byte) error {
+	if !p.consumeStdoutLocked(data) {
+		return p.persistLocked()
+	}
+	// Readers see each delta immediately. Persist the task and its journal offset
+	// together at the first deadline or when a structural event arrives.
+	p.publishLocked()
+	if p.streamCheckpoint == nil {
+		var timer *time.Timer
+		timer = time.AfterFunc(agentCheckpointDelay, func() {
+			p.mu.Lock()
+			defer p.mu.Unlock()
+			if p.streamCheckpoint != timer {
+				return
+			}
+			p.streamCheckpoint = nil
+			if err := p.saveLocked(); err != nil {
+				recordLog("WARN", "Agent task persistence: "+err.Error(), nil)
+			}
+		})
+		p.streamCheckpoint = timer
+	}
+	return nil
 }
 
 func (p *nativeAgentProcess) snapshot() object {
@@ -210,6 +283,18 @@ func (p *nativeAgentProcess) settle(evidence turnEvidence, detail any) {
 	}
 }
 
+func rememberAgentProcessConfiguration(task object) {
+	task["configurationObservedAt"] = now()
+	agent := text(task, "agent")
+	if agent == "pi" {
+		return
+	}
+	facts := nativeAgentCatalogFacts(task, task["metadata"], task["configurationObservedAt"], "acp-session", nil)
+	if err := rememberNativeAgentCatalog(agent, facts); err != nil {
+		task["storageError"] = err.Error()
+	}
+}
+
 func (p *nativeAgentProcess) consumeLocked(frame object) {
 	if frame == nil {
 		return
@@ -280,16 +365,17 @@ func (p *nativeAgentProcess) consumeLocked(frame object) {
 			p.appendOutput(text(field(update, "content"), "text"), false)
 		}
 		if field(frame["params"], "sessionId") == task["sessionId"] {
+			metadata := obj(task["metadata"])
 			switch field(update, "sessionUpdate") {
 			case "config_option_update":
-				if _, ok := field(update, "configOptions").([]any); ok {
-					dispatchSetSection(task, "metadata")["configOptions"] = field(update, "configOptions")
-					task["configurationObservedAt"] = now()
+				if options, ok := field(update, "configOptions").([]any); ok && wire(options) != wire(metadata["configOptions"]) {
+					dispatchSetSection(task, "metadata")["configOptions"] = options
+					rememberAgentProcessConfiguration(task)
 				}
 			case "current_mode_update":
-				if mode := field(update, "currentModeId"); mode != nil {
+				if mode, ok := field(update, "currentModeId").(string); ok && mode != field(metadata["modes"], "currentModeId") {
 					dispatchSetSection(dispatchSetSection(task, "metadata"), "modes")["currentModeId"] = mode
-					task["configurationObservedAt"] = now()
+					rememberAgentProcessConfiguration(task)
 				}
 			case "usage_update":
 				task["contextUsage"] = object{"kind": "context-occupancy", "source": "acp-usage-update", "used": field(update, "used"), "size": field(update, "size"), "observedAt": now()}
@@ -338,17 +424,18 @@ func (p *nativeAgentProcess) consumeLocked(frame object) {
 	}
 }
 
-func (p *nativeAgentProcess) consumeStdoutLocked(data []byte) {
+func (p *nativeAgentProcess) consumeStdoutLocked(data []byte) bool {
 	data = bytes.TrimSpace(data)
 	if len(data) == 0 {
-		return
+		return false
 	}
 	var frame object
 	if decodeObject(data, &frame) == nil && frame != nil {
 		p.consumeLocked(frame)
-		return
+		return agentContentDelta(p.driver.id, frame)
 	}
 	p.task["stdoutDiagnostics"] = recordAgentStdoutDiagnostic(obj(p.task["stdoutDiagnostics"]), data)
+	return false
 }
 
 func (p *nativeAgentProcess) exited(issue error) {
@@ -359,13 +446,27 @@ func (p *nativeAgentProcess) exited(issue error) {
 		p.events.observe(text(p.task, "taskId"), "arc/settled", object{"status": "unknown", "turnId": p.task["turnId"]})
 	}
 	p.task["processState"] = "exited"
-	if p.task["error"] == nil && p.task["status"] == "unknown" {
-		reason := "PROCESS_EXIT_UNCONFIRMED"
-		if issue != nil {
+	if p.child != nil && p.child.ProcessState != nil {
+		if code := p.child.ProcessState.ExitCode(); code >= 0 {
+			p.task["exitCode"] = code
+		} else {
+			p.task["exitCode"] = nil
+		}
+	}
+	reason := "PROCESS_EXIT_UNCONFIRMED"
+	if issue != nil || !agentTurnTerminal(p.task) {
+		reason += ": Agent stdout closed before a confirmed successful exit. Inspect stdoutDiagnostics and the Agent logs before resuming."
+		var exit *exec.ExitError
+		if issue != nil && !errors.As(issue, &exit) {
 			reason = redactTaskOutput(issue.Error())
 		}
-		p.task["error"] = agentExitDiagnostic(reason, obj(p.task["stdoutDiagnostics"]))
-		p.events.observe(text(p.task, "taskId"), "error", object{"message": p.task["error"]})
+		reason = agentExitDiagnostic(reason, obj(p.task["stdoutDiagnostics"]))
+		p.task["error"] = reason
+		p.events.observe(text(p.task, "taskId"), "error", object{"error": reason})
+	}
+	for key, reply := range p.calls {
+		reply <- rpcResult{err: errors.New(reason)}
+		delete(p.calls, key)
 	}
 	if err := p.persistLocked(); err != nil {
 		recordLog("WARN", "Agent task exit persistence: "+err.Error(), nil)
@@ -390,7 +491,10 @@ func (p *nativeAgentProcess) runDirect(reader *os.File) {
 			}
 			break
 		}
-		if err := p.checkpoint(func(object) { p.consumeStdoutLocked(data) }); err != nil {
+		p.mu.Lock()
+		err = p.checkpointStdoutLocked(data)
+		p.mu.Unlock()
+		if err != nil {
 			recordLog("WARN", "Agent task persistence: "+err.Error(), nil)
 		}
 	}
@@ -402,6 +506,7 @@ func (p *nativeAgentProcess) runDirect(reader *os.File) {
 
 func (p *nativeAgentProcess) runHosted(ctx context.Context) {
 	defer close(p.done)
+	defer p.flushStreamCheckpoint()
 	var reader taskHostJournalReader
 	index := p.host.index
 	path := text(index, "journalPath")
@@ -420,14 +525,17 @@ func (p *nativeAgentProcess) runHosted(ctx context.Context) {
 		recoverReceipt := false
 		for _, row := range rows {
 			after = uintOr(row["offset"], after)
-			if err := p.checkpoint(func(task object) {
-				state := dispatchSetSection(task, "taskHost")
-				state["ackedOffset"] = after
-				switch row["kind"] {
-				case "stdout":
-					p.consumeStdoutLocked([]byte(text(row, "frame")))
-					recoverReceipt = recoverReceipt || state["promptResponded"] == true || agentTurnTerminal(task)
-				case "write":
+			p.mu.Lock()
+			task := p.task
+			state := dispatchSetSection(task, "taskHost")
+			state["ackedOffset"] = after
+			var checkpointErr error
+			switch row["kind"] {
+			case "stdout":
+				checkpointErr = p.checkpointStdoutLocked([]byte(text(row, "frame")))
+				recoverReceipt = recoverReceipt || state["promptResponded"] == true || agentTurnTerminal(task)
+			default:
+				if row["kind"] == "write" {
 					sequence := field(row["frame"], "sequence")
 					state["receivedSequence"] = max(uintOr(state["receivedSequence"], 0), uintOr(sequence, 0))
 					if field(state["unconfirmedWrite"], "sequence") == sequence {
@@ -448,8 +556,11 @@ func (p *nativeAgentProcess) runHosted(ctx context.Context) {
 						}
 					}
 				}
-			}); err != nil {
-				recordLog("WARN", "Agent journal checkpoint: "+err.Error(), nil)
+				checkpointErr = p.persistLocked()
+			}
+			p.mu.Unlock()
+			if checkpointErr != nil {
+				recordLog("WARN", "Agent journal checkpoint: "+checkpointErr.Error(), nil)
 				return
 			}
 		}

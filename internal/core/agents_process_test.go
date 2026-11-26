@@ -132,7 +132,10 @@ func TestAgentStdoutKeepsReadingPastNoiseAndRetainsAbnormalExit(t *testing.T) {
 		wire(object{"method": "session/update", "params": object{"update": object{"sessionUpdate": "agent_message_chunk",
 			"content": object{"type": "text", "text": "after-noise"}}}}),
 	} {
-		if err := process.checkpoint(func(object) { process.consumeStdoutLocked([]byte(frame)) }); err != nil {
+		process.mu.Lock()
+		err := process.checkpointStdoutLocked([]byte(frame))
+		process.mu.Unlock()
+		if err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -144,5 +147,39 @@ func TestAgentStdoutKeepsReadingPastNoiseAndRetainsAbnormalExit(t *testing.T) {
 	if err != nil || field(state, "status") != "unknown" || field(state, "output") != "after-noise" ||
 		!strings.Contains(text(state, "error"), "startup") || strings.Contains(wire(state), "fixture-secret") {
 		t.Fatalf("exit checkpoint = %s, %v", wire(state), err)
+	}
+}
+
+func TestAgentContentDeltasKeepJournalProgressWithTheSavedSnapshot(t *testing.T) {
+	// Recurring bug class: persistence a structural checkpoint commits the buffered Agent output and journal offset together.
+	isolateAgentProcessState(t)
+	taskID := id()
+	disk := &service{}
+	process := newNativeAgentProcess(nativeAgentDriver{id: "dsh", protocol: "acp-v1"},
+		object{"taskId": taskID, "agent": "dsh", "turnId": "turn", "status": "running", "taskHost": object{"ackedOffset": 0}})
+	defer process.flushStreamCheckpoint()
+	if err := process.checkpoint(func(object) {}); err != nil {
+		t.Fatal(err)
+	}
+
+	process.mu.Lock()
+	obj(process.task["taskHost"])["ackedOffset"] = 1
+	deltaErr := process.checkpointStdoutLocked([]byte(wire(object{"method": "session/update", "params": object{"update": object{
+		"sessionUpdate": "agent_message_chunk", "content": object{"type": "text", "text": "streamed"},
+	}}})))
+	previous, readErr := disk.nativeAgentTask("dsh", taskID)
+	obj(process.task["taskHost"])["ackedOffset"] = 2
+	structuralErr := process.checkpointStdoutLocked([]byte(wire(object{"method": "session/request_permission", "id": "permission"})))
+	process.mu.Unlock()
+	if deltaErr != nil || readErr != nil || structuralErr != nil {
+		t.Fatalf("checkpoints: delta=%v read=%v structural=%v", deltaErr, readErr, structuralErr)
+	}
+	if uintOr(field(previous["taskHost"], "ackedOffset"), 3) != 0 {
+		t.Fatalf("streamed offset advanced separately from its checkpoint: %s", wire(previous))
+	}
+	current, err := disk.nativeAgentTask("dsh", taskID)
+	if err != nil || current["output"] != "streamed" || current["status"] != "waiting-permission" ||
+		uintOr(field(current["taskHost"], "ackedOffset"), 0) != 2 {
+		t.Fatalf("structural checkpoint = %s, %v", wire(current), err)
 	}
 }
