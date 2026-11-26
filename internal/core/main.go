@@ -22,6 +22,9 @@ func Run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	signal.Ignore(syscall.SIGPIPE)
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+	if handled, err := captureClaudeBrowserURL(args); handled {
+		return exitResult(stderr, err)
+	}
 	if len(args) > 0 && args[0] == "cli" {
 		return runCLI(ctx, args[1:], stdin, stdout, stderr)
 	}
@@ -77,7 +80,7 @@ func runCommand(ctx context.Context, args []string, stdin io.Reader, stdout, std
 		return prepareFrontDoorCommand(ctx, stdin, stdout, true)
 	}
 	if runtime.GOOS == "darwin" && len(args) == 2 && args[0] == "package-check" {
-		return errors.New(PortPending)
+		return printResult(stdout, func() (object, error) { return checkPackage(ctx, args[1]) })
 	}
 	return errors.New(topLevelUsage)
 }

@@ -9,28 +9,53 @@
     },
     "native/src/accounts/codex.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/accounts_codex.go",
+        "internal/core/accounts_codex_test.go"
+      ],
+      "status": "ported",
+      "note": "Segment A: use nativeCodexHome for detached Codex and native transcript reads. Segment S0: use nativeCodexHome for MCP import and the primary RPC entry points."
     },
     "native/src/accounts/identity.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/accounts_identity.go",
+        "internal/core/accounts_identity_test.go"
+      ],
+      "status": "ported",
+      "note": "Segment C: confirm source-bound delivery evidence with linkAccountSourceIdentity."
     },
     "native/src/accounts/login.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/accounts_login.go"
+      ],
+      "status": "ported"
     },
     "native/src/accounts/merge.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/accounts_merge.go",
+        "internal/core/accounts_merge_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/accounts/mod.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/accounts.go",
+        "internal/core/accounts_test.go"
+      ],
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "D",
+          "items": [
+            "Connect subscription refresh and account projection to the complete provider scheduler."
+          ]
+        }
+      ],
+      "note": "Segment B: connect recordAccountIndexCost and accountCoordinationDelivery. Segment C: connect accountNotificationSessions and sendAccountNotification."
     },
     "native/src/agents/activity.rs": {
       "segment": "A",
@@ -149,28 +174,44 @@
     },
     "native/src/claude_accounts/browsers.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_accounts_browsers.go"
+      ],
+      "status": "ported"
     },
     "native/src/claude_accounts/mod.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_accounts.go",
+        "internal/core/claude_accounts_test.go"
+      ],
+      "status": "ported",
+      "note": "Segment A: supply agent discovery, search paths and command proxy hooks. Consume nativeClaudeTranscriptRoots without profile attribution."
     },
     "native/src/claude_accounts/routing.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_accounts_routing.go"
+      ],
+      "status": "ported",
+      "note": "Segment C: supply normalizeClaudeNotificationTarget and consume host route bindings."
     },
     "native/src/claude_accounts/system.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_accounts_system.go",
+        "internal/core/claude_accounts_system_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/claude_accounts/visibility.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_accounts_visibility.go",
+        "internal/core/claude_accounts_visibility_fixture.go"
+      ],
+      "status": "ported",
+      "note": "Segment C: consume claudeVisibilityCandidates after source-owned target validation."
     },
     "native/src/claude_notify/ax_tests.rs": {
       "segment": "C",
@@ -1249,8 +1290,12 @@
     },
     "native/src/local_gateway.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/local_gateway.go",
+        "internal/core/local_gateway_test.go"
+      ],
+      "status": "ported",
+      "note": "Segment C: consume fetchCodexGatewayQuota and fetchGatewayTurnUsage from dispatch policy."
     },
     "native/src/logs.rs": {
       "segment": "S0",
@@ -1355,8 +1400,13 @@
     },
     "native/src/package.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/package.go",
+        "internal/core/package_test.go",
+        "skills/package_assets.go"
+      ],
+      "status": "ported",
+      "note": "Bundled skill bytes are embedded from skills/package_assets.go."
     },
     "native/src/permissions.rs": {
       "segment": "S0",
@@ -1539,13 +1589,28 @@
     },
     "native/src/setup.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/setup.go"
+      ],
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "D",
+          "items": [
+            "Port the Rust setup unit cases and verify the CLI adapters against assembled ingress and Agent seams."
+          ]
+        }
+      ],
+      "note": "Segment A: supply native login, task records, Codex observations, create and navigation. Segment C: provide notification evidence. Segment E: provide ingress routes, provider descriptors and Cloudflare lifecycle."
     },
     "native/src/setup_secret.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/setup_secret.go",
+        "internal/core/setup_secret_fixture.go",
+        "internal/core/setup_secret_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/shell_command.rs": {
       "segment": "A",
@@ -1554,13 +1619,27 @@
     },
     "native/src/skills.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/skills.go",
+        "internal/core/skills_fixture.go"
+      ],
+      "status": "ported"
     },
     "native/src/sources.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/sources.go"
+      ],
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "D",
+          "items": [
+            "Port legacy ARC source migration and peer lifecycle, and port the Rust source unit cases. Wire OAuth management."
+          ]
+        }
+      ],
+      "note": "Segment E: connect ingress admission and transport lifecycle to source authority. Segment C: consume the source identity projection."
     },
     "native/src/src_conversations/identity.rs": {
       "segment": "A",
@@ -1589,8 +1668,10 @@
     },
     "native/src/subscriptions/cache.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/subscriptions_cache.go"
+      ],
+      "status": "ported"
     },
     "native/src/subscriptions/mod.rs": {
       "segment": "D",
@@ -1609,8 +1690,18 @@
     },
     "native/src/subscriptions/providers/codex.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/subscriptions_providers_codex.go"
+      ],
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "D",
+          "items": [
+            "Connect native rate-limit RPC and gateway fallback."
+          ]
+        }
+      ]
     },
     "native/src/subscriptions/providers/cursor.rs": {
       "segment": "D",
@@ -1624,23 +1715,39 @@
     },
     "native/src/subscriptions/providers/kimi.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/subscriptions_providers_kimi.go"
+      ],
+      "status": "ported"
     },
     "native/src/subscriptions/providers/mod.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/subscriptions_providers.go"
+      ],
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "D",
+          "items": [
+            "Complete credential/provider routing and native CLI execution."
+          ]
+        }
+      ]
     },
     "native/src/subscriptions/providers/opencode_go.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/subscriptions_providers_opencode_go.go"
+      ],
+      "status": "ported"
     },
     "native/src/subscriptions/types.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/subscriptions_types.go"
+      ],
+      "status": "ported"
     },
     "native/src/task_host.rs": {
       "segment": "A",
@@ -1724,8 +1831,12 @@
     },
     "native/src/uninstall.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/uninstall.go",
+        "internal/core/uninstall_windows.go"
+      ],
+      "status": "ported",
+      "note": "Segment A: supply uninstallStopCodexHosts and uninstallStopTaskHosts. Segment F: verify installed Desktop quit and platform handoff after landing."
     },
     "native/src/wait_transport.rs": {
       "segment": "S0",
