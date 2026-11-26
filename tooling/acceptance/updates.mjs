@@ -81,7 +81,15 @@ const server = createServer(async (req,res)=>{
     return;
   }
   if (req.method === 'POST') {
-    let body='';for await (const chunk of req) body+=chunk;
+    let body = '';
+    try { for await (const chunk of req) body += chunk; }
+    catch (error) {
+      if (req.aborted || error.code === 'ECONNRESET') return;
+      (report.runtimeErrors ??= []).push(String(error));
+      if (!res.destroyed) res.end();
+      return;
+    }
+    if (res.destroyed) return;
     const value = JSON.parse(body);
     if (req.url === '/hello') { instance=value.instance; observed=undefined; }
     if (req.url === '/state' && value.instance===instance) observed=value.view;
