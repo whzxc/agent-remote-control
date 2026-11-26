@@ -177,8 +177,11 @@
     },
     "native/src/browser.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/browser.go",
+        "internal/core/browser_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/changes.rs": {
       "segment": "A",
@@ -480,20 +483,14 @@
         "internal/core/cli.go",
         "internal/core/cli_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "App snapshot and readiness adapters."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/cli_acceptance.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/cli_acceptance.go"
+      ],
+      "status": "ported"
     },
     "native/src/cli_shim.rs": {
       "segment": "S0",
@@ -1192,15 +1189,7 @@
       "go": [
         "internal/core/front_door_authority.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Register browser authority."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/front_door/owner.rs": {
       "segment": "S0",
@@ -1235,15 +1224,7 @@
         "internal/core/front_door_test.go",
         "internal/core/front_door_authority.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Resolve browser key and status comparison for the browser authority."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/front_door_tests.rs": {
       "segment": "S0",
@@ -1252,15 +1233,7 @@
         "internal/core/front_door_test.go",
         "internal/core/front_door_process_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Enable browser wire coverage against the Go front door."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/headless.rs": {
       "segment": "S0",

@@ -259,7 +259,7 @@ func cliUsage(args []string) (usage, invalid string) {
 		return "cli help", ""
 	}
 	if args[0] == "wait" || len(args) > 1 && args[0] == "app" && args[1] == "snapshot" {
-		return "cli help; cli schema wait; cli schema app.snapshot", ""
+		return cliObservationUsage(args)
 	}
 	if len(args) == 3 && args[0] == "control" && args[1] == "guide" && !strings.HasPrefix(args[2], "-") {
 		return "cli control guide [op]", ""
