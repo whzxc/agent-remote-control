@@ -252,6 +252,7 @@ func nativeNotificationObserve(ctx context.Context, s *service, b object) (objec
 		}
 		value, lifecycle = projectCodexObservation(observed, &selected)
 	}
+	applyCodexProgress(ctx, &s.events, value, obj(observed["thread"]))
 	value["_turnLifecycle"] = lifecycle.checkpoint()
 	return value, nil
 }
@@ -292,13 +293,16 @@ func nativeCodexWait(ctx context.Context, r operationRequest) (any, error) {
 	thread := text(r.args, "threadId")
 	selected := optionalProjectString(r.args["turnId"])
 	var lifecycle turnTransition
+	var nativeTurns []any
 	source := nativeWaitSource{
 		observe: func(ctx context.Context) (object, error) {
 			return readCodexObservation(ctx, r.service, thread, selected, false, true)
 		},
 		classify: func(value object, turn **string) object {
 			out, next := projectCodexObservation(value, turn)
+			applyCodexProgress(ctx, &r.service.events, out, obj(value["thread"]))
 			lifecycle, selected = next, *turn
+			nativeTurns = arr(field(value["thread"], "turns"))
 			return out
 		},
 		alive: func() bool { return true },
@@ -320,6 +324,13 @@ func nativeCodexWait(ctx context.Context, r operationRequest) (any, error) {
 		delete(result, "_turnLifecycle")
 	}
 	nativeWaitCondition(result, r.args)
+	if wantsTaskSummary(r.name, r.args) {
+		if turn := find(nativeTurns, "id", text(result, "turnId")); turn != nil {
+			if err := addCodexTaskSummaryEvidence(result, turn); err != nil {
+				return nil, err
+			}
+		}
+	}
 	return result, nil
 }
 

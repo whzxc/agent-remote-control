@@ -22,6 +22,7 @@ type nativeCodexState struct {
 	launches     launches
 	shutdown     context.Context
 	historyPaths map[string]string
+	activity     codexActivityMonitor
 }
 
 var readNativeDispatchHistory func(string) ([]object, error)
@@ -86,6 +87,7 @@ func (s *service) codexUtility(ctx context.Context) (*rpcConnection, error) {
 
 func (s *service) closeNativeCodex() {
 	state := &s.codex
+	state.activity.close()
 	state.launches.close()
 	state.mu.Lock()
 	connection := state.utility
@@ -273,7 +275,28 @@ func requestCodexNative(ctx context.Context, service *service, method string, ar
 		}
 		args = params
 	}
+	var acquisition string
+	if method == "thread/resume" && thread != "" {
+		if _, err := observeNotificationOwnership(thread, service.nativeWriterOwnership(ctx, home, thread)); err != nil {
+			return nil, err
+		}
+		acquisition, err = beginNotificationAcquisition(ctx, thread)
+		if err != nil {
+			return nil, err
+		}
+	}
 	value, err := connection.call(ctx, method, args, timeout)
+	if acquisition != "" {
+		if _, err := observeNotificationOwnership(thread, service.nativeWriterOwnership(ctx, home, thread)); err != nil {
+			recordLog("WARN", err.Error(), nil)
+		}
+		if endErr := endNotificationAcquisition(thread, acquisition); endErr != nil {
+			if err == nil {
+				return nil, errors.New("SUBMISSION_UNCONFIRMED: writer acquisition record failed: " + endErr.Error())
+			}
+			recordLog("WARN", endErr.Error(), nil)
+		}
+	}
 	if err != nil && thread != "" && strings.Contains(err.Error(), "already has an active writer") {
 		return nil, writerFailure(ctx, service, home, thread, err)
 	}
@@ -323,6 +346,10 @@ func discoverAgentExecutable(name string) string {
 
 func init() {
 	nativeControlRequest = requestCodexNative
+	nativeSchemaBinary = func(_ context.Context, _ *service) (string, error) {
+		binary, _, err := codexInputs()
+		return binary, err
+	}
 	permissionAccountRead = func(ctx context.Context, s *service) (object, error) {
 		value, err := requestCodexNative(ctx, s, "account/read", object{"refreshToken": false}, 5*time.Second)
 		return obj(value), err

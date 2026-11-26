@@ -75,7 +75,9 @@
     },
     "native/src/agents/activity.rs": {
       "segment": "A",
-      "go": [],
+      "go": [
+        "internal/core/agents_activity.go"
+      ],
       "status": "pending"
     },
     "native/src/agents/adapter.rs": {
@@ -117,7 +119,9 @@
     },
     "native/src/agents/conversations.rs": {
       "segment": "A",
-      "go": [],
+      "go": [
+        "internal/core/agents_conversations_codex.go"
+      ],
       "status": "pending"
     },
     "native/src/agents/dispatch/catalogs.rs": {
@@ -200,7 +204,9 @@
     },
     "native/src/changes.rs": {
       "segment": "A",
-      "go": [],
+      "go": [
+        "internal/core/changes.go"
+      ],
       "status": "pending"
     },
     "native/src/claude_accounts/browsers.rs": {
@@ -404,15 +410,7 @@
         "internal/core/claude_notify_retry.go",
         "internal/core/claude_notify_retry_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Provide submitNotificationRetry through the ordinary durable Codex mutation path."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/claude_notify/routing.rs": {
       "segment": "C",
@@ -508,8 +506,11 @@
     },
     "native/src/codex_progress.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/codex_progress.go",
+        "internal/core/codex_progress_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/context.rs": {
       "segment": "S0",
@@ -702,15 +703,7 @@
         "internal/core/coordination_lifecycle_unix.go",
         "internal/core/coordination_lifecycle_windows.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Apply coordinationCommandEnvironment from authenticated command execution."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/coordination/messages/mod.rs": {
       "segment": "B",
@@ -2001,7 +1994,9 @@
     },
     "native/src/task_summary.rs": {
       "segment": "A",
-      "go": [],
+      "go": [
+        "internal/core/task_summary.go"
+      ],
       "status": "pending"
     },
     "native/src/task_tracking/antigravity.rs": {

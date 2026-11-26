@@ -124,7 +124,6 @@ func runControlMutation(ctx context.Context, request operationRequest, name stri
 		return row, nil
 	}
 	unlock()
-	timeout := uintOr(args["timeoutMs"], 86400000)
 	wait := min(uintOr(args["waitMs"], 25000), 120000)
 	switch name {
 	case "create":
@@ -134,9 +133,15 @@ func runControlMutation(ctx context.Context, request operationRequest, name stri
 			wait = min(uintOr(args["timeoutMs"], 60000), 86400000) + 10000
 		}
 	}
+	return launchControlMutation(ctx, request.service, store, row, lifetime, wait, execute)
+}
+
+func launchControlMutation(ctx context.Context, service *service, store receiptStore, row object, lifetime context.Context, wait uint64, execute func(context.Context, object) (any, error)) (object, error) {
+	timeout := uintOr(field(row["arguments"], "timeoutMs"), 86400000)
+	key, session := text(row, "requestId"), text(row, "backendSession")
 	result := make(chan receiptExecutionResult, 1)
 	go func() {
-		defer request.service.jobs.finish()
+		defer service.jobs.finish()
 		job, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Duration(min(timeout, 86400000))*time.Millisecond)
 		defer cancel()
 		defer context.AfterFunc(lifetime, cancel)()

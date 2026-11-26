@@ -10,25 +10,43 @@ import (
 	"time"
 )
 
-func fixtureTaskIndexSignal(s *service) chan struct{} {
-	s.taskRecords.indexReady.Do(func() { s.taskRecords.indexReadySignal = make(chan struct{}) })
-	return s.taskRecords.indexReadySignal
-}
-
 func init() {
-	registerAfterIndexStartup(0, func(_ context.Context, s *service) error {
-		close(fixtureTaskIndexSignal(s))
+	registerIndexPreparation(5, func(ctx context.Context, s *service) error {
+		if s.fixtureIngress == nil || os.Getenv("ARC_FIXTURE_INDEX_GATE") != "" || os.Getenv("ARC_FIXTURE_SCRIPT") == "" {
+			return nil
+		}
+		// The fixture's restart helper can write canonical receipts while Core
+		// is stopped. Mark them through the same repair path as an interrupted write.
+		for _, owner := range []string{coreReceiptStore().base, agentReceiptStore().base} {
+			if _, err := indexCurrent(owner); err != nil {
+				continue
+			}
+			entries, err := os.ReadDir(owner)
+			if err != nil {
+				return err
+			}
+			for _, entry := range entries {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+				path := filepath.Join(owner, entry.Name())
+				if !entry.IsDir() && isReceiptPath(path) {
+					if err := indexMark(path); err != nil {
+						return err
+					}
+				}
+			}
+		}
 		return nil
 	})
 	waitFixtureTaskIndex = func(ctx context.Context, s *service) error {
-		// Explicit index-startup fixtures must continue to observe pending reads.
-		if s.fixtureIngress == nil || os.Getenv("ARC_FIXTURE_INDEX_GATE") != "" {
+		if s.fixtureIngress == nil || s.indexStartupDone == nil || os.Getenv("ARC_FIXTURE_INDEX_GATE") != "" {
 			return nil
 		}
 		wait, cancel := context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
 		select {
-		case <-fixtureTaskIndexSignal(s):
+		case <-s.indexStartupDone:
 			return nil
 		case <-wait.Done():
 			return errors.New(indexPending)

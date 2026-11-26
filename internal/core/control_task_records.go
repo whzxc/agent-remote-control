@@ -16,12 +16,10 @@ import (
 )
 
 type nativeTaskRecords struct {
-	mu               sync.Mutex
-	codex            taskProjection
-	agent            taskProjection
-	feed             taskFeed
-	indexReady       sync.Once
-	indexReadySignal chan struct{}
+	mu    sync.Mutex
+	codex taskProjection
+	agent taskProjection
+	feed  taskFeed
 }
 
 func receiptThread(row object) string {

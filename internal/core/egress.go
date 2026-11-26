@@ -434,9 +434,7 @@ func normalizeArgs(name string, args object) object {
 }
 
 func egressTool(value object, failed bool) object {
-	if reason := outcomeError(value); reason != nil {
-		value["error"], failed = reason, true
-	}
+	failed = failed || outcomeError(value) != nil
 	if failed {
 		compactOutcomeError(value)
 	}
@@ -640,9 +638,9 @@ func stripOutcomeDuplicate(value object, code string, depth int) {
 }
 
 func compactOutcomeError(value object) {
-	failure := outcomeError(value)
-	if failure == nil {
-		failure = maps.Clone(obj(value["error"]))
+	failure := maps.Clone(obj(value["error"]))
+	if outcome := outcomeError(value); outcome != nil && (failure == nil || failure["outcome"] == nil) {
+		failure = outcome
 	}
 	if failure == nil {
 		return

@@ -16,6 +16,7 @@ type nativeEvents struct {
 	sync.Mutex
 	rows           []nativeEvent
 	taskTimelines  map[string]*taskTimeline
+	codexProgress  codexProgressStates
 	bytes          int
 	sequence       uint64
 	threadSequence map[string]uint64

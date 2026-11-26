@@ -77,6 +77,7 @@ func readCodexControl(ctx context.Context, r operationRequest) (any, error) {
 	}
 	pending := s.events.pendingInteractions()
 	status, lifecycle := classifyCodexObservation(object{"thread": thread, "pending": pending}, &selected)
+	applyCodexProgress(ctx, &s.events, status, thread)
 	if nativeTurnConflict(lifecycle) != nil {
 		status["_turnLifecycle"] = lifecycle.checkpoint()
 		if err := handleNotificationObservation(ctx, s, id, text(status, "turnId"), status); err != nil {
@@ -86,11 +87,11 @@ func readCodexControl(ctx context.Context, r operationRequest) (any, error) {
 	}
 	if statusOnly || summary {
 		if summary {
-			var files any
 			if turn := find(raw, "id", text(status, "turnId")); turn != nil {
-				files = nativeReviewFiles(arr(field(turn, "items")))
+				if err := addCodexTaskSummaryEvidence(status, turn); err != nil {
+					return nil, err
+				}
 			}
-			status["files"] = files
 			if usage := readNativeTurnDispatchField(id, text(status, "turnId"), "usage"); usage != nil {
 				status["usage"] = usage
 			}
@@ -117,6 +118,7 @@ func readCodexControl(ctx context.Context, r operationRequest) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	result["origin"] = taskSourceOrigin(id, nil)
 	result["srcConversation"], result["nextCursor"], result["stateScope"] = src, page["nextCursor"], "turn"
 	for _, key := range []string{"state", "reason", "turnId", "recordedStatus", "progressStalled", "progress", "next"} {
 		result[key] = status[key]
@@ -185,8 +187,10 @@ func nativeControlReviewTurn(thread string, turn any) object {
 	}
 	id := text(turn, "id")
 	out := object{"turnId": id, "recordedStatus": field(turn, "status"), "finalResponse": message, "checks": checks, "files": nativeReviewFiles(items)}
-	if usage := readNativeTurnDispatchField(thread, id, "usage"); usage != nil {
-		out["usage"] = usage
+	for _, key := range []string{"usage", "pack"} {
+		if value := dispatchTurnFact(thread, id, key); value != nil {
+			out[key] = value
+		}
 	}
 	return out
 }
@@ -216,7 +220,7 @@ func nativeControlReadTurn(thread string, turn any, full, includeKeys bool) (obj
 	if err != nil {
 		return nil, false, err
 	}
-	row := object{"turnId": id, "recordedStatus": field(turn, "status"), "items": items[first:], "externalUserInputs": inputs}
+	row := object{"origin": taskSourceOrigin(thread, &id), "turnId": id, "recordedStatus": field(turn, "status"), "items": items[first:], "externalUserInputs": inputs}
 	if first > 0 {
 		row["itemsTruncated"] = true
 	}
