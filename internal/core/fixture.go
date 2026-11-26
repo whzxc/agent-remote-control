@@ -104,6 +104,11 @@ func runFixtureService(parent context.Context, mode string, stdin io.Reader, std
 	}
 	defer ipc.Close()
 	defer privateCore.drain()
+	closeGateway, err := startFixtureIngressGateway(ctx, token, uint64(port))
+	if err != nil {
+		return err
+	}
+	defer closeGateway()
 	server := &http.Server{Handler: localHandler(fixtureTransport{s, privateCore}, port, token), ReadHeaderTimeout: 5 * time.Second, MaxHeaderBytes: 16 * 1024}
 	server.SetKeepAlivesEnabled(false)
 	ended := make(chan error, 1)

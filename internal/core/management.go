@@ -11,7 +11,7 @@ import (
 	"sync"
 )
 
-var managementCatalog = sync.OnceValue(func() object {
+var baseManagementCatalog = sync.OnceValue(func() object {
 	result := resource("management.json")
 	for _, contribute := range catalogContributions {
 		contribute(result)
@@ -19,12 +19,26 @@ var managementCatalog = sync.OnceValue(func() object {
 	return result
 })
 
+var liveManagementContributions []func(object)
+
+func registerLiveManagementCatalog(contribute func(object)) {
+	liveManagementContributions = append(liveManagementContributions, contribute)
+}
+
+func managementCatalog() object {
+	result := clone(baseManagementCatalog())
+	for _, contribute := range liveManagementContributions {
+		contribute(result)
+	}
+	return result
+}
+
 var routeID = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
 var routeParam = regexp.MustCompile(`\{(?:id|requestId)\}`)
 
 var managementRoutes = sync.OnceValue(func() map[string][]*regexp.Regexp {
 	methods := make(map[string][]*regexp.Regexp)
-	for _, value := range arr(managementCatalog()["operations"]) {
+	for _, value := range arr(baseManagementCatalog()["operations"]) {
 		route := text(value, "route")
 		segments := routeParam.Split(route, -1)
 		for index, segment := range segments {
@@ -59,7 +73,7 @@ func managementResolve(name string, args object) (route, method string, body obj
 	spec := find(managementCatalog()["operations"], "name", name)
 	if spec == nil {
 		if strings.HasPrefix(name, "device.") {
-			return "", "", nil, errors.New(PortPending)
+			return "", "", nil, errors.New(deviceUnavailableMessage)
 		}
 		return "", "", nil, errors.New("UNKNOWN_OPERATION")
 	}

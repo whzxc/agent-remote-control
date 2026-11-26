@@ -77,14 +77,34 @@ func changePreferences(body object, importing bool) (object, error) {
 	return effectivePreferences(stored), nil
 }
 
+var preferenceChanges []func(context.Context, object, object) error
+
+func registerPreferenceChange(change func(context.Context, object, object) error) {
+	preferenceChanges = append(preferenceChanges, change)
+}
+
+func updatePreferences(ctx context.Context, body object, importing bool) (object, error) {
+	before := readPreferences()
+	after, err := changePreferences(body, importing)
+	if err != nil {
+		return nil, err
+	}
+	for _, change := range preferenceChanges {
+		if err := change(ctx, before, after); err != nil {
+			return nil, err
+		}
+	}
+	return after, nil
+}
+
 func init() {
 
 	registerManagementCatalog(func(result object) { result["preferenceDefaults"] = preferenceDefaults() })
 	registerRoute("GET", "preferences", func(_ context.Context, _ *service, _ object, _ []string) (any, error) { return readPreferences(), nil })
-	registerRoute("PUT", "preferences", func(_ context.Context, _ *service, body object, _ []string) (any, error) {
-		return changePreferences(body, false)
+	registerRoute("PUT", "preferences", func(ctx context.Context, _ *service, body object, _ []string) (any, error) {
+		return updatePreferences(ctx, body, false)
 	})
-	registerRoute("POST", "preferences/import", func(_ context.Context, _ *service, body object, _ []string) (any, error) {
-		return changePreferences(body, true)
+	registerRoute("POST", "preferences/import", func(ctx context.Context, _ *service, body object, _ []string) (any, error) {
+		return updatePreferences(ctx, body, true)
 	})
 }

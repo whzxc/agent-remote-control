@@ -566,7 +566,9 @@
     },
     "native/src/cloudflare.rs": {
       "segment": "E",
-      "go": [],
+      "go": [
+        "internal/core/cloudflare.go"
+      ],
       "status": "pending"
     },
     "native/src/codex_host.rs": {
@@ -948,8 +950,10 @@
     },
     "native/src/device_link/client.rs": {
       "segment": "E",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/device_link_client.go"
+      ],
+      "status": "ported"
     },
     "native/src/device_link/connections.rs": {
       "segment": "E",
@@ -997,7 +1001,11 @@
     },
     "native/src/device_link/mod.rs": {
       "segment": "E",
-      "go": [],
+      "go": [
+        "internal/core/device_link.go",
+        "internal/core/device_link_management.go",
+        "internal/core/device_link_authority.go"
+      ],
       "status": "pending"
     },
     "native/src/device_link/records.rs": {
@@ -1008,7 +1016,8 @@
     "native/src/device_link/tests.rs": {
       "segment": "E",
       "go": [
-        "internal/core/device_link_test.go"
+        "internal/core/device_link_test.go",
+        "internal/core/device_link_pairing_test.go"
       ],
       "status": "pending"
     },
@@ -1021,7 +1030,9 @@
     },
     "native/src/device_link/topology.rs": {
       "segment": "E",
-      "go": [],
+      "go": [
+        "internal/core/device_link_topology.go"
+      ],
       "status": "pending"
     },
     "native/src/device_link/transfer/execution.rs": {
@@ -1057,7 +1068,8 @@
     "native/src/device_link/transport.rs": {
       "segment": "E",
       "go": [
-        "internal/core/device_link_transport.go"
+        "internal/core/device_link_transport.go",
+        "internal/core/device_link_transport_dns.go"
       ],
       "status": "pending"
     },
@@ -1309,12 +1321,17 @@
     },
     "native/src/https.rs": {
       "segment": "E",
-      "go": [],
+      "go": [
+        "internal/core/https.go",
+        "internal/core/https_test.go"
+      ],
       "status": "pending"
     },
     "native/src/https_tunnel.rs": {
       "segment": "E",
-      "go": [],
+      "go": [
+        "internal/core/https_tunnel.go"
+      ],
       "status": "pending"
     },
     "native/src/i18n.rs": {
@@ -1331,17 +1348,26 @@
     },
     "native/src/ingress/config.rs": {
       "segment": "E",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/ingress_config.go",
+        "native/src/ingress/config_embed.go"
+      ],
+      "status": "ported"
     },
     "native/src/ingress.rs": {
       "segment": "E",
-      "go": [],
+      "go": [
+        "internal/core/ingress.go",
+        "internal/core/ingress_fixture.go",
+        "internal/core/ingress_management.go"
+      ],
       "status": "pending"
     },
     "native/src/ingress_observation.rs": {
       "segment": "E",
-      "go": [],
+      "go": [
+        "internal/core/ingress_observation.go"
+      ],
       "status": "pending"
     },
     "native/src/interaction_responses.rs": {
@@ -1536,7 +1562,6 @@
         {
           "owner": "E",
           "items": [
-            "Register device and ingress schemas.",
             "Register device-transfer error classification."
           ]
         },
@@ -1678,12 +1703,17 @@
     },
     "native/src/relay/identity.rs": {
       "segment": "E",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/relay_identity.go",
+        "internal/core/relay_identity_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/relay/mod.rs": {
       "segment": "E",
-      "go": [],
+      "go": [
+        "internal/core/relay.go"
+      ],
       "status": "pending"
     },
     "native/src/relay/transport.rs": {

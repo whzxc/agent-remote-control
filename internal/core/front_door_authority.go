@@ -117,8 +117,8 @@ func privateIngressSource(ctx context.Context, target *service, authority object
 			return requestSource{}, errors.New(contextMismatch)
 		}
 	}
-	if target.fixtureIngress != nil {
-		if text(principal, "type") != "ingress" || text(principal, "ingressId") != ingress || header != nil {
+	if target.fixtureIngress != nil && header == nil {
+		if text(principal, "type") != "ingress" || text(principal, "ingressId") != ingress {
 			return requestSource{}, errors.New(contextMismatch)
 		}
 		return target.fixtureIngress(ingress)
