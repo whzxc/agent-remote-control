@@ -288,6 +288,7 @@ func (s *service) status(ctx context.Context) (object, error) {
 	if err != nil {
 		return nil, err
 	}
+	recordRuntimeWork(ctx, runtimeWorkCost{Owner: "status", Reason: "poll", Rows: len(items), ScanSet: len(items)})
 	logs := recentLogs(nil)
 	core := object{"pid": s.metadata["pid"], "desktop": object{"state": "unknown"}, "appServer": object{"state": "unknown"},
 		"chatgpt": object{}, "resources": coreResourceStatus(), "logs": logs, "version": buildVersion,
@@ -359,6 +360,7 @@ func (s *service) waitState(ctx context.Context, args object) (object, error) {
 		if err != nil {
 			return nil, err
 		}
+		recordRuntimeWork(ctx, runtimeWorkCost{Owner: "scoped-wait", Reason: "poll", Rows: len(entries), ScanSet: len(entries)})
 		states := []object{}
 		matched := true
 		expected, hasExpected := args["state"].(string)

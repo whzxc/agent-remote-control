@@ -21,6 +21,23 @@ func TestStartupIndexGatePublishesAndAdoptsReceiptOwners(t *testing.T) {
 		t.Fatal(err)
 	}
 	owners := []string{coreReceiptStore().base, agentReceiptStore().base}
+	consumers := make(chan error, 2)
+	previous := afterIndexStartup
+	registerAfterIndexStartup(0, func(ctx context.Context, _ *service) error {
+		for _, owner := range owners {
+			if _, err := indexCurrent(owner); err != nil {
+				consumers <- err
+				return err
+			}
+			if err := indexAvailable(ctx, owner); err != nil {
+				consumers <- err
+				return err
+			}
+		}
+		consumers <- nil
+		return nil
+	})
+	defer func() { afterIndexStartup = previous }()
 	s := &service{}
 	start := prepareRuntimeIndexes(s)
 	defer func() { s.close() }()
@@ -63,6 +80,18 @@ func TestStartupIndexGatePublishesAndAdoptsReceiptOwners(t *testing.T) {
 		return manifests
 	}
 	first := published()
+	awaitConsumer := func() {
+		t.Helper()
+		select {
+		case err := <-consumers:
+			if err != nil {
+				t.Fatalf("consumer started before durable publication: %v", err)
+			}
+		case <-ctx.Done():
+			t.Fatal("index startup did not start its consumers")
+		}
+	}
+	awaitConsumer()
 	s.close()
 	s = &service{}
 	prepareRuntimeIndexes(s)(ctx)
@@ -71,4 +100,5 @@ func TestStartupIndexGatePublishesAndAdoptsReceiptOwners(t *testing.T) {
 			t.Fatalf("restart rebuilt a published owner: %v, previous %v", header, first[i])
 		}
 	}
+	awaitConsumer()
 }

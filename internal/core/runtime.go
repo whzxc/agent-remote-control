@@ -73,6 +73,7 @@ type runtimeState struct {
 }
 
 func (r *runtimeState) expire(at time.Time) {
+	recordRuntimeWork(context.Background(), runtimeWorkCost{Owner: "runtime-lease", Reason: "poll", Rows: len(r.leases), ScanSet: len(r.leases)})
 	for key, l := range r.leases {
 		if at.Sub(l.seen) >= 10*time.Second && (l.kind != "desktop" || l.processStart == "" || platform.ProcessStart(int(l.pid)) != l.processStart) {
 			delete(r.leases, key)

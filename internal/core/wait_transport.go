@@ -92,6 +92,7 @@ func serveWaitStream(w http.ResponseWriter, r *http.Request, request object, ope
 			_ = write(waitFrame(value, sse))
 			return
 		case <-timer.C:
+			recordRuntimeWork(ctx, runtimeWorkCost{Owner: "wait-heartbeat", Reason: "timer", Rows: 1, ScanSet: 1})
 			count++
 			if err := write(waitHeartbeat(request, count, sse)); err != nil {
 				return

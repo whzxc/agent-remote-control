@@ -65,10 +65,31 @@ type indexPreparation struct {
 }
 
 var startupIndexPreparations []indexPreparation
+var afterIndexStartup []indexPreparation
 
 // registerIndexPreparation runs owner migrations before any derived index is opened.
 func registerIndexPreparation(order int, run func(context.Context, *service) error) {
 	startupIndexPreparations = append(startupIndexPreparations, indexPreparation{order, run})
+}
+
+// registerAfterIndexStartup starts consumers once every registered owner has published.
+// Consumers use the supplied context for cancellation when Core shuts down.
+func registerAfterIndexStartup(order int, run func(context.Context, *service) error) {
+	afterIndexStartup = append(afterIndexStartup, indexPreparation{order, run})
+}
+
+func runIndexPhases(ctx context.Context, s *service, registered []indexPreparation) error {
+	phases := slices.Clone(registered)
+	slices.SortStableFunc(phases, func(a, b indexPreparation) int { return a.order - b.order })
+	for _, phase := range phases {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if err := phase.run(ctx, s); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func prepareRuntimeIndexes(s *service) func(context.Context) {
@@ -100,11 +121,14 @@ func prepareRuntimeIndexes(s *service) func(context.Context) {
 	return func(parent context.Context) {
 		var work context.Context
 		work, cancel = context.WithCancel(parent)
-		work = context.WithValue(work, indexInitializer{}, true)
 		stopped = make(chan struct{})
 		go func() {
 			defer close(stopped)
-			if err := initializeRuntimeIndexes(work, s, registered, owners); err != nil && work.Err() == nil {
+			err := initializeRuntimeIndexes(context.WithValue(work, indexInitializer{}, true), s, registered, owners)
+			if err == nil {
+				err = runIndexPhases(work, s, afterIndexStartup)
+			}
+			if err != nil && work.Err() == nil {
 				recordLog("ERROR", "Index startup failed: "+err.Error(), nil)
 			}
 		}()
@@ -127,15 +151,8 @@ func initializeRuntimeIndexes(ctx context.Context, s *service, registered []star
 	if err := pruneOutputs(); err != nil {
 		recordLog("WARN", "Cannot prune temporary outputs: "+err.Error(), nil)
 	}
-	preparations := slices.Clone(startupIndexPreparations)
-	slices.SortStableFunc(preparations, func(a, b indexPreparation) int { return a.order - b.order })
-	for _, preparation := range preparations {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		if err := preparation.run(ctx, s); err != nil {
-			return err
-		}
+	if err := runIndexPhases(ctx, s, startupIndexPreparations); err != nil {
+		return err
 	}
 	for _, index := range registered {
 		if ctx.Err() != nil {

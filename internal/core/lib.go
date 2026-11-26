@@ -165,6 +165,23 @@ func recordFileCost(cost fileCost) {
 	}
 }
 
+type runtimeWorkCost struct {
+	Owner, Reason string
+	Rows, ScanSet int
+}
+
+var runtimeWorkObservers []func(context.Context, runtimeWorkCost)
+
+func registerRuntimeWorkObserver(observe func(context.Context, runtimeWorkCost)) {
+	runtimeWorkObservers = append(runtimeWorkObservers, observe)
+}
+
+func recordRuntimeWork(ctx context.Context, cost runtimeWorkCost) {
+	for _, observe := range runtimeWorkObservers {
+		observe(ctx, cost)
+	}
+}
+
 func save(path string, value any) error {
 	data, err := canonjson.Marshal(value)
 	if err != nil {
