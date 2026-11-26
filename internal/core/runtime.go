@@ -232,9 +232,6 @@ func serveRuntime(parent context.Context, daemon bool) error {
 	if _, err := os.Stat(filepath.Join(root(), "app/core-stopped.json")); err == nil {
 		return errors.New("CORE_STOPPED: Start Core from ARC Desktop.")
 	}
-	if err := migrateCoreMetadata(); err != nil {
-		return err
-	}
 	build, err := processBuildID()
 	if err != nil {
 		return err
@@ -347,21 +344,6 @@ func (r *runtimeState) closeIfIdle() bool {
 	r.closing = true
 	r.launches.close()
 	return true
-}
-
-func migrateCoreMetadata() error {
-	old, next := filepath.Join(root(), "web"), filepath.Join(root(), "app")
-	if _, err := os.Stat(old); errors.Is(err, os.ErrNotExist) {
-		return nil
-	} else if err != nil {
-		return err
-	}
-	if _, err := os.Stat(next); errors.Is(err, os.ErrNotExist) {
-		return os.Rename(old, next)
-	} else if err != nil {
-		return err
-	}
-	return os.RemoveAll(old)
 }
 
 var runtimeFixture bool

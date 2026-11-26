@@ -183,7 +183,8 @@ func callToolInner(ctx context.Context, service *service, source requestSource, 
 	if args["includeOrigin"] != true {
 		stripControlSource(name, value)
 	}
-	if reason := outcomeError(value); reason != nil {
+	reason := outcomeError(value)
+	if reason != nil {
 		value["error"] = reason
 	}
 	if decorateControlSource != nil {
@@ -195,11 +196,11 @@ func callToolInner(ctx context.Context, service *service, source requestSource, 
 	push := controlPushAvailable != nil && controlPushAvailable(value["notification"])
 	nextControl(value, name, args, push)
 	compactOutcomeError(value)
-	failed := value["error"] != nil
+	failed := reason != nil
 	if waitLimit != nil {
 		value["waitLimit"] = waitLimit
 	}
-	if !failed && digestSupported(name, args) && !digestDetail(name, args) {
+	if !failed && value["error"] == nil && digestSupported(name, args) && !digestDetail(name, args) {
 		explicit := args["view"] == "digest"
 		automatic := args["view"] == nil && args["digestCursor"] == nil
 		if !explicit && !continuation && automatic && digestShown(value, rpcID) > 12*1024 {
