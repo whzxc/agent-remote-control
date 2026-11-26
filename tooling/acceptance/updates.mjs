@@ -31,7 +31,6 @@ const environment = developmentEnvironment(temporary, { ...process.env, ARC_DEV_
 const stateDir = environment.ARC_STATE_DIR;
 const identity = developmentConfig(environment);
 const target = path.join(temporary, `${identity.productName}.app`);
-const candidate = path.join(temporary, 'Candidate.app');
 const agent = 'update-fixture';
 const releaseTask = path.join(temporary, 'release-task');
 let taskId;
@@ -130,7 +129,7 @@ async function command(args, options={}) {
   return execute(args[0], args.slice(1), {env:environment, timeout:180_000, maxBuffer:16*1024*1024,...options});
 }
 async function cli(...args) {
-  const {stdout}=await command([path.join(candidate,'Contents/Resources/bin/arc'),'cli',...args]);
+  const {stdout}=await command([path.join(target,'Contents/Resources/bin/arc'),'cli',...args]);
   const value=JSON.parse(stdout);
   if(!value.ok) throw new Error(JSON.stringify(value.error));
   return value.result;
@@ -171,7 +170,7 @@ async function regression(name, run) {
   await run();report.cases.push({name,ok:true,seconds:(Date.now()-started)/1000});console.log('PASS '+name);
 }
 async function build(version) {
-  console.log('START isolated debug build '+version);
+  console.log('START isolated updater build '+version);
   const output = path.join(out, version);
   const result = await command([process.execPath, 'tooling/desktop-build.mjs', '--development', '--no-image', '--update-fixture', temporary, '--output', output], {
     cwd: root, env: { ...process.env, ARC_DEV_INSTANCE_ID: environment.ARC_DEV_INSTANCE_ID, ARC_BUILD_VERSION: version,
@@ -191,7 +190,7 @@ try {
   const hash = async file => createHash('sha256').update(await readFile(file)).digest('hex');
   expected = { desktop: await hash(path.join(nextApp, 'Contents/MacOS/agent-remote-control-desktop')), core: await hash(path.join(nextApp, 'Contents/Resources/bin/arc')) };
   const app=await build('0.0.0');
-  await command(['/usr/bin/ditto',app,target]);await command(['/usr/bin/ditto',app,candidate]);
+  await command(['/usr/bin/ditto',app,target]);
   await launch();
   await regression('automatic and manual checks share the official download',async()=>{
     // Regression: manual checks duplicated an automatic download and surfaced busy errors.
