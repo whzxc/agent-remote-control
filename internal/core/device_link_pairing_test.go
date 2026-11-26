@@ -4,6 +4,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/netip"
 	"path/filepath"
@@ -97,6 +98,13 @@ wait:
 				t.Fatal(err)
 			}
 			if field(field(pending, "pending"), "deviceId") == controller.identity.id {
+				snapshot, err := member.dispatch(ctx, "snapshot", object{})
+				publicPending := field(snapshot, "pending")
+				if err != nil || field(snapshot, "deviceId") != member.identity.id ||
+					field(publicPending, "deviceId") != controller.identity.id || uintOr(field(publicPending, "expiresInSeconds"), 0) == 0 ||
+					field(publicPending, "publicKey") != nil {
+					t.Fatalf("pending Desktop snapshot = %s, %v", wire(snapshot), err)
+				}
 				break wait
 			}
 		}
@@ -116,6 +124,15 @@ wait:
 	members := snapshot["members"].([]object)
 	if len(members) != 1 || members[0]["deviceId"] != member.identity.id {
 		t.Fatalf("controller did not retain the approved member: %v", members)
+	}
+	if _, err := controller.dispatch(ctx, "address", object{"device": member.identity.id, "address": "member.example:7143"}); err != nil {
+		t.Fatal(err)
+	}
+	updated := controller.snapshot()["members"].([]object)
+	pairedController := member.snapshot()["controller"]
+	if wire(updated[0]["addressOverride"]) != `"member.example:7143"` ||
+		field(pairedController, "name") != controller.name() || field(pairedController, "publicKey") != nil {
+		t.Fatalf("paired Desktop snapshots = %v, %v", updated, pairedController)
 	}
 
 	sockets, err := controller.dialAddresses(members[0]["addresses"].([]string))
@@ -163,19 +180,110 @@ wait:
 	}
 	receipt, failed := act("receipt", object{"requestId": request, "includeOrigin": true})
 	ownerOrigin := field(receipt, "origin")
-	if failed || field(ownerOrigin, "deviceId") != controller.identity.id || field(ownerOrigin, "authType") != "peer" ||
+	source, err := pairedSourceAuthority(controller.identity.id, controller.identity.publicKey)
+	if err != nil || field(source["credential"], "type") != "peer" || failed || field(receipt, "requestId") != request ||
+		field(ownerOrigin, "sourceId") != source["id"] || field(ownerOrigin, "deviceId") != controller.identity.id || field(ownerOrigin, "authType") != "peer" ||
 		field(field(ownerOrigin, "peerOrigin"), "sourceId") != origin["sourceId"] {
-		t.Fatalf("peer receipt origin %v", receipt)
+		t.Fatalf("peer receipt origin %v, authority error %v", receipt, err)
 	}
-	foreign := id()
-	if err := coreReceiptStore().reserve(ctx, object{"requestId": foreign, "backendSession": local.metadata["instance"], "state": "completed",
-		"operation": "notice_post", "origin": object{"authType": "peer", "deviceId": "other-controller"}}); err != nil {
+	for _, unrelated := range []object{{"authType": "peer", "deviceId": "other-controller"}, {"authType": "local", "sourceId": "member-local"}} {
+		foreign := id()
+		if err := coreReceiptStore().reserve(ctx, object{"requestId": foreign, "backendSession": local.metadata["instance"],
+			"state": "completed", "operation": "notice_post", "origin": unrelated}); err != nil {
+			t.Fatal(err)
+		}
+		if value, failed := act("receipt", object{"requestId": foreign}); !failed || field(field(value, "error"), "code") != "DEVICE_TASK_NOT_VISIBLE" {
+			t.Fatalf("foreign receipt escaped device authorization: %v", value)
+		}
+	}
+	for _, show := range []bool{false, true, false} {
+		if _, err := member.dispatch(ctx, "configure", object{"showUpstreamSources": show}); err != nil {
+			t.Fatal(err)
+		}
+		controllerSnapshot := member.snapshot()["controller"]
+		sources := decodedTaskList(field(controllerSnapshot, "upstreamSources"))
+		found := find(sources, "sourceId", text(origin, "sourceId"))
+		if field(controllerSnapshot, "showUpstreamSources") != show || show && found == nil || !show && len(sources) != 0 {
+			t.Fatalf("upstream source visibility %v = %s", show, wire(controllerSnapshot))
+		}
+	}
+	if _, err := member.dispatch(ctx, "revoke", object{"deviceId": controller.identity.id}); err != nil {
 		t.Fatal(err)
 	}
-	if value, failed := act("receipt", object{"requestId": foreign}); !failed || field(field(value, "error"), "code") != "DEVICE_TASK_NOT_VISIBLE" {
-		t.Fatalf("foreign receipt escaped device authorization: %v", value)
+	if _, err := channel.request(ctx, deviceReadPath+"request", object{"version": deviceProtocolVersion,
+		"tool": "query", "body": object{"op": "guide", "args": object{}}, "origin": object{}}, time.Second); err == nil {
+		t.Fatal("revoked controller kept its live peer channel")
 	}
+	if _, err := pairedSourceAuthority(controller.identity.id, controller.identity.publicKey); err == nil ||
+		managementErrorCode(err.Error()) != "DEVICE_UNPAIRED" {
+		t.Fatalf("revoked peer source = %v", err)
+	}
+	reopened, err := newDeviceManager(ctx, controller.directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reopened.enabled, reopened.identity = true, controller.identity
+	if result, err := reopened.dispatch(ctx, "revoke", object{"deviceId": member.identity.id}); err != nil || field(result, "revoked") != true {
+		t.Fatalf("reopened controller did not revoke persisted member: %s, %v", wire(result), err)
+	}
+	if err := member.reconcile(false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := member.dispatch(ctx, "offer", object{}); err == nil || managementErrorCode(err.Error()) != "OP_UNAVAILABLE" {
+		t.Fatalf("disabled member admitted a new offer: %v", err)
+	}
+	if err := member.reconcile(true); err != nil || member.snapshot()["deviceId"] != members[0]["deviceId"] {
+		t.Fatalf("device reenable lost the approved identity: %s, %v", wire(member.snapshot()), err)
+	}
+}
 
+func TestAuthenticatedPairingRequiresLocalApprovalAfterDecline(t *testing.T) {
+	// Recurring bug class: security an authenticated but declined pairing cannot reuse its consumed offer.
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	member := newLoopbackPairingDevice(t, ctx, t.TempDir())
+	controller := newLoopbackPairingDevice(t, ctx, t.TempDir())
+	member.authority = func(context.Context, string, object) (any, error) {
+		return nil, errors.New("local approval required")
+	}
+	offer, err := member.dispatch(ctx, "offer", object{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := object{"pairingString": field(offer, "pairingString")}
+	done := make(chan error, 1)
+	go func() {
+		_, err := controller.dispatch(ctx, "pair", request)
+		done <- err
+	}()
+	for {
+		snapshot := member.snapshot()
+		if field(snapshot["pending"], "deviceId") == controller.identity.id {
+			break
+		}
+		select {
+		case err := <-done:
+			t.Fatalf("offer ended before its local decision: %v", err)
+		case <-time.After(5 * time.Millisecond):
+		case <-ctx.Done():
+			t.Fatal("authenticated pairing did not enter local approval")
+		}
+	}
+	if result, err := member.dispatch(ctx, "decline", object{}); err != nil || field(result, "declined") != true ||
+		field(result, "deviceId") != controller.identity.id {
+		t.Fatalf("local decline = %s, %v", wire(result), err)
+	}
+	select {
+	case err := <-done:
+		if err == nil || managementErrorCode(err.Error()) != "DEVICE_PAIRING_DECLINED" {
+			t.Fatalf("controller received the wrong decline result: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatal("local decline did not reach the controller")
+	}
+	if _, err := controller.dispatch(ctx, "pair", request); err == nil || member.snapshot()["controller"] != nil || member.snapshot()["pending"] != nil {
+		t.Fatalf("declined device reused the one-time offer: %v", err)
+	}
 }
 
 func TestCancelledPairingCannotApplyALateApproval(t *testing.T) {

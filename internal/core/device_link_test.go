@@ -3,11 +3,15 @@ package core
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/netip"
+	"os"
+	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -223,6 +227,102 @@ func TestPairOfferCarriesOnlyAllowedAddressesAndVersion(t *testing.T) {
 	}
 }
 
+func TestPeerEnvelopePreservesReceiptAndRejectsManagement(t *testing.T) {
+	// Contract: arc-peer/3 preserves an admitted receipt ID and fences management and cross-device requests.
+	const invalid = "INVALID_ARGUMENT: malformed peer envelope"
+	request := object{"version": deviceProtocolVersion, "tool": "act", "origin": object{"sourceId": "fixture-source"},
+		"body": object{"op": "command", "args": object{"cmd": "true"}, "requestId": "fixture-receipt"}}
+	if decoded, err := decodeDeviceRequest(request, invalid); err != nil || field(decoded.Body, "requestId") != "fixture-receipt" {
+		t.Fatalf("peer envelope lost the original receipt: %v, %v", decoded, err)
+	}
+	for _, op := range []string{"devices", "device", "device_transfer", "device.offer", "device/revoke"} {
+		request["body"] = object{"op": op, "args": object{}}
+		if _, err := decodeDeviceRequest(request, invalid); err == nil || managementErrorCode(err.Error()) != "DEVICE_PEER_FORBIDDEN" {
+			t.Errorf("peer sent %s into member management: %v", op, err)
+		}
+	}
+	for _, denied := range []object{
+		{"tool": "management", "body": object{"op": "command", "args": object{}}},
+		{"tool": "query", "body": object{"op": "guide", "args": object{"op": "device"}}},
+		{"tool": "act", "body": object{"op": "command", "args": object{"device": "other"}}},
+	} {
+		request["tool"], request["body"] = denied["tool"], denied["body"]
+		if _, err := decodeDeviceRequest(request, invalid); err == nil || managementErrorCode(err.Error()) != "DEVICE_PEER_FORBIDDEN" {
+			t.Errorf("peer escaped member scope: %v, %v", denied, err)
+		}
+	}
+}
+
+func TestHostUnreachableDiagnosticRetainsDarwinRecovery(t *testing.T) {
+	// Contract: the LAN dial diagnostic preserves the OS evidence and macOS Local Network recovery.
+	if operatingSystem != "darwin" {
+		t.Skip("macOS Local Network recovery is specific to Darwin")
+	}
+	address := netip.MustParseAddrPort("192.168.1.6:7143")
+	osError := os.NewSyscallError("connect", syscall.EHOSTUNREACH)
+	diagnostic := deviceLANDialError([]deviceDialFailure{deviceTCPFailure(address, osError, false)}).Error()
+	for _, expected := range []string{"DEVICE_LAN_UNAVAILABLE:", osError.Error(), address.String(), "arc cli app quit", "open -a"} {
+		if !strings.Contains(diagnostic, expected) {
+			t.Errorf("LAN failure lost %q: %s", expected, diagnostic)
+		}
+	}
+	refused := os.NewSyscallError("connect", syscall.ECONNREFUSED)
+	failure := deviceTCPFailure(address, refused, false)
+	if failure.message != refused.Error() || !failure.refused {
+		t.Fatalf("connection refusal received unrelated recovery: %v", failure)
+	}
+}
+
+func TestPeerHelloReplacesPersistedAddressesAndSkipsIdenticalUpdates(t *testing.T) {
+	// Recurring bug class: persistence stale transport addresses survived an authenticated hello and owner restart.
+	ctx := t.Context()
+	manager, err := newDeviceManager(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity, err := loadDeviceIdentity(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	peer := devicePeer{DeviceID: identity.id, PublicKey: identity.publicKey, Name: "Fixture member"}
+	for i := range 12 {
+		peer.Addresses = append(peer.Addresses, fmt.Sprintf("192.168.1.%d:7143", i+1))
+	}
+	state := manager.stored
+	state.Members[identity.id] = peer
+	if err := manager.persist(state); err != nil {
+		t.Fatal(err)
+	}
+	body := object{"deviceId": identity.id, "publicKey": identity.publicKey, "hello": object{
+		"addresses": []any{"192.168.1.20:7143"}, "tunnelUrl": "https://peer.example/arc-peer/3",
+	}}
+	if result, err := manager.learn(body); err != nil || result["changed"] != true {
+		t.Fatalf("changed hello = %v, %v", result, err)
+	}
+	path := filepath.Join(manager.directory, "peers.json")
+	before, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fresh, err := newDeviceManager(ctx, manager.directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range []*deviceManager{manager, fresh} {
+		if result, err := m.learn(body); err != nil || result["changed"] != false {
+			t.Fatalf("identical hello = %v, %v", result, err)
+		}
+		saved := m.stored.Members[identity.id]
+		if wire(saved.Addresses) != `["192.168.1.20:7143"]` || wire(saved.TunnelURL) != `"https://peer.example/arc-peer/3"` {
+			t.Fatalf("refreshed addresses were lost after reload: %v", saved)
+		}
+	}
+	after, err := os.Stat(path)
+	if err != nil || !os.SameFile(before, after) || !before.ModTime().Equal(after.ModTime()) {
+		t.Fatalf("identical hello rewrote the persisted pairing: %v", err)
+	}
+}
+
 func TestPairedConnectionCapacityPreservesActiveRequests(t *testing.T) {
 	// Recurring bug class: concurrency admitting a replacement connection must preserve every active paired stream.
 	var pool deviceConnections
@@ -270,4 +370,84 @@ func TestPairedConnectionCapacityPreservesActiveRequests(t *testing.T) {
 		done()
 		active[i]()
 	}
+}
+
+func TestPairedLANReplacesIdleChannelWithoutClosingActiveRequest(t *testing.T) {
+	// Recurring bug class: concurrency LAN reconnection evicts an idle paired channel while preserving admitted work.
+	ctx, cancel := context.WithTimeout(t.Context(), 6*time.Second)
+	defer cancel()
+	member, err := loadDeviceIdentity(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	controller, err := loadDeviceIdentity(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	started, release := make(chan struct{}), make(chan struct{})
+	listener := pairedDeviceListener(t, ctx, member, controller, func(w http.ResponseWriter, r *http.Request, _, _ string) {
+		if r.URL.Path == deviceReadPath+"hold" {
+			close(started)
+			select {
+			case <-release:
+			case <-r.Context().Done():
+				return
+			}
+		}
+		devicePeerReply(w, object{"deviceId": member.id}, nil)
+	})
+	open := func() *deviceChannel {
+		t.Helper()
+		channel, failure := dialDeviceChannel(ctx, deviceClientTLS(controller, member.id), listener)
+		if channel == nil {
+			t.Fatalf("paired LAN connection = %v", failure)
+		}
+		t.Cleanup(channel.close)
+		if value, err := channel.request(ctx, deviceReadPath+"hello", object{}, time.Second); err != nil || field(value, "deviceId") != member.id {
+			t.Fatalf("paired LAN hello = %v, %v", value, err)
+		}
+		return channel
+	}
+	channels := make([]*deviceChannel, 8)
+	for i := range channels {
+		channels[i] = open()
+	}
+	completed := make(chan error, 1)
+	go func() {
+		_, err := channels[0].request(ctx, deviceReadPath+"hold", object{}, 4*time.Second)
+		completed <- err
+		close(completed)
+	}()
+	defer func() { cancel(); <-completed }()
+	select {
+	case <-started:
+	case <-ctx.Done():
+		t.Fatal("oldest channel did not admit its active request")
+	}
+	_ = open()
+	if _, err := channels[1].request(ctx, deviceReadPath+"hello", object{}, time.Second); err == nil || ctx.Err() != nil {
+		t.Fatalf("replacement did not close the oldest idle channel: %v", err)
+	}
+	close(release)
+	if err := <-completed; err != nil {
+		t.Fatalf("replacement interrupted the active channel: %v", err)
+	}
+}
+
+func pairedDeviceListener(t *testing.T, parent context.Context, member, controller *deviceIdentity,
+	handle func(http.ResponseWriter, *http.Request, string, string)) netip.AddrPort {
+	t.Helper()
+	ctx, cancel := context.WithCancel(parent)
+	socket, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	if err != nil {
+		cancel()
+		t.Fatal(err)
+	}
+	pin := func(candidate string) bool { return candidate == controller.id }
+	server := newDevicePeerListener(member, pin, pin, handle)
+	server.allow = netip.Addr.IsLoopback
+	done := make(chan struct{})
+	go func() { defer close(done); server.listen(ctx, socket) }()
+	t.Cleanup(func() { cancel(); <-done })
+	return socket.Addr().(*net.TCPAddr).AddrPort()
 }

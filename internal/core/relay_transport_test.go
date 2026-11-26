@@ -3,12 +3,14 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"encoding/base64"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -115,6 +117,98 @@ func TestRelayControlVerifiesChallengeAndStreamedTunnel(t *testing.T) {
 		t.Fatal("worker did not receive the original binary bytes")
 	}
 	read("response-end")
+}
+
+func TestRelayForwardPreservesSSEFlowCreditAndHTTPHeaders(t *testing.T) {
+	// Contract: relay frames preserve the local HTTP wire and forward each SSE chunk only after credit.
+	ctx, cancel := context.WithTimeout(t.Context(), 4*time.Second)
+	defer cancel()
+	nextEvent, firstWritten := make(chan struct{}), make(chan struct{})
+	payload := []byte{0, 1, 254, 255}
+	local := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got, err := io.ReadAll(r.Body)
+		if err != nil || !bytes.Equal(got, payload) || r.ContentLength != int64(len(payload)) ||
+			r.RequestURI != "/oauth/token?x=%2F" || r.Method != http.MethodPost || r.Host == "invalid.example" ||
+			r.Header.Get("Authorization") != "Bearer fixture" || r.Header.Get("X-Test") != "exact" {
+			http.Error(w, "unexpected request wire", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Add("Set-Cookie", "one=1")
+		w.Header().Add("Set-Cookie", "two=2")
+		_, _ = io.WriteString(w, "data: one\n\n")
+		_ = http.NewResponseController(w).Flush()
+		close(firstWritten)
+		select {
+		case <-nextEvent:
+			_, _ = io.WriteString(w, "data: two\n\n")
+		case <-ctx.Done():
+		}
+	}))
+	defer local.Close()
+	body, credit, out := make(chan []byte, 1), make(chan struct{}, 1), make(chan object, 8)
+	body <- payload
+	close(body)
+	done := make(chan error, 1)
+	go func() {
+		done <- relayForward(ctx, local.Client(), local.URL, object{
+			"id": "request", "method": "POST", "path": "/oauth/token?x=%2F",
+			"headers": []any{[]any{"Authorization", "Bearer fixture"}, []any{"Host", "invalid.example"},
+				[]any{"Content-Length", "4"}, []any{"X-Test", "exact"}},
+		}, body, credit, out)
+		close(done)
+	}()
+	defer func() { cancel(); <-done }()
+	read := func(kind string) object {
+		t.Helper()
+		select {
+		case frame := <-out:
+			if frame["type"] != kind {
+				t.Fatalf("expected %s, got %v", kind, frame)
+			}
+			return frame
+		case <-ctx.Done():
+			t.Fatalf("relay never sent %s", kind)
+			return nil
+		}
+	}
+	if frame := read("request-credit"); frame["id"] != "request" {
+		t.Fatalf("request credit = %v", frame)
+	}
+	head := read("response")
+	var cookies []string
+	for _, pair := range head["headers"].([][2]string) {
+		if pair[0] == "set-cookie" {
+			cookies = append(cookies, pair[1])
+		}
+	}
+	if head["status"] != http.StatusOK || !reflect.DeepEqual(cookies, []string{"one=1", "two=2"}) {
+		t.Fatalf("SSE response headers = %v", head)
+	}
+	select {
+	case <-firstWritten:
+	case <-ctx.Done():
+		t.Fatal("local SSE response did not start")
+	}
+	select {
+	case frame := <-out:
+		t.Fatalf("relay forwarded an SSE chunk without credit: %v", frame)
+	case <-time.After(30 * time.Millisecond):
+	}
+	for _, name := range []string{"one", "two"} {
+		credit <- struct{}{}
+		frame := read("response-chunk")
+		if data, err := base64.StdEncoding.DecodeString(text(frame, "data")); err != nil || string(data) != "data: "+name+"\n\n" {
+			t.Fatalf("SSE %s frame = %q, %v", name, data, err)
+		}
+		if name == "one" {
+			close(nextEvent)
+		}
+	}
+	read("response-end")
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestRelayWaitsForTheExpectedDeploymentVersion(t *testing.T) {

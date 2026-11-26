@@ -862,7 +862,7 @@
         "internal/core/device_link_events_test.go",
         "internal/core/device_link_events_fixture_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/events.rs": {
       "segment": "E",
@@ -901,7 +901,7 @@
         "internal/core/device_link_test.go",
         "internal/core/device_link_pairing_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/tls.rs": {
       "segment": "E",
@@ -954,7 +954,7 @@
         "internal/core/device_link_transfer_performance_darwin_test.go",
         "internal/core/device_link_controller_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/transfer/wire.rs": {
       "segment": "E",
@@ -1006,7 +1006,7 @@
         "internal/core/device_link_visibility.go",
         "internal/core/device_link_visibility_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/diagnostics.rs": {
       "segment": "S0",
@@ -1548,7 +1548,7 @@
         "internal/core/relay_transport.go",
         "internal/core/relay_transport_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/resources.rs": {
       "segment": "S0",

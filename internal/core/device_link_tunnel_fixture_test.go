@@ -54,7 +54,9 @@ func TestDeviceTunnelTransfersUseBoundedVerifiedRanges(t *testing.T) {
 	// Contract: the public peer route issues a signed session and transfers independently verified ranges both ways.
 	directory := t.TempDir()
 	ctx, member, controllerIdentity, link := openDeviceTunnelFixture(t, directory)
-	data := bytes.Repeat([]byte("bounded transfer fixture"), 5200)
+	const transferBytes = 20 * 1024 * 1024
+	pattern := []byte("bounded transfer fixture\x00\xff")
+	data := bytes.Repeat(pattern, (transferBytes+len(pattern)-1)/len(pattern))[:transferBytes]
 	source, target := filepath.Join(directory, "source"), filepath.Join(directory, "target")
 	if err := os.WriteFile(source, data, 0o600); err != nil {
 		t.Fatal(err)
@@ -92,8 +94,10 @@ func TestDeviceTunnelTransfersUseBoundedVerifiedRanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	for receiver.offset() < sz {
-		if err := link.download(ctx, down, target, stamp, receiver, min(link.size(), sz-receiver.offset())); err != nil {
-			t.Fatal(err)
+		offset := receiver.offset()
+		length := min(link.size(), sz-offset)
+		if err := link.download(ctx, down, target, stamp, receiver, length); err != nil || receiver.offset() != offset+length {
+			t.Fatalf("download range at %d advanced to %d: %v", offset, receiver.offset(), err)
 		}
 	}
 	if result, err := receiver.commit(); err != nil || field(result, "sha256") != sum {
@@ -107,5 +111,29 @@ func TestDeviceTunnelTransfersUseBoundedVerifiedRanges(t *testing.T) {
 	}
 	if _, err := link.control(ctx, object{"action": "stat", "path": target}); err == nil || managementErrorCode(err.Error()) != "DEVICE_TUNNEL_AUTH" {
 		t.Fatalf("revoked session could read transfer metadata: %v", err)
+	}
+}
+
+func TestAuthenticatedTunnelRemainsAdmittedWithLANSlotsFull(t *testing.T) {
+	// Recurring bug class: concurrency idle paired LAN channels must leave capacity for authenticated tunnel requests.
+	ctx, member, controller, link := openDeviceTunnelFixture(t, t.TempDir())
+	address := pairedDeviceListener(t, ctx, member.identity, controller, member.servePeer)
+	for range 8 {
+		channel, failure := dialDeviceChannel(ctx, deviceClientTLS(controller, member.identity.id), address)
+		if channel == nil {
+			t.Fatalf("pinned LAN connection = %v", failure)
+		}
+		t.Cleanup(channel.close)
+		if result, err := channel.request(ctx, deviceReadPath+"hello", object{"version": deviceProtocolVersion}, time.Second); err != nil ||
+			field(result, "deviceId") != member.identity.id {
+			t.Fatalf("pinned LAN hello = %v, %v", result, err)
+		}
+	}
+	bounded, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	value, err := link.path.send(bounded, object{"version": deviceProtocolVersion, "tool": "query",
+		"body": object{"op": "runtime_metrics", "args": object{}}, "origin": object{}}, 2*time.Second)
+	if err != nil || field(value, "isError") == true || field(value, "content") == nil {
+		t.Fatalf("tunnel with eight occupied LAN slots = %v, %v", value, err)
 	}
 }

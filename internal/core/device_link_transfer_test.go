@@ -165,6 +165,24 @@ func TestDeviceLANTransferReceiptsAndVerifiedRanges(t *testing.T) {
 	if _, err := os.Stat(text(meta, "temporary")); !os.IsNotExist(err) {
 		t.Fatalf("cancelled transfer still owns a temporary file: %v", err)
 	}
+	replacement := []byte("replacement transfer payload")
+	if err := os.WriteFile(source, replacement, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, result = start(from, to, object{"overwrite": true, "expectedSha256": hash(replacement)})
+	got, err := os.ReadFile(uploaded)
+	if err != nil || !bytes.Equal(got, replacement) || result["state"] != "completed" || field(result["result"], "sha256") != hash(replacement) {
+		t.Fatalf("overwrite outcome = %v, file = %q, %v", result, got, err)
+	}
+	if _, err := changePreferences(object{"values": object{"device-link": "off"}}, false); err != nil {
+		t.Fatal(err)
+	}
+	denied := localControl(ctx, &service{}, requestSource{policy: "all", local: true},
+		object{"op": "device_transfer", "args": plan})
+	value, err := egressToolValue(denied)
+	if err != nil || field(field(value, "error"), "code") != "OP_UNAVAILABLE" {
+		t.Fatalf("disabled transfer command = %v, %v", value, err)
+	}
 }
 
 func TestInterruptedDeviceTransferRequiresExplicitResume(t *testing.T) {
@@ -222,6 +240,7 @@ func TestInterruptedDeviceTransferRequiresExplicitResume(t *testing.T) {
 	}
 	tick := time.NewTicker(5 * time.Millisecond)
 	defer tick.Stop()
+resuming:
 	for {
 		row, err := controller.transfer(ctx, object{"action": "read", "requestId": request})
 		if err != nil {
@@ -233,7 +252,7 @@ func TestInterruptedDeviceTransferRequiresExplicitResume(t *testing.T) {
 			if err != nil || !bytes.Equal(got, data) {
 				t.Fatalf("resumed file: got %d bytes, error %v", len(got), err)
 			}
-			return
+			break resuming
 		case "executing", "reserved":
 		default:
 			t.Fatalf("resumed transfer %v", row)
@@ -243,5 +262,45 @@ func TestInterruptedDeviceTransferRequiresExplicitResume(t *testing.T) {
 			t.Fatal(ctx.Err())
 		case <-tick.C:
 		}
+	}
+	queuedPath := filepath.Join(directory, "queued-destination")
+	first, second := id(), id()
+	begin := func(request string) (any, error) {
+		return link.control(ctx, object{"action": "begin", "requestId": request,
+			"spec": object{"path": queuedPath, "total": 4, "expectedSha256": hash([]byte("test"))}})
+	}
+	if row, err := begin(first); err != nil || field(row, "state") != "receiving" {
+		t.Fatalf("first destination owner = %v, %v", row, err)
+	}
+	type decision struct {
+		row any
+		err error
+	}
+	waiting := make(chan decision, 1)
+	go func() {
+		row, err := begin(second)
+		waiting <- decision{row, err}
+	}()
+	select {
+	case got := <-waiting:
+		t.Fatalf("second destination owner bypassed the first: %v", got)
+	case <-time.After(25 * time.Millisecond):
+	}
+	for _, request := range []string{second, first} {
+		result, err := link.control(ctx, object{"action": "cancel", "requestId": request})
+		if err != nil || field(result, "state") != "cancelled" {
+			t.Fatalf("cancel receiver %s = %v, %v", request, result, err)
+		}
+	}
+	select {
+	case got := <-waiting:
+		if got.err != nil || field(got.row, "state") != "cancelled" {
+			t.Fatalf("cancelled begin was admitted later: %v", got)
+		}
+	case <-ctx.Done():
+		t.Fatal("cancelled receiver did not finish")
+	}
+	if _, err := os.Stat(queuedPath); !os.IsNotExist(err) {
+		t.Fatalf("cancelled receivers published a destination: %v", err)
 	}
 }

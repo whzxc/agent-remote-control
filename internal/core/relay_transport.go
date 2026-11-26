@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -381,6 +382,17 @@ func relayForward(ctx context.Context, client *http.Client, local string, frame 
 			return errors.New("Invalid header")
 		}
 		if slices.Contains([]string{"host", "connection", "transfer-encoding", "upgrade", "expect"}, strings.ToLower(name)) {
+			continue
+		}
+		if strings.EqualFold(name, "Content-Length") {
+			length, err := strconv.ParseInt(value, 10, 64)
+			if err != nil || length < 0 {
+				return errors.New("Invalid Content-Length")
+			}
+			req.ContentLength = length
+			if length == 0 {
+				req.Body = http.NoBody
+			}
 			continue
 		}
 		bytes := make([]byte, 0, len(value))

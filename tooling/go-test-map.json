@@ -463,24 +463,24 @@
     "native/src/device_link/events/tests.rs": {
       "queue_cursor_reports_overflow_and_resets_without_replay": ["internal/core/device_link_events_test.go#TestPeerEventCursorReportsOverflowWithoutReplaying"],
       "event_long_poll_is_bounded_and_wakes_on_member_event": ["internal/core/device_link_events_test.go#TestPeerEventLongPollWakesAndBoundsWait"],
-      "controller_member_notification_loopback": {"tests": ["internal/core/device_link_events_fixture_test.go#TestPeerNotificationFollowsTheSubmittingSourceOverLAN"], "remaining": "Check upstream notification stripping, failed write status probing, and owner rebind through peer events."}
+      "controller_member_notification_loopback": ["internal/core/device_link_events_fixture_test.go#TestPeerNotificationFollowsTheSubmittingSourceOverLAN"]
     },
     "native/src/device_link/tests.rs": {
       "leaked_controller_connections_are_reaped_within_keepalive_bound": ["internal/core/device_link_test.go#TestUnresponsivePinnedPeerReleasesTheConnection"],
-      "leaked_controller_connections_do_not_block_new_lan_connection": {"tests": ["internal/core/device_link_test.go#TestUnresponsivePinnedPeerReleasesTheConnection", "internal/core/device_link_test.go#TestPairedConnectionCapacityPreservesActiveRequests"], "remaining": "Open a replacement LAN connection while existing peer sessions remain open."},
+      "leaked_controller_connections_do_not_block_new_lan_connection": ["internal/core/device_link_test.go#TestUnresponsivePinnedPeerReleasesTheConnection", "internal/core/device_link_test.go#TestPairedConnectionCapacityPreservesActiveRequests", "internal/core/device_link_test.go#TestPairedLANReplacesIdleChannelWithoutClosingActiveRequest"],
       "link_local_timeout_does_not_mask_ipv4_error": ["internal/core/device_link_controller_test.go#TestDeviceLANTLSErrorWinsOverLinkLocalTimeout"],
-      "leaked_lan_connections_do_not_starve_tunnel_requests": {"tests": ["internal/core/device_link_test.go#TestUnresponsivePinnedPeerReleasesTheConnection", "internal/core/device_link_test.go#TestPairedConnectionCapacityPreservesActiveRequests", "internal/core/device_link_tunnel_fixture_test.go#TestDeviceTunnelTransfersUseBoundedVerifiedRanges"], "remaining": "Saturate LAN slots while admitting a tunnel request."},
+      "leaked_lan_connections_do_not_starve_tunnel_requests": ["internal/core/device_link_test.go#TestUnresponsivePinnedPeerReleasesTheConnection", "internal/core/device_link_test.go#TestPairedConnectionCapacityPreservesActiveRequests", "internal/core/device_link_tunnel_fixture_test.go#TestDeviceTunnelTransfersUseBoundedVerifiedRanges", "internal/core/device_link_tunnel_fixture_test.go#TestAuthenticatedTunnelRemainsAdmittedWithLANSlotsFull"],
       "pairing_string_roundtrip_and_version": ["internal/core/device_link_test.go#TestPairOfferCarriesOnlyAllowedAddressesAndVersion"],
       "lan_policy_excludes_public_loopback_and_mapped_public": ["internal/core/device_link_test.go#TestPairOfferCarriesOnlyAllowedAddressesAndVersion", "internal/core/device_link_addresses_test.go#TestDeviceOnlyUpPhysicalLANAddressesRemainInPreferenceOrder"],
       "device_cli_errors_preserve_json_codes": ["internal/core/device_link_controller_test.go#TestDeviceCLIErrorsKeepStableCodesAndRecovery"],
-      "host_unreachable_dial_retains_os_evidence_and_app_recovery": {"tests": ["internal/core/device_link_tunnel_test.go#TestRefusedPeerAddressDoesNotWaitForHeartbeat"], "remaining": "Exercise macOS EHOSTUNREACH and its quit/reopen recovery through the dial path."},
-      "peer_envelope_preserves_receipt_and_blocks_management": {"tests": ["internal/core/device_link_pairing_test.go#TestGoDevicePairingRequiresApprovalAndForwardsPinnedRequest", "internal/core/device_link_controller_test.go#TestControllerCoreLossRetainsTheMemberReceiptTarget"], "remaining": "Check all management and multihop envelope denial variants."},
+      "host_unreachable_dial_retains_os_evidence_and_app_recovery": ["internal/core/device_link_tunnel_test.go#TestRefusedPeerAddressDoesNotWaitForHeartbeat", "internal/core/device_link_test.go#TestHostUnreachableDiagnosticRetainsDarwinRecovery"],
+      "peer_envelope_preserves_receipt_and_blocks_management": ["internal/core/device_link_pairing_test.go#TestGoDevicePairingRequiresApprovalAndForwardsPinnedRequest", "internal/core/device_link_controller_test.go#TestControllerCoreLossRetainsTheMemberReceiptTarget", "internal/core/device_link_test.go#TestPeerEnvelopePreservesReceiptAndRejectsManagement"],
       "handshake_budget_is_bounded_and_recovers": ["internal/core/device_link_test.go#TestPeerHandshakeBudgetUsesOneBucketPerSource", "internal/core/device_link_test.go#TestPairedConnectionCapacityPreservesActiveRequests"],
       "tls_requires_pins_client_keys_and_an_offer": ["internal/core/device_link_test.go#TestDevicePeerTLSRequiresPinnedKeysAndNegotiatesHTTP2"],
-      "pairing_secret_is_consumed_and_local_decline_is_required": {"tests": ["internal/core/device_link_test.go#TestPairOfferCarriesOnlyAllowedAddressesAndVersion", "internal/core/device_link_pairing_test.go#TestGoDevicePairingRequiresApprovalAndForwardsPinnedRequest", "internal/core/device_link_pairing_test.go#TestCancelledPairingCannotApplyALateApproval"], "remaining": "Decline an authenticated offer through the local approval path."},
-      "approved_peer_uses_private_core_source_and_receipt": {"tests": ["internal/core/device_link_pairing_test.go#TestGoDevicePairingRequiresApprovalAndForwardsPinnedRequest"], "remaining": "Exercise revoke and reset while reading exact receipt ownership and peer credentials."},
-      "hello_refresh_replaces_stale_persisted_addresses_without_rewriting_unchanged": {"tests": ["internal/core/device_link_controller_dns_test.go#TestDeviceDNSResolvesSplitRecordsAndExpiresReplacedAddresses", "internal/core/device_link_identity_test.go#TestDeviceLinkLoadsRustIdentityAndPairingsInPlace"], "remaining": "Change hello addresses at runtime and check unchanged persisted bytes on repeat."},
-      "desktop_snapshot_reads_identity_pairings_and_pending_deadline": {"tests": ["internal/core/device_link_pairing_test.go#TestGoDevicePairingRequiresApprovalAndForwardsPinnedRequest", "internal/core/device_link_pairing_test.go#TestCancelledPairingCannotApplyALateApproval", "internal/core/device_link_identity_test.go#TestDeviceLinkLoadsRustIdentityAndPairingsInPlace"], "remaining": "Read pending deadline, override, and hidden-key boundary from device snapshot."},
+      "pairing_secret_is_consumed_and_local_decline_is_required": ["internal/core/device_link_test.go#TestPairOfferCarriesOnlyAllowedAddressesAndVersion", "internal/core/device_link_pairing_test.go#TestGoDevicePairingRequiresApprovalAndForwardsPinnedRequest", "internal/core/device_link_pairing_test.go#TestCancelledPairingCannotApplyALateApproval", "internal/core/device_link_pairing_test.go#TestAuthenticatedPairingRequiresLocalApprovalAfterDecline"],
+      "approved_peer_uses_private_core_source_and_receipt": ["internal/core/device_link_pairing_test.go#TestGoDevicePairingRequiresApprovalAndForwardsPinnedRequest"],
+      "hello_refresh_replaces_stale_persisted_addresses_without_rewriting_unchanged": ["internal/core/device_link_controller_dns_test.go#TestDeviceDNSResolvesSplitRecordsAndExpiresReplacedAddresses", "internal/core/device_link_identity_test.go#TestDeviceLinkLoadsRustIdentityAndPairingsInPlace", "internal/core/device_link_test.go#TestPeerHelloReplacesPersistedAddressesAndSkipsIdenticalUpdates"],
+      "desktop_snapshot_reads_identity_pairings_and_pending_deadline": ["internal/core/device_link_pairing_test.go#TestGoDevicePairingRequiresApprovalAndForwardsPinnedRequest", "internal/core/device_link_pairing_test.go#TestCancelledPairingCannotApplyALateApproval", "internal/core/device_link_identity_test.go#TestDeviceLinkLoadsRustIdentityAndPairingsInPlace"],
       "cancelled_pairing_cannot_accept_a_late_member_approval": ["internal/core/device_link_pairing_test.go#TestCancelledPairingCannotApplyALateApproval"]
     },
     "native/src/device_link/topology.rs": {
@@ -488,10 +488,10 @@
     },
     "native/src/device_link/transfer/tests.rs": {
       "transfer_catalog_envelopes": ["internal/core/device_link_controller_test.go#TestDeviceGuideDisclosesFullScopeAndTransferRecovery"],
-      "lan_transfer_receipts_resume_cancel_and_integrity": {"tests": ["internal/core/device_link_transfer_test.go#TestDeviceLANTransferReceiptsAndVerifiedRanges", "internal/core/device_link_transfer_test.go#TestInterruptedDeviceTransferRequiresExplicitResume"], "remaining": "Check successful overwrite and disabled-operation refusal through the transfer command."},
-      "tunnel_twenty_mib_ranges_are_correct": {"tests": ["internal/core/device_link_tunnel_fixture_test.go#TestDeviceTunnelTransfersUseBoundedVerifiedRanges"], "remaining": "Check the full 20 MiB bidirectional verified-range budget."},
+      "lan_transfer_receipts_resume_cancel_and_integrity": ["internal/core/device_link_transfer_test.go#TestDeviceLANTransferReceiptsAndVerifiedRanges", "internal/core/device_link_transfer_test.go#TestInterruptedDeviceTransferRequiresExplicitResume"],
+      "tunnel_twenty_mib_ranges_are_correct": ["internal/core/device_link_tunnel_fixture_test.go#TestDeviceTunnelTransfersUseBoundedVerifiedRanges"],
       "lan_gib_performance": ["internal/core/device_link_transfer_performance_darwin_test.go#TestDeviceLANOneGiBStreamingBounds"],
-      "interrupted_owner_resumes_only_verified_bytes": {"tests": ["internal/core/device_link_transfer_test.go#TestInterruptedDeviceTransferRequiresExplicitResume", "internal/core/device_link_transfer_receiver_test.go#TestPublishedTransferRepairsACompletionCheckpointFailure"], "remaining": "Queue and cancel a second transfer targeting the same destination."},
+      "interrupted_owner_resumes_only_verified_bytes": ["internal/core/device_link_transfer_test.go#TestInterruptedDeviceTransferRequiresExplicitResume", "internal/core/device_link_transfer_receiver_test.go#TestPublishedTransferRepairsACompletionCheckpointFailure"],
       "relay_multichunk_upload_does_not_expire_peer_body_deadline": ["internal/core/device_link_transfer_relay_fixture_test.go#TestRelayPeerTransferSurvivesSlowContinuousCredit"],
       "relay_six_hundred_kb_survives_two_second_credit_rtt_in_both_directions": ["internal/core/device_link_transfer_relay_fixture_test.go#TestRelayPeerTransferSurvivesSlowContinuousCredit"]
     },
@@ -502,7 +502,7 @@
     },
     "native/src/device_link/visibility.rs": {
       "visibility_requires_dispatch_from_the_authenticated_peer_device": ["internal/core/device_link_visibility_test.go#TestDeviceTaskOwnershipSurvivesSourceRenewal", "internal/core/device_link_pairing_test.go#TestGoDevicePairingRequiresApprovalAndForwardsPinnedRequest"],
-      "peer_receipts_keep_controller_attribution_and_hide_foreign_work": {"tests": ["internal/core/device_link_visibility_test.go#TestDeviceTaskOwnershipSurvivesSourceRenewal", "internal/core/device_link_pairing_test.go#TestGoDevicePairingRequiresApprovalAndForwardsPinnedRequest"], "remaining": "Verify member-local receipt denial and optional upstream-origin redaction."}
+      "peer_receipts_keep_controller_attribution_and_hide_foreign_work": ["internal/core/device_link_visibility_test.go#TestDeviceTaskOwnershipSurvivesSourceRenewal", "internal/core/device_link_pairing_test.go#TestGoDevicePairingRequiresApprovalAndForwardsPinnedRequest"]
     },
     "native/src/dispatch_policy.rs": {
       "history_uses_confirmed_native_outcome_over_a_contradictory_projection": ["internal/core/dispatch_policy_test.go#TestDispatchHistoryUsesAuthoritativeOutcomeAndPreservesPackCoverage"],
@@ -651,7 +651,7 @@
     },
     "native/src/relay/transport.rs": {
       "deployment_waits_for_the_current_worker_version_after_route_propagation": ["internal/core/relay_transport_test.go#TestRelayWaitsForTheExpectedDeploymentVersion"],
-      "forwards_binary_upload_and_sse_with_credit": {"tests": ["internal/core/relay_transport_test.go#TestRelayControlVerifiesChallengeAndStreamedTunnel"], "remaining": "Check SSE blocking until credit, duplicate Set-Cookie headers, and Host filtering in the Core relay."},
+      "forwards_binary_upload_and_sse_with_credit": ["internal/core/relay_transport_test.go#TestRelayControlVerifiesChallengeAndStreamedTunnel", "internal/core/relay_transport_test.go#TestRelayForwardPreservesSSEFlowCreditAndHTTPHeaders"],
       "cancellation_drops_the_local_http_connection": ["internal/core/relay_transport_test.go#TestRelayCancelClosesTheForwardedRequest"],
       "websocket_upgrade_uses_the_http_client_proxy": ["internal/core/relay_transport_test.go#TestRelayWebsocketUsesHTTPProxy"]
     },

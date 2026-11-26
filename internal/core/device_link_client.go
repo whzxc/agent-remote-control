@@ -142,6 +142,22 @@ type deviceDialFailure struct {
 	message           string
 }
 
+func deviceTCPFailure(address netip.AddrPort, err error, expired bool) deviceDialFailure {
+	failure := deviceDialFailure{address: address, refused: errors.Is(err, syscall.ECONNREFUSED),
+		dialable: !errors.Is(err, syscall.ENETUNREACH) && !errors.Is(err, syscall.EHOSTUNREACH) &&
+			!errors.Is(err, syscall.EADDRNOTAVAIL) && !errors.Is(err, syscall.EINVAL) && !errors.Is(err, syscall.ENOENT)}
+	switch {
+	case expired:
+		failure.message = "TCP connect deadline expired"
+	case operatingSystem == "darwin" && errors.Is(err, syscall.EHOSTUNREACH):
+		failure.message = err.Error() + `; macOS Local Network permission may be blocking ARC. Check System Settings > Privacy & Security > Local Network, then run ` +
+			"`arc cli app quit`" + ` and reopen Agent Remote Control with ` + "`open -a \"Agent Remote Control\"`"
+	default:
+		failure.message = err.Error()
+	}
+	return failure
+}
+
 func dialDeviceChannel(ctx context.Context, config *tls.Config, address netip.AddrPort) (*deviceChannel, deviceDialFailure) {
 	failure := deviceDialFailure{address: address, dialable: true}
 	timer := time.NewTimer(time.Duration(deviceAddressRank(address.Addr())) * 50 * time.Millisecond)
@@ -157,19 +173,7 @@ func dialDeviceChannel(ctx context.Context, config *tls.Config, address netip.Ad
 	expired := errors.Is(dial.Err(), context.DeadlineExceeded)
 	cancel()
 	if err != nil {
-		failure.refused = errors.Is(err, syscall.ECONNREFUSED)
-		failure.dialable = !errors.Is(err, syscall.ENETUNREACH) && !errors.Is(err, syscall.EHOSTUNREACH) &&
-			!errors.Is(err, syscall.EADDRNOTAVAIL) && !errors.Is(err, syscall.EINVAL) && !errors.Is(err, syscall.ENOENT)
-		switch {
-		case expired:
-			failure.message = "TCP connect deadline expired"
-		case operatingSystem == "darwin" && errors.Is(err, syscall.EHOSTUNREACH):
-			failure.message = err.Error() + `; macOS Local Network permission may be blocking ARC. Check System Settings > Privacy & Security > Local Network, then run ` +
-				"`arc cli app quit`" + ` and reopen Agent Remote Control with ` + "`open -a \"Agent Remote Control\"`"
-		default:
-			failure.message = err.Error()
-		}
-		return nil, failure
+		return nil, deviceTCPFailure(address, err, expired)
 	}
 	tlsConn := tls.Client(conn, config)
 	handshake, cancel := context.WithTimeout(ctx, 1250*time.Millisecond)
