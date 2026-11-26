@@ -47,7 +47,22 @@ func (i nativeDesktopInstance) independent() bool {
 }
 
 func (i nativeDesktopInstance) uses(socket string) bool {
-	return i.endpoint == nativeDesktopSocketURL(socket)
+	path, local := strings.CutPrefix(i.endpoint, "ws+unix://localhost")
+	path, rpc := strings.CutSuffix(path, ":/rpc")
+	// Older launches can retain the host's socket alias in their environment.
+	// The live peer check still has to confirm a connection to the current server.
+	return local && rpc && nativeDesktopSocketMatches(path, socket)
+}
+
+func nativeDesktopSocketMatches(path, socket string) bool {
+	if path == socket {
+		return true
+	}
+	if !filepath.IsAbs(path) {
+		return false
+	}
+	resolved, err := filepath.EvalSymlinks(path)
+	return err == nil && resolved == socket
 }
 
 func nativeIndependentDesktopProfile(alternate bool) string {
@@ -360,7 +375,7 @@ func nativeDesktopConnected(ctx context.Context, socket, profile string) (*nativ
 	}
 	server := map[string]bool{}
 	for _, descriptor := range descriptors {
-		if descriptor.pid == peer && descriptor.name == socket {
+		if descriptor.pid == peer && nativeDesktopSocketMatches(descriptor.name, socket) {
 			server[descriptor.device] = true
 		}
 	}

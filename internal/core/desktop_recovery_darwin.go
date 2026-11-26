@@ -40,6 +40,12 @@ func waitNativeDesktopReadiness(ctx context.Context, discover func(context.Conte
 }
 
 func nativeIndependentForBackend(ctx context.Context, socket string) (*nativeDesktopInstance, error) {
+	// The host index, the Desktop launch URL and lsof can report different paths
+	// for the same Unix socket.
+	socket, err := filepath.EvalSymlinks(socket)
+	if err != nil {
+		return nil, err
+	}
 	instances, err := nativeDesktopProcessSnapshot(ctx)
 	if err != nil {
 		return nil, err
