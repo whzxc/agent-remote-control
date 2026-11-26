@@ -110,6 +110,12 @@ func managementErrorCode(message string) string {
 	if strings.Contains(message, "Cannot connect to local Core") || strings.Contains(message, "Open Agent Remote Control first") {
 		return "APP_UNAVAILABLE"
 	}
+	var parsed object
+	if strings.HasPrefix(message, "{") {
+		if err := decodeObject([]byte(message), &parsed); err != nil {
+			parsed = nil
+		}
+	}
 	for _, code := range []string{PortPending, "CORE_BUILD_MISMATCH", "DEVICE_OFFLINE", "DEVICE_UNKNOWN", "DEVICE_PAIRING_CYCLE", "DEVICE_TOPOLOGY_UNAVAILABLE",
 		"DEVICE_AGENT_UNAVAILABLE", "DEVICE_TASK_NOT_VISIBLE", "DEVICE_CONNECTION_REFUSED", "DEVICE_RESPONSE_LOST", "DEVICE_OUTCOME_UNCERTAIN",
 		"DEVICE_BUSY", "OP_UNAVAILABLE", "DEVICE_PROTOCOL_MISMATCH", "DEVICE_PAIRING_INVALID", "DEVICE_TLS_FAILED", "DEVICE_LAN_UNAVAILABLE",
@@ -117,7 +123,7 @@ func managementErrorCode(message string) string {
 		"DEVICE_PAIRING_PENDING", "DEVICE_PAIRING_MISSING", "DEVICE_OFFER_EXPIRED", "DEVICE_PAIRING_SECRET", "DEVICE_PAIRING_DECLINED",
 		"DEVICE_PEER_FORBIDDEN", "DEVICE_UNPAIRED", "SOURCE_REVOKED", "SOURCE_REMOVED", "LOCAL_SOURCE_PROTECTED", "INVALID_ARGUMENT",
 		"UNKNOWN_OPERATION", "UNKNOWN_TOOL", "REQUEST_ID_CONFLICT", "UNSUPPORTED_OPERATION", "APP_START_TIMEOUT", "NOT_SUPPORTED", "SHIM_EXISTS", "OUTPUT_EXPIRED"} {
-		if strings.HasPrefix(message, code) {
+		if strings.HasPrefix(message, code) || text(parsed, "code") == code {
 			return code
 		}
 	}
@@ -125,6 +131,51 @@ func managementErrorCode(message string) string {
 		return "APP_VERSION_MISMATCH"
 	}
 	return "COMMAND_FAILED"
+}
+
+// readDeviceManagementResult restores complete JSON for management readers of paged MCP output.
+func readDeviceManagementResult(response any, readOutput func(object) (any, error)) (any, error) {
+	decode := func(response any) (any, error) {
+		value, err := egressToolValue(response)
+		if err == nil && field(response, "isError") == true {
+			return nil, errors.New(wire(value))
+		}
+		return value, err
+	}
+	value, err := decode(response)
+	output, hasOutput := field(value, "outputId").(string)
+	if err != nil || !hasOutput || text(value, "nextAction") != "control_output" {
+		return value, err
+	}
+	var complete strings.Builder
+	var offset uint64
+	for {
+		response, err := readOutput(object{"outputId": output, "offset": offset, "length": 65536})
+		if err != nil {
+			return nil, err
+		}
+		page, err := decode(response)
+		if err != nil {
+			return nil, err
+		}
+		part, ok := field(page, "text").(string)
+		if !ok {
+			return nil, errors.New("Invalid device output page: expected text")
+		}
+		complete.WriteString(part)
+		next, hasNext := uintValue(field(page, "nextOffset"))
+		if !hasNext {
+			var result any
+			if err := unmarshalJSON([]byte(complete.String()), &result); err != nil {
+				return nil, fmt.Errorf("Invalid complete device JSON: %w", err)
+			}
+			return result, nil
+		}
+		if next <= offset {
+			return nil, errors.New("Invalid device output page: offset did not advance")
+		}
+		offset = next
+	}
 }
 
 func platformName() string {
