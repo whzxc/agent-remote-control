@@ -468,9 +468,18 @@ func readNativeAgentActivity(ctx context.Context, s *service) (object, error) {
 	}
 	if !slices.Contains(disabled, any("codex")) {
 		for thread, row := range nativeCodexLiveActivity(&s.events) {
-			for _, key := range []string{"title", "project", "startedAt", "dispatchSummary", "parentSessionId", "relationKind"} {
+			rollout := byID[thread]
+			for _, key := range []string{"title", "project", "startedAt", "parentSessionId", "relationKind"} {
 				if row[key] == nil || row[key] == "" {
-					row[key] = byID[thread][key]
+					row[key] = rollout[key]
+				}
+			}
+			if row["turnId"] == rollout["turnId"] && obj(rollout["dispatchSummary"]) != nil {
+				summary := dispatchSetSection(row, "dispatchSummary")
+				for key, value := range obj(rollout["dispatchSummary"]) {
+					if summary[key] == nil {
+						summary[key] = value
+					}
 				}
 			}
 			byID[thread] = row
@@ -481,6 +490,38 @@ func readNativeAgentActivity(ctx context.Context, s *service) (object, error) {
 	if len(byID) > 0 {
 		ids = append(ids, "codex")
 		sessions := slices.Collect(maps.Values(byID))
+		projects, _ := cachedNativeProjects(ctx, s)
+		records, _ := s.readCodexTaskRecords(ctx)
+		byTask := make(map[string]object, len(records))
+		for _, record := range records {
+			thread := str(dispatchFirstString(record["threadId"], field(record["task"], "threadId")))
+			if byTask[thread] == nil {
+				byTask[thread] = record
+			}
+		}
+		for _, row := range sessions {
+			thread := text(row, "id")
+			if row["open"] == nil && ctx.Value(&peerControlKey) == nil {
+				if navigation := nativeAgentNavigation("codex", thread); navigation != nil {
+					row["open"] = navigation
+				}
+			}
+			if name := localProjectName(projects, text(row, "project"), text(row, "projectId")); name != nil {
+				row["projectName"] = name
+			}
+			if origin := taskSourceOrigin(thread, optionalProjectString(row["turnId"])); origin != nil {
+				row["origin"] = origin
+			}
+			if record := byTask[thread]; record != nil {
+				row["agentAccountId"] = record["agentAccountId"]
+				if row["origin"] == nil {
+					row["origin"] = record["origin"]
+				}
+				if row["source"] == "transcript" {
+					row["source"], row["timeline"] = "codex-thread", true
+				}
+			}
+		}
 		slices.SortFunc(sessions, func(a, b object) int { return cmp.Compare(text(a, "id"), text(b, "id")) })
 		agents["codex"] = object{"sessions": nativeActivitySessions(sessions)}
 	}
@@ -497,7 +538,7 @@ func readNativeAgentActivity(ctx context.Context, s *service) (object, error) {
 			continue
 		default:
 		}
-		if !agentTurnActive(task) && len(arr(task["pendingInteractions"])) == 0 {
+		if !agentTurnActive(task) && len(decodedTaskList(task["pendingInteractions"])) == 0 {
 			continue
 		}
 		var timeline taskTimeline

@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -301,6 +302,9 @@ func (p *nativeAgentProcess) consumeLocked(frame object) {
 	}
 	id := frame["id"]
 	method := str(dispatchFirstString(frame["method"], frame["event"], frame["type"]))
+	if p.driver.id == "pi" && text(frame, "type") != "" {
+		method = text(frame, "type")
+	}
 	if result := p.calls[wire(id)]; result != nil && frame["method"] == nil {
 		delete(p.calls, wire(id))
 		value := frame["result"]
@@ -389,7 +393,8 @@ func (p *nativeAgentProcess) consumeLocked(frame object) {
 			}
 			p.events.Unlock()
 		}
-		if id != nil && !agentTurnTerminal(task) {
+		interactive := method == "session/request_permission" || slices.Contains([]string{"select", "confirm", "input", "editor"}, text(frame, "method"))
+		if id != nil && interactive && !agentTurnTerminal(task) {
 			request := clone(frame)
 			request["turnId"] = task["turnId"]
 			p.pending[wire(id)] = request
@@ -616,6 +621,14 @@ func (p *nativeAgentProcess) recoverHostedReceipt(ctx context.Context) {
 	}
 	switch row["state"] {
 	case "reserved", "executing", "unconfirmed":
+		if agentTurnTerminal(task) {
+			thread, turn := text(task, "taskId"), text(task, "turnId")
+			captureTerminalNativeChanges(ctx, thread, turn)
+			if err := recordAgentDispatchObservation(ctx, task, "accepted"); err != nil {
+				recordLog("WARN", "Agent dispatch recovery: "+err.Error(), nil)
+			}
+			wakeNotificationThread(thread)
+		}
 		row["state"], row["result"], row["error"] = "completed", task, nil
 		if err := store.checkpoint(ctx, row); err != nil {
 			recordLog("WARN", "Agent receipt recovery: "+err.Error(), nil)

@@ -35,8 +35,12 @@ func liveNativeAgentTurns(threads []string) []coordinationLiveTurn {
 	return result
 }
 
-func nativeAgentEvents(_ context.Context, r operationRequest) (any, error) {
+func nativeAgentEvents(ctx context.Context, r operationRequest) (any, error) {
 	agent, taskID := text(r.args, "agent"), text(r.args, "taskId")
+	if !nativeAgentReadAllowed(ctx, agent, taskID) {
+		return nil, errors.New("TASK_NOT_FOUND")
+	}
+	ctx = withRuntimeCost(ctx, "taskRead", "poll")
 	task, err := r.service.nativeAgentTask(agent, taskID)
 	if err != nil {
 		return nil, err
@@ -59,6 +63,7 @@ func nativeAgentEvents(_ context.Context, r operationRequest) (any, error) {
 	}
 	p.events.Unlock()
 	result["persistedOutput"] = object{"outputId": taskID, "format": "JSONL", "error": issue}
+	recordRuntimeWork(ctx, runtimeWorkCost{Owner: "taskRead", Reason: "poll", Rows: len(decodedTaskList(result["events"]))})
 	return result, nil
 }
 

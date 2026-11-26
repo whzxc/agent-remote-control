@@ -71,6 +71,9 @@ func readNativeAgentOperation(ctx context.Context, r operationRequest) (any, err
 		return nil, err
 	}
 	out["dispatches"] = records
+	if reviews, err := dispatchReviews(taskID); err == nil {
+		out["reviews"] = reviews
+	}
 	if wantsTaskSummary(r.name, r.args) {
 		if err := addAgentTaskSummaryEvidence(out); err != nil {
 			return nil, err
@@ -452,7 +455,23 @@ func nativeAgentContext(ctx context.Context, s *service, agent, taskID string) (
 	return facts, nil
 }
 
+func nativeTaskPanel(ctx context.Context, r operationRequest) (any, error) {
+	args := clone(r.args)
+	delete(args, "view")
+	result, err := r.service.managementRequest(ctx, "app/snapshot", http.MethodPost, object{"modelOnly": true, "taskPanel": args})
+	if err != nil {
+		return nil, err
+	}
+	panel := field(field(result, "model"), "taskDetail")
+	if r.args["view"] == "full" {
+		return panel, nil
+	}
+	return panelState(panel), nil
+}
+
 func init() {
+	registerOperation("task_panel", nativeTaskPanel, nil)
+	registerOperation("task_panel_control", nativeTaskPanel, nil)
 	readContextTask = nativeAgentContext
 	registerRoute(http.MethodPost, "agents/conversations", func(ctx context.Context, s *service, body object, _ []string) (any, error) {
 		return listNativeConversations(ctx, s, body)

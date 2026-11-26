@@ -262,6 +262,16 @@ func nativeAgentInventory(ctx context.Context, s *service, optionsOnly bool) (ob
 		return nil, err
 	}
 	rows := make([]object, len(drivers))
+	live := map[string]bool{}
+	if s != nil {
+		for _, process := range s.agents.processes() {
+			select {
+			case <-process.done:
+			default:
+				live[process.driver.id] = true
+			}
+		}
+	}
 	var ready sync.WaitGroup
 	for i, driver := range drivers {
 		ready.Go(func() {
@@ -294,13 +304,28 @@ func nativeAgentInventory(ctx context.Context, s *service, optionsOnly bool) (ob
 				"version": dispatchFirstString(found.version), "path": dispatchFirstString(found.binary), "capabilities": capabilitiesForAgent(driver.id),
 				"configuration": "inherited", "descriptor": descriptor, "integration": integration,
 				"readiness": "ready means a live initialized session, not provider authentication"}
+			switch {
+			case live[driver.id]:
+				row["status"] = "ready"
+			case row["available"] == true:
+				row["status"] = "installed"
+			default:
+				row["status"] = "unavailable"
+			}
 			if driver.id == "claude" && s != nil {
 				s.agents.adapterMu.Lock()
-				row["preparing"] = s.agents.adapterDone != nil
-				if err := s.agents.adapterFailure; err != "" {
-					row["preparationError"] = err
-				}
+				preparing, failure := s.agents.adapterDone != nil, s.agents.adapterFailure
 				s.agents.adapterMu.Unlock()
+				state := "missing"
+				switch {
+				case preparing:
+					state = "preparing"
+				case failure != "":
+					state = "failed"
+				case nativeClaudeAdapterReady():
+					state = "ready"
+				}
+				row["adapter"] = object{"state": state, "error": dispatchFirstString(failure), "managed": true}
 			}
 			if found.err != nil {
 				row["discoveryError"] = found.err.Error()
@@ -669,24 +694,47 @@ func interruptNativeAgentTask(ctx context.Context, r operationRequest, row objec
 	if err := agentReceiptCheckpoint(ctx, row, "interrupting"); err != nil {
 		return nil, err
 	}
+	if p.host != nil && uintOr(p.host.index["hostProtocol"], 0) != taskHostProtocol {
+		if err := p.host.signal(ctx, false); err != nil {
+			return nil, err
+		}
+		return object{"taskId": task, "turnId": state["turnId"], "accepted": true}, nil
+	}
+	for _, request := range decodedTaskList(state["pendingInteractions"]) {
+		if err := respondNativeAgentInteraction(ctx, p, obj(request), object{"cancelled": true}); err != nil {
+			return nil, err
+		}
+	}
 	if err := p.interrupt(ctx); err != nil {
+		return nil, err
+	}
+	if err := p.checkpoint(func(task object) {
+		task["interruptRequested"] = true
+		if agentTurnActive(task) && !agentTurnTerminal(task) {
+			observeAgentOwner(task, "cancelling")
+			task["status"] = "cancelling"
+		}
+	}); err != nil {
 		return nil, err
 	}
 	return object{"taskId": task, "turnId": state["turnId"], "accepted": true}, nil
 }
 
-func nativeAgentPending(_ context.Context, r operationRequest) (any, error) {
-	task, agent := text(r.args, "taskId"), text(r.args, "agent")
-	p := r.service.agents.process(task)
-	requests := []object{}
-	if p != nil && p.driver.id == agent {
-		p.mu.Lock()
-		defer p.mu.Unlock()
-		for _, key := range keysObjectMap(p.pending) {
-			requests = append(requests, clone(p.pending[key]))
-		}
+func nativeAgentPending(ctx context.Context, r operationRequest) (any, error) {
+	agent, taskID := text(r.args, "agent"), text(r.args, "taskId")
+	if !nativeAgentReadAllowed(ctx, agent, taskID) {
+		return nil, errors.New("TASK_NOT_FOUND")
 	}
-	return object{"taskId": task, "agent": agent, "requests": requests}, nil
+	task, err := r.service.nativeAgentTask(agent, taskID)
+	if err != nil {
+		return nil, err
+	}
+	p := r.service.agents.process(taskID)
+	if p == nil || p.driver.id != agent {
+		return nil, errors.New("AGENT_PROCESS_CLOSED")
+	}
+	requests, err := nativeAgentInteractions(task)
+	return object{"taskId": taskID, "agent": agent, "requests": requests}, err
 }
 
 func keysObjectMap(rows map[string]object) []string { return slices.Sorted(maps.Keys(rows)) }
@@ -698,40 +746,61 @@ func respondNativeAgentTask(ctx context.Context, r operationRequest, row object)
 	if p == nil || p.driver.id != agent {
 		return nil, errors.New("AGENT_PROCESS_CLOSED")
 	}
-	key := wire(args["interactionId"])
-	guard := lockReceipt("agent-interaction:" + taskID + ":" + key)
-	defer guard()
-	p.mu.Lock()
-	item := clone(p.pending[key])
-	p.mu.Unlock()
-	if item == nil {
-		return nil, errors.New("STALE_INTERACTION")
-	}
 	if err := agentReceiptCheckpoint(ctx, row, "responding"); err != nil {
 		return nil, err
 	}
-	selected := text(args, "optionId")
+	item := object{"id": args["interactionId"]}
+	if err := respondNativeAgentInteraction(ctx, p, item, args); err != nil {
+		return nil, err
+	}
+	return object{"taskId": taskID, "turnId": p.snapshot()["turnId"], "responseSent": true}, nil
+}
+
+func respondNativeAgentInteraction(ctx context.Context, p *nativeAgentProcess, item, args object) error {
+	taskID, key := text(p.snapshot(), "taskId"), wire(item["id"])
+	guard := lockReceipt("agent-interaction:" + taskID + ":" + key)
+	defer guard()
+	p.mu.Lock()
+	item = clone(p.pending[key])
+	p.mu.Unlock()
+	if item == nil {
+		return errors.New("INTERACTION_NOT_PENDING")
+	}
 	response := object{"id": item["id"], "jsonrpc": "2.0"}
 	if p.driver.id == "pi" {
 		response = object{"id": item["id"], "type": "extension_ui_response"}
-		for _, key := range []string{"value", "confirmed"} {
-			if supplied, ok := args[key]; ok {
-				response[key] = supplied
+		switch {
+		case args["cancelled"] == true:
+			response["cancelled"] = true
+		case item["method"] == "confirm":
+			if _, ok := args["confirmed"].(bool); !ok {
+				return errors.New("CONFIRMATION_REQUIRED")
 			}
+			response["confirmed"] = args["confirmed"]
+		default:
+			value, ok := args["value"].(string)
+			if !ok {
+				return errors.New("VALUE_REQUIRED")
+			}
+			if item["method"] == "select" && !slices.Contains(arr(item["options"]), any(value)) {
+				return errors.New("INVALID_OPTION")
+			}
+			response["value"] = value
 		}
 	} else {
 		decision := object{"outcome": "cancelled"}
-		if selected != "" {
+		if args["cancelled"] != true {
+			selected := text(args, "optionId")
 			options := arr(field(item["params"], "options"))
-			if !slices.ContainsFunc(options, func(v any) bool { return field(v, "optionId") == selected }) {
-				return nil, errors.New("INVALID_PERMISSION_OPTION")
+			if selected == "" || !slices.ContainsFunc(options, func(v any) bool { return field(v, "optionId") == selected }) {
+				return errors.New("INVALID_OPTION")
 			}
 			decision["outcome"], decision["optionId"] = "selected", selected
 		}
 		response["result"] = object{"outcome": decision}
 	}
 	if err := p.frame(ctx, response); err != nil {
-		return nil, fmt.Errorf("SUBMISSION_UNCONFIRMED: %w", err)
+		return fmt.Errorf("SUBMISSION_UNCONFIRMED: %w", err)
 	}
 	p.mu.Lock()
 	delete(p.pending, key)
@@ -739,12 +808,31 @@ func respondNativeAgentTask(ctx context.Context, r operationRequest, row object)
 		observeAgentOwner(p.task, "running")
 	}
 	p.events.observe(taskID, "arc/interaction-resolved", object{"id": item["id"], "turnId": item["turnId"]})
+	p.events.Lock()
+	if timeline := p.events.taskTimelines[taskID]; timeline != nil {
+		answered := object{"id": item["id"], "method": item["method"], "backendSession": p.task["processSession"], "params": object{"turnId": item["turnId"]}}
+		result := object{"decision": "accept"}
+		switch {
+		case args["cancelled"] == true:
+			result = object{"answers": object{}}
+		case args["value"] != nil:
+			result = object{"answer": args["value"]}
+		case args["confirmed"] == false || slices.ContainsFunc(arr(field(item["params"], "options")), func(option any) bool {
+			return field(option, "optionId") == args["optionId"] && strings.HasPrefix(text(option, "kind"), "reject")
+		}):
+			result["decision"] = "decline"
+		}
+		origin := currentOrigin(ctx)
+		timeline.answered(answered, object{"result": result, "native": args, "origin": origin,
+			"answeredBy": interactionAnsweredBy(origin), "resolvedAt": now()})
+	}
+	p.events.Unlock()
 	err := p.persistLocked()
 	p.mu.Unlock()
 	if err != nil {
-		return nil, fmt.Errorf("SUBMISSION_UNCONFIRMED: %w", err)
+		return fmt.Errorf("SUBMISSION_UNCONFIRMED: %w", err)
 	}
-	return object{"taskId": taskID, "turnId": item["turnId"], "responseSent": true}, nil
+	return nil
 }
 
 var nativeAgentMutationHandlers = map[string]func(context.Context, operationRequest, object) (any, error){

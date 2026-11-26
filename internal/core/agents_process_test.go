@@ -183,3 +183,37 @@ func TestAgentContentDeltasKeepJournalProgressWithTheSavedSnapshot(t *testing.T)
 		t.Fatalf("structural checkpoint = %s, %v", wire(current), err)
 	}
 }
+
+func TestPiChoiceUsesNativeSubtypeAndKeepsInvalidChoicesPending(t *testing.T) {
+	// Contract: Pi extension UI uses type for the request frame and method for the response value.
+	isolateAgentProcessState(t)
+	process := newNativeAgentProcess(nativeAgentDriver{id: "pi", protocol: "pi-rpc"},
+		object{"taskId": id(), "agent": "pi", "turnId": "turn", "processSession": "owner", "status": "running"})
+	var output agentTestOutput
+	process.input = &output
+	request := object{"type": "extension_ui_request", "method": "select", "id": "choice", "options": []any{"allow", "cancel"}}
+	if err := process.checkpoint(func(object) { process.consumeLocked(request) }); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := nativeAgentInteractions(process.snapshot())
+	if err != nil || len(rows) != 1 || field(rows[0], "backendSession") != "owner" || field(rows[0], "interactionId") != "choice" {
+		t.Fatalf("pending choices = %s, %v", wire(rows), err)
+	}
+	if err := respondNativeAgentInteraction(t.Context(), process, obj(rows[0]), object{"value": "missing"}); err == nil || err.Error() != "INVALID_OPTION" || output.Len() != 0 {
+		t.Fatalf("invalid choice wrote %q and returned %v", output.String(), err)
+	}
+	if err := respondNativeAgentInteraction(t.Context(), process, obj(rows[0]), object{"value": "allow"}); err != nil {
+		t.Fatal(err)
+	}
+	var sent object
+	if err := decodeObject([]byte(output.String()), &sent); err != nil || sent["type"] != "extension_ui_response" || sent["id"] != "choice" || sent["value"] != "allow" {
+		t.Fatalf("native response = %q, %v", output.String(), err)
+	}
+	if state := process.snapshot(); len(decodedTaskList(state["pendingInteractions"])) != 0 || state["status"] != "running" {
+		t.Fatalf("answered choice = %s", wire(state))
+	}
+}
+
+type agentTestOutput struct{ strings.Builder }
+
+func (*agentTestOutput) Close() error { return nil }

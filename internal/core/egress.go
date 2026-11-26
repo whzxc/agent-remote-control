@@ -1054,7 +1054,7 @@ func panelState(panel any) any {
 	result["queueCount"], result["disclosureCount"] = len(arr(p["queue"])), len(arr(p["disclosures"]))
 	if timeline := obj(p["timeline"]); timeline != nil {
 		summary := selectFields(timeline, "status", "cursor", "snapshotHash", "coverage")
-		summary["entryCount"] = len(arr(timeline["entries"]))
+		summary["entryCount"] = len(decodedTaskList(timeline["entries"]))
 		result["timeline"] = summary
 		for _, name := range []string{"dispatchBackend", "handback"} {
 			if value, ok := obj(timeline["ownership"])[name]; ok {
