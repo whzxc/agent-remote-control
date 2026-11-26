@@ -785,11 +785,41 @@ func nextControl(value object, name string, args object, push bool) {
 	value["next"] = next
 }
 
+type ownedErrorClassifier struct {
+	code       func(string) string
+	projection func(string, string, object) object
+}
+
+var ownedErrorClassifiers []ownedErrorClassifier
+
+func registerOwnedErrorClassifier(code func(string) string, projection func(string, string, object) object) {
+	ownedErrorClassifiers = append(ownedErrorClassifiers, ownedErrorClassifier{code, projection})
+}
+
 func controlFailure(err error) object {
 	message := err.Error()
 	var value object
-	if strings.HasPrefix(message, "{") && decodeObject([]byte(message), &value) == nil && value["code"] != nil {
-		return value
+	parsed := decodeObject([]byte(message), &value) == nil
+	for _, classifier := range ownedErrorClassifiers {
+		if code := classifier.code(message); code != "" && classifier.projection != nil {
+			return classifier.projection(code, message, value)
+		}
+	}
+	if parsed {
+		code := text(value, "code")
+		if strings.HasPrefix(code, "DEVICE_") || slices.Contains([]string{
+			PortPending, "REQUEST_ID_CONFLICT", "PERMISSION_REQUIRED", "SUBMISSION_UNCONFIRMED", "PROJECT_NOT_FOUND",
+			"PROJECT_AMBIGUOUS", "INVALID_ARGUMENTS", "INVALID_OUTPUT_OFFSET", "DIGEST_CURSOR_EXPIRED", "DIGEST_SCOPE_CHANGED",
+			"OUTPUT_EXPIRED", "DISPATCH_POLICY_CONFLICT", "UNKNOWN_OP", "OP_UNAVAILABLE", "WRONG_TOOL",
+			"NOTIFICATION_TARGET_NOT_BOUND_TO_SOURCE", "INVALID_CLAUDE_SESSION", "ACCOUNT_SELECTION_REQUIRED", "ACCOUNT_ROUTE_CHANGED",
+			"HANDSHAKE_INVALID_OR_EXPIRED", "DESKTOP_STEER_UNAVAILABLE", "TASK_ARCHIVED", "ARCHIVE_ACTIVE_TURN", "ARCHIVE_WRITER_BUSY",
+			"THREAD_WRITER_BUSY", "WRITER_RELEASE_REQUIRES_OWNER", "WRITER_ACTIVE", "RESUME_TURN_ADVANCED", "RESUME_SOURCE_MISMATCH",
+			"RESUME_BINDING_MISSING", "DESKTOP_HANDOFF_UNAVAILABLE", "DESKTOP_IPC_ENDPOINT_MISSING", "DESKTOP_IPC_CONNECT_FAILED",
+			"DESKTOP_SNAPSHOT_VERSION_UNSUPPORTED", "DESKTOP_SNAPSHOT_INVALID", "STALE_INTERACTION", "ACCEPTANCE_FAULT_UNAVAILABLE",
+			"ACCEPTANCE_SELF_TEST_REQUIRED",
+		}, code) {
+			return value
+		}
 	}
 	if strings.Contains(message, "already has an active writer") {
 		return object{"code": "THREAD_WRITER_BUSY", "retryable": false,

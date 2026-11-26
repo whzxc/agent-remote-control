@@ -291,6 +291,8 @@ func attachPrivate(ctx context.Context, endpoint string) (net.Conn, frontDoorHel
 }
 
 func privateHello(ctx context.Context, conn net.Conn, token string, hello *frontDoorHello) error {
+	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
+	defer stop()
 	deadline, _ := ctx.Deadline()
 	_ = conn.SetDeadline(deadline)
 	if err := writeFrame(conn, object{"Hello": attachHello{Version: frontDoorVersion, Token: token}}); err != nil {
@@ -334,6 +336,16 @@ func privateManagementOperation(route, method string) any {
 }
 
 func privateRequest(ctx context.Context, conn net.Conn, hello frontDoorHello, route, method string, body object) (any, error) {
+	if path, query, found := strings.Cut(route, "?"); found && method == http.MethodGet && strings.HasPrefix(path, "agents/timeline/") {
+		body = maps.Clone(body)
+		if body == nil {
+			body = object{}
+		}
+		if err := parseTimelineQuery(query, body); err != nil {
+			return nil, err
+		}
+		route = path
+	}
 	request := newPrivateRequest(ctx, privateManagementOperation(route, method), "Management", body)
 	request.Generation = hello.Generation
 	return exchangePrivate(ctx, conn, request, "Request")
@@ -385,22 +397,9 @@ func newPrivateRequest(ctx context.Context, operationName any, authority any, bo
 			}
 		}
 	}
-	timeout := 120 * time.Second
-	switch str(operationName) {
-	case "Mcp":
-		switch {
-		case isMCPWait(body):
-			timeout = 1830 * time.Second
-		case text(envelope, "op") == "context_amend" || text(envelope, "op") == "context_check":
-			timeout = 150 * time.Second
-		}
-	case "":
-		if obj(operationName)["Snapshot"] != nil {
-			timeout = 1830 * time.Second
-		}
-		if management, ok := obj(operationName)["Management"].(privateManagement); ok {
-			timeout = localRequestTimeout(management.Route, body)
-		}
+	timeout := 1830 * time.Second
+	if field(authority, "Browser") != nil && field(operationName, "Snapshot") == nil {
+		timeout = 30 * time.Second
 	}
 	deadline := time.Now().Add(timeout)
 	if limit, ok := ctx.Deadline(); ok && limit.Before(deadline) {
@@ -523,6 +522,46 @@ type gatewayBridge struct {
 	current                        generation
 	dialSequence, acceptedSequence uint64
 	waitCalls                      waitCalls
+	closing                        chan struct{}
+	forwarded                      sync.WaitGroup
+}
+
+func (b *gatewayBridge) closingSignal() <-chan struct{} {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.closing == nil {
+		b.closing = make(chan struct{})
+	}
+	return b.closing
+}
+
+func (b *gatewayBridge) closeAdmission() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.closing == nil {
+		b.closing = make(chan struct{})
+	}
+	select {
+	case <-b.closing:
+	default:
+		close(b.closing)
+	}
+}
+
+func (b *gatewayBridge) admitForwarding(request frontDoorRequest) (func(), error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	select {
+	case <-b.closing:
+		return nil, unavailableBeforeSend(request)
+	default:
+		b.forwarded.Add(1)
+		return b.forwarded.Done, nil
+	}
+}
+
+func unavailableBeforeSend(request frontDoorRequest) error {
+	return notSentPrivate(request, "FRONT_DOOR_UNAVAILABLE", "The front door is stopping.")
 }
 
 func (b *gatewayBridge) reserve(request frontDoorRequest) (func(), error) {
@@ -532,6 +571,11 @@ func (b *gatewayBridge) reserve(request frontDoorRequest) (func(), error) {
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	select {
+	case <-b.closing:
+		return nil, unavailableBeforeSend(request)
+	default:
+	}
 	if b.waiting == maxQueued || b.bytes+len(data) > maxQueueBytes {
 		return nil, notSentPrivate(request, "FRONT_DOOR_BUSY", "The Core admission queue is full.")
 	}
@@ -555,12 +599,27 @@ func (b *gatewayBridge) ready(wait context.Context, request *frontDoorRequest) (
 		return nil, err
 	}
 	defer release()
+	closing := b.closingSignal()
+	attach, cancel := context.WithCancel(wait)
+	defer cancel()
+	go func() {
+		select {
+		case <-closing:
+			cancel()
+		case <-attach.Done():
+		}
+	}()
 	for {
+		select {
+		case <-closing:
+			return nil, unavailableBeforeSend(*request)
+		default:
+		}
 		b.mu.Lock()
 		b.dialSequence++
 		sequence := b.dialSequence
 		b.mu.Unlock()
-		conn, hello, err := attachPrivate(wait, "core")
+		conn, hello, err := attachPrivate(attach, "core")
 		if err == nil {
 			request.Generation = hello.Generation
 			b.mu.Lock()
@@ -570,13 +629,21 @@ func (b *gatewayBridge) ready(wait context.Context, request *frontDoorRequest) (
 			current := b.current
 			b.mu.Unlock()
 			if request.Generation == current {
-				return conn, nil
+				select {
+				case <-closing:
+					_ = conn.Close()
+					return nil, unavailableBeforeSend(*request)
+				default:
+					return conn, nil
+				}
 			}
 			_ = conn.Close()
 		} else if strings.HasPrefix(err.Error(), "FRONT_DOOR_PROTOCOL_MISMATCH") || strings.HasPrefix(err.Error(), "FRONT_DOOR_PEER_UNAUTHORIZED") {
 			return nil, err
 		}
 		select {
+		case <-closing:
+			return nil, unavailableBeforeSend(*request)
 		case <-wait.Done():
 			if errors.Is(wait.Err(), context.Canceled) {
 				return nil, errors.New(privateCancelled)
@@ -594,6 +661,11 @@ func (b *gatewayBridge) fence(frame generation) error {
 }
 
 func (b *gatewayBridge) call(ctx context.Context, request frontDoorRequest) (any, error) {
+	release, err := b.admitForwarding(request)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	wait, cancel := context.WithDeadline(ctx, time.UnixMilli(int64(request.Deadline.UnixMS)))
 	defer cancel()
 	conn, err := b.ready(wait, &request)
@@ -609,7 +681,16 @@ func (b *gatewayBridge) call(ctx context.Context, request frontDoorRequest) (any
 }
 
 func (b *gatewayBridge) snapshot(ctx context.Context, kind string, send func(string) error) error {
-	request := newPrivateRequest(ctx, object{"Snapshot": object{"kind": kind}}, "Management", object{})
+	return b.snapshotWithAuthority(ctx, kind, "Management", send)
+}
+
+func (b *gatewayBridge) snapshotWithAuthority(ctx context.Context, kind string, authority any, send func(string) error) error {
+	request := newPrivateRequest(ctx, object{"Snapshot": object{"kind": kind}}, authority, object{})
+	release, err := b.admitForwarding(request)
+	if err != nil {
+		return err
+	}
+	defer release()
 	wait, cancel := context.WithDeadline(ctx, time.UnixMilli(int64(request.Deadline.UnixMS)))
 	defer cancel()
 	report := func(message string) error {
@@ -681,6 +762,10 @@ func (b *gatewayBridge) streamSnapshot(ctx context.Context, request *frontDoorRe
 			return fmt.Errorf("FRONT_DOOR_CORE_LOST: %s. Snapshot gap; reattaching to Core. Read a fresh snapshot if reattachment expires.", err), ctx.Err() == nil
 		}
 		if wireFrame.Error != "" {
+			var failure object
+			if decodeObject([]byte(wireFrame.Error), &failure) == nil && strings.HasPrefix(text(failure, "message"), "FRONT_DOOR_CORE_DRAINING:") {
+				return errors.New(wireFrame.Error), false
+			}
 			if strings.HasPrefix(wireFrame.Error, "FRONT_DOOR_CORE_DRAINING") {
 				return errors.New("FRONT_DOOR_CORE_DRAINING: Snapshot gap; reattaching after Core is ready. Read a fresh snapshot if reattachment expires."), true
 			}
@@ -696,14 +781,17 @@ func (b *gatewayBridge) streamSnapshot(ctx context.Context, request *frontDoorRe
 		if err := b.fence(frame.Generation); err != nil {
 			return err, false
 		}
-		body := ": keepalive\n\n"
-		if frame.Body != nil {
-			body = "event: snapshot\ndata: " + wire(frame.Body) + "\n\n"
-		}
-		if err := send(body); err != nil {
+		if err := send(snapshotMessage(frame.Body)); err != nil {
 			return err, false
 		}
 	}
+}
+
+func snapshotMessage(body any) string {
+	if body == nil {
+		return ": keepalive\n\n"
+	}
+	return "event: snapshot\ndata: " + wire(body) + "\n\n"
 }
 
 func (b *gatewayBridge) management(ctx context.Context, route, method string, body object) (any, error) {
@@ -719,17 +807,27 @@ func (b *gatewayBridge) mcp(ctx context.Context, ingress string, request object)
 		b.waitCalls.cancel(ingress + "\x00" + wire(field(request["params"], "requestId")))
 		return nil, nil
 	}
+	wait := ctx
+	started := time.Now()
 	if isMCPWait(request) {
+		if _, present := request["id"]; !present {
+			return nil, errors.New("wait requires a request id")
+		}
 		var done func()
 		var err error
-		ctx, done, err = b.waitCalls.register(ctx, key)
+		wait, done, err = b.waitCalls.register(ctx, key)
 		if err != nil {
-			return nil, err
+			return object{"jsonrpc": "2.0", "id": request["id"], "error": mcpMethodFailure(err)}, nil
 		}
 		defer done()
 	}
 	authority := object{"Ingress": privateIngress{ingress, object{"type": "ingress", "ingressId": ingress}, nil}}
-	payload, err := b.call(ctx, newPrivateRequest(ctx, "Mcp", authority, request))
+	payload, err := b.call(wait, newPrivateRequest(wait, "Mcp", authority, request))
+	if isMCPWait(request) && wait.Err() != nil && ctx.Err() == nil {
+		result := cancelledControlWait(field(request["params"], "arguments"), time.Since(started))
+		result["resultType"] = "complete"
+		return object{"jsonrpc": "2.0", "id": request["id"], "result": result}, nil
+	}
 	if err != nil {
 		if id, present := request["id"]; present {
 			var failure object
@@ -810,7 +908,9 @@ func runFrontDoor(parent context.Context) error {
 		return err
 	}
 	defer os.Remove(path)
-	ipc, err := listenPrivate(ctx, "front-door", secret, admissions, stop)
+	privateLifetime, closePrivate := context.WithCancel(context.WithoutCancel(ctx))
+	defer closePrivate()
+	ipc, err := listenPrivate(privateLifetime, "front-door", secret, admissions, stop)
 	if err != nil {
 		return err
 	}
@@ -821,12 +921,28 @@ func runFrontDoor(parent context.Context) error {
 	go func() { result <- httpServer.Serve(httpListener) }()
 	select {
 	case err := <-result:
+		bridge.closeAdmission()
 		return err
 	case <-ctx.Done():
-		shutdown, cancel := context.WithTimeout(context.Background(), drainTimeout)
+		bridge.closeAdmission()
+		grace := drainTimeout
+		if operatingSystem == "darwin" {
+			grace = time.Second
+		}
+		shutdown, cancel := context.WithTimeout(context.Background(), grace)
 		defer cancel()
 		defer httpServer.Close()
-		return httpServer.Shutdown(shutdown)
+		err := httpServer.Shutdown(shutdown)
+		forwarded := make(chan struct{})
+		go func() { bridge.forwarded.Wait(); close(forwarded) }()
+		select {
+		case <-forwarded:
+		case <-shutdown.Done():
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil
+		}
+		return err
 	}
 }
 

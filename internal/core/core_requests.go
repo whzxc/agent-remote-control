@@ -2,11 +2,14 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -36,6 +39,27 @@ var decorateControlSource func(context.Context, object)
 var controlPushAvailable func(any) bool
 var decorateControlResult []func(context.Context, operationRequest, object)
 var localControlCallerKey struct{}
+var peerControlKey struct{}
+var mcpIngressKey struct{}
+
+var controlSummaryRequested func(string, object) bool
+var projectControlSummary func(string, object, object) object
+var takeControlImages func(string, object) []any
+var projectControlInbox func(context.Context, operationRequest, object) object
+
+func withMCPIngress(ctx context.Context, ingress string) context.Context {
+	return context.WithValue(ctx, &mcpIngressKey, ingress)
+}
+
+func waitScope(ctx context.Context, source requestSource) string {
+	if ingress, ok := ctx.Value(&mcpIngressKey).(string); ok {
+		return ingress
+	}
+	if ingress := text(source.origin, "ingressId"); ingress != "" {
+		return ingress
+	}
+	return text(source.origin, "sourceId")
+}
 
 type mcpMethod func(context.Context, *service, requestSource, object) (object, error)
 
@@ -133,6 +157,12 @@ func callToolInner(ctx context.Context, service *service, source requestSource, 
 		}
 	}
 	if name == "device" || text(args, "device") != "" {
+		if ctx.Value(&peerControlKey) != nil {
+			return egressFailure(name, controlFailure(errors.New("DEVICE_PEER_FORBIDDEN: Received requests cannot address another device; query guide with topic:device.")))
+		}
+		if !operationAvailable(source, "device") {
+			return egressFailure(name, opUnavailable("device"))
+		}
 		if remoteDeviceControl == nil {
 			return egressFailure(name, controlFailure(errors.New(PortPending)))
 		}
@@ -163,11 +193,20 @@ func callToolInner(ctx context.Context, service *service, source requestSource, 
 	if isWaitOp(name) {
 		waitLimit = limitWait(source.origin, args)
 	}
+	if name == "command" && !source.local {
+		if _, specified := args["waitMs"]; !specified && text(args, "cmd") != "" {
+			args["waitMs"] = min(uintOr(args["timeoutMs"], 60000), 35000) + 10000
+		}
+	}
 	request := operationRequest{name, args, source, service, rpcID}
 	result, err := executeOperation(ctx, request)
+	summary := controlSummaryRequested != nil && controlSummaryRequested(name, args)
 	if err != nil {
 		value := object{"error": controlFailure(err)}
 		nextControl(value, name, args, false)
+		if summary && projectControlSummary != nil {
+			value = projectControlSummary(name, args, value)
+		}
 		return egressTool(value, true)
 	}
 	value := obj(result)
@@ -176,8 +215,15 @@ func callToolInner(ctx context.Context, service *service, source requestSource, 
 	} else {
 		value = clone(value)
 	}
-	if slices.Contains([]string{"codex_read", "codex_wait", "agent_read", "agent_wait"}, name) && value["state"] != nil && value["operation"] == nil {
+	if _, state := value["state"].(string); state && slices.Contains([]string{"codex_read", "codex_wait", "agent_read", "agent_wait"}, name) && value["operation"] == nil {
 		value["stateScope"] = "turn"
+	}
+	if waitLimit != nil {
+		value["waitLimit"] = waitLimit
+	}
+	var images []any
+	if takeControlImages != nil {
+		images = takeControlImages(name, value)
 	}
 	value = publicReceipt(value)
 	if args["includeOrigin"] != true {
@@ -187,38 +233,18 @@ func callToolInner(ctx context.Context, service *service, source requestSource, 
 	if reason != nil {
 		value["error"] = reason
 	}
-	if decorateControlSource != nil {
-		decorateControlSource(ctx, value)
-	}
-	for _, decorate := range decorateControlResult {
-		decorate(ctx, request, value)
-	}
-	push := controlPushAvailable != nil && controlPushAvailable(value["notification"])
-	nextControl(value, name, args, push)
-	compactOutcomeError(value)
 	failed := reason != nil
-	if waitLimit != nil {
-		value["waitLimit"] = waitLimit
-	}
-	if !failed && value["error"] == nil && digestSupported(name, args) && !digestDetail(name, args) {
-		explicit := args["view"] == "digest"
-		automatic := args["view"] == nil && args["digestCursor"] == nil
-		if !explicit && !continuation && automatic && digestShown(value, rpcID) > 12*1024 {
-			value["arcVersion"] = arcVersion()
-			explicit = true
+	digest := !failed && !summary && value["error"] == nil && value["view"] != "digest" && digestSupported(name, args) && !digestDetail(name, args)
+	automatic := digest && args["view"] == nil && args["digestCursor"] == nil && !continuation
+	explicit := digest && (args["view"] == "digest" || continuation)
+	if explicit {
+		page, err := showDigest(name, args, value, source.origin, rpcID)
+		if err != nil {
+			return egressFailure(name, controlFailure(err))
 		}
-		if explicit || continuation {
-			page, err := showDigest(name, args, value, source.origin, rpcID)
-			if err != nil {
-				return egressFailure(name, controlFailure(err))
-			}
-			return egressTool(page, false)
-		}
-		if automatic {
-			return egressTool(value, false)
-		}
-	}
-	if name != "control_output" {
+		value = page
+	} else if !summary && !automatic && value["view"] != "digest" && name != "control_output" &&
+		(args["digestCursor"] == nil || args["view"] == "full") {
 		limit := 12 * 1024
 		if args["view"] == "full" {
 			limit = 64 * 1024
@@ -227,16 +253,42 @@ func callToolInner(ctx context.Context, service *service, source requestSource, 
 		if err != nil {
 			return egressFailure(name, controlFailure(err))
 		}
-		if failed && field(projected, "outputId") != nil {
-			for _, key := range []string{"requestId", "state", "error", "threadId", "turnId"} {
-				if v, ok := value[key]; ok {
-					obj(projected)[key] = v
-				}
-			}
-		}
 		value = obj(projected)
 	}
-	return egressTool(value, failed)
+	if decorateControlSource != nil {
+		decorateControlSource(ctx, value)
+	}
+	if !failed {
+		for _, decorate := range decorateControlResult {
+			decorate(ctx, request, value)
+		}
+	}
+	push := !failed && controlPushAvailable != nil && controlPushAvailable(value["notification"])
+	nextControl(value, name, args, push)
+	compactOutcomeError(value)
+	if summary && projectControlSummary != nil {
+		value = projectControlSummary(name, args, value)
+	}
+	if !failed && !summary && value["view"] != "digest" && name != "inbox_wait" &&
+		(name != "codex_read" || args["view"] != "review") &&
+		(name != "dispatch_policy" || args["view"] == "full") && projectControlInbox != nil {
+		if inbox := projectControlInbox(ctx, request, value); inbox != nil {
+			value["arcInbox"] = object{"unread": inbox["unread"], "next": inbox["next"]}
+		}
+	}
+	if automatic && digestShown(value, rpcID) > 12*1024 {
+		value["arcVersion"] = arcVersion()
+		page, err := showDigest(name, args, value, source.origin, rpcID)
+		if err != nil {
+			return egressFailure(name, controlFailure(err))
+		}
+		value = page
+	}
+	response := egressTool(value, failed)
+	if !failed && len(images) != 0 {
+		response["content"] = append(arr(response["content"]), images...)
+	}
+	return response
 }
 
 func opUnavailable(name string) object {
@@ -295,12 +347,16 @@ func dispatchMCP(ctx context.Context, service *service, source requestSource, re
 	}
 	id, hasID := request["id"]
 	method := text(request, "method")
-	waitKey := text(source.origin, "sourceId") + "\x00" + wire(id)
+	scope := waitScope(ctx, source)
+	waitKey := scope + "\x00" + wire(id)
 	if method == "notifications/cancelled" {
-		service.waits.cancel(text(source.origin, "sourceId") + "\x00" + wire(field(request["params"], "requestId")))
+		service.waits.cancel(scope + "\x00" + wire(field(request["params"], "requestId")))
 		return nil, nil
 	}
 	if !hasID {
+		if isMCPWait(request) {
+			return nil, errors.New("wait requires a request id")
+		}
 		return nil, nil
 	}
 	var result object
@@ -333,6 +389,7 @@ func dispatchMCP(ctx context.Context, service *service, source requestSource, re
 			payload = object{}
 		}
 		if isMCPWait(request) {
+			started := time.Now()
 			wait, done, err := service.waits.register(ctx, waitKey)
 			if err != nil {
 				failure = mcpMethodFailure(err)
@@ -341,7 +398,7 @@ func dispatchMCP(ctx context.Context, service *service, source requestSource, re
 			defer done()
 			result = callTool(wait, service, source, text(params, "name"), payload, id)
 			if wait.Err() != nil && ctx.Err() == nil {
-				result = cancelledControlWait(payload)
+				result = cancelledControlWait(payload, time.Since(started))
 			}
 		} else {
 			result = callTool(ctx, service, source, text(params, "name"), payload, id)
@@ -378,8 +435,12 @@ func dispatchMCP(ctx context.Context, service *service, source requestSource, re
 
 func mcpMethodFailure(err error) object {
 	var failure object
-	if decodeObject([]byte(err.Error()), &failure) == nil && failure["code"] != nil && failure["message"] != nil {
-		return failure
+	if decodeObject([]byte(err.Error()), &failure) == nil {
+		code, valid := failure["code"].(json.Number)
+		_, parseErr := strconv.ParseInt(code.String(), 10, 64)
+		if _, hasMessage := failure["message"].(string); hasMessage && valid && parseErr == nil {
+			return failure
+		}
 	}
 	data := object{"arcVersion": arcVersion()}
 	if err.Error() == PortPending {
@@ -388,11 +449,11 @@ func mcpMethodFailure(err error) object {
 	return object{"code": -32603, "message": err.Error(), "data": data}
 }
 
-func cancelledControlWait(payload any) object {
+func cancelledControlWait(payload any, elapsed time.Duration) object {
 	name, args := text(payload, "op"), field(payload, "args")
 	result := object{"state": "unconfirmed", "reason": "wait-cancelled", "threadId": field(args, "threadId"), "turnId": field(args, "turnId"),
 		"runtimeStatus": "unknown", "recordedStatus": nil, "finalResponse": nil, "interaction": []any{}, "changed": false,
-		"conditionMet": false, "observedAt": nil, "returnedAt": now(), "elapsedMs": 0}
+		"conditionMet": false, "observedAt": nil, "returnedAt": now(), "elapsedMs": elapsed.Milliseconds()}
 	switch name {
 	case "inbox_wait":
 		result = object{"state": "unconfirmed", "reason": "wait-cancelled", "events": []any{}, "unread": 0}

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"slices"
@@ -97,7 +98,8 @@ func makeOutputRoom(dir string, incoming int64) error {
 		info os.FileInfo
 	}
 	var snapshots []snapshot
-	var total int64
+	var total uint64
+	capacity := uint64(outputQuota - incoming)
 	for _, entry := range entries {
 		extension := filepath.Ext(entry.Name())
 		if !entry.Type().IsRegular() || extension != ".json" && extension != ".txt" && extension != ".digest" {
@@ -110,19 +112,20 @@ func makeOutputRoom(dir string, incoming int64) error {
 		if err != nil {
 			return err
 		}
-		total += info.Size()
+		size := uint64(info.Size())
+		total = min(total, math.MaxUint64-size) + size
 		snapshots = append(snapshots, snapshot{entry.Name(), info})
 	}
 	slices.SortStableFunc(snapshots, func(a, b snapshot) int { return a.info.ModTime().Compare(b.info.ModTime()) })
 	for _, snapshot := range snapshots {
-		if time.Since(snapshot.info.ModTime()) < outputTTL && incoming+total <= outputQuota {
+		if time.Since(snapshot.info.ModTime()) < outputTTL && total <= capacity {
 			break
 		}
 		if os.Remove(filepath.Join(dir, snapshot.name)) == nil {
-			total -= snapshot.info.Size()
+			total -= uint64(snapshot.info.Size())
 		}
 	}
-	if incoming+total > outputQuota {
+	if total > capacity {
 		return errors.New("OUTPUT_STORAGE_LIMIT")
 	}
 	return nil

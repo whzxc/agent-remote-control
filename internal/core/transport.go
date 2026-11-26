@@ -39,10 +39,14 @@ type transportTarget interface {
 	mcp(context.Context, string, object) (object, error)
 }
 
+type snapshotTransport interface {
+	snapshot(context.Context, string, func(string) error) error
+}
+
 func localHandler(target transportTarget, port int, token string) http.Handler {
 	host := "127.0.0.1:" + strconv.Itoa(port)
 	localhost := "localhost:" + strconv.Itoa(port)
-	admissions := make(chan struct{}, maxInFlight)
+	desktopAdmissions := make(chan struct{}, 16)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Host != host && !strings.EqualFold(r.Host, localhost) ||
 			subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte("Bearer "+token)) != 1 ||
@@ -50,12 +54,15 @@ func localHandler(target transportTarget, port int, token string) http.Handler {
 			httpReply(w, http.StatusForbidden, object{"error": "unauthorized"})
 			return
 		}
-		select {
-		case admissions <- struct{}{}:
-			defer func() { <-admissions }()
-		default:
-			httpReply(w, http.StatusServiceUnavailable, object{"error": "FRONT_DOOR_BUSY: Wait for an admitted request to finish."})
-			return
+		if route, local := strings.CutPrefix(r.URL.Path, "/api/"); local &&
+			(desktopRoute(route) || route == "service" || route == "subscriptions/open") {
+			select {
+			case desktopAdmissions <- struct{}{}:
+				defer func() { <-desktopAdmissions }()
+			default:
+				httpReply(w, http.StatusServiceUnavailable, object{"error": desktopBusy})
+				return
+			}
 		}
 		var limit int64 = 16 * 1024 * 1024
 		if r.URL.Path == "/api/pets/import" {
@@ -83,8 +90,8 @@ func localHandler(target transportTarget, port int, token string) http.Handler {
 		}
 		if r.Method == http.MethodGet {
 			if kind := snapshotKind(r.URL.Path); kind != "" {
-				if bridge, ok := target.(*gatewayBridge); ok {
-					serveSnapshotHTTP(w, r, bridge, kind)
+				if provider, ok := target.(snapshotTransport); ok {
+					serveSnapshotFrames(w, r, provider, kind)
 					return
 				}
 			}
@@ -94,7 +101,7 @@ func localHandler(target transportTarget, port int, token string) http.Handler {
 		switch {
 		case r.Method == http.MethodPost && (r.URL.Path == "/mcp" || strings.HasPrefix(r.URL.Path, "/mcp/")):
 			ingress := strings.TrimPrefix(strings.TrimPrefix(r.URL.Path, "/mcp"), "/")
-			if _, hasID := body["id"]; hasID && isMCPWait(body) {
+			if isMCPWait(body) {
 				serveWaitStream(w, r, body, func(ctx context.Context) (object, error) {
 					return target.mcp(ctx, ingress, body)
 				})
@@ -161,13 +168,17 @@ func snapshotKind(path string) string {
 }
 
 func serveSnapshotHTTP(w http.ResponseWriter, r *http.Request, bridge *gatewayBridge, kind string) {
+	serveSnapshotFrames(w, r, bridge, kind)
+}
+
+func serveSnapshotFrames(w http.ResponseWriter, r *http.Request, target snapshotTransport, kind string) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-store")
 	controller := http.NewResponseController(w)
 	if err := controller.Flush(); err != nil {
 		return
 	}
-	_ = bridge.snapshot(r.Context(), kind, func(frame string) error {
+	_ = target.snapshot(r.Context(), kind, func(frame string) error {
 		_ = controller.SetWriteDeadline(time.Now().Add(2 * time.Second))
 		if _, err := io.WriteString(w, frame); err != nil {
 			return err
@@ -259,7 +270,13 @@ func discoverLocal(ctx context.Context) (object, object, error) {
 	}
 	healthContext, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	health, err := sendLocal(healthContext, port, text(metadata, "token"), "healthz", http.MethodGet, nil)
+	var health any
+	if conn, hello, attachErr := attachPrivate(healthContext, "core"); attachErr == nil {
+		health, err = privateRequest(healthContext, conn, hello, "healthz", http.MethodGet, nil)
+		_ = conn.Close()
+	} else {
+		health, err = sendLocal(healthContext, port, text(metadata, "token"), "healthz", http.MethodGet, nil)
+	}
 	if err != nil || field(health, "instance") != field(metadata, "instance") {
 		return nil, nil, errors.New(appUnavailable)
 	}
@@ -267,25 +284,20 @@ func discoverLocal(ctx context.Context) (object, object, error) {
 }
 
 func forwardRequest(ctx context.Context, route, method string, body object) (any, error) {
-	metadata, health, err := discoverLocal(ctx)
+	if conn, hello, err := attachPrivate(ctx, "core"); err == nil {
+		defer conn.Close()
+		return privateRequest(ctx, conn, hello, route, method, body)
+	}
+	metadata, _, err := discoverLocal(ctx)
 	if err != nil {
 		return nil, err
-	}
-	build, err := processBuildID()
-	if err != nil {
-		return nil, err
-	}
-	if health["build"] != metadata["build"] || health["owner"] != "core" || health["version"] != buildVersion ||
-		(health["build"] != build && health["runtime"] != "go") {
-		return nil, errors.New(coreBuildMismatch)
 	}
 	return forwardToCore(ctx, metadata, route, method, body)
 }
 
 func forwardToCore(ctx context.Context, metadata object, route, method string, body object) (any, error) {
 	if conn, hello, attachErr := attachPrivate(ctx, "core"); attachErr == nil {
-		defer conn.Close()
-		return privateRequest(ctx, conn, hello, route, method, body)
+		return forwardToVerifiedCore(ctx, metadata, conn, hello, route, method, body)
 	}
 	ctx, cancel := context.WithTimeout(ctx, localRequestTimeout(route, body))
 	defer cancel()
@@ -294,6 +306,34 @@ func forwardToCore(ctx context.Context, metadata object, route, method string, b
 		address = route
 	}
 	return sendLocal(ctx, uintOr(metadata["port"], 0), text(metadata, "token"), address, method, body)
+}
+
+func forwardToVerifiedCore(ctx context.Context, metadata object, conn net.Conn, hello frontDoorHello, route, method string, body object) (any, error) {
+	defer conn.Close()
+	if text(metadata, "build") == "" || text(metadata, "instance") == "" {
+		return privateRequest(ctx, conn, hello, route, method, body)
+	}
+	probe, cancel := context.WithTimeout(ctx, 2*time.Second)
+	health, err := privateRequest(probe, conn, hello, "healthz", http.MethodGet, nil)
+	cancel()
+	if err != nil {
+		return nil, err
+	}
+	if field(health, "build") != metadata["build"] {
+		return nil, errors.New(coreBuildMismatch)
+	}
+	if field(health, "instance") != metadata["instance"] {
+		return nil, errors.New(appUnavailable)
+	}
+	owned, current, err := attachPrivate(ctx, "core")
+	if err != nil {
+		return nil, err
+	}
+	defer owned.Close()
+	if current.Generation != hello.Generation {
+		return nil, errors.New(appUnavailable)
+	}
+	return privateRequest(ctx, owned, current, route, method, body)
 }
 
 func stdioProxy(ctx context.Context, input io.Reader, output io.Writer) error {
@@ -331,8 +371,7 @@ func parallelJSONLines(parent context.Context, input io.Reader, output io.Writer
 	dispatch func(context.Context, io.Writer, object) (any, error)) error {
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
-	reader := bufio.NewScanner(input)
-	reader.Buffer(make([]byte, 8192), limit)
+	reader := bufio.NewReaderSize(input, 8192)
 	locked := &synchronizedOutput{writer: output}
 	slots := make(chan struct{}, maxInFlight)
 	var active sync.WaitGroup
@@ -351,26 +390,48 @@ func parallelJSONLines(parent context.Context, input io.Reader, output io.Writer
 		closeInput = context.AfterFunc(ctx, func() { _ = closer.Close() })
 	}
 	defer closeInput()
-	for reader.Scan() {
+	var readErr error
+	for {
+		line, err := readProtocolLine(reader, limit)
+		if err != nil {
+			if err != io.EOF {
+				readErr = err
+				cancel()
+			}
+			break
+		}
 		var request object
-		if err := decodeObject(reader.Bytes(), &request); err != nil {
+		if err := decodeObject(line, &request); err != nil {
 			cancel()
 			active.Wait()
 			return err
 		}
-		select {
-		case slots <- struct{}{}:
-		case <-ctx.Done():
+		if ctx.Err() != nil {
 			active.Wait()
 			if failure != nil {
 				return failure
 			}
 			return ctx.Err()
 		}
+		// The stdio MCP reader must be able to observe EOF even when all
+		// active calls are long waits. EOF is what cancels those calls.
+		if !cancelOnEOF {
+			select {
+			case slots <- struct{}{}:
+			case <-ctx.Done():
+				active.Wait()
+				if failure != nil {
+					return failure
+				}
+				return ctx.Err()
+			}
+		}
 		active.Add(1)
 		go func() {
 			defer active.Done()
-			defer func() { <-slots }()
+			if !cancelOnEOF {
+				defer func() { <-slots }()
+			}
 			response, err := dispatch(ctx, locked, request)
 			if err == nil && response != nil {
 				err = outputLine(locked, wire(response))
@@ -383,7 +444,6 @@ func parallelJSONLines(parent context.Context, input io.Reader, output io.Writer
 			}
 		}()
 	}
-	readErr := reader.Err()
 	if cancelOnEOF {
 		closeInput()
 		cancel()

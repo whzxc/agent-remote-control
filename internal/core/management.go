@@ -107,6 +107,11 @@ func managementCall(ctx context.Context, name string, args object) (any, error) 
 }
 
 func managementErrorCode(message string) string {
+	for _, classifier := range ownedErrorClassifiers {
+		if code := classifier.code(message); code != "" {
+			return code
+		}
+	}
 	if strings.Contains(message, "Cannot connect to local Core") || strings.Contains(message, "Open Agent Remote Control first") {
 		return "APP_UNAVAILABLE"
 	}

@@ -261,6 +261,8 @@ func serveRuntime(parent context.Context, daemon bool) error {
 	if configureRuntimeFixture != nil {
 		configureRuntimeFixture(s)
 	}
+	startIndexes := prepareRuntimeIndexes(s)
+	defer s.close()
 	core := newInProcess(s)
 	ipc, err := listenPrivate(ipcContext, "core", secret, core, nil)
 	if err != nil {
@@ -284,7 +286,7 @@ func serveRuntime(parent context.Context, daemon bool) error {
 	}()
 	guard.Close()
 	recordLog("INFO", "Service starting", nil)
-	defer s.close()
+	startIndexes(ctx)
 	if err := s.start(ctx); err != nil {
 		return err
 	}

@@ -134,28 +134,87 @@ func (p *inProcess) admit(ctx context.Context, request frontDoorRequest) (any, e
 	if err != nil {
 		return nil, err
 	}
-	defer done()
 	if privateFixtureAdmitted != nil {
 		if err := privateFixtureAdmitted(request); err != nil {
+			done()
 			return nil, err
 		}
 	}
-	value, err := p.dispatch(wait, request)
-	if interrupted := privateOutcome(wait); interrupted != nil {
-		return nil, interrupted
+	type response struct {
+		value any
+		err   error
 	}
-	return value, err
+	finished := make(chan response, 1)
+	go func() {
+		defer done()
+		value, err := p.dispatch(wait, request)
+		if interrupted := privateOutcome(wait); interrupted != nil {
+			err = interrupted
+		} else if authorityErr := p.validateDelivery(wait, request); authorityErr != nil {
+			err = authorityErr
+		}
+		finished <- response{value, err}
+	}()
+	select {
+	case result := <-finished:
+		return result.value, result.err
+	case <-wait.Done():
+		// The worker retains its admission until it stops. A read that is
+		// slow to observe cancellation cannot hold up the terminal reply.
+		select {
+		case result := <-finished:
+			return result.value, result.err
+		default:
+			return nil, privateOutcome(wait)
+		}
+	}
 }
 
 var privateFixtureAdmitted func(frontDoorRequest) error
 var browserSnapshotComparison func(any) any
+var openSubscriptionSnapshots func(context.Context, *service) (read func() any, changes func() <-chan struct{}, err error)
 
 func (p *inProcess) snapshotStream(ctx context.Context, request frontDoorRequest, send func(frontDoorStream) error) error {
 	wait, done, err := p.begin(ctx, request, true)
 	if err != nil {
 		return err
 	}
-	defer done()
+	frames := make(chan frontDoorStream)
+	finished := make(chan error, 1)
+	go func() {
+		defer done()
+		defer close(frames)
+		finished <- p.produceSnapshots(wait, request, func(frame frontDoorStream) error {
+			select {
+			case frames <- frame:
+				return nil
+			case <-wait.Done():
+				return privateOutcome(wait)
+			}
+		})
+	}()
+	for {
+		select {
+		case <-wait.Done():
+			select {
+			case err := <-finished:
+				return err
+			default:
+				return privateOutcome(wait)
+			}
+		case frame, open := <-frames:
+			if !open {
+				return <-finished
+			}
+			if err := send(frame); err != nil {
+				_ = p.cancel(frontDoorCancellation{p.generation, request.ID})
+				return err
+			}
+		}
+	}
+}
+
+func (p *inProcess) produceSnapshots(wait context.Context, request frontDoorRequest, send func(frontDoorStream) error) error {
 	kind := text(field(request.Operation, "Snapshot"), "kind")
 	if kind == "" {
 		return errors.New(contextMismatch)
@@ -173,13 +232,35 @@ func (p *inProcess) snapshotStream(ctx context.Context, request frontDoorRequest
 	last := time.Now()
 	var sequence uint64
 	var previous string
+	var readPublication func() any
+	var publicationChanges func() <-chan struct{}
+	if target, ok := p.target.(*service); ok && kind == "Subscriptions" && openSubscriptionSnapshots != nil {
+		var err error
+		readPublication, publicationChanges, err = openSubscriptionSnapshots(wait, target)
+		if err != nil {
+			return err
+		}
+	}
 	for {
 		if err := privateOutcome(wait); err != nil {
 			return err
 		}
-		snapshot, err := p.dispatch(wait, request)
-		if err != nil {
+		var snapshot any
+		var changedPublication <-chan struct{}
+		if err := validatePrivateAuthority(wait, request.Context.Authority); err != nil {
 			return err
+		}
+		if readPublication != nil {
+			// Take the change channel before consuming the corresponding
+			// value so a publication between these operations wakes us.
+			changedPublication = publicationChanges()
+			snapshot = readPublication()
+		} else {
+			var err error
+			snapshot, err = p.dispatch(wait, request)
+			if err != nil {
+				return err
+			}
 		}
 		comparison := snapshot
 		switch kind {
@@ -213,6 +294,8 @@ func (p *inProcess) snapshotStream(ctx context.Context, request frontDoorRequest
 			case <-wait.Done():
 				return privateOutcome(wait)
 			case <-frames.C:
+				break poll
+			case <-changedPublication:
 				break poll
 			case <-authority.C:
 				if err := validatePrivateAuthority(wait, request.Context.Authority); err != nil {
@@ -290,12 +373,24 @@ func (p *inProcess) dispatch(ctx context.Context, request frontDoorRequest) (any
 	authority := request.Context.Authority
 	if str(request.Operation) == "Mcp" {
 		if forwarded := obj(field(authority, "Ingress")); forwarded != nil {
+			if len(obj(authority)) != 1 {
+				return nil, errors.New(contextMismatch)
+			}
 			if service, ok := p.target.(*service); ok {
 				source, err := privateIngressSource(ctx, service, forwarded)
 				if err != nil {
 					return nil, err
 				}
-				return dispatchMCP(ctx, service, source, body)
+				ctx = withMCPIngress(ctx, text(forwarded, "ingress_id"))
+				reply, err := dispatchMCP(ctx, service, source, body)
+				current, authErr := privateIngressSource(ctx, service, forwarded)
+				if authErr != nil {
+					return nil, authErr
+				}
+				if text(current.origin, "sourceId") != text(source.origin, "sourceId") {
+					return nil, errors.New(contextMismatch)
+				}
+				return reply, err
 			}
 			ingress := text(forwarded, "ingress_id")
 			principal := forwarded["principal"]
@@ -324,7 +419,7 @@ func (p *inProcess) dispatch(ctx context.Context, request frontDoorRequest) (any
 			if !ok || peerControlRequest == nil {
 				return nil, errors.New(PortPending)
 			}
-			return peerControlRequest(ctx, service, text(peer, "device_id"), body)
+			return peerControlRequest(context.WithValue(ctx, &peerControlKey, true), service, text(peer, "device_id"), body)
 		}
 	case "Mcp":
 		if source := obj(field(authority, "Mcp")); source != nil {
@@ -340,7 +435,7 @@ func (p *inProcess) dispatch(ctx context.Context, request frontDoorRequest) (any
 				return nil, err
 			}
 			configured.origin = obj(source["origin"])
-			return dispatchMCP(ctx, service, configured, body)
+			return dispatchMCP(withMCPIngress(ctx, text(source, "ingress_id")), service, configured, body)
 		}
 	}
 	if route, ok := obj(request.Operation)["Management"]; ok {

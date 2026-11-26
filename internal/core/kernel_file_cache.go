@@ -115,6 +115,8 @@ func (c *fileCache[T]) remove(path string) {
 }
 func (c *fileCache[T]) read(path string, decode func([]byte) (T, error)) (T, error) {
 	var empty T
+	cost := fileCost{Path: path, Rows: 1}
+	defer func() { recordFileCost(cost) }()
 	stamp, err := readStamp(path)
 	if err != nil {
 		return empty, err
@@ -127,14 +129,17 @@ func (c *fileCache[T]) read(path string, decode func([]byte) (T, error)) (T, err
 		if stampSame(&row.stamp, stamp) {
 			c.recency.MoveToFront(cached)
 			c.hits++
+			cost.CacheHits = 1
 			return row.value, nil
 		}
 	}
 	c.io.fileOpens++
+	cost.CacheMisses = 1
 	bytes, err := os.ReadFile(path)
 	if err != nil {
 		return empty, err
 	}
+	cost.BytesRead, cost.BytesParsed = len(bytes), len(bytes)
 	decoded, err := decode(bytes)
 	if err != nil {
 		return empty, err
@@ -155,8 +160,10 @@ func (c *fileCache[T]) entries(path string) ([]directoryEntry, error) {
 		return nil, err
 	}
 	if cached, ok := c.dirs[path]; ok && stampSame(cached.stamp, stamp) {
+		recordFileCost(fileCost{Path: path, CacheHits: 1})
 		return slices.Clone(cached.entries), nil
 	}
+	recordFileCost(fileCost{Path: path, CacheMisses: 1})
 	entries := []directoryEntry{}
 	if stamp != nil {
 		c.io.directoryReads++

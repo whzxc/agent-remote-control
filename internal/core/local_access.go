@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -226,47 +225,31 @@ func localMCP(ctx context.Context, ingress string, input io.Reader, output io.Wr
 	if !routeID.MatchString(ingress) {
 		return errors.New("invalid ingress id")
 	}
-	client := object{"id": id(), "kind": "cli", "pid": os.Getpid()}
-	if _, err := forwardRequest(ctx, "runtime/lease", http.MethodPost, client); err != nil {
+	binary, err := runtimeBinary()
+	if err != nil {
 		return err
 	}
-	lease, cancel := context.WithCancel(ctx)
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		tick := time.NewTicker(2 * time.Second)
-		defer tick.Stop()
-		for {
-			select {
-			case <-lease.Done():
-				return
-			case <-tick.C:
-				if _, err := forwardRequest(lease, "runtime/lease", http.MethodPost, client); err != nil {
-					cancel()
-					return
-				}
-			}
-		}
-	}()
+	client, err := connectRuntimeClient(ctx, binary, "cli")
+	if err != nil {
+		return err
+	}
 	defer func() {
-		cancel()
-		<-done
-		release, stop := context.WithTimeout(context.Background(), 3*time.Second)
-		defer stop()
-		_, _ = forwardRequest(release, "runtime/release", http.MethodPost, object{"id": client["id"]})
+		release, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+		defer cancel()
+		client.close(release)
 	}()
-	route := fmt.Sprintf("ingress/%s", ingress)
-	entry, err := forwardRequest(lease, route, http.MethodGet, object{})
+	route := "ingress/" + ingress
+	entry, err := client.request(ctx, route, http.MethodGet, object{})
 	if err != nil {
 		return err
 	}
 	if field(entry, "transport") != "local" {
 		return errors.New("Not a local control source")
 	}
-	if _, err := forwardRequest(lease, route+"/start", http.MethodPost, object{}); err != nil {
+	if _, err := client.request(ctx, route+"/start", http.MethodPost, object{}); err != nil {
 		return err
 	}
-	meta, _, err := discoverLocal(lease)
+	meta, _, err := discoverLocal(ctx)
 	if err != nil {
 		return err
 	}
@@ -274,7 +257,7 @@ func localMCP(ctx context.Context, ingress string, input io.Reader, output io.Wr
 	if port == 0 || port > 65535 {
 		return errors.New("Invalid Core port")
 	}
-	return stdioConnection(lease, port, text(meta, "token"), ingress, input, output)
+	return stdioConnection(ctx, port, text(meta, "token"), ingress, input, output)
 }
 
 func init() {

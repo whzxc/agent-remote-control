@@ -129,16 +129,17 @@ func stopHeadless(ctx context.Context) (object, error) {
 	if err != nil || status["running"] != true {
 		return status, err
 	}
-	client := id()
-	if _, err := forwardRequest(ctx, "runtime/lease", "POST", object{"id": client, "kind": "cli", "pid": os.Getpid()}); err != nil {
-		return nil, err
-	}
-	_, err = forwardRequest(ctx, "runtime/shutdown", "POST", object{"id": client})
-	_, _ = forwardRequest(ctx, "runtime/release", "POST", object{"id": client})
+	binary, err := runtimeBinary()
 	if err != nil {
 		return nil, err
 	}
-	if err := waitCoreExit(ctx); err != nil {
+	client, err := connectRuntimeClient(ctx, binary, "cli")
+	if err != nil {
+		return nil, err
+	}
+	err = client.shutdown(ctx)
+	client.close(context.WithoutCancel(ctx))
+	if err != nil {
 		return nil, err
 	}
 	return headlessStatus(ctx)

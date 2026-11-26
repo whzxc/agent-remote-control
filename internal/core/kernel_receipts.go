@@ -269,40 +269,14 @@ func readControlReceipt(ctx context.Context, request operationRequest) (any, err
 	}
 	return object{"requestId": name, "state": "not-found", "executionState": "no-reservation"}, nil
 }
-func startReceiptIndexes(ctx context.Context, s *service) error {
-	core, agents := coreReceiptStore().base, agentReceiptStore().base
-	prepareIndexes([]string{core, agents})
-	ctx, cancel := context.WithCancel(ctx)
-	stopped := make(chan struct{})
-	s.cleanup = append(s.cleanup, func() {
-		cancel()
-		<-stopped
-		closeReceiptIndex(core)
-		closeReceiptIndex(agents)
-	})
-	go func() {
-		defer close(stopped)
-		ctx = context.WithValue(ctx, indexInitializer{}, true)
-		if indexFixtureGate != nil {
-			if err := indexFixtureGate(ctx); err != nil {
-				return
-			}
-		}
-		if err := pruneOutputs(); err != nil {
-			recordLog("WARN", "Cannot prune temporary outputs: "+err.Error(), nil)
-		}
-		for _, owner := range []string{core, agents} {
-			if err := seedReceiptIndex(ctx, owner); err != nil {
-				if ctx.Err() == nil {
-					recordLog("ERROR", "Index startup failed: "+err.Error(), nil)
-				}
-				return
-			}
-		}
-	}()
-	return nil
-}
 func init() {
 	registerOperation("receipt", readControlReceipt, nil)
-	registerServiceStartup(startReceiptIndexes)
+	core := func() string { return coreReceiptStore().base }
+	agents := func() string { return agentReceiptStore().base }
+	registerStartupIndex(core, 10, func(ctx context.Context, _ *service) error {
+		return seedReceiptIndex(ctx, core())
+	}, closeReceiptIndex)
+	registerStartupIndex(agents, 20, func(ctx context.Context, _ *service) error {
+		return seedReceiptIndex(ctx, agents())
+	}, closeReceiptIndex)
 }

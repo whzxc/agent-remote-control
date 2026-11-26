@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -101,6 +102,14 @@ func TestWaitingRequestExpiresWithOriginalIdentity(t *testing.T) {
 	data := privateErrorObject(t, err)["data"]
 	if field(data, "requestId") != "original-request" || text(field(data, "next"), "via") != "query" || request.Deadline != original {
 		t.Fatalf("expired request = %v, %v", request, data)
+	}
+	request.Deadline = afterDeadline(time.Minute)
+	queue.closeAdmission()
+	_, err = queue.ready(ctx, &request)
+	stopping := privateErrorObject(t, err)
+	if !strings.HasPrefix(text(stopping, "message"), "FRONT_DOOR_UNAVAILABLE:") ||
+		field(stopping["data"], "requestId") != "original-request" {
+		t.Fatalf("stopping request = %v", stopping)
 	}
 }
 

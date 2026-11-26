@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -187,6 +188,9 @@ func runCLI(ctx context.Context, arguments []string, stdin io.Reader, stdout, st
 	}
 	usage, invalid := cliUsage(args)
 	if invalid != "" {
+		if message, corrected := stdinIDHint(args, stdin); corrected != "" {
+			invalid, usage = message, corrected
+		}
 		return failure(invalid, usage, true)
 	}
 	if len(args) == 2 && args[0] == "local-mcp" {
@@ -224,10 +228,24 @@ func runCLI(ctx context.Context, arguments []string, stdin io.Reader, stdout, st
 	}
 	value, err := executeCLI(ctx, args, stdin)
 	if err != nil {
+		if len(args) > 0 && (args[0] == "control" || args[0] == "wait") {
+			var detail any
+			if unmarshalJSON([]byte(err.Error()), &detail) == nil {
+				value := object{"error": detail}
+				nextControl(value, cliOperationArg(args), object{}, false)
+				compactOutcomeError(value)
+				return output(object{"schemaVersion": 1, "ok": false, "error": value["error"], "next": value["next"]}, 1)
+			}
+		}
 		return failure(err.Error(), usage, false)
 	}
-	if detail := obj(field(value, "error")); detail != nil {
-		result := obj(value)
+	if result := obj(value); outcomeError(result) != nil {
+		compactOutcomeError(result)
+		if result["next"] == nil {
+			result["next"] = field(result["lastResult"], "next")
+		}
+		nextControl(result, cliOperationArg(args), object{}, false)
+		detail := result["error"]
 		delete(result, "error")
 		next := result["next"]
 		delete(result, "next")
@@ -245,6 +263,17 @@ func cliUsage(args []string) (usage, invalid string) {
 	}
 	if len(args) == 3 && args[0] == "control" && args[1] == "guide" && !strings.HasPrefix(args[2], "-") {
 		return "cli control guide [op]", ""
+	}
+	if args[0] == "setup" && slices.Contains(args, "--locale") {
+		normalized, _, err := splitSetupLocale(args)
+		if err != nil {
+			return "cli setup next|apply|wait [--locale zh-CN|en]", err.Error()
+		}
+		usage, invalid := cliUsage(normalized)
+		if invalid == "" {
+			usage += " [--locale zh-CN|en]"
+		}
+		return usage, invalid
 	}
 	if args[0] == "setup" && (len(args) == 1 || args[1] == "--goal") {
 		return cliUsage(append([]string{"setup", "next"}, args[1:]...))
@@ -351,6 +380,46 @@ func cliFlagError(input string) string {
 	return "Unknown option " + flag + ". Use the listed options."
 }
 
+func stdinIDHint(args []string, input io.Reader) (string, string) {
+	for _, command := range cliCommands {
+		slots := strings.Fields(command)
+		index := slices.Index(slots, "<id>")
+		if index < 0 || !slices.Contains(slots, "--stdin") || !slices.Equal(slices.Delete(slices.Clone(slots), index, index+1), args) {
+			continue
+		}
+		body, err := stdinJSON(input)
+		value, ok := body["id"].(string)
+		if err != nil || !ok {
+			return "", ""
+		}
+		slots[index] = value
+		if value == "" || strings.ContainsFunc(value, func(r rune) bool {
+			return !(r >= '0' && r <= '9' || r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z' || strings.ContainsRune("_./:@+-", r))
+		}) {
+			slots[index] = "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
+		}
+		return fmt.Sprintf("Found id=%s in stdin. Move it to the command arguments. stdin accepts only patch fields to change.", wire(value)),
+			"cli " + strings.Join(slots, " ")
+	}
+	return "", ""
+}
+
+func cliOperationArg(args []string) string {
+	if len(args) > 1 {
+		return args[1]
+	}
+	return ""
+}
+
+var cliOperationName = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
+
+func cliControlHint(op string) string {
+	if cliOperationName.MatchString(op) {
+		return "arc cli control guide " + op
+	}
+	return "arc cli control guide"
+}
+
 func cliErrorResponse(message, usage string, args []string, syntax bool) object {
 	code := managementErrorCode(message)
 	if code == "SOURCE_REVOKED" || code == "SOURCE_REMOVED" || code == "LOCAL_SOURCE_PROTECTED" {
@@ -363,7 +432,19 @@ func cliErrorResponse(message, usage string, args []string, syntax bool) object 
 		}
 		return object{"schemaVersion": 1, "ok": false, "error": object{"code": code, "message": message}, "next": object{"op": nil, "hint": recovery}}
 	}
-	if message == "UNKNOWN_OPERATION" {
+	if message == "ingress not found" {
+		message = "Ingress"
+		if len(args) > 2 && args[0] == "ingress" {
+			index := 2
+			if args[1] == "oauth" || args[1] == "token" {
+				index++
+			}
+			if index < len(args) {
+				message += " id=" + wire(args[index])
+			}
+		}
+		message += " not found. Run cli ingress list for available ingresses."
+	} else if message == "UNKNOWN_OPERATION" {
 		var op any
 		if len(args) > 1 {
 			op = args[1]
@@ -383,6 +464,13 @@ func cliErrorResponse(message, usage string, args []string, syntax bool) object 
 		detail["message"] = message + separator + "Correct usage: " + usage
 		detail["usage"] = usage
 		hint = "Correct the command using " + usage + ", then retry."
+		if len(args) > 0 && args[0] == "control" {
+			op := cliOperationArg(args)
+			if op == "guide" {
+				op = cliOperationArg(args[1:])
+			}
+			detail["cliHint"] = cliControlHint(op)
+		}
 		if len(args) > 1 && args[0] == "ingress" && args[1] == "update" {
 			detail["message"] = str(detail["message"]) + `. Minimal valid stdin example: {"enabled":false}`
 			detail["example"] = object{"enabled": false}
@@ -434,6 +522,28 @@ func stdinJSON(input io.Reader) (object, error) {
 	return nil, fmt.Errorf("Standard input must be a JSON object, got %s", jsonType(value))
 }
 
+func splitSetupLocale(args []string) ([]string, string, error) {
+	if args[0] != "setup" {
+		return args, "", nil
+	}
+	at := slices.Index(args, "--locale")
+	if at < 0 {
+		return args, "", nil
+	}
+	if at+1 == len(args) {
+		return nil, "", errors.New("INVALID_ARGUMENT: --locale requires zh-CN or en")
+	}
+	locale := args[at+1]
+	if locale != "en" && locale != "zh-CN" {
+		return nil, "", errors.New("INVALID_ARGUMENT: --locale must be zh-CN or en")
+	}
+	args = slices.Delete(slices.Clone(args), at, at+2)
+	if slices.Contains(args, "--locale") || len(args) > 1 && (args[1] == "reset" || args[1] == "playbook") {
+		return nil, "", errors.New("INVALID_ARGUMENT: --locale is supported once on setup next/apply/wait")
+	}
+	return args, locale, nil
+}
+
 func executeCLI(ctx context.Context, args []string, stdin io.Reader) (any, error) {
 	if len(args) == 0 || slices.Equal(args, []string{"help"}) || slices.Equal(args, []string{"--help"}) {
 		var help object
@@ -444,18 +554,9 @@ func executeCLI(ctx context.Context, args []string, stdin io.Reader) (any, error
 		return help, nil
 	}
 	read := func(route string) (any, error) { return forwardRequest(ctx, route, http.MethodGet, nil) }
-	var setupLocale string
-	if args[0] == "setup" {
-		if at := slices.Index(args, "--locale"); at >= 0 {
-			if at+1 == len(args) || args[at+1] != "en" && args[at+1] != "zh-CN" {
-				return nil, errors.New("INVALID_ARGUMENT: --locale must be zh-CN or en")
-			}
-			setupLocale = args[at+1]
-			args = slices.Delete(slices.Clone(args), at, at+2)
-			if slices.Contains(args, "--locale") || len(args) > 1 && (args[1] == "reset" || args[1] == "playbook") {
-				return nil, errors.New("INVALID_ARGUMENT: --locale is supported once on setup next/apply/wait")
-			}
-		}
+	args, setupLocale, err := splitSetupLocale(args)
+	if err != nil {
+		return nil, err
 	}
 	var body object
 	if slices.Contains(args, "--stdin") && args[0] != "wait" && !(len(args) > 1 && args[0] == "app" && args[1] == "snapshot") {
@@ -514,17 +615,21 @@ func executeCLI(ctx context.Context, args []string, stdin io.Reader) (any, error
 		if err != nil {
 			return nil, err
 		}
-		for _, content := range arr(field(value, "content")) {
-			if field(content, "type") != "text" {
-				continue
-			}
-			var result any
-			if err := unmarshalJSON([]byte(text(content, "text")), &result); err != nil {
-				return nil, fmt.Errorf("Invalid ARC tool result JSON: %w", err)
-			}
-			return result, nil
+		result, err := egressToolValue(value)
+		if err != nil {
+			return nil, err
 		}
-		return nil, errors.New("Invalid ARC tool result: expected JSON text content")
+		if row := obj(result); row != nil && field(value, "isError") == true && outcomeError(row) == nil {
+			if detail := obj(row["error"]); detail != nil {
+				op := args[1]
+				if op == "guide" {
+					op = text(body, "op")
+				}
+				detail["cliHint"] = cliControlHint(op)
+			}
+			row["ok"] = false
+		}
+		return result, nil
 	case "config":
 		if args[1] == "get" {
 			value, err := read("preferences")
@@ -532,6 +637,9 @@ func executeCLI(ctx context.Context, args []string, stdin io.Reader) (any, error
 				return nil, err
 			}
 			return object{"maintainerMode": field(value, "maintainer-mode") == "on"}, nil
+		}
+		if err := knownCLIFields(body, []string{"maintainerMode"}, ""); err != nil {
+			return nil, err
 		}
 		enabled, ok := body["maintainerMode"].(bool)
 		if !ok {
@@ -845,9 +953,32 @@ func cliOnboarding(ingress object) object {
 	return object{"ingressId": ingress["id"], "controlSource": ingress["controlSource"], "stage": stage, "transport": ingress["transport"],
 		"authentication": ingress["auth"], "url": ingress["url"], "tunnelId": config["tunnelId"], "verification": verification,
 		"diagnostics": ingressDiagnostics(ingress), "preset": sourcePreset(text(ingress, "controlSource")),
-		"identityNote":   "Ingress controlSource is an initial product default. Authenticated calls resolve a credential-anchored sourceId; origin.controlSource is that source product. Bearer clients sharing one connection share one source.",
-		"clientSetup":    "Read preset.status, supportedAuth and caveat before connecting. Conditional paths require client verification; auth-limited paths must not silently fall back to none. A preset is not an installed integration.",
-		"secretDelivery": "Supply credentials using stdin or a protected local file. Never paste tokens into chat or use command-line arguments."}
+		"verificationPrompt": fmt.Sprintf("Call act with %s. Verify the connection only. Do not create a task.",
+			wire(object{"op": "connector_verify", "args": object{"code": verification["code"]}})),
+		"executionPrompt": "Call guide first. Use codex_create for Codex. For an executable Agent, use agent_create with agent:\"antigravity\" or agent:\"pi\". Create one harmless task with purpose:\"self-test\" and notify:null. The task MUST NOT call tools or read or modify files. It MUST reply only ARC_ONBOARDING_OK. Omit requestId to have ARC generate it, then retain the returned receipt requestId. Read its taskId and turnId through act({op:receipt,args:{requestId}}). For an executable Agent, call query agent_wait with the same agent, taskId, and turnId, then query agent_read with that agent and taskId. Use codex_wait and codex_read for Codex. On timeout, retain the original IDs and previous snapshotHash as expectedHash. Continue until terminal or interaction. Timeout does not terminate the task. Do not create it again.",
+		"identityNote":    "Ingress controlSource is an initial product default. Authenticated calls resolve a credential-anchored sourceId; origin.controlSource is that source product. Bearer clients sharing one connection share one source.",
+		"clientSetup":     "Read preset.status, supportedAuth and caveat before connecting. Conditional paths require client verification; auth-limited paths must not silently fall back to none. A preset is not an installed integration.",
+		"secretDelivery":  "Supply credentials using stdin or a protected local file. Never paste tokens into chat or use command-line arguments."}
+}
+
+func knownCLIFields(value object, allowed []string, prefix string) error {
+	unknown := []string{}
+	for _, key := range keys(value) {
+		if !slices.Contains(allowed, key) {
+			unknown = append(unknown, prefix+key)
+		}
+	}
+	if len(unknown) != 0 {
+		return fmt.Errorf("Unknown fields: %s. Allowed fields: %s%s", strings.Join(unknown, "、"), prefix, strings.Join(allowed, "、"+prefix))
+	}
+	return nil
+}
+
+func expectCLIType(field string, value any, expected string) error {
+	if got := jsonType(value); got != expected {
+		return fmt.Errorf("Invalid type for %s: expected %s, got %s", field, expected, got)
+	}
+	return nil
 }
 
 func validateCLIIngress(body object, patch bool) error {
@@ -857,49 +988,53 @@ func validateCLIIngress(body object, patch bool) error {
 	} else if _, exists := body["id"]; exists {
 		return errors.New("A patch cannot contain id. Put id in the command arguments after update. stdin accepts only patch fields to change.")
 	}
+	if err := knownCLIFields(body, allowed, ""); err != nil {
+		return err
+	}
 	for _, key := range keys(body) {
 		value := body[key]
-		if !slices.Contains(allowed, key) {
-			return fmt.Errorf("Unknown fields: %s. Allowed fields: %s", key, strings.Join(allowed, "、"))
-		}
 		switch key {
 		case "enabled":
-			if _, ok := value.(bool); !ok {
-				return fmt.Errorf("enabled must be boolean, got %s", jsonType(value))
+			if err := expectCLIType(key, value, "boolean"); err != nil {
+				return err
 			}
 		case "config":
-			if obj(value) == nil {
-				return fmt.Errorf("config must be object, got %s", jsonType(value))
+			if err := expectCLIType(key, value, "object"); err != nil {
+				return err
 			}
 			if ingressConfigDefaults == nil {
 				return errors.New(PortPending)
 			}
 			defaults := ingressConfigDefaults()
+			if err := knownCLIFields(obj(value), keys(defaults), "config."); err != nil {
+				return err
+			}
 			for _, name := range keys(obj(value)) {
-				raw := field(value, name)
-				expected, known := defaults[name]
-				if !known {
-					return fmt.Errorf("Unknown fields: config.%s. Allowed fields: config.%s", name, strings.Join(keys(defaults), "、config."))
-				}
-				if got, required := jsonType(raw), jsonType(expected); got != required {
-					return fmt.Errorf("config.%s must be %s, got %s", name, required, got)
+				if err := expectCLIType("config."+name, field(value, name), jsonType(defaults[name])); err != nil {
+					return err
 				}
 			}
 		case "toolPolicy":
 			if value == "all" {
 				continue
 			}
-			if len(obj(value)) != 1 || arr(field(value, "allowlist")) == nil {
-				return errors.New("toolPolicy must be the string \"all\" or an object with an allowlist array")
+			if obj(value) == nil {
+				return fmt.Errorf("toolPolicy must be the string \"all\" or an object, got %s", jsonType(value))
+			}
+			if err := knownCLIFields(obj(value), []string{"allowlist"}, "toolPolicy."); err != nil {
+				return err
+			}
+			if err := expectCLIType("toolPolicy.allowlist", field(value, "allowlist"), "array"); err != nil {
+				return err
 			}
 			for index, item := range arr(field(value, "allowlist")) {
-				if _, ok := item.(string); !ok {
-					return fmt.Errorf("toolPolicy.allowlist[%d] must be string, got %s", index, jsonType(item))
+				if err := expectCLIType(fmt.Sprintf("toolPolicy.allowlist[%d]", index), item, "string"); err != nil {
+					return err
 				}
 			}
 		default:
-			if _, ok := value.(string); !ok {
-				return fmt.Errorf("%s must be string, got %s", key, jsonType(value))
+			if err := expectCLIType(key, value, "string"); err != nil {
+				return err
 			}
 		}
 	}

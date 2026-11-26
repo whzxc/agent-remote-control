@@ -140,10 +140,18 @@ func runtimeOwner(ctx context.Context, build string) (object, error) {
 		return nil, nil
 	}
 	if health["owner"] != "core" || health["version"] != buildVersion ||
-		health["build"] != build && !(health["runtime"] == "go" && health["build"] == info["build"]) {
+		health["build"] != build || health["build"] != info["build"] {
 		return nil, errors.New(coreBuildMismatch)
 	}
 	return info, nil
+}
+
+func (c *runtimeClient) subscriptions(ctx context.Context) (any, error) {
+	return c.request(ctx, "subscriptions", http.MethodGet, nil)
+}
+
+func (c *runtimeClient) networkPreferences(ctx context.Context) (any, error) {
+	return c.request(ctx, "network", http.MethodGet, nil)
 }
 
 func launchLeasedCore(ctx context.Context, binary, build string) error {

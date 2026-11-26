@@ -58,6 +58,10 @@ func RunFixture(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 func runFixtureService(parent context.Context, mode string, stdin io.Reader, stdout io.Writer) error {
 	ctx, stop := context.WithCancel(parent)
 	defer stop()
+	if closer, ok := stdin.(io.ReadCloser); ok {
+		unwatch := context.AfterFunc(ctx, func() { _ = closer.Close() })
+		defer unwatch()
+	}
 	lock, err := lockCore()
 	if err != nil {
 		return err
@@ -88,10 +92,8 @@ func runFixtureService(parent context.Context, mode string, stdin io.Reader, std
 	metadata := object{"port": port, "token": token, "pid": pid, "processStart": platform.ProcessStart(pid), "instance": id(),
 		"runtime": "go", "version": buildVersion, "owner": "core", "daemon": false, "build": build}
 	s := &service{metadata: metadata, runtime: &runtimeState{leases: make(map[string]lease), stop: stop}, fixtureIngress: fixtureIngressSource}
+	startIndexes := prepareRuntimeIndexes(s)
 	defer s.close()
-	if err := s.start(ctx); err != nil {
-		return err
-	}
 	if snapshot, ok := os.LookupEnv("ARC_FIXTURE_SNAPSHOT"); ok {
 		s.desktop = fixtureDesktop(snapshot)
 	}
@@ -102,7 +104,7 @@ func runFixtureService(parent context.Context, mode string, stdin io.Reader, std
 	}
 	defer ipc.Close()
 	defer privateCore.drain()
-	server := &http.Server{Handler: localHandler(s, port, token), ReadHeaderTimeout: 5 * time.Second, MaxHeaderBytes: 16 * 1024}
+	server := &http.Server{Handler: localHandler(fixtureTransport{s, privateCore}, port, token), ReadHeaderTimeout: 5 * time.Second, MaxHeaderBytes: 16 * 1024}
 	server.SetKeepAlivesEnabled(false)
 	ended := make(chan error, 1)
 	go func() { ended <- server.Serve(listener) }()
@@ -118,6 +120,10 @@ func runFixtureService(parent context.Context, mode string, stdin io.Reader, std
 		return err
 	}
 	defer os.Remove(info)
+	startIndexes(ctx)
+	if err := s.start(ctx); err != nil {
+		return err
+	}
 	switch mode {
 	case "http":
 		if err := outputLine(stdout, wire(object{"port": port, "token": token})); err != nil {
@@ -166,7 +172,11 @@ func fixtureDesktop(scenario string) func(context.Context, string, string, objec
 					return object{"accountId": account, "status": "signed-in"}, nil
 				case "src-containers/import":
 					rows = append(rows, object{"accountId": account, "storeId": body["storeId"], "url": nil, "active": false, "open": false, "status": "importing"})
-					return object{"accountId": account, "status": "importing"}, nil
+					return object{"accountId": account, "status": "importing", "reason": nil, "detectedAccountId": nil,
+						"hint": "Enter the macOS login password in the Chrome Safe Storage prompt and choose Always Allow. Then explicitly retry the import if it is blocked.",
+						"next": object{"via": "query", "op": "src_conversations", "args": object{"accountId": account},
+							"hint": "Poll this account's import status; do not start another import while it is importing.",
+						}}, nil
 				}
 			}
 		}
@@ -183,6 +193,23 @@ func fixtureDesktop(scenario string) func(context.Context, string, string, objec
 		}
 		return object{"model": object{"layoutSettled": ready, "scenario": state, "taskDetail": detail}}, nil
 	}
+}
+
+type fixtureTransport struct {
+	*service
+	core *inProcess
+}
+
+func (f fixtureTransport) snapshot(ctx context.Context, kind string, send func(string) error) error {
+	request := newPrivateRequest(ctx, object{"Snapshot": object{"kind": kind}}, "Management", object{})
+	request.Generation = f.core.generation
+	err := f.core.snapshotStream(ctx, request, func(frame frontDoorStream) error {
+		return send(snapshotMessage(frame.Body))
+	})
+	if err != nil && ctx.Err() == nil {
+		return send("event: error\ndata: " + wire(object{"error": err.Error()}) + "\n\n")
+	}
+	return err
 }
 
 func fixtureIngressSource(ingress string) (requestSource, error) {

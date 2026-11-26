@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"path/filepath"
 	"slices"
 	"time"
@@ -188,7 +189,10 @@ func contextWorkspace(ctx context.Context, service *service, selector, cwd strin
 		}
 		changes = append(changes, object{"path": contextExcerpt(text(row, "path")), "originalPath": originalPath, "status": field(row, "status")})
 	}
-	workspace := selectFields(source, "git", "dirty", "statusHash", "statusHashScope", "observedAt")
+	workspace := object{}
+	for _, key := range []string{"git", "dirty", "statusHash", "statusHashScope", "observedAt"} {
+		workspace[key] = source[key]
+	}
 	workspace["root"], workspace["association"], workspace["head"] = contextExcerpt(text(source, "root")), association, source["sha"]
 	workspace["consistency"], workspace["changes"], workspace["changeAttribution"], workspace["coverage"] =
 		"best-effort", changes, "workspace-current-not-task-exclusive", coverage
@@ -197,4 +201,11 @@ func contextWorkspace(ctx context.Context, service *service, selector, cwd strin
 
 func init() {
 	registerOperation("agent_context", contextOperation, nil)
+	registerRoute(http.MethodPost, "context", func(ctx context.Context, s *service, args object, _ []string) (any, error) {
+		const name = "agent_context"
+		if invalid := checkSchema("op", name, name, operation(name)["inputSchema"], args); invalid != nil {
+			return nil, errors.New(wire(invalid))
+		}
+		return contextOperation(ctx, operationRequest{name: name, args: args, service: s, source: requestSource{local: true, policy: "all"}})
+	})
 }

@@ -77,6 +77,22 @@ type frontDoorContext struct {
 	Authority any `json:"authority"`
 }
 
+type privatePeerAuthority struct {
+	DeviceID string `json:"device_id"`
+}
+
+type privateBrowserAuthority struct {
+	IngressID string `json:"ingress_id"`
+	KeyDigest string `json:"key_digest"`
+}
+
+type privateMCPAuthority struct {
+	IngressID  string `json:"ingress_id"`
+	SourceID   string `json:"source_id"`
+	Credential any    `json:"credential"`
+	Origin     any    `json:"origin"`
+}
+
 type frontDoorRequest struct {
 	Version    uint16            `json:"version"`
 	Generation generation        `json:"generation"`

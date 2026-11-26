@@ -54,15 +54,19 @@ func validatePrivateAuthority(ctx context.Context, value any) error {
 	}
 	switch {
 	case values["Peer"] != nil:
-		device := text(values["Peer"], "device_id")
-		if device == "" {
+		var peer privatePeerAuthority
+		if unmarshalJSON([]byte(wire(values["Peer"])), &peer) != nil || peer.DeviceID == "" {
 			return errors.New(contextMismatch)
 		}
 		if authorizePeerDevice == nil {
 			return errors.New(PortPending)
 		}
-		return authorizePeerDevice(ctx, device)
+		return authorizePeerDevice(ctx, peer.DeviceID)
 	case values["Browser"] != nil:
+		var browser privateBrowserAuthority
+		if unmarshalJSON([]byte(wire(values["Browser"])), &browser) != nil || browser.IngressID == "" || browser.KeyDigest == "" {
+			return errors.New(contextMismatch)
+		}
 		if currentBrowserKeyDigest == nil {
 			return errors.New(PortPending)
 		}
@@ -70,21 +74,33 @@ func validatePrivateAuthority(ctx context.Context, value any) error {
 		if err != nil {
 			return err
 		}
-		if expected == "" || !secureToken(expected, text(values["Browser"], "key_digest")) {
+		if expected == "" || !secureToken(expected, browser.KeyDigest) {
 			return errors.New("FRONT_DOOR_BROWSER_UNAUTHORIZED")
 		}
 		return nil
 	case values["Mcp"] != nil:
-		authority := obj(values["Mcp"])
-		if text(authority, "ingress_id") == "" || text(authority, "source_id") == "" {
+		var authority privateMCPAuthority
+		fields := obj(values["Mcp"])
+		_, credential := fields["credential"]
+		_, origin := fields["origin"]
+		if unmarshalJSON([]byte(wire(values["Mcp"])), &authority) != nil || authority.IngressID == "" ||
+			authority.SourceID == "" || !credential || !origin {
 			return errors.New(contextMismatch)
 		}
 		if validateMCPCredential == nil {
 			return errors.New(PortPending)
 		}
-		return validateMCPCredential(ctx, text(authority, "ingress_id"), text(authority, "source_id"), authority["credential"])
+		return validateMCPCredential(ctx, authority.IngressID, authority.SourceID, authority.Credential)
 	}
 	return errors.New(contextMismatch)
+}
+
+func (p *inProcess) validateDelivery(ctx context.Context, request frontDoorRequest) error {
+	if str(request.Operation) == "Mcp" && obj(field(request.Context.Authority, "Ingress")) != nil {
+		// The forwarded ingress is resolved and checked against its admitted source in dispatch.
+		return nil
+	}
+	return validatePrivateAuthority(ctx, request.Context.Authority)
 }
 
 func privateIngressSource(ctx context.Context, target *service, authority object) (requestSource, error) {
@@ -94,8 +110,12 @@ func privateIngressSource(ctx context.Context, target *service, authority object
 	}
 	principal := obj(authority["principal"])
 	var header *string
-	if value, ok := authority["header"].(string); ok {
-		header = &value
+	if authority["header"] != nil {
+		if value, ok := authority["header"].(string); ok {
+			header = &value
+		} else {
+			return requestSource{}, errors.New(contextMismatch)
+		}
 	}
 	if target.fixtureIngress != nil {
 		if text(principal, "type") != "ingress" || text(principal, "ingressId") != ingress || header != nil {

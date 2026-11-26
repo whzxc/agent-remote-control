@@ -44,6 +44,120 @@ type indexInitializer struct{}
 
 var indexFixtureGate func(context.Context) error
 
+type startupIndex struct {
+	owner func() string
+	order int
+	open  func(context.Context, *service) error
+	close func(string)
+}
+
+var startupIndexes []startupIndex
+
+// registerStartupIndex supplies a durable owner to the Core's startup worker.
+// Owners are gated before the listener and are published independently.
+func registerStartupIndex(owner func() string, order int, open func(context.Context, *service) error, close func(string)) {
+	startupIndexes = append(startupIndexes, startupIndex{owner, order, open, close})
+}
+
+type indexPreparation struct {
+	order int
+	run   func(context.Context, *service) error
+}
+
+var startupIndexPreparations []indexPreparation
+
+// registerIndexPreparation runs owner migrations before any derived index is opened.
+func registerIndexPreparation(order int, run func(context.Context, *service) error) {
+	startupIndexPreparations = append(startupIndexPreparations, indexPreparation{order, run})
+}
+
+func prepareRuntimeIndexes(s *service) func(context.Context) {
+	registered := slices.Clone(startupIndexes)
+	slices.SortStableFunc(registered, func(a, b startupIndex) int { return a.order - b.order })
+	owners := make([]string, len(registered))
+	for i, index := range registered {
+		owners[i] = physicalPath(index.owner())
+	}
+	prepareIndexes(owners)
+	var cancel context.CancelFunc
+	var stopped chan struct{}
+	s.cleanup = append(s.cleanup, func() {
+		if cancel != nil {
+			cancel()
+			<-stopped
+		}
+		for i, index := range registered {
+			if index.close != nil {
+				index.close(owners[i])
+			}
+		}
+		indexOwners.Lock()
+		for _, owner := range owners {
+			delete(indexOwners.preparing, owner)
+		}
+		indexOwners.Unlock()
+	})
+	return func(parent context.Context) {
+		var work context.Context
+		work, cancel = context.WithCancel(parent)
+		work = context.WithValue(work, indexInitializer{}, true)
+		stopped = make(chan struct{})
+		go func() {
+			defer close(stopped)
+			if err := initializeRuntimeIndexes(work, s, registered, owners); err != nil && work.Err() == nil {
+				recordLog("ERROR", "Index startup failed: "+err.Error(), nil)
+			}
+		}()
+	}
+}
+
+func initializeRuntimeIndexes(ctx context.Context, s *service, registered []startupIndex, owners []string) error {
+	defer func() {
+		for _, owner := range owners {
+			if err := reclaimObsoleteIndexes(owner); err != nil {
+				recordLog("WARN", "Cannot reclaim obsolete index generation: "+err.Error(), nil)
+			}
+		}
+	}()
+	if indexFixtureGate != nil {
+		if err := indexFixtureGate(ctx); err != nil {
+			return err
+		}
+	}
+	if err := pruneOutputs(); err != nil {
+		recordLog("WARN", "Cannot prune temporary outputs: "+err.Error(), nil)
+	}
+	preparations := slices.Clone(startupIndexPreparations)
+	slices.SortStableFunc(preparations, func(a, b indexPreparation) int { return a.order - b.order })
+	for _, preparation := range preparations {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if err := preparation.run(ctx, s); err != nil {
+			return err
+		}
+	}
+	for _, index := range registered {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if err := index.open(ctx, s); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func reclaimObsoleteIndexes(owner string) error {
+	defer lockIndex(owner)()
+	manifest, err := indexCurrent(owner)
+	if err != nil {
+		// Keep the last durable generation until a replacement can be published.
+		return nil
+	}
+	return cleanIndexes(owner, manifest.Generation)
+}
+
 func lockIndex(owner string) func() {
 	owner = physicalPath(owner)
 	indexOwners.Lock()
@@ -134,6 +248,7 @@ func indexRead(path string, value any) error {
 	if err != nil {
 		return fmt.Errorf("File operation failed at read-index for %s: %w", path, err)
 	}
+	recordFileCost(fileCost{Path: path, Rows: 1, BytesRead: len(data), BytesParsed: len(data)})
 	return unmarshalJSON(data, value)
 }
 func indexCurrent(owner string) (indexManifest, error) {
@@ -324,6 +439,7 @@ func indexCanonical(path string, project func(any) (any, error), profile *indexP
 	}
 	at = time.Now()
 	var value any
+	recordFileCost(fileCost{Path: path, Rows: 1, BytesRead: len(data), BytesParsed: len(data)})
 	err = unmarshalJSON(data, &value)
 	if err == nil {
 		value, err = project(value)
@@ -487,6 +603,9 @@ func openIndex(ctx context.Context, owner, kind string, selected func(string) bo
 	generation := filepath.Join(directory, manifest.Generation)
 	repairing := time.Now()
 	for _, marker := range markers {
+		if ctx.Err() != nil {
+			return errors.New("INDEX_STARTUP_CANCELLED")
+		}
 		if rebuilt {
 			break
 		}
@@ -558,5 +677,8 @@ func openIndex(ctx context.Context, owner, kind string, selected func(string) bo
 		"readMs": profile.read.Milliseconds(), "projectMs": profile.project.Milliseconds(), "writeMs": profile.write.Milliseconds(),
 		"repairMs": repair.Milliseconds(), "loadMs": load.Milliseconds(), "publishMs": time.Since(publishing).Milliseconds(),
 		"clearMarkersMs": clearMarkers.Milliseconds(), "adoptMs": adopt.Milliseconds(), "totalMs": time.Since(at).Milliseconds()}), nil)
-	return cleanIndexes(owner, manifest.Generation)
+	if ctx.Value(indexInitializer{}) == nil {
+		return cleanIndexes(owner, manifest.Generation)
+	}
+	return nil
 }

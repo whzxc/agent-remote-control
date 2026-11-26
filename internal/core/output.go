@@ -10,11 +10,27 @@ import (
 var outputClosed = errors.New("standard output closed by reader")
 
 func outputLine(output io.Writer, value any) error {
-	if _, err := fmt.Fprintln(output, value); err != nil {
-		if errors.Is(err, syscall.EPIPE) {
-			return outputClosed
-		}
-		return fmt.Errorf("Cannot write standard output: %w", err)
+	if synchronized, ok := output.(*synchronizedOutput); ok {
+		synchronized.Lock()
+		defer synchronized.Unlock()
+		output = synchronized.writer
 	}
-	return nil
+	line := fmt.Sprintln(value)
+	written, err := io.WriteString(output, line)
+	if err == nil && written != len(line) {
+		err = io.ErrShortWrite
+	}
+	if err == nil {
+		if buffered, ok := output.(interface{ Flush() error }); ok {
+			err = buffered.Flush()
+		}
+	}
+	switch {
+	case errors.Is(err, syscall.EPIPE), operatingSystem == "windows" && errors.Is(err, syscall.Errno(109)): // ERROR_BROKEN_PIPE
+		return outputClosed
+	case err != nil:
+		return fmt.Errorf("Cannot write standard output: %w", err)
+	default:
+		return nil
+	}
 }

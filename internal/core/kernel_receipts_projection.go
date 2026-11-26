@@ -90,26 +90,26 @@ func (i *receiptIndex) initialize(ctx context.Context) error {
 	if i.rows != nil {
 		return nil
 	}
-	var loaded map[string]indexEntry
 	watch := newFileChanges()
 	watch.add(filepath.Join(i.owner, ".index-watch"))
 	installed := false
 	defer func() {
 		if !installed {
+			i.rows, i.watch = nil, nil
 			watch.close()
 		}
 	}()
 	err := openIndex(ctx, i.owner, "receipts", isReceiptPath, func(value any) bool { return obj(value) != nil }, receiptSummary, func(rows map[string]indexEntry) error {
-		loaded = make(map[string]indexEntry, len(rows))
+		i.rows = make(map[string]indexEntry, len(rows))
 		for key, entry := range rows {
-			loaded[filepath.Join(i.owner, key)] = entry
+			i.rows[filepath.Join(i.owner, key)] = entry
 		}
+		i.watch = watch
 		return nil
 	})
 	if err != nil {
 		return err
 	}
-	i.rows, i.watch = loaded, watch
 	installed = true
 	return nil
 }

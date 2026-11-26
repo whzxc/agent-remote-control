@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -8,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -136,11 +138,31 @@ func root() string {
 func load(path string) (any, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
+		recordFileCost(fileCost{Path: path, Rows: 1})
 		return nil, err
 	}
+	recordFileCost(fileCost{Path: path, Rows: 1, BytesRead: len(data), BytesParsed: len(data)})
 	var value any
 	err = canonjson.Unmarshal(data, &value)
 	return value, err
+}
+
+type fileCost struct {
+	Path                                  string
+	Rows, BytesRead, BytesParsed, Changed int
+	CacheHits, CacheMisses                int
+}
+
+var fileCostObservers []func(fileCost)
+
+func registerFileCostObserver(observe func(fileCost)) {
+	fileCostObservers = append(fileCostObservers, observe)
+}
+
+func recordFileCost(cost fileCost) {
+	for _, observe := range fileCostObservers {
+		observe(cost)
+	}
 }
 
 func save(path string, value any) error {
@@ -171,7 +193,27 @@ func saveBytes(path string, data []byte) error {
 		return fmt.Errorf("File operation failed at replace for %s: from %s: %w", path, temp, err)
 	}
 	markCachedFileChanged(path, before)
+	recordFileCost(fileCost{Path: path, Changed: 1})
 	return nil
+}
+
+// readProtocolLine includes the newline in the byte budget and accepts a final partial line at EOF.
+func readProtocolLine(input *bufio.Reader, limit int) ([]byte, error) {
+	var line []byte
+	for {
+		part, err := input.ReadSlice('\n')
+		if len(part) > limit-len(line) {
+			return nil, errors.New("FRAME_TOO_LARGE")
+		}
+		line = append(line, part...)
+		if err == bufio.ErrBufferFull {
+			continue
+		}
+		if err == io.EOF && len(line) != 0 {
+			err = nil
+		}
+		return line, err
+	}
 }
 
 func nativeCommand(ctx context.Context, binary string, args ...string) *exec.Cmd {

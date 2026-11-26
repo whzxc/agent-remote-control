@@ -27,8 +27,8 @@ func superviseFrontDoor(ctx context.Context, service *service, endpoint *inProce
 				if err != nil {
 					return err
 				}
+				defer guard.Close()
 				info, err = ensureFrontDoor(ctx, text(published, "build"))
-				_ = guard.Close()
 				if err != nil {
 					return err
 				}
@@ -54,11 +54,9 @@ func superviseFrontDoor(ctx context.Context, service *service, endpoint *inProce
 				info = next
 			}
 			if attached != hello.Generation {
-				if published["port"] != info["port"] || published["token"] != info["token"] {
-					published["port"], published["token"] = info["port"], info["token"]
-					if err := save(path, published); err != nil {
-						return err
-					}
+				published["port"], published["token"] = info["port"], info["token"]
+				if err := save(path, published); err != nil {
+					return err
 				}
 				if restoreRemoteConnections != nil {
 					if err := restoreRemoteConnections(ctx, service); err != nil {
@@ -217,8 +215,8 @@ func replaceFrontDoor(ctx context.Context, endpoint *inProcess, source, previous
 		return next, nil
 	}
 	state["state"], state["lastError"], state["rollback"] = "rolling_back", err.Error(), true
-	if err := save(path, state); err != nil {
-		return nil, err
+	if stateErr := save(path, state); stateErr != nil {
+		recordLog("WARN", "Cannot record front-door rollback: "+stateErr.Error(), nil)
 	}
 	// A replacement already stopped the previous owner; complete the rollback
 	// even when the initiating supervision tick is canceled.

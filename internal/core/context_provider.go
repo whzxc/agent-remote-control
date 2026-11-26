@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"github.com/whzxc/agent-remote-control/internal/canonjson"
+	"github.com/whzxc/agent-remote-control/internal/platform"
 )
 
 type contextProviderConfig struct {
@@ -87,10 +89,17 @@ func contextProviderStdio(ctx context.Context, stdin io.Reader, stdout, stderr i
 	return nil
 }
 
-func responseFromProvider(output *bufio.Scanner, input io.Writer, replyID uint64) (any, error) {
-	for output.Scan() {
+func responseFromProvider(output *bufio.Reader, input io.Writer, replyID uint64) (any, error) {
+	for {
+		line, err := readProtocolLine(output, 4*1024*1024)
+		if errors.Is(err, io.EOF) {
+			return nil, errors.New("CONTEXT_PROVIDER_CLOSED")
+		}
+		if err != nil {
+			return nil, err
+		}
 		var message object
-		if err := canonjson.Unmarshal(output.Bytes(), &message); err != nil {
+		if err := canonjson.Unmarshal(line, &message); err != nil {
 			return nil, err
 		}
 		if _, request := message["method"]; request {
@@ -117,15 +126,10 @@ func responseFromProvider(output *bufio.Scanner, input io.Writer, replyID uint64
 			return nil, errors.New("CONTEXT_PROVIDER_INVALID_RESPONSE")
 		}
 	}
-	if err := output.Err(); err != nil {
-		return nil, err
-	}
-	return nil, errors.New("CONTEXT_PROVIDER_CLOSED")
 }
 
 func runContextProvider(input io.Writer, output io.Reader, name string, args object) (any, error) {
-	scanner := bufio.NewScanner(output)
-	scanner.Buffer(make([]byte, 8192), 4*1024*1024)
+	reader := bufio.NewReaderSize(output, 8192)
 	write := func(frame object) error {
 		frame["jsonrpc"] = "2.0"
 		_, err := io.WriteString(input, wire(frame)+"\n")
@@ -135,7 +139,7 @@ func runContextProvider(input io.Writer, output io.Reader, name string, args obj
 		"capabilities": object{}, "clientInfo": object{"name": "arc-context-provider", "version": buildVersion}}}); err != nil {
 		return nil, err
 	}
-	initialized, err := responseFromProvider(scanner, input, 1)
+	initialized, err := responseFromProvider(reader, input, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +153,7 @@ func runContextProvider(input io.Writer, output io.Reader, name string, args obj
 	if err := write(object{"id": 2, "method": "tools/call", "params": object{"name": name, "arguments": args}}); err != nil {
 		return nil, err
 	}
-	result, err := responseFromProvider(scanner, input, 2)
+	result, err := responseFromProvider(reader, input, 2)
 	if err != nil {
 		return nil, err
 	}
@@ -173,9 +177,7 @@ func runContextProvider(input io.Writer, output io.Reader, name string, args obj
 }
 
 func callContextProvider(parent context.Context, name string, args object, timeout time.Duration) (any, error) {
-	ctx, cancel := context.WithTimeout(parent, timeout)
-	defer cancel()
-	cmd, err := contextProviderCommand(ctx)
+	cmd, err := contextProviderCommand(parent)
 	if err != nil {
 		return nil, err
 	}
@@ -188,17 +190,33 @@ func callContextProvider(parent context.Context, name string, args object, timeo
 		input.Close()
 		return nil, err
 	}
+	platform.OwnChild(cmd)
 	if err := startOwnedChild(cmd); err != nil {
 		input.Close()
 		output.Close()
 		return nil, fmt.Errorf("CONTEXT_PROVIDER_START_FAILED: %w", err)
 	}
+	ctx, cancel := context.WithTimeout(parent, timeout)
+	defer cancel()
+	done := make(chan struct{})
+	stop := context.AfterFunc(ctx, func() {
+		defer close(done)
+		platform.SignalTree(cmd.Process.Pid, true)
+		_ = input.Close()
+		_ = output.Close()
+	})
 	result, err := runContextProvider(input, output, name, args)
-	deadline := ctx.Err()
-	_ = cmd.Process.Kill()
+	if stop() {
+		platform.SignalTree(cmd.Process.Pid, true)
+	} else {
+		<-done
+	}
 	_ = cmd.Wait()
-	if deadline == context.DeadlineExceeded {
+	if ctx.Err() == context.DeadlineExceeded {
 		return nil, fmt.Errorf("CONTEXT_PROVIDER_TIMEOUT: %dms; read current provider state before retrying a write", timeout.Milliseconds())
+	}
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
 	}
 	return result, err
 }
@@ -208,7 +226,7 @@ func contextProviderACPServer() (object, error) {
 	if err != nil || config == nil {
 		return nil, err
 	}
-	binary, err := os.Executable()
+	binary, err := runtimeBinary()
 	if err != nil {
 		return nil, err
 	}
@@ -217,11 +235,18 @@ func contextProviderACPServer() (object, error) {
 }
 
 func providerOperation(ctx context.Context, request operationRequest) (any, error) {
+	args := maps.Clone(request.args)
+	if request.name == "context_amend" {
+		delete(args, "requestId")
+	}
+	if invalid := checkSchema("op", request.name, request.name, operation(request.name)["inputSchema"], args); invalid != nil {
+		return nil, errors.New(wire(invalid))
+	}
 	timeout := 10 * time.Second
 	if request.name == "context_amend" || request.name == "context_check" {
 		timeout = 120 * time.Second
 	}
-	return callContextProvider(ctx, strings.TrimPrefix(request.name, "context_"), request.args, timeout)
+	return callContextProvider(ctx, strings.TrimPrefix(request.name, "context_"), args, timeout)
 }
 
 func init() {

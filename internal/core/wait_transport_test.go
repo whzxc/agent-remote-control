@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -69,5 +70,44 @@ func TestWaitStreamCancelsWhenTheClientDisconnects(t *testing.T) {
 			t.Fatal("disconnected wait remained active")
 		}
 		server.Close()
+	}
+}
+
+func TestStdioWaitsCancelAtEOFDespiteConcurrentRequests(t *testing.T) {
+	// Recurring bug class: lifecycle the stdio reader must reach EOF while all response slots are occupied.
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	reader, writer := io.Pipe()
+	defer writer.Close()
+	started := make(chan struct{}, maxInFlight+1)
+	finished := make(chan error, 1)
+	go func() {
+		finished <- parallelJSONLines(ctx, reader, io.Discard, 4096, true,
+			func(ctx context.Context, _ io.Writer, _ object) (any, error) {
+				started <- struct{}{}
+				<-ctx.Done()
+				return nil, nil
+			})
+	}()
+	if _, err := io.WriteString(writer, strings.Repeat("{\"id\":1}\n", cap(started))); err != nil {
+		t.Fatal(err)
+	}
+	for range cap(started) {
+		select {
+		case <-started:
+		case <-ctx.Done():
+			t.Fatal("pending waits prevented the reader from accepting the last request")
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-finished:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-ctx.Done():
+		t.Fatal("stdio waits remained active after EOF")
 	}
 }

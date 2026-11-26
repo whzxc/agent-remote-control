@@ -54,6 +54,8 @@ var managementSourceProjection func(object)
 var validateTaskPanelArgs func(string, object) error
 var panelControlSource func(context.Context) (requestSource, error)
 var applyPriorDispatchPurpose func(string, object) error
+var validateNetworkPreferences func(string, string) error
+var applyIngressNetworkPreferences func(context.Context, *service, object) error
 
 func (s *service) management(ctx context.Context, route, method string, body object) (any, error) {
 	audit := method != "GET" && !slices.Contains([]string{"cli/control", "runtime/lease", "src-conversations/observe",
@@ -163,7 +165,7 @@ func (s *service) mcp(ctx context.Context, ingress string, request object) (obje
 	} else if ingress != "" && ingress != "default" {
 		return nil, errors.New(PortPending)
 	}
-	return dispatchMCP(ctx, s, source, request)
+	return dispatchMCP(withMCPIngress(ctx, ingress), s, source, request)
 }
 
 func init() {
@@ -184,18 +186,82 @@ func init() {
 	registerRoute("GET", "status", func(ctx context.Context, s *service, _ object, _ []string) (any, error) {
 		return s.status(ctx)
 	})
+	registerRoute("GET", "core", func(ctx context.Context, s *service, _ object, _ []string) (any, error) {
+		status, err := s.status(ctx)
+		return status["core"], err
+	})
 	registerRoute("GET", "capabilities", func(_ context.Context, _ *service, _ object, _ []string) (any, error) {
 		return managementCatalog(), nil
 	})
+	registerRoute("GET", "tool-catalog", func(_ context.Context, _ *service, _ object, _ []string) (any, error) {
+		return toolExposureCatalog(), nil
+	})
 	registerRoute("GET", "network", func(_ context.Context, _ *service, _ object, _ []string) (any, error) {
-		if value, err := load(filepath.Join(root(), "app/preferences.json")); err == nil {
+		if value, err := cachedLoad(filepath.Join(root(), "app/preferences.json")); err == nil {
 			return value, nil
 		}
 		return object{"proxyMode": "system", "proxyUrl": ""}, nil
 	})
+	registerRoute("PUT", "network", func(ctx context.Context, s *service, body object, _ []string) (any, error) {
+		mode, modeOK := body["proxyMode"].(string)
+		if !modeOK {
+			return nil, errors.New("invalid proxy mode")
+		}
+		address, addressOK := body["proxyUrl"].(string)
+		if !addressOK {
+			return nil, errors.New("invalid proxy URL")
+		}
+		if validateNetworkPreferences == nil {
+			return nil, errors.New(PortPending)
+		}
+		if err := validateNetworkPreferences(mode, address); err != nil {
+			return nil, err
+		}
+		if err := save(filepath.Join(root(), "app/preferences.json"), body); err != nil {
+			return nil, err
+		}
+		if applyIngressNetworkPreferences != nil {
+			if err := applyIngressNetworkPreferences(ctx, s, body); err != nil {
+				return nil, err
+			}
+		}
+		return object{"ok": true}, nil
+	})
 	registerRoute("POST", "state/wait", func(ctx context.Context, s *service, args object, _ []string) (any, error) {
 		return s.waitState(ctx, args)
 	})
+}
+
+func toolExposureCatalog() object {
+	domain := catalog()
+	exposure := obj(domain["toolExposure"])
+	local := requestSource{local: true, policy: "all"}
+	agents := (registeredOperations["agents"].handle != nil || fallbackOperations["agents"] != nil) && operationAvailable(local, "agents")
+	devices := remoteDeviceControl != nil
+	hub := hubEnabled(local)
+	tools := make([]object, 0, len(arr(domain["ops"])))
+	for _, spec := range arr(domain["ops"]) {
+		name := text(spec, "name")
+		item := clone(obj(field(exposure["tools"], name)))
+		if item == nil {
+			item = object{"group": "native", "presets": []any{}, "requires": []string{"control_output"}}
+		}
+		item["name"], item["description"], item["via"] = name, field(spec, "description"), via(obj(spec))
+		switch {
+		case name == "device" || name == "devices" || strings.HasPrefix(name, "device_"):
+			item["available"] = devices
+		case name == "mcp_configure" || name == "mcp_tools" || name == "mcp_call":
+			item["available"] = hub
+		case name == "agent_archive":
+			item["available"] = true
+		case name == "agents" || strings.HasPrefix(name, "agent_"):
+			item["available"] = agents
+		default:
+			item["available"] = true
+		}
+		tools = append(tools, item)
+	}
+	return object{"groups": exposure["groups"], "required": exposure["required"], "tools": tools}
 }
 
 // Providers can contribute their ordinary status fields during the parallel port.
@@ -260,6 +326,7 @@ func (s *service) status(ctx context.Context) (object, error) {
 		"connection": object{"running": false, "mcpUrl": ""}, "tunnel": object{"state": "stopped", "error": ""},
 		"connector": object{"state": state}, "preferences": readPreferences(), "logs": logs, "core": core,
 		"frontDoor": frontDoorStatus(text(s.metadata, "build")), "ingresses": items,
+		"taskApprovalEnabled": nil, "autoOpenCodex": nil, "requestRoutingDelaySeconds": nil, "desktopRecovery": nil,
 		"ingressSummary": object{"running": running, "ready": ready, "total": len(items)}}
 	if expected, err := expectedRemote(); err == nil {
 		result["remoteFaults"] = slices.DeleteFunc(expected, func(row object) bool {
