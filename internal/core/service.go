@@ -25,6 +25,7 @@ type service struct {
 	hub               hubPool
 	jobs              controlJobs
 	events            nativeEvents
+	codex             nativeCodexState
 	waits             waitCalls
 	schemas           nativeSchemaCache
 	cleanup           []func()

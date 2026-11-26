@@ -69,7 +69,9 @@ func runCommand(ctx context.Context, args []string, stdin io.Reader, stdout, std
 			return printResult(stdout, func() (object, error) { return stopHeadless(ctx) })
 		case "front-door-prepare":
 			return prepareFrontDoorCommand(ctx, stdin, stdout, false)
-		case "codex-host", "task-host":
+		case "codex-host":
+			return runCodexHost(stdin, stdout)
+		case "task-host":
 			return errors.New(PortPending)
 		}
 	}

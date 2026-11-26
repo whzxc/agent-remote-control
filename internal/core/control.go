@@ -101,6 +101,7 @@ func runControlMutation(ctx context.Context, request operationRequest, name stri
 	at := now()
 	row := object{"origin": currentOrigin(ctx), "requestId": key, "backendSession": session, "digest": digest, "operation": name,
 		"arguments": args, "state": "reserved", "createdAt": at, "updatedAt": at}
+	attachDispatchCaller(ctx, row)
 	if prepareControlMutation != nil {
 		if err := prepareControlMutation(ctx, request, row); err != nil {
 			unlock()

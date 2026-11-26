@@ -611,7 +611,7 @@ func executeCLI(ctx context.Context, args []string, stdin io.Reader) (any, error
 		if len(args) == 3 && args[1] == "guide" && args[2] != "--stdin" {
 			body["op"] = args[2]
 		}
-		value, err := forwardRequest(ctx, "cli/control", http.MethodPost, object{"op": args[1], "args": body})
+		value, err := forwardRequest(ctx, "cli/control", http.MethodPost, cliDispatchRequest(args[1], body))
 		if err != nil {
 			return nil, err
 		}

@@ -11,7 +11,10 @@
   "files": {
     "native/src/acceptance_fault.rs": {
       "segment": "A",
-      "go": [],
+      "go": [
+        "internal/core/acceptance_fault.go",
+        "internal/core/acceptance_fault_fixture.go"
+      ],
       "status": "pending"
     },
     "native/src/accounts/codex.rs": {
@@ -92,8 +95,10 @@
     },
     "native/src/agents/capabilities.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/agents_capabilities.go"
+      ],
+      "status": "ported"
     },
     "native/src/agents/conversations/native/antigravity.rs": {
       "segment": "A",
@@ -132,8 +137,10 @@
     },
     "native/src/agents/lifecycle.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/agents_lifecycle.go"
+      ],
+      "status": "ported"
     },
     "native/src/agents/manifest.rs": {
       "segment": "A",
@@ -142,8 +149,10 @@
     },
     "native/src/agents/mcp.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/agents_mcp.go"
+      ],
+      "status": "ported"
     },
     "native/src/agents/mod.rs": {
       "segment": "A",
@@ -167,8 +176,11 @@
     },
     "native/src/app_env.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/app_env.go",
+        "internal/core/app_env_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/archive_index.rs": {
       "segment": "A",
@@ -508,8 +520,12 @@
     },
     "native/src/codex_host.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/codex_host.go",
+        "internal/core/codex_host_unix.go",
+        "internal/core/codex_host_windows.go"
+      ],
+      "status": "ported"
     },
     "native/src/codex_progress.rs": {
       "segment": "A",
@@ -1093,8 +1109,11 @@
     },
     "native/src/dispatch_caller.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/dispatch_caller.go",
+        "internal/core/dispatch_caller_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/dispatch_policy/decision.rs": {
       "segment": "C",
@@ -1984,7 +2003,9 @@
     },
     "native/src/task_host.rs": {
       "segment": "A",
-      "go": [],
+      "go": [
+        "internal/core/task_host.go"
+      ],
       "status": "pending"
     },
     "native/src/task_overview.rs": {
@@ -2067,8 +2088,11 @@
     },
     "native/src/turn_lifecycle.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/turn_lifecycle.go",
+        "internal/core/turn_lifecycle_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/uninstall.rs": {
       "segment": "D",
