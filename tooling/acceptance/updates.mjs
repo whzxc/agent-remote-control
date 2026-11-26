@@ -90,11 +90,13 @@ const server = createServer(async (req,res)=>{
       return;
     }
     if (res.destroyed) return;
-    const value = JSON.parse(body);
+    let value;
+    try { value = JSON.parse(body); }
+    catch { res.writeHead(400); res.end(); return; }
     if (req.url === '/hello') { instance=value.instance; observed=undefined; }
     if (req.url === '/state' && value.instance===instance) observed=value.view;
     if (req.url === '/result') results.set(value.id,value);
-    if (req.url === '/error') (report.runtimeErrors ??= []).push(value.error);
+    if (req.url === '/error' && value.instance === instance) (report.runtimeErrors ??= []).push(value.error);
     res.end('{}');return;
   }
   if(req.url === '/update-darwin-arm64.json') {
@@ -171,6 +173,7 @@ async function quit() {
   if (!owner) return;
   const desktop = await coreRequest(owner, 'app');
   if (!desktop.executable.startsWith(target + '/Contents/')) throw new Error('The running Desktop is outside the fixture bundle.');
+  instance = undefined;
   await stopCore(owner);
 }
 async function regression(name, run) {
@@ -241,6 +244,7 @@ try {
     assert.equal(lease.ok,true);
     assetError = true; checkError = true;
     const started = Date.now();
+    instance = undefined;
     submit('install');
     const running = await until(()=>cli('app','status'), app=>app.version===manifest.version && app.build===expected.desktop, 30_000);
     const core = await until(()=>cli('call','health'), health=>health.build===expected.core && health.state==='ready', 15_000);

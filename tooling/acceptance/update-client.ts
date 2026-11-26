@@ -3,7 +3,7 @@ import { updates, checkUpdate, downloadUpdate, installUpdate, startUpdateChecks 
 declare const __UPDATE_ACCEPTANCE_ENDPOINT__: string;
 const request = (path: string, options?: RequestInit) => fetch(__UPDATE_ACCEPTANCE_ENDPOINT__ + path, options);
 const instance = crypto.randomUUID();
-const error = (reason: unknown) => { void request('/error', {method:'POST',body:JSON.stringify({error:String(reason)})}).catch(() => {}); };
+const error = (reason: unknown) => { void request('/error', {method:'POST',body:JSON.stringify({instance, error:String(reason)})}).catch(() => {}); };
 window.addEventListener('error', event => error(event.message));
 window.addEventListener('unhandledrejection', event => error(event.reason));
 const report = () => request('/state', { method: 'POST', body: JSON.stringify({ instance, view: updates.get() }) });
