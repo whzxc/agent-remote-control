@@ -1384,7 +1384,7 @@
         "internal/core/local_gateway.go",
         "internal/core/local_gateway_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/logs.rs": {
       "segment": "S0",
