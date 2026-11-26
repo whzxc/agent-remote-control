@@ -3,6 +3,7 @@ import { readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fileDigest } from './release-support.mjs';
+import { resolveMygoUpdatePublicKey } from './mygo-update-public-key.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 export const updateTargets = { mac: 'darwin-arm64', windows: 'windows-amd64' };
@@ -20,6 +21,7 @@ export function verifier(operation, version, files = [], { publicOnly = false, e
     'GOCACHE', 'GOMODCACHE', 'GOPATH', 'GOTOOLCHAIN', 'TMPDIR', 'TEMP']) {
     if (env[name] !== undefined) signing[name] = env[name];
   }
+  signing[mygoPublic] = resolveMygoUpdatePublicKey(env);
   for (const [key, value] of Object.entries(signing)) if (value === undefined) delete signing[key];
   return execFileSync('go', ['run', './tooling/verifier', operation, version, ...files], {
     cwd: root, env: { ...signing, CGO_ENABLED: '0' }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'],

@@ -7,6 +7,7 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { buildEnv, goTarget, versionSymbol } from './build-env.mjs';
 import { preflightMacosSigning } from './macos-signing.mjs';
+import { resolveMygoUpdatePublicKey } from './mygo-update-public-key.mjs';
 import { compileIcon, requireXcode } from './macos-icons.mjs';
 import { stageTimer } from './release-support.mjs';
 import { buildNative } from './build-native.mjs';
@@ -57,15 +58,15 @@ export async function buildDesktop({ target, output, development = false, releas
   }
   env.ARC_MYGO_DEVELOPMENT = development ? '1' : '0';
   env.ARC_MYGO_MACOS = platform.os === 'darwin' ? '1' : '0';
-  const key = development && !updateFixture ? '' : (env.ARC_MYGO_UPDATE_PUBLIC_KEY || '').trim();
-  if (key && !/^[A-Za-z0-9+/]{43}=$/.test(key)) throw new Error('ARC_MYGO_UPDATE_PUBLIC_KEY must be a Base64 Ed25519 key.');
-  env.ARC_MYGO_UPDATE_PUBLIC_KEY = key;
+  const updateKey = resolveMygoUpdatePublicKey(env, development, updateFixture);
+  if (updateKey && !/^[A-Za-z0-9+/]{43}=$/.test(updateKey)) throw new Error('ARC_MYGO_UPDATE_PUBLIC_KEY must be a Base64 Ed25519 key.');
+  env.ARC_MYGO_UPDATE_PUBLIC_KEY = updateKey;
   // MyGo owns its native frontend and package flags. Append ARC's matching
   // runtime identity and Core version via its supported linker flag input.
   env.MYGO_LDFLAGS = [
     `-X ${versionSymbol}=${version}`, `-X main.bundleID=${config.identifier}`,
     `-X 'main.appName=${config.productName}'`, `-X main.linkScheme=${config.scheme}`,
-    ...(key ? [`-X main.updatePublicKey=${key}`] : []),
+    ...(updateKey ? [`-X main.updatePublicKey=${updateKey}`] : []),
     ...(updateFixture ? [`-X 'main.updateFixtureHome=${updateFixture}'`] : []),
     ...(env.ARC_MYGO_UPDATE_BASE ? [`-X main.updateBase=${new URL(env.ARC_MYGO_UPDATE_BASE).href}`] : []),
   ].join(' ');

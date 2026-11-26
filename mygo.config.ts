@@ -1,10 +1,11 @@
 import { defineConfig } from "mygo-cli";
 import { desktopExecutable, desktopIdentifier, desktopName, desktopScheme, developmentConfig } from "./tooling/dev-identity.mjs";
+import { resolveMygoUpdatePublicKey } from "./tooling/mygo-update-public-key.mjs";
 
 const development = process.env.ARC_MYGO_DEVELOPMENT === "1";
 const identity = development ? developmentConfig() : { identifier: desktopIdentifier, productName: desktopName, scheme: desktopScheme };
 const fixtureFrontend = development ? process.env.ARC_MYGO_FIXTURE_FRONTEND : undefined;
-const updateKey = development && !fixtureFrontend ? undefined : process.env.ARC_MYGO_UPDATE_PUBLIC_KEY;
+const updateKey = resolveMygoUpdatePublicKey(process.env, development, fixtureFrontend);
 const updateBase = process.env.ARC_MYGO_UPDATE_BASE || "https://github.com/whzxc/agent-remote-control/releases/latest/download";
 const resources = ["desktop/icons/menubar-18Template@2x.png", "desktop/icons/tray-logo.png", "dist/mygo-input/bin", "skills", "licenses"];
 if (process.env.ARC_MYGO_MACOS === "1") resources.push("dist/mygo-input/icon/Assets.car");

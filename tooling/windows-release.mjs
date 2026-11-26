@@ -6,6 +6,7 @@ import { fileDigest, dependencyEnv } from './release-support.mjs';
 import { installDependencies } from './build-cache.mjs';
 import { archiveName, buildOnlyEnv, archiveReceipt } from './release-signing.mjs';
 import { collectDesktop, signTransition } from './release-desktop.mjs';
+import { resolveMygoUpdatePublicKey } from './mygo-update-public-key.mjs';
 
 export function runCommand(file, args, options = {}) {
   return new Promise((resolve, reject) => {
@@ -122,7 +123,7 @@ if (!(Test-Path .git/packed-refs)) { git pack-refs --all; checked }
 if ((git rev-parse --verify --quiet HEAD) -ne '${sourceSha}') { git checkout --detach ${sourceSha}; checked }
 if ((git rev-parse HEAD) -ne '${sourceSha}') { throw 'Windows source SHA mismatch' }
 $env:ARC_BUILD_VERSION='${version}'
-$env:ARC_MYGO_UPDATE_PUBLIC_KEY=${psQuote(env.ARC_MYGO_UPDATE_PUBLIC_KEY)}
+$env:ARC_MYGO_UPDATE_PUBLIC_KEY=${psQuote(resolveMygoUpdatePublicKey(env))}
 node tooling/windows-build.mjs; checked`);
     });
     await timer.run('Windows artifact collection/sign', async () => {
