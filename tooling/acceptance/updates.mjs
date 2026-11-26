@@ -9,6 +9,7 @@ import {mkdir, mkdtemp, readFile, writeFile, open, realpath} from 'node:fs/promi
 import path from 'node:path';
 import { build as buildClient } from 'vite';
 import { developmentConfig, developmentEnvironment } from '../dev-identity.mjs';
+import { coreRequest, readCore, stopCore, stopDevelopmentFrontDoor } from '../dev-core.mjs';
 import { rehearsalSigning, verifier } from '../release-signing.mjs';
 
 // Real signed updater bytes, a private HTTP endpoint, and a disposable app/state.
@@ -159,12 +160,11 @@ async function launch() {
   await until(async()=>observed,Boolean);
 }
 async function quit() {
-  const app=await cli('app','status'), health=await cli('call','health');
-  await cli('app','quit');
-  const stopped=()=>[app.pid,health.pid].every(pid=>{try{process.kill(pid,0);return false;}catch{return true;}});
-  const deadline=Date.now()+30_000;
-  while(!stopped() && Date.now()<deadline) await sleep(100);
-  if(!stopped()) throw new Error('Disposable Desktop or Core did not exit');
+  const owner = await readCore(stateDir);
+  if (!owner) return;
+  const desktop = await coreRequest(owner, 'app');
+  if (!desktop.executable.startsWith(target + '/Contents/')) throw new Error('The running Desktop is outside the fixture bundle.');
+  await stopCore(owner);
 }
 async function regression(name, run) {
   const started=Date.now();console.log('START '+name);
@@ -263,6 +263,8 @@ finally {
       await stopped;
     }
   }
+  try { await stopDevelopmentFrontDoor(stateDir); }
+  catch (error) { report.ok = false; report.cleanupError = String(error); process.exitCode = 1; }
   server.closeAllConnections();await new Promise(resolve=>server.close(resolve));
   await writeFile(path.join(out,'report.json'),JSON.stringify(report,null,2)+'\n');
   console.log(JSON.stringify({ok:report.ok,directory:out,cases:report.cases,error:report.error}));

@@ -28,6 +28,7 @@ export async function buildDesktop({ target, output, development = false, releas
     if (/^(TAURI_SIGNING_|MYGO_UPDATER_PRIVATE_KEY$|ARC_MYGO_UPDATE_PRIVATE_KEY_FILE$|CSC_|WIN_CSC_)/.test(name)) delete env[name];
   }
   delete env.ARC_MYGO_FIXTURE_FRONTEND;
+  if (!updateFixture) delete env.ARC_MYGO_UPDATE_BASE;
   if (updateFixture) {
     developmentEnvironment(updateFixture);
     const feed = new URL(env.ARC_MYGO_UPDATE_BASE);

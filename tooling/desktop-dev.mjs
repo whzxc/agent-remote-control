@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { createServer as createHttpServer } from 'node:http';
 import { createHash, randomUUID } from 'node:crypto';
 import { open, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { watch } from 'node:fs';
@@ -6,8 +7,8 @@ import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createServer } from 'vite';
 import { requireMainCheckout } from './coding-lane.mjs';
-import { developmentConfig, developmentEnvironment, desktopExecutable } from './dev-identity.mjs';
-import { coreRequest, processAlive, readCore, stopCore } from './dev-core.mjs';
+import { developmentConfig, developmentEnvironment, developmentPort, desktopExecutable } from './dev-identity.mjs';
+import { coreRequest, processAlive, readCore, stopCore, stopDevelopmentFrontDoor } from './dev-core.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 if (process.argv.length !== 2) throw new Error('Usage: npm run dev.');
@@ -23,7 +24,7 @@ const identity = developmentConfig(env);
 const devUrl = identity.build.devUrl;
 const coreOwner = env.ARC_DEV_INSTANCE_ID ? { instance: env.ARC_DEV_INSTANCE_ID, id: randomUUID() } : undefined;
 const lockPath = path.join(state, 'app/dev.json');
-let server, running, generation, stopping = false, scheduled, pending = true;
+let server, listener, running, generation, stopping = false, launched = false, scheduled, pending = true;
 const watchers = [];
 
 const spawnChild = (file, args, options) => {
@@ -65,6 +66,7 @@ async function buildGeneration() {
     const desktop = spawnChild(binary, [], { env: { ...env, MYGO_DEV_URL: devUrl,
       ARC_DEV_SUPERVISED: '1', ARC_DEV_OWNER_ID: coreOwner?.id || '' }, stdio: ['pipe', 'inherit', 'inherit'] });
     running = { ...desktop, parent, build };
+    launched = true;
     const deadline = Date.now() + 30000;
     while (!stopping && desktop.child.exitCode === null && desktop.child.signalCode === null && Date.now() < deadline) {
       const endpoint = await readCore(state);
@@ -121,7 +123,14 @@ function shutdown() {
     try { await stopApp(); }
     catch (error) { console.error(error.message); process.exitCode = 1; }
     if (parent) await rm(parent, { recursive: true, force: true });
+    try { if (launched && !await readCore(state)) await stopDevelopmentFrontDoor(state); }
+    catch (error) { console.error(error.message); process.exitCode = 1; }
     await server?.close();
+    if (listener?.listening) {
+      const closed = new Promise(resolve => listener.close(resolve));
+      listener.closeAllConnections();
+      await closed;
+    }
     await rm(lockPath, { force: true });
   })();
 }
@@ -143,8 +152,18 @@ catch (error) {
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => { void shutdown(); });
 try {
   if (await readCore(state)) throw new Error('The development state already has a Core owner. Stop it before starting dev.');
-  server = await createServer({ configFile: path.join(root, 'vite.config.ts'), mode: 'arc-desktop-development' });
-  await server.listen();
+  // Own the HTTP listener so Vite cannot exit the supervisor before ARC
+  // releases its Core and disposes of the development front door.
+  listener = createHttpServer((request, response) => server.middlewares(request, response));
+  server = await createServer({ configFile: path.join(root, 'vite.config.ts'), mode: 'arc-desktop-development',
+    server: { middlewareMode: true, ws: { server: listener } } });
+  await new Promise((resolve, reject) => {
+    listener.once('error', reject);
+    listener.listen(developmentPort(env), '127.0.0.1', () => {
+      listener.removeListener('error', reject);
+      resolve();
+    });
+  });
   for (const relative of ['cmd', 'internal', 'shared', 'skills']) {
     watchers.push(watch(path.join(root, relative), { recursive: true }, (_, file) => {
       if (!file || !file.toString().includes('browser_dist')) schedule();

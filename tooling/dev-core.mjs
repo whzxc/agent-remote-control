@@ -1,6 +1,7 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, realpath } from 'node:fs/promises';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { createConnection } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 
 export function processAlive(pid) {
@@ -72,6 +73,53 @@ export async function stopCore(endpoint, owner) {
   // The installed Core drains and exits when its Desktop releases the last lease.
   while (processAlive(endpoint.pid)) {
     if (Date.now() >= deadline) throw new Error('Core shutdown timed out. Wait for cleanup before starting another instance.');
+    await delay(100);
+  }
+}
+
+// The front door lives independently of Core across development rebuilds.
+// Use its authenticated private shutdown only when closing this isolated state.
+export async function stopDevelopmentFrontDoor(stateDirectory) {
+  const state = process.platform === 'win32' ? stateDirectory : await realpath(stateDirectory);
+  if (path.basename(state) !== 'state' || !path.basename(path.dirname(state)).startsWith('arc-godev-home')) {
+    throw new Error('Front-door shutdown requires an isolated development state.');
+  }
+  let owner;
+  try { owner = JSON.parse(await readFile(path.join(state, 'app/front-door.json'), 'utf8')); }
+  catch (error) { if (error.code === 'ENOENT') return; throw error; }
+  if (!processAlive(owner.pid)) return;
+  if (typeof owner.token !== 'string' || owner.token.length < 32) throw new Error('Invalid development front-door metadata.');
+  const digest = createHash('sha256').update(state).digest('hex').slice(0, 24);
+  const endpoint = process.platform === 'win32'
+    ? String.raw`\\.\pipe\arc-${digest}-front-door`
+    : `/tmp/arc-ipc-${process.geteuid()}-${digest}/front-door.sock`;
+  const payload = Buffer.from(JSON.stringify({ Stop: { token: owner.token } }));
+  const frame = Buffer.alloc(4 + payload.length);
+  frame.writeUInt32BE(payload.length);
+  payload.copy(frame, 4);
+  await new Promise((resolve, reject) => {
+    const socket = createConnection(endpoint, () => socket.write(frame));
+    const chunks = [];
+    let size = 0;
+    socket.setTimeout(3000, () => socket.destroy(new Error('Development front-door shutdown timed out.')));
+    socket.once('error', reject);
+    socket.on('data', chunk => {
+      size += chunk.length;
+      if (size > 4096) socket.destroy(new Error('Invalid development front-door shutdown response.'));
+      else chunks.push(chunk);
+    });
+    socket.once('end', () => {
+      try {
+        const response = Buffer.concat(chunks);
+        if (response.length < 4 || response.readUInt32BE() !== response.length - 4 ||
+            JSON.parse(response.subarray(4)).Ok?.stopping !== true) throw new Error('Development front door did not acknowledge shutdown.');
+        resolve();
+      } catch (error) { reject(error); }
+    });
+  });
+  const deadline = Date.now() + 10000;
+  while (processAlive(owner.pid)) {
+    if (Date.now() >= deadline) throw new Error('Development front door did not exit.');
     await delay(100);
   }
 }
