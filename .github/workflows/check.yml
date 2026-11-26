@@ -39,7 +39,7 @@ jobs:
         run: npm run test:go
       - name: Windows named-pipe contracts
         if: ${{ !cancelled() && runner.os == 'Windows' }}
-        run: go test -count=1 -v ./internal/platform
+        run: go test -count=1 -v -run '^TestWindows(IPC|BusyFrontDoor|MissingFrontDoor)' ./internal/platform ./internal/core
       - name: Browser ingress
         if: ${{ !cancelled() }}
         run: node tooling/test.mjs --native tests/browser-native.test.ts
