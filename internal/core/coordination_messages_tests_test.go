@@ -1,11 +1,14 @@
 package core
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 func fixtureCoordinationMail(t *testing.T) *coordinationMessageStore {
@@ -37,7 +40,13 @@ func TestMessagesRecoverSingletonsFromConsistentEnvelopeEvidence(t *testing.T) {
 			store := fixtureCoordinationMail(t)
 			request := sendCoordinationMail(t, store, "one", "two", "request", 1000, nil)
 			key := text(request, "negotiationId")
-			reply := sendCoordinationMail(t, store, "two", "one", "conditional", 1001, object{"negotiationId": key, "inReplyTo": request["messageId"]})
+			args := object{"toSourceId": "one", "requestId": id(), "type": "conditional", "resources": []any{"app:installed"},
+				"summary": "Synthetic message", "negotiationId": key, "inReplyTo": request["messageId"]}
+			replied, err := store.send(args, "two", coordinationRouteOutcome{state: "no-verified-target"}, 1001, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			reply := obj(replied["message"])
 			n := store.negotiation(key)
 			n.Participants = []string{"one"}
 			switch mode {
@@ -79,6 +88,17 @@ func TestMessagesRecoverSingletonsFromConsistentEnvelopeEvidence(t *testing.T) {
 			if err != nil || wire(retained["negotiations"]) != wire(result["negotiations"]) {
 				t.Fatalf("restart = %v, %v", retained, err)
 			}
+			if mode == "compatible" {
+				replay, err := secondRestart.send(args, "two", coordinationRouteOutcome{state: "no-verified-target"}, 1004, nil)
+				if err != nil || field(replay["message"], "messageId") != reply["messageId"] || wire(replay["negotiation"]) != wire(negotiation) {
+					t.Fatalf("reconstructed replay = %v, %v", replay, err)
+				}
+				next := sendCoordinationMail(t, secondRestart, "one", "two", "conditional", 1005, object{"negotiationId": key, "inReplyTo": reply["messageId"]})
+				last := sendCoordinationMail(t, secondRestart, "two", "one", "conditional", 1006, object{"negotiationId": key, "inReplyTo": next["messageId"]})
+				if last["escalated"] != true {
+					t.Fatalf("reconstruction reset the reply budget: %v", last)
+				}
+			}
 		})
 	}
 }
@@ -111,12 +131,19 @@ func TestMessagesReplyBudgetSurvivesNegotiationAndSessionChanges(t *testing.T) {
 	request := sendCoordinationMail(t, store, "one", "two", "request", 1000, nil)
 	key := text(request, "negotiationId")
 	last := request
+	var finalArgs object
 	for i := range 3 {
 		from, to := "two", "one"
 		if i%2 != 0 {
 			from, to = to, from
 		}
-		last = sendCoordinationMail(t, store, from, to, "conditional", 1001+int64(i), object{"negotiationId": key, "inReplyTo": last["messageId"]})
+		finalArgs = object{"toSourceId": to, "requestId": id(), "type": "conditional", "summary": "Synthetic message",
+			"resources": []any{"app:installed"}, "negotiationId": key, "inReplyTo": last["messageId"]}
+		result, err := store.send(finalArgs, from, coordinationRouteOutcome{state: "no-verified-target"}, 1001+int64(i), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		last = obj(result["message"])
 	}
 	if last["escalated"] != true {
 		t.Fatalf("third automatic reply = %v", last)
@@ -124,6 +151,25 @@ func TestMessagesReplyBudgetSurvivesNegotiationAndSessionChanges(t *testing.T) {
 	store, err := openCoordinationMessageStore(store.path, nil)
 	if err != nil {
 		t.Fatal(err)
+	}
+	replay, err := store.send(finalArgs, "two", coordinationRouteOutcome{state: "no-verified-target"}, 1009, nil)
+	if err != nil || field(replay["message"], "messageId") != last["messageId"] || uintOr(field(replay["negotiation"], "automaticReplyCount"), 0) != 3 {
+		t.Fatalf("replay at cap = %v, %v", replay, err)
+	}
+	for _, actor := range []string{"one", "two"} {
+		inbox, err := store.list(object{}, actor, "fixture", 1009, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		notices := 0
+		for _, row := range arr(inbox["messages"]) {
+			if field(row, "localOrigin") == "arc" && field(row, "escalated") == true {
+				notices++
+			}
+		}
+		if notices != 1 || field(arr(inbox["negotiations"])[0], "state") != "escalated" {
+			t.Fatalf("escalation for %s = %v", actor, inbox)
+		}
 	}
 	next := object{"toSourceId": "two", "requestId": id(), "type": "request", "negotiationId": "fresh", "resources": []any{"app:installed"}, "summary": "Another exchange"}
 	if _, err := store.send(next, "one", coordinationRouteOutcome{state: "no-verified-target"}, 1010, nil); !errors.Is(err, errCoordinationNegotiationLimit) {
@@ -399,5 +445,265 @@ func TestMessagesUnresolvedLegacyHoldSurvivesNewPeersUntilMediation(t *testing.T
 	}
 	if result, err := store.send(next, "one", coordinationRouteOutcome{}, 1013, nil); err != nil || field(result["message"], "negotiationId") == key {
 		t.Fatalf("mediated resource could not be used: %v: %v", result, err)
+	}
+}
+
+func TestMessagesCurrentPairCursorSurvivesOpenNegotiationRestart(t *testing.T) {
+	// Recurring bug class: persistence reopening a current negotiation retains its participants and usable mailbox cursor.
+	store := fixtureCoordinationMail(t)
+	first := sendCoordinationMail(t, store, "one", "two", "request", 1000, nil)
+	page, err := store.list(object{}, "one", "fixture", 1000, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err = openCoordinationMessageStore(store.path, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reply := sendCoordinationMail(t, store, "two", "one", "conditional", 1001,
+		object{"negotiationId": first["negotiationId"], "inReplyTo": first["messageId"]})
+	result, err := store.list(object{"cursor": page["nextCursor"]}, "one", "fixture", 1002, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mail, negotiations := arr(result["messages"]), arr(result["negotiations"])
+	if len(mail) != 1 || field(mail[0], "messageId") != reply["messageId"] || len(negotiations) != 1 ||
+		wire(field(negotiations[0], "participants")) != wire([]string{"one", "two"}) ||
+		field(negotiations[0], "participantRecovery") != nil || uintOr(field(negotiations[0], "automaticReplyCount"), 0) != 1 {
+		t.Fatalf("reopened current pair = %v", result)
+	}
+}
+
+func TestMessagesRequestIDConflictsAcrossSenders(t *testing.T) {
+	// Contract: a message request ID is bound to the authenticated sender and exact original arguments.
+	store := fixtureCoordinationMail(t)
+	args := object{"requestId": id(), "toSourceId": "recipient", "type": "request",
+		"resources": []any{"app:installed"}, "summary": "Fixture request"}
+	outcome := coordinationRouteOutcome{state: "no-verified-target"}
+	first, err := store.send(args, "one", outcome, 1000, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.send(args, "different-sender", outcome, 1001, nil); err == nil || !strings.HasPrefix(err.Error(), "REQUEST_ID_CONFLICT:") {
+		t.Fatalf("foreign sender replay = %v", err)
+	}
+	replay, err := store.send(args, "one", outcome, 1001, nil)
+	if err != nil || wire(replay) != wire(first) {
+		t.Fatalf("owner replay = %v, %v", replay, err)
+	}
+}
+
+func TestMessagesMissingRecipientRoutePreservesPullableMail(t *testing.T) {
+	// Recurring bug class: lifecycle sender repair guidance must preserve the recipient's stored pull-only mail.
+	store := fixtureCoordinationMail(t)
+	args := object{"requestId": id(), "toSourceId": "two", "toSessionId": "recipient-session", "type": "request",
+		"summary": "Fixture coordination request", "resources": []any{"app:installed"}}
+	result, err := store.send(args, "one", coordinationRouteOutcome{state: "no-verified-target"}, 1000, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	route := result["routing"]
+	next := field(route, "next")
+	if result["stored"] != true || result["pullable"] != true || result["deliveryMode"] != "pull-only" ||
+		field(route, "reason") != "no-verified-target" || field(next, "via") != "act" || field(next, "op") != "message_route" ||
+		field(next, "actor") != "recipient" || field(field(next, "args"), "sessionId") != "recipient-session" {
+		t.Fatalf("sender repair = %v", result)
+	}
+	store, err = openCoordinationMessageStore(store.path, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inbox, err := store.list(object{}, "two", "fixture", 1001, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mail := arr(inbox["messages"])
+	if len(mail) != 1 || field(mail[0], "messageId") != field(result["message"], "messageId") || field(mail[0], "deliveryState") != "pull-only" {
+		t.Fatalf("recipient pull = %v", inbox)
+	}
+}
+
+func TestMessagesCallerReadReusesSnapshotAfterBadCursorAndReloadsReplacement(t *testing.T) {
+	// Recurring bug class: persistence invalid cursors cannot make subsequent Messages reads reparse retained mail.
+	state := t.TempDir()
+	t.Setenv("ARC_STATE_DIR", state)
+	path := filepath.Join(state, "coordination", "messages", "state.json")
+	external, err := openCoordinationMessageStore(path, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := time.Now().Unix()
+	sendCoordinationMail(t, external, "one", "two", "notice", at, nil)
+	costs := new(runtimeCostSet)
+	ctx := context.WithValue(t.Context(), runtimeCostKey{}, runtimeCostContext{set: costs})
+	ctx = withRuntimeCost(ctx, "coordinationRead", "poll")
+	s := &service{}
+	read := func(args object) (object, error) {
+		value, err := s.managementRequest(ctx, "coordination/messages", "GET", args)
+		return obj(value), err
+	}
+	if initial, err := read(object{}); err != nil || len(arr(initial["messages"])) != 1 {
+		t.Fatalf("initial mailbox = %v, %v", initial, err)
+	}
+	parsed := costs.counter("coordinationRead").parsed.Load()
+	if parsed == 0 {
+		t.Fatal("initial store did not measure parsing")
+	}
+	if _, err := read(object{"cursor": "stale"}); err == nil || !strings.HasPrefix(err.Error(), "MESSAGES_CURSOR_EXPIRED") {
+		t.Fatalf("invalid cursor = %v", err)
+	}
+	if warm, err := read(object{}); err != nil || len(arr(warm["messages"])) != 1 || costs.counter("coordinationRead").parsed.Load() != parsed {
+		t.Fatalf("warm read after cursor error = %v, %v", warm, err)
+	}
+	external, err = openCoordinationMessageStore(path, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	added := sendCoordinationMail(t, external, "one", "two", "notice", at+1, object{"summary": "Externally replaced mail"})
+	changed, err := read(object{})
+	if err != nil || len(arr(changed["messages"])) != 2 || find(changed["messages"], "messageId", text(added, "messageId")) == nil ||
+		costs.counter("coordinationRead").parsed.Load() <= parsed {
+		t.Fatalf("replacement mailbox = %v, %v", changed, err)
+	}
+}
+
+func fixtureCoordinationWake(t *testing.T) (context.Context, coordinationRouteOutcome, *[]string) {
+	t.Helper()
+	ctx, _, _, sent := notificationDeliveryFixture(t)
+	saved := readCoordinationSource
+	t.Cleanup(func() { readCoordinationSource = saved })
+	readCoordinationSource = func(_ context.Context, request object) (object, error) {
+		return object{"id": request["sourceId"], "state": "connected"}, nil
+	}
+	state, err := readNotificationState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := findNotificationTarget(state, "source", "claude-session", notificationTestTarget)
+	target["accountId"], target["tokens"] = "fixture-profile", 10
+	if err := saveNotificationState(state); err != nil {
+		t.Fatal(err)
+	}
+	outcome, err := resolveCoordinationRoute(ctx, "source", "")
+	if err != nil || outcome.route == nil {
+		t.Fatalf("fixture delivery route = %v, %v", outcome, err)
+	}
+	return ctx, outcome, sent
+}
+
+func TestMessagesBurstTransportAndCooldownSurviveRestart(t *testing.T) {
+	// Contract: a bounded count-only wake leaves remaining mail queued across the recipient cooldown and restart.
+	ctx, route, sent := fixtureCoordinationWake(t)
+	reader := coordinationReader{principal: coordinationPrincipal{Type: "source", SourceID: "source"}}
+	_, err := withBulletinStore(func(store *bulletinStore) (object, error) {
+		return store.mutate("notice_post", object{"requestId": id(), "resources": []any{"app:installed"}, "intent": "Hold fixture resource"},
+			reader, nil, nil, currentBulletinClock())
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := time.Now().Unix()
+	storePath, err := withCoordinationMessages(ctx, func(store *coordinationMessageStore, cost *runtimeCost) (string, error) {
+		for range 20 {
+			args := object{"requestId": id(), "toSourceId": "source", "type": "notice", "summary": "Private fixture metadata", "resources": []any{"app:installed"}}
+			if _, err := store.send(args, "sender", route, at-30, cost); err != nil {
+				return "", err
+			}
+		}
+		return store.path, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := flushCoordinationMessages(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if len(*sent) != 1 || strings.Contains((*sent)[0], "Private fixture metadata") || !strings.Contains((*sent)[0], "mail") {
+		t.Fatalf("transport wake = %v", *sent)
+	}
+	reopened, err := openCoordinationMessageStore(storePath, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deliveredAt := reopened.data.LastPush[route.route.RouteID]
+	inbox, err := reopened.list(object{}, "source", "fixture", deliveredAt, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var delivered, pending []string
+	for _, row := range arr(inbox["messages"]) {
+		switch field(row, "deliveryState") {
+		case "delivered":
+			delivered = append(delivered, text(row, "messageId"))
+		case "pending":
+			pending = append(pending, text(row, "messageId"))
+		}
+	}
+	if len(delivered) != 16 || len(pending) != 4 {
+		t.Fatalf("burst left %d delivered and %d pending", len(delivered), len(pending))
+	}
+	if batches, err := reopened.batches(deliveredAt+59, nil); err != nil || len(batches) != 0 {
+		t.Fatalf("cooldown admitted an early wake: %v, %v", batches, err)
+	}
+	batches, err := reopened.batches(deliveredAt+60, nil)
+	if err != nil || len(batches) != 1 || len(batches[0]) != 4 ||
+		slices.ContainsFunc(batches[0], func(row coordinationMessageRow) bool {
+			return !slices.Contains(pending, text(row.Envelope, "messageId"))
+		}) {
+		t.Fatalf("remaining batch = %v, %v", batches, err)
+	}
+}
+
+func TestMessagesRechecksRecipientBoardClaimBeforeWake(t *testing.T) {
+	// Contract: recipient claim closure downgrades admitted notices while an addressed request remains deliverable.
+	ctx, route, sent := fixtureCoordinationWake(t)
+	reader := coordinationReader{principal: coordinationPrincipal{Type: "source", SourceID: "source"}}
+	post := func(owner coordinationReader, op string, args object) object {
+		t.Helper()
+		value, err := withBulletinStore(func(store *bulletinStore) (object, error) {
+			return store.mutate(op, args, owner, nil, nil, currentBulletinClock())
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return value
+	}
+	resources := []any{"app:installed"}
+	notice := post(reader, "notice_post", object{"requestId": id(), "resources": resources, "intent": "Hold fixture resource"})["notice"]
+	blocker := post(reader, "blocker_open", object{"requestId": id(), "resources": resources, "causeCode": "verification", "summary": "Hold resource"})["blocker"]
+	post(coordinationReader{principal: coordinationPrincipal{Type: "source", SourceID: "other"}}, "notice_post",
+		object{"requestId": id(), "resources": resources, "intent": "Unrelated owner's resource"})
+	at := time.Now().Unix() - 31
+	requestID, noticeID := id(), id()
+	_, err := withCoordinationMessages(ctx, func(store *coordinationMessageStore, cost *runtimeCost) (struct{}, error) {
+		for _, item := range []struct{ kind, id string }{{"notice", noticeID}, {"request", requestID}} {
+			args := object{"requestId": item.id, "toSourceId": "source", "type": item.kind, "resources": resources, "summary": "Fixture mail"}
+			decision := coordinationMessageDelivery(args, []string{"app:installed"}, route)
+			if result, err := store.send(args, "sender", decision, at, cost); err != nil || result["deliveryMode"] != "proactive" {
+				t.Fatalf("admitted %s = %v, %v", item.kind, result, err)
+			}
+		}
+		return struct{}{}, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	post(reader, "notice_close", object{"id": field(notice, "id"), "expectedRevision": field(notice, "revision"), "requestId": id(), "reason": "Work ended"})
+	if !slices.Contains(coordinationHeldResources(ctx, "source"), "app:installed") {
+		t.Fatal("closing a notice removed an independent blocker claim")
+	}
+	post(reader, "blocker_clear", object{"id": field(blocker, "id"), "expectedRevision": field(blocker, "revision"), "requestId": id(), "reason": "Evidence confirmed", "evidenceIds": []any{"fixture-receipt"}})
+	if err := flushCoordinationMessages(ctx); err != nil {
+		t.Fatal(err)
+	}
+	page, err := withCoordinationMessages(ctx, func(store *coordinationMessageStore, cost *runtimeCost) (object, error) {
+		return store.list(object{}, "source", "fixture", time.Now().Unix(), cost)
+	})
+	if err != nil || len(*sent) != 1 {
+		t.Fatalf("send after claim closure = %v, %v", *sent, err)
+	}
+	request, downgraded := find(page["messages"], "messageId", requestID), find(page["messages"], "messageId", noticeID)
+	if request["deliveryState"] != "delivered" || downgraded["deliveryState"] != "pull-only" || downgraded["deliveryReason"] != "notice-no-resource-overlap" {
+		t.Fatalf("mail after claim closure = %v", page)
 	}
 }

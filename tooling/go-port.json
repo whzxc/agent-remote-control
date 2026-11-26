@@ -669,7 +669,7 @@
       "go": [
         "internal/core/coordination_messages_tests_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/mod.rs": {
       "segment": "B",

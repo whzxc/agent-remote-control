@@ -40,6 +40,11 @@ func withCoordinationMessages[T any](ctx context.Context, work func(*coordinatio
 			return zero, err
 		}
 		coordinationMessagesResident.store = store
+		coordinationMessagesResident.stamp, err = readStamp(path)
+		if err != nil {
+			coordinationMessagesResident.store = nil
+			return zero, err
+		}
 	}
 	if err := store.migrateRoutes(cost); err != nil {
 		coordinationMessagesResident.store = nil
@@ -48,8 +53,11 @@ func withCoordinationMessages[T any](ctx context.Context, work func(*coordinatio
 	result, err := work(store, cost)
 	if err == nil {
 		coordinationMessagesResident.stamp, err = readStamp(path)
+		if err != nil {
+			coordinationMessagesResident.store = nil
+		}
 	}
-	if err != nil {
+	if err != nil && (strings.HasPrefix(err.Error(), "COORDINATION_STORAGE") || strings.HasPrefix(err.Error(), "COORDINATION_CORRUPT")) {
 		coordinationMessagesResident.store = nil
 	}
 	return result, err
