@@ -60,6 +60,16 @@ func schemaClosure(schema, definitions object) object {
 	return schema
 }
 
+func pruneOutputs() error {
+	outputWriter.Lock()
+	defer outputWriter.Unlock()
+	dir := filepath.Join(root(), "outputs")
+	if err := platform.PrivateDir(dir); err != nil {
+		return err
+	}
+	return makeOutputRoom(dir, 0)
+}
+
 func reserveOutput(data string, extension string) (string, error) {
 	outputWriter.Lock()
 	defer outputWriter.Unlock()

@@ -249,10 +249,9 @@ func serveRuntime(parent context.Context, daemon bool) error {
 	}()
 	guard.Close()
 	recordLog("INFO", "Service starting", nil)
-	for _, start := range serviceStartup {
-		if err := start(ctx, s); err != nil {
-			return err
-		}
+	defer s.close()
+	if err := s.start(ctx); err != nil {
+		return err
 	}
 	started := time.Now()
 	ticker := time.NewTicker(500 * time.Millisecond)
@@ -287,9 +286,6 @@ loop:
 		recordLog("WARN", "FRONT_DOOR_CORE_DRAIN_TIMEOUT", nil)
 	}
 	s.runtime.launches.close()
-	for _, name := range s.hub.names() {
-		s.hub.forget(name)
-	}
 	return nil
 }
 

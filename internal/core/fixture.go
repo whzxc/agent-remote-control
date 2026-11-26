@@ -21,6 +21,7 @@ import (
 )
 
 func RunFixture(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	signal.Ignore(syscall.SIGPIPE)
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	if len(args) > 0 {
@@ -81,10 +82,9 @@ func runFixtureService(parent context.Context, mode string, stdin io.Reader, std
 	metadata := object{"port": port, "token": token, "pid": pid, "processStart": platform.ProcessStart(pid), "instance": id(),
 		"runtime": "go", "version": buildVersion, "owner": "core", "daemon": false, "build": build}
 	s := &service{metadata: metadata, runtime: &runtimeState{leases: make(map[string]lease), stop: stop}, fixtureIngress: fixtureIngressSource}
-	for _, start := range serviceStartup {
-		if err := start(ctx, s); err != nil {
-			return err
-		}
+	defer s.close()
+	if err := s.start(ctx); err != nil {
+		return err
 	}
 	if snapshot, ok := os.LookupEnv("ARC_FIXTURE_SNAPSHOT"); ok {
 		s.desktop = fixtureDesktop(snapshot)
@@ -96,11 +96,6 @@ func runFixtureService(parent context.Context, mode string, stdin io.Reader, std
 	}
 	defer ipc.Close()
 	defer privateCore.drain()
-	defer func() {
-		for _, name := range s.hub.names() {
-			s.hub.forget(name)
-		}
-	}()
 	server := &http.Server{Handler: localHandler(s, port, token), ReadHeaderTimeout: 5 * time.Second, MaxHeaderBytes: 16 * 1024}
 	server.SetKeepAlivesEnabled(false)
 	ended := make(chan error, 1)
@@ -198,6 +193,24 @@ func fixtureIngressSource(ingress string) (requestSource, error) {
 }
 
 func init() {
+	indexFixtureGate = func(ctx context.Context) error {
+		path, exists := os.LookupEnv("ARC_FIXTURE_INDEX_GATE")
+		if !exists {
+			return nil
+		}
+		tick := time.NewTicker(10 * time.Millisecond)
+		defer tick.Stop()
+		for {
+			if _, err := os.Stat(path); err != nil {
+				return nil
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-tick.C:
+			}
+		}
+	}
 	fixtureOperation = func(request operationRequest) (any, bool, error) {
 		path, exists := os.LookupEnv("ARC_FIXTURE_DIGESTS")
 		if !exists {

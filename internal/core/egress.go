@@ -5,8 +5,10 @@ import (
 	"maps"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/santhosh-tekuri/jsonschema/v6/kind"
@@ -449,4 +451,245 @@ func errorNext(op string, failure object) object {
 func egressFailure(op string, failure object) object {
 	failure = maps.Clone(failure)
 	return egressTool(object{"error": failure, "next": errorNext(op, failure)}, true)
+}
+
+func dispatchReceipt(value object) bool {
+	switch text(value, "operation") {
+	case "create", "send", "agent_create", "agent_send":
+		return true
+	}
+	return false
+}
+
+func publicReceipt(value object) object {
+	if _, ok := value["requestId"].(string); !ok {
+		return value
+	}
+	if _, ok := value["state"].(string); !ok {
+		return value
+	}
+	value = projectReceipt(maps.Clone(value), true, time.Now().UnixMilli())
+	out := selectFields(value, "requestId", "coordination", "replayed", "createdAt", "updatedAt", "dispatchMode",
+		"message", "queueId", "state", "submissionState", "executionState", "phaseAgeMs", "progressStalled",
+		"progress", "operation", "threadId", "turnId", "taskId", "agent", "error", "notification",
+		"notificationError", "executionOwner", "submissionStage", "failureStage", "cleanup", "next")
+	for key, data := range out {
+		if data == nil {
+			delete(out, key)
+		}
+	}
+	if recovery := obj(value["desktopRecovery"]); recovery != nil {
+		out["desktopRecovery"] = object{"state": recovery["state"], "decisionId": recovery["decisionId"],
+			"reason": recovery["reason"], "transport": recovery["transport"], "backend": recovery["backend"],
+			"targetPid": field(recovery["target"], "pid")}
+	}
+	if by, ok := value["answeredBy"]; ok {
+		out["answeredBy"] = by
+	} else if by, ok := obj(value["approval"])["answeredBy"]; ok {
+		out["answeredBy"] = by
+	}
+	if origin := obj(value["origin"]); origin != nil {
+		fields := object{}
+		for _, key := range []string{"ingressId", "sourceId", "accountId", "sourceLabel", "controlSource", "authType", "deviceId"} {
+			if text, ok := origin[key].(string); ok {
+				fields[key] = text
+			}
+		}
+		if peer, ok := origin["peerOrigin"]; ok {
+			fields["peerOrigin"] = peer
+		}
+		out["origin"] = fields
+	}
+	out["stateScope"] = "operation"
+	if dispatch := obj(field(value["task"], "dispatch")); dispatch != nil {
+		out["dispatch"] = dispatch
+	}
+	result, hasResult := value["result"]
+	for _, key := range []string{"threadId", "turnId", "taskId"} {
+		if item := field(result, key); out[key] == nil && item != nil {
+			out[key] = item
+		}
+	}
+	for _, key := range []string{"thread", "turn"} {
+		if item, ok := field(field(result, key), "id").(string); out[key+"Id"] == nil && ok {
+			out[key+"Id"] = item
+		}
+	}
+	name, args := text(value, "operation"), obj(value["arguments"])
+	switch {
+	case (name == "create" || name == "agent_create") && args != nil && strings.TrimSpace(text(args, "title")) == "":
+		hint := object{"code": "TITLE_FROM_PROMPT", "message": "No non-blank title was supplied. The task title falls back to the first non-empty prompt line, truncated to 120 characters. Pass title next time: a short human-readable task title shown in task lists and notifications."}
+		if name == "create" {
+			thread, ok := out["threadId"].(string)
+			if !ok {
+				thread = "<created threadId>"
+			}
+			hint["rename"] = object{"via": "act", "op": "codex_thread", "args": object{"action": "name/set", "params": object{"threadId": thread, "name": "<short task title>"}}}
+		}
+		out["titleHint"] = hint
+	case name == "native" && slices.Contains([]string{"thread/start", "thread/fork"}, text(args, "method")):
+		out["titleHint"] = object{"code": "NATIVE_THREAD_TITLE", "message": "This native operation uses native thread metadata without an ARC title argument. Set a short human-readable name of at most 120 characters with codex_thread action:name/set and params:{threadId:<returned threadId>,name:<title>}. Prefer codex_create with title for prompt dispatch."}
+	}
+	if fields := obj(result); fields != nil {
+		fields = maps.Clone(fields)
+		for _, key := range []string{"threadId", "turnId", "taskId"} {
+			if out[key] != nil {
+				delete(fields, key)
+			}
+		}
+		for _, key := range []string{"arguments", "params", "prompt", "input", "digest", "origin", "backendSession", "resolved", "task", "thread", "turn", "native"} {
+			delete(fields, key)
+		}
+		if name == "create" || name == "send" || name == "interrupt" || strings.HasPrefix(name, "agent_") && name != "agent_archive" {
+			fields = selectFields(fields, "threadId", "turnId", "taskId", "sessionId", "desktop", "desktopUrl",
+				"submitted", "accepted", "responseSent", "status", "output", "outputTruncated", "error", "stopReason",
+				"dispatch", "review", "promptSubmitted", "configurationError", "configurationState", "sessionConfirmation", "turnEvidence")
+		}
+		if len(fields) != 0 {
+			out["result"] = fields
+		}
+	} else if hasResult {
+		out["result"] = result
+	}
+	if !dispatchReceipt(out) {
+		delete(out, "notification")
+		delete(out, "notificationError")
+	}
+	return out
+}
+
+func interruptedTurn(value object) bool {
+	return value["state"] == "cancelled" && value["stateScope"] != "operation" && value["operation"] == nil &&
+		(value["stateScope"] == "turn" || value["recordedStatus"] == "interrupted" || value["recordedStatus"] == "cancelled")
+}
+
+func outcomeError(value object) object {
+	for depth := 0; depth < 8 && value != nil; depth++ {
+		state := text(value, "state")
+		failed := slices.Contains([]string{"failed", "rejected", "not-executed", "cancelled", "unconfirmed", "rolled-back"}, state)
+		if failed && !interruptedTurn(value) || value["ok"] == false {
+			reason := value["error"]
+			if reason == nil {
+				reason = field(value["result"], "error")
+			}
+			var failure object
+			switch reason := reason.(type) {
+			case object:
+				failure = maps.Clone(reason)
+			case string:
+				failure = object{"message": reason}
+			case nil:
+				message, ok := value["reason"].(string)
+				if !ok {
+					message = "Operation outcome: " + state
+				}
+				failure = object{"message": message}
+			default:
+				failure = object{"message": wire(reason)}
+			}
+			if _, ok := failure["code"].(string); !ok {
+				failure["code"] = "OPERATION_FAILED"
+				if state == "unconfirmed" {
+					failure["code"] = "OPERATION_UNCONFIRMED"
+				}
+			}
+			if state != "" {
+				failure["outcome"] = state
+			}
+			if code, err := strconv.ParseInt(wire(value["exitCode"]), 10, 64); err == nil && code != 0 {
+				failure["exitCode"] = value["exitCode"]
+			}
+			return failure
+		}
+		if result, ok := value["result"]; ok {
+			value = obj(result)
+		} else {
+			value = obj(value["lastResult"])
+		}
+	}
+	return nil
+}
+
+func stripOutcomeDuplicate(value object, code string, depth int) {
+	if depth == 0 || value == nil {
+		return
+	}
+	if code != "" && text(value["error"], "code") == code {
+		delete(value, "error")
+	}
+	for _, key := range []string{"result", "lastResult"} {
+		stripOutcomeDuplicate(obj(value[key]), code, depth-1)
+	}
+}
+
+func compactOutcomeError(value object) {
+	failure := outcomeError(value)
+	if failure == nil {
+		failure = maps.Clone(obj(value["error"]))
+	}
+	if failure == nil {
+		return
+	}
+	if value["next"] == nil && obj(failure["next"]) != nil {
+		value["next"] = failure["next"]
+	}
+	delete(failure, "next")
+	if rpc := obj(failure["rpcError"]); rpc != nil {
+		if message, ok := rpc["message"].(string); ok {
+			failure["message"] = message
+			delete(rpc, "message")
+		}
+	}
+	for _, key := range []string{"result", "lastResult"} {
+		stripOutcomeDuplicate(obj(value[key]), text(failure, "code"), 8)
+	}
+	value["error"] = failure
+}
+
+func receiptNext(value, args object) {
+	if _, ok := value["requestId"].(string); !ok {
+		return
+	}
+	read := object{"via": "act", "op": "receipt", "args": object{"requestId": value["requestId"], "action": "read"}}
+	var next object
+	switch text(value, "state") {
+	case "unconfirmed":
+		next = read
+		next["hint"] = "Submission is unconfirmed. Read this original receipt with the same requestId. Do not resubmit the operation."
+	default:
+		next = obj(value["next"])
+	}
+	if next == nil {
+		switch text(value, "state") {
+		case "executing":
+			next = read
+			next["hint"] = "The operation is executing. Read the original receipt for its outcome."
+			next["retryAfterMs"] = 1000
+		case "awaiting-approval":
+			next = read
+			next["hint"] = "Inspect the original request, then decide according to user intent."
+			if text(value["desktopRecovery"], "state") == "waiting-for-local" {
+				next["hint"] = "A local decision is required in ARC before Codex Desktop can be prepared. Read this same receipt after the user makes a local choice."
+			}
+		case "reserved":
+			next = read
+			next["hint"] = "Read this original receipt until submission resolves. A threadId alone does not mean a turn was submitted. If progressStalled is true, inspect CLI logs/doctor and the owning app; do not redispatch or generate a new requestId."
+			next["retryAfterMs"] = 1000
+		case "failed", "rejected", "cancelled", "not-executed":
+			next = read
+			next["hint"] = "Inspect the surfaced failure and original receipt. Resolve its cause before a new authorized attempt; an unconfirmed effect must be reconciled without replay."
+		}
+	}
+	if next == nil {
+		return
+	}
+	next = maps.Clone(next)
+	delete(next, "hash")
+	digest := hash([]byte(wire(next)))
+	if args["knownNextHash"] == digest && outcomeError(value) == nil && obj(value["error"]) == nil {
+		value["next"] = object{"hash": digest, "unchanged": true}
+	} else {
+		next["hash"] = digest
+		value["next"] = next
+	}
 }

@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"slices"
 )
 
 type service struct {
@@ -11,7 +12,26 @@ type service struct {
 	runtime        *runtimeState
 	source         requestSource
 	hub            hubPool
+	cleanup        []func()
 	desktop        func(context.Context, string, string, object) (any, error)
+}
+
+func (s *service) start(ctx context.Context) error {
+	for _, start := range serviceStartup {
+		if err := start(ctx, s); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *service) close() {
+	for _, clean := range slices.Backward(s.cleanup) {
+		clean()
+	}
+	for _, name := range s.hub.names() {
+		s.hub.forget(name)
+	}
 }
 
 func (s *service) management(ctx context.Context, route, method string, body object) (any, error) {

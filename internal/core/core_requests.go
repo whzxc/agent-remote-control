@@ -114,7 +114,10 @@ func callTool(ctx context.Context, service *service, source requestSource, tool 
 	} else {
 		value = clone(value)
 	}
-	failed := value["state"] == "failed" || value["ok"] == false || value["error"] != nil
+	value = publicReceipt(value)
+	receiptNext(value, args)
+	compactOutcomeError(value)
+	failed := value["error"] != nil
 	if waitLimit != nil {
 		value["waitLimit"] = waitLimit
 	}

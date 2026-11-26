@@ -19,6 +19,7 @@ const topLevelHelp = "arc start | stop | status | daemon | systemd install | std
 const topLevelUsage = "Usage: arc [start | stop | status | daemon | systemd install | stdio | serve | cli <command> | --version]"
 
 func Run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	signal.Ignore(syscall.SIGPIPE)
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	if len(args) > 0 && args[0] == "cli" {
@@ -28,6 +29,9 @@ func Run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 }
 
 func exitResult(stderr io.Writer, err error) int {
+	if errors.Is(err, outputClosed) {
+		return 0
+	}
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1

@@ -790,8 +790,11 @@
     },
     "native/src/kernel/derived_index.rs": {
       "segment": "S0",
-      "go": [],
-      "status": "pending",
+      "go": [
+        "internal/core/kernel_derived_index.go",
+        "internal/core/kernel_receipts_test.go"
+      ],
+      "status": "ported",
       "remaining": "Background index publication, adoption, lifecycle and the fixture gate are pending."
     },
     "native/src/kernel/digests.rs": {
@@ -810,18 +813,34 @@
     },
     "native/src/kernel/file_cache.rs": {
       "segment": "S0",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/kernel_file_cache.go",
+        "internal/core/kernel_file_cache_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/kernel/file_changes.rs": {
       "segment": "S0",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/kernel_file_changes.go"
+      ],
+      "status": "ported"
     },
     "native/src/kernel/mod.rs": {
       "segment": "S0",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/kernel_derived_index.go",
+        "internal/core/kernel_file_cache.go",
+        "internal/core/kernel_file_changes.go",
+        "internal/core/kernel_receipts.go",
+        "internal/core/kernel_task_projection.go",
+        "internal/core/kernel_results.go",
+        "internal/core/kernel_digests.go",
+        "internal/core/kernel_event_store.go",
+        "internal/core/kernel_origin.go",
+        "internal/core/kernel_policy.go"
+      ],
+      "status": "ported"
     },
     "native/src/kernel/origin.rs": {
       "segment": "S0",
@@ -847,27 +866,39 @@
     },
     "native/src/kernel/receipts/projection.rs": {
       "segment": "S0",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/kernel_receipts_projection.go",
+        "internal/core/kernel_receipts_test.go"
+      ],
+      "status": "ported",
+      "note": "The Go unit cases exercise index and receipt behavior; public cost counters belong to segment B runtime_metrics."
     },
     "native/src/kernel/receipts.rs": {
       "segment": "S0",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/kernel_receipts.go",
+        "internal/core/kernel_receipts_test.go"
+      ],
+      "status": "ported",
+      "note": "The Go unit cases exercise index and receipt behavior; public cost counters belong to segment B runtime_metrics."
     },
     "native/src/kernel/results.rs": {
       "segment": "S0",
       "go": [
         "internal/core/kernel_results.go",
-        "internal/core/kernel_results_test.go"
+        "internal/core/kernel_results_test.go",
+        "internal/core/kernel_digests.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": "Digest and ordinary output reads work. Complete startup quota pruning and align error projection."
     },
     "native/src/kernel/task_projection.rs": {
       "segment": "S0",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/kernel_task_projection.go",
+        "internal/core/kernel_receipts_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/launches.rs": {
       "segment": "S0",
@@ -953,9 +984,10 @@
     "native/src/output.rs": {
       "segment": "S0",
       "go": [
-        "internal/core/output.go"
+        "internal/core/output.go",
+        "internal/core/main.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": "Line writing is implemented. Full streaming and broken-pipe behavior remain."
     },
     "native/src/owned_children.rs": {

@@ -133,8 +133,7 @@ func runCLI(ctx context.Context, arguments []string, stdin io.Reader, stdout, st
 	args := slices.DeleteFunc(slices.Clone(arguments), func(s string) bool { return s == "--json" })
 	output := func(value object, code int) int {
 		if err := outputLine(stdout, wire(value)); err != nil {
-			fmt.Fprintln(stderr, err)
-			return 1
+			return exitResult(stderr, err)
 		}
 		return code
 	}

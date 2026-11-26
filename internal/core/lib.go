@@ -150,6 +150,7 @@ func save(path string, value any) error {
 
 func saveBytes(path string, data []byte) error {
 	parent := filepath.Dir(path)
+	before, _ := readStamp(parent)
 	if err := platform.PrivateDir(parent); err != nil {
 		return fmt.Errorf("File operation failed at prepare-directory for %s: %w", parent, err)
 	}
@@ -166,5 +167,6 @@ func saveBytes(path string, data []byte) error {
 	if err := platform.ReplaceFile(temp, path); err != nil {
 		return fmt.Errorf("File operation failed at replace for %s: from %s: %w", path, temp, err)
 	}
+	markCachedFileChanged(path, before)
 	return nil
 }
