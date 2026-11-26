@@ -337,6 +337,9 @@ func (w *ingressObservedWriter) finish(r *http.Request) {
 	row := clone(o.row)
 	o.mu.Unlock()
 	row["durationMs"], row["responseBytes"] = duration, w.bytes
+	if w.status != 0 {
+		row["httpStatus"] = w.status
+	}
 	recordIngressObservation(row, event)
 }
 

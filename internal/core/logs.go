@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"os"
 	"path/filepath"
@@ -307,7 +308,11 @@ func queryLogs(options object) (object, error) {
 }
 
 func init() {
-
+	registerOperation("logs", func(_ context.Context, request operationRequest) (any, error) {
+		options := maps.Clone(request.args)
+		options["descending"] = true
+		return queryLogs(options)
+	}, nil)
 	handler := func(_ context.Context, _ *service, body object, _ []string) (any, error) { return queryLogs(body) }
 	registerRoute("GET", "logs", handler)
 	registerRoute("POST", "logs/query", handler)
