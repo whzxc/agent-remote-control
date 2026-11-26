@@ -201,80 +201,93 @@ func TestDesktopSnapshotBudgetAndIdleExpiry(t *testing.T) {
 
 func TestDesktopFrameWorkMeasuresCompleteIncomingFrames(t *testing.T) {
 	// Contract: runtime metrics time complete Desktop IPC frames through handling and exclude incomplete frames.
-	synctest.Test(t, func(t *testing.T) {
-		t.Setenv("ARC_STATE_DIR", t.TempDir())
-		s := &service{}
-		client, peer := net.Pipe()
-		defer peer.Close()
-		defer client.Close()
-		write := func(payload string, size int) error {
-			frame := binary.LittleEndian.AppendUint32(nil, uint32(size))
-			_, err := peer.Write(append(frame, payload...))
-			return err
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	s := &service{}
+	client, peer := net.Pipe()
+	defer peer.Close()
+	defer client.Close()
+	if err := peer.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	write := func(payload string, size int) error {
+		frame := binary.LittleEndian.AppendUint32(nil, uint32(size))
+		_, err := peer.Write(append(frame, payload...))
+		return err
+	}
+	readSize := func() (uint32, error) {
+		var header [4]byte
+		_, err := io.ReadFull(peer, header[:])
+		return binary.LittleEndian.Uint32(header[:]), err
+	}
+	readBody := func(size uint32) (object, error) {
+		data := make([]byte, size)
+		if _, err := io.ReadFull(peer, data); err != nil {
+			return nil, err
 		}
-		read := func() (object, error) {
-			var header [4]byte
-			if _, err := io.ReadFull(peer, header[:]); err != nil {
-				return nil, err
-			}
-			data := make([]byte, binary.LittleEndian.Uint32(header[:]))
-			if _, err := io.ReadFull(peer, data); err != nil {
-				return nil, err
-			}
-			var value object
-			err := decodeObject(data, &value)
-			return value, err
+		var value object
+		err := decodeObject(data, &value)
+		return value, err
+	}
+	handshake := make(chan error, 1)
+	go func() {
+		size, err := readSize()
+		var request object
+		if err == nil {
+			request, err = readBody(size)
 		}
-		handshake := make(chan error, 1)
-		go func() {
-			request, err := read()
-			if err != nil {
-				peer.Close()
-				handshake <- err
-				return
-			}
-			reply := wire(object{"type": "response", "requestId": request["requestId"], "resultType": "success", "result": object{"clientId": "fixture"}})
-			handshake <- write(reply, len(reply))
-		}()
-		d, err := initializeDesktopIPC(t.Context(), client, "fixture", &s.events)
 		if err != nil {
-			t.Fatal(err)
+			peer.Close()
+			handshake <- err
+			return
 		}
-		defer d.close()
-		if err := <-handshake; err != nil {
-			t.Fatal(err)
-		}
-		s.codex.desktop = d
-		synctest.Wait()
-		work := func() object { return runtimeWorkRow(desktopMetrics(t, s), "desktopFrame") }
-		before := work()
-		const discovery = `{"type":"client-discovery-request","requestId":"frame"}`
-		if err := write(discovery, len(discovery)); err != nil {
-			t.Fatal(err)
-		}
-		synctest.Wait()
-		if active := work(); active["inFlight"] != uint64(1) {
-			t.Fatalf("discovery response did not remain in the frame timing scope: %v", active)
-		}
-		time.Sleep(25 * time.Millisecond)
-		if reply, err := read(); err != nil || reply["requestId"] != "frame" {
-			t.Fatalf("discovery reply = %v, %v", reply, err)
-		}
-		if err := write("{", 1); err != nil {
-			t.Fatal(err)
-		}
-		if err := write("{", 2); err != nil {
-			t.Fatal(err)
-		}
-		peer.Close()
-		<-d.done
-		after := work()
-		if after["calls"] != uintOr(before["calls"], 0)+2 || after["inFlight"] != uint64(0) ||
-			after["totalWallMs"].(float64)-before["totalWallMs"].(float64) < 25 ||
-			after["maxWallMs"].(float64) < 25 || field(desktopMetrics(t, s)["desktopIpc"], "connected") != false {
-			t.Fatalf("frame work before = %v, after = %v", before, after)
-		}
-	})
+		reply := wire(object{"type": "response", "requestId": request["requestId"], "resultType": "success", "result": object{"clientId": "fixture"}})
+		handshake <- write(reply, len(reply))
+	}()
+	d, err := initializeDesktopIPC(t.Context(), client, "fixture", &s.events)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.close()
+	if err := <-handshake; err != nil {
+		t.Fatal(err)
+	}
+	s.codex.desktop = d
+	const discovery = `{"type":"client-discovery-request","requestId":"frame"}`
+	// Consuming the next header on net.Pipe confirms the handshake frame has finished.
+	if err := write("", len(discovery)); err != nil {
+		t.Fatal(err)
+	}
+	work := func() object { return runtimeWorkRow(desktopMetrics(t, s), "desktopFrame") }
+	before := work()
+	if _, err := io.WriteString(peer, discovery); err != nil {
+		t.Fatal(err)
+	}
+	// Read the reply header and leave its body unread so the frame stays in flight.
+	size, err := readSize()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if active := work(); active["inFlight"] != uint64(1) {
+		t.Fatalf("discovery response did not remain in the frame timing scope: %v", active)
+	}
+	time.Sleep(35 * time.Millisecond)
+	if reply, err := readBody(size); err != nil || reply["requestId"] != "frame" {
+		t.Fatalf("discovery reply = %v, %v", reply, err)
+	}
+	if err := write("{", 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := write("{", 2); err != nil {
+		t.Fatal(err)
+	}
+	peer.Close()
+	<-d.done
+	after := work()
+	if after["calls"] != uintOr(before["calls"], 0)+2 || after["inFlight"] != uint64(0) ||
+		after["totalWallMs"].(float64)-before["totalWallMs"].(float64) < 25 ||
+		after["maxWallMs"].(float64) < 25 || field(desktopMetrics(t, s)["desktopIpc"], "connected") != false {
+		t.Fatalf("frame work before = %v, after = %v", before, after)
+	}
 }
 
 func TestDesktopOnlyDefiniteMissingOwnerAllowsLoadingFallback(t *testing.T) {
