@@ -4274,7 +4274,7 @@
     }
   },
   "nativeRun": {
-    "goSource": "039da3cf9d1e400850fad2a70ddc9de49636750f",
+    "goSource": "5f8146e28c35c12bc78512df72c44fb8d10dfa31",
     "platform": "darwin/arm64",
     "toolchain": "go1.27.4",
     "implementation": "go"
