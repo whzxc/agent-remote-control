@@ -686,23 +686,32 @@
     },
     "native/src/coordination/ax/import.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_ax_import.go"
+      ],
+      "status": "ported"
     },
     "native/src/coordination/ax/issue.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_ax_issue.go"
+      ],
+      "status": "ported"
     },
     "native/src/coordination/ax/mod.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_ax_mod.go"
+      ],
+      "status": "ported",
+      "note": "D supplies coordinationTaskOrigin for owner-scoped thread references."
     },
     "native/src/coordination/ax/store.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_ax_store.go"
+      ],
+      "status": "ported"
     },
     "native/src/coordination/ax/tests.rs": {
       "segment": "B",
@@ -711,18 +720,26 @@
     },
     "native/src/coordination/bulletin/dispatch.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_bulletin_dispatch.go"
+      ],
+      "status": "ported",
+      "note": "A supplies the pre-submission Git baseline and C supplies acceptance and replay records that consume the admission advisory."
     },
     "native/src/coordination/bulletin/mod.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_bulletin_mod.go"
+      ],
+      "status": "ported",
+      "note": "C supplies coordinationDispatchLinks, coordinationDispatchAdmission, coordinationRevokedSources and notification attention, with source revocations owned by D. D supplies coordinationLocalGit."
     },
     "native/src/coordination/bulletin/store.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_bulletin_store.go"
+      ],
+      "status": "ported"
     },
     "native/src/coordination/bulletin/tests.rs": {
       "segment": "B",
@@ -736,33 +753,58 @@
     },
     "native/src/coordination/git_watch/fixes.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_git_watch_fixes.go"
+      ],
+      "status": "pending",
+      "note": "C consumes coordinationFixSummary. D supplies bounded local Git reads.",
+      "remaining": [
+        {
+          "owner": "B",
+          "items": ["Port the Rust inline unit cases."]
+        }
+      ]
     },
     "native/src/coordination/git_watch.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_git_watch.go"
+      ],
+      "status": "ported",
+      "note": "D calls observeCoordinationProjects after a successful upstream project read and supplies coordinationLocalGit. A feeds retained and live baselines."
     },
     "native/src/coordination/journal.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_journal.go",
+        "internal/core/coordination_tests_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/coordination/lifecycle.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_lifecycle.go",
+        "internal/core/coordination_lifecycle_unix.go",
+        "internal/core/coordination_lifecycle_windows.go"
+      ],
+      "status": "ported",
+      "note": "D supplies coordinationProjectCatalog and coordinationLocalGit. A calls coordinationCommandEnvironment from authenticated command execution."
     },
     "native/src/coordination/messages/mod.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_messages_mod.go"
+      ],
+      "status": "ported",
+      "note": "C supplies coordinationValidateTarget, coordinationVerifiedTarget, coordinationEffectiveRoute and deliverCoordinationBatch. D supplies recipient authorization. E provides named ingress setup for native parity."
     },
     "native/src/coordination/messages/store.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_messages_store.go"
+      ],
+      "status": "ported"
     },
     "native/src/coordination/messages/tests.rs": {
       "segment": "B",
@@ -771,23 +813,41 @@
     },
     "native/src/coordination/mod.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_mod.go"
+      ],
+      "status": "ported",
+      "note": "D supplies readCoordinationSource, localSourceOrigin, and the durable credential revision. C supplies coordinationNotificationAttention."
     },
     "native/src/coordination/observers.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_observers.go"
+      ],
+      "status": "ported",
+      "note": "A supplies Agent session, Desktop turn decoding, terminal change capture and live turn observations. C passes dispatch checkpoints. S0 supplies a readiness handoff across all startup indexes and owners."
     },
     "native/src/coordination/recovery.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_recovery.go"
+      ],
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "B",
+          "items": ["Port the Rust inline unit cases."]
+        }
+      ]
     },
     "native/src/coordination/routing.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_routing.go",
+        "internal/core/coordination_routing_test.go"
+      ],
+      "status": "ported",
+      "note": "C supplies effective notification route verification and fallback ranking."
     },
     "native/src/coordination/tests.rs": {
       "segment": "B",
@@ -796,13 +856,17 @@
     },
     "native/src/coordination/turns.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_turns.go"
+      ],
+      "status": "ported"
     },
     "native/src/coordination/types.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/coordination_types.go"
+      ],
+      "status": "ported"
     },
     "native/src/core_requests.rs": {
       "segment": "S0",
@@ -1729,13 +1793,24 @@
     },
     "native/src/runtime_metrics/cost.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/runtime_metrics_cost.go",
+        "internal/core/runtime_metrics_cost_test.go"
+      ],
+      "status": "ported",
+      "note": "C, A, D, E, F and S0 instrument their respective owner scopes with the shared context API. C owns notification index initialization and observation; A owns the tasks index reader used by the startup benchmark."
     },
     "native/src/runtime_metrics.rs": {
       "segment": "B",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/runtime_metrics.go",
+        "internal/core/runtime_metrics_darwin.go",
+        "internal/core/runtime_metrics_linux.go",
+        "internal/core/runtime_metrics_windows.go",
+        "internal/core/runtime_metrics_other.go"
+      ],
+      "status": "ported",
+      "note": "C records notification observer passes, delivery work and binding diagnostics. D records accounts work. F supplies desktop work and IPC diagnostics. A supplies activity work."
     },
     "native/src/screen.rs": {
       "segment": "A",
