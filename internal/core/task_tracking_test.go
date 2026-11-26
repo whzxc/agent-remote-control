@@ -198,12 +198,82 @@ func TestTrackedOutputRedactsBeforeSummarizingAndAcrossEvents(t *testing.T) {
 	timeline.tool(object{"toolCallId": "cmd", "title": "bash", "rawOutput": prefix + " Bearer synthetictestcredential"}, "start")
 	timeline.delta("text", "text", "prefix Bearer synthetic", "start")
 	timeline.delta("text", "text", "testcredential suffix", "end")
-	wire := wire(timeline.response("fixture", 0))
-	if strings.Contains(wire, "synthetictestcredential") || strings.Contains(wire, "Bearer synthetic") || !strings.Contains(wire, "[REDACTED]") {
-		t.Fatalf("unredacted timeline = %s", wire)
+	timeline.tool(object{"toolCallId": "structured", "title": "bash", "rawInput": object{
+		"command": "echo example", "nested": object{"api_key": "fixture-only-key", "refreshToken": "fixture-only-refresh"},
+	}}, "end")
+	checkpoint := wire(timeline)
+	var restored taskTimeline
+	if err := unmarshalJSON([]byte(checkpoint), &restored); err != nil {
+		t.Fatal(err)
+	}
+	for _, snapshot := range []string{checkpoint, wire(restored.response("fixture", 0))} {
+		for _, secret := range []string{"synthetictestcredential", "Bearer synthetic", "fixture-only-key", "fixture-only-refresh"} {
+			if strings.Contains(snapshot, secret) {
+				t.Fatalf("timeline disclosed %q", secret)
+			}
+		}
+		if !strings.Contains(snapshot, "[REDACTED]") || !strings.Contains(snapshot, "echo example") {
+			t.Fatal("checkpoint lost the redacted command")
+		}
 	}
 	if _, ok := taskExitCode(nil, "Exit code: 2 extra"); ok {
 		t.Fatal("inexact output accepted as exit evidence")
+	}
+}
+
+func TestTrackedCodexNativeHistoryReplayKeepsOrderAndRevision(t *testing.T) {
+	// Recurring bug class: retry-replay identical native backfill must keep the live result and timeline cursor stable.
+	const start, end = "2026-02-01T00:00:00.000Z", "2026-02-01T00:00:01.000Z"
+	timeline := trackedTestTimeline()
+	timeline.codex("turn/started", object{"turn": object{"id": "turn"}}, start)
+	timeline.codexItem(object{"id": "reply", "type": "agentMessage", "text": "partial"}, "running", start)
+	baseline, observed := timeline.Revision, timeline.ObservedEvents
+	timeline.codexItem(object{"id": "reply", "type": "agentMessage", "text": "new live reply"}, "completed", end)
+	history := object{"id": "fixture", "turns": []any{object{"id": "turn", "status": "completed", "items": []any{
+		object{"id": "request", "type": "userMessage", "content": []any{object{"text": "Example request"}}},
+		object{"id": "command", "type": "commandExecution", "status": "completed", "command": "printf example", "durationMs": 750, "exitCode": 0},
+		object{"id": "reply", "type": "agentMessage", "text": "older snapshot"},
+	}}}}
+	timeline.backfillCodex(history, nil, nil, baseline, observed, end)
+	rows := timeline.response("fixture", baseline)["entries"].([]object)
+	if len(rows) != 3 || rows[0]["id"] != "request" || rows[0]["startedAt"] != nil ||
+		rows[1]["id"] != "command" || uintOr(rows[1]["durationMs"], 0) != 750 ||
+		rows[2]["text"] != "new live reply" || rows[2]["startedAt"] != start || rows[2]["endedAt"] != end ||
+		uintOr(rows[0]["position"], 9) >= uintOr(rows[1]["position"], 0) ||
+		uintOr(rows[1]["position"], 9) >= uintOr(rows[2]["position"], 0) {
+		t.Fatalf("native backfill = %v", rows)
+	}
+	revision := timeline.Revision
+	timeline.backfillCodex(history, nil, nil, baseline, observed, "2026-02-01T00:00:02.000Z")
+	if delta := timeline.response("fixture", revision)["entries"].([]object); len(delta) != 0 || timeline.Revision != revision {
+		t.Fatalf("replayed backfill advanced %d to %d with %v", revision, timeline.Revision, delta)
+	}
+}
+
+func TestTrackedCodexConsolidatesReasoningAndKeepsPendingCursor(t *testing.T) {
+	// Contract: Codex app-server reasoning and approval events keep stable item and request identities.
+	const start, end = "2026-02-01T00:00:00.000Z", "2026-02-01T00:00:01.000Z"
+	timeline := trackedTestTimeline()
+	timeline.codex("turn/started", object{"turn": object{"id": "turn"}}, start)
+	timeline.codex("item/started", object{"turnId": "turn", "item": object{"id": "reason", "type": "reasoning", "summary": []any{}}}, start)
+	for _, chunk := range []string{"Inspect ", "the example"} {
+		timeline.codex("item/reasoning/summaryTextDelta", object{"itemId": "reason", "delta": chunk}, end)
+	}
+	cursor := timeline.Revision
+	timeline.codex("item/completed", object{"item": object{"id": "reason", "type": "reasoning", "summary": []any{"Inspect the example"}}}, end)
+	rows := timeline.response("fixture", cursor)["entries"].([]object)
+	if len(rows) != 1 || rows[0]["id"] != "reason" || rows[0]["type"] != "thinking" ||
+		rows[0]["status"] != "completed" || rows[0]["text"] != "Inspect the example" {
+		t.Fatalf("completed reasoning = %v", rows)
+	}
+	pending := []object{{"id": 1, "method": "item/commandExecution/requestApproval", "params": object{"command": "printf example"},
+		"canRespond": true, "next": object{"via": "act", "op": "codex_respond", "args": object{"id": "1", "backendSession": "fixture"}}}}
+	timeline.syncInteractions(pending, end)
+	revision := timeline.Revision
+	timeline.syncInteractions(pending, "2026-02-01T00:00:02.000Z")
+	session := timeline.session("fixture", object{"id": "fixture"}, "codex-thread", nil)
+	if timeline.Revision != revision || field(field(session["interaction"], "respond"), "op") != "codex_respond" {
+		t.Fatalf("replayed approval changed revision %d to %d or lost response action: %v", revision, timeline.Revision, session)
 	}
 }
 

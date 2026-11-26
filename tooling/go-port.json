@@ -1911,7 +1911,7 @@
         "internal/core/task_tracking.go",
         "internal/core/task_tracking_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/text_files/binary.rs": {
       "segment": "A",
