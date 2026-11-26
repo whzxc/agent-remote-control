@@ -2,7 +2,9 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 )
 
 func TestMemberNotificationProjectionHasDeviceQualifiedAuthority(t *testing.T) {
@@ -71,5 +73,77 @@ func TestMemberEventKindsStayWithinTheControllerBinding(t *testing.T) {
 	}
 	if rows, err := readNotificationInbox("foreign"); err != nil || len(rows) != 0 {
 		t.Fatalf("foreign inbox = %v, %v", rows, err)
+	}
+}
+
+func TestMemberNotificationReadsStayFlatAcrossRetainedBindings(t *testing.T) {
+	// Recurring bug class: persistence one device event must not hydrate or republish retained bindings.
+	testNotificationIndexDirectory(t)
+	at := time.Now()
+	seed := func(task, device, state string, pending bool) {
+		t.Helper()
+		thread := task
+		if device != "" {
+			thread = notificationDeviceKey(device, task)
+		}
+		row := newNotificationBinding(thread, "turn", "/fixture", "owner", at)
+		row["observation"] = object{"state": state, "reconciliation": "reconciled"}
+		if device != "" {
+			row["device"] = object{"id": device, "taskId": task}
+		}
+		if pending {
+			row["deliveries"] = []any{object{"key": "terminal", "eventId": id(), "status": "pending"}}
+		}
+		if err := persistNotificationBinding(row); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i := range 640 {
+		device, state := "", "running"
+		if i%2 == 0 {
+			device = "other-device"
+		}
+		if i%3 == 0 {
+			state = "completed"
+		}
+		seed(fmt.Sprintf("retained-%d", i), device, state, i%5 == 0)
+	}
+	seed("selected", "member", "running", false)
+	seed("selected", "", "running", false)
+	if err := openNotificationOwner(t.Context(), &service{}); err != nil {
+		t.Fatal(err)
+	}
+	before := notificationDiagnostics()
+	event := object{"kind": "completed", "eventId": "native-event", "threadId": "selected", "turnId": "turn",
+		"agent": "codex", "title": "Fixture result", "finalResponse": "done"}
+	for _, source := range []string{"foreign", "owner"} {
+		if err := receiveNotificationDeviceEvent(t.Context(), nil, "member", source, event); err != nil {
+			t.Fatal(err)
+		}
+	}
+	after := notificationDiagnostics()
+	revision := func(report object) uint64 { return uintOr(field(report["activityIndex"], "revision"), 0) }
+	if opened := uintOr(after["fileOpens"], 0) - uintOr(before["fileOpens"], 0); opened > 4 || revision(after)-revision(before) != 1 {
+		t.Fatalf("one member event used %d opens and %d index writes", opened, revision(after)-revision(before))
+	}
+	if err := receiveNotificationDeviceEvent(t.Context(), nil, "member", "owner", event); err != nil {
+		t.Fatal(err)
+	}
+	if replay := notificationDiagnostics(); revision(replay) != revision(after) {
+		t.Fatal("event replay republished the binding")
+	}
+	rows, err := readNotificationInbox("owner")
+	if err != nil || len(rows) != 1 || field(rows[0], "threadId") != "selected" ||
+		field(field(rows[0], "device"), "id") != "member" || field(field(rows[0], "next"), "op") != "device" {
+		t.Fatalf("owner inbox = %v, %v", rows, err)
+	}
+	local, err := readNotificationBinding("selected", "turn")
+	if err != nil || field(local["observation"], "state") != "running" {
+		t.Fatalf("member completion altered local binding: %v, %v", local, err)
+	}
+	beforeReconnect := notificationDiagnostics()
+	open, err := openNotificationDeviceBindings("member")
+	if err != nil || len(open) != 0 || notificationDiagnostics()["fileOpens"] != beforeReconnect["fileOpens"] {
+		t.Fatalf("member reconnect hydrated unrelated records: %v, %v", open, err)
 	}
 }

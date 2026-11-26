@@ -1156,7 +1156,7 @@ func projectNotificationControlResult(ctx context.Context, r operationRequest, v
 			if id == "" || task == "" {
 				continue
 			}
-			wakeNotificationThread(task)
+			wakeNotificationBinding(task, id)
 			if value["state"] != "unconfirmed" {
 				reads[[2]string{task, id}] = true
 			}
@@ -1356,14 +1356,48 @@ func recordNotificationResume(ctx context.Context, s *service, thread, previous,
 }
 
 func notificationDiagnostics() object {
+	notificationBindingCache.Lock()
+	result := notificationBindingCache.values.diagnostics(root())
+	notificationBindingCache.Unlock()
 	notificationIndexes.Lock()
 	defer notificationIndexes.Unlock()
-	result := object{"rows": 0, "pending": 0, "observing": 0, "dormant": 0}
+	result["activityIndex"] = nil
 	if index := notificationIndexes.owners[physicalPath(notificationOwnerPath())]; index != nil {
-		result["rows"], result["pending"], result["observing"], result["dormant"] =
-			len(index.projections), len(index.pending), len(index.active), len(index.projections)-len(index.active)
+		result["activityIndex"] = index.diagnostics()
 	}
-	return object{"activityIndex": result}
+	return result
+}
+
+func (index *notificationIndex) diagnostics() object {
+	retention, delivery := 0, 0
+	scopes := map[[3]string]object{}
+	for path, binding := range index.projections {
+		scope := [3]string{text(binding, "sourceId"), notificationAgent(binding), text(binding, "threadId")}
+		if current := scopes[scope]; current == nil || uintOr(current["createdAt"], 0) < uintOr(binding["createdAt"], 0) {
+			scopes[scope] = binding
+		}
+		if index.pending[path] && index.deliveryAt[path] != 0 {
+			delivery++
+		}
+	}
+	for _, binding := range index.projections {
+		scope := [3]string{text(binding, "sourceId"), notificationAgent(binding), text(binding, "threadId")}
+		if expiredNotificationBinding(binding, notificationClock().Unix(), uintOr(scopes[scope]["createdAt"], 0) > uintOr(binding["createdAt"], 0)) {
+			retention++
+		}
+	}
+	watch := index.collection.watch
+	coverage := "watched"
+	if watch.failed.Load() {
+		coverage = "repairing"
+	}
+	watch.Lock()
+	dirty := len(watch.paths)
+	watch.Unlock()
+	return object{"retained": len(index.projections), "observing": len(index.active), "reconciliationDue": len(index.reconciling),
+		"reconciliationExhausted": len(index.exhausted), "dormant": len(index.projections) - len(index.active), "pendingBindings": len(index.pending),
+		"deliveryDue": delivery, "retentionDue": retention, "latestScopes": len(scopes), "latestResumable": len(index.latestResumable()),
+		"dirtyKeys": dirty, "watchCoverage": coverage, "revision": index.revision}
 }
 
 func syncNotificationConversation(source, target string, handshake bool) error {

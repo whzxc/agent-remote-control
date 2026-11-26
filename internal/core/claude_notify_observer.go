@@ -43,7 +43,7 @@ func handleNotificationObservation(ctx context.Context, s *service, thread, turn
 		return nil
 	}
 	notificationEventOperation.Lock()
-	b, err := readNotificationBinding(thread, turn)
+	b, err := loadNotificationBindingInContext(ctx, notificationBindingPath(thread, turn))
 	if err != nil || b == nil || !notificationObservationMatches(b, observation) {
 		notificationEventOperation.Unlock()
 		return err
@@ -81,7 +81,7 @@ func handleNotificationObservation(ctx context.Context, s *service, thread, turn
 	}
 	notificationEventOperation.Lock()
 	defer notificationEventOperation.Unlock()
-	b, err = readNotificationBinding(thread, turn)
+	b, err = loadNotificationBindingInContext(ctx, notificationBindingPath(thread, turn))
 	if err != nil || b == nil {
 		return err
 	}
@@ -350,16 +350,26 @@ func notificationEmptyCompletion(bind, observed object) bool {
 	})
 }
 
-func recoverNotificationObservations(ctx context.Context, s *service) error {
+func recoverNotificationObservations(ctx context.Context, s *service, retain bool) error {
 	if observeNotificationTurn == nil || mergeNotificationLifecycle == nil {
 		return nil
 	}
 	defer beginRuntimeWork("notificationObserve")()
+	ctx = withRuntimeCost(ctx, "notificationObserver", "poll")
 	pass := beginRuntimeObservation()
+	ctx = context.WithValue(ctx, runtimeObservationKey{}, pass)
 	defer pass.finish()
 	finishScan := pass.timePhase("scan")
+	if retain {
+		if err := pruneNotificationBindings(ctx); err != nil {
+			finishScan()
+			return err
+		}
+	}
 	notificationEventOperation.Lock()
-	rows, err := activeNotificationBindings()
+	rows, err := notificationIndexedBindingsInContext(ctx, "active", func(b object) bool {
+		return b["scopeEnd"] == nil && b["device"] == nil && !notificationObservationReusable(b)
+	})
 	notificationEventOperation.Unlock()
 	finishScan()
 	if err != nil {
@@ -372,6 +382,10 @@ func recoverNotificationObservations(ctx context.Context, s *service) error {
 	var passError error
 	recordError := func(err error) { failed.Do(func() { passError = err }) }
 	for _, b := range rows {
+		if text(b, "sourceId") == "" {
+			pass.add("unattributedBindings", 1)
+			continue
+		}
 		if b["scopeEnd"] != nil || b["device"] != nil {
 			continue
 		}
@@ -386,9 +400,7 @@ func recoverNotificationObservations(ctx context.Context, s *service) error {
 			finishHistory := pass.timePhase("history")
 			observing, cancel := context.WithTimeout(ctx, 10*time.Second)
 			watch := captureNotificationEvidence(observing, s, b)
-			if notificationAgent(b) != "codex" {
-				pass.add("historyReads", 1)
-			}
+			pass.add("historyReads", 1)
 			observation, err := observeNotificationTurn(observing, s, b)
 			cancel()
 			finishHistory()
@@ -429,8 +441,26 @@ func recoverNotificationObservations(ctx context.Context, s *service) error {
 	if passError != nil {
 		return passError
 	}
+	sampleNotificationPartitions(ctx, pass)
 	pass.add("completedPasses", 1)
 	return nil
+}
+
+func sampleNotificationPartitions(ctx context.Context, pass *runtimeObservationPass) {
+	dir := physicalPath(notificationOwnerPath())
+	notificationIndexes.Lock()
+	defer notificationIndexes.Unlock()
+	index := notificationIndexes.owners[dir]
+	if index == nil {
+		return
+	}
+	pass.add("pendingReconciliations", uint64(len(index.reconciling)))
+	pass.add("reconciliationExhausted", uint64(len(index.exhausted)))
+	if cost := currentRuntimeCost(ctx); cost != nil {
+		cost.retained.Store(uint64(len(index.projections)))
+		cost.observed.Store(uint64(len(index.active)))
+		cost.dormant.Store(uint64(len(index.projections) - len(index.active)))
+	}
 }
 
 func recordUnavailableNotification(previous, observation object) error {
@@ -463,12 +493,13 @@ func prepareNotificationRestart() error {
 	}
 	notificationEventOperation.Lock()
 	defer notificationEventOperation.Unlock()
-	rows, err := activeNotificationBindings()
+	rows, err := notificationIndexedBindings("restart", nil)
 	if err != nil {
 		return err
 	}
 	for _, b := range rows {
-		if b["device"] != nil {
+		if b["device"] != nil || b["scopeEnd"] != nil || text(b, "sourceId") == "" ||
+			notificationObservationReusable(b) && field(b["observation"], "reconciliation") == "unavailable-after-restart" {
 			continue
 		}
 		thread, turn := text(b, "threadId"), text(b, "turnId")
@@ -506,9 +537,13 @@ func captureNotificationEvidence(ctx context.Context, s *service, b object) noti
 	if notificationAgent(b) == "codex" && routeID.MatchString(thread) && thread != "." && thread != ".." {
 		add(filepath.Join(root(), "execution", thread+".json"))
 	}
-	if notificationObservationEvidence != nil {
+	if notificationObservationEvidence != nil && notificationAgent(b) == "codex" {
+		pass, _ := ctx.Value(runtimeObservationKey{}).(*runtimeObservationPass)
+		finish := pass.timePhase("ownerDiscovery")
+		pass.add("ownershipDiscoveries", 1)
 		path, writer := notificationObservationEvidence(ctx, s, b)
 		watch.writer = writer
+		finish()
 		if path != "" {
 			add(path)
 		}
@@ -517,8 +552,10 @@ func captureNotificationEvidence(ctx context.Context, s *service, b object) noti
 }
 
 func finishNotificationEvidence(ctx context.Context, s *service, b object, watch notificationEvidenceWatch) {
+	pass, _ := ctx.Value(runtimeObservationKey{}).(*runtimeObservationPass)
+	defer pass.timePhase("ownership")()
 	thread, turn := text(b, "threadId"), text(b, "turnId")
-	current, err := readNotificationBinding(thread, turn)
+	current, err := loadNotificationBindingInContext(ctx, notificationBindingPath(thread, turn))
 	if err != nil || current == nil {
 		return
 	}
@@ -543,6 +580,7 @@ func finishNotificationEvidence(ctx context.Context, s *service, b object, watch
 	index.evidenceByBinding[key] = watch
 	if notificationObservationReusable(current) {
 		delete(index.active, key)
+		pass.add("bindingsReused", 1)
 	}
 	notificationIndexes.Unlock()
 	for path, previous := range watch.paths {

@@ -136,3 +136,29 @@ func TestNotificationRoutingOnlyNewRequestsReceivePresenceDelay(t *testing.T) {
 		t.Fatalf("absent route = %v", entry["routing"])
 	}
 }
+
+func TestNotificationDeferredDeadlineUsesEachBindingClockAndLease(t *testing.T) {
+	// Algorithmic core: delivery deadlines use the real time of an individual request's virtual countdown or presence expiry.
+	const real = int64(10_000)
+	binding := object{"threadId": "first-thread", "agent": "codex"}
+	clock := object{"speed": 2}
+	env, err := changeAppEnvironment(appEnvironment{}, object{"action": "set", "presence": "present", "clock": clock}, real)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, sample := range []struct{ virtual, realSeconds int64 }{{14000, 12}, {18000, 14}} {
+		if got := deferredNotificationDeadline(binding, object{"deferUntil": sample.virtual}, env, real); got != sample.realSeconds {
+			t.Fatalf("virtual deadline %d became %d", sample.virtual, got)
+		}
+	}
+	before := notificationPresent
+	t.Cleanup(func() { notificationPresent = before })
+	notificationPresent = notificationPresence{agent: "codex", task: "first-thread", at: 9000}
+	if got := deferredNotificationDeadline(binding, object{"deferUntil": 30_000}, appEnvironment{}, real); got != 15 {
+		t.Fatalf("presence lease deadline = %d", got)
+	}
+	if got := deferredNotificationDeadline(object{"agent": "codex", "threadId": "second-thread"},
+		object{"deferUntil": 30_000}, appEnvironment{}, real); got != 10 {
+		t.Fatalf("unrelated binding inherited presence: %d", got)
+	}
+}

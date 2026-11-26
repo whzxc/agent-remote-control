@@ -50,18 +50,20 @@ func notificationNextDelivery(state object, bindings []object, settings object, 
 			routing := text(field(d["interaction"], "routing"), "state")
 			reason := text(d["timing"], "queueReason")
 			rule := notificationThread(state, source, text(b, "threadId"), now, false)
+			sub := find(state["subscriptions"], "id", text(d, "subscription"))
+			target := findNotificationTarget(state, source, text(d, "channel"), text(d, "target"))
 			switch {
 			case routing == "deferred":
 				at = routingAt
-			case routing == "paused" || routing == "not-routable" || reason == "disabled" || reason == "breaker":
-			case reason == "muted":
+			case routing == "paused" || routing == "not-routable" || settings["notificationsEnabled"] == false || target["breaker"] == true:
+			case reason == "muted" && notificationThreadMode(rule, now) == "mute":
 				at = int64(uintOr(rule["until"], 0))
-			case reason == "digest-wait":
+			case reason == "digest-wait" && notificationThreadMode(rule, now) == "digest":
 				at = int64(min(uintOr(rule["digestAt"], 0)+3600, uintOr(rule["until"], 1<<63-1)))
-			case reason == "subscription-muted":
-				at = int64(uintOr(field(find(state["subscriptions"], "id", text(d, "subscription")), "until"), 0))
+			case reason == "subscription-muted" && sub != nil && notificationSubscriptionMuted(sub, now):
+				at = int64(uintOr(sub["until"], 0))
 			case reason == "token-wait":
-				if target := findNotificationTarget(state, source, text(d, "channel"), text(d, "target")); target != nil {
+				if target != nil {
 					at = now + 1
 					if uintOr(target["tokens"], 0) == 0 {
 						at = int64(uintOr(target["refilledAt"], 0) + notificationRefillSeconds(settings))
@@ -109,7 +111,7 @@ func prepareNotificationDeliveries(ctx context.Context, settings object, now int
 	if err != nil {
 		return nil, nil, err
 	}
-	rows, err := notificationIndexedBindings("delivery-due", func(b object) bool {
+	rows, err := notificationIndexedBindingsInContext(ctx, "delivery-due", func(b object) bool {
 		return find(b["deliveries"], "status", "pending") != nil || find(b["deliveries"], "status", "sending") != nil
 	})
 	if err != nil {
@@ -388,7 +390,7 @@ func notificationWebhookOutcome(ctx context.Context, s *service, batch notificat
 	}
 }
 
-func settleNotificationBatch(batch notificationDeliveryBatch, outcome notificationDeliveryOutcome, start time.Time, cancelReason string) error {
+func settleNotificationBatch(ctx context.Context, batch notificationDeliveryBatch, outcome notificationDeliveryOutcome, start time.Time, cancelReason string) error {
 	now := notificationClock()
 	notificationEventOperation.Lock()
 	defer notificationEventOperation.Unlock()
@@ -404,7 +406,7 @@ func settleNotificationBatch(batch notificationDeliveryBatch, outcome notificati
 		removeNotificationSubscription(state, text(batch.items[0].delivery, "subscription"))
 	}
 	for _, item := range batch.items {
-		b, err := readNotificationBinding(text(item.binding, "threadId"), text(item.binding, "turnId"))
+		b, err := loadNotificationBindingInContext(ctx, notificationBindingPath(text(item.binding, "threadId"), text(item.binding, "turnId")))
 		if err != nil {
 			return err
 		}
@@ -470,7 +472,7 @@ func sendNotificationBatch(ctx context.Context, s *service, batch notificationDe
 			return nil
 		}
 		for _, item := range batch.items {
-			b, err := readNotificationBinding(text(item.binding, "threadId"), text(item.binding, "turnId"))
+			b, err := loadNotificationBindingInContext(ctx, notificationBindingPath(text(item.binding, "threadId"), text(item.binding, "turnId")))
 			if err != nil {
 				return err
 			}
@@ -507,7 +509,7 @@ func sendNotificationBatch(ctx context.Context, s *service, batch notificationDe
 			}
 		}
 		for _, item := range batch.items {
-			b, err := readNotificationBinding(text(item.binding, "threadId"), text(item.binding, "turnId"))
+			b, err := loadNotificationBindingInContext(ctx, notificationBindingPath(text(item.binding, "threadId"), text(item.binding, "turnId")))
 			if err != nil {
 				return err
 			}
@@ -530,7 +532,7 @@ func sendNotificationBatch(ctx context.Context, s *service, batch notificationDe
 		return err
 	}
 	if reason != "" {
-		return settleNotificationBatch(batch, notificationDeliveryOutcome{status: "cancelled"}, start, reason)
+		return settleNotificationBatch(ctx, batch, notificationDeliveryOutcome{status: "cancelled"}, start, reason)
 	}
 	outcome := notificationDeliveryOutcome{status: "failed", reason: "access_revoked"}
 	if notificationSourceActive(ctx, batch.source) {
@@ -544,7 +546,7 @@ func sendNotificationBatch(ctx context.Context, s *service, batch notificationDe
 			outcome = notificationDeliveryOutcome{status: "delivered"}
 		}
 	}
-	return settleNotificationBatch(batch, outcome, start, "")
+	return settleNotificationBatch(ctx, batch, outcome, start, "")
 }
 
 func flushNotifications(ctx context.Context, s *service) error {
@@ -553,6 +555,8 @@ func flushNotifications(ctx context.Context, s *service) error {
 	}
 	notificationTransportMu.Lock()
 	defer notificationTransportMu.Unlock()
+	ctx = withRuntimeCost(ctx, "notificationDelivery", "poll")
+	defer beginRuntimeWork("notificationDelivery")()
 	settings, err := notificationSettings()
 	if err != nil {
 		return err
@@ -589,6 +593,36 @@ func flushNotifications(ctx context.Context, s *service) error {
 	return nil
 }
 
+func deferredNotificationDeadline(b object, routing any, env appEnvironment, real int64) int64 {
+	var deadline int64
+	due := func(at int64) {
+		if deadline == 0 || at < deadline {
+			deadline = at
+		}
+	}
+	if at, ok := taskInt(field(routing, "deferUntil")); ok {
+		if converted, ok := env.realDeadline(at, real); ok {
+			due(converted)
+		}
+	}
+	if env.ExpiresAt != nil {
+		due(*env.ExpiresAt)
+	}
+	if env.Presence == nil {
+		if notificationPresent.agent == notificationAgent(b) && notificationPresent.task == b["threadId"] {
+			due(notificationPresent.at + 6000)
+		} else {
+			due(real)
+		}
+	} else if *env.Presence == "absent" {
+		due(real)
+	}
+	if deadline == 0 {
+		return 0
+	}
+	return saturatingClockAdd(deadline, 999) / 1000
+}
+
 func nextNotificationSchedulerWake(ctx context.Context) (int64, error) {
 	notificationEventOperation.Lock()
 	defer notificationEventOperation.Unlock()
@@ -605,29 +639,26 @@ func nextNotificationSchedulerWake(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	now := notificationClock().Unix()
-	var routingAt int64
-	for _, b := range rows {
-		for _, item := range arr(b["deliveries"]) {
-			routing := field(field(item, "interaction"), "routing")
-			if text(routing, "state") != "deferred" {
-				continue
-			}
-			requestAt := int64((uintOr(field(routing, "deferUntil"), 0) + 999) / 1000)
-			if notificationPresent.agent == notificationAgent(b) && notificationPresent.task == b["threadId"] {
-				at := (notificationPresent.at + 6000 + 999) / 1000
-				if requestAt == 0 || at < requestAt {
-					requestAt = at
-				}
-			}
-			if requestAt != 0 && (routingAt == 0 || requestAt < routingAt) {
-				routingAt = requestAt
-			}
-		}
+	appEnvLock.Lock()
+	environment, err := loadAppEnvironment(root(), now*1000)
+	appEnvLock.Unlock()
+	if err != nil {
+		return 0, err
 	}
 	seen := map[string]bool{}
 	valid := map[string]bool{}
 	var earliest int64
 	for _, b := range rows {
+		routingAt := int64(0)
+		for _, delivery := range arr(b["deliveries"]) {
+			routing := field(field(delivery, "interaction"), "routing")
+			if text(routing, "state") == "deferred" {
+				at := deferredNotificationDeadline(b, routing, environment, now*1000)
+				if at != 0 && (routingAt == 0 || at < routingAt) {
+					routingAt = at
+				}
+			}
+		}
 		at := notificationNextDelivery(state, []object{b}, settings, now, routingAt, func(source string) bool {
 			if !seen[source] {
 				valid[source] = notificationSourceActive(ctx, source)
@@ -654,10 +685,12 @@ func runNotificationScheduler(ctx context.Context, s *service) {
 	for _, relative := range []string{"task-settings.json", "app-env.json", "sources.json", "accounts/index.json", "notifications/subscriptions/state.json", "notifications/tasks/.index-watch", "notifications/request-routing/.index-watch"} {
 		watch.add(filepath.Join(root(), relative))
 	}
+	reason := "startup"
 	for ctx.Err() == nil {
 		_, _ = watch.drain()
+		work := withRuntimeCost(ctx, "notificationDelivery", reason)
 		var delay time.Duration
-		if err := flushNotifications(ctx, s); err != nil {
+		if err := flushNotifications(work, s); err != nil {
 			if errors.Is(err, context.Canceled) {
 				return
 			}
@@ -678,13 +711,16 @@ func runNotificationScheduler(ctx context.Context, s *service) {
 		select {
 		case <-ctx.Done():
 		case <-notificationSchedulerWake:
+			reason = "event"
 			invalidateNotificationScheduling()
 		case <-watch.wake:
+			reason = "dirty"
 			paths, failed := watch.drain()
 			if len(paths) != 0 || failed {
 				invalidateNotificationScheduling()
 			}
 		case <-deadline:
+			reason = "deadline"
 		}
 		if timer != nil {
 			timer.Stop()

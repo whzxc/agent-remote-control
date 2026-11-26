@@ -85,19 +85,23 @@ func readNotificationDeviceRequest(b object) object {
 	return row
 }
 
+func notificationDeviceBindingOpen(b object, device string) bool {
+	return field(b["device"], "id") == device && b["scopeEnd"] == nil && b["continuationBound"] != true &&
+		!notificationTerminal(text(b["observation"], "state"))
+}
+
 func openNotificationDeviceBindings(device string) ([]any, error) {
 	notificationEventOperation.Lock()
 	defer notificationEventOperation.Unlock()
-	rows, err := notificationBindings()
+	rows, err := notificationIndexedBindings("device:"+device, func(b object) bool {
+		return notificationDeviceBindingOpen(b, device)
+	})
 	if err != nil {
 		return nil, err
 	}
-	result := []any{}
+	result := make([]any, 0, len(rows))
 	for _, b := range rows {
-		if field(b["device"], "id") == device && b["scopeEnd"] == nil && b["continuationBound"] != true &&
-			!notificationTerminal(text(b["observation"], "state")) {
-			result = append(result, readNotificationDeviceRequest(b))
-		}
+		result = append(result, readNotificationDeviceRequest(b))
 	}
 	return result, nil
 }

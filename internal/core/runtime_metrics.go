@@ -61,6 +61,8 @@ func (sample runtimeObservationSample) snapshot() object {
 	return result
 }
 
+type runtimeObservationKey struct{}
+
 type runtimeObservationPass struct {
 	sample runtimeObservationSample
 }
@@ -80,6 +82,9 @@ func beginRuntimeObservation() *runtimeObservationPass {
 }
 
 func (pass *runtimeObservationPass) add(key string, count uint64) {
+	if pass == nil {
+		return
+	}
 	runtimeObservation.Lock()
 	defer runtimeObservation.Unlock()
 	for i, known := range runtimeObservationKeys {
@@ -92,6 +97,9 @@ func (pass *runtimeObservationPass) add(key string, count uint64) {
 }
 
 func (pass *runtimeObservationPass) timePhase(phase string) func() {
+	if pass == nil {
+		return func() {}
+	}
 	started := time.Now()
 	for i, known := range runtimeObservationPhases {
 		if phase == known {

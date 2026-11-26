@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"os"
 	"path/filepath"
@@ -24,10 +25,15 @@ func notificationBindingPathIn(directory, thread, turn string) string {
 }
 
 type notificationIndex struct {
+	revision          uint64
 	collection        *fileCollection[object]
 	pending           map[string]bool
+	reconciling       map[string]bool
+	exhausted         map[string]bool
+	resumable         map[string]bool
 	active            map[string]bool
 	threads           map[string]map[string]bool
+	devices           map[string]map[string]bool
 	projections       map[string]object
 	workers           sync.WaitGroup
 	deliveryAt        map[string]int64
@@ -41,6 +47,30 @@ type notificationIndex struct {
 var notificationIndexes struct {
 	sync.Mutex
 	owners map[string]*notificationIndex
+}
+
+var notificationBindingCache struct {
+	sync.Mutex
+	values fileCache[any]
+}
+
+func copyBindingJSON(value any) any {
+	switch value := value.(type) {
+	case object:
+		copied := make(object, len(value))
+		for key, item := range value {
+			copied[key] = copyBindingJSON(item)
+		}
+		return copied
+	case []any:
+		copied := make([]any, len(value))
+		for index, item := range value {
+			copied[index] = copyBindingJSON(item)
+		}
+		return copied
+	default:
+		return value
+	}
 }
 
 func notificationIndexProjection(value any) (any, error) {
@@ -59,9 +89,15 @@ func notificationIndexProjection(value any) (any, error) {
 
 func (i *notificationIndex) put(path string, row object) {
 	old := i.projections[path]
+	i.revision++
 	clear(i.statusViews)
 	delete(i.deliveryAt, path)
 	if old != nil {
+		device := text(old["device"], "id")
+		delete(i.devices[device], path)
+		if len(i.devices[device]) == 0 {
+			delete(i.devices, device)
+		}
 		thread := text(old, "threadId")
 		delete(i.threads[thread], path)
 		if len(i.threads[thread]) == 0 {
@@ -70,6 +106,9 @@ func (i *notificationIndex) put(path string, row object) {
 	}
 	delete(i.pending, path)
 	delete(i.active, path)
+	delete(i.reconciling, path)
+	delete(i.exhausted, path)
+	delete(i.resumable, path)
 	if row == nil {
 		delete(i.collection.rows, path)
 		delete(i.projections, path)
@@ -83,17 +122,63 @@ func (i *notificationIndex) put(path string, row object) {
 		i.threads[thread] = map[string]bool{}
 	}
 	i.threads[thread][path] = true
+	if device := text(row["device"], "id"); device != "" && notificationDeviceBindingOpen(row, device) {
+		if i.devices[device] == nil {
+			i.devices[device] = map[string]bool{}
+		}
+		i.devices[device][path] = true
+	}
 	if find(row["deliveries"], "status", "pending") != nil || find(row["deliveries"], "status", "sending") != nil {
 		i.pending[path] = true
 	}
-	if text(row, "sourceId") != "" && row["scopeEnd"] == nil && row["device"] == nil && !notificationObservationReusable(row) {
-		i.active[path] = true
+	switch field(row["observation"], "reconciliation") {
+	case "pending-after-restart":
+		i.reconciling[path] = true
+	case "unavailable-after-restart":
+		i.exhausted[path] = true
 	}
+	if text(row, "sourceId") != "" && row["scopeEnd"] == nil && row["device"] == nil {
+		if !notificationObservationReusable(row) && (row["continuationBound"] != true || !notificationTerminal(text(row["observation"], "state"))) {
+			i.active[path] = true
+		}
+		if row["continuationBound"] != true && uintOr(row["continuationUntil"], 0) > 0 &&
+			notificationContinuationState(text(row["observation"], "state")) == "interrupted" {
+			i.resumable[path] = true
+		}
+	}
+}
+
+func (i *notificationIndex) latestResumable() map[string]bool {
+	scopes := map[[3]string]string{}
+	for path := range i.resumable {
+		row := i.projections[path]
+		scope := [3]string{notificationAgent(row), text(row, "sourceId"), text(row, "threadId")}
+		latest := scopes[scope]
+		oldAt, newAt := uintOr(i.projections[latest]["createdAt"], 0), uintOr(row["createdAt"], 0)
+		if latest == "" || newAt > oldAt || newAt == oldAt && path > latest {
+			scopes[scope] = path
+		}
+	}
+	result := map[string]bool{}
+	for _, path := range scopes {
+		result[path] = true
+	}
+	return result
 }
 
 func persistNotificationBinding(binding object) error {
 	path := notificationBindingPath(text(binding, "threadId"), text(binding, "turnId"))
-	old, _ := readNotificationBinding(text(binding, "threadId"), text(binding, "turnId"))
+	old, err := readNotificationBinding(text(binding, "threadId"), text(binding, "turnId"))
+	if err != nil {
+		return err
+	}
+	if old != nil && !notificationObservationChanged(obj(old["observation"]), obj(binding["observation"])) {
+		if prior, exists := old["observation"]; exists {
+			binding["observation"] = prior
+		} else {
+			delete(binding, "observation")
+		}
+	}
 	if wire(old) == wire(binding) {
 		return nil
 	}
@@ -102,14 +187,14 @@ func persistNotificationBinding(binding object) error {
 	index := notificationIndexes.owners[key]
 	notificationIndexes.Unlock()
 	if index == nil {
-		return save(path, binding)
+		return saveNotificationBindingRecord(path, binding)
 	}
 	projection, err := notificationIndexProjection(binding)
 	if err != nil {
 		return err
 	}
 	defer index.collection.watch.ownWrite(path)()
-	if err = indexChange(context.Background(), path, func() (any, error) { return projection, save(path, binding) }); err != nil {
+	if err = indexChange(context.Background(), path, func() (any, error) { return projection, saveNotificationBindingRecord(path, binding) }); err != nil {
 		return err
 	}
 	stamp, err := readStamp(path)
@@ -126,8 +211,37 @@ func persistNotificationBinding(binding object) error {
 	return nil
 }
 
+func saveNotificationBindingRecord(path string, binding object) error {
+	path = filepath.Join(physicalPath(filepath.Dir(path)), filepath.Base(path))
+	if err := save(path, binding); err != nil {
+		return err
+	}
+	stamp, err := readStamp(path)
+	if err != nil {
+		return err
+	}
+	notificationBindingCache.Lock()
+	defer notificationBindingCache.Unlock()
+	notificationBindingCache.values.remove(path)
+	notificationBindingCache.values.insert(path, stamp, clone(binding))
+	return nil
+}
+
 func loadNotificationBinding(path string) (object, error) {
-	value, err := cachedLoad(path)
+	return loadNotificationBindingInContext(nil, path)
+}
+
+func loadNotificationBindingInContext(ctx context.Context, path string) (object, error) {
+	path = filepath.Join(physicalPath(filepath.Dir(path)), filepath.Base(path))
+	notificationBindingCache.Lock()
+	value, err := notificationBindingCache.values.readInContext(ctx, path, func(data []byte) (any, error) {
+		var value any
+		if err := unmarshalJSON(data, &value); err != nil {
+			return nil, fmt.Errorf("INVALID_JSON: %w", err)
+		}
+		return value, nil
+	})
+	notificationBindingCache.Unlock()
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil
 	}
@@ -135,7 +249,7 @@ func loadNotificationBinding(path string) (object, error) {
 		recordLog("WARN", "Ignored malformed notification binding", nil)
 		return nil, nil
 	}
-	return obj(value), err
+	return obj(copyBindingJSON(value)), err
 }
 
 func readNotificationBinding(thread, turn string) (object, error) {
@@ -189,15 +303,19 @@ func notificationBindingsForThread(thread string) ([]object, error) {
 }
 
 func notificationIndexedBindings(partition string, filter func(object) bool) ([]object, error) {
+	return notificationIndexedBindingsInContext(context.Background(), partition, filter)
+}
+
+func notificationIndexedBindingsInContext(ctx context.Context, partition string, filter func(object) bool) ([]object, error) {
 	dir := physicalPath(filepath.Join(notificationDirectory(), "tasks"))
-	if err := indexAvailable(context.Background(), dir); err != nil {
+	if err := indexAvailable(ctx, dir); err != nil {
 		return nil, err
 	}
 	notificationIndexes.Lock()
 	index := notificationIndexes.owners[dir]
 	var paths []string
 	if index != nil {
-		if err := index.refresh(); err != nil {
+		if err := index.refreshInContext(ctx); err != nil {
 			notificationIndexes.Unlock()
 			return nil, err
 		}
@@ -214,7 +332,17 @@ func notificationIndexedBindings(partition string, filter func(object) bool) ([]
 			slices.Sort(paths)
 		case "active":
 			paths = slices.Sorted(maps.Keys(index.active))
+		case "restart":
+			keys := index.latestResumable()
+			maps.Copy(keys, index.active)
+			maps.Copy(keys, index.reconciling)
+			maps.Copy(keys, index.pending)
+			paths = slices.Sorted(maps.Keys(keys))
 		default:
+			if device, ok := strings.CutPrefix(partition, "device:"); ok {
+				paths = slices.Sorted(maps.Keys(index.devices[device]))
+				break
+			}
 			for path, row := range index.collection.rows {
 				if filter == nil || filter(row) {
 					paths = append(paths, path)
@@ -238,10 +366,10 @@ func notificationIndexedBindings(partition string, filter func(object) bool) ([]
 			}
 		}
 	}
-	recordRuntimeWork(context.Background(), runtimeWorkCost{Owner: "notification", Reason: partition, Rows: len(paths), ScanSet: len(paths)})
+	recordRuntimeWork(ctx, runtimeWorkCost{Owner: "notification", Reason: partition, Rows: len(paths), ScanSet: len(paths)})
 	rows := make([]object, 0, len(paths))
 	for _, path := range paths {
-		row, err := loadNotificationBinding(path)
+		row, err := loadNotificationBindingInContext(ctx, path)
 		if err != nil {
 			return nil, err
 		}
@@ -253,8 +381,12 @@ func notificationIndexedBindings(partition string, filter func(object) bool) ([]
 }
 
 func (i *notificationIndex) refresh() error {
+	return i.refreshInContext(nil)
+}
+
+func (i *notificationIndex) refreshInContext(ctx context.Context) error {
 	changed, err := i.collection.refresh(func(path string) (object, error) {
-		row, err := loadNotificationBinding(path)
+		row, err := loadNotificationBindingInContext(ctx, path)
 		if err != nil || row == nil {
 			return nil, err
 		}
@@ -347,6 +479,21 @@ func wakeNotificationThread(thread string) {
 	}
 }
 
+func wakeNotificationBinding(thread, turn string) {
+	path := notificationBindingPath(thread, turn)
+	dir := physicalPath(filepath.Dir(path))
+	key := filepath.Join(dir, filepath.Base(path))
+	notificationIndexes.Lock()
+	if index := notificationIndexes.owners[dir]; index != nil && index.projections[key] != nil {
+		index.active[key] = true
+	}
+	notificationIndexes.Unlock()
+	select {
+	case notificationNativeWake <- struct{}{}:
+	default:
+	}
+}
+
 var notificationNativeWake = make(chan struct{}, 1)
 
 func notificationOwnerPath() string {
@@ -357,6 +504,7 @@ func openNotificationOwner(ctx context.Context, _ *service) error {
 	dir := physicalPath(notificationOwnerPath())
 	index := &notificationIndex{
 		pending: map[string]bool{}, active: map[string]bool{}, threads: map[string]map[string]bool{},
+		reconciling: map[string]bool{}, exhausted: map[string]bool{}, resumable: map[string]bool{}, devices: map[string]map[string]bool{},
 		projections: map[string]object{}, deliveryAt: map[string]int64{}, statusViews: map[string]notificationStatusView{},
 		evidence: map[string]map[string]bool{}, evidenceByBinding: map[string]notificationEvidenceWatch{},
 	}
@@ -415,14 +563,11 @@ func startNotificationWorkers(ctx context.Context, s *service) error {
 			recordLog("WARN", "Notification restart preparation: "+err.Error(), nil)
 			return
 		}
-		if err := recoverNotificationObservations(ctx, s); err != nil && ctx.Err() == nil {
+		if err := recoverNotificationObservations(withRuntimeCost(ctx, "notificationObserver", "startup"), s, true); err != nil && ctx.Err() == nil {
 			recordLog("WARN", "Notification startup observation: "+err.Error(), nil)
 		}
 		if ctx.Err() != nil {
 			return
-		}
-		if err := pruneNotificationBindings(ctx); err != nil {
-			recordLog("WARN", "Notification retention: "+err.Error(), nil)
 		}
 		if err := recoverNotificationDeliveries(); err != nil {
 			recordLog("WARN", "Notification startup delivery: "+err.Error(), nil)
@@ -440,22 +585,30 @@ func startNotificationWorkers(ctx context.Context, s *service) error {
 		retention := time.NewTicker(time.Hour)
 		defer retention.Stop()
 		for {
+			var reason string
 			select {
 			case <-ctx.Done():
 				return
 			case <-notificationNativeWake:
+				reason = "event"
 			case <-index.nativeEvidence.wake:
+				reason = "dirty"
 				paths, _ := index.nativeEvidence.drain()
 				for _, path := range paths {
 					wakeNotificationEvidence(path)
 				}
 			case <-tick.C:
-			case <-retention.C:
-				if err := pruneNotificationBindings(ctx); err != nil && ctx.Err() == nil {
-					recordLog("WARN", "Notification retention: "+err.Error(), nil)
+				notificationIndexes.Lock()
+				active := len(index.active) != 0
+				notificationIndexes.Unlock()
+				if !active {
+					continue
 				}
+				reason = "deadline"
+			case <-retention.C:
+				reason = "timer"
 			}
-			if err := recoverNotificationObservations(ctx, s); err != nil && ctx.Err() == nil {
+			if err := recoverNotificationObservations(withRuntimeCost(ctx, "notificationObserver", reason), s, reason == "timer"); err != nil && ctx.Err() == nil {
 				recordLog("WARN", "Notification observation: "+err.Error(), nil)
 			}
 		}
@@ -551,6 +704,11 @@ func pruneNotificationBindings(ctx context.Context) error {
 			return err
 		}
 		markCachedFileChanged(path, before)
+		notificationBindingCache.Lock()
+		notificationBindingCache.values.remove(filepath.Join(dir, filepath.Base(path)))
+		notificationBindingCache.Unlock()
+		pass, _ := ctx.Value(runtimeObservationKey{}).(*runtimeObservationPass)
+		pass.add("retiredBindings", 1)
 		notificationIndexes.Lock()
 		index.put(filepath.Join(dir, filepath.Base(path)), nil)
 		notificationIndexes.Unlock()

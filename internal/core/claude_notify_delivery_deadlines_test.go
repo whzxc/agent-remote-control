@@ -32,7 +32,7 @@ func TestNotificationSettlementKeepsSentHistoryAcrossRebind(t *testing.T) {
 		t.Fatal(err)
 	}
 	batch := notificationDeliveryBatch{id: "reserved", source: "source", channel: "claude-session", target: first, items: []notificationDeliveryItem{{b, d}}}
-	if err := settleNotificationBatch(batch, notificationDeliveryOutcome{status: "delivered"}, at, ""); err != nil {
+	if err := settleNotificationBatch(ctx, batch, notificationDeliveryOutcome{status: "delivered"}, at, ""); err != nil {
 		t.Fatal(err)
 	}
 	got, err := readNotification(ctx, "thread", "turn", "")
@@ -131,5 +131,78 @@ func TestInterruptedNotificationRetainsEventAndTokenCredit(t *testing.T) {
 		delivery["tokenCharged"] != true || uintOr(delivery["failures"], 0) != 1 ||
 		uintOr(delivery["nextAttemptAt"], 0) <= uint64(at.Unix()) {
 		t.Fatalf("retry abandoned the original event, token, or backoff: %v", delivery)
+	}
+}
+
+func TestNotificationControlDuringTransportPreservesNextWake(t *testing.T) {
+	// Recurring bug class: concurrency a control change during an in-flight send must preserve its independently selected wake.
+	ctx, source, _, _ := notificationDeliveryFixture(t)
+	at := notificationClock()
+	notificationClock = func() time.Time { return at }
+	first, firstTurn := boundNotificationFixture(t, ctx)
+	second, secondTurn := boundNotificationFixture(t, ctx)
+	observeSelectedNotification(t, ctx, first, firstTurn, "completed", "idle", "")
+	observeSelectedNotification(t, ctx, second, secondTurn, "completed", "idle", "")
+	change := func(action string) error {
+		_, err := notificationControl(ctx, operationRequest{source: source, args: object{"action": action, "threadId": second}})
+		return err
+	}
+	if err := change("mute"); err != nil {
+		t.Fatal(err)
+	}
+	entered, release := make(chan struct{}), make(chan struct{})
+	sends := 0
+	notificationSessionSend = func(context.Context, string, string, string, string) error {
+		sends++
+		if sends == 1 {
+			close(entered)
+			<-release
+		}
+		return nil
+	}
+	at = at.Add(10 * time.Second)
+	done := make(chan error, 1)
+	go func() { done <- flushNotifications(ctx, &service{}) }()
+	select {
+	case <-entered:
+	case err := <-done:
+		t.Fatalf("delivery did not reach transport: %v", err)
+	case <-time.After(5 * time.Second):
+		close(release)
+		<-done
+		t.Fatal("delivery did not enter the sender")
+	}
+	metrics, metricsErr := runtimeMetrics(ctx, operationRequest{})
+	deliver := uintOr(field(find(field(metrics, "work"), "name", "notificationDelivery"), "inFlight"), 0)
+	if deliver == 0 {
+		var decoded object
+		if err := unmarshalJSON([]byte(wire(metrics)), &decoded); err == nil {
+			deliver = uintOr(field(find(decoded["work"], "name", "notificationDelivery"), "inFlight"), 0)
+		}
+	}
+	changeErr := change("unmute")
+	close(release)
+	flushErr := <-done
+	if metricsErr != nil || deliver != 1 || changeErr != nil || flushErr != nil {
+		t.Fatalf("delivery in flight = %d, metrics %v, unmute %v, flush %v", deliver, metricsErr, changeErr, flushErr)
+	}
+	read := func(thread, turn string) string {
+		t.Helper()
+		row, err := readNotificationBinding(thread, turn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return text(arr(row["deliveries"])[0], "status")
+	}
+	if read(first, firstTurn) != "delivered" || read(second, secondTurn) != "pending" || sends != 1 {
+		t.Fatal("first flush lost the original delivery or sent another selection")
+	}
+	next, err := nextNotificationSchedulerWake(ctx)
+	if err != nil || next != at.Unix()+1 {
+		t.Fatalf("unmuted deadline = %d, %v", next, err)
+	}
+	at = at.Add(time.Second)
+	if err := flushNotifications(ctx, &service{}); err != nil || read(second, secondTurn) != "delivered" || sends != 2 {
+		t.Fatalf("second delivery did not run on selected wake: %v with %d sends", err, sends)
 	}
 }

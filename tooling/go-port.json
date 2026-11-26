@@ -298,7 +298,7 @@
       "go": [
         "internal/core/claude_notify_ax_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_notify/continuation.rs": {
       "segment": "C",
@@ -321,7 +321,7 @@
       "go": [
         "internal/core/claude_notify_device_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_notify/device.rs": {
       "segment": "C",
@@ -357,7 +357,7 @@
       "go": [
         "internal/core/claude_notify_index_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_notify/lifecycle.rs": {
       "segment": "C",
@@ -435,7 +435,7 @@
       "go": [
         "internal/core/claude_notify_delivery_deadlines_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_notify.rs": {
       "segment": "C",
@@ -1639,13 +1639,6 @@
           "owner": "F",
           "items": [
             "Supply Desktop IPC diagnostics and frame timings."
-          ]
-        },
-        {
-          "owner": "C",
-          "items": [
-            "Complete notification observation ownership, reuse and reconciliation counters and phase timings.",
-            "Measure the complete notification delivery work pass and expose the complete binding cache diagnostics."
           ]
         }
       ]

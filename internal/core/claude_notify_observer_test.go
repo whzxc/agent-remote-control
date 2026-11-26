@@ -36,7 +36,7 @@ func TestNotificationObserverWritesWakeOnlyForExternalEvidence(t *testing.T) {
 	observeNotificationTurn = func(context.Context, *service, object) (object, error) { return clone(observation), nil }
 	observe := func() {
 		t.Helper()
-		if err := recoverNotificationObservations(ctx, &service{}); err != nil {
+		if err := recoverNotificationObservations(ctx, &service{}, false); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -105,7 +105,7 @@ func TestNotificationAndInternalReceiptsLeaveBoardMaintenanceIdle(t *testing.T) 
 		if field(projected["coordination"], "freshness") != "admission" {
 			t.Fatalf("projected receipt = %v", projected)
 		}
-		if err := recoverNotificationObservations(ctx, &service{}); err != nil {
+		if err := recoverNotificationObservations(ctx, &service{}, false); err != nil {
 			t.Fatal(err)
 		}
 	}
