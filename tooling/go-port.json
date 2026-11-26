@@ -1202,8 +1202,10 @@
     },
     "native/src/external_inputs.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/external_inputs.go"
+      ],
+      "status": "ported"
     },
     "native/src/front_door/authority.rs": {
       "segment": "S0",
@@ -1337,8 +1339,11 @@
     },
     "native/src/interaction_responses.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/interaction_responses.go",
+        "internal/core/interaction_responses_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/kernel/derived_index.rs": {
       "segment": "S0",
@@ -1697,7 +1702,9 @@
     },
     "native/src/review.rs": {
       "segment": "A",
-      "go": [],
+      "go": [
+        "internal/core/review.go"
+      ],
       "status": "pending"
     },
     "native/src/rpc.rs": {
