@@ -12,8 +12,6 @@ const notificationReceiptHeader = "⟢ ARC · automated, not from the user · gu
 // D owns profiles, visibility probes and identity confirmation. A owns Antigravity
 // delivery and source-conversation projection.
 var notificationClaudeProfile func(string) (string, error)
-var notificationClaudePublicAccount func(string) object
-var notificationClaudeProfiles func() ([]any, error)
 var notificationClaudeCandidates func(context.Context, string) ([]any, error)
 var notificationClaudeLegacyRoute func(string) (string, error)
 var notificationClaudeIdentity func(context.Context, string) (object, error)
@@ -139,63 +137,15 @@ func notificationAccountRoute(ctx context.Context, source, target, channel strin
 		}
 		return object{"target": target, "transport": "agentapi"}, nil
 	}
-	notificationEventOperation.Lock()
-	state, err := readNotificationState()
-	if err != nil {
-		notificationEventOperation.Unlock()
-		return nil, err
-	}
-	t := findNotificationTarget(state, source, channel, target)
-	if t["registered"] != true {
-		rows, err := notificationBindings()
-		if err != nil {
-			notificationEventOperation.Unlock()
-			return nil, err
-		}
-		if slices.ContainsFunc(rows, func(b object) bool {
-			return b["sourceId"] == source && b["target"] == target && b["channel"] == channel
-		}) {
-			t = notificationTarget(state, settings, source, channel, target, notificationClock().Unix())
-		} else {
-			notificationEventOperation.Unlock()
-			return nil, dispatchObjectError(object{"code": "NOTIFICATION_TARGET_NOT_BOUND_TO_SOURCE", "message": "Bind this target before reading or changing its account route", "next": notificationRouteNext("bind", target)})
-		}
-	}
-	if (action == "verify" || action == "bind" && r.args["verify"] != false) && settings["notificationsEnabled"] == false {
-		notificationEventOperation.Unlock()
-		return nil, errors.New("NOTIFICATIONS_DISABLED")
-	}
-	profile := text(t, "accountId")
-	if accountID, specified := r.args["accountId"].(string); specified {
-		selected, err := notificationClaudeProfile(accountID)
-		if err != nil {
-			notificationEventOperation.Unlock()
-			return nil, err
-		}
-		if selected != profile {
-			profile = selected
-			t["accountId"], t["reachability"] = profile, newNotificationReachability()
-		}
-	} else if profile == "" && notificationClaudeLegacyRoute != nil {
-		profile, err = notificationClaudeLegacyRoute(target)
-		if err != nil {
-			notificationEventOperation.Unlock()
-			return nil, err
-		}
-		if profile != "" {
-			t["accountId"] = profile
-		}
-	}
-	err = saveNotificationState(state)
-	notificationEventOperation.Unlock()
-	if err != nil {
-		return nil, err
-	}
-	if account := notificationClaudePublicAccount(profile); action == "route" || account["id"] != nil {
-		profiles, err := notificationClaudeProfiles()
-		return object{"target": target, "accountId": account["id"], "profiles": profiles}, err
+	route, err := readOrSetNotificationAccountRoute(source, target, channel, action, r.args, settings)
+	if err != nil || action == "route" || route["accountId"] != nil {
+		return route, err
 	}
 	candidates, err := notificationClaudeCandidates(ctx, target)
+	if err != nil {
+		return nil, err
+	}
+	accounts, err := readAccounts()
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +155,7 @@ func notificationAccountRoute(ctx context.Context, source, target, channel strin
 	for _, item := range candidates {
 		row := obj(item)
 		profile := text(row, "accountId")
-		account := notificationClaudePublicAccount(profile)
+		account := ownerOfAccountProfile(accounts, profile)
 		accountID := text(account, "id")
 		if accountID != "" {
 			row["accountId"] = accountID
@@ -233,15 +183,15 @@ func notificationAccountRoute(ctx context.Context, source, target, channel strin
 	}
 	notificationEventOperation.Lock()
 	defer notificationEventOperation.Unlock()
-	state, err = readNotificationState()
+	state, err := readNotificationState()
 	if err != nil {
 		return nil, err
 	}
-	t = findNotificationTarget(state, source, channel, target)
+	t := findNotificationTarget(state, source, channel, target)
 	if t == nil {
 		return nil, errors.New("NOTIFICATION_TARGET_NOT_BOUND_TO_SOURCE")
 	}
-	profile = text(t, "accountId")
+	profile := text(t, "accountId")
 	if profile == "" && selected != "" {
 		profile, t["accountId"] = selected, selected
 	}
@@ -252,7 +202,62 @@ func notificationAccountRoute(ctx context.Context, source, target, channel strin
 			"message": "No unique visible Claude profile was confirmed. Select an accountId from candidates for this source-owned target; unknown means the read-only probe was inconclusive. ARC did not send a challenge or change accounts.",
 			"target":  target, "candidates": candidates, "next": next})
 	}
-	return object{"target": target, "accountId": notificationClaudePublicAccount(profile)["id"], "profiles": candidates}, saveNotificationState(state)
+	accounts, err = readAccounts()
+	if err != nil {
+		return nil, err
+	}
+	return object{"target": target, "accountId": ownerOfAccountProfile(accounts, profile)["id"], "profiles": candidates}, saveNotificationState(state)
+}
+
+func readOrSetNotificationAccountRoute(source, target, channel, action string, args, settings object) (object, error) {
+	notificationEventOperation.Lock()
+	defer notificationEventOperation.Unlock()
+	state, err := readNotificationState()
+	if err != nil {
+		return nil, err
+	}
+	t := findNotificationTarget(state, source, channel, target)
+	if t["registered"] != true {
+		rows, err := notificationBindings()
+		if err != nil {
+			return nil, err
+		}
+		if slices.ContainsFunc(rows, func(b object) bool {
+			return b["sourceId"] == source && b["target"] == target && b["channel"] == channel
+		}) {
+			t = notificationTarget(state, settings, source, channel, target, notificationClock().Unix())
+		} else {
+			return nil, dispatchObjectError(object{"code": "NOTIFICATION_TARGET_NOT_BOUND_TO_SOURCE", "message": "Bind this target before reading or changing its account route", "next": notificationRouteNext("bind", target)})
+		}
+	}
+	if (action == "verify" || action == "bind" && args["verify"] != false) && settings["notificationsEnabled"] == false {
+		return nil, errors.New("NOTIFICATIONS_DISABLED")
+	}
+	profile := text(t, "accountId")
+	if accountID, specified := args["accountId"].(string); specified {
+		selected, err := notificationClaudeProfile(accountID)
+		if err != nil {
+			return nil, err
+		}
+		if selected != profile {
+			profile = selected
+			t["accountId"], t["reachability"] = profile, newNotificationReachability()
+		}
+	} else if profile == "" && notificationClaudeLegacyRoute != nil {
+		profile, err = notificationClaudeLegacyRoute(target)
+		if err != nil {
+			return nil, err
+		}
+		if profile != "" {
+			t["accountId"] = profile
+		}
+	}
+	accounts, err := readAccounts()
+	if err != nil {
+		return nil, err
+	}
+	return object{"target": target, "accountId": ownerOfAccountProfile(accounts, profile)["id"],
+		"profiles": notificationProviderAccounts(accounts)}, saveNotificationState(state)
 }
 
 func verifyNotificationTarget(ctx context.Context, source, target, channel string, settings object) (object, error) {
@@ -261,13 +266,14 @@ func verifyNotificationTarget(ctx context.Context, source, target, channel strin
 	var profile string
 	var evidence object
 	if channel == "claude-session" && notificationClaudeIdentity != nil && notificationClaudeRun != nil {
-		selected, err := notificationSourceAccount(source, target)
-		if err == nil {
-			profile = selected
-			evidence, err = notificationClaudeIdentity(ctx, profile)
-			if err != nil {
-				return nil, err
-			}
+		var err error
+		profile, err = notificationSourceAccount(source, target)
+		if err != nil {
+			return nil, err
+		}
+		evidence, err = notificationClaudeIdentity(ctx, profile)
+		if err != nil {
+			return nil, err
 		}
 	}
 	err := func() error {

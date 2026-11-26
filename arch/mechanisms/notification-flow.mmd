@@ -13,7 +13,9 @@ flowchart TB
   lifecycle -.->|"always"| inbox["Ingress inbox<br/>arcInbox · inbox_wait"]
   delivery --> gates{"Gates"}
   gates -->|"open"| send["Send"]
+  gates -->|"breaker or sustained token starvation"| desktop["Desktop notification"]
   send --> cli["L1 · claude CLI<br/>Claude cloud session"]
   send --> webhook["L2 · MCP Events webhook<br/>ChatGPT Work"]
+  webhook -->|"ingress temporarily disconnected"| delivery
   class observe gap
   class progress uncertain

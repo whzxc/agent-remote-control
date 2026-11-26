@@ -224,8 +224,9 @@ func readNativeHistory(home string, thread object) (string, error) {
 	return string(data), err
 }
 
-func visitNativeRollout(input io.Reader, session string, visit func(object) error) error {
+func visitNativeRollout(ctx context.Context, input io.Reader, session string, visit func(object) error) error {
 	lines := bufio.NewReader(input)
+	cost := currentRuntimeCost(ctx)
 	matched := false
 	for {
 		line, err := lines.ReadBytes('\n')
@@ -234,6 +235,11 @@ func visitNativeRollout(input io.Reader, session string, visit func(object) erro
 		}
 		if err != nil {
 			return err
+		}
+		if cost != nil {
+			cost.rows.Add(1)
+			cost.read.Add(uint64(len(line)))
+			cost.parsed.Add(uint64(len(line)))
 		}
 		var row object
 		if err := decodeObject(line, &row); err != nil {

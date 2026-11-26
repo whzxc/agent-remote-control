@@ -2,11 +2,56 @@ package core
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
+
+func writeTimelineRollout(t *testing.T, home, text string) string {
+	t.Helper()
+	path := filepath.Join(home, "sessions", "rollout.jsonl")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(text), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return physicalPath(path)
+}
+
+func TestTimelineRoutesAttributeCompleteRolloutLines(t *testing.T) {
+	// Contract: runtime_metrics attributes complete native timeline records to taskRead regardless of the management route.
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	home := t.TempDir()
+	t.Setenv("CODEX_HOME", home)
+	old := fixtureNativeCodexInputs
+	fixtureNativeCodexInputs = func() (string, string, error) { return "unused", home, nil }
+	t.Cleanup(func() { fixtureNativeCodexInputs = old })
+	const thread = "01a00000-0000-7000-8000-000000000001"
+	const rollout = `{"type":"session_meta","payload":{"id":"` + thread + `"}}` + "\n"
+	s := &service{}
+	s.codex.activity.known = map[string]string{thread: writeTimelineRollout(t, home, rollout+"{not yet complete")}
+	projectCatalogs.Store(s, &projectCatalogCache{readAt: time.Now()})
+	t.Cleanup(func() { projectCatalogs.Delete(s) })
+	ctx := context.WithValue(t.Context(), runtimeCostKey{}, runtimeCostContext{set: new(runtimeCostSet)})
+	for i, request := range []struct{ method, route string }{
+		{http.MethodPost, "agents/conversations/timeline"}, {http.MethodGet, "agents/timeline/" + thread},
+	} {
+		if _, err := s.managementRequest(ctx, request.route, request.method, object{"id": thread, "agent": "codex"}); err != nil {
+			t.Fatalf("%s: %v", request.route, err)
+		}
+		metrics, err := s.managementRequest(ctx, "runtime/metrics", http.MethodGet, nil)
+		cost := field(field(metrics, "cost"), "taskRead")
+		passes := uint64(i + 1)
+		if err != nil || field(cost, "passes") != passes || field(cost, "rowsVisited") != passes ||
+			field(cost, "bytesRead") != passes*uint64(len(rollout)) || field(cost, "bytesParsed") != field(cost, "bytesRead") {
+			t.Fatalf("timeline cost for %s = %v, %v", request.route, cost, err)
+		}
+	}
+}
 
 func TestRuntimeCostsAttributeNestedCacheReadsOnce(t *testing.T) {
 	// Contract: runtime_metrics attributes shared reads to the innermost owner and keeps content private.

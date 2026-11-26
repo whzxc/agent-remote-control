@@ -94,6 +94,11 @@ func executeOperation(ctx context.Context, request operationRequest) (any, error
 	if handler == nil {
 		return nil, errors.New(wire(unknownOp(request.name, request.source.enabledOps())))
 	}
+	if request.name == "notify_control" || request.name == "notify_status" {
+		if err := reconcileAccounts(); err != nil {
+			return nil, err
+		}
+	}
 	ctx = runtimeOperationCost(ctx, request.name)
 	var projections []operationProjection
 	for _, prepare := range operationPreparations[request.name] {

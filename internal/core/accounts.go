@@ -95,6 +95,7 @@ func (index *accountIndex) read(path string) ([]any, error) {
 func readAccounts() ([]any, error) { return accountsIndex.read(accountIndexPath()) }
 
 func changeAccounts[T any](modify func(*[]any) (T, error)) (T, error) {
+	defer beginRuntimeWork("accounts")()
 	accountsWriter.Lock()
 	defer accountsWriter.Unlock()
 	return changeAccountsLocked(modify)
@@ -518,6 +519,9 @@ func reconcileAccounts() error {
 	if err != nil {
 		return err
 	}
+	if err := decorateSourceRecords(sources); err != nil {
+		return err
+	}
 	_, err = changeAccounts(func(rows *[]any) (struct{}, error) {
 		for _, p := range observations {
 			facts := field(p, "identity")
@@ -923,7 +927,7 @@ func (manager *accountManager) operation(ctx context.Context, s *service, name s
 		}
 		return manager.query(ctx, object{"id": account["id"]})
 	case "account_notify":
-		return accountNotificationAction(ctx, text(args, "id"), args, text(args, "action"))
+		return accountNotificationAction(ctx, text(args, "id"), args, text(args, "action"), args["action"] != "bind")
 	case "whoami":
 		var value object
 		var err error
@@ -940,14 +944,17 @@ func (manager *accountManager) operation(ctx context.Context, s *service, name s
 	return nil, errors.New("UNKNOWN_ACCOUNT_OP: Read guide for accounts")
 }
 
-func accountNotificationAction(ctx context.Context, id string, input object, action string) (object, error) {
+func accountNotificationAction(ctx context.Context, id string, input object, action string, resolveBeforeDelivery bool) (object, error) {
 	profile, err := accountClaudeProfile(id)
 	if err != nil {
 		return nil, err
 	}
-	row, err := resolveAccount(id)
-	if err != nil {
-		return nil, err
+	var account object
+	if resolveBeforeDelivery {
+		account, err = resolveAccount(id)
+		if err != nil {
+			return nil, err
+		}
 	}
 	var result object
 	if action == "bind" {
@@ -965,10 +972,17 @@ func accountNotificationAction(ctx context.Context, id string, input object, act
 		}
 		result, err = sendAccountNotificationThroughOwner(ctx, body)
 	}
-	if err == nil {
-		result["accountId"] = row["id"]
+	if err != nil {
+		return nil, err
 	}
-	return result, err
+	if account == nil {
+		account, err = resolveAccount(id)
+		if err != nil {
+			return nil, err
+		}
+	}
+	result["accountId"] = account["id"]
+	return result, nil
 }
 
 func decorateAccountLabels(value any, rows []any) {
@@ -1044,18 +1058,14 @@ func init() {
 		return activeAccountManager(s).operation(ctx, s, "accounts", object{"id": params[0]}, requestSource{})
 	})
 	registerRoute("PUT", "accounts/routes", func(ctx context.Context, s *service, body object, _ []string) (any, error) {
-		return accountNotificationAction(ctx, text(body, "accountId"), body, "bind")
+		return accountNotificationAction(ctx, text(body, "accountId"), body, "bind", true)
 	})
 	registerRoutePattern("POST", "accounts/([^/]+)/(send|test)", func(ctx context.Context, s *service, body object, params []string) (any, error) {
-		return accountNotificationAction(ctx, params[0], body, params[1])
+		return accountNotificationAction(ctx, params[0], body, params[1], false)
 	})
 }
 
-func notificationProviderAccounts() ([]any, error) {
-	rows, err := readAccounts()
-	if err != nil {
-		return nil, err
-	}
+func notificationProviderAccounts(rows []any) []any {
 	result := []any{}
 	for _, row := range rows {
 		if liveAccount(row) && find(accountProfiles(row), "agent", "claude") != nil {
@@ -1063,7 +1073,7 @@ func notificationProviderAccounts() ([]any, error) {
 				"identity": object{"email": field(row, "email"), "orgName": field(row, "orgName")}})
 		}
 	}
-	return result, nil
+	return result
 }
 
 func liveSourceAccounts() ([]any, error) {

@@ -7,12 +7,31 @@ import (
 	"errors"
 	"io"
 	"net"
+	"net/http"
 	"strconv"
 	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
 )
+
+func desktopMetrics(t *testing.T, s *service) object {
+	t.Helper()
+	value, err := s.managementRequest(t.Context(), "runtime/metrics", http.MethodGet, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return obj(value)
+}
+
+func runtimeWorkRow(metrics object, name string) object {
+	for _, row := range metrics["work"].([]object) {
+		if row["name"] == name {
+			return row
+		}
+	}
+	return nil
+}
 
 func desktopFixture(t *testing.T, size int, wrap func(net.Conn) net.Conn) *nativeDesktopIPC {
 	t.Helper()
@@ -113,13 +132,42 @@ func TestDesktopCancelledReadsReleasePendingRequests(t *testing.T) {
 		if owner, err := d.owner(t.Context(), "after-cancellation"); err != nil || owner != "fixture-owner" {
 			t.Fatalf("owner %q %v", owner, err)
 		}
+		s := &service{}
+		s.codex.desktop = d
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		done := make(chan error, 2)
+		for range 2 {
+			go func() { _, err := d.request(ctx, "fixture-unanswered-read", nil, ""); done <- err }()
+		}
+		synctest.Wait()
+		time.Sleep(25 * time.Millisecond)
+		ipc := obj(desktopMetrics(t, s)["desktopIpc"])
+		requests := ipc["requests"].([]object)
+		if ipc["connected"] != true || ipc["pendingRequests"] != 2 || ipc["owners"] != 1 || len(requests) != 1 ||
+			requests[0]["method"] != "fixture-unanswered-read" || requests[0]["count"] != 2 ||
+			text(requests[0], "oldestRequestId") == "" || uintOr(requests[0]["oldestAgeMs"], 0) < 25 {
+			t.Fatalf("pending Desktop IPC = %v", ipc)
+		}
+		cancel()
+		for range 2 {
+			if err := <-done; err == nil {
+				t.Fatal("cancelled Desktop read succeeded")
+			}
+		}
+		if pending := field(desktopMetrics(t, s)["desktopIpc"], "pendingRequests"); pending != 0 {
+			t.Fatalf("cancelled reads left %v pending requests", pending)
+		}
 	})
 }
 
 func TestDesktopSnapshotBudgetAndIdleExpiry(t *testing.T) {
 	// Recurring bug class: lifecycle Desktop snapshots stay bounded and expire without rereading old threads.
 	synctest.Test(t, func(t *testing.T) {
+		s := &service{}
 		d := desktopFixture(t, 512*1024, nil)
+		before := field(desktopMetrics(t, s)["cost"], "desktopSnapshots")
+		s.codex.desktop = d
 		retained, err := d.read(t.Context(), "retained-reader", true)
 		if err != nil {
 			t.Fatal(err)
@@ -140,6 +188,91 @@ func TestDesktopSnapshotBudgetAndIdleExpiry(t *testing.T) {
 		time.Sleep(4100 * time.Millisecond)
 		if uintOr(field(d.diagnostics()["snapshots"], "entries"), 99) != 0 || retained["id"] != "retained-reader" || len(text(retained, "fixture")) != 512*1024 {
 			t.Fatal("idle expiry changed an immutable reader or retained a stale cache entry")
+		}
+		after := field(desktopMetrics(t, s)["cost"], "desktopSnapshots")
+		next := field(desktopMetrics(t, s)["cost"], "desktopSnapshots")
+		wake := func(row any, reason string) uint64 { return uintOr(field(field(row, "wakesByReason"), reason), 0) }
+		if wake(after, "timer") <= wake(before, "timer") || wake(after, "poll") <= wake(before, "poll") ||
+			field(after, "scanSetSize") != uint64(0) || wake(next, "poll") != wake(after, "poll")+1 {
+			t.Fatalf("snapshot cache attribution before = %v, after = %v, next = %v", before, after, next)
+		}
+	})
+}
+
+func TestDesktopFrameWorkMeasuresCompleteIncomingFrames(t *testing.T) {
+	// Contract: runtime metrics time complete Desktop IPC frames through handling and exclude incomplete frames.
+	synctest.Test(t, func(t *testing.T) {
+		t.Setenv("ARC_STATE_DIR", t.TempDir())
+		s := &service{}
+		client, peer := net.Pipe()
+		defer peer.Close()
+		defer client.Close()
+		write := func(payload string, size int) error {
+			frame := binary.LittleEndian.AppendUint32(nil, uint32(size))
+			_, err := peer.Write(append(frame, payload...))
+			return err
+		}
+		read := func() (object, error) {
+			var header [4]byte
+			if _, err := io.ReadFull(peer, header[:]); err != nil {
+				return nil, err
+			}
+			data := make([]byte, binary.LittleEndian.Uint32(header[:]))
+			if _, err := io.ReadFull(peer, data); err != nil {
+				return nil, err
+			}
+			var value object
+			err := decodeObject(data, &value)
+			return value, err
+		}
+		handshake := make(chan error, 1)
+		go func() {
+			request, err := read()
+			if err != nil {
+				peer.Close()
+				handshake <- err
+				return
+			}
+			reply := wire(object{"type": "response", "requestId": request["requestId"], "resultType": "success", "result": object{"clientId": "fixture"}})
+			handshake <- write(reply, len(reply))
+		}()
+		d, err := initializeDesktopIPC(t.Context(), client, "fixture", &s.events)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer d.close()
+		if err := <-handshake; err != nil {
+			t.Fatal(err)
+		}
+		s.codex.desktop = d
+		synctest.Wait()
+		work := func() object { return runtimeWorkRow(desktopMetrics(t, s), "desktopFrame") }
+		before := work()
+		const discovery = `{"type":"client-discovery-request","requestId":"frame"}`
+		if err := write(discovery, len(discovery)); err != nil {
+			t.Fatal(err)
+		}
+		synctest.Wait()
+		if active := work(); active["inFlight"] != uint64(1) {
+			t.Fatalf("discovery response did not remain in the frame timing scope: %v", active)
+		}
+		time.Sleep(25 * time.Millisecond)
+		if reply, err := read(); err != nil || reply["requestId"] != "frame" {
+			t.Fatalf("discovery reply = %v, %v", reply, err)
+		}
+		if err := write("{", 1); err != nil {
+			t.Fatal(err)
+		}
+		if err := write("{", 2); err != nil {
+			t.Fatal(err)
+		}
+		peer.Close()
+		<-d.done
+		after := work()
+		if after["calls"] != uintOr(before["calls"], 0)+2 || after["inFlight"] != uint64(0) ||
+			after["totalWallMs"].(float64)-before["totalWallMs"].(float64) < 25 ||
+			after["maxWallMs"].(float64) < 25 || field(desktopMetrics(t, s)["desktopIpc"], "connected") != false {
+			t.Fatalf("frame work before = %v, after = %v", before, after)
 		}
 	})
 }

@@ -9,7 +9,7 @@ npm run test:go
 npm run accept:ui -- --task-dock
 ```
 
-`npm test` is the daily and normal-release entry point. Its 30-second wall-clock budget includes policy checks, file discovery and test startup. The runner reserves one second for npm startup and teardown and terminates the test process tree if the remaining budget expires. A timeout fails the command. It never turns incomplete coverage into a pass.
+`npm test` is the daily and normal-release entry point. The local 30-second wall-clock budget includes policy checks, file discovery and test startup. When `CI=true`, the Check workflow sets `ARC_CI_DAILY_TEST_BUDGET_SECONDS=90` for hosted runners. The runner reserves one second for npm startup and teardown and terminates the test process tree if the remaining budget expires. It reports elapsed time on success or timeout, and a timeout fails the command.
 
 Daily coverage includes the frozen MCP catalog envelopes and operation schemas, pure task/timeline/state logic, release logic, and bounded DOM interaction fixtures. It requires installed npm dependencies and the Go toolchain for Go test policy. It runs without a Rust build cache, Core, installed application, credentials, network service or browser installation. New Node test files join this path by default and must fit the shared budget.
 

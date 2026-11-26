@@ -224,13 +224,13 @@ func (d *nativeDesktopIPC) maintainSnapshots() {
 	tick := time.NewTicker(time.Second)
 	defer tick.Stop()
 	for {
+		d.mu.Lock()
+		d.pruneSnapshots("timer")
+		d.mu.Unlock()
 		select {
 		case <-d.done:
 			return
 		case <-tick.C:
-			d.mu.Lock()
-			d.pruneSnapshots()
-			d.mu.Unlock()
 		}
 	}
 }
@@ -238,7 +238,7 @@ func (d *nativeDesktopIPC) maintainSnapshots() {
 func (d *nativeDesktopIPC) diagnostics() object {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.pruneSnapshots()
+	d.pruneSnapshots("poll")
 	aggregated := map[string]struct {
 		count  int
 		key    string
@@ -262,10 +262,12 @@ func (d *nativeDesktopIPC) diagnostics() object {
 			"maxEntries": 64, "ttlMs": desktopSnapshotTTL.Milliseconds(), "evictions": d.evictions, "oversizedEntry": d.bytes > desktopSnapshotBytes}}
 }
 
-func (d *nativeDesktopIPC) pruneSnapshots() {
-	cost := runtimeCosts.counter("desktopSnapshots")
-	cost.rows.Add(uint64(len(d.snapshots)))
-	cost.scanSet.Add(uint64(len(d.snapshots)))
+func (d *nativeDesktopIPC) pruneSnapshots(reason string) {
+	ctx := withRuntimeCost(context.Background(), "desktopSnapshots", reason)
+	cost := currentRuntimeCost(ctx)
+	size := uint64(len(d.snapshots))
+	cost.rows.Add(size)
+	cost.scanSet.Store(size)
 	for thread, snapshot := range d.snapshots {
 		if time.Since(snapshot.at) >= desktopSnapshotTTL {
 			d.removeSnapshot(thread)
@@ -275,7 +277,7 @@ func (d *nativeDesktopIPC) pruneSnapshots() {
 }
 
 func (d *nativeDesktopIPC) rememberSnapshot(thread string, snapshot desktopNativeSnapshot) {
-	d.pruneSnapshots()
+	d.pruneSnapshots("poll")
 	d.removeSnapshot(thread)
 	for len(d.snapshots) > 0 && (d.bytes+snapshot.bytes > desktopSnapshotBytes || len(d.snapshots) >= 64) {
 		oldest := time.Now()
@@ -477,9 +479,12 @@ func (d *nativeDesktopIPC) wait(ctx context.Context, thread string, minRevision 
 }
 
 func (d *nativeDesktopIPC) snapshot(thread string) object {
+	if !d.alive.Load() {
+		return nil
+	}
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.pruneSnapshots()
+	d.pruneSnapshots("poll")
 	return d.snapshots[thread].state
 }
 

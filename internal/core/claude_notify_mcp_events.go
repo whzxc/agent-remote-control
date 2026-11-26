@@ -26,8 +26,16 @@ const notificationPayloadLimit = 256 * 1024
 var notificationEventOperation sync.Mutex
 var notificationFixtureCallback func(*url.URL) bool
 
-// Segment E resolves the current ingress and principal on every event request or delivery.
-var notificationEventAuthorize func(context.Context, *service, requestSource, string) (requestSource, bool)
+type notificationEventAccess uint8
+
+const (
+	notificationEventSourceUnavailable notificationEventAccess = iota
+	notificationEventPrincipalRevoked
+	notificationEventDisconnected
+	notificationEventConnected
+)
+
+var notificationEventAuthorize func(context.Context, *service, requestSource, string) (requestSource, notificationEventAccess)
 var notificationEventList = sync.OnceValue(func() object {
 	var catalog object
 	if err := decodeObject([]byte(`{"events":[{"name":"notification","description":"ARC notifications. Read guide({topic:notify}) for supported op and args contracts. Currently task_status wakes only for completed, failed, interrupted, stalled, or needs-input tasks from this source. Lifecycle and handoff records remain inbox-only. Work wakeups may take minutes; read full results with query.","delivery":["webhook"],
@@ -249,11 +257,12 @@ func notificationEventsRequest(ctx context.Context, s *service, source requestSo
 	if principal == "" || sourceID == "" {
 		return nil, notificationRPCError(-32001, "authenticated_principal_required")
 	}
-	current, allowed := notificationEventAuthorize(ctx, s, source, principal)
-	if !allowed {
+	current, access := notificationEventAuthorize(ctx, s, source, principal)
+	if access == notificationEventSourceUnavailable || access == notificationEventPrincipalRevoked {
 		return nil, notificationRPCError(-32001, "access_revoked")
 	}
-	if method != "events/unsubscribe" && !policyAllows(current.policy, "codex_read") && !policyAllows(current.policy, "agent_read") {
+	if method != "events/unsubscribe" && (access == notificationEventDisconnected ||
+		!policyAllows(current.policy, "codex_read") && !policyAllows(current.policy, "agent_read")) {
 		if method == "events/list" {
 			return object{"events": []any{}}, nil
 		}
@@ -353,7 +362,7 @@ func notificationEventsRequest(ctx context.Context, s *service, source requestSo
 		verifiedUntil = uint64(nowAt.Unix() + 300)
 	}
 	webhook["verifiedUntil"] = verifiedUntil
-	if _, allowed := notificationEventAuthorize(ctx, s, source, principal); !allowed {
+	if _, access := notificationEventAuthorize(ctx, s, source, principal); access == notificationEventSourceUnavailable || access == notificationEventPrincipalRevoked {
 		return nil, notificationRPCError(-32001, "access_revoked")
 	}
 	expires := time.UnixMilli(time.Now().UnixMilli() + int64(ttl)).UTC()

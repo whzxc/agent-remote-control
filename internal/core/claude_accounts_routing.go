@@ -175,11 +175,6 @@ func claudeNotificationIdentity(ctx context.Context, profile string) (object, er
 func init() {
 	normalizeClaudeNotificationTarget = notificationSessionID
 	notificationClaudeProfile = accountClaudeProfile
-	notificationClaudePublicAccount = func(profile string) object {
-		accounts, _ := readAccounts()
-		return ownerOfAccountProfile(accounts, profile)
-	}
-	notificationClaudeProfiles = notificationProviderAccounts
 	notificationClaudeCandidates = func(ctx context.Context, target string) ([]any, error) {
 		profiles, err := claudeVisibilityCandidates(ctx, target)
 		candidates := make([]any, len(profiles))

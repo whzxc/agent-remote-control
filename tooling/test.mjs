@@ -5,10 +5,20 @@ import { testEnvironment } from './test-environment.mjs';
 import { startupBenchmark, testFiles } from './test-suites.mjs';
 import { buildGoTestBinaries, testGo } from './go-test.mjs';
 
-const budgetError = () => Object.assign(new Error('Daily tests exceeded the 30-second budget. Move slow runtime coverage to test:extended.'), { code: 'TEST_BUDGET_EXCEEDED' });
+function dailyBudgetSeconds(env) {
+  const override = env.ARC_CI_DAILY_TEST_BUDGET_SECONDS;
+  if (env.CI !== 'true' || override === undefined) return 30;
+  const seconds = Number(override);
+  // Node timers accept delays up to a signed 32-bit number of milliseconds.
+  if (!Number.isInteger(seconds) || seconds < 2 || seconds > 2_147_483) {
+    throw new Error('ARC_CI_DAILY_TEST_BUDGET_SECONDS must be an integer from 2 to 2147483.');
+  }
+  return seconds;
+}
 
 // Daily checks share one wall-clock budget, including policy checks and startup.
-export function runTestCommand(file, args, { env = testEnvironment(), timeoutMs } = {}) {
+export function runTestCommand(file, args, { env = testEnvironment(), timeoutMs,
+  budgetError = () => new Error('Test command timed out.') } = {}) {
   if (timeoutMs !== undefined && timeoutMs <= 0) return Promise.reject(budgetError());
   const deadline = timeoutMs === undefined ? Infinity : performance.now() + timeoutMs;
   return new Promise((resolve, reject) => {
@@ -50,10 +60,13 @@ async function main() {
   const native = extended || selected.length > 0;
   if (native) (await import('./heavy-build.mjs')).enterHeavyBuild();
   const started = performance.now();
+  const elapsed = () => `${((performance.now() - started) / 1000).toFixed(2)}s`;
+  const budget = native ? undefined : dailyBudgetSeconds(process.env);
   // Leave one second for npm startup and process teardown.
-  const deadline = native ? undefined : started + 29_000;
+  const deadline = budget === undefined ? undefined : started + (budget - 1) * 1000;
+  const budgetError = () => Object.assign(new Error(`Daily tests timed out after ${elapsed()} (${budget}s budget including npm startup and teardown). Move slow runtime coverage to test:extended.`), { code: 'TEST_BUDGET_EXCEEDED' });
   const env = testEnvironment();
-  const run = (file, argv) => runTestCommand(file, argv, { env, timeoutMs: deadline === undefined ? undefined : deadline - performance.now() });
+  const run = (file, argv) => runTestCommand(file, argv, { env, budgetError, timeoutMs: deadline === undefined ? undefined : deadline - performance.now() });
   await run(process.execPath, ['tooling/check-tests.mjs']);
   await run(process.execPath, ['tooling/check-ui-styles.mjs']);
   if (native) env.CGO_ENABLED = '0';
@@ -76,7 +89,7 @@ async function main() {
   } else {
     await run(process.execPath, ['--test', '--test-concurrency=4', ...await testFiles()]);
   }
-  console.log(`${native ? 'Native' : 'Daily'} tests passed in ${((performance.now() - started) / 1000).toFixed(2)}s${native ? '' : ' (30s budget)'}.`);
+  console.log(`${native ? 'Native' : 'Daily'} tests passed in ${elapsed()}${native ? '' : ` (${budget}s budget)`}.`);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

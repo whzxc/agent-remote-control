@@ -1,9 +1,72 @@
 package core
 
 import (
+	"path/filepath"
 	"reflect"
 	"testing"
 )
+
+func TestAccountWorkMeasuresRefreshWritesAndColdSourceProjection(t *testing.T) {
+	// Contract: runtime_metrics measures refresh transactions and cold source projections while cached projections stay passive.
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	s := &service{}
+	work := func() object { return runtimeWorkRow(desktopMetrics(t, s), "accounts") }
+	before := work()
+	manager := &accountManager{}
+	if err := manager.refreshAccounts(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	refreshed := work()
+	if refreshed["inFlight"] != uint64(0) || uintOr(refreshed["calls"], 0) <= uintOr(before["calls"], 0) ||
+		refreshed["totalWallMs"].(float64) <= before["totalWallMs"].(float64) || refreshed["maxWallMs"].(float64) <= 0 {
+		t.Fatalf("account refresh work before = %v, after = %v", before, refreshed)
+	}
+	if _, err := ensureIngressSource(object{"id": "fixture", "controlSource": "claude"}, true); err != nil {
+		t.Fatal(err)
+	}
+	before = work()
+	if _, err := listControlSources(); err != nil {
+		t.Fatal(err)
+	}
+	cold := work()
+	if cold["calls"] != uintOr(before["calls"], 0)+1 || cold["inFlight"] != uint64(0) ||
+		cold["totalWallMs"].(float64) <= before["totalWallMs"].(float64) {
+		t.Fatalf("cold source work before = %v, after = %v", before, cold)
+	}
+	if _, err := listControlSources(); err != nil {
+		t.Fatal(err)
+	}
+	if warm := work(); !reflect.DeepEqual(warm, cold) {
+		t.Fatalf("warm source projection changed work counters: cold = %v, warm = %v", cold, warm)
+	}
+}
+
+func TestNotificationOperationsRequireAccountReconciliation(t *testing.T) {
+	// Recurring bug class: persistence a failed account reconciliation must stop notification reads and leave bindings untouched.
+	state := filepath.Dir(testNotificationIndexDirectory(t))
+	index := filepath.Join(state, "accounts", "index.json")
+	ctx := t.Context()
+	source := requestSource{origin: object{"sourceId": "fixture"}}
+	const target = "session_010000000000000000000018"
+	if err := save(index, object{}); err != nil {
+		t.Fatal(err)
+	}
+	for _, request := range []operationRequest{
+		{name: "notify_status", source: source},
+		{name: "notify_control", source: source, args: object{"action": "bind", "target": target, "verify": false}},
+	} {
+		if _, err := executeOperation(ctx, request); err == nil || err.Error() != "ACCOUNTS_INVALID: expected an array" {
+			t.Fatalf("%s did not propagate the account error: %v", request.name, err)
+		}
+	}
+	if err := save(index, []any{}); err != nil {
+		t.Fatal(err)
+	}
+	value, err := executeOperation(ctx, operationRequest{name: "notify_status", source: source, args: object{"target": target}})
+	if err != nil || find(field(value, "targets"), "target", target) != nil {
+		t.Fatalf("failed bind left a registered target: %v, %v", value, err)
+	}
+}
 
 func TestClaudeQuotaProfileSelection(t *testing.T) {
 	// Contract: Claude quota lookup prefers the default signed-in profile and then the most recent observation.

@@ -18,22 +18,23 @@ type nativeSchemaCache struct {
 }
 
 type service struct {
-	metadata          object
-	fixtureIngress    func(string) (requestSource, error)
-	runtime           *runtimeState
-	source            requestSource
-	hub               hubPool
-	jobs              controlJobs
-	events            nativeEvents
-	codex             nativeCodexState
-	agents            nativeAgentHost
-	taskRecords       nativeTaskRecords
-	waits             waitCalls
-	schemas           nativeSchemaCache
-	cleanup           []func()
-	indexStartupDone  chan struct{}
-	coordinationStart coordinationStartup
-	desktop           func(context.Context, string, string, object) (any, error)
+	metadata                         object
+	fixtureIngress                   func(string) (requestSource, error)
+	runtime                          *runtimeState
+	source                           requestSource
+	hub                              hubPool
+	jobs                             controlJobs
+	events                           nativeEvents
+	codex                            nativeCodexState
+	agents                           nativeAgentHost
+	taskRecords                      nativeTaskRecords
+	waits                            waitCalls
+	schemas                          nativeSchemaCache
+	cleanup                          []func()
+	indexStartupDone                 chan struct{}
+	sourceNotificationMigrationReady bool
+	coordinationStart                coordinationStartup
+	desktop                          func(context.Context, string, string, object) (any, error)
 }
 
 func (s *service) start(ctx context.Context) error {

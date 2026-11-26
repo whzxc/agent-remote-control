@@ -45,8 +45,11 @@ func TestNotificationWebhookChallengeAndSubscriptionScopes(t *testing.T) {
 	t.Setenv("ARC_FIXTURE_WEBHOOK", server.URL+"/")
 	old := notificationEventAuthorize
 	t.Cleanup(func() { notificationEventAuthorize = old })
-	notificationEventAuthorize = func(_ context.Context, _ *service, source requestSource, principal string) (requestSource, bool) {
-		return source, principal == "owner" || principal == "other"
+	notificationEventAuthorize = func(_ context.Context, _ *service, source requestSource, principal string) (requestSource, notificationEventAccess) {
+		if principal == "owner" || principal == "other" {
+			return source, notificationEventConnected
+		}
+		return source, notificationEventPrincipalRevoked
 	}
 	ctx := context.Background()
 	s := &service{}

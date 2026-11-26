@@ -116,6 +116,9 @@ func runtimeReadCost(ctx context.Context, route, method string) context.Context 
 		owner = "coordinationRead"
 	default:
 		switch {
+		case route == "agents/conversations/timeline" && method == "POST",
+			strings.HasPrefix(route, "agents/timeline/") && method == "GET":
+			owner = "taskRead"
 		case strings.HasPrefix(route, "relay/") && method == "GET":
 			owner = "relayJobRead"
 		case strings.HasPrefix(route, "tasks/") && (method == "GET" || strings.HasSuffix(route, "timeline")):

@@ -31,16 +31,20 @@ jobs:
           npm run check
           npm run check:go-format
       - name: Daily tests
+        env:
+          ARC_CI_DAILY_TEST_BUDGET_SECONDS: '90'
         run: npm test
       - name: Go vet and tests, default and arcfixture
+        if: ${{ !cancelled() }}
         run: npm run test:go
       - name: Windows named-pipe contracts
-        if: runner.os == 'Windows'
+        if: ${{ !cancelled() && runner.os == 'Windows' }}
         run: go test -count=1 -v ./internal/platform
       - name: Browser ingress
+        if: ${{ !cancelled() }}
         run: node tooling/test.mjs --native tests/browser-native.test.ts
       - name: MyGo desktop bundle
-        if: runner.os != 'Linux'
+        if: ${{ !cancelled() && runner.os != 'Linux' }}
         run: npm run desktop:build -- --development --no-image
   cross-build:
     runs-on: ubuntu-24.04

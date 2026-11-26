@@ -105,7 +105,7 @@ func externalCodexConversationTimeline(ctx context.Context, s *service, thread s
 		}
 		defer file.Close()
 		var clock codexActivityClock
-		err = visitNativeRollout(file, thread, func(row object) error {
+		err = visitNativeRollout(ctx, file, thread, func(row object) error {
 			if err := ctx.Err(); err != nil {
 				return err
 			}

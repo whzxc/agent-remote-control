@@ -117,6 +117,42 @@ func TestNotificationBucketAndEscalationRespectRealRefill(t *testing.T) {
 	}
 }
 
+func TestNotificationEscalationReportsDesktopResult(t *testing.T) {
+	// Contract: a blocked target sends a Desktop notification and exposes the Desktop permission failure in notify_status.
+	ctx, source, _, _ := notificationDeliveryFixture(t)
+	settings, err := notificationSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := registerNotificationTarget("source", notificationTestTarget, "claude-session", nil, settings); err != nil {
+		t.Fatal(err)
+	}
+	args := object{"action": "breaker", "target": notificationTestTarget, "enabled": true}
+	if _, err := notificationControl(ctx, operationRequest{source: source, args: args}); err != nil {
+		t.Fatal(err)
+	}
+	var notification object
+	s := &service{desktop: func(_ context.Context, route, method string, body object) (any, error) {
+		if route != "permissions/notify" || method != "POST" {
+			return nil, errors.New("UNEXPECTED_DESKTOP_ROUTE")
+		}
+		notification = body
+		return nil, errors.New("NOTIFICATION_PERMISSION_REQUIRED")
+	}}
+	if err := flushNotifications(ctx, s); err != nil {
+		t.Fatal(err)
+	}
+	if text(notification, "title") == "" || !strings.Contains(text(notification, "body"), notificationTestTarget) ||
+		!strings.Contains(text(notification, "body"), "Reason: breaker") {
+		t.Fatalf("Desktop notification = %v", notification)
+	}
+	status, err := notificationStatus(ctx, operationRequest{source: source, args: object{"target": notificationTestTarget}})
+	target := find(field(status, "targets"), "target", notificationTestTarget)
+	if err != nil || target["escalated"] != true || target["escalationError"] != "NOTIFICATION_PERMISSION_REQUIRED" {
+		t.Fatalf("notification status = %v, %v", status, err)
+	}
+}
+
 func TestNotificationBindingDistinguishesOmittedAndExplicitDestination(t *testing.T) {
 	// Contract: an omitted send inherits the exact source's destination, while explicit null closes the scope.
 	t.Setenv("ARC_STATE_DIR", t.TempDir())

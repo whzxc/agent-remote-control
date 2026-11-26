@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parseTests, testFiles } from './test-cases.mjs';
 
-const required = ['S0', 'B', 'C', 'D', 'E'];
+const required = ['S0', 'B', 'C', 'D', 'E', 'F'];
 const dropKinds = new Set(['implementation-detail', 'redundant', 'acceptance-only']);
 
 function loadInventory() {

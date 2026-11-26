@@ -681,6 +681,7 @@ func projectSourceAccounts(sources []any) error {
 		}
 		return nil
 	}
+	defer beginRuntimeWork("accounts")()
 	_, err = changeAccountsLocked(func(rows *[]any) (any, error) {
 		for _, row := range external {
 			id := observeSourceAccount(rows, row)
@@ -1635,29 +1636,21 @@ func migrateLegacySourceHistory(ctx context.Context, _ *service) error {
 	return nil
 }
 
-// Segment C registers notification-state conversion between source phases 10 and 30.
-var sourceNotificationMigrationReady func() bool
-
-func completeLegacySourceMigration(_ context.Context, _ *service) error {
+func completeLegacySourceMigration(_ context.Context, s *service) error {
+	if !s.sourceNotificationMigrationReady {
+		return errors.New("Notification state migration has not completed")
+	}
 	sourceStore.mu.Lock()
 	defer sourceStore.mu.Unlock()
 	if uintOr(sourceStore.current["version"], 0) == sourceMigrationVersion {
 		return nil
 	}
-	_, notificationErr := os.Stat(filepath.Join(root(), "notifications/subscriptions/state.json"))
-	if notificationErr == nil && (sourceNotificationMigrationReady == nil || !sourceNotificationMigrationReady()) {
-		// Keep the preceding conversion replayable while the notification owner is pending.
-		return nil
-	}
-	if notificationErr != nil && !errors.Is(notificationErr, os.ErrNotExist) {
-		return notificationErr
-	}
-	disk := clone(sourceStore.persisted)
+	disk := clone(sourceStore.current)
 	disk["version"] = sourceMigrationVersion
 	if err := save(sourceIndexPath(), disk); err != nil {
 		return err
 	}
-	sourceStore.current["version"], sourceStore.persisted = sourceMigrationVersion, disk
+	sourceStore.current, sourceStore.persisted = clone(disk), disk
 	return nil
 }
 

@@ -1,11 +1,51 @@
 package core
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
 )
+
+func TestSourceMigrationCommitsOnlyAfterNotificationConversion(t *testing.T) {
+	// Recurring bug class: persistence a failed notification conversion must leave the source migration replayable.
+	dir := testNotificationIndexDirectory(t)
+	ctx := context.WithValue(t.Context(), indexInitializer{}, true)
+	if err := save(sourceIndexPath(), object{"version": 1, "sources": []any{}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveNotificationState(object{"targets": []any{}, "threads": []any{}, "subscriptions": []any{}}); err != nil {
+		t.Fatal(err)
+	}
+	oldEvents := filepath.Join(dir, "mcp-events", "state.json")
+	oldControl := filepath.Join(dir, "control", "state.json")
+	for _, file := range []string{oldEvents, oldControl} {
+		if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(file, []byte("{broken"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := runIndexPhases(ctx, &service{}, startupIndexPreparations); err == nil {
+		t.Fatal("startup ignored invalid legacy event data")
+	}
+	if version, _, err := sourceStateVersion(); err != nil || version != 1 {
+		t.Fatalf("failed conversion published source version %d, %v", version, err)
+	}
+	if err := save(oldEvents, object{"deliveries": []any{}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := runIndexPhases(ctx, &service{}, startupIndexPreparations); err != nil {
+		t.Fatalf("restart should use the current notification controls: %v", err)
+	}
+	if version, _, err := sourceStateVersion(); err != nil || version != sourceMigrationVersion {
+		t.Fatalf("successful conversion left source version %d, %v", version, err)
+	}
+}
 
 func TestSourceAnswerAttributionUsesCurrentLabels(t *testing.T) {
 	// Algorithmic core: Response attribution resolves the current name and preserves absent or local attribution.

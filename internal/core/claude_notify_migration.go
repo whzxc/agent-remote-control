@@ -36,8 +36,8 @@ func migrateNotificationState(ctx context.Context, _ *service) error {
 		}
 	}
 	oldControl, oldEvents := filepath.Join(dir, "control", "state.json"), filepath.Join(dir, "mcp-events", "state.json")
-	legacyControls, controlErr := load(oldControl)
-	legacyEvents, eventErr := load(oldEvents)
+	_, controlErr := os.Stat(oldControl)
+	_, eventErr := os.Stat(oldEvents)
 	for _, err := range []error{controlErr, eventErr} {
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
@@ -70,11 +70,12 @@ func migrateNotificationState(ctx context.Context, _ *service) error {
 			return err
 		}
 	}
-	state, err := readNotificationState()
-	if err != nil {
-		return err
-	}
+	var state object
 	if _, err := os.Stat(notificationStatePath()); errors.Is(err, os.ErrNotExist) && controlErr == nil {
+		legacyControls, err := load(oldControl)
+		if err != nil {
+			return err
+		}
 		state = obj(legacyControls)
 		if state == nil {
 			return errors.New("Invalid notification state")
@@ -84,6 +85,11 @@ func migrateNotificationState(ctx context.Context, _ *service) error {
 			if arr(state[key]) == nil {
 				state[key] = []any{}
 			}
+		}
+	} else {
+		state, err = readNotificationState()
+		if err != nil {
+			return err
 		}
 	}
 	entries, err = os.ReadDir(owner)
@@ -106,6 +112,13 @@ func migrateNotificationState(ctx context.Context, _ *service) error {
 		if b != nil {
 			bindings = append(bindings, b)
 			byTurn[[2]string{text(b, "threadId"), text(b, "turnId")}] = b
+		}
+	}
+	var legacyEvents any
+	if eventErr == nil {
+		legacyEvents, err = load(oldEvents)
+		if err != nil {
+			return err
 		}
 	}
 	for _, row := range arr(field(legacyEvents, "deliveries")) {
@@ -166,20 +179,18 @@ func migrateNotificationState(ctx context.Context, _ *service) error {
 			notificationTarget(state, settings, text(b, "sourceId"), text(b, "channel"), name, now.Unix())
 		}
 	}
+	legacyRoutes, err := claudeNotificationRoutes()
+	if err != nil {
+		return err
+	}
 	for _, raw := range arr(state["targets"]) {
 		t := obj(raw)
 		if t["channel"] != "claude-session" || t["accountId"] != nil {
 			continue
 		}
 		name := text(t, "target")
-		if notificationClaudeLegacyRoute != nil {
-			profile, err := notificationClaudeLegacyRoute(name)
-			if err != nil {
-				return err
-			}
-			if profile != "" {
-				t["accountId"] = profile
-			}
+		if profile := legacyRoutes[name]; profile != "" {
+			t["accountId"] = profile
 		}
 		if t["accountId"] == nil && field(t["reachability"], "state") == "verified" && notificationLegacyVerifiedAccount != nil {
 			if profile, err := notificationLegacyVerifiedAccount(name); err == nil && profile != "" {

@@ -618,7 +618,11 @@ func startNotificationWorkers(ctx context.Context, s *service) error {
 
 func init() {
 	registerStartupIndex(notificationOwnerPath, 30, openNotificationOwner, closeNotificationOwner)
-	registerIndexPreparation(30, migrateNotificationState)
+	registerIndexPreparation(20, func(ctx context.Context, s *service) error {
+		err := migrateNotificationState(ctx, s)
+		s.sourceNotificationMigrationReady = err == nil
+		return err
+	})
 	registerAfterIndexStartup(30, startNotificationWorkers)
 	nativeThreadChanged = append(nativeThreadChanged, wakeNotificationThread)
 	nativeInteractionObserved = append(nativeInteractionObserved, func(_ *rpcConnection, request object) {

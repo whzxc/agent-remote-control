@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -14,7 +15,6 @@ import (
 // The source owner determines revocation and native registration. Delivery
 // never treats an unavailable authority lookup as a positive authorization.
 var notificationSourceAuthority func(context.Context, string) (object, error)
-var notificationEscalate func(context.Context, *service, string) error
 
 var notificationTransportMu sync.Mutex
 var notificationSchedulerWake = make(chan struct{}, 1)
@@ -302,7 +302,7 @@ func prepareNotificationDeliveries(ctx context.Context, settings object, now int
 			waiting[[3]string{source, channel, target}] = hasNotificationPendingTarget(source, channel, target)
 		}
 		reason := notificationTargetAnomaly(t, settings, now, waiting[[3]string{source, channel, target}])
-		if reason != "" && notificationEscalate != nil {
+		if reason != "" {
 			threads := map[string]bool{}
 			count := 0
 			for _, b := range rows {
@@ -359,17 +359,30 @@ func notificationBatchMessage(items []notificationDeliveryItem) string {
 	return body
 }
 
-func notificationWebhookOutcome(ctx context.Context, s *service, batch notificationDeliveryBatch, sub object, item notificationDeliveryItem) notificationDeliveryOutcome {
+func notificationWebhookOutcome(ctx context.Context, s *service, sub object, item notificationDeliveryItem) notificationDeliveryOutcome {
 	if sub == nil {
 		return notificationDeliveryOutcome{status: "failed", reason: "subscription-ended"}
 	}
-	principal := text(sub["webhook"], "principal")
-	source := requestSource{origin: object{"sourceId": batch.source, "eventPrincipal": principal}}
-	current, authorized := notificationEventAuthorize(ctx, s, source, principal)
+	webhook := obj(sub["webhook"])
+	if webhook == nil {
+		return notificationDeliveryOutcome{status: "failed", reason: "missing_webhook"}
+	}
+	principal := text(webhook, "principal")
+	source := requestSource{origin: object{"sourceId": text(sub, "sourceId"), "eventPrincipal": principal}}
+	current, access := notificationEventAuthorize(ctx, s, source, principal)
+	if access == notificationEventSourceUnavailable {
+		return notificationDeliveryOutcome{status: "failed", reason: "access_revoked"}
+	}
+	if access == notificationEventPrincipalRevoked || !notificationSubscriptionActive(sub, notificationClock().UnixMilli()) {
+		return notificationDeliveryOutcome{status: "failed", reason: "access_revoked", remove: true}
+	}
+	if access == notificationEventDisconnected {
+		return notificationDeliveryOutcome{status: "failed", reason: "ingress_disconnected", retry: true}
+	}
 	event := notificationEvent(item.binding, item.delivery)
 	data := notificationEventPayload(text(sub, "op"), event)
-	if !authorized || !policyAllows(current.policy, text(data["query"], "op")) {
-		return notificationDeliveryOutcome{status: "failed", reason: "access_revoked", remove: !authorized}
+	if !policyAllows(current.policy, text(data["query"], "op")) {
+		return notificationDeliveryOutcome{status: "failed", reason: "access_revoked"}
 	}
 	d := item.delivery
 	at := time.Unix(int64(uintOr(d["createdAt"], 0)), 0)
@@ -534,7 +547,7 @@ func sendNotificationBatch(ctx context.Context, s *service, batch notificationDe
 	outcome := notificationDeliveryOutcome{status: "failed", reason: "access_revoked"}
 	if notificationSourceActive(ctx, batch.source) {
 		if batch.channel == "mcp-events" {
-			outcome = notificationWebhookOutcome(ctx, s, batch, sub, batch.items[0])
+			outcome = notificationWebhookOutcome(ctx, s, sub, batch.items[0])
 		} else if err := notificationSessionSend(ctx, batch.channel, profile, batch.target, notificationBatchMessage(batch.items)); err != nil {
 			outcome = notificationDeliveryOutcome{status: "failed", reason: "delivery-failed-or-unconfirmed", retry: true}
 		} else {
@@ -561,7 +574,8 @@ func flushNotifications(ctx context.Context, s *service) error {
 		return err
 	}
 	for _, alert := range alerts {
-		if err := notificationEscalate(ctx, s, alert.body); err != nil {
+		if _, err := s.managementRequest(ctx, "permissions/notify", http.MethodPost,
+			object{"title": "ARC 通知需要处理", "body": alert.body}); err != nil {
 			recordLog("WARN", "Notification escalation failed: "+err.Error(), nil)
 			notificationEventOperation.Lock()
 			state, readErr := readNotificationState()

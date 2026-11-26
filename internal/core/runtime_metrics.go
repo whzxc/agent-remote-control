@@ -156,6 +156,12 @@ func runtimeMetrics(ctx context.Context, request operationRequest) (any, error) 
 	if build, err := processBuildID(); err == nil {
 		buildID = build
 	}
+	costs := &runtimeCosts
+	if scope, ok := ctx.Value(runtimeCostKey{}).(runtimeCostContext); ok {
+		costs = scope.set
+	}
+	// Desktop diagnostics can prune its cache. Attribute that work to the next sample.
+	cost := costs.snapshot()
 	if notificationBindingDiagnostics != nil {
 		bindings = notificationBindingDiagnostics()
 	}
@@ -173,13 +179,9 @@ func runtimeMetrics(ctx context.Context, request operationRequest) (any, error) 
 		}
 		s.events.Unlock()
 	}
-	costs := &runtimeCosts
-	if scope, ok := ctx.Value(runtimeCostKey{}).(runtimeCostContext); ok {
-		costs = scope.set
-	}
 	return object{
 		"schemaVersion": 1, "pid": os.Getpid(), "observedAt": now(), "buildId": buildID, "elapsedMs": time.Since(started).Milliseconds(),
-		"process": runtimeProcessMetrics(), "work": work, "notificationObserve": runtimeObservationSnapshot(), "cost": costs.snapshot(),
+		"process": runtimeProcessMetrics(), "work": work, "notificationObserve": runtimeObservationSnapshot(), "cost": cost,
 		"indexWatches": watchDiagnostics(), "caches": object{"json": cacheDiagnostics(), "notificationBindings": bindings},
 		"instance": instance, "desktopIpc": desktop, "events": events,
 	}, nil
