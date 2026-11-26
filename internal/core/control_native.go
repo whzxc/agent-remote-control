@@ -17,9 +17,11 @@ import (
 )
 
 type nativeCodexState struct {
-	mu       sync.Mutex
-	utility  *rpcConnection
-	launches launches
+	mu           sync.Mutex
+	utility      *rpcConnection
+	launches     launches
+	shutdown     context.Context
+	historyPaths map[string]string
 }
 
 var readNativeDispatchHistory func(string) ([]object, error)
@@ -339,7 +341,8 @@ func init() {
 		return findDesktopCodexBinary != nil && findDesktopCodexBinary() != ""
 	}
 	registerOperation("codex_owner", nativeCodexOwner, nil)
-	registerServiceStartup(func(_ context.Context, service *service) error {
+	registerServiceStartup(func(ctx context.Context, service *service) error {
+		service.codex.shutdown = ctx
 		service.cleanup = append(service.cleanup, service.closeNativeCodex)
 		return nil
 	})

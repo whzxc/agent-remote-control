@@ -45,6 +45,7 @@ var mcpIngressKey struct{}
 
 var controlSummaryRequested func(string, object) bool
 var projectControlSummary func(string, object, object) object
+var compactControlWaitResponse func(object, object)
 var takeControlImages func(string, object) []any
 var projectControlInbox func(context.Context, operationRequest, object) object
 
@@ -227,6 +228,9 @@ func callToolInner(ctx context.Context, service *service, source requestSource, 
 	}
 	if waitLimit != nil {
 		value["waitLimit"] = waitLimit
+	}
+	if compactControlWaitResponse != nil && (name == "codex_wait" || name == "agent_wait") {
+		compactControlWaitResponse(value, args)
 	}
 	var images []any
 	if takeControlImages != nil {

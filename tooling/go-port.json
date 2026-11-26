@@ -270,15 +270,7 @@
         "internal/core/claude_notify_continuation.go",
         "internal/core/claude_notify_continuation_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Provide exact native persisted rollout text and native lifecycle requirement to notificationContinuationEvidence."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/claude_notify/coordination_delivery.rs": {
       "segment": "C",
@@ -344,15 +336,7 @@
       "go": [
         "internal/core/claude_notify_lifecycle.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Provide mergeNotificationLifecycle, validate exact checkpoint identity and project the canonical lifecycle verdict."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/claude_notify/mcp_events.rs": {
       "segment": "C",
@@ -436,15 +420,7 @@
         "internal/core/claude_notify_routing.go",
         "internal/core/claude_notify_routing_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Provide app_env clock and presence via notificationRoutingEnvironment."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/claude_notify/scheduler.rs": {
       "segment": "C",
@@ -665,15 +641,7 @@
       "go": [
         "internal/core/coordination_bulletin_mod.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Supply readCoordinationCodexHead for linked threads without live turn evidence."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/coordination/bulletin/store.rs": {
       "segment": "B",
@@ -2150,7 +2118,11 @@
     },
     "native/src/waiter.rs": {
       "segment": "A",
-      "go": [],
+      "go": [
+        "internal/core/waiter.go",
+        "internal/core/waiter_test.go",
+        "internal/core/control_observation.go"
+      ],
       "status": "pending"
     },
     "native/src/writer.rs": {
