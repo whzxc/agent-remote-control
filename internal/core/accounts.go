@@ -14,6 +14,9 @@ import (
 	"unicode"
 
 	"github.com/google/uuid"
+	"github.com/whzxc/agent-remote-control/internal/canonjson"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 type accountIndex struct {
@@ -25,7 +28,6 @@ type accountIndex struct {
 
 var accountsIndex accountIndex
 var accountsWriter sync.Mutex
-var recordAccountIndexCost func(rows, bytes, changed uint64)
 
 func accountIndexPath() string { return filepath.Join(root(), "accounts/index.json") }
 
@@ -40,41 +42,46 @@ func (index *accountIndex) read(path string) ([]any, error) {
 		return index.rows, nil
 	}
 	rows := []any{}
+	size := 0
 	if stamp != nil {
-		raw, err := load(path)
+		bytes, err := os.ReadFile(path)
 		if err != nil {
 			return nil, err
 		}
+		var value any
+		if err := canonjson.Unmarshal(bytes, &value); err != nil {
+			return nil, err
+		}
 		var ok bool
-		rows, ok = raw.([]any)
-		if !ok {
+		if rows, ok = value.([]any); !ok {
 			return nil, errors.New("ACCOUNTS_INVALID: expected an array")
 		}
+		size = len(bytes)
 	}
-	if recordAccountIndexCost != nil {
-		old, current := make(map[string]any, len(index.rows)), make(map[string]any, len(rows))
-		for _, row := range index.rows {
-			old[text(row, "id")] = row
-		}
-		for _, row := range rows {
-			current[text(row, "id")] = row
-		}
-		var changed, size uint64
-		for key, row := range current {
-			if !reflect.DeepEqual(old[key], row) {
-				changed++
-			}
-		}
-		for key := range old {
-			if _, ok := current[key]; !ok {
-				changed++
-			}
-		}
-		if stamp != nil {
-			size = stamp.Length
-		}
-		recordAccountIndexCost(uint64(len(rows)), size, changed)
+	old, current := make(map[string]any, len(index.rows)), make(map[string]any, len(rows))
+	for _, row := range index.rows {
+		old[text(row, "id")] = row
 	}
+	for _, row := range rows {
+		current[text(row, "id")] = row
+	}
+	changed := 0
+	for key, row := range current {
+		if !reflect.DeepEqual(old[key], row) {
+			changed++
+		}
+	}
+	for key := range old {
+		if _, ok := current[key]; !ok {
+			changed++
+		}
+	}
+	visited := len(rows)
+	if stamp != nil {
+		visited++
+	}
+	recordFileCost(fileCost{Path: path, Rows: visited, BytesRead: size, BytesParsed: size, Changed: changed, CacheMisses: 1})
+	recordRuntimeWork(context.Background(), runtimeWorkCost{Owner: "accounts", Reason: "dirty", ScanSet: len(rows)})
 	after, err := readStamp(path)
 	if err != nil {
 		return nil, err
@@ -115,11 +122,13 @@ func changeAccountsLocked[T any](modify func(*[]any) (T, error)) (T, error) {
 	return value, nil
 }
 
+func lowerProviderText(value string) string { return cases.Lower(language.Und).String(value) }
+
 func accountIdentityKey(provider string, facts any) string {
 	if id := strings.TrimSpace(text(facts, "accountId")); id != "" {
 		return provider + ":id:" + id
 	}
-	email := strings.ToLower(strings.TrimSpace(text(facts, "email")))
+	email := lowerProviderText(strings.TrimSpace(text(facts, "email")))
 	if email == "" {
 		return ""
 	}
@@ -127,7 +136,7 @@ func accountIdentityKey(provider string, facts any) string {
 	if !ok {
 		org = text(facts, "orgName")
 	}
-	org = strings.ToLower(strings.TrimSpace(org))
+	org = lowerProviderText(strings.TrimSpace(org))
 	return provider + ":email:" + hash([]byte(email+"\n"+org))
 }
 
@@ -591,7 +600,7 @@ func accountsNotifications(ctx context.Context) ([]any, error) {
 	if accountNotificationSessions != nil {
 		return accountNotificationSessions(ctx)
 	}
-	_, err := os.Stat(filepath.Join(root(), "notifications/state.json"))
+	_, err := os.Stat(filepath.Join(root(), "notifications/subscriptions/state.json"))
 	if err == nil {
 		return nil, errors.New(PortPending)
 	}
@@ -1055,4 +1064,36 @@ func init() {
 	registerRoutePattern("POST", "accounts/([^/]+)/(send|test)", func(ctx context.Context, s *service, body object, params []string) (any, error) {
 		return accountNotificationAction(ctx, params[0], body, params[1])
 	})
+}
+
+func notificationProviderAccounts() ([]any, error) {
+	rows, err := readAccounts()
+	if err != nil {
+		return nil, err
+	}
+	result := []any{}
+	for _, row := range rows {
+		if liveAccount(row) && find(accountProfiles(row), "agent", "claude") != nil {
+			result = append(result, object{"accountId": field(row, "id"), "alias": field(row, "alias"),
+				"identity": object{"email": field(row, "email"), "orgName": field(row, "orgName")}})
+		}
+	}
+	return result, nil
+}
+
+func liveSourceAccounts() ([]any, error) {
+	if _, err := listControlSources(); err != nil {
+		return nil, err
+	}
+	rows, err := readAccounts()
+	if err != nil {
+		return nil, err
+	}
+	result := []any{}
+	for _, row := range rows {
+		if liveAccount(row) && len(arr(field(row, "sources"))) != 0 {
+			result = append(result, clone(obj(row)))
+		}
+	}
+	return result, nil
 }

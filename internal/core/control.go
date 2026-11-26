@@ -220,7 +220,23 @@ func controlNativeWrite(ctx context.Context, request operationRequest, args obje
 	return runControlMutation(ctx, request, "native", args, func(ctx context.Context, row object) (any, error) {
 		args := obj(row["arguments"])
 		duration := time.Duration(min(uintOr(args["timeoutMs"], 86400000), 86400000)) * time.Millisecond
-		return nativeControlRequest(ctx, request.service, text(args, "method"), args["params"], duration)
+		method, params := text(args, "method"), args["params"]
+		if _, selected := args["project"].(string); selected && slices.Contains([]string{"command/exec", "process/spawn", "thread/fork"}, method) {
+			directory := maps.Clone(args)
+			input := clone(obj(params))
+			if input == nil {
+				input = object{}
+			}
+			if cwd, exists := input["cwd"]; exists {
+				directory["cwd"] = cwd
+			}
+			cwd, err := projectWorkingDirectory(ctx, request.service, directory)
+			if err != nil {
+				return nil, err
+			}
+			input["cwd"], params = cwd, input
+		}
+		return nativeControlRequest(ctx, request.service, method, params, duration)
 	})
 }
 

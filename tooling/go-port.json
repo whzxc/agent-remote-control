@@ -14,7 +14,14 @@
         "internal/core/accounts_codex_test.go"
       ],
       "status": "ported",
-      "note": "Segment A: use nativeCodexHome for detached Codex and native transcript reads. Segment S0: use nativeCodexHome for MCP import and the primary RPC entry points."
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Use nativeCodexHome for detached Codex, native execution and transcript reads."
+          ]
+        }
+      ]
     },
     "native/src/accounts/identity.rs": {
       "segment": "D",
@@ -23,7 +30,14 @@
         "internal/core/accounts_identity_test.go"
       ],
       "status": "ported",
-      "note": "Segment C: confirm source-bound delivery evidence with linkAccountSourceIdentity."
+      "remaining": [
+        {
+          "owner": "C",
+          "items": [
+            "Confirm source-bound delivery evidence through confirmControlSourceAccount."
+          ]
+        }
+      ]
     },
     "native/src/accounts/login.rs": {
       "segment": "D",
@@ -46,16 +60,21 @@
         "internal/core/accounts.go",
         "internal/core/accounts_test.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
         {
-          "owner": "D",
+          "owner": "B",
           "items": [
-            "Connect subscription refresh and account projection to the complete provider scheduler."
+            "Consume accounts file and work costs through the S0 observers and supply accountCoordinationDelivery."
+          ]
+        },
+        {
+          "owner": "C",
+          "items": [
+            "Supply accountNotificationSessions and sendAccountNotification. Use notificationProviderAccounts and liveSourceAccounts for safe projections."
           ]
         }
-      ],
-      "note": "Segment B: connect recordAccountIndexCost and accountCoordinationDelivery. Segment C: connect accountNotificationSessions and sendAccountNotification."
+      ]
     },
     "native/src/agents/activity.rs": {
       "segment": "A",
@@ -186,7 +205,14 @@
         "internal/core/claude_accounts_test.go"
       ],
       "status": "ported",
-      "note": "Segment A: supply agent discovery, search paths and command proxy hooks. Consume nativeClaudeTranscriptRoots without profile attribution."
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Supply Agent executable discovery, search paths and command proxy policy. Consume nativeClaudeTranscriptRoots without account attribution."
+          ]
+        }
+      ]
     },
     "native/src/claude_accounts/routing.rs": {
       "segment": "D",
@@ -194,7 +220,14 @@
         "internal/core/claude_accounts_routing.go"
       ],
       "status": "ported",
-      "note": "Segment C: supply normalizeClaudeNotificationTarget and consume host route bindings."
+      "remaining": [
+        {
+          "owner": "C",
+          "items": [
+            "Supply normalizeClaudeNotificationTarget and consume the host route bindings."
+          ]
+        }
+      ]
     },
     "native/src/claude_accounts/system.rs": {
       "segment": "D",
@@ -211,7 +244,14 @@
         "internal/core/claude_accounts_visibility_fixture.go"
       ],
       "status": "ported",
-      "note": "Segment C: consume claudeVisibilityCandidates after source-owned target validation."
+      "remaining": [
+        {
+          "owner": "C",
+          "items": [
+            "Consume claudeVisibilityCandidates after source-owned target validation."
+          ]
+        }
+      ]
     },
     "native/src/claude_notify/ax_tests.rs": {
       "segment": "C",
@@ -328,12 +368,6 @@
           ]
         },
         {
-          "owner": "D",
-          "items": [
-            "Setup, skills, and uninstall CLI adapters."
-          ]
-        },
-        {
           "owner": "E",
           "items": [
             "Provide ingress configuration defaults and apply ingress validation and lifecycle."
@@ -386,12 +420,6 @@
           "items": [
             "Supply selected-turn tracking evidence and output redaction for context reads."
           ]
-        },
-        {
-          "owner": "D",
-          "items": [
-            "Supply project resolution and Git workspace evidence."
-          ]
         }
       ]
     },
@@ -441,12 +469,6 @@
           "items": [
             "Dispatch policy and notification integration."
           ]
-        },
-        {
-          "owner": "D",
-          "items": [
-            "Account and workspace selection."
-          ]
         }
       ]
     },
@@ -463,15 +485,7 @@
         "internal/core/control_profiles.go",
         "internal/core/egress_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "D",
-          "items": [
-            "Authenticated source authority and profiles."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/control_sources.rs": {
       "segment": "S0",
@@ -634,12 +648,6 @@
           "owner": "B",
           "items": [
             "Supply authenticated coordination activity and refresh task advisory data."
-          ]
-        },
-        {
-          "owner": "D",
-          "items": [
-            "Resolve Local CLI and source authority and decorate public source labels."
           ]
         }
       ]
@@ -905,12 +913,6 @@
           ]
         },
         {
-          "owner": "D",
-          "items": [
-            "Register account and setup operations."
-          ]
-        },
-        {
           "owner": "E",
           "items": [
             "Register network operations."
@@ -934,12 +936,6 @@
           "owner": "A",
           "items": [
             "Register browser authority."
-          ]
-        },
-        {
-          "owner": "D",
-          "items": [
-            "Register private source and credential lifecycle."
           ]
         },
         {
@@ -1007,12 +1003,6 @@
           ]
         },
         {
-          "owner": "D",
-          "items": [
-            "Supply subscription publications and their change notifications."
-          ]
-        },
-        {
           "owner": "E",
           "items": [
             "Resolve authenticated ingress authority and supply peer authorization and browser transport."
@@ -1039,12 +1029,6 @@
           "owner": "E",
           "items": [
             "Enable external HTTPS and OAuth ingress wire coverage."
-          ]
-        },
-        {
-          "owner": "D",
-          "items": [
-            "Supply OAuth source authority for the external wire cases."
           ]
         }
       ]
@@ -1117,12 +1101,6 @@
           "owner": "C",
           "items": [
             "Register notification-state migration, the notifications/tasks index and post-publication rescheduling."
-          ]
-        },
-        {
-          "owner": "D",
-          "items": [
-            "Register source history migration and completion around the notification-state migration."
           ]
         }
       ]
@@ -1295,7 +1273,14 @@
         "internal/core/local_gateway_test.go"
       ],
       "status": "ported",
-      "note": "Segment C: consume fetchCodexGatewayQuota and fetchGatewayTurnUsage from dispatch policy."
+      "remaining": [
+        {
+          "owner": "C",
+          "items": [
+            "Consume fetchCodexGatewayQuota and fetchGatewayTurnUsage in dispatch policy."
+          ]
+        }
+      ]
     },
     "native/src/logs.rs": {
       "segment": "S0",
@@ -1368,8 +1353,21 @@
     },
     "native/src/oauth.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/oauth.go",
+        "internal/core/oauth_test.go",
+        "ui/oauth_assets.go",
+        "desktop/icons/oauth_assets.go"
+      ],
+      "status": "ported",
+      "remaining": [
+        {
+          "owner": "E",
+          "items": [
+            "Supply gatewayOAuthIngress with the live ingress lock and OAuth resource. Route external OAuth and discovery HTTP to ingressOAuth.writeHTTP, forwarding safe observation through the ingress trace. Authenticate transport through transportPrincipal."
+          ]
+        }
+      ]
     },
     "native/src/operations.rs": {
       "segment": "S0",
@@ -1429,8 +1427,25 @@
     },
     "native/src/projects.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/projects.go",
+        "internal/core/projects_test.go"
+      ],
+      "status": "ported",
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Supply nativeControlRequest and prepareProjectImage. Use dispatchProject and localProjectName for Codex create and task display."
+          ]
+        },
+        {
+          "owner": "B",
+          "items": [
+            "Consume onRegisteredProjects for Git watches."
+          ]
+        }
+      ]
     },
     "native/src/proxy.rs": {
       "segment": "A",
@@ -1495,13 +1510,6 @@
       ],
       "status": "ported",
       "remaining": [
-        {
-          "owner": "D",
-          "items": [
-            "Connect installed uninstall integration.",
-            "Provide subscription results and source migration."
-          ]
-        },
         {
           "owner": "F",
           "items": [
@@ -1573,12 +1581,6 @@
           ]
         },
         {
-          "owner": "D",
-          "items": [
-            "Supply source decoration."
-          ]
-        },
-        {
           "owner": "E",
           "items": [
             "Supply ingress provider status.",
@@ -1590,18 +1592,30 @@
     "native/src/setup.rs": {
       "segment": "D",
       "go": [
-        "internal/core/setup.go"
+        "internal/core/setup.go",
+        "internal/core/setup_test.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
         {
-          "owner": "D",
+          "owner": "A",
           "items": [
-            "Port the Rust setup unit cases and verify the CLI adapters against assembled ingress and Agent seams."
+            "Supply native login, setupTaskRecords, setupObserveCodex, setupCreateCodex and setupCodexNavigation."
+          ]
+        },
+        {
+          "owner": "C",
+          "items": [
+            "Supply setupReadNotification for loop completion evidence."
+          ]
+        },
+        {
+          "owner": "E",
+          "items": [
+            "Supply ingress configuration and setupCloudflareStatus, setupCloudflareLogin, setupCloudflareProvision and setupCloudflareStop."
           ]
         }
-      ],
-      "note": "Segment A: supply native login, task records, Codex observations, create and navigation. Segment C: provide notification evidence. Segment E: provide ingress routes, provider descriptors and Cloudflare lifecycle."
+      ]
     },
     "native/src/setup_secret.rs": {
       "segment": "D",
@@ -1628,18 +1642,31 @@
     "native/src/sources.rs": {
       "segment": "D",
       "go": [
-        "internal/core/sources.go"
+        "internal/core/sources.go",
+        "internal/core/sources_test.go",
+        "internal/core/sources_fixture.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
         {
-          "owner": "D",
+          "owner": "B",
           "items": [
-            "Port legacy ARC source migration and peer lifecycle, and port the Rust source unit cases. Wire OAuth management."
+            "Use readSourceAuthority and revokedCoordinationSources for coordination boundaries."
+          ]
+        },
+        {
+          "owner": "C",
+          "items": [
+            "Run notification-state migration at index preparation order 20 and publish readiness through sourceNotificationMigrationReady. Supply sourceDispatchRecords."
+          ]
+        },
+        {
+          "owner": "E",
+          "items": [
+            "Use source authority for ingress lifecycle and pairedSourceAuthority after native device authorization. Verify external OAuth and local-access fixtures."
           ]
         }
-      ],
-      "note": "Segment E: connect ingress admission and transport lifecycle to source authority. Segment C: consume the source identity projection."
+      ]
     },
     "native/src/src_conversations/identity.rs": {
       "segment": "A",
@@ -1675,43 +1702,57 @@
     },
     "native/src/subscriptions/mod.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/subscriptions.go",
+        "internal/core/subscriptions_test.go"
+      ],
+      "status": "ported",
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Supply subscriptionAgentInventory for eligibility and native provider discovery."
+          ]
+        }
+      ]
     },
     "native/src/subscriptions/providers/antigravity.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/subscriptions_providers_antigravity.go",
+        "internal/core/subscriptions_providers_antigravity_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/subscriptions/providers/claude.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/subscriptions_providers_claude.go",
+        "internal/core/subscriptions_providers_claude_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/subscriptions/providers/codex.rs": {
       "segment": "D",
       "go": [
         "internal/core/subscriptions_providers_codex.go"
       ],
-      "status": "pending",
-      "remaining": [
-        {
-          "owner": "D",
-          "items": [
-            "Connect native rate-limit RPC and gateway fallback."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/subscriptions/providers/cursor.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/subscriptions_providers_cursor.go",
+        "internal/core/subscriptions_providers_cursor_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/subscriptions/providers/grok.rs": {
       "segment": "D",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/subscriptions_providers_grok.go"
+      ],
+      "status": "ported"
     },
     "native/src/subscriptions/providers/kimi.rs": {
       "segment": "D",
@@ -1725,12 +1766,12 @@
       "go": [
         "internal/core/subscriptions_providers.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
         {
-          "owner": "D",
+          "owner": "A",
           "items": [
-            "Complete credential/provider routing and native CLI execution."
+            "Supply launchSubscriptionAgent and the shared network proxy so subscription reads use native launch semantics."
           ]
         }
       ]
@@ -1815,12 +1856,6 @@
           "items": [
             "Register Desktop callbacks."
           ]
-        },
-        {
-          "owner": "D",
-          "items": [
-            "Supply subscription stream revisions and current publication."
-          ]
         }
       ]
     },
@@ -1836,7 +1871,20 @@
         "internal/core/uninstall_windows.go"
       ],
       "status": "ported",
-      "note": "Segment A: supply uninstallStopCodexHosts and uninstallStopTaskHosts. Segment F: verify installed Desktop quit and platform handoff after landing."
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Supply uninstallStopCodexHosts and uninstallStopTaskHosts for active detached owners."
+          ]
+        },
+        {
+          "owner": "F",
+          "items": [
+            "Verify installed Desktop quit and platform uninstall handoff at integration."
+          ]
+        }
+      ]
     },
     "native/src/wait_transport.rs": {
       "segment": "S0",
@@ -1975,12 +2023,6 @@
           "owner": "C",
           "items": [
             "Provide notification fixture data and gates."
-          ]
-        },
-        {
-          "owner": "D",
-          "items": [
-            "Provide accounts and source authority fixtures."
           ]
         },
         {

@@ -38,6 +38,7 @@ type subscriptionsManager struct {
 	slots         map[string]*subscriptionSlot
 	latest        subscriptionSnapshot
 	wake          chan struct{}
+	changes       chan struct{}
 	permits       chan struct{}
 	stopped       bool
 	recentProfile string
@@ -118,7 +119,7 @@ func newSubscriptions(parent context.Context) (*subscriptionsManager, error) {
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(parent)
-	manager := &subscriptionsManager{context: ctx, cancel: cancel, settings: settings, slots: map[string]*subscriptionSlot{}, wake: make(chan struct{}, 1), permits: make(chan struct{}, 3)}
+	manager := &subscriptionsManager{context: ctx, cancel: cancel, settings: settings, slots: map[string]*subscriptionSlot{}, wake: make(chan struct{}, 1), changes: make(chan struct{}), permits: make(chan struct{}, 3)}
 	for _, provider := range subscriptionProviders {
 		view := subscriptionProviderSnapshot{
 			ProviderID: provider.id, AgentID: provider.agent, AgentIDs: subscriptionAgents(settings, provider), Name: provider.name, State: "idle",
@@ -239,6 +240,8 @@ func (manager *subscriptionsManager) publishLocked() {
 	if !reflect.DeepEqual(rows, manager.latest.Providers) || !reflect.DeepEqual(manager.settings, manager.latest.Settings) {
 		manager.latest.Revision++
 		manager.latest.Providers, manager.latest.Settings = rows, manager.settings
+		close(manager.changes)
+		manager.changes = make(chan struct{})
 	}
 }
 
@@ -298,6 +301,25 @@ func (manager *subscriptionsManager) inventory(value any) {
 	manager.publishLocked()
 }
 
+func (manager *subscriptionsManager) updateStandaloneEligibility() {
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+	for _, id := range []string{"antigravity", "cursor"} {
+		slot := manager.slots[id]
+		eligible := standaloneSubscriptionAvailable(id)
+		if eligible != slot.view.Eligible {
+			slot.view.Eligible = eligible
+			invalidateSubscription(slot)
+			if eligible {
+				restoreSubscriptionReading(&slot.view)
+			} else {
+				removeSubscriptionReading(id)
+			}
+		}
+	}
+	manager.publishLocked()
+}
+
 func (manager *subscriptionsManager) run(s *service) {
 	var inventoryDue time.Time
 	for manager.context.Err() == nil {
@@ -311,16 +333,15 @@ func (manager *subscriptionsManager) run(s *service) {
 				inventoryDue = time.Now().Add(180 * time.Second)
 			}
 		} else if !now.Before(inventoryDue) {
-			// Cached readings stay eligible until the native inventory takes ownership.
-			if !runtimeFixture {
-				manager.inventory(nil)
-			}
+			// Standalone providers do not depend on the Agent inventory.
+			manager.updateStandaloneEligibility()
 			inventoryDue = time.Now().Add(180 * time.Second)
 		}
 		manager.mu.Lock()
 		manager.expireLocked()
 		enabled := manager.settings.Enabled
-		for _, slot := range manager.slots {
+		for _, id := range sortedSubscriptionIDs(manager.slots) {
+			slot := manager.slots[id]
 			if !enabled || !slot.view.Eligible || slot.cancel != nil {
 				continue
 			}
@@ -342,6 +363,9 @@ func (manager *subscriptionsManager) run(s *service) {
 		}
 		manager.publishLocked()
 		manager.mu.Unlock()
+		if enabled {
+			recordRuntimeWork(manager.context, runtimeWorkCost{Owner: "subscriptions", Reason: "timer", Rows: len(subscriptionProviders), ScanSet: len(subscriptionProviders)})
+		}
 		if enabled {
 			timer := time.NewTimer(5 * time.Second)
 			select {
@@ -678,6 +702,22 @@ func codexDispatchSubscriptionQuota(value any) object {
 }
 
 func init() {
+	openSubscriptionSnapshots = func(_ context.Context, s *service) (func() any, func() <-chan struct{}, error) {
+		manager, err := getSubscriptions(s)
+		if err != nil {
+			return nil, nil, err
+		}
+		read := func() any {
+			snapshot, _ := manager.snapshot()
+			return snapshot
+		}
+		changes := func() <-chan struct{} {
+			manager.mu.Lock()
+			defer manager.mu.Unlock()
+			return manager.changes
+		}
+		return read, changes, nil
+	}
 	registerServiceStartup(func(ctx context.Context, s *service) error {
 		manager, err := newSubscriptions(ctx)
 		if err != nil {

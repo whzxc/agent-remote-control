@@ -150,7 +150,7 @@ func removeStoppedFrontDoor(ctx context.Context) (*os.File, error) {
 		if err := recoverOwnedChildren(ctx, "front-door-children"); err != nil {
 			return err
 		}
-		for _, dir := range []string{frontDoorImages(), filepath.Dir(ipcEndpoint("front-door"))} {
+		for _, dir := range []string{filepath.Dir(frontDoorImages()), filepath.Dir(ipcEndpoint("front-door"))} {
 			if err := os.RemoveAll(dir); err != nil {
 				return err
 			}

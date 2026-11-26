@@ -123,7 +123,7 @@ func probeLocalGateway(ctx context.Context, origin string) *localGateway {
 	}
 	body := gatewayJSON(ctx, origin+"/api/hello", gatewayHelloTimeout)
 	name := strings.TrimSpace(text(body, "name"))
-	if !strings.EqualFold(name, "magpie") {
+	if asciiFold(name) != "magpie" {
 		return nil
 	}
 	gateway := &localGateway{origin: origin, name: name}
@@ -206,7 +206,7 @@ func aggregateGatewayQuotas(body any, provider string) (subscriptionReading, obj
 	summaries := []any{}
 	buckets := make(map[string]*gatewayBucket)
 	for _, entry := range arr(field(body, "data")) {
-		if !strings.EqualFold(text(entry, "provider"), provider) || field(entry, "error") != nil {
+		if asciiFold(text(entry, "provider")) != asciiFold(provider) || field(entry, "error") != nil {
 			continue
 		}
 		total++

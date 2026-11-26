@@ -12,6 +12,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/whzxc/agent-remote-control/internal/canonjson"
 )
 
 type sourceIndex struct {
@@ -31,7 +34,7 @@ func (cache *sourceIndex) initialize(path string, reconcile bool) error {
 	}
 	raw, err := load(path)
 	if errors.Is(err, os.ErrNotExist) {
-		raw, err = object{"version": 2, "sources": []any{}}, nil
+		raw, err = object{"version": 0, "sources": []any{}}, nil
 	}
 	if err != nil {
 		return err
@@ -39,6 +42,12 @@ func (cache *sourceIndex) initialize(path string, reconcile bool) error {
 	store := obj(raw)
 	if arr(store["sources"]) == nil {
 		return errors.New("Invalid source store")
+	}
+	if reconcile {
+		store, err = prepareLegacySourceState(path, store)
+		if err != nil {
+			return err
+		}
 	}
 	previous := clone(store)
 	now := time.Now()
@@ -183,7 +192,7 @@ func sourceProduct(id string) string {
 }
 
 func matchSourceProduct(name string) string {
-	name = strings.ToLower(name)
+	name = lowerProviderText(name)
 	if strings.Contains(name, "antigravity") {
 		return "gemini"
 	}
@@ -192,7 +201,7 @@ func matchSourceProduct(name string) string {
 			continue
 		}
 		for _, key := range []string{"id", "displayName"} {
-			if word := strings.ToLower(text(preset, key)); word != "" && strings.Contains(name, word) {
+			if word := lowerProviderText(text(preset, key)); word != "" && strings.Contains(name, word) {
 				return text(preset, "id")
 			}
 		}
@@ -766,9 +775,13 @@ func sourceIngressRecord(ingress string) (object, error) {
 	return entry, nil
 }
 
-func authenticatedSourceRequest(ctx context.Context, _ *service, ingress string, principal object, _ *string) (requestSource, error) {
+func authenticatedSourceRequest(ctx context.Context, service *service, ingress string, principal object, header *string) (requestSource, error) {
 	entry, err := sourceIngressRecord(ingress)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) && ingress == "default" && service != nil &&
+			principal["type"] == "ingress" && principal["ingressId"] == ingress && header == nil {
+			return service.source, nil
+		}
 		return requestSource{}, err
 	}
 	if entry["enabled"] != true {
@@ -992,6 +1005,14 @@ func gatewaySourceManagement(ctx context.Context, g *gatewayOwner, method, id, a
 }
 
 func init() {
+	registerIndexPreparation(10, migrateLegacySourceHistory)
+	registerIndexPreparation(30, completeLegacySourceMigration)
+	registerSourceAuthority("peer_connect", func(_ context.Context, body object) (any, error) {
+		return connectPeerSource(text(body, "deviceId"), text(body, "publicKey"), text(body, "name"))
+	})
+	registerSourceAuthority("peer_revoke", func(_ context.Context, body object) (any, error) {
+		return revokePeerSource(text(body, "deviceId"))
+	})
 	registerServiceStartup(func(context.Context, *service) error {
 		sourceStore.mu.Lock()
 		defer sourceStore.mu.Unlock()
@@ -1030,6 +1051,10 @@ func init() {
 			decorateAccountLabels(value, accounts)
 		}
 	}
+	decorateControlSource = func(_ context.Context, value object) {
+		managementSourceProjection(value)
+	}
+
 	registerRoute(http.MethodGet, "source", func(context.Context, *service, object, []string) (any, error) {
 		rows, err := listControlSources()
 		return object{"sources": rows}, err
@@ -1045,7 +1070,7 @@ func init() {
 			return gatewaySourceManagement(ctx, g, route.method, params[0], action, body)
 		})
 		registerRoutePattern(route.method, route.pattern, func(ctx context.Context, s *service, body object, params []string) (any, error) {
-			source, err := readSourceAuthority(params[0])
+			source, err := getControlSource(params[0])
 			if err != nil {
 				return nil, err
 			}
@@ -1061,4 +1086,677 @@ func init() {
 			return gatewayRequest(ctx, "source/"+strings.Join(params, "/"), route.method, body)
 		})
 	}
+}
+
+const sourceMigrationVersion = 2
+
+func legacySourceMigrationLabel(source object) string {
+	date := "unknown date"
+	if at, ok := uintValue(source["connectedAt"]); ok && at <= 8210266876799 {
+		date = time.Unix(int64(at), 0).UTC().Format("2006-01-02")
+	}
+	return text(sourcePreset(text(source, "product")), "displayName") + " " + date
+}
+
+func disambiguateLegacySources(rows []any) {
+	ingressCounts := map[string]int{}
+	for _, row := range rows {
+		ingressCounts[text(row, "ingressId")]++
+	}
+	generated := make([]bool, len(rows))
+	labels := map[[2]string]bool{}
+	for i, raw := range rows {
+		source := obj(raw)
+		ingress, label := text(source, "ingressId"), text(source, "label")
+		generated[i] = ingressCounts[ingress] > 1 && label == legacySourceMigrationLabel(source)
+		if !generated[i] {
+			labels[[2]string{ingress, label}] = true
+		}
+	}
+	for i, raw := range rows {
+		if !generated[i] {
+			continue
+		}
+		source := obj(raw)
+		ingress, base := text(source, "ingressId"), legacySourceMigrationLabel(source)
+		label := base
+		for n := 2; labels[[2]string{ingress, label}]; n++ {
+			label = fmt.Sprintf("%s %d", base, n)
+		}
+		source["label"] = label
+		labels[[2]string{ingress, label}] = true
+	}
+}
+
+func loadSourceOptional(path string, fallback any) (any, error) {
+	value, err := load(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return fallback, nil
+	}
+	return value, err
+}
+
+func prepareLegacySourceState(path string, store object) (object, error) {
+	if uintOr(store["version"], 0) == sourceMigrationVersion {
+		return store, nil
+	}
+	stateRoot := filepath.Dir(path)
+	pref, err := loadSourceOptional(filepath.Join(stateRoot, "ui-preferences.json"), object{})
+	if err != nil {
+		return nil, err
+	}
+	labels := field(field(pref, "values"), "arc.approved-source-labels")
+	if raw, ok := labels.(string); ok {
+		var decoded any
+		if err := canonjson.Unmarshal([]byte(raw), &decoded); err != nil {
+			return nil, err
+		}
+		labels = decoded
+	}
+	rows := arr(store["sources"])
+	if rows == nil {
+		return nil, errors.New("Invalid source store")
+	}
+	if len(rows) == 0 {
+		raw, err := loadSourceOptional(filepath.Join(stateRoot, "ingresses/index.json"), []any{})
+		if err != nil {
+			return nil, err
+		}
+		ids := arr(raw)
+		if ids == nil {
+			return nil, errors.New("Invalid ingress index")
+		}
+		for _, value := range ids {
+			ingress, ok := value.(string)
+			if !ok || !ingressIdentifier.MatchString(ingress) {
+				return nil, errors.New("Invalid ingress ID")
+			}
+			dir := filepath.Join(stateRoot, "ingresses", ingress)
+			raw, err := load(filepath.Join(dir, "config.json"))
+			if err != nil {
+				return nil, err
+			}
+			entry := obj(raw)
+			start := len(rows)
+			if entry["auth"] == "oauth" {
+				oauth, err := loadSourceOptional(filepath.Join(dir, "oauth.json"), object{})
+				if err != nil {
+					return nil, err
+				}
+				for _, grant := range arr(field(oauth, "grants")) {
+					id, client := text(grant, "id"), text(grant, "client")
+					product, ok := field(labels, id).(string)
+					if ok {
+						product = sourceProduct(product)
+					} else {
+						product = oauthSourceProduct(entry, text(field(field(oauth, "clients"), client), "name"))
+					}
+					source := newControlSource(rows, entry, object{"type": "oauth-grant", "grantId": id, "clientId": client}, product, field(grant, "connected_at"))
+					source["label"] = legacySourceMigrationLabel(source)
+					rows = append(rows, source)
+				}
+			} else {
+				typ := "ingress"
+				if entry["transport"] == "local" {
+					typ = "local"
+				}
+				rows = append(rows, newControlSource(rows, entry, object{"type": typ}, text(entry, "controlSource"), nil))
+			}
+			if len(rows) == start+1 {
+				obj(rows[start])["label"] = entry["name"]
+			}
+		}
+		rows = append(rows, newControlSource(rows, object{"id": "local-cli"}, object{"type": "local"}, "local-cli", nil))
+		for _, value := range rows {
+			delete(obj(value), "capabilityProfileOffer")
+		}
+		store["sources"] = rows
+		if err := save(path, store); err != nil {
+			return nil, err
+		}
+	}
+	before := wire(store)
+	disambiguateLegacySources(rows)
+	if wire(store) != before {
+		if err := save(path, store); err != nil {
+			return nil, err
+		}
+	}
+	return store, nil
+}
+
+func stableSourceByIngress(rows []any, id string) object {
+	var selected object
+	for _, row := range rows {
+		if field(row, "ingressId") != id {
+			continue
+		}
+		if selected != nil {
+			return nil
+		}
+		selected = obj(row)
+	}
+	return selected
+}
+
+func readLegacySourceRecord(path string) (any, error) {
+	bytes, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var value any
+	if canonjson.Unmarshal(bytes, &value) != nil {
+		recordLog("WARN", "Ignored malformed legacy source-scoped record", nil)
+		return nil, nil
+	}
+	return value, nil
+}
+
+func migrateLegacySourceAttribution(value any, rows []any) {
+	switch value := value.(type) {
+	case object:
+		old, present := value["ingress"]
+		delete(value, "ingress")
+		ingress, ok := old.(string)
+		if !ok {
+			ingress = text(value, "ingressId")
+		}
+		_, hasIngress := value["ingressId"]
+		_, auth := value["authType"]
+		if _, resolved := value["sourceId"]; !resolved && (present || hasIngress || auth) {
+			value["ingressId"], value["sourceId"] = ingress, ""
+			if source := stableSourceByIngress(rows, ingress); ingress != "" && source != nil {
+				value["sourceId"] = source["id"]
+				if _, product := value["controlSource"]; product {
+					value["controlSource"], value["sourceLabel"] = source["product"], source["label"]
+				}
+			}
+		}
+		for key, nested := range value {
+			if slices.Contains([]string{"arguments", "args", "prompt", "input", "output", "result", "request", "finalResponse", "externalUserInputs", "metadata"}, key) {
+				continue
+			}
+			migrateLegacySourceAttribution(nested, rows)
+			if origin := obj(nested); key == "origin" && origin != nil {
+				if _, ok := origin["sourceId"].(string); !ok {
+					origin["sourceId"] = ""
+				}
+			}
+		}
+	case []any:
+		for _, nested := range value {
+			migrateLegacySourceAttribution(nested, rows)
+		}
+	}
+}
+
+func moveLegacySourceRecord(path, target string, value any) error {
+	if _, err := os.Stat(target); errors.Is(err, os.ErrNotExist) {
+		if err := save(target, value); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+	return os.Remove(path)
+}
+
+func migrateLegacySourceRecord(path string, rows []any) error {
+	value, err := readLegacySourceRecord(path)
+	if err != nil || value == nil {
+		return err
+	}
+	before := wire(value)
+	migrateLegacySourceAttribution(value, rows)
+	row := obj(value)
+	parent := filepath.Dir(path)
+	owner := filepath.Base(parent)
+	if owner == "notifications" || strings.HasSuffix(filepath.ToSlash(parent), "/notifications/tasks") || owner == "respond-tokens" {
+		if _, ok := row["sourceId"].(string); row != nil && !ok {
+			row["sourceId"] = ""
+		}
+	}
+	if owner == "respond-tokens" {
+		source := text(row, "sourceId")
+		if source == "" {
+			return os.Remove(path)
+		}
+		request := row["request"]
+		session := field(request, "backendSession")
+		if field(request, "owner") == "desktop" {
+			session = nil
+		}
+		digest := hash([]byte(wire([]any{source, field(request, "owner"), field(request, "id"), session})))
+		if target := filepath.Join(parent, digest+".json"); target != path {
+			return moveLegacySourceRecord(path, target, value)
+		}
+	}
+	if owner == "send-queue" && row != nil {
+		origin := obj(row["origin"])
+		if origin == nil {
+			origin = object{}
+			row["origin"] = origin
+		}
+		if _, ok := origin["sourceId"].(string); !ok {
+			origin["sourceId"] = ""
+		}
+		if text(origin, "sourceId") == "" && slices.Contains([]string{"queued", "blocked", "dispatching"}, text(row, "state")) {
+			row["state"], row["reason"] = "failed", "source-unattributed"
+		}
+	}
+	if owner == "inboxes" {
+		for _, source := range rows {
+			ingress := text(source, "ingressId")
+			previous := hash([]byte(ingress)) + ".json"
+			if filepath.Base(path) == previous && stableSourceByIngress(rows, ingress) != nil {
+				target := filepath.Join(parent, hash([]byte(text(source, "id")))+".json")
+				if target != path {
+					return moveLegacySourceRecord(path, target, value)
+				}
+			}
+		}
+	}
+	if wire(value) != before {
+		return save(path, value)
+	}
+	return nil
+}
+
+func migrateLegacySourceDirectory(ctx context.Context, dir string, sources []any) error {
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if entry.Name() == ".activity-index" {
+			continue
+		}
+		path := filepath.Join(dir, entry.Name())
+		if entry.IsDir() {
+			if err := migrateLegacySourceDirectory(ctx, path, sources); err != nil {
+				return err
+			}
+		} else if entry.Type().IsRegular() && filepath.Ext(path) == ".json" {
+			if err := migrateLegacySourceRecord(path, sources); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func migrateLegacyDispatchOrigins(ctx context.Context, stateRoot string) error {
+	dir := filepath.Join(stateRoot, "dispatches")
+	folders, err := os.ReadDir(dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	for _, folder := range folders {
+		if !folder.IsDir() {
+			continue
+		}
+		base := filepath.Join(dir, folder.Name())
+		entries, err := os.ReadDir(base)
+		if err != nil {
+			return err
+		}
+		for _, entry := range entries {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if !entry.Type().IsRegular() || filepath.Ext(entry.Name()) != ".json" {
+				continue
+			}
+			path := filepath.Join(base, entry.Name())
+			value, err := readLegacySourceRecord(path)
+			if err != nil {
+				return err
+			}
+			row := obj(value)
+			if row == nil || obj(row["origin"]) != nil {
+				continue
+			}
+			id := text(row, "requestId")
+			if _, err := uuid.Parse(id); err != nil {
+				continue
+			}
+			for _, location := range []string{"", "agents/requests"} {
+				receipt, err := load(filepath.Join(stateRoot, location, id+".json"))
+				if errors.Is(err, os.ErrNotExist) {
+					continue
+				}
+				if err != nil {
+					return err
+				}
+				row["origin"] = field(receipt, "origin")
+				if err := save(path, row); err != nil {
+					return err
+				}
+				break
+			}
+		}
+	}
+	return nil
+}
+
+type legacySourceTask struct {
+	path string
+	row  object
+}
+
+func migrateLegacyNotificationKeys(ctx context.Context, stateRoot string) error {
+	dir := filepath.Join(stateRoot, "notifications")
+	path := filepath.Join(dir, "subscriptions/state.json")
+	raw, err := load(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	state := obj(raw)
+	if state == nil {
+		return errors.New("Invalid notification state")
+	}
+	taskDir := filepath.Join(dir, "tasks")
+	entries, err := os.ReadDir(taskDir)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	tasks := []legacySourceTask{}
+	for _, entry := range entries {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if !entry.Type().IsRegular() || filepath.Ext(entry.Name()) != ".json" {
+			continue
+		}
+		path := filepath.Join(taskDir, entry.Name())
+		value, err := readLegacySourceRecord(path)
+		if err != nil {
+			return err
+		}
+		if row := obj(value); row != nil {
+			tasks = append(tasks, legacySourceTask{path, row})
+		}
+	}
+	ids := map[string]string{}
+	subID := func(value ...any) string { return "sub_" + hash([]byte(wire(value))) }
+	for _, value := range arr(state["subscriptions"]) {
+		sub := obj(value)
+		source := text(sub, "sourceId")
+		if source == "" {
+			continue
+		}
+		old := text(sub, "id")
+		var current, legacy string
+		if sub["channel"] == "claude-session" {
+			for _, task := range tasks {
+				row := task.row
+				if row["sourceId"] == sub["sourceId"] && row["turnId"] == sub["turn"] &&
+					(field(sub["args"], "threadId") == row["threadId"] || field(sub["args"], "taskId") == row["threadId"]) {
+					current = subID("claude-session", row["sourceId"], row["agent"], row["threadId"], row["turnId"])
+					legacy = subID("claude-session", row["ingressId"], row["agent"], row["threadId"], row["turnId"])
+					break
+				}
+			}
+		} else {
+			hook := sub["webhook"]
+			action := object{"op": sub["op"], "args": sub["args"]}
+			current = subID(sub["sourceId"], field(hook, "principal"), "notification", action, field(hook, "url"))
+			legacy = subID(sub["ingressId"], field(hook, "principal"), "notification", action, field(hook, "url"))
+		}
+		if current == "" {
+			continue
+		}
+		ids[old], ids[legacy] = current, current
+		if sub["target"] == old {
+			sub["target"] = current
+		}
+		sub["id"] = current
+	}
+	for _, key := range []string{"subscriptions", "targets", "threads"} {
+		if rows := arr(state[key]); rows != nil {
+			state[key] = slices.DeleteFunc(rows, func(row any) bool { return text(row, "sourceId") == "" })
+		}
+	}
+	for _, value := range arr(state["targets"]) {
+		if target, ok := ids[text(value, "target")]; ok {
+			obj(value)["target"] = target
+		}
+	}
+	if err := save(path, state); err != nil {
+		return err
+	}
+	for _, task := range tasks {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		for _, value := range arr(task.row["deliveries"]) {
+			for _, key := range []string{"subscription", "target"} {
+				if id, ok := ids[text(value, key)]; ok {
+					obj(value)[key] = id
+				}
+			}
+		}
+		if err := save(task.path, task.row); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func sourceStateVersion() (uint64, []any, error) {
+	sourceStore.mu.Lock()
+	defer sourceStore.mu.Unlock()
+	if err := sourceStore.initialize(sourceIndexPath(), false); err != nil {
+		return 0, nil, err
+	}
+	store := clone(sourceStore.current)
+	return uintOr(store["version"], 0), arr(store["sources"]), nil
+}
+
+func migrateLegacySourceHistory(ctx context.Context, _ *service) error {
+	version, rows, err := sourceStateVersion()
+	if err != nil || version == sourceMigrationVersion {
+		return err
+	}
+	stateRoot := root()
+	for _, name := range []string{"", "agents/requests", "notifications/tasks"} {
+		if err := indexInvalidate(ctx, filepath.Join(stateRoot, name)); err != nil {
+			return err
+		}
+	}
+	for _, base := range []string{"notifications", "respond-tokens", "send-queue", "dispatches", "agents/requests", "agents/tasks"} {
+		if err := migrateLegacySourceDirectory(ctx, filepath.Join(stateRoot, base), rows); err != nil {
+			return err
+		}
+	}
+	entries, err := os.ReadDir(stateRoot)
+	if err != nil {
+		return err
+	}
+	receipts := []string{}
+	for _, entry := range entries {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		name := entry.Name()
+		if !entry.Type().IsRegular() || filepath.Ext(name) != ".json" {
+			continue
+		}
+		if _, err := uuid.Parse(strings.TrimSuffix(name, ".json")); err == nil {
+			receipts = append(receipts, filepath.Join(stateRoot, name))
+		}
+	}
+	chunk := max((len(receipts)+3)/4, 256)
+	workers, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var group sync.WaitGroup
+	var failure error
+	var failOnce sync.Once
+	for start := 0; start < len(receipts); start += chunk {
+		files := receipts[start:min(start+chunk, len(receipts))]
+		group.Go(func() {
+			for _, path := range files {
+				if workers.Err() != nil {
+					return
+				}
+				if err := migrateLegacySourceRecord(path, rows); err != nil {
+					failOnce.Do(func() { failure = err; cancel() })
+					return
+				}
+			}
+		})
+	}
+	group.Wait()
+	if failure != nil {
+		return failure
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := migrateLegacyNotificationKeys(ctx, stateRoot); err != nil {
+		return err
+	}
+	if err := migrateLegacyDispatchOrigins(ctx, stateRoot); err != nil {
+		return err
+	}
+	prefPath := filepath.Join(stateRoot, "ui-preferences.json")
+	pref, err := loadSourceOptional(prefPath, object{})
+	if err != nil {
+		return err
+	}
+	prefs := obj(field(pref, "values"))
+	if _, exists := prefs["arc.approved-source-labels"]; exists {
+		delete(prefs, "arc.approved-source-labels")
+		return save(prefPath, pref)
+	}
+	return nil
+}
+
+// Segment C registers notification-state conversion between source phases 10 and 30.
+var sourceNotificationMigrationReady func() bool
+
+func completeLegacySourceMigration(_ context.Context, _ *service) error {
+	sourceStore.mu.Lock()
+	defer sourceStore.mu.Unlock()
+	if uintOr(sourceStore.current["version"], 0) == sourceMigrationVersion {
+		return nil
+	}
+	_, notificationErr := os.Stat(filepath.Join(root(), "notifications/subscriptions/state.json"))
+	if notificationErr == nil && (sourceNotificationMigrationReady == nil || !sourceNotificationMigrationReady()) {
+		// Keep the preceding conversion replayable while the notification owner is pending.
+		return nil
+	}
+	if notificationErr != nil && !errors.Is(notificationErr, os.ErrNotExist) {
+		return notificationErr
+	}
+	disk := clone(sourceStore.persisted)
+	disk["version"] = sourceMigrationVersion
+	if err := save(sourceIndexPath(), disk); err != nil {
+		return err
+	}
+	sourceStore.current["version"], sourceStore.persisted = sourceMigrationVersion, disk
+	return nil
+}
+
+func connectPeerSource(device, key, name string) (object, error) {
+	return changeSources(false, func(rows *[]any) (object, error) {
+		for _, value := range *rows {
+			if field(field(value, "credential"), "type") == "peer" {
+				obj(value)["state"] = "revoked"
+			}
+		}
+		peer := object{"id": id(), "ingressId": "peer:" + device, "credential": object{"type": "peer", "deviceId": device, "publicKey": key},
+			"product": "custom", "platform": "custom", "label": name, "createdAt": now(), "connectedAt": time.Now().Unix(), "state": "connected"}
+		*rows = append(*rows, peer)
+		return clone(peer), nil
+	})
+}
+
+func revokePeerSource(device string) (object, error) {
+	return changeSources(false, func(rows *[]any) (object, error) {
+		for _, value := range *rows {
+			credential := field(value, "credential")
+			if field(credential, "type") == "peer" && field(credential, "deviceId") == device {
+				obj(value)["state"] = "revoked"
+			}
+		}
+		return object{"ok": true}, nil
+	})
+}
+
+func pairedSourceAuthority(device, publicKey string) (object, error) {
+	rows, err := listSourceAuthority()
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		credential := field(row, "credential")
+		if field(credential, "type") == "peer" && field(credential, "deviceId") == device && field(credential, "publicKey") == publicKey && field(row, "state") != "revoked" {
+			return obj(row), nil
+		}
+	}
+	return nil, errors.New("DEVICE_UNPAIRED: Approve a fresh member-local device offer; read cli guide.")
+}
+
+func confirmControlSourceAccount(source string, evidence object) (object, error) {
+	row, err := getControlSource(source)
+	if err != nil {
+		return nil, err
+	}
+	if isBuiltinLocalSource(row) {
+		return object{"state": "not-applicable"}, nil
+	}
+	return changeAccounts(func(rows *[]any) (object, error) { return linkAccountSourceIdentity(*rows, source, evidence) })
+}
+
+func coordinationSourceAuthorities() ([]any, error) {
+	return listSourceAuthority()
+}
+
+func revokedCoordinationSources() ([]string, error) {
+	rows, err := listSourceAuthority()
+	if err != nil {
+		return nil, err
+	}
+	result := []string{}
+	for _, row := range rows {
+		if !isBuiltinLocalSource(row) && (field(row, "state") == "revoked" || field(row, "connectionRemoved") == true) {
+			result = append(result, text(row, "id"))
+		}
+	}
+	return result, nil
+}
+
+var sourceDispatchRecords func(string) ([]any, error)
+
+func taskSourceOrigin(thread string, turn *string) any {
+	if sourceDispatchRecords == nil {
+		return nil
+	}
+	rows, err := sourceDispatchRecords(thread)
+	if err != nil {
+		return nil
+	}
+	for _, row := range slices.Backward(rows) {
+		if turn == nil || field(row, "turnId") == *turn {
+			origin := clone(obj(field(row, "origin")))
+			if sources, err := listSourceAuthority(); err == nil {
+				decorateSourceLabels(origin, sources)
+			}
+			return origin
+		}
+	}
+	return nil
 }

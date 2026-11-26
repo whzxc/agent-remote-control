@@ -67,7 +67,7 @@ func setupProviderDescriptor(provider string) object {
 	if setupIngressProviders != nil {
 		return obj(setupIngressProviders()[provider])
 	}
-	return nil
+	return obj(field(field(field(managementCatalog(), "ingressConfiguration"), "providers"), provider))
 }
 
 func setupSelectedIngress(state object, ingresses any) object {
@@ -844,28 +844,6 @@ func waitSetup(ctx context.Context, s *service, body object) (object, error) {
 		}
 	}
 	return current, nil
-}
-
-func normalizeSetupLocale(args []string) ([]string, string, error) {
-	if len(args) == 0 || args[0] != "setup" {
-		return args, "", nil
-	}
-	index := slices.Index(args, "--locale")
-	if index < 0 {
-		return args, "", nil
-	}
-	if index+1 == len(args) {
-		return nil, "", errors.New("INVALID_ARGUMENT: --locale requires zh-CN or en")
-	}
-	lang := args[index+1]
-	if lang != "en" && lang != "zh-CN" {
-		return nil, "", errors.New("INVALID_ARGUMENT: --locale must be zh-CN or en")
-	}
-	normalized := slices.Delete(slices.Clone(args), index, index+2)
-	if slices.Contains(normalized, "--locale") || len(normalized) > 1 && (normalized[1] == "reset" || normalized[1] == "playbook") {
-		return nil, "", errors.New("INVALID_ARGUMENT: --locale is supported once on setup next/apply/wait")
-	}
-	return normalized, lang, nil
 }
 
 func init() {
