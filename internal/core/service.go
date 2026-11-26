@@ -239,9 +239,6 @@ func toolExposureCatalog() object {
 	domain := catalog()
 	exposure := obj(domain["toolExposure"])
 	local := requestSource{local: true, policy: "all"}
-	agents := (registeredOperations["agents"].handle != nil || fallbackOperations["agents"] != nil) && operationAvailable(local, "agents")
-	devices := remoteDeviceControl != nil && operationAvailable(local, "device")
-	hub := hubEnabled(local)
 	tools := make([]object, 0, len(arr(domain["ops"])))
 	for _, spec := range arr(domain["ops"]) {
 		name := text(spec, "name")
@@ -250,18 +247,7 @@ func toolExposureCatalog() object {
 			item = object{"group": "native", "presets": []any{}, "requires": []string{"control_output"}}
 		}
 		item["name"], item["description"], item["via"] = name, field(spec, "description"), via(obj(spec))
-		switch {
-		case name == "device" || name == "devices" || strings.HasPrefix(name, "device_"):
-			item["available"] = devices
-		case name == "mcp_configure" || name == "mcp_tools" || name == "mcp_call":
-			item["available"] = hub
-		case name == "agent_archive":
-			item["available"] = true
-		case name == "agents" || strings.HasPrefix(name, "agent_"):
-			item["available"] = agents
-		default:
-			item["available"] = true
-		}
+		item["available"] = operationFeatureAvailable(local, name)
 		tools = append(tools, item)
 	}
 	return object{"groups": exposure["groups"], "required": exposure["required"], "tools": tools}

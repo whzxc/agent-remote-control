@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 type operationRequest struct {
@@ -63,8 +64,21 @@ func registerOperationProjection(op string, project operationProjection) {
 }
 
 func operationAvailable(source requestSource, name string) bool {
+	return policyAllows(source.policy, name) && operationFeatureAvailable(source, name)
+}
+
+func operationFeatureAvailable(source requestSource, name string) bool {
+	if name == "agents" || strings.HasPrefix(name, "agent_") && name != "agent_archive" {
+		agents := registeredOperations["agents"]
+		if agents.handle == nil && fallbackOperations["agents"] == nil || agents.available != nil && !agents.available(source) {
+			return false
+		}
+		if name == "agents" {
+			return true
+		}
+	}
 	available := registeredOperations[name].available
-	return policyAllows(source.policy, name) && (available == nil || available(source))
+	return available == nil || available(source)
 }
 
 func executeOperation(ctx context.Context, request operationRequest) (any, error) {
