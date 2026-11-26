@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -18,6 +19,13 @@ import (
 )
 
 const downstreamFrameLimit = 32 * 1024 * 1024
+
+// The native proxy module supplies the saved network policy through its own registration.
+var downstreamMCPProxy func(context.Context) (func(*http.Request) (*url.URL, error), error)
+
+func registerDownstreamMCPProxy(resolve func(context.Context) (func(*http.Request) (*url.URL, error), error)) {
+	downstreamMCPProxy = resolve
+}
 
 type mcpSession struct {
 	endpoint  object
@@ -78,7 +86,15 @@ func openMCP(ctx context.Context, endpoint object) (_ *mcpSession, err error) {
 		s.input, s.child = input, command
 		go func() { s.readStdio(output); s.reap() }()
 	} else {
-		s.client = &http.Client{Transport: &http.Transport{Proxy: http.ProxyFromEnvironment, DialContext: (&net.Dialer{Timeout: 10 * time.Second}).DialContext},
+		proxy := http.ProxyFromEnvironment
+		if downstreamMCPProxy != nil {
+			var resolveErr error
+			proxy, resolveErr = downstreamMCPProxy(ctx)
+			if resolveErr != nil {
+				return nil, errors.New("MCP_PROXY_FAILED: Inspect ARC network settings")
+			}
+		}
+		s.client = &http.Client{Transport: &http.Transport{Proxy: proxy, DialContext: (&net.Dialer{Timeout: 10 * time.Second}).DialContext},
 			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	}
 	result, err := s.request(ctx, "initialize", object{"protocolVersion": "2025-11-25", "capabilities": object{}, "clientInfo": object{"name": "arc-mcp-hub", "version": buildVersion}})

@@ -1007,7 +1007,8 @@
       "go": [
         "internal/core/mcp_transport.go"
       ],
-      "status": "verified"
+      "status": "ported",
+      "note": "The hub suite covers the stdio connection. The saved proxy policy for downstream HTTP is registered by A's proxy module."
     },
     "native/src/oauth.rs": {
       "segment": "D",
