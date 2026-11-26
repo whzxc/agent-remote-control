@@ -1556,15 +1556,7 @@
       "go": [
         "internal/core/mcp_transport.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Register saved network proxy policy for the downstream HTTP client."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/oauth.rs": {
       "segment": "D",
@@ -1650,8 +1642,10 @@
     },
     "native/src/proxy.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/proxy.go"
+      ],
+      "status": "ported"
     },
     "native/src/relay/deploy.rs": {
       "segment": "E",
@@ -1707,8 +1701,11 @@
     },
     "native/src/respond_tokens.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/respond_tokens.go",
+        "internal/core/respond_tokens_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/review.rs": {
       "segment": "A",
@@ -1824,8 +1821,7 @@
         {
           "owner": "A",
           "items": [
-            "Supply task and Agent records.",
-            "Validate effective network proxy settings."
+            "Supply task and Agent records."
           ]
         }
       ]
@@ -2140,8 +2136,11 @@
     },
     "native/src/writer.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/writer.go",
+        "internal/core/writer_test.go"
+      ],
+      "status": "ported"
     },
     "desktop/src/app_env.rs": {
       "segment": "F",
