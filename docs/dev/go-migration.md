@@ -74,7 +74,7 @@ The port follows Rust at the main commit from which the `go-core` lane was creat
 - The native TS suites selected in `tooling/test-suites.mjs` are the parity oracle. `npm run test:extended` builds `cmd/arc` and `cmd/contract-fixture` and runs the same files through `ARC_TEST_BINARY` and `ARC_TEST_FIXTURE_BINARY`.
 - Do not edit test assertions, `tests/contract/` or `tooling/test-policy-allowlist.json`. Report a case that depends on a Rust-only artifact to the control source.
 - Port each module's Rust unit tests with the module as Go `_test.go` cases. They follow [Testing](testing.md): Contract, Regression or Property, with one reason tag per case. `check:tests` governs Go tests.
-- `npm run test:go` runs `go vet` and `go test` on repository packages with and without the `arcfixture` tag. `test:extended` includes it. Daily `npm test` keeps its 30-second budget.
+- `npm run test:go` runs `go vet` and `go test` on repository packages with and without the `arcfixture` tag. `test:extended` includes it. Local daily `npm test` keeps its 30-second budget.
 - Every Go commit cross-compiles with `CGO_ENABLED=0` for darwin/arm64, windows/amd64, linux/amd64 and linux/arm64.
 - Every catalog operation resolves to an implementation. The cutover check rejects the retired `GO_PORT_PENDING` code.
 

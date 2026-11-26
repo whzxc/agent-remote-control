@@ -16,9 +16,13 @@ function dailyBudgetSeconds(env) {
   return seconds;
 }
 
+function testBudgetError(message = 'Daily tests exceeded the 30-second budget. Move slow runtime coverage to test:extended.') {
+  return Object.assign(new Error(message), { code: 'TEST_BUDGET_EXCEEDED' });
+}
+
 // Daily checks share one wall-clock budget, including policy checks and startup.
 export function runTestCommand(file, args, { env = testEnvironment(), timeoutMs,
-  budgetError = () => new Error('Test command timed out.') } = {}) {
+  budgetError = testBudgetError } = {}) {
   if (timeoutMs !== undefined && timeoutMs <= 0) return Promise.reject(budgetError());
   const deadline = timeoutMs === undefined ? Infinity : performance.now() + timeoutMs;
   return new Promise((resolve, reject) => {
@@ -64,7 +68,7 @@ async function main() {
   const budget = native ? undefined : dailyBudgetSeconds(process.env);
   // Leave one second for npm startup and process teardown.
   const deadline = budget === undefined ? undefined : started + (budget - 1) * 1000;
-  const budgetError = () => Object.assign(new Error(`Daily tests timed out after ${elapsed()} (${budget}s budget including npm startup and teardown). Move slow runtime coverage to test:extended.`), { code: 'TEST_BUDGET_EXCEEDED' });
+  const budgetError = () => testBudgetError(`Daily tests timed out after ${elapsed()} (${budget}s budget including npm startup and teardown). Move slow runtime coverage to test:extended.`);
   const env = testEnvironment();
   const run = (file, argv) => runTestCommand(file, argv, { env, budgetError, timeoutMs: deadline === undefined ? undefined : deadline - performance.now() });
   await run(process.execPath, ['tooling/check-tests.mjs']);
