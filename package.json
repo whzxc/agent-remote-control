@@ -103,5 +103,9 @@
   "private": true,
   "dependencies": {
     "mygo-runtime": "0.10.0"
+  },
+  "allowScripts": {
+    "fsevents": true,
+    "@ast-grep/lang-rust": false
   }
 }
