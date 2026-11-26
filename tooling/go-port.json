@@ -1238,7 +1238,10 @@
     "native/src/kernel/file_changes.rs": {
       "segment": "S0",
       "go": [
-        "internal/core/kernel_file_changes.go"
+        "internal/core/kernel_file_changes.go",
+        "internal/platform/watch_darwin.go",
+        "internal/platform/watch_other.go",
+        "internal/platform/watch_darwin_test.go"
       ],
       "status": "verified"
     },
@@ -1570,7 +1573,9 @@
         "internal/core/runtime_metrics_darwin.go",
         "internal/core/runtime_metrics_linux.go",
         "internal/core/runtime_metrics_windows.go",
-        "internal/core/runtime_metrics_other.go"
+        "internal/core/runtime_metrics_other.go",
+        "internal/platform/elapsed_other.go",
+        "internal/platform/elapsed_windows.go"
       ],
       "status": "verified"
     },
