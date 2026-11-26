@@ -33,7 +33,7 @@ const identity = developmentConfig(environment);
 const target = path.join(temporary, `${identity.productName}.app`);
 const agent = 'update-fixture';
 const releaseTask = path.join(temporary, 'release-task');
-let taskId;
+let taskId, fixtureHost;
 await mkdir(path.join(stateDir, 'agents'), {recursive:true});
 const agentScript = path.join(temporary, 'agent.mjs');
 await writeFile(agentScript, `
@@ -159,10 +159,32 @@ async function task() {
   // fixture state while using the public API for status and final output.
   const evidence = JSON.parse(await readFile(path.join(stateDir, 'agents/tasks', taskId + '.json'), 'utf8'));
   const host = evidence.taskHost;
+  if (host) fixtureHost = host;
   return { status: view.status, finalResponse: view.finalResponse, taskHost: host && {
     hostProtocol: host.hostProtocol, hostPid: host.hostPid, hostStart: host.hostStart,
     agentPid: host.agentPid, ackedOffset: host.ackedOffset,
   } };
+}
+async function stopFixtureTask() {
+  if (!fixtureHost) return;
+  const owned = [];
+  for (const [pid, matches] of [
+    [fixtureHost.agentPid, command => command.endsWith(' ' + agentScript)],
+    [fixtureHost.hostPid, command => command.startsWith(path.join(stateDir, 'task-host') + path.sep) && command.endsWith(' task-host')],
+  ]) {
+    if (!processAlive(pid)) continue;
+    let executable;
+    try { executable = (await execute('/bin/ps', ['-p', String(pid), '-o', 'command='])).stdout.trim(); }
+    catch (error) { if (!processAlive(pid)) continue; throw error; }
+    if (!matches(executable)) throw new Error('A fixture task PID no longer belongs to the disposable process.');
+    try { process.kill(pid, 'SIGTERM'); owned.push(pid); }
+    catch (error) { if (error.code !== 'ESRCH') throw error; }
+  }
+  const deadline = Date.now() + 10000;
+  while (owned.some(processAlive)) {
+    if (Date.now() >= deadline) throw new Error('A disposable task process did not exit.');
+    await sleep(100);
+  }
 }
 async function until(read, accept, timeout=90_000) {
   const deadline=Date.now()+timeout;let last;
@@ -286,7 +308,7 @@ finally {
       await stopped;
     }
   }
-  try { await stopDevelopmentFrontDoor(stateDir); }
+  try { await stopFixtureTask(); await stopDevelopmentFrontDoor(stateDir); }
   catch (error) { report.ok = false; report.cleanupError = String(error); process.exitCode = 1; }
   server.closeAllConnections();await new Promise(resolve=>server.close(resolve));
   await writeFile(path.join(out,'report.json'),JSON.stringify(report,null,2)+'\n');
