@@ -678,9 +678,9 @@ func hubNativeProfile(from string) (object, error) {
 	var path string
 	switch from {
 	case "codex":
-		config, ok := os.LookupEnv("CODEX_HOME")
-		if !ok {
-			config = filepath.Join(home, ".codex")
+		config, err := nativeCodexHome()
+		if err != nil {
+			return nil, err
 		}
 		path = filepath.Join(config, "config.toml")
 	case "claude":

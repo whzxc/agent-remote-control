@@ -1,6 +1,9 @@
 package core
 
 import (
+	"context"
+	"os"
+
 	"strconv"
 	"time"
 )
@@ -53,4 +56,31 @@ func decodeCodexSubscription(value any) (subscriptionReading, *subscriptionFailu
 		reading.accountBlocked = &b
 	}
 	return reading, failure
+}
+
+func readCodexSubscription(ctx context.Context) (subscriptionReading, *subscriptionFailure) {
+	if reading, dispatch := fetchCodexGatewayQuota(ctx); dispatch != nil {
+		return reading, nil
+	}
+	home, err := nativeCodexHome()
+	if err != nil {
+		return subscriptionReading{}, &subscriptionFailure{Code: "request-failed", Message: err.Error()}
+	}
+	binary := findAccountAgent("codex")
+	if rpcFixtureArgs != nil {
+		binary = os.Getenv("ARC_FIXTURE_BINARY")
+	}
+	if binary == "" {
+		return subscriptionReading{}, &subscriptionFailure{Code: "request-failed", Message: "CODEX_NOT_FOUND"}
+	}
+	rpc, err := startRPC(ctx, binary, home, id(), rpcObserver{})
+	if err != nil {
+		return subscriptionReading{}, &subscriptionFailure{Code: "request-failed", Message: err.Error()}
+	}
+	defer rpc.close()
+	value, err := rpc.call(ctx, "account/rateLimits/read", object{}, 15*time.Second)
+	if err != nil {
+		return subscriptionReading{}, &subscriptionFailure{Code: "request-failed", Message: err.Error()}
+	}
+	return decodeCodexSubscription(value)
 }
