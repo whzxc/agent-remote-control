@@ -41,10 +41,17 @@ func TestExplicitWaitCancellationPreservesTheOriginalMCPReply(t *testing.T) {
 	defer func() {
 		cancel()
 		endpoint.drain()
-		select {
-		case <-started:
-			<-stopped
-		default:
+		// The cancelled read can still be writing its final metrics when the
+		// client receives its reply. Join unary admissions before removing state.
+		deadline := time.NewTimer(time.Second)
+		defer deadline.Stop()
+		for range cap(endpoint.slots) {
+			select {
+			case endpoint.slots <- struct{}{}:
+			case <-deadline.C:
+				t.Error("private requests remained active during fixture cleanup")
+				return
+			}
 		}
 	}()
 	bridge := &gatewayBridge{}
