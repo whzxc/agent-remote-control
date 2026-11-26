@@ -559,8 +559,8 @@
     },
     "native/src/front_door/process.rs": {
       "windows_pipe_connects_when_a_busy_listener_is_replenished": ["internal/platform/ipc_windows_test.go#TestWindowsIPCRetriesBusyPipe"],
-      "windows_pipe_preserves_busy_error_when_wait_expires": {"tests": ["internal/platform/ipc_windows_test.go#TestWindowsIPCOpenBudgetPreservesBusyError", "internal/core/front_door_process_windows_test.go#TestWindowsBusyFrontDoorDoesNotEnterOwnerRecovery"], "remaining": "Run the native Windows owner-supervision case and verify that a busy pipe preserves the current owner."},
-      "windows_pipe_reports_a_missing_endpoint_without_waiting": {"tests": ["internal/platform/ipc_windows_test.go#TestWindowsIPCMissingPipe", "internal/core/front_door_process_windows_test.go#TestWindowsMissingFrontDoorEntersOwnerRecovery"], "remaining": "Run the native Windows supervisor case and verify installed owner startup after a missing pipe."},
+      "windows_pipe_preserves_busy_error_when_wait_expires": ["internal/platform/ipc_windows_test.go#TestWindowsIPCOpenBudgetPreservesBusyError", "internal/core/front_door_process_windows_test.go#TestWindowsBusyFrontDoorDoesNotEnterOwnerRecovery"],
+      "windows_pipe_reports_a_missing_endpoint_without_waiting": ["internal/platform/ipc_windows_test.go#TestWindowsIPCMissingPipe", "internal/core/front_door_process_windows_test.go#TestWindowsMissingFrontDoorEntersOwnerRecovery"],
       "queued_admissions_retain_identity_and_release_both_bounds": ["internal/core/front_door_process_test.go#TestAdmissionQueueRetainsIdentityAndRestoresCapacity"],
       "waiting_requests_expire_without_changing_identity_or_deadline": ["internal/core/front_door_process_test.go#TestWaitingRequestExpiresWithOriginalIdentity"],
       "fresh_front_door_launch_uses_the_installed_build_with_the_same_protocol": ["internal/core/front_door_process_test.go#TestStagedFrontDoorUsesCurrentInstalledBuild"],

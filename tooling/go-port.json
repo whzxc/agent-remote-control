@@ -8,7 +8,7 @@
   "portedPostBaselineRustCommits": {
     "071a5011de1d8ab72ca4a702e57d3aba3ae498ae": "Go embeds the same relocated runtime assets from shared/core.",
     "856104fa7dfa24041125acffbf6f9217d6da03af": "The six Rust core changes are formatting-only. Go consumes the same shared resources.",
-    "2acee2731139c0530c54f680084e10caaf2b9501": "Bounded busy pipe opens, missing-endpoint recovery, and single-handshake attachment publication."
+    "2acee2731139c0530c54f680084e10caaf2b9501": "Bounded busy pipe opens, missing-endpoint recovery, and single-handshake attachment publication. All five Windows named-pipe contracts passed in check (windows-latest), GitHub Actions run 45850979347: https://github.com/whzxc/agent-remote-control/actions/runs/45850979347/job/140016944438#step:9:1."
   },
   "files": {
     "native/src/acceptance_fault.rs": {
@@ -1083,15 +1083,7 @@
         "internal/core/front_door_process_windows_test.go",
         "internal/platform/ipc_windows_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "G",
-          "items": [
-            "Execute the named-pipe tests on Windows."
-          ]
-        }
-      ]
+      "status": "verified"
     },
     "native/src/front_door/protocol.rs": {
       "segment": "S0",
