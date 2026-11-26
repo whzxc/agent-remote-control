@@ -15,29 +15,29 @@ func deviceManagementCatalog(catalog object) {
 	}
 	operations := arr(catalog["operations"])
 	for _, action := range deviceActions {
-		props, required := object{}, []string{}
+		props, required := object{}, []any{}
 		switch action {
 		case "pair":
 			props["pairingString"] = object{"type": "string", "maxLength": 16384}
-			required = []string{"pairingString"}
+			required = []any{"pairingString"}
 		case "tasks":
 			props["device"] = object{"type": "string", "minLength": 1}
-			required = []string{"device"}
+			required = []any{"device"}
 		case "address":
 			props["device"] = object{"type": "string", "minLength": 1}
-			props["address"] = object{"type": []string{"string", "null"}}
-			required = []string{"device", "address"}
+			props["address"] = object{"type": []any{"string", "null"}}
+			required = []any{"device", "address"}
 		case "revoke":
 			props["deviceId"] = object{"type": "string", "pattern": "^[a-f0-9]{64}$"}
-			required = []string{"deviceId"}
+			required = []any{"deviceId"}
 		case "configure":
 			props["showUpstreamSources"] = object{"type": "boolean", "default": false}
 			props["port"] = object{"type": "integer", "minimum": 1, "maximum": 65535}
 			props["name"] = object{"type": "string", "minLength": 1, "maxLength": 120}
 		}
-		outer := []string{}
+		outer := []any{}
 		if len(required) > 0 {
-			outer = []string{"body"}
+			outer = []any{"body"}
 		}
 		op := object{
 			"name": "device." + action, "method": http.MethodPost, "route": "device/" + action, "localOnly": true,
