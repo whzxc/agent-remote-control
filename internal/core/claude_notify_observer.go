@@ -3,10 +3,12 @@ package core
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -14,6 +16,8 @@ import (
 // reconciliation evidence without starting or resuming a writer.
 var observeNotificationTurn func(context.Context, *service, object) (object, error)
 var notificationObservePeer func(string, object)
+var notificationCompletionChanges func(context.Context, *service, string, string) any
+var notificationIssueResponseToken func(string, object) error
 
 // A locates the canonical read-only native history and reports the writer
 // observation without acquiring it.
@@ -62,6 +66,10 @@ func handleNotificationObservation(ctx context.Context, s *service, thread, turn
 		if wait || err != nil {
 			return err
 		}
+	}
+	if s != nil && notificationAgent(b) == "codex" && nativeState == "completed" && !notificationTerminal(text(b["observation"], "state")) &&
+		!notificationEmptyCompletion(b, observation) && notificationCompletionChanges != nil {
+		incoming["changes"] = notificationCompletionChanges(ctx, s, thread, turn)
 	}
 	if s != nil && notificationAgent(b) == "codex" && notificationTerminal(nativeState) && b["device"] == nil &&
 		!notificationTerminal(text(b["observation"], "state")) && mergeDispatchLifecycle != nil {
@@ -113,7 +121,7 @@ func projectNotificationObservation(b, observed object, nativeTerminal bool) err
 	}
 	b["observation"] = diag
 	if field(b["successor"], "inherited") == true {
-		rows, err := notificationBindings()
+		rows, err := notificationBindingsForThread(text(b, "threadId"))
 		if err != nil {
 			return err
 		}
@@ -352,27 +360,107 @@ func recoverNotificationObservations(ctx context.Context, s *service) error {
 	if err != nil {
 		return err
 	}
+	permits := make(chan struct{}, 8)
+	var workers sync.WaitGroup
+	defer workers.Wait()
 	for _, b := range rows {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
 		if b["scopeEnd"] != nil || b["device"] != nil {
 			continue
 		}
-		observing, cancel := context.WithTimeout(ctx, 10*time.Second)
-		watch := captureNotificationEvidence(observing, s, b)
-		observation, err := observeNotificationTurn(observing, s, b)
-		cancel()
-		if err != nil {
-			observation = object{"state": "unconfirmed", "reason": err.Error()}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case permits <- struct{}{}:
 		}
-		if err := handleNotificationObservation(ctx, s, text(b, "threadId"), text(b, "turnId"), observation); err != nil {
-			if err.Error() != PortPending {
-				recordLog("WARN", fmt.Sprintf("Notification observer: %s", err), nil)
+		workers.Go(func() {
+			defer func() { <-permits }()
+			observing, cancel := context.WithTimeout(ctx, 10*time.Second)
+			watch := captureNotificationEvidence(observing, s, b)
+			observation, err := observeNotificationTurn(observing, s, b)
+			cancel()
+			if ctx.Err() != nil {
+				return
 			}
+			if err != nil {
+				observation = object{"state": "unconfirmed", "reason": err.Error()}
+				if errors.Is(err, context.DeadlineExceeded) {
+					observation["reason"] = "native-observation-timeout"
+				}
+				if err := recordUnavailableNotification(b, observation); err != nil {
+					recordLog("WARN", "Notification observer: "+err.Error(), nil)
+				}
+			} else {
+				if notificationIssueResponseToken != nil {
+					for _, item := range arr(observation["interaction"]) {
+						if req := obj(item); req != nil {
+							if err := notificationIssueResponseToken(text(b, "sourceId"), req); err != nil {
+								recordLog("WARN", "Notification interaction: "+err.Error(), nil)
+								return
+							}
+						}
+					}
+				}
+				if err := handleNotificationObservation(ctx, s, text(b, "threadId"), text(b, "turnId"), observation); err != nil && err.Error() != PortPending {
+					recordLog("WARN", fmt.Sprintf("Notification observer: %s", err), nil)
+				}
+			}
+			finishNotificationEvidence(ctx, s, b, watch)
+		})
+	}
+	return nil
+}
+
+func recordUnavailableNotification(previous, observation object) error {
+	notificationEventOperation.Lock()
+	defer notificationEventOperation.Unlock()
+	b, err := readNotificationBinding(text(previous, "threadId"), text(previous, "turnId"))
+	if err != nil || b == nil {
+		return err
+	}
+	if notificationObservationChanged(obj(previous["observation"]), obj(b["observation"])) {
+		return nil
+	}
+	checkpoint, state, reason, conflict := mergeNotificationLifecycle(notificationAgent(b), text(b, "threadId"), text(b, "turnId"), b["lifecycle"], observation)
+	if checkpoint != nil {
+		b["lifecycle"] = checkpoint
+	}
+	diag := dispatchSetSection(b, "observation")
+	attempts := min(uintOr(diag["reconciliationAttempts"], 0)+1, 3)
+	diag["reconciliation"], diag["reconciliationAttempts"], diag["lastError"] = "pending-after-restart", attempts, observation["reason"]
+	if attempts == 3 {
+		diag["reconciliation"] = "unavailable-after-restart"
+	}
+	diag["state"], diag["reason"], diag["conflict"] = state, reason, conflict
+	return persistNotificationBinding(b)
+}
+
+func prepareNotificationRestart() error {
+	if mergeNotificationLifecycle == nil {
+		return nil
+	}
+	notificationEventOperation.Lock()
+	defer notificationEventOperation.Unlock()
+	rows, err := activeNotificationBindings()
+	if err != nil {
+		return err
+	}
+	for _, b := range rows {
+		if b["device"] != nil {
 			continue
 		}
-		finishNotificationEvidence(ctx, s, b, watch)
+		thread, turn := text(b, "threadId"), text(b, "turnId")
+		checkpoint, state, reason, conflict := mergeNotificationLifecycle(notificationAgent(b), thread, turn, b["lifecycle"], object{"state": "unconfirmed"})
+		if checkpoint != nil {
+			b["lifecycle"] = checkpoint
+		}
+		diag := dispatchSetSection(b, "observation")
+		diag["state"], diag["reason"], diag["conflict"] = state, reason, conflict
+		if diag["reconciliation"] != "unavailable-after-restart" && (!notificationTerminal(state) || b["continuationBound"] != true && b["scopeEnd"] == nil && uintOr(b["continuationUntil"], 0) > 0) {
+			diag["reconciliation"] = "pending-after-restart"
+		}
+		if err := persistNotificationBinding(b); err != nil {
+			return err
+		}
 	}
 	return nil
 }

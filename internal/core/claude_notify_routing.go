@@ -108,7 +108,7 @@ func notificationRoutingBinding(agent, task string, turn any) (object, error) {
 	if turn != nil {
 		return nil, nil
 	}
-	rows, err := notificationBindings()
+	rows, err := notificationBindingsForThread(task)
 	if err != nil {
 		return nil, err
 	}

@@ -2,8 +2,12 @@ package core
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestNotificationSessionForms(t *testing.T) {
@@ -110,5 +114,109 @@ func TestNotificationBucketAndEscalationRespectRealRefill(t *testing.T) {
 	target["breaker"] = true
 	if reason := notificationTargetAnomaly(target, settings, 1066, false); reason != "breaker" {
 		t.Fatalf("rearmed breaker escalation = %s", reason)
+	}
+}
+
+func TestNotificationBindingDistinguishesOmittedAndExplicitDestination(t *testing.T) {
+	// Contract: an omitted send inherits the exact source's destination, while explicit null closes the scope.
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	ctx := withOrigin(context.Background(), object{"sourceId": "owner"})
+	const target = "session_010000000000000000000018"
+	args := object{"notify": object{"channel": "claude-session", "target": target}}
+	if err := bindNotification(ctx, args, "thread", "first", "/fixture", object{"op": "codex_create"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := bindNotification(ctx, object{}, "thread", "next", "/fixture", object{"op": "codex_send"}); err != nil {
+		t.Fatal(err)
+	}
+	moved, err := readNotification(ctx, "thread", "next", "")
+	if err != nil || moved["target"] != target {
+		t.Fatalf("same source continuation = %v, %v", moved, err)
+	}
+	foreign := withOrigin(context.Background(), object{"sourceId": "foreign"})
+	if other, err := readNotification(foreign, "thread", "next", ""); err != nil || other != nil {
+		t.Fatalf("foreign read = %v, %v", other, err)
+	}
+	if err := bindNotification(ctx, object{"notify": nil}, "thread", "quiet", "/fixture", object{"op": "codex_send"}); err != nil {
+		t.Fatal(err)
+	}
+	if quiet, err := readNotification(ctx, "thread", "quiet", ""); err != nil || quiet != nil {
+		t.Fatalf("explicit quiet = %v, %v", quiet, err)
+	}
+	b, err := readNotificationBinding("thread", "next")
+	if err != nil || b["scopeEnd"] != "new-unrelated-dispatch" {
+		t.Fatalf("retired scope = %v, %v", b, err)
+	}
+}
+
+func TestLegacyNotificationBindingImportsWithoutReplacingCurrentState(t *testing.T) {
+	// Recurring bug class: persistence interrupted notification migration replay replaced an existing durable binding.
+	directory := testNotificationIndexDirectory(t)
+	ctx := context.Background()
+	bind := newNotificationBinding("thread", "turn", "/fixture", "source", time.Now())
+	bind["title"] = "Legacy"
+	legacy := filepath.Join(directory, "legacy-binding.json")
+	if err := save(legacy, bind); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrateNotificationState(ctx, &service{}); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := readNotificationBinding("thread", "turn")
+	if err != nil || loaded["title"] != "Legacy" {
+		t.Fatalf("legacy binding = %v, %v", loaded, err)
+	}
+	loaded["title"] = "Current"
+	if err := persistNotificationBinding(loaded); err != nil {
+		t.Fatal(err)
+	}
+	if err := save(legacy, bind); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrateNotificationState(ctx, &service{}); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err = readNotificationBinding("thread", "turn")
+	if err != nil || loaded["title"] != "Current" {
+		t.Fatalf("current binding = %v, %v", loaded, err)
+	}
+}
+
+func TestNotificationVerificationRequiresOneTimeReceivedCode(t *testing.T) {
+	// Contract: a send response leaves reachability unverified until the exact target acknowledges its single-use code.
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	ctx := context.Background()
+	target := "antigravity_" + id()
+	previous := notificationAntigravitySend
+	t.Cleanup(func() { notificationAntigravitySend = previous })
+	var received string
+	notificationAntigravitySend = func(_ context.Context, sentTarget, body string) error {
+		if sentTarget != target {
+			return errors.New("unexpected target")
+		}
+		for _, line := range strings.Split(body, "\n") {
+			if code, ok := strings.CutPrefix(line, "◎ ping · "); ok {
+				received = code
+			}
+		}
+		return nil
+	}
+	source := requestSource{origin: object{"sourceId": "scope"}}
+	bound, err := notificationControl(ctx, operationRequest{source: source, args: object{"action": "bind", "target": target}})
+	if err != nil || field(bound, "bound") != true || field(field(bound, "verification"), "reachability") != "unverified" || received == "" || strings.Contains(wire(bound), received) {
+		t.Fatalf("verified before acknowledgement: bound=%v, err=%v", field(bound, "bound"), err)
+	}
+	ack := operationRequest{source: source, args: object{"target": target, "code": received}}
+	foreign := ack
+	foreign.source.origin = object{"sourceId": "foreign"}
+	if _, err := notificationAcknowledge(ctx, foreign); err == nil {
+		t.Fatal("foreign source acknowledged challenge")
+	}
+	result, err := notificationAcknowledge(ctx, ack)
+	if err != nil || field(result, "reachability") != "verified" {
+		t.Fatalf("ack = %v, %v", result, err)
+	}
+	if _, err := notificationAcknowledge(ctx, ack); err == nil || controlFailure(err)["code"] != "HANDSHAKE_INVALID_OR_EXPIRED" {
+		t.Fatalf("replayed challenge = %v", err)
 	}
 }

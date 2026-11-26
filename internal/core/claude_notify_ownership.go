@@ -115,7 +115,7 @@ func observeNotificationOwnership(thread string, ownership object) (object, erro
 		}
 	}
 	if len(history) != 0 {
-		bindings, err := notificationBindings()
+		bindings, err := notificationBindingsForThread(thread)
 		if err != nil {
 			return nil, err
 		}
@@ -175,7 +175,7 @@ func enqueueNotificationHandoffs(binding object, history []any) error {
 func endNotificationScope(thread, reason string) error {
 	notificationEventOperation.Lock()
 	defer notificationEventOperation.Unlock()
-	rows, err := notificationBindings()
+	rows, err := notificationBindingsForThread(thread)
 	if err != nil {
 		return err
 	}

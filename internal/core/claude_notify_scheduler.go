@@ -152,10 +152,14 @@ func prepareNotificationDeliveries(ctx context.Context, settings object, now int
 				d["status"] = "inbox-only"
 				continue
 			}
-			if notificationKind(d) == "interrupted" && b["scopeEnd"] != nil {
-				d["status"] = "resolved"
-				notifyQueue(d, "superseded")
-				continue
+			if notificationKind(d) == "interrupted" {
+				superseded, err := resolveInterruptedNotification(b, d)
+				if err != nil {
+					return nil, nil, err
+				}
+				if superseded {
+					continue
+				}
 			}
 			if interaction := obj(d["interaction"]); interaction != nil {
 				if err := observeNotificationRouting(notificationAgent(b), text(b, "threadId"), interaction); err != nil {
@@ -479,10 +483,26 @@ func sendNotificationBatch(ctx context.Context, s *service, batch notificationDe
 				}
 			}
 			sub = find(state["subscriptions"], "id", text(d, "subscription"))
+			if d != nil && notificationKind(d) == "interrupted" {
+				superseded, err := resolveInterruptedNotification(b, d)
+				if err != nil {
+					return err
+				}
+				if superseded {
+					reason = "superseded"
+					if err := persistNotificationBinding(b); err != nil {
+						return err
+					}
+					return nil
+				}
+			}
 			mode := notificationThreadMode(notificationThread(state, batch.source, text(b, "threadId"), start.Unix(), false), start.Unix())
 			if b == nil || d == nil || !notificationAdmits(b, d) || sub == nil || !notificationSubscriptionActive(sub, start.UnixMilli()) || notificationSubscriptionMuted(sub, start.Unix()) ||
 				mode == "mute" || mode == "digest" && d["digest"] != true || batch.channel != "mcp-events" && (b["target"] != batch.target || b["channel"] != batch.channel) {
 				reason = "control-changed"
+				if field(b["observation"], "conflict") != nil {
+					reason = "terminal-conflict"
+				}
 				return nil
 			}
 		}
@@ -768,4 +788,26 @@ func notificationMaintenanceDeadline(ctx context.Context, state, settings object
 		}
 	}
 	return deadline
+}
+
+func resolveInterruptedNotification(b, d object) (bool, error) {
+	if field(b["successor"], "inherited") == true {
+		related, err := notificationBindingsForThread(text(b, "threadId"))
+		if err != nil {
+			return false, err
+		}
+		next := notificationContinuationNotice(b, nil, related)
+		if next != nil && (next["state"] != "unknown" || d["continuation"] == nil) {
+			d["continuation"] = next
+		}
+	}
+	if b["scopeEnd"] == nil && (d["continuation"] == nil || field(d["continuation"], "state") == "unknown") {
+		return false, nil
+	}
+	d["status"] = "resolved"
+	notifyQueue(d, "superseded")
+	if err := refreshNotificationInbox(text(b, "sourceId"), b); err != nil {
+		return false, err
+	}
+	return true, nil
 }

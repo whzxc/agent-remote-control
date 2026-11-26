@@ -171,7 +171,7 @@ func notificationScopeStarted(bind object) uint64 {
 }
 
 func endNotificationBoundScope(bind object, reason string) error {
-	all, err := notificationBindings()
+	all, err := notificationBindingsForThread(text(bind, "threadId"))
 	if err != nil {
 		return err
 	}

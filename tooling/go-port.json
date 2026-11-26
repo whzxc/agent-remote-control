@@ -259,12 +259,12 @@
       "go": [
         "internal/core/claude_notify_ax_test.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
         {
-          "owner": "C",
+          "owner": "A",
           "items": [
-            "Carry over the unported terminal conflict, scoped handoff and selected-read scenarios."
+            "Run ordered-conflict and predecessor/successor scenarios using the ported native checkpoint and reader."
           ]
         }
       ]
@@ -312,12 +312,12 @@
       "go": [
         "internal/core/claude_notify_device_test.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
         {
-          "owner": "C",
+          "owner": "E",
           "items": [
-            "Port bounded work and all event-kind cases."
+            "Run controller/member delivery and qualified acknowledgement coverage with actual device-link fixtures."
           ]
         }
       ]
@@ -357,18 +357,13 @@
       "go": [
         "internal/core/claude_notify_index.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
-        {
-          "owner": "C",
-          "items": [
-            "Verify retained-history costs, dormant evidence activation after restart, and interrupted-index repair against the native suite."
-          ]
-        },
         {
           "owner": "B",
           "items": [
-            "Consume the file and runtime work observer streams for notification metrics."
+            "Consume the file and runtime work observer streams for notification metrics.",
+            "Validate notification owner work counters and retained-history costs after runtime_metrics is available."
           ]
         }
       ]
@@ -378,15 +373,7 @@
       "go": [
         "internal/core/claude_notify_index_test.go"
       ],
-      "status": "pending",
-      "remaining": [
-        {
-          "owner": "C",
-          "items": [
-            "Carry over targeted repair, owner readiness and retained-history cost cases."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/claude_notify/lifecycle.rs": {
       "segment": "C",
@@ -427,19 +414,14 @@
         "internal/core/claude_notify_observer.go",
         "internal/core/claude_notify_observer_test.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
-        {
-          "owner": "C",
-          "items": [
-            "Finish restart hydration and dormant watch unit coverage."
-          ]
-        },
         {
           "owner": "A",
           "items": [
             "Provide observeNotificationTurn without acquiring a writer and project scoped completion and interactions.",
-            "Provide notificationObservationEvidence for a canonical native history path and writer observation."
+            "Provide notificationObservationEvidence for a canonical native history path and writer observation.",
+            "Supply notificationCompletionChanges and notificationIssueResponseToken from the scoped native changes and response owners."
           ]
         }
       ]
@@ -534,15 +516,7 @@
       "go": [
         "internal/core/claude_notify_delivery_deadlines_test.go"
       ],
-      "status": "pending",
-      "remaining": [
-        {
-          "owner": "C",
-          "items": [
-            "Port the parked and independently awakened delivery cases."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/claude_notify.rs": {
       "segment": "C",
@@ -551,18 +525,13 @@
         "internal/core/claude_notify_migration.go",
         "internal/core/claude_notify_test.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
-        {
-          "owner": "C",
-          "items": [
-            "Finish parity coverage of account/session projection, delivery batching, recovery alerts and retained-inbox behavior."
-          ]
-        },
         {
           "owner": "A",
           "items": [
-            "Call bindNotification, readNotification, notificationResumeContext and recordNotificationBindingFailure from accepted dispatch and native resume."
+            "Call bindNotification, readNotification, notificationResumeContext and recordNotificationBindingFailure from accepted dispatch and native resume.",
+            "Wire notificationRetryPending, recoverableNotificationResponse, recordNotificationResume and source-conversation binding readers to the native owners."
           ]
         },
         {
@@ -1067,18 +1036,13 @@
         "internal/core/dispatch_policy_test.go",
         "internal/core/dispatch_policy_fixture.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
-        {
-          "owner": "C",
-          "items": [
-            "Complete native outcome and persisted dispatch history unit coverage."
-          ]
-        },
         {
           "owner": "A",
           "items": [
-            "Provide dispatchAgentFacts, dispatchRegisteredAgent, nativeControlRequest, turn lifecycle and metadata hooks. Apply packs and resolve policy before native execution. Record dispatch before publishing a receipt."
+            "Provide dispatchAgentFacts, dispatchRegisteredAgent, nativeControlRequest, turn lifecycle and metadata hooks. Apply packs and resolve policy before native execution. Record dispatch before publishing a receipt.",
+            "Call reviewAgentDispatch with the authoritative Agent task snapshot and attach per-turn pack and usage to task reads."
           ]
         },
         {

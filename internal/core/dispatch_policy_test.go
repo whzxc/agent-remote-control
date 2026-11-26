@@ -3,6 +3,7 @@ package core
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDispatchPolicyPreservesLatestExplicitFields(t *testing.T) {
@@ -96,5 +97,57 @@ func TestDispatchReviewConfigurationUsesNativeEvidenceInOrder(t *testing.T) {
 	config = dispatchReviewConfiguration(object{})
 	if config["model"] != nil || config["effort"] != nil || config["serviceTier"] != nil {
 		t.Fatalf("missing configuration = %v", config)
+	}
+}
+
+func TestDispatchHistoryUsesAuthoritativeOutcomeAndPreservesPackCoverage(t *testing.T) {
+	// Contract: dispatch history keeps native outcomes separate from external reviews and self-tests.
+	at := time.Now()
+	prev := dispatchLifecycleOutcome
+	t.Cleanup(func() { dispatchLifecycleOutcome = prev })
+	dispatchLifecycleOutcome = func(row object) string {
+		if observed := text(row["_turnLifecycle"], "outcome"); observed != "" {
+			return observed
+		}
+		return text(row["terminal"], "state")
+	}
+	row := object{"agent": "codex", "threadId": "thread", "turnId": "arc", "dispatchMode": "new-turn", "submittedAt": at.Format(time.RFC3339Nano),
+		"model": "model", "effort": "high", "serviceTier": "priority", "options": object{}, "review": object{"verdict": "pass"},
+		"terminal": object{"state": "failed", "observedDurationMs": 60000}, "_turnLifecycle": object{"outcome": "completed"}, "pack": object{"name": "class"}}
+	external := clone(row)
+	external["turnId"], external["dispatchOrigin"] = "external", "external"
+	external["review"] = object{"verdict": "rework", "reviewedAt": at.Format(time.RFC3339Nano)}
+	selfTest := clone(row)
+	selfTest["turnId"], selfTest["purpose"] = "self", "self-test"
+	rows := []object{row, external, selfTest}
+	history := summarizeDispatchHistory(rows, "codex", false, at.Add(-time.Hour))
+	groups := arr(history["groups"])
+	if len(groups) != 1 {
+		t.Fatalf("configuration groups = %v", groups)
+	}
+	g := obj(groups[0])
+	if uintOr(g["dispatches"], 0) != 1 || uintOr(g["pass"], 0) != 1 || uintOr(g["failed"], 1) != 0 ||
+		uintOr(g["durationSamples"], 0) != 1 || uintOr(field(g["external"], "rework"), 0) != 1 {
+		t.Fatalf("group = %v", g)
+	}
+	if line := summarizeDispatchPacks(rows, at.Add(-time.Hour))["class"]; line != "n1 med1.0m pass1 rework0 unrev0" {
+		t.Fatalf("pack history = %s", line)
+	}
+}
+
+func TestReconciledDispatchTimingUsesNativeActivityInsteadOfDowntime(t *testing.T) {
+	// Algorithmic core: restart reconciliation uses actual terminal or last activity time for duration.
+	row := object{"submittedAt": "2026-01-01T00:00:00Z"}
+	native := dispatchTerminalSnapshot(row, "completed", object{"endedAt": "2026-01-01T00:01:00Z"}, "2026-01-01T00:02:00Z", true)
+	if native["timeBasis"] != "native-terminal" || uintOr(native["observedDurationMs"], 0) != 60000 {
+		t.Fatalf("native terminal = %v", native)
+	}
+	last := dispatchTerminalSnapshot(row, "completed", nil, "2026-01-01T00:02:00Z", true)
+	if last["timeBasis"] != "last-observed-activity" || uintOr(last["observedDurationMs"], 0) != 120000 {
+		t.Fatalf("last activity = %v", last)
+	}
+	unknown := dispatchTerminalSnapshot(row, "completed", nil, "", true)
+	if unknown["timeBasis"] != "unknown" || unknown["observedDurationMs"] != nil {
+		t.Fatalf("unknown timing = %v", unknown)
 	}
 }

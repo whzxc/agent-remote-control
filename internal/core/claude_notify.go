@@ -224,10 +224,6 @@ func notificationInboxSelect(source object, target string, filters object) (obje
 	if err != nil || len(rows) == 0 {
 		return nil, err
 	}
-	bindings, err := notificationBindings()
-	if err != nil {
-		return nil, err
-	}
 	state, err := readNotificationState()
 	if err != nil {
 		return nil, err
@@ -251,11 +247,23 @@ func notificationInboxSelect(source object, target string, filters object) (obje
 			continue
 		}
 		var delivery object
-		for _, bind := range bindings {
-			if bind["sourceId"] == sourceID && bind["threadId"] == notificationEventThread(event) && bind["turnId"] == event["turnId"] {
-				event["target"], event["channel"] = bind["target"], bind["channel"]
-				delivery = find(bind["deliveries"], "eventId", text(event, "eventId"))
-				break
+		bind, err := readNotificationBinding(notificationEventThread(event), text(event, "turnId"))
+		if err != nil {
+			return nil, err
+		}
+		if bind != nil && bind["sourceId"] == sourceID {
+			event["target"], event["channel"] = bind["target"], bind["channel"]
+			delivery = find(bind["deliveries"], "eventId", text(event, "eventId"))
+			if field(bind["observation"], "conflict") != nil && !slices.ContainsFunc(arr(bind["deliveries"]), func(d any) bool {
+				return field(d, "eventId") == event["eventId"] && uintOr(field(d, "attemptedAt"), 0) > 0
+			}) {
+				continue
+			}
+			if request := obj(event["interaction"]); request != nil && request["resolved"] != true {
+				if err := observeNotificationRouting(notificationAgent(bind), text(bind, "threadId"), request); err != nil {
+					return nil, err
+				}
+				event["routing"], event["questionSummary"] = request["routing"], notificationQuestionPreview(request)
 			}
 		}
 		if claude && (target == "" || event["target"] != target || (event["channel"] != "claude-session" && event["channel"] != "antigravity-session")) {
@@ -715,7 +723,7 @@ func bindNotification(ctx context.Context, args object, thread, turn, cwd string
 	if created {
 		_, explicit := args["notify"]
 		op := text(cause, "op")
-		rows, err := notificationBindings()
+		rows, err := notificationBindingsForThread(thread)
 		if err != nil {
 			return err
 		}

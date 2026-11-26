@@ -48,3 +48,45 @@ func TestNotificationSettlementKeepsSentHistoryAcrossRebind(t *testing.T) {
 		t.Fatalf("sent history = %v", delivery)
 	}
 }
+
+func TestNotificationDeliveryParkedDeadlineAndDueKeySurviveRestart(t *testing.T) {
+	// Recurring bug class: persistence a stored parked delivery spun or a pending retry woke before its deadline.
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	ctx := context.Background()
+	dir := physicalPath(notificationOwnerPath())
+	t.Cleanup(func() { closeNotificationOwner(dir) })
+	restore := notificationClock
+	t.Cleanup(func() { notificationClock = restore })
+	at := int64(100)
+	notificationClock = func() time.Time { return time.Unix(at, 0) }
+	parked := newNotificationBinding("parked", "turn", "/fixture", "source", notificationClock())
+	due := newNotificationBinding("due", "turn", "/fixture", "source", notificationClock())
+	for _, b := range []object{parked, due} {
+		b["deliveries"] = []any{object{"eventId": b["threadId"], "key": "terminal", "status": "pending"}}
+		if err := persistNotificationBinding(b); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := openNotificationOwner(ctx, &service{}); err != nil {
+		t.Fatal(err)
+	}
+	for i, b := range []object{parked, due} {
+		deadline := []int64{0, 120}[i]
+		if err := persistNotificationSchedule(ctx, b, deadline); err != nil {
+			t.Fatal(err)
+		}
+	}
+	closeNotificationOwner(dir)
+	if err := openNotificationOwner(ctx, &service{}); err != nil {
+		t.Fatal(err)
+	}
+	nowRows, err := notificationIndexedBindings("delivery-due", nil)
+	if err != nil || len(nowRows) != 0 {
+		t.Fatalf("early work = %v, %v", nowRows, err)
+	}
+	at = 120
+	nowRows, err = notificationIndexedBindings("delivery-due", nil)
+	if err != nil || len(nowRows) != 1 || nowRows[0]["threadId"] != "due" {
+		t.Fatalf("due work = %v, %v", nowRows, err)
+	}
+}

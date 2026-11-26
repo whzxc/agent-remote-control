@@ -15,8 +15,12 @@ import (
 func notificationDirectory() string { return filepath.Join(root(), "notifications") }
 
 func notificationBindingPath(thread, turn string) string {
+	return notificationBindingPathIn(notificationDirectory(), thread, turn)
+}
+
+func notificationBindingPathIn(directory, thread, turn string) string {
 	digest := hash([]byte(wire([]string{thread, turn})))
-	return filepath.Join(notificationDirectory(), "tasks", digest+".json")
+	return filepath.Join(directory, "tasks", digest+".json")
 }
 
 type notificationIndex struct {
@@ -150,6 +154,37 @@ func activeNotificationBindings() ([]object, error) {
 	return notificationIndexedBindings("active", func(b object) bool {
 		return b["scopeEnd"] == nil && b["device"] == nil && !notificationObservationReusable(b)
 	})
+}
+
+func notificationBindingsForThread(thread string) ([]object, error) {
+	dir := physicalPath(notificationOwnerPath())
+	if err := indexAvailable(context.Background(), dir); err != nil {
+		return nil, err
+	}
+	notificationIndexes.Lock()
+	index := notificationIndexes.owners[dir]
+	if index == nil {
+		notificationIndexes.Unlock()
+		return selectNotificationBindings(func(b object) bool { return b["threadId"] == thread })
+	}
+	if err := index.refresh(); err != nil {
+		notificationIndexes.Unlock()
+		return nil, err
+	}
+	paths := slices.Sorted(maps.Keys(index.threads[thread]))
+	notificationIndexes.Unlock()
+	recordRuntimeWork(context.Background(), runtimeWorkCost{Owner: "notification", Reason: "thread", Rows: len(paths), ScanSet: len(paths)})
+	rows := make([]object, 0, len(paths))
+	for _, path := range paths {
+		row, err := loadNotificationBinding(path)
+		if err != nil {
+			return nil, err
+		}
+		if row != nil && row["threadId"] == thread {
+			rows = append(rows, row)
+		}
+	}
+	return rows, nil
 }
 
 func notificationIndexedBindings(partition string, filter func(object) bool) ([]object, error) {
@@ -375,6 +410,10 @@ func startNotificationWorkers(ctx context.Context, s *service) error {
 		return errors.New(indexPending)
 	}
 	index.workers.Go(func() {
+		if err := prepareNotificationRestart(); err != nil {
+			recordLog("WARN", "Notification restart preparation: "+err.Error(), nil)
+			return
+		}
 		if err := recoverNotificationObservations(ctx, s); err != nil && ctx.Err() == nil {
 			recordLog("WARN", "Notification startup observation: "+err.Error(), nil)
 		}
