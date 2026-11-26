@@ -362,16 +362,21 @@ func finishCodexDispatch(ctx context.Context, receipt, params object, cwd string
 }
 
 func codexMutationOwner(ctx context.Context, s *service, thread string) error {
+	_, err := codexMutationOwnership(ctx, s, thread)
+	return err
+}
+
+func codexMutationOwnership(ctx context.Context, s *service, thread string) (object, error) {
 	_, home, err := codexInputs()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	owner := s.nativeWriterOwnership(ctx, home, thread)
 	if owner["state"] == "held" && owner["owner"] != "connector" && owner["owner"] != "desktop" {
 		owner["processes"] = writerProcesses(ctx, home, thread)
-		return dispatchObjectError(writerBusy(thread, owner))
+		return nil, dispatchObjectError(writerBusy(thread, owner))
 	}
-	return nil
+	return owner, nil
 }
 
 func codexMutationHead(ctx context.Context, s *service, thread string) (object, object, error) {
@@ -500,12 +505,56 @@ func resumeCodexMutation(ctx context.Context, r operationRequest, row object) (o
 	if err != nil {
 		return nil, err
 	}
-	if err := codexMutationOwner(ctx, r.service, thread); err != nil {
-		return nil, err
-	}
-	state, latest, err := codexMutationHead(ctx, r.service, thread)
+	ownership, err := codexMutationOwnership(ctx, r.service, thread)
 	if err != nil {
 		return nil, err
+	}
+	if _, err := observeNotificationOwnership(thread, ownership); err != nil {
+		return nil, err
+	}
+	binding, err := codexDesktopBinding(thread)
+	if err != nil {
+		return nil, err
+	}
+	returned, err := returnedDesktopInstance(thread)
+	if err != nil {
+		return nil, err
+	}
+	observed, err := readNotificationOwnership(thread)
+	if err != nil {
+		return nil, err
+	}
+	handedOff := observed["currentOwner"] == "desktop" || slices.ContainsFunc(arr(observed["history"]), func(row any) bool {
+		return field(row, "to") == "desktop"
+	})
+	if codexBackground(thread) && obj(binding["continuedFrom"]) != nil {
+		handedOff = false
+	}
+	directFixture := fixtureUsesDesktop != nil && !fixtureUsesDesktop()
+	shared := !directFixture && binding["transport"] == "local-daemon"
+	desktop := !directFixture && (shared || binding["owner"] == "desktop" || ownership["owner"] == "desktop" || handedOff)
+	var state, latest object
+	if returned == nil && desktop && !shared {
+		ipc, err := r.service.nativeDesktop(ctx)
+		if err != nil {
+			return nil, err
+		}
+		snapshot, err := ipc.read(ctx, thread, true)
+		if err != nil {
+			return nil, err
+		}
+		state, err = desktopControlThread(snapshot, true)
+		if err != nil {
+			return nil, err
+		}
+		if turns := arr(state["turns"]); len(turns) != 0 {
+			latest = obj(turns[len(turns)-1])
+		}
+	} else {
+		state, latest, err = codexMutationHead(ctx, r.service, thread)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if latest == nil {
 		return nil, errors.New("RESUME_TURN_MISSING")
@@ -516,24 +565,33 @@ func resumeCodexMutation(ctx context.Context, r operationRequest, row object) (o
 			"message": "Only the latest interrupted turn can resume. No input was submitted.",
 			"next":    object{"via": "query", "op": "codex_read", "args": object{"threadId": thread, "statusOnly": true}}})
 	}
-	if !codexBackground(thread) && (fixtureUsesDesktop == nil || fixtureUsesDesktop()) {
-		return nil, errors.New(PortPending)
-	}
-	if field(state["status"], "type") == "notLoaded" {
-		if _, err := requestCodexNative(ctx, r.service, "thread/resume", object{"threadId": thread, "excludeTurns": true}, 10*time.Second); err != nil {
+	if returned != nil {
+		owner, err := prepareReturnedDesktopThread(ctx, r.service, thread, returned)
+		if err != nil {
 			return nil, err
 		}
-	}
-	owner, err := codexExecutionRecord(thread)
-	if err != nil {
-		return nil, err
-	}
-	if owner == nil {
-		owner = object{}
-	}
-	owner["owner"], owner["reason"] = "connector", "explicit-interrupted-resume"
-	if err := save(filepath.Join(root(), "execution", thread+".json"), owner); err != nil {
-		return nil, err
+		binding, err = codexDesktopBinding(thread)
+		if err != nil {
+			return nil, err
+		}
+		desktop, shared = owner == "desktop", binding["transport"] == "local-daemon"
+	} else if !desktop {
+		if field(state["status"], "type") == "notLoaded" {
+			rpc, err := r.service.codexUtility(ctx)
+			if err != nil {
+				return nil, err
+			}
+			if _, err := rpc.call(ctx, "thread/resume", object{"threadId": thread, "excludeTurns": true}, 10*time.Second); err != nil {
+				return nil, err
+			}
+		}
+		if binding == nil {
+			binding = object{}
+		}
+		binding["owner"], binding["reason"] = "connector", "explicit-interrupted-resume"
+		if err := save(filepath.Join(root(), "execution", thread+".json"), binding); err != nil {
+			return nil, err
+		}
 	}
 	baseline := captureNativeChangeBaseline(ctx, text(state, "cwd"))
 	row["turnBaseline"], row["coordination"] = baseline, coordinationDispatchAdvisory(ctx, obj(row["origin"]), baseline)
@@ -551,15 +609,31 @@ func resumeCodexMutation(ctx context.Context, r operationRequest, row object) (o
 			params[key] = value
 		}
 	}
-	value, err := requestCodexNative(ctx, r.service, "turn/start", params, 10*time.Second)
-	if err != nil {
-		return nil, err
+	var value any
+	owner := "connector"
+	if desktop {
+		owner = "desktop"
+	}
+	if desktop && !shared {
+		ipc, err := r.service.nativeDesktop(ctx)
+		if err != nil {
+			return nil, err
+		}
+		value, err = ipc.mutate(ctx, "turn/start", params)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		value, err = requestCodexNative(ctx, r.service, "turn/start", params, 10*time.Second)
+		if err != nil {
+			return nil, err
+		}
 	}
 	turn := text(field(value, "turn"), "id")
 	if turn == "" {
 		return nil, errors.New("RESUME_UNCONFIRMED: read the original receipt and thread before retrying")
 	}
-	row["turnId"], row["dispatchMode"], row["executionOwner"] = turn, "resumed", "connector"
+	row["turnId"], row["dispatchMode"], row["executionOwner"] = turn, "resumed", owner
 	obj(row["task"])["dispatch"] = object{"submittedAt": now()}
 	if err := recordDispatch(row); err != nil {
 		recordLog("WARN", err.Error(), nil)
@@ -570,7 +644,7 @@ func resumeCodexMutation(ctx context.Context, r operationRequest, row object) (o
 	}
 	wait, _ := outcomeStatusObservation(thread, latest)
 	recordNotificationBindingFailure(row, recordNotificationResume(ctx, r.service, thread, previous, turn, config, wait))
-	return object{"threadId": thread, "turnId": turn, "resumedFrom": previous, "executionOwner": "connector"}, nil
+	return object{"threadId": thread, "turnId": turn, "resumedFrom": previous, "executionOwner": owner}, nil
 }
 
 func outcomeStatusObservation(thread string, turn object) (object, turnTransition) {
