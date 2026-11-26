@@ -2767,9 +2767,17 @@
             "cases": [
               "Codex dispatch policy retains credit balance alongside exhausted subscription limits",
               "Criteria replacement preserves other scopes and settings and exposes the active policy and formatted backup",
-              "Policy update uses the act and CLI envelopes with guarded error codes and ingress authorization",
-              "Concurrent policy replacements reject stale hashes without modifying policy or backup and backup failures preserve policy"
+              "Policy update uses the act and CLI envelopes with guarded error codes and ingress authorization"
             ]
+          },
+          {
+            "segment": "A",
+            "module": "nativeControlRequest",
+            "route": "query fs/readFile; act fs/remove; act fs/createDirectory",
+            "cases": [
+              "Concurrent policy replacements reject stale hashes without modifying policy or backup and backup failures preserve policy"
+            ],
+            "note": "The fs domain and its mutation receipts reach the missing native RPC adapter."
           },
           {
             "segment": "A",
