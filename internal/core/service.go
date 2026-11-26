@@ -26,6 +26,7 @@ type service struct {
 	jobs              controlJobs
 	events            nativeEvents
 	codex             nativeCodexState
+	agents            nativeAgentHost
 	taskRecords       nativeTaskRecords
 	waits             waitCalls
 	schemas           nativeSchemaCache

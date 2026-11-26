@@ -320,11 +320,10 @@ func (m *codexActivityMonitor) sample(ctx context.Context, home string, now time
 
 func readNativeAgentActivity(ctx context.Context, s *service) (object, error) {
 	defer beginRuntimeWork("activity")()
-	_, home, err := codexInputs()
-	if err != nil {
-		return nil, err
+	var rows []object
+	if _, home, err := codexInputs(); err == nil {
+		rows = s.codex.activity.sample(ctx, home, time.Now())
 	}
-	rows := s.codex.activity.sample(ctx, home, time.Now())
 	byID := make(map[string]object, len(rows))
 	for _, row := range rows {
 		byID[text(row, "id")] = clone(row)
@@ -349,9 +348,34 @@ func readNativeAgentActivity(ctx context.Context, s *service) (object, error) {
 		ids = append(ids, "codex")
 		sessions := slices.Collect(maps.Values(byID))
 		slices.SortFunc(sessions, func(a, b object) int { return cmp.Compare(text(a, "id"), text(b, "id")) })
-		agents["codex"] = object{"sessions": sessions}
+		agents["codex"] = object{"sessions": nativeActivitySessions(sessions)}
 	}
+	byAgent := map[string][]object{}
+	for _, process := range s.agents.processes() {
+		task := process.snapshot()
+		agent, taskID := text(task, "agent"), text(task, "taskId")
+		if task["archived"] == true || !agentTurnActive(task) || !nativeAgentReadAllowed(ctx, agent, taskID) {
+			continue
+		}
+		row := selectFields(task, "agent", "taskId", "turnId", "sessionId", "title", "createdAt", "updatedAt", "status")
+		row["id"], row["project"], row["source"], row["runtimeStatus"] = taskID, task["cwd"], "arc-task", agentTurnRuntime(task)
+		byAgent[agent] = append(byAgent[agent], row)
+	}
+	for agent, sessions := range byAgent {
+		ids = append(ids, agent)
+		slices.SortFunc(sessions, func(a, b object) int { return cmp.Compare(text(a, "id"), text(b, "id")) })
+		agents[agent] = object{"sessions": nativeActivitySessions(sessions)}
+	}
+	slices.Sort(ids)
 	return object{"agents": agents, "activeAgents": ids, "observedAt": now(), "scope": "selected-local-transcripts-and-connector-live-sessions"}, nil
+}
+
+func nativeActivitySessions(sessions []object) []any {
+	result := make([]any, len(sessions))
+	for i, session := range sessions {
+		result[i] = session
+	}
+	return result
 }
 
 func init() {

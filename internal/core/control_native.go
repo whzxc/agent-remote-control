@@ -5,7 +5,6 @@ import (
 	"errors"
 	"maps"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -338,13 +337,6 @@ func nativeCodexOwner(ctx context.Context, request operationRequest) (any, error
 		owner["next"] = writerReleaseStep(thread, owner)
 	}
 	return owner, nil
-}
-
-func discoverAgentExecutable(name string) string {
-	if binary, err := exec.LookPath(name); err == nil {
-		return binary
-	}
-	return ""
 }
 
 func init() {

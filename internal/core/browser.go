@@ -19,6 +19,9 @@ import (
 
 var browserKeyWrite sync.Mutex
 
+// browserAssets is populated by the build's embedded browser bundle.
+var browserAssets fs.FS
+
 func browserKey() (string, bool) {
 	data, _ := cachedLoad(filepath.Join(root(), "app/browser-access.json"))
 	key, ok := field(data, "key").(string)
@@ -359,6 +362,15 @@ func serveBrowserAsset(w http.ResponseWriter, assets fs.FS, public *url.URL, req
 }
 
 func init() {
+	ingressBrowserHTTP = func(w http.ResponseWriter, req *http.Request, ingress *networkIngress, local string) {
+		ingress.mu.RLock()
+		publicURL, running := ingress.url, ingress.running
+		ingress.mu.RUnlock()
+		serveBrowser(w, req, browserIngress{
+			id: ingress.id, publicURL: publicURL, localHost: local, connected: running,
+			gateway: ingress.owner.bridge, assets: browserAssets,
+		})
+	}
 	currentBrowserKeyDigest = func(context.Context) (string, error) {
 		if key, ok := browserKey(); ok {
 			return hash([]byte(key)), nil

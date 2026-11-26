@@ -229,7 +229,7 @@ func init() {
 	}
 	resolveTrackedConversation = func(ctx context.Context, s *service, args object) (object, error) {
 		if args["agent"] != "codex" {
-			return nil, errors.New(PortPending)
+			return nativeAgentTimeline(ctx, s, args)
 		}
 		return nativeCodexConversationTimeline(ctx, s, args)
 	}
@@ -242,6 +242,9 @@ func init() {
 			args = object{}
 		}
 		args["agent"], args["id"] = "codex", parts[0]
+		if task, err := s.nativeAgentTask("", parts[0]); err == nil {
+			args["agent"] = task["agent"]
+		}
 		return resolveTrackedConversation(ctx, s, args)
 	})
 }

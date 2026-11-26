@@ -11,6 +11,7 @@ import (
 )
 
 func init() {
+	useFixtureAgentTransport = true
 	registerIndexPreparation(5, func(ctx context.Context, s *service) error {
 		if s.fixtureIngress == nil || os.Getenv("ARC_FIXTURE_INDEX_GATE") != "" || os.Getenv("ARC_FIXTURE_SCRIPT") == "" {
 			return nil

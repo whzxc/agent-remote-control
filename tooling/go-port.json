@@ -23,15 +23,7 @@
         "internal/core/accounts_codex.go",
         "internal/core/accounts_codex_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Use nativeCodexHome for detached Codex, native execution and transcript reads."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/accounts/identity.rs": {
       "segment": "D",
@@ -87,13 +79,19 @@
     },
     "native/src/agents/antigravity.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/agents_antigravity.go",
+        "internal/core/agents_antigravity_test.go",
+        "internal/core/agents_driver.go"
+      ],
+      "status": "ported"
     },
     "native/src/agents/archive.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/agents_archive.go"
+      ],
+      "status": "ported"
     },
     "native/src/agents/capabilities.rs": {
       "segment": "A",
@@ -104,7 +102,10 @@
     },
     "native/src/agents/conversations/native/antigravity.rs": {
       "segment": "A",
-      "go": [],
+      "go": [
+        "internal/core/agents_conversations_native_antigravity.go",
+        "internal/core/agents_conversations_test.go"
+      ],
       "status": "pending"
     },
     "native/src/agents/conversations/native.rs": {
@@ -114,13 +115,16 @@
     },
     "native/src/agents/conversations/tests.rs": {
       "segment": "A",
-      "go": [],
+      "go": [
+        "internal/core/agents_conversations_test.go"
+      ],
       "status": "pending"
     },
     "native/src/agents/conversations.rs": {
       "segment": "A",
       "go": [
-        "internal/core/agents_conversations_codex.go"
+        "internal/core/agents_conversations_codex.go",
+        "internal/core/agents_conversations.go"
       ],
       "status": "pending"
     },
@@ -136,7 +140,9 @@
     },
     "native/src/agents/driver.rs": {
       "segment": "A",
-      "go": [],
+      "go": [
+        "internal/core/agents_driver.go"
+      ],
       "status": "pending"
     },
     "native/src/agents/lifecycle.rs": {
@@ -160,12 +166,18 @@
     },
     "native/src/agents/mod.rs": {
       "segment": "A",
-      "go": [],
+      "go": [
+        "internal/core/agents_mod.go",
+        "internal/core/agents_peer.go"
+      ],
       "status": "pending"
     },
     "native/src/agents/process.rs": {
       "segment": "A",
-      "go": [],
+      "go": [
+        "internal/core/agents_process.go",
+        "internal/core/agents_process_test.go"
+      ],
       "status": "pending"
     },
     "native/src/agents/resources.rs": {
@@ -175,8 +187,11 @@
     },
     "native/src/agents/wait.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/agents_wait.go",
+        "internal/core/agents_wait_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/app_env.rs": {
       "segment": "A",
@@ -517,30 +532,14 @@
       "go": [
         "internal/core/context.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Supply native Agent task and turn records to the context projection."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/context_provider.rs": {
       "segment": "S0",
       "go": [
         "internal/core/context_provider.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Include the context provider ACP descriptor in native Agent MCP server lists."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/control.rs": {
       "segment": "S0",
@@ -1252,12 +1251,6 @@
       "status": "ported",
       "remaining": [
         {
-          "owner": "A",
-          "items": [
-            "Bind ingressBrowserHTTP and currentBrowserKeyDigest to the browser handler and key authority."
-          ]
-        },
-        {
           "owner": "C",
           "items": [
             "Distinguish a temporarily disconnected ingress from a revoked source when retrying webhook delivery."
@@ -1908,15 +1901,7 @@
         "internal/core/subscriptions.go",
         "internal/core/subscriptions_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Supply subscriptionAgentInventory for eligibility and native provider discovery."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/subscriptions/providers/antigravity.rs": {
       "segment": "D",
@@ -1968,15 +1953,7 @@
       "go": [
         "internal/core/subscriptions_providers.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Supply launchSubscriptionAgent and the shared network proxy so subscription reads use native launch semantics."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/subscriptions/providers/opencode_go.rs": {
       "segment": "D",
@@ -2047,15 +2024,7 @@
         "internal/core/task_tracking.go",
         "internal/core/task_tracking_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Supply resolveTrackedConversation and readTaskTrackingAnswers using native session, turn and transcript owners. Consume task tracking projections in native task routes including /api/tasks."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/text_files/binary.rs": {
       "segment": "A",

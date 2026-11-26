@@ -251,7 +251,7 @@ func projectCodexObservation(observation object, selected **string) (object, tur
 
 func nativeNotificationObserve(ctx context.Context, s *service, b object) (object, error) {
 	if notificationAgent(b) != "codex" {
-		return nil, errors.New(PortPending)
+		return observeNativeAgentNotification(ctx, s, b)
 	}
 	thread := text(b, "threadId")
 	selected := optionalProjectString(b["turnId"])
@@ -453,4 +453,16 @@ func init() {
 		return object{"id": value["turnId"], "status": value["state"], "_turnLifecycle": transition.checkpoint()}, nil
 	}
 	registerOperation("codex_wait", nativeCodexWait, nil)
+}
+
+func init() {
+	notificationNotifyConversation = func(account, target, confirmedAt string, tasks [][2]string) error {
+		return publishSRCVerifiedTarget(account, target, optionalProjectString(dispatchFirstString(confirmedAt)), tasks)
+	}
+	srcVerifiedTarget = verifiedNotificationConversationTarget
+	srcVerifiedTargets = verifiedNotificationConversationTargets
+	srcInheritedTarget = func(source, task string) (string, error) {
+		target, err := notificationConversationTargetForSend(source, task)
+		return str(target), err
+	}
 }
