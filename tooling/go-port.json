@@ -788,7 +788,9 @@
     "native/src/device_link/client.rs": {
       "segment": "E",
       "go": [
-        "internal/core/device_link_client.go"
+        "internal/core/device_link_client.go",
+        "internal/platform/socket_other.go",
+        "internal/platform/socket_windows.go"
       ],
       "status": "verified"
     },

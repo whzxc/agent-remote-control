@@ -20,6 +20,7 @@ import (
 	"golang.org/x/net/http2"
 
 	"github.com/whzxc/agent-remote-control/internal/canonjson"
+	"github.com/whzxc/agent-remote-control/internal/platform"
 )
 
 type deviceChannel struct {
@@ -143,9 +144,10 @@ type deviceDialFailure struct {
 }
 
 func deviceTCPFailure(address netip.AddrPort, err error, expired bool) deviceDialFailure {
-	failure := deviceDialFailure{address: address, refused: errors.Is(err, syscall.ECONNREFUSED),
-		dialable: !errors.Is(err, syscall.ENETUNREACH) && !errors.Is(err, syscall.EHOSTUNREACH) &&
-			!errors.Is(err, syscall.EADDRNOTAVAIL) && !errors.Is(err, syscall.EINVAL) && !errors.Is(err, syscall.ENOENT)}
+	cause := platform.NormalizeSocketError(err)
+	failure := deviceDialFailure{address: address, refused: errors.Is(cause, syscall.ECONNREFUSED),
+		dialable: !errors.Is(cause, syscall.ENETUNREACH) && !errors.Is(cause, syscall.EHOSTUNREACH) &&
+			!errors.Is(cause, syscall.EADDRNOTAVAIL) && !errors.Is(cause, syscall.EINVAL) && !errors.Is(cause, syscall.ENOENT)}
 	switch {
 	case expired:
 		failure.message = "TCP connect deadline expired"
