@@ -30,12 +30,19 @@ export function renderReleaseNotes(entries) {
   return { en, zh, body: `${en}\n\n${chineseNotesMarker}\n\n${zh}\n` };
 }
 
-export async function readReleaseNotes(version) {
+export const rehearsalReleaseNotes = {
+  en: 'Local updater rehearsal.',
+  zh: '本地更新演练。',
+  body: `Local updater rehearsal.\n\n${chineseNotesMarker}\n\n本地更新演练。\n`,
+};
+
+export async function readReleaseNotes(version, { dryRun = false } = {}) {
   if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error('Release notes require a stable version');
   const file = `release-notes/${version}.json`;
   try {
     return renderReleaseNotes(JSON.parse(await readFile(new URL(`../${file}`, import.meta.url), 'utf8')));
   } catch (error) {
+    if (error.code === 'ENOENT' && dryRun) return rehearsalReleaseNotes;
     if (error.code === 'ENOENT') throw new Error(`Add English and Simplified Chinese release notes to ${file} before packaging`);
     throw new Error(`${file}: ${error.message}`);
   }

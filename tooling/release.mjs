@@ -8,7 +8,7 @@ import { buildWindows, buildMac, runCommand, prepareWindowsWorker } from './wind
 import { buildLinux, preflightLinux } from './linux-release.mjs';
 import { testEnvironment } from './test-environment.mjs';
 import { buildVersion, stableVersion } from './version.mjs';
-import { readReleaseNotes } from './release-notes.mjs';
+import { readReleaseNotes, rehearsalReleaseNotes } from './release-notes.mjs';
 import { buildOnlyEnv, feedName, rehearsalSigning, signMygoFeed, updateTargets, verifier, verifyMygoFeed } from './release-signing.mjs';
 import { collectDesktop, fragmentName, installerName, requireEmptyStage, signTransition, tauriPayloadName } from './release-desktop.mjs';
 import { retainBuildArtifacts } from './retain-build-artifacts.mjs';
@@ -129,8 +129,7 @@ async function localRehearsal(output, keyDirectory, selected) {
     await collectDesktop({ target, version, input: path.join(parent, target), output });
     await signTransition({ target, version, output, base, env });
   }
-  const notes = { en: 'Local updater rehearsal.', zh: '本地更新演练。', body: 'Local updater rehearsal.\n\n<!-- lang:zh-CN -->\n\n本地更新演练。\n' };
-  const manifest = await finalize(output, selected, notes, env);
+  const manifest = await finalize(output, selected, rehearsalReleaseNotes, env);
   const assets = await releaseInventory(output, selected, manifest);
   if (git('status', '--porcelain') || git('rev-parse', 'HEAD') !== sourceSha) throw new Error('Source changed during rehearsal.');
   await writeJson(path.join(output, 'rehearsal.json'), { sourceSha, version, platforms: selected, assets });
@@ -138,14 +137,14 @@ async function localRehearsal(output, keyDirectory, selected) {
 }
 
 async function coordinateRelease(options, { resume, dryRun }) {
-  requireMainCheckout();
   const saved = resume ? await json(path.join(options.resume, 'release-state.json')) : undefined;
   const requested = options.version === undefined ? saved?.version : stableVersion(options.version);
   const platforms = releasePlatforms(options.platforms ?? saved?.platforms?.join(','));
   const mac = platforms.includes('mac');
   const windows = platforms.includes('windows');
   const linux = platforms.includes('linux');
-  if (!resume) execFileSync('npm', ['run', 'test:extended'], { env: testEnvironment(buildOnlyEnv()), stdio: 'inherit' });
+  const desktopRehearsal = dryRun && !linux;
+  if (!desktopRehearsal) requireMainCheckout();
   await mkdir('release-artifacts', { recursive: true });
   const timingDir = await mkdtemp(path.join('release-artifacts', '.timings-'));
   const timingFile = path.resolve(timingDir, 'stages.jsonl');
@@ -155,7 +154,7 @@ async function coordinateRelease(options, { resume, dryRun }) {
   let output = resume ? path.resolve(options.resume) : undefined;
   let state = saved;
   let sourceSha;
-  let env;
+  let env, notes;
   let workerPreparation, workerCleanup;
   const releaseWorker = () => {
     if (workerPreparation && !workerCleanup) {
@@ -178,6 +177,8 @@ async function coordinateRelease(options, { resume, dryRun }) {
     onRetry: (error, attempt, delay) => console.error(`${name}: attempt ${attempt} failed (${error.message}); retrying in ${delay / 1000}s`),
   });
   try {
+    if (!resume) await timer.run('extended gate', () =>
+      runCommand('npm', ['run', 'test:extended'], { env: testEnvironment(buildOnlyEnv()) }));
     await timer.run('checks', async () => {
       if (!resume && (mac || windows) && (process.platform !== 'darwin' || process.arch !== 'arm64')) throw new Error('macOS releases require a local build and signing on an Apple Silicon Mac');
       env = { ...process.env };
@@ -212,7 +213,7 @@ async function coordinateRelease(options, { resume, dryRun }) {
         assertSource();
       } else version = requested ?? version;
       parts(version);
-      if (!resume) await readReleaseNotes(version);
+      if (!resume) notes = await readReleaseNotes(version, { dryRun });
       if (!resume && windows) {
         workerPreparation = prepareWindowsWorker({ timer });
         workerPreparation.catch(() => {});
@@ -230,7 +231,9 @@ async function coordinateRelease(options, { resume, dryRun }) {
       const tests = async () => timer.run('tests', () => runCommand('npm', ['test'], { env: testEnvironment(buildOnlyEnv(env)) }));
       await timer.run('build/test critical path', async () => {
         await tests();
-        if (mac || windows) await timer.run('UI smoke', () => runCommand('npm', ['run', 'accept:ui'], { env: testEnvironment(buildOnlyEnv(env)) }));
+        if (mac || windows) await timer.run('UI smoke', () => runCommand('npm', ['run', 'accept:ui',
+          ...(desktopRehearsal ? ['--', '--lane-fixtures', '--port=5287', '--no-screenshots'] : [])],
+        { env: testEnvironment(buildOnlyEnv(env)) }));
         await timer.run('platform critical path', () => parallelPlatforms([
           ...(mac ? [() => timer.run('macOS wall', () => buildMac({ sourceSha, output, env, timer }))] : []),
           ...(windows ? [() => timer.run('Windows wall', () => buildWindows({ sourceSha, version, output, env, timer,
@@ -243,13 +246,13 @@ async function coordinateRelease(options, { resume, dryRun }) {
     await timer.run('verification', async () => {
       const manifest = resume
         ? await json(path.join(output, 'latest.json'))
-        : await finalize(output, platforms, await readReleaseNotes(version), env);
+        : await finalize(output, platforms, notes, env);
       if (resume) await verifyFeeds(output, platforms, manifest, env);
       const assets = await releaseInventory(output, platforms, manifest, resume ? state.assets : undefined);
       if (!resume && !dryRun) {
         state = { schema: 1, version, sourceSha, platforms, verified: true, assets };
         await saveState();
-      }
+      } else if (dryRun) await writeJson(path.join(output, 'rehearsal.json'), { sourceSha, version, platforms, assets });
     });
     if (!dryRun) {
       assertSource();
