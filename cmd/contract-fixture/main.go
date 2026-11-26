@@ -9,5 +9,5 @@ import (
 )
 
 func main() {
-	os.Exit(core.RunFixture(os.Stdin, os.Stdout, os.Stderr))
+	os.Exit(core.RunFixture(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
 }
