@@ -828,6 +828,10 @@ func runCoordinationObservers(ctx context.Context, service *service) {
 }
 
 func init() {
+	dispatchSaveOwner = func(path string, row object) error { return saveCoordinationOwner(path, row, "dispatch") }
+	dispatchFixCorrelation = func(rows []object, path string) object {
+		return coordinationFixSummary(context.Background(), rows, path)
+	}
 	coordinationObserverCoverage = coordinationCoverageSnapshot
 	onReceiptSaved = append(onReceiptSaved, func(path string) {
 		if coordinationOwnsReceiptPath(path) {

@@ -74,3 +74,22 @@ func TestRuntimeCostContextPropagatesThroughConcurrentWork(t *testing.T) {
 		t.Fatal("parent inherited a nested owner's bytes")
 	}
 }
+
+func TestRuntimeCostsAttributeNotificationOwnerWorkByPartition(t *testing.T) {
+	// Contract: notification observer and delivery scans publish separate size and visit counts in runtime_metrics.
+	costs := new(runtimeCostSet)
+	ctx := context.WithValue(t.Context(), runtimeCostKey{}, runtimeCostContext{set: costs})
+	recordRuntimeWork(ctx, runtimeWorkCost{Owner: "notification", Reason: "active", Rows: 2, ScanSet: 2})
+	recordRuntimeWork(ctx, runtimeWorkCost{Owner: "notification", Reason: "delivery-due", Rows: 1, ScanSet: 1})
+	recordRuntimeWork(ctx, runtimeWorkCost{Owner: "notification", Reason: "thread", Rows: 10, ScanSet: 10})
+	value, err := runtimeMetrics(ctx, operationRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for owner, rows := range map[string]uint64{"notificationObserver": 2, "notificationDelivery": 1} {
+		cost := field(field(value, "cost"), owner)
+		if field(cost, "passes") != uint64(1) || field(cost, "rowsVisited") != rows || field(cost, "scanSetSize") != rows {
+			t.Fatalf("%s cost = %v", owner, cost)
+		}
+	}
+}

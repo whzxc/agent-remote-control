@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -164,9 +165,20 @@ func receiptAdoptionContext(ctx context.Context) context.Context {
 
 func observeRuntimeFileCost(event fileCost) {
 	cost := currentRuntimeCost(event.Context)
-	if event.Context == nil && event.Path == accountIndexPath() {
-		// The account index publishes its pass and scan size through the work observer.
-		cost = runtimeCosts.counter("accounts")
+	if event.Context == nil {
+		switch filepath.Base(event.Path) {
+		case "index.json":
+			if event.Path == accountIndexPath() {
+				// The account index publishes its pass and scan size through the work observer.
+				cost = runtimeCosts.counter("accounts")
+			}
+		default:
+			if filepath.Ext(event.Path) == ".json" && filepath.Dir(event.Path) == notificationOwnerPath() {
+				cost = runtimeCosts.counter("notificationObserver")
+				// Notification selection counts visited bindings through the work observer.
+				event.Rows = 0
+			}
+		}
 	}
 	if cost == nil {
 		return
@@ -180,7 +192,7 @@ func observeRuntimeFileCost(event fileCost) {
 }
 
 func observeRuntimeWorkCost(ctx context.Context, event runtimeWorkCost) {
-	name := event.Owner
+	name, reason := event.Owner, event.Reason
 	switch event.Owner {
 	case "runtime-lease":
 		name = "runtimeLease"
@@ -188,11 +200,20 @@ func observeRuntimeWorkCost(ctx context.Context, event runtimeWorkCost) {
 		name = "scopedWait"
 	case "wait-heartbeat":
 		name = "waitHeartbeat"
+	case "notification":
+		switch event.Reason {
+		case "active":
+			name, reason = "notificationObserver", "poll"
+		case "pending", "delivery-due":
+			name, reason = "notificationDelivery", "poll"
+		default:
+			return
+		}
 	}
-	if !slices.Contains(runtimeCostOwners[:], name) || !slices.Contains(runtimeCostReasons[:], event.Reason) {
+	if !slices.Contains(runtimeCostOwners[:], name) || !slices.Contains(runtimeCostReasons[:], reason) {
 		return
 	}
-	cost := currentRuntimeCost(withRuntimeCost(ctx, name, event.Reason))
+	cost := currentRuntimeCost(withRuntimeCost(ctx, name, reason))
 	cost.rows.Add(uint64(event.Rows))
 	cost.scanSet.Store(uint64(event.ScanSet))
 }

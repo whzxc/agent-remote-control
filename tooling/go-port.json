@@ -63,12 +63,6 @@
       "status": "ported",
       "remaining": [
         {
-          "owner": "B",
-          "items": [
-            "Consume accounts file and work costs through the S0 observers and supply accountCoordinationDelivery."
-          ]
-        },
-        {
           "owner": "C",
           "items": [
             "Supply accountNotificationSessions and sendAccountNotification. Use notificationProviderAccounts and liveSourceAccounts for safe projections.",
@@ -294,12 +288,6 @@
       "status": "ported",
       "remaining": [
         {
-          "owner": "B",
-          "items": [
-            "Use the notificationCoordinationRoute and effective, verification and delivery adapters in message and bulletin delivery."
-          ]
-        },
-        {
           "owner": "D",
           "items": [
             "Provide notificationSourceAuthority for coordination and task delivery."
@@ -357,16 +345,7 @@
       "go": [
         "internal/core/claude_notify_index.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "B",
-          "items": [
-            "Consume the file and runtime work observer streams for notification metrics.",
-            "Validate notification owner work counters and retained-history costs after runtime_metrics is available."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/claude_notify/index_tests.rs": {
       "segment": "C",
@@ -691,15 +670,7 @@
       "go": [
         "internal/core/coordination_ax_mod.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "D",
-          "items": [
-            "Supply coordinationTaskOrigin for owner-scoped thread references."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/coordination/ax/store.rs": {
       "segment": "B",
@@ -727,12 +698,6 @@
           "items": [
             "Pass the retained pre-submission Git baseline and apply coordinationDispatchAdvisory at admission."
           ]
-        },
-        {
-          "owner": "C",
-          "items": [
-            "Retain admission and replay records and pass accepted dispatch checkpoints to saveCoordinationOwner."
-          ]
         }
       ]
     },
@@ -747,18 +712,6 @@
           "owner": "A",
           "items": [
             "Supply readCoordinationCodexHead for linked threads without live turn evidence."
-          ]
-        },
-        {
-          "owner": "C",
-          "items": [
-            "Supply coordinationDispatchAdmission and coordinationNotificationAttention."
-          ]
-        },
-        {
-          "owner": "D",
-          "items": [
-            "Supply coordinationRevokedSources and bounded coordinationLocalGit."
           ]
         }
       ]
@@ -790,21 +743,7 @@
         "internal/core/coordination_git_watch_fixes.go",
         "internal/core/coordination_git_watch_fixes_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "C",
-          "items": [
-            "Include coordinationFixSummary in dispatch quality readback."
-          ]
-        },
-        {
-          "owner": "D",
-          "items": [
-            "Supply bounded coordinationLocalGit."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/coordination/git_watch.rs": {
       "segment": "B",
@@ -816,13 +755,7 @@
         {
           "owner": "A",
           "items": [
-            "Feed observeCoordinationBaseline and coordinationRetainedBaselines."
-          ]
-        },
-        {
-          "owner": "D",
-          "items": [
-            "Call observeCoordinationProjects after a successful upstream project read and supply coordinationLocalGit."
+            "Feed observeCoordinationBaseline and coordinationRetainedBaselines and provide native project discovery to the registered-project owner."
           ]
         }
       ]
@@ -849,12 +782,6 @@
           "items": [
             "Apply coordinationCommandEnvironment from authenticated command execution."
           ]
-        },
-        {
-          "owner": "D",
-          "items": [
-            "Supply coordinationProjectCatalog and coordinationLocalGit."
-          ]
         }
       ]
     },
@@ -865,18 +792,6 @@
       ],
       "status": "ported",
       "remaining": [
-        {
-          "owner": "C",
-          "items": [
-            "Supply coordinationValidateTarget, coordinationVerifiedTarget, coordinationEffectiveRoute and deliverCoordinationBatch."
-          ]
-        },
-        {
-          "owner": "D",
-          "items": [
-            "Supply durable recipient authorization."
-          ]
-        },
         {
           "owner": "E",
           "items": [
@@ -904,15 +819,7 @@
       "go": [
         "internal/core/coordination_mod.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "D",
-          "items": [
-            "Supply readCoordinationSource, localSourceOrigin and durable credential revisions."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/coordination/observers.rs": {
       "segment": "B",
@@ -925,12 +832,6 @@
           "owner": "A",
           "items": [
             "Supply Agent session identity and live turns, Desktop turn decoding, and terminal change capture. Save Agent owner checkpoints through saveCoordinationOwner."
-          ]
-        },
-        {
-          "owner": "C",
-          "items": [
-            "Save accepted dispatch owner checkpoints through saveCoordinationOwner."
           ]
         }
       ]
@@ -949,15 +850,7 @@
         "internal/core/coordination_routing.go",
         "internal/core/coordination_routing_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "C",
-          "items": [
-            "Supply effective route verification and fallback ranking."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/coordination/tests.rs": {
       "segment": "B",
@@ -1213,12 +1106,6 @@
           "items": [
             "Provide dispatchAgentFacts, dispatchRegisteredAgent, nativeControlRequest, turn lifecycle and metadata hooks. Apply packs and resolve policy before native execution. Record dispatch before publishing a receipt.",
             "Call reviewAgentDispatch with the authoritative Agent task snapshot and attach per-turn pack and usage to task reads."
-          ]
-        },
-        {
-          "owner": "B",
-          "items": [
-            "Provide dispatchSaveOwner and dispatchFixCorrelation."
           ]
         },
         {
@@ -1757,12 +1644,6 @@
           "items": [
             "Supply nativeControlRequest and prepareProjectImage. Use dispatchProject and localProjectName for Codex create and task display."
           ]
-        },
-        {
-          "owner": "B",
-          "items": [
-            "Consume onRegisteredProjects for Git watches."
-          ]
         }
       ]
     },
@@ -1858,21 +1739,9 @@
       "status": "ported",
       "remaining": [
         {
-          "owner": "C",
-          "items": [
-            "Register the notifications/tasks startup index and attribute owner scans, observation and delivery to their cost scopes."
-          ]
-        },
-        {
           "owner": "A",
           "items": [
             "Attribute native task and Agent read paths to their owner scopes."
-          ]
-        },
-        {
-          "owner": "D",
-          "items": [
-            "Attribute account and subscription reads to their owner scopes."
           ]
         },
         {
@@ -1897,19 +1766,20 @@
         {
           "owner": "A",
           "items": [
-            "Record task activity work."
+            "Record task activity work and attach observation and lifecycle owners so notification observation passes can execute."
           ]
         },
         {
           "owner": "C",
           "items": [
-            "Record notification observer passes and delivery work and supply notification binding diagnostics."
+            "Record completed notification observer passes and phase timings via beginRuntimeObservation, and measure notification observer and delivery work durations.",
+            "Expose the full notification binding cache and activity-index diagnostics through notificationDiagnostics."
           ]
         },
         {
           "owner": "D",
           "items": [
-            "Record account work."
+            "Measure account refresh and account read work durations."
           ]
         },
         {
@@ -2010,12 +1880,6 @@
       ],
       "status": "ported",
       "remaining": [
-        {
-          "owner": "B",
-          "items": [
-            "Use readSourceAuthority and revokedCoordinationSources for coordination boundaries."
-          ]
-        },
         {
           "owner": "C",
           "items": [
@@ -2203,18 +2067,6 @@
           "owner": "A",
           "items": [
             "Supply resolveTrackedConversation and readTaskTrackingAnswers using native session, turn and transcript owners. Consume task tracking projections in native task routes including /api/tasks."
-          ]
-        },
-        {
-          "owner": "C",
-          "items": [
-            "Supply taskTrackingDispatchRecords."
-          ]
-        },
-        {
-          "owner": "D",
-          "items": [
-            "Supply taskTrackingDecorateSource for retained dispatch origins."
           ]
         }
       ]

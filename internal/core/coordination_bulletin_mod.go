@@ -639,6 +639,10 @@ func bulletinDesktopCall(ctx context.Context, request operationRequest) (any, er
 }
 
 func init() {
+	coordinationNotificationAttention = func(context.Context) (object, error) { return notificationCoordinationAttention() }
+	coordinationDispatchAdmission = func(thread, request string) (bool, error) {
+		return dispatchCoordinationAdmission(root(), thread, request)
+	}
 	for _, op := range []string{"board", "notice_post", "notice_update", "notice_close", "blocker_open", "blocker_clear", "coordination_session"} {
 		registerOperation(op, bulletinCall, nil)
 		if op != "coordination_session" {

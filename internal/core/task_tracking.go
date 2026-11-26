@@ -1789,6 +1789,18 @@ func taskTimelineLiveTurns(_ context.Context, service *service, threads []string
 var taskTrackingAgentTurns func([]string) []coordinationLiveTurn
 
 func init() {
+	taskTrackingDispatchRecords = dispatchRecords
+	sourceDispatchRecords = func(thread string) ([]any, error) {
+		rows, err := dispatchRecords(thread)
+		if err != nil {
+			return nil, err
+		}
+		result := make([]any, len(rows))
+		for i, row := range rows {
+			result[i] = row
+		}
+		return result, nil
+	}
 	registerOperation("task_timeline", readTaskTrackingTimeline, nil)
 	contextTrackingProjection = projectTaskContextTracking
 	readRecordedInteractions = projectTrackedInteractions

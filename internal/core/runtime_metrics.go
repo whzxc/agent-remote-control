@@ -182,6 +182,7 @@ func runtimeProcessUnavailable(err error) object {
 }
 
 func init() {
+	notificationBindingDiagnostics = notificationDiagnostics
 	registerOperation("runtime_metrics", runtimeMetrics, nil)
 	registerRoute("GET", "runtime/metrics", func(ctx context.Context, service *service, _ object, _ []string) (any, error) {
 		return runtimeMetrics(ctx, operationRequest{service: service})

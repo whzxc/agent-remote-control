@@ -626,7 +626,7 @@ func openIndex(ctx context.Context, owner, kind string, selected func(string) bo
 	switch kind {
 	case "receipts":
 		adoptContext, seedOwner = receiptAdoptionContext(ctx), "receiptSeed"
-	case "notifications":
+	case "notification":
 		adoptContext, seedOwner = withRuntimeCost(ctx, "notificationAdopt", "startup"), "notificationSeed"
 	}
 	adopting := time.Now()

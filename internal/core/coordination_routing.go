@@ -170,7 +170,48 @@ func coordinationRoutingStatus(ctx context.Context, source string) (object, erro
 }
 
 func init() {
+	notificationSourceAuthority = func(_ context.Context, source string) (object, error) { return readSourceAuthority(source) }
+	coordinationVerifiedTarget = verifiedCoordinationTarget
+	coordinationEffectiveRoute = effectiveCoordinationTarget
+	coordinationValidateTarget = func(target string) error {
+		_, err := notificationSessionID(target)
+		return err
+	}
+	deliverCoordinationBatch = sendCoordinationBatch
+	accountNotificationSessions = func(context.Context) ([]any, error) { return notificationAccountSessions() }
 	accountCoordinationDelivery = func(source string) (any, error) {
 		return coordinationRoutingStatus(context.Background(), source)
 	}
+}
+
+// Routing keeps the Bulletin binding ID while notification governance verifies
+// the source, target generation and transport.
+func coordinationDeliveryOutcome(result notificationCoordinationOutcome) coordinationRouteOutcome {
+	var route *coordinationRoute
+	if result.Route != nil {
+		converted := coordinationRoute(*result.Route)
+		route = &converted
+	}
+	return coordinationRouteOutcome{route: route, state: result.State}
+}
+
+func verifiedCoordinationTarget(ctx context.Context, source, target string) (coordinationRouteOutcome, error) {
+	result, err := verifiedNotificationCoordinationTarget(ctx, source, target)
+	return coordinationDeliveryOutcome(result), err
+}
+
+func effectiveCoordinationTarget(ctx context.Context, source string, explicit *coordinationRoute) (coordinationRouteOutcome, error) {
+	var route *notificationCoordinationRoute
+	if explicit != nil {
+		converted := notificationCoordinationRoute(*explicit)
+		route = &converted
+	}
+	result, err := effectiveNotificationCoordinationRoute(ctx, source, route)
+	return coordinationDeliveryOutcome(result), err
+}
+
+func sendCoordinationBatch(ctx context.Context, route coordinationRoute, count int, batch string) (string, error) {
+	defer beginRuntimeWork("notificationDelivery")()
+	result, err := deliverNotificationCoordination(ctx, notificationCoordinationRoute(route), count, batch)
+	return result.State, err
 }
