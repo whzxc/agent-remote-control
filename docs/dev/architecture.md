@@ -660,6 +660,9 @@ Git readers cache parsed packed refs independently of the retained tag count.
 Completed coordination descriptors reuse their owner/checkpoint stamps.
 Message delivery waits for a dependency change or its next deadline. Watcher
 failure exposes a coverage gap and bounded repair work through runtime metrics.
+On Windows, native events pass through a bounded queue so a consumer can change
+watch registrations while the native worker delivers events. An exhausted queue
+reports a coverage gap through the same repair path.
 Explicit history pages retain the complete canonical data and existing cursors.
 
 Before listening, Core prepares only source identities/configuration and three
