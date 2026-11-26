@@ -183,8 +183,14 @@ func coordinationHost() (string, error) {
 }
 
 func coordinationReceiptOrigin(origin object) (*coordinationPrincipal, error) {
-	if origin != nil && text(origin, "sourceId") == "" && !(origin["authType"] == "local" && (origin["ingressId"] == "local-cli" || origin["ingressId"] == "local-ui")) {
-		return nil, nil
+	if origin != nil && !(origin["authType"] == "local" && (origin["ingressId"] == "local-cli" || origin["ingressId"] == "local-ui")) {
+		source := origin["sourceId"]
+		if source == nil || source == "" {
+			return nil, nil
+		}
+		if _, ok := source.(string); !ok {
+			return nil, invalidCoordinationIdentifier()
+		}
 	}
 	return coordinationPrincipalFromOrigin(origin)
 }

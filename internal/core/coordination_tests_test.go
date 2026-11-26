@@ -152,6 +152,63 @@ func TestCoordinationEventPagesKeepSnapshotAndResetExpiredFilters(t *testing.T) 
 	if err != nil || field(expired["error"], "code") != "CURSOR_EXPIRED" || field(field(expired["next"], "args"), "resource") != resource {
 		t.Fatalf("retained shorthand = %v, %v", expired, err)
 	}
+	lost, err := openCoordinationJournal(t.TempDir(), coordinationRetentionMS+1500)
+	if err != nil {
+		t.Fatal(err)
+	}
+	filter.Resource = &resource
+	expired, err = lost.query(reader, filter, coordinationRetentionMS+1500)
+	if err != nil || field(expired["error"], "code") != "CURSOR_EXPIRED" {
+		t.Fatalf("lost epoch = %v, %v", expired, err)
+	}
+	var reset coordinationQuery
+	if err := unmarshalJSON([]byte(wire(field(expired["next"], "args"))), &reset); err != nil {
+		t.Fatal(err)
+	}
+	empty, err = lost.query(reader, reset, coordinationRetentionMS+1500)
+	if err != nil || len(empty["events"].([]object)) != 0 {
+		t.Fatalf("reset = %v, %v", empty, err)
+	}
+	point, err := lost.emit(newCoordinationEvent("new-epoch", "lane.created", []string{resource}), coordinationRetentionMS+1600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reset.Since = new(text(empty, "nextCursor"))
+	page, err := lost.query(reader, reset, coordinationRetentionMS+1700)
+	if err != nil || len(page["events"].([]object)) != 1 || page["events"].([]object)[0]["eventId"] != point["eventId"] {
+		t.Fatalf("after epoch reset = %v, %v", page, err)
+	}
+}
+
+func TestCoordinationPublicEventShapeAndLifecycleKindFilters(t *testing.T) {
+	// Contract: query events publishes bounded metadata and the same provenance envelope for each lifecycle kind.
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	s := &service{metadata: object{"instance": id()}}
+	for _, kind := range []string{"receipt.stalled", "receipt.unconfirmed", "lane.created", "lane.landed", "lane.removed", "isolated.started", "isolated.exited", "app.restarted"} {
+		input := newCoordinationEvent("observed-"+kind, kind, []string{"app:installed"})
+		input.Origin = &coordinationPrincipal{Type: "arc"}
+		if _, err := emitCoordinationEvent(input); err != nil {
+			t.Fatal(err)
+		}
+		page := callLocalCoordination(t, s, "events", object{"kinds": []any{kind}})
+		for _, field := range []string{"events", "nextCursor", "hasMore", "oldestCursor", "coverage", "observedAt", "arcVersion"} {
+			if _, ok := page[field]; !ok {
+				t.Fatalf("%s missing from %v", field, page)
+			}
+		}
+		rows := arr(page["events"])
+		if len(rows) != 1 || field(rows[0], "kind") != kind || field(rows[0], "provenance") != "arc-observed" {
+			t.Fatalf("filtered %s = %v", kind, page)
+		}
+		summary := text(rows[0], "summary")
+		if summary == "" || len(summary) > 240 || strings.Contains(summary, "\n") {
+			t.Fatalf("unbounded event summary %q", summary)
+		}
+	}
+	denied := callLocalCoordination(t, s, "events", object{"origin": object{"sourceId": "foreign"}})
+	if field(denied["error"], "code") != "INVALID_ARGUMENTS" || field(denied["error"], "field") != "/origin" {
+		t.Fatalf("caller origin accepted: %v", denied)
+	}
 }
 
 func TestCoordinationEventMetadataRejectsInvalidAndOversizedBeforeAppend(t *testing.T) {
@@ -278,6 +335,87 @@ func TestCoordinationReceiptObservationDistinguishesOwnerLossFromStall(t *testin
 	}
 }
 
+func projectStalledReceipt(t *testing.T, directory, checkpoint string, row object) {
+	t.Helper()
+	updated := nonemptyTaskText(text(row, "updatedAt"), text(row, "createdAt"))
+	input := "stalled:" + text(row, "requestId") + ":" + updated
+	path := filepath.Join(directory, "coordination", "observations", hash([]byte(input))+".json")
+	value, err := load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := coordinationProjectAt(t.Context(), path, checkpoint, obj(value)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCoordinationReceiptObserverKeepsMixedHistoricalOrigins(t *testing.T) {
+	// Recurring bug class: persistence one malformed origin must neither leak into Events nor invalidate the historical receipt feed.
+	state := t.TempDir()
+	t.Setenv("ARC_STATE_DIR", state)
+	s := &service{metadata: object{"instance": id()}}
+	observer := coordinationReceiptObserver{waiting: map[string]bool{}, failed: map[string]bool{}, invalid: map[string]bool{}}
+	directory := t.TempDir()
+	stamp := "2026-01-01T00:00:00.000Z"
+	rows := []object{
+		{"requestId": "known", "createdAt": stamp, "origin": object{"authType": "oauth", "sourceId": "source-one", "accountId": "account-one"}},
+		{"requestId": "empty", "createdAt": stamp, "origin": object{"authType": "oauth", "sourceId": ""}},
+		{"requestId": "local", "createdAt": stamp, "origin": object{"authType": "local", "ingressId": "local-cli"}},
+		{"requestId": "missing-created", "updatedAt": stamp},
+		{"requestId": "legacy-ui", "updatedAt": stamp, "origin": object{"ingressId": "local-ui"}},
+	}
+	at := time.Now()
+	for i, row := range rows {
+		row["state"], row["backendSession"], row["operation"] = "reserved", "current", "command"
+		if !observer.observe(filepath.Join(directory, fmt.Sprint(i)), row, "current", "host:fixture", at.UnixMilli()) {
+			t.Fatalf("valid historical receipt rejected: %v", row)
+		}
+		projectStalledReceipt(t, state, filepath.Join(directory, fmt.Sprintf("checkpoint-%d.json", i)), row)
+	}
+	bad := clone(rows[0])
+	bad["requestId"], bad["origin"] = "bad", object{"sourceId": []any{"invalid"}}
+	path := filepath.Join(directory, "bad")
+	for range 3 {
+		if observer.observe(path, bad, "current", "host:fixture", at.UnixMilli()) {
+			t.Fatal("malformed source ID was accepted")
+		}
+	}
+	observer.report()
+	page := callLocalCoordination(t, s, "events", object{"kinds": []any{"receipt.stalled"}})
+	events := arr(page["events"])
+	if len(events) != len(rows) || uintOr(field(field(field(page["coverage"], "observers"), "receipts"), "skippedInvalidRecords"), 99) != 1 {
+		t.Fatalf("mixed historical corpus = %v", page)
+	}
+	for i, event := range events {
+		origin := field(rows[i], "origin")
+		observed := field(event, "origin")
+		switch {
+		case field(origin, "authType") == "local":
+			if field(observed, "type") != "local-authority" {
+				t.Fatalf("local historical receipt = %v", observed)
+			}
+		case text(origin, "sourceId") == "":
+			if observed != nil {
+				t.Fatalf("unknown historical receipt invented attribution: %v", observed)
+			}
+		default:
+			if field(observed, "sourceId") != field(origin, "sourceId") || field(observed, "accountId") != field(origin, "accountId") {
+				t.Fatalf("historical origin = %v", observed)
+			}
+		}
+	}
+	bad["origin"] = nil
+	if !observer.observe(path, bad, "current", "host:fixture", at.UnixMilli()) {
+		t.Fatal("repaired receipt was not observed")
+	}
+	projectStalledReceipt(t, state, filepath.Join(directory, "repaired-checkpoint.json"), bad)
+	observer.report()
+	repaired := callLocalCoordination(t, s, "events", object{"kinds": []any{"receipt.stalled"}})
+	if len(arr(repaired["events"])) != len(rows)+1 || uintOr(field(field(field(repaired["coverage"], "observers"), "receipts"), "skippedInvalidRecords"), 99) != 0 {
+		t.Fatalf("repaired historical corpus = %v", repaired)
+	}
+}
+
 func TestCoordinationGitWatchesRefsWithoutReopeningUnchangedFiles(t *testing.T) {
 	// Recurring bug class: lifecycle idle Git observation reuses watched files while detected movements retain metadata.
 	dir := t.TempDir()
@@ -388,6 +526,52 @@ func TestCoordinationSourceAuthorityUsesCredentialRevision(t *testing.T) {
 	source["state"] = "revoked"
 	if _, err := coordinationReadAuthority(ctx, false); err == nil || !strings.HasPrefix(err.Error(), "SOURCE_REVOKED") {
 		t.Fatalf("revoked source = %v", err)
+	}
+}
+
+func TestCoordinationEventsShareMetadataAcrossAuthorizedAccounts(t *testing.T) {
+	// Contract: account-attributed sources share the projected event feed while each credential remains independently revocable.
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	saved := readCoordinationSource
+	t.Cleanup(func() { readCoordinationSource = saved })
+	private := "private-prompt-title-error-route"
+	sources := map[string]object{}
+	origins := map[string]object{}
+	for _, name := range []string{"one", "two"} {
+		source := object{"id": name, "ingressId": "ingress-" + name, "credential": object{"type": "bearer", "generation": 1}}
+		sources[name] = source
+		origin := object{"sourceId": name, "ingressId": source["ingressId"], "accountId": "account-" + name,
+			"authType": "oauth", "sourceLabel": private, "prompt": private, "task_title": private, "notify": object{"target": private}}
+		origins[name] = origin
+		input, err := coordinationBaseEvent(object{"origin": origin}, name, "app.restarted", []string{"app:installed"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := emitCoordinationEvent(input); err != nil {
+			t.Fatal(err)
+		}
+	}
+	readCoordinationSource = func(_ context.Context, origin object) (object, error) { return sources[text(origin, "sourceId")], nil }
+	read := func(name string) object {
+		t.Helper()
+		value, err := coordinationEventQuery(withOrigin(t.Context(), origins[name]), operationRequest{args: object{}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return obj(value)
+	}
+	a, b := read("one"), read("two")
+	rows := a["events"].([]object)
+	if len(rows) != 2 || wire(rows) != wire(b["events"]) || !strings.Contains(wire(rows[1]["origin"]), `"accountId":"account-two"`) ||
+		strings.Contains(wire(a), private) || a["nextCursor"] == b["nextCursor"] {
+		t.Fatalf("cross-account event projections = %v / %v", a, b)
+	}
+	sources["one"]["state"] = "revoked"
+	if denied := read("one"); field(denied["error"], "code") != "SOURCE_REVOKED" {
+		t.Fatalf("revoked reader retained access: %v", denied)
+	}
+	if remaining := read("two"); len(remaining["events"].([]object)) != 2 {
+		t.Fatalf("revocation changed the other account's feed: %v", remaining)
 	}
 }
 

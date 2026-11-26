@@ -581,7 +581,7 @@
       "go": [
         "internal/core/coordination_ax_tests_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/bulletin/dispatch.rs": {
       "segment": "B",
@@ -706,7 +706,7 @@
       "go": [
         "internal/core/coordination_tests_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/turns.rs": {
       "segment": "B",
