@@ -306,7 +306,10 @@ func (i *networkIngress) forwardMCP(ctx context.Context, body, principal object,
 		i.waits.cancel(wire(field(body["params"], "requestId")))
 		return nil, nil
 	}
-	if isMCPWait(body) {
+	original := ctx
+	started := time.Now()
+	isWait := isMCPWait(body)
+	if isWait {
 		wait, release, err := i.waits.register(ctx, wire(body["id"]))
 		if err != nil {
 			return nil, err
@@ -316,6 +319,11 @@ func (i *networkIngress) forwardMCP(ctx context.Context, body, principal object,
 	}
 	authority := object{"Ingress": privateIngress{ID: i.id, Principal: principal, Header: header}}
 	result, err := i.owner.bridge.call(ctx, newPrivateRequest(ctx, "Mcp", authority, body))
+	if isWait && ctx.Err() != nil && original.Err() == nil {
+		answer := cancelledControlWait(field(body["params"], "arguments"), time.Since(started))
+		answer["resultType"] = "complete"
+		return object{"jsonrpc": "2.0", "id": body["id"], "result": answer}, nil
+	}
 	if err != nil {
 		var rpcError object
 		_ = decodeObject([]byte(err.Error()), &rpcError)

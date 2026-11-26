@@ -240,7 +240,7 @@ func toolExposureCatalog() object {
 	exposure := obj(domain["toolExposure"])
 	local := requestSource{local: true, policy: "all"}
 	agents := (registeredOperations["agents"].handle != nil || fallbackOperations["agents"] != nil) && operationAvailable(local, "agents")
-	devices := remoteDeviceControl != nil
+	devices := remoteDeviceControl != nil && operationAvailable(local, "device")
 	hub := hubEnabled(local)
 	tools := make([]object, 0, len(arr(domain["ops"])))
 	for _, spec := range arr(domain["ops"]) {

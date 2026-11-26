@@ -569,7 +569,7 @@
       "go": [
         "internal/core/cloudflare.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/codex_host.rs": {
       "segment": "A",
@@ -964,7 +964,9 @@
     },
     "native/src/device_link/controller/path.rs": {
       "segment": "E",
-      "go": [],
+      "go": [
+        "internal/core/device_link_controller_path.go"
+      ],
       "status": "pending"
     },
     "native/src/device_link/controller/transfer.rs": {
@@ -974,7 +976,9 @@
     },
     "native/src/device_link/controller.rs": {
       "segment": "E",
-      "go": [],
+      "go": [
+        "internal/core/device_link_controller.go"
+      ],
       "status": "pending"
     },
     "native/src/device_link/controller_tests.rs": {
@@ -989,7 +993,9 @@
     },
     "native/src/device_link/events.rs": {
       "segment": "E",
-      "go": [],
+      "go": [
+        "internal/core/device_link_events.go"
+      ],
       "status": "pending"
     },
     "native/src/device_link/identity.rs": {
@@ -1010,8 +1016,10 @@
     },
     "native/src/device_link/records.rs": {
       "segment": "E",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/device_link_records.go"
+      ],
+      "status": "ported"
     },
     "native/src/device_link/tests.rs": {
       "segment": "E",
@@ -1042,8 +1050,14 @@
     },
     "native/src/device_link/transfer/receiver.rs": {
       "segment": "E",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/device_link_transfer_receiver.go",
+        "internal/core/device_link_transfer_receiver_darwin.go",
+        "internal/core/device_link_transfer_receiver_linux.go",
+        "internal/core/device_link_transfer_receiver_unix.go",
+        "internal/core/device_link_transfer_receiver_windows.go"
+      ],
+      "status": "ported"
     },
     "native/src/device_link/transfer/relay_fixture.rs": {
       "segment": "E",
@@ -1057,13 +1071,17 @@
     },
     "native/src/device_link/transfer/wire.rs": {
       "segment": "E",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/device_link_transfer_wire.go"
+      ],
+      "status": "ported"
     },
     "native/src/device_link/transfer.rs": {
       "segment": "E",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/device_link_transfer.go"
+      ],
+      "status": "ported"
     },
     "native/src/device_link/transport.rs": {
       "segment": "E",
@@ -1075,8 +1093,10 @@
     },
     "native/src/device_link/tunnel.rs": {
       "segment": "E",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/device_link_tunnel.go"
+      ],
+      "status": "ported"
     },
     "native/src/device_link/tunnel_fixture.rs": {
       "segment": "E",
@@ -1085,12 +1105,16 @@
     },
     "native/src/device_link/tunnel_tests.rs": {
       "segment": "E",
-      "go": [],
+      "go": [
+        "internal/core/device_link_tunnel_test.go"
+      ],
       "status": "pending"
     },
     "native/src/device_link/visibility.rs": {
       "segment": "E",
-      "go": [],
+      "go": [
+        "internal/core/device_link_authority.go"
+      ],
       "status": "pending"
     },
     "native/src/diagnostics.rs": {
@@ -1165,12 +1189,6 @@
           "items": [
             "Supply native task and interaction evidence.",
             "Register source-conversation error classification."
-          ]
-        },
-        {
-          "owner": "E",
-          "items": [
-            "Register device-transfer error classification."
           ]
         }
       ]
@@ -1332,7 +1350,7 @@
       "go": [
         "internal/core/https_tunnel.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/i18n.rs": {
       "segment": "S0",
@@ -1358,8 +1376,11 @@
       "segment": "E",
       "go": [
         "internal/core/ingress.go",
-        "internal/core/ingress_fixture.go",
-        "internal/core/ingress_management.go"
+        "internal/core/ingress_management.go",
+        "internal/core/ingress_drafts.go",
+        "internal/core/ingress_openai_tunnel.go",
+        "internal/core/ingress_openai_tunnel_test.go",
+        "internal/core/ingress_fixture.go"
       ],
       "status": "pending"
     },
@@ -1560,12 +1581,6 @@
       "status": "ported",
       "remaining": [
         {
-          "owner": "E",
-          "items": [
-            "Register device-transfer error classification."
-          ]
-        },
-        {
           "owner": "F",
           "items": [
             "Register the packaged Desktop launch callback."
@@ -1718,7 +1733,10 @@
     },
     "native/src/relay/transport.rs": {
       "segment": "E",
-      "go": [],
+      "go": [
+        "internal/core/relay_transport.go",
+        "internal/core/relay_transport_test.go"
+      ],
       "status": "pending"
     },
     "native/src/resources.rs": {

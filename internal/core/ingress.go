@@ -17,6 +17,8 @@ import (
 var networkGateways sync.Map // *gatewayOwner -> *ingressGateway
 
 type ingressGateway struct {
+	ctx     context.Context
+	drafts  map[string]*ingressDraft
 	owner   *gatewayOwner
 	mu      sync.RWMutex
 	entries map[string]*networkIngress
@@ -29,7 +31,13 @@ type networkIngress struct {
 	mu                      sync.RWMutex
 	entry, verification     object
 	server                  *http.Server
+	managedHealth           object
+	managedURLs             []string
+	providerStatus          object
+	officialTunnel          *officialTunnel
+	tunnelDependency        object
 	providerStop            func()
+	draft, starting         bool
 	running, retired        bool
 	url, failure, lastError string
 	lastErrorAt             any
@@ -75,7 +83,7 @@ func (i *networkIngress) observe(field string, value any, once bool) error {
 func (i *networkIngress) resetVerification() error {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	verification := object{"code": id(), "verifiedAt": nil}
+	verification := object{"binding": i.verification["binding"], "endpoint": i.verification["endpoint"], "code": id(), "verifiedAt": nil}
 	if err := save(filepath.Join(i.directory, "verification.json"), verification); err != nil {
 		return err
 	}
@@ -83,11 +91,24 @@ func (i *networkIngress) resetVerification() error {
 	return nil
 }
 
+func (i *networkIngress) resetVerificationResult() (object, error) {
+	if err := i.resetVerification(); err != nil {
+		return nil, err
+	}
+	i.mu.RLock()
+	defer i.mu.RUnlock()
+	return object{"code": i.verification["code"], "verifiedAt": nil}, nil
+}
+
 func (i *networkIngress) status() object {
+	i.refreshOfficialTunnel()
 	i.mu.RLock()
 	entry, verification := i.entry, clone(i.verification)
 	running, resource, failure := i.running, i.url, i.failure
 	lastError, lastErrorAt := i.lastError, i.lastErrorAt
+	provider, dependency, official := i.providerStatus, i.tunnelDependency, i.officialTunnel != nil
+	health, urls := i.managedHealth, i.managedURLs
+	active := i.providerStop != nil || i.starting
 	i.mu.RUnlock()
 
 	config := clone(obj(entry["config"]))
@@ -101,18 +122,29 @@ func (i *networkIngress) status() object {
 		chat[key] = verification[key]
 	}
 	state := "stopped"
-	if running {
+	if health != nil && health["state"] == "degraded" {
+		state, failure = "degraded", text(health, "error")
+	} else if running {
 		state = "ready"
+	} else if provider["state"] == "rejected" {
+		state, failure = "error", localized(locale(), "setup.runtime-key-rejected")
+	} else if official || active && health == nil {
+		state = "starting"
+	} else if provider["state"] == "connecting" || provider["state"] == "reconnecting" {
+		state, failure = "starting", text(provider, "error")
 	} else if failure != "" {
 		state = "error"
 	}
+	if urls == nil {
+		urls = []string{}
+	}
 	installed, _ := load(filepath.Join(root(), "app/native.json"))
 	return object{
-		"frontDoor": frontDoorStatus(text(installed, "build")), "discoveredUrls": []string{}, "requests": i.requests.snapshot(),
+		"frontDoor": frontDoorStatus(text(installed, "build")), "discoveredUrls": urls, "requests": i.requests.snapshot(),
 		"core":       object{"chatgpt": chat, "transport": object{"state": state, "error": failure}},
-		"connection": object{"running": running, "updateAvailable": false, "mcpUrl": resource},
+		"connection": object{"running": running || active, "updateAvailable": false, "mcpUrl": resource},
 		"config":     config,
-		"tunnel": object{"state": state, "error": failure, "health": nil, "controlPlane": nil, "dependency": nil,
+		"tunnel": object{"state": state, "error": failure, "health": health, "controlPlane": provider, "dependency": dependency,
 			"lastError": lastError, "lastErrorAt": lastErrorAt},
 		"connector": object{"state": state}, "logs": recentLogs(&i.id),
 		"version": buildVersion, "platform": runtimePlatform(), "deviceName": deviceDisplayName(),
@@ -123,7 +155,7 @@ func (i *networkIngress) status() object {
 func (i *networkIngress) summary(ctx context.Context) (object, error) {
 	status := i.status()
 	i.mu.RLock()
-	entry := i.entry
+	entry, draft := i.entry, i.draft
 	i.mu.RUnlock()
 	config, tunnel, transport := status["config"], status["tunnel"], status["connection"]
 	result := object{
@@ -147,18 +179,18 @@ func (i *networkIngress) summary(ctx context.Context) (object, error) {
 		}
 		result["oauth"] = snapshot
 	}
-	if entry["auth"] != "oauth" && sourceAuthorityHandlers["ensure_ingress"] != nil {
+	if !draft && entry["auth"] != "oauth" && sourceAuthorityHandlers["ensure_ingress"] != nil {
 		if _, err := requestSourceAuthority(ctx, i.owner.bridge, "ensure_ingress", object{"entry": entry}); err != nil {
 			return nil, err
 		}
 	}
-	if sourceAuthorityHandlers["connection_state"] != nil {
+	if !draft && sourceAuthorityHandlers["connection_state"] != nil {
 		if _, err := requestSourceAuthority(ctx, i.owner.bridge, "connection_state", object{"ingress": i.id, "connected": result["running"]}); err != nil {
 			return nil, err
 		}
 	}
 	sources := []any{}
-	if sourceAuthorityHandlers["control_sources"] != nil {
+	if !draft && sourceAuthorityHandlers["control_sources"] != nil {
 		rows, err := requestSourceAuthority(ctx, i.owner.bridge, "control_sources", object{})
 		if err != nil {
 			return nil, err
@@ -187,7 +219,7 @@ func (i *networkIngress) start(ctx context.Context) (err error) {
 		i.mu.Unlock()
 		return errors.New("ingress removed or replaced")
 	}
-	entry, running := i.entry, i.running
+	entry, running := i.entry, i.running || i.providerStop != nil
 	i.mu.Unlock()
 	if entry["enabled"] != true {
 		return errors.New("ingress disabled")
@@ -214,6 +246,10 @@ func (i *networkIngress) start(ctx context.Context) (err error) {
 	switch {
 	case config["connectionMode"] == "local":
 		i.markRunning("")
+	case config["connectionMode"] == "relay":
+		return startRelayIngress(i, config)
+	case config["connectionMode"] == "tunnel":
+		return startOpenAITunnel(ctx, i, config)
 	case config["connectionMode"] == "https" && config["httpsProvider"] == "custom":
 		if _, err := listenHTTPSIngress(i, config); err != nil {
 			return err
@@ -239,7 +275,7 @@ func (i *networkIngress) stop() {
 	i.mu.Lock()
 	i.running, i.url, i.failure = false, "", ""
 	server, stop := i.server, i.providerStop
-	i.server, i.providerStop = nil, nil
+	i.server, i.providerStop, i.providerStatus, i.officialTunnel = nil, nil, nil, nil
 	i.mu.Unlock()
 	if stop != nil {
 		stop()
@@ -247,6 +283,10 @@ func (i *networkIngress) stop() {
 	if server != nil {
 		_ = server.Close()
 	}
+	i.mu.Lock()
+	i.running, i.url, i.failure, i.lastError, i.lastErrorAt, i.providerStatus = false, "", "", "", nil, nil
+	i.managedHealth, i.managedURLs = nil, nil
+	i.mu.Unlock()
 }
 
 func (i *networkIngress) setConnection(ctx context.Context, running bool) error {
@@ -400,24 +440,40 @@ func startIngressGateway(ctx context.Context, owner *gatewayOwner) error {
 	if index == nil {
 		return errors.New("invalid ingress index")
 	}
-	g := &ingressGateway{owner: owner, entries: make(map[string]*networkIngress)}
+	draftCtx, cancelDrafts := context.WithCancel(ctx)
+	g := &ingressGateway{ctx: draftCtx, owner: owner, entries: make(map[string]*networkIngress), drafts: make(map[string]*ingressDraft)}
 	for _, row := range index {
 		id := str(row)
 		entry, err := loadIngressEntry(id)
 		if err != nil {
+			cancelDrafts()
 			return fmt.Errorf("Load ingress %s: %w", id, err)
 		}
 		entry, err = normalizeIngressEntry(ctx, owner.bridge, entry)
 		if err != nil {
+			cancelDrafts()
 			return fmt.Errorf("Normalize ingress %s: %w", id, err)
 		}
 		if g.entries[id], err = newNetworkIngress(owner, entry); err != nil {
+			cancelDrafts()
 			return err
 		}
 	}
 	networkGateways.Store(owner, g)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		g.expireDrafts(draftCtx)
+	}()
 	owner.cleanup = append(owner.cleanup, func() {
 		networkGateways.Delete(owner)
+		cancelDrafts()
+		<-done
+		g.mu.Lock()
+		for name, draft := range g.drafts {
+			g.discardDraft(name, draft)
+		}
+		g.mu.Unlock()
 		for _, i := range g.snapshot() {
 			i.lifecycle.Lock()
 			i.mu.Lock()

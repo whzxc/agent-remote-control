@@ -155,26 +155,31 @@ type devicePairingAttempt struct {
 }
 
 type deviceManager struct {
-	directory     string
-	lifetime      context.Context
-	configuration sync.Mutex
-	mu            sync.Mutex
-	enabled       bool
-	identity      *deviceIdentity
-	stored        deviceStored
-	offerHash     string
-	offerExpiry   time.Time
-	pending       *devicePending
-	pairing       *devicePairingAttempt
-	runtime       *devicePeerRuntime
-	epoch         uint64
-	authority     func(context.Context, string, object) (any, error)
-	control       func(context.Context, string, object) (any, error)
-	bindings      func(uint16) ([]deviceLANBinding, error)
-	allow         func(netip.Addr) bool
-	dialAddresses func([]string) ([]netip.AddrPort, error)
-	discovery     func(*deviceIdentity, uint16, []deviceLANBinding) (func(), error)
-	tunnelURL     func() *string
+	directory          string
+	lifetime           context.Context
+	configuration      sync.Mutex
+	mu                 sync.Mutex
+	enabled            bool
+	identity           *deviceIdentity
+	stored             deviceStored
+	offerHash          string
+	offerExpiry        time.Time
+	pending            *devicePending
+	pairing            *devicePairingAttempt
+	runtime            *devicePeerRuntime
+	epoch              uint64
+	transfers          deviceReceiverStore
+	tunnelState        deviceTunnelState
+	tunnelContextEpoch context.Context
+	tunnelCancel       context.CancelFunc
+	tunnelSlots        chan struct{}
+	authority          func(context.Context, string, object) (any, error)
+	control            func(context.Context, string, object) (any, error)
+	bindings           func(uint16) ([]deviceLANBinding, error)
+	allow              func(netip.Addr) bool
+	dialAddresses      func([]string) ([]netip.AddrPort, error)
+	discovery          func(*deviceIdentity, uint16, []deviceLANBinding) (func(), error)
+	tunnelURL          func() *string
 }
 
 func newDeviceManager(ctx context.Context, directory string) (*deviceManager, error) {
@@ -182,10 +187,12 @@ func newDeviceManager(ctx context.Context, directory string) (*deviceManager, er
 	if err != nil {
 		return nil, err
 	}
-	return &deviceManager{directory: directory, lifetime: ctx, stored: stored,
+	m := &deviceManager{directory: directory, lifetime: ctx, stored: stored,
 		bindings: deviceLANBindings, allow: deviceLANAddress, dialAddresses: deviceConnectAddresses,
-		discovery: advertiseDeviceDNS,
-	}, nil
+		discovery: advertiseDeviceDNS, tunnelSlots: make(chan struct{}, 8),
+	}
+	m.resetTunnelLocked()
+	return m, nil
 }
 
 func (m *deviceManager) persist(stored deviceStored) error {
@@ -306,6 +313,7 @@ func (m *deviceManager) reconcileLocked(enabled bool) error {
 
 func (m *deviceManager) cancelConnectionsLocked() *devicePeerRuntime {
 	m.epoch++
+	m.resetTunnelLocked()
 	if pending := m.pending; pending != nil {
 		pending.decision <- deviceDecision{err: errors.New("DEVICE_PAIRING_DECLINED: Create a fresh member-local offer after local approval is available.")}
 		m.pending = nil
@@ -315,6 +323,14 @@ func (m *deviceManager) cancelConnectionsLocked() *devicePeerRuntime {
 		m.pairing = nil
 	}
 	return m.runtime
+}
+
+func (m *deviceManager) resetTunnelLocked() {
+	if m.tunnelCancel != nil {
+		m.tunnelCancel()
+	}
+	m.tunnelContextEpoch, m.tunnelCancel = context.WithCancel(m.lifetime)
+	m.tunnelState = deviceTunnelState{challenges: map[string]deviceTunnelAuthorization{}, tokens: map[string]deviceTunnelAuthorization{}}
 }
 
 func validDeviceName(name string) bool {
@@ -630,6 +646,8 @@ func (m *deviceManager) dispatch(ctx context.Context, action string, body object
 		return nil, err
 	}
 	switch action {
+	case "learn":
+		return m.learn(body)
 	case "snapshot":
 		return m.snapshot(), nil
 	case "offer":
@@ -665,6 +683,37 @@ func (m *deviceManager) dispatch(ctx context.Context, action string, body object
 	}
 }
 
+func (m *deviceManager) learn(body object) (object, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	id := text(body, "deviceId")
+	peer, ok := m.stored.Members[id]
+	if !ok {
+		return nil, errors.New("DEVICE_UNKNOWN: member was removed")
+	}
+	if peer.PublicKey != text(body, "publicKey") {
+		return nil, errors.New("DEVICE_UNPAIRED: member identity changed")
+	}
+	next := peer
+	hello := obj(body["hello"])
+	if addresses, ok := hello["addresses"].([]any); ok {
+		next.Addresses = deviceStringList(addresses)
+	}
+	if value, present := hello["tunnelUrl"]; present {
+		next.TunnelURL = nil
+		if safe := peerURL(str(value)); safe != "" {
+			next.TunnelURL = &safe
+		}
+	}
+	if wire(peer) == wire(next) {
+		return object{"changed": false}, nil
+	}
+	stored := m.stored
+	stored.Members = maps.Clone(stored.Members)
+	stored.Members[id] = next
+	return object{"changed": true}, m.persist(stored)
+}
+
 func peerURL(raw string) string {
 	u, err := url.Parse(raw)
 	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil ||
@@ -688,10 +737,12 @@ func startDeviceGateway(ctx context.Context, owner *gatewayOwner) error {
 		auth := object{"Peer": privatePeerAuthority{DeviceID: id}}
 		return owner.bridge.call(ctx, newPrivateRequest(ctx, "PeerControl", auth, body))
 	}
+	m.tunnelURL = func() *string { return m.discoverPublicPeerURL(owner) }
 	deviceGateways.Store(owner, m)
 	owner.cleanup = append(owner.cleanup, func() {
 		deviceGateways.Delete(owner)
 		_ = m.reconcile(false)
+		m.transfers.close()
 	})
 	return nil
 }
@@ -709,6 +760,13 @@ func init() {
 			return nil, errors.New(deviceUnavailableMessage)
 		}
 		return object{"ok": true}, instance.(*deviceManager).reconcile(deviceEnabled())
+	})
+	registerGatewayRoute(http.MethodPost, `_peer_learn`, func(ctx context.Context, g *gatewayOwner, body object, _ []string) (any, error) {
+		instance, ok := deviceGateways.Load(g)
+		if !ok {
+			return nil, errors.New(deviceUnavailableMessage)
+		}
+		return instance.(*deviceManager).dispatch(ctx, "learn", body)
 	})
 	registerGatewayRoute(http.MethodPost, `device/(snapshot|offer|pending|approve|decline|pair|cancel-pair|revoke|configure|address)`,
 		func(ctx context.Context, g *gatewayOwner, body object, params []string) (any, error) {

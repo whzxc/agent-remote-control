@@ -62,7 +62,15 @@ func dispatchDeviceControl(ctx context.Context, s *service, id string, body obje
 	if err != nil {
 		return nil, err
 	}
-	source.local = false
+	source.local = true
+	allowed := []any{}
+	for _, value := range arr(catalog()["ops"]) {
+		name := text(value, "name")
+		if !devicePeerForbidden(name) && (name != "screen" || operatingSystem == "darwin") {
+			allowed = append(allowed, name)
+		}
+	}
+	source.policy = object{"allowlist": allowed}
 	source.origin = maps.Clone(source.origin)
 	source.origin["controlTransport"], source.origin["peerOrigin"], source.origin["deviceId"] = "peer", request.Origin, id
 	ctx = withOrigin(ctx, source.origin)
@@ -83,7 +91,16 @@ func dispatchDeviceControl(ctx context.Context, s *service, id string, body obje
 		}}, true), nil
 	}
 	switch op {
-	case "peer_task_events", "codex_tasks", "agent_tasks", "activity":
+	case devicePeerTaskEvents:
+		if request.Tool != "query" {
+			return nil, errors.New("INVALID_ARGUMENT: peer_task_events is a peer query")
+		}
+		reply, err := peerEvents.read(ctx, text(source.origin, "sourceId"), args)
+		if err != nil {
+			return nil, err
+		}
+		return egressTool(reply, false), nil
+	case "codex_tasks", "agent_tasks", "task_activity":
 		if deviceCoreTaskRead == nil {
 			return nil, errors.New(PortPending)
 		}
@@ -91,7 +108,7 @@ func dispatchDeviceControl(ctx context.Context, s *service, id string, body obje
 	}
 	spec := operation(op)
 	if request.Tool == "act" && op != "receipt" && spec != nil && via(spec) == "act" && retryContract(spec)["mode"] != "receipt" {
-		return nil, errors.New(PortPending)
+		return deviceRecordPeerWrite(ctx, s, source, request)
 	}
 	return callTool(ctx, s, source, request.Tool, request.Body, nil), nil
 }
@@ -154,4 +171,49 @@ func init() {
 		return err
 	}
 	peerControlRequest = dispatchDeviceControl
+}
+
+func deviceRecordPeerWrite(ctx context.Context, s *service, source requestSource, request devicePeerRequest) (any, error) {
+	store := coreReceiptStore()
+	requestID := text(request.Body, "requestId")
+	if requestID == "" {
+		requestID = id()
+	}
+	digest := hash([]byte(wire(request.Body)))
+	session := text(s.metadata, "instance")
+	release := lockReceipt(requestID)
+	defer release()
+	row, err := store.replay(ctx, requestID, digest, session)
+	if err != nil {
+		return nil, err
+	}
+	if row != nil {
+		if reply := row["peerResponse"]; reply != nil {
+			return reply, nil
+		}
+		return egressTool(row, false), nil
+	}
+	row = object{"requestId": requestID, "digest": digest, "operation": field(request.Body, "op"),
+		"origin": source.origin, "backendSession": session, "state": "reserved", "createdAt": now()}
+	if err := store.reserve(ctx, row); err != nil {
+		return nil, err
+	}
+	owner, err := store.begin(ctx, row)
+	if err != nil {
+		return nil, err
+	}
+	defer owner.close()
+	reply := callTool(ctx, s, source, request.Tool, request.Body, nil)
+	value, err := egressToolValue(reply)
+	if err != nil {
+		return nil, err
+	}
+	row["result"], row["peerResponse"], row["state"] = value, reply, "completed"
+	if reply["isError"] == true {
+		row["state"] = "failed"
+	}
+	if err := store.checkpoint(context.WithoutCancel(ctx), row); err != nil {
+		return nil, err
+	}
+	return reply, nil
 }

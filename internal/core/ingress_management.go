@@ -139,9 +139,11 @@ func (g *ingressGateway) remove(ctx context.Context, i *networkIngress) (object,
 }
 
 var ingressOAuthPending func(*networkIngress) []string
-var ingressInstall func(context.Context, *networkIngress, object) (any, error)
 
 func (g *ingressGateway) manage(ctx context.Context, method, route string, body object) (any, error) {
+	if route == "ingress-drafts" || strings.HasPrefix(route, "ingress-drafts/") {
+		return g.draftRoute(ctx, method, route, body)
+	}
 	if route == "_restore" || route == "_autostart" {
 		return object{}, g.restore(ctx, route == "_autostart")
 	}
@@ -291,7 +293,7 @@ func (g *ingressGateway) manage(ctx context.Context, method, route string, body 
 		defer i.mu.RUnlock()
 		return object{"apiKey": field(i.entry["config"], "apiKey"), "bearerToken": i.entry["bearerToken"]}, nil
 	case "POST verification/reset":
-		return object{"ok": true}, i.resetVerification()
+		return i.resetVerificationResult()
 	case "POST probe":
 		summary, err := i.summary(ctx)
 		if err != nil {
@@ -301,10 +303,24 @@ func (g *ingressGateway) manage(ctx context.Context, method, route string, body 
 			return i.observe(field, value, false)
 		})
 	case "POST install":
-		if ingressInstall != nil {
-			return ingressInstall(ctx, i, body)
+		if body["component"] != "tunnel" {
+			return nil, errors.New("Install the official Codex Desktop")
 		}
-		return nil, errors.New(PortPending)
+		i.lifecycle.Lock()
+		defer i.lifecycle.Unlock()
+		i.mu.RLock()
+		config, running := obj(i.entry["config"]), i.running || i.providerStop != nil
+		i.mu.RUnlock()
+		i.stop()
+		if _, err := i.prepareOfficialTunnel(ctx, config, true); err != nil {
+			return nil, err
+		}
+		if running {
+			if err := i.start(ctx); err != nil {
+				return nil, err
+			}
+		}
+		return object{"ok": true}, nil
 	default:
 		return nil, errors.New("UNKNOWN_ROUTE")
 	}
@@ -320,7 +336,7 @@ func (i *networkIngress) manageLegacy(ctx context.Context, method, action string
 		config := i.entry["config"]
 		return object{"apiKey": field(config, "apiKey"), "bearerToken": i.entry["bearerToken"]}, nil
 	case "POST verification/reset":
-		return object{"ok": true}, i.resetVerification()
+		return i.resetVerificationResult()
 	case "POST start", "POST stop":
 		return object{"ok": true}, i.setConnection(ctx, action == "start")
 	default:
@@ -331,12 +347,12 @@ func (i *networkIngress) manageLegacy(ctx context.Context, method, action string
 func gatewayIngressRoutes() {
 	const ingress = `ingress/([A-Za-z0-9_-]{1,64})`
 	definitions := map[string][]string{
-		"GET": {`ingress`, ingress, ingress + `/oauth(?:/request/[A-Za-z0-9_-]{1,64})?`,
+		"GET": {`ingress`, `ingress-drafts/[A-Za-z0-9_-]{1,64}`, ingress, ingress + `/oauth(?:/request/[A-Za-z0-9_-]{1,64})?`,
 			`_entries`, `_(?:entry|status|relay_ready|event_active)/[A-Za-z0-9_-]{1,64}`, `_ingress_request/[A-Za-z0-9_-]{1,64}/.+`},
-		"POST": {`ingress`, `ingress/(?:start-all|stop-all)`, ingress + `/(?:start|stop|restart|token|credentials|verification/reset|probe|install|oauth/(?:decision|revoke|register|client/remove))`,
+		"POST": {`ingress`, `ingress-drafts`, `ingress-drafts/[A-Za-z0-9_-]{1,64}/commit`, `ingress/(?:start-all|stop-all)`, ingress + `/(?:start|stop|restart|token|credentials|verification/reset|probe|install|oauth/(?:decision|revoke|register|client/remove))`,
 			`_(?:restore|autostart|initial_config|network)`, `_(?:verified|connector_verify)/[A-Za-z0-9_-]{1,64}`, `_ingress_request/[A-Za-z0-9_-]{1,64}/.+`},
 		"PUT":    {ingress},
-		"DELETE": {ingress},
+		"DELETE": {ingress, `ingress-drafts/[A-Za-z0-9_-]{1,64}`},
 	}
 	for method, routes := range definitions {
 		for _, pattern := range routes {
