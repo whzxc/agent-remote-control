@@ -39,7 +39,6 @@ try {
     throw new Error('Linux Core must be independent of the system libc and dynamic loader.');
   }
   await copyFile('LICENSE', path.join(stage, 'LICENSE'));
-  await cp('skills', path.join(stage, 'skills'), { recursive: true });
   await cp('licenses', path.join(stage, 'licenses'), { recursive: true });
   const file = `agent-remote-control-v${version}-linux-${arch}.tar.gz`;
   await runCommand('tar', ['-czf', path.join(output, file), '-C', stage, 'arc', 'LICENSE', 'skills', 'licenses']);

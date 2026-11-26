@@ -5,6 +5,7 @@ import path from 'node:path';
 import { buildEnv, coreFlags, goTarget } from './build-env.mjs';
 import { macosSigningArgs } from './macos-signing.mjs';
 import { prepareDesktop } from './prepare-desktop.mjs';
+import { syncDirectory } from './build-cache.mjs';
 import { enterHeavyBuild } from './heavy-build.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -19,6 +20,7 @@ export async function buildNative({
   await mkdir(directory, { recursive: true });
   const binary = path.join(directory, 'arc' + platform.suffix);
   run('go', ['build', ...coreFlags(env.ARC_BUILD_VERSION, release), ...(bundled ? ['-tags', 'arcbrowser'] : []), '-o', binary, './cmd/arc']);
+  if (!pack) await syncDirectory(path.join(root, 'skills'), path.join(directory, 'skills'));
   const helper = path.join(directory, 'arc-screen');
   await rm(helper, { force: true });
   if (pack && platform.os === 'darwin') {

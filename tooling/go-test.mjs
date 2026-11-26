@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stableVersion } from './version.mjs';
 import { buildEnv, coreFlags } from './build-env.mjs';
+import { syncDirectory } from './build-cache.mjs';
 import { prepareDesktop } from './prepare-desktop.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -42,6 +43,7 @@ export async function buildGoTestBinaries(run, env) {
   await prepareDesktop();
   const target = path.resolve(env.ARC_TEST_TARGET_DIR || path.join(root, 'dist/native-tests'));
   mkdirSync(target, { recursive: true });
+  await syncDirectory(path.join(root, 'skills'), path.join(target, 'skills'));
   const suffix = process.platform === 'win32' ? '.exe' : '';
   const binaries = {
     ARC_TEST_BINARY: path.join(target, 'arc' + suffix),
