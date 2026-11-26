@@ -11,8 +11,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type deviceMemberStatus struct {
@@ -328,22 +326,22 @@ func deviceUncertain(request, member, message string) error {
 	}}))
 }
 
-func (c *deviceController) admitForward(record deviceForwardRecord) error {
+func (c *deviceController) admitForward(record deviceForwardRecord) (bool, error) {
 	c.recordsMu.Lock()
 	defer c.recordsMu.Unlock()
 	if previous := c.records.forward(record.RequestID); previous != nil {
 		if previous.SourceID != record.SourceID || previous.DeviceID != record.DeviceID || previous.Op != record.Op || previous.Digest != record.Digest {
-			return deviceError("REQUEST_ID_CONFLICT", "This request ID belongs to another forward; read its original receipt.", deviceGuideAction())
+			return false, deviceError("REQUEST_ID_CONFLICT", "This request ID belongs to another forward; read its original receipt.", deviceGuideAction())
 		}
-		return deviceUncertain(record.RequestID, record.DeviceID, "This write was already sent. Read its member receipt.")
+		return true, nil
 	}
 	next := c.records.clone()
 	next.record(record)
 	if err := next.save(c.directory); err != nil {
-		return err
+		return false, err
 	}
 	c.records = next
-	return nil
+	return false, nil
 }
 
 var deviceNotificationBinding func(string, object) (any, error)
@@ -380,18 +378,28 @@ func (c *deviceController) forward(ctx context.Context, tool string, args object
 	}
 	write := tool == "act" && !(op == "receipt" && (inner["action"] == nil || inner["action"] == "read"))
 	request := str(callerRequest)
+	innerID := text(inner, "requestId")
 	if request == "" || op == "receipt" {
-		request = text(inner, "requestId")
+		request = innerID
 	}
 	if request == "" {
 		request = id()
 	}
-	if write && op != "receipt" && text(inner, "requestId") != "" && text(inner, "requestId") != request {
-		return nil, deviceError("REQUEST_ID_CONFLICT", "Outer and inner request IDs must match; retain the original member receipt ID.", deviceGuideAction())
-	}
 	if write {
-		if _, err := uuid.Parse(request); err != nil {
-			return nil, errors.New("INVALID_ARGUMENT: requestId must be a UUID")
+		if _, supplied := inner["requestId"]; supplied {
+			if innerID == "" {
+				return nil, errors.New("INVALID_ARGUMENT: requestId must be a UUID")
+			}
+			if innerID != request {
+				return nil, deviceError("REQUEST_ID_CONFLICT", "Outer and inner request IDs must match; retain the original member receipt ID.", deviceGuideAction())
+			}
+		}
+		if invalid := checkSchema("op", "receipt", "receipt", operation("receipt")["inputSchema"], object{"requestId": request}); invalid != nil {
+			return nil, deviceError("INVALID_ARGUMENT", "requestId must be a UUID accepted by the member receipt op.", deviceGuideAction())
+		}
+		// The peer envelope carries the receipt ID for writes whose local schema has no such argument.
+		if spec := operation(op); spec != nil && field(field(spec["inputSchema"], "properties"), "requestId") == nil {
+			delete(inner, "requestId")
 		}
 	}
 	select {
@@ -436,11 +444,18 @@ func (c *deviceController) forward(ctx context.Context, tool string, args object
 	if path.tunnelURL != "" && len(wire(envelope)) > deviceTunnelRequestCap {
 		return nil, errors.New("DEVICE_TUNNEL_LIMIT: Peer request exceeds 1 MiB; use LAN.")
 	}
+	var replay bool
 	if write && op != "receipt" {
-		if err := c.admitForward(deviceForwardRecord{
+		replay, err = c.admitForward(deviceForwardRecord{
 			RequestID: request, DeviceID: device, Op: op, SourceID: source, SentAt: now(), Outcome: "sent", Digest: digest, Notification: notification,
-		}); err != nil {
+		})
+		if err != nil {
 			return nil, err
+		}
+		if replay {
+			op, write = "receipt", false
+			inner = object{"requestId": request, "action": "read"}
+			envelope["body"] = object{"op": op, "args": inner}
 		}
 	}
 	result, err := path.send(ctx, envelope, deviceRequestBound(op, inner))
@@ -453,6 +468,9 @@ func (c *deviceController) forward(ctx context.Context, tool string, args object
 			})
 			return nil, deviceUncertain(request, device, err.Error())
 		}
+		if replay {
+			return nil, deviceUncertain(request, device, err.Error())
+		}
 		return nil, deviceError("DEVICE_RESPONSE_LOST", err.Error(), deviceListAction())
 	}
 	if err != nil {
@@ -461,6 +479,9 @@ func (c *deviceController) forward(ctx context.Context, tool string, args object
 	value, err := egressToolValue(result)
 	if err != nil {
 		return failure(err)
+	}
+	if replay && text(value, "requestId") != request {
+		return nil, deviceUncertain(request, device, "This write was already sent. Read its member receipt.")
 	}
 	failed := field(result, "isError") == true
 	if err := c.changeRecords(func(records *deviceRecords) {

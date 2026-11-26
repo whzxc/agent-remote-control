@@ -156,7 +156,7 @@ func callToolInner(ctx context.Context, service *service, source requestSource, 
 	for _, observe := range onAuthenticatedControl {
 		observe(ctx, source)
 	}
-	if name == "receipt" || retryContract(op)["mode"] == "receipt" {
+	if name != "device" && (name == "receipt" || retryContract(op)["mode"] == "receipt") {
 		if requestID, ok := field(envelope, "requestId").(string); ok && args["requestId"] == nil {
 			args["requestId"] = requestID
 		}

@@ -42,7 +42,7 @@ func newLoopbackPairingDevice(t *testing.T, ctx context.Context, directory strin
 }
 
 func TestGoDevicePairingRequiresApprovalAndForwardsPinnedRequest(t *testing.T) {
-	// Contract: arc-peer/3 consumes an offer only once and authorizes a private Core request under the approved controller identity.
+	// Contract: arc-peer/3 consumes an offer once, forwards under the approved controller identity, and preserves the original receipt on act device replay.
 	state := t.TempDir()
 	t.Setenv("ARC_STATE_DIR", state)
 	t.Setenv("CODEX_HOME", t.TempDir())
@@ -240,7 +240,7 @@ wait:
 		t.Fatal(err)
 	}
 	address := sockets[0]
-	bridgeController := &deviceController{ctx: ctx, directory: controller.directory, records: records,
+	bridgeController := &deviceController{ctx: ctx, directory: controller.directory, identity: controller.identity, records: records,
 		members:    map[string]*deviceMember{member.identity.id: remote},
 		resolveLAN: func(context.Context, *deviceMember) ([]netip.AddrPort, error) { return []netip.AddrPort{address}, nil }}
 	readActivity := object{"device": member.identity.id, "op": "task_activity", "args": object{}}
@@ -252,6 +252,62 @@ wait:
 		len(decodedTaskList(field(value, "availableAgents"))) == 0 || uintOr(field(value, "omittedRecords"), 1) != 0 {
 		t.Fatalf("member-local record escaped its inventory boundary: %s, %v, %v", wire(value), err, decodeErr)
 	}
+	t.Run("forwarded write request IDs", func(t *testing.T) {
+		controllerCore := &service{}
+		deviceControllers.Store(controllerCore, bridgeController)
+		defer deviceControllers.Delete(controllerCore)
+		caller := requestSource{local: true, policy: "all", origin: origin}
+		call := func(op string, args object, outerID string) (object, string, bool) {
+			t.Helper()
+			envelope := object{"op": "device", "args": object{"device": member.identity.id, "op": op, "args": args}}
+			if outerID != "" {
+				envelope["requestId"] = outerID
+			}
+			private := newPrivateRequest(ctx, "Mcp", "Management", object{"jsonrpc": "2.0", "id": id(),
+				"method": "tools/call", "params": object{"name": "act", "arguments": envelope}})
+			reply, err := dispatchMCP(ctx, controllerCore, caller, obj(private.Body))
+			if err != nil {
+				t.Fatal(err)
+			}
+			value, err := egressToolValue(reply["result"])
+			if err != nil {
+				t.Fatal(err)
+			}
+			return obj(value), private.ID, field(reply["result"], "isError") == true
+		}
+		outerID, innerID := id(), id()
+		for _, tc := range []struct {
+			op, outer, expected string
+			args                object
+		}{
+			{"notice_post", outerID, outerID, object{"intent": "Fixture forwarded write", "resources": []any{"app:installed"}, "expectedDurationSeconds": 60}},
+			{"notification_ack", "", innerID, object{"requestId": innerID, "eventIds": []any{id()}}},
+			{"notification_ack", "", "", object{"eventIds": []any{id()}}},
+		} {
+			value, sent, failed := call(tc.op, tc.args, tc.outer)
+			if failed || (tc.expected != "" && sent != tc.expected) {
+				t.Fatalf("%s with request ID %q (sent %q) failed: %s", tc.op, tc.expected, sent, wire(value))
+			}
+			original, _, failed := call("receipt", object{"requestId": sent}, "")
+			if failed || original["requestId"] != sent || original["state"] != "completed" {
+				t.Fatalf("%s original member receipt: %s", tc.op, wire(original))
+			}
+			replay, _, failed := call(tc.op, tc.args, sent)
+			if failed || replay["requestId"] != sent || replay["state"] != original["state"] ||
+				wire(replay["result"]) != wire(original["result"]) {
+				t.Fatalf("%s replay did not return the original receipt: %s", tc.op, wire(replay))
+			}
+		}
+		for _, args := range []object{
+			{"requestId": id(), "eventIds": []any{id()}},
+			{"eventIds": []any{id()}},
+		} {
+			value, _, failed := call("notification_ack", args, innerID)
+			if !failed || field(value["error"], "code") != "REQUEST_ID_CONFLICT" {
+				t.Fatalf("changed request ID or arguments accepted: %s", wire(value))
+			}
+		}
+	})
 	if addressResult, err := controller.dispatch(ctx, "address", object{"device": member.identity.id, "address": address.String()}); err != nil ||
 		wire(field(addressResult, "address")) != wire(address.String()) {
 		t.Fatalf("controller address override readback = %s, %v", wire(addressResult), err)

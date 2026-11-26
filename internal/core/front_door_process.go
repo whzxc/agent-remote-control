@@ -400,14 +400,30 @@ func newPrivateRequest(ctx context.Context, operationName any, authority any, bo
 		body["body"] = maps.Clone(obj(body["body"]))
 	}
 	envelope := privateEnvelope(operationName, body)
-	requestID := text(field(envelope, "args"), "requestId")
+	op, args := text(envelope, "op"), field(envelope, "args")
+	spec := operation(op)
+	requestID := text(args, "requestId")
+	stampReceipt := retryContract(spec)["mode"] == "receipt"
+	if op == "device" {
+		innerOp := text(args, "op")
+		if outerID := text(envelope, "requestId"); outerID != "" {
+			requestID = outerID
+		}
+		if innerID := text(field(args, "args"), "requestId"); requestID == "" || innerOp == "receipt" && innerID != "" {
+			requestID = innerID
+		}
+		innerSpec := operation(innerOp)
+		stampReceipt = innerOp != "receipt" && innerSpec != nil && via(innerSpec) == "act"
+	} else if op != "receipt" && text(args, "device") != "" && spec != nil && via(spec) == "act" {
+		stampReceipt = true
+	}
 	if requestID == "" {
 		requestID = text(envelope, "requestId")
 	}
 	if requestID == "" {
 		requestID = id()
 	}
-	if _, supplied := envelope["requestId"]; !supplied && retryContract(operation(text(envelope, "op")))["mode"] == "receipt" {
+	if _, supplied := envelope["requestId"]; !supplied && stampReceipt {
 		switch str(operationName) {
 		case "Mcp":
 			if envelope != nil && body["method"] == "tools/call" && field(body["params"], "name") == "act" {

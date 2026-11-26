@@ -110,7 +110,7 @@ func retryContract(op object) object {
 	case "device_transfer":
 		return object{"mode": "receipt", "key": "requestId", "instruction": "Reissuing the same requestId reads its receipt without writing. Use device_transfer action:resume with the original requestId to explicitly continue from the receiver verified offset; action:cancel removes its temporary file. Never automatically retry a failed write."}
 	case "device":
-		return object{"mode": "receipt", "key": "requestId", "appliesTo": "act", "query": object{"mode": "read-only"}, "instruction": "Use query for member reads. Retain an act requestId. After an uncertain outcome read the member receipt through act device; never resend a sent write."}
+		return object{"mode": "receipt", "key": "requestId", "appliesTo": "act", "query": object{"mode": "read-only"}, "instruction": "Use query for member reads. For a write, supply an outer act requestId or an inner args.requestId. If both are supplied, they must match. An identical replay reads the original member receipt without resending the write. After an uncertain outcome follow next to read that receipt. For the receipt op, inner args.requestId selects the original member receipt."}
 	case "receipt":
 		return object{"mode": "original-receipt", "key": "requestId", "instruction": "Read the original requestId. Do not replay approval or rejection blindly."}
 	case "codex_create", "codex_send", "codex_resume", "codex_archive", "codex_release", "codex_review", "notice_post",
