@@ -71,7 +71,8 @@
         {
           "owner": "C",
           "items": [
-            "Supply accountNotificationSessions and sendAccountNotification. Use notificationProviderAccounts and liveSourceAccounts for safe projections."
+            "Supply accountNotificationSessions and sendAccountNotification. Use notificationProviderAccounts and liveSourceAccounts for safe projections.",
+            "Call reconcileAccounts before notify_control and notify_status, and activeAccountManager(service).refreshAccounts before dispatch_policy. Propagate preparation errors."
           ]
         }
       ]

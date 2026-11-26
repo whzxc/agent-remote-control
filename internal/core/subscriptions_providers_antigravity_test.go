@@ -14,6 +14,8 @@ import (
 func TestLiveAntigravityDaemonQuotaProtocol(t *testing.T) {
 	// Contract: Antigravity quota reads discover only live local daemon records and use the daemon's authenticated wire protocol.
 	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" || r.Header.Get("x-codeium-csrf-token") != "live-token" || r.Header.Get("Connect-Protocol-Version") != "1" {
 			http.Error(w, "invalid daemon request", http.StatusForbidden)
@@ -47,9 +49,12 @@ func TestLiveAntigravityDaemonQuotaProtocol(t *testing.T) {
 	}
 	client := server.Client()
 	client.Timeout = 2 * time.Second
-	reading, failure := queryAntigravitySubscription(t.Context(), client, endpoints)
+	reading, source, failure := readRegisteredSubscription(t.Context(), "antigravity")
 	if failure != nil || text(reading.rawUsage, "plan") != "Fixture Plan" || len(reading.windows) != 4 {
 		t.Fatalf("unexpected quota result: %v %v", reading, failure)
+	}
+	if source != "antigravity-daemon" {
+		t.Errorf("unexpected quota source: %s", source)
 	}
 	for _, window := range reading.windows {
 		if window.UsedPercent != 25 {
