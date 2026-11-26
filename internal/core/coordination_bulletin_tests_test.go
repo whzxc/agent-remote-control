@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 func fixtureBulletin(t *testing.T) (*bulletinStore, bulletinClock, coordinationReader) {
@@ -107,10 +108,20 @@ func TestBulletinReadAttachesOwnerScopedAttentionAndCursors(t *testing.T) {
 	if attention := store.attention(coordinationReader{principal: coordinationPrincipal{Type: "source", SourceID: "other"}}); len(attention) != 0 {
 		t.Fatalf("unrelated attention = %v", attention)
 	}
-	problems := object{"problems": []any{object{"id": "one", "sourceId": "peer", "target": "fixture", "reason": "needs-binding", "next": object{"op": "message_route"}}, object{"id": "two", "sourceId": "other"}}}
+	target := notificationTestTarget
+	args := object{"target": target, "threadId": "thread-a", "all": false}
+	problems := object{"problems": []any{
+		object{"id": "one", "sourceId": "peer", "target": target, "threadId": "thread-a", "reason": "delivery-failed", "next": object{"via": "query", "op": "notify_status", "args": args}},
+		object{"id": "two", "sourceId": "other", "target": "private-target"},
+	}}
 	items := bulletinNotificationItems(problems, peer)
-	if len(items) != 1 || items[0]["ownerSourceId"] != "peer" || field(items[0]["next"], "op") != "message_route" {
+	if len(items) != 1 || items[0]["ownerSourceId"] != "peer" || items[0]["target"] != target || items[0]["threadId"] != "thread-a" ||
+		field(items[0]["next"], "op") != "notify_status" || wire(field(items[0]["next"], "args")) != wire(args) ||
+		strings.Contains(wire(items), "private-target") {
 		t.Fatalf("notification attention = %v", items)
+	}
+	if failure := checkSchema("op", "notify_status", "notify_status", operation("notify_status")["inputSchema"], args); failure != nil {
+		t.Fatalf("notification repair arguments = %v", failure)
 	}
 }
 
@@ -279,12 +290,13 @@ func TestBulletinAdmissionWarnsAndReplayKeepsOriginalIdentity(t *testing.T) {
 
 func TestBulletinSessionRouteBindingSurvivesRestartAndUnbind(t *testing.T) {
 	// Recurring bug class: persistence the current session route generation survives replay and changes only on rebind.
-	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	state := t.TempDir()
+	t.Setenv("ARC_STATE_DIR", state)
 	principal := coordinationPrincipal{Type: "source", SourceID: "peer"}
 	route := &coordinationRoute{SourceID: "peer", RouteID: "target", Generation: "generation"}
 	clock := currentBulletinClock()
+	args := object{"action": "register", "target": notificationTestTarget, "requestId": id()}
 	session, err := withBulletinStore(func(store *bulletinStore) (object, error) {
-		args := object{"action": "register", "requestId": id()}
 		reader := coordinationReader{principal: principal}
 		value, err := store.mutate("coordination_session", args, reader, []bulletinLink{}, &coordinationRouteOutcome{route, "resolved"}, clock)
 		return obj(value["session"]), err
@@ -296,6 +308,20 @@ func TestBulletinSessionRouteBindingSurvivesRestartAndUnbind(t *testing.T) {
 	initial, err := coordinationSessionRoutes("peer")
 	if err != nil || len(initial) != 1 || initial[0].Route.BindingID == nil {
 		t.Fatalf("registration = %v, %v", initial, err)
+	}
+	reloaded, err := openBulletinStore(filepath.Join(state, "coordination/state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	replay, err := reloaded.mutate("coordination_session", args, coordinationReader{principal: principal}, nil, nil, clock)
+	if err != nil || field(replay["session"], "id") != key {
+		t.Fatalf("same registration replay created a different session = %v, %v", replay, err)
+	}
+	if foreign, err := coordinationSessionRoutes("foreign"); err != nil || len(foreign) != 0 {
+		t.Fatalf("foreign route read = %v, %v", foreign, err)
+	}
+	if err := bindCoordinationRoute("foreign", key, nil); err == nil || !strings.HasPrefix(err.Error(), "SESSION_NOT_FOUND:") {
+		t.Fatalf("foreign unbind = %v", err)
 	}
 	if err := bindCoordinationRoute("peer", key, route); err != nil {
 		t.Fatal(err)
@@ -310,7 +336,7 @@ func TestBulletinSessionRouteBindingSurvivesRestartAndUnbind(t *testing.T) {
 	if err := bindCoordinationRoute("peer", key, route); err != nil {
 		t.Fatal(err)
 	}
-	reopened, err := openBulletinStore(filepath.Join(root(), "coordination/state.json"))
+	reopened, err := openBulletinStore(filepath.Join(state, "coordination/state.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -609,5 +635,314 @@ func TestBulletinUnattributedDispatchDoesNotClaimHostResources(t *testing.T) {
 	}
 	if _, err := coordinationResource(unknown); err == nil {
 		t.Fatal("the internal unattributed marker was accepted as a manual claim")
+	}
+}
+
+func bulletinNoticeAt(t *testing.T, store *bulletinStore, clock bulletinClock, reader coordinationReader, key any) object {
+	t.Helper()
+	page, err := store.board(object{"id": key, "view": "full", "state": "all"}, reader, clock)
+	if err != nil || len(page["notices"].([]object)) != 1 {
+		t.Fatalf("notice %v = %v, %v", key, page, err)
+	}
+	return clone(page["notices"].([]object)[0])
+}
+
+func TestBulletinOwnerHeartbeatSurvivesRestartAndPeerPullDoesNotRenewIt(t *testing.T) {
+	// Recurring bug class: lifecycle a peer's read cannot refresh another owner's durable Board activity.
+	store, clock, _ := fixtureBulletin(t)
+	owner := coordinationReader{principal: coordinationPrincipal{Type: "source", SourceID: "owner"}}
+	peer := coordinationReader{principal: coordinationPrincipal{Type: "source", SourceID: "peer"}}
+	entry := obj(writeBulletin(t, store, "notice_post", object{"resources": []any{"app:installed"}, "intent": "Fixture work"}, owner, clock)["notice"])
+	clock.utc += bulletinInactiveMS - 1000
+	clock.elapsed += bulletinInactiveMS - 1000
+	if err := store.authenticatedActivity(owner, clock); err != nil {
+		t.Fatal(err)
+	}
+	fresh := bulletinNoticeAt(t, store, clock, owner, entry["id"])
+	if fresh["lastActiveAt"] == entry["lastActiveAt"] {
+		t.Fatal("own activity did not renew the notice")
+	}
+	var err error
+	store, err = openBulletinStore(store.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restarted := bulletinNoticeAt(t, store, clock, peer, entry["id"])
+	if restarted["activityCoverage"] != "restart-gap" || restarted["lastActiveAt"] != fresh["lastActiveAt"] {
+		t.Fatalf("post-restart owner clock = %v", restarted)
+	}
+	clock.utc += bulletinInactiveMS
+	clock.elapsed += bulletinInactiveMS
+	if err := store.authenticatedActivity(peer, clock); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.maintain(clock, nil, new(runtimeCost)); err != nil {
+		t.Fatal(err)
+	}
+	expired := bulletinNoticeAt(t, store, clock, peer, entry["id"])
+	if expired["state"] != "withdrawn" || expired["closedReason"] != "owner-inactive" || expired["lastActiveAt"] != fresh["lastActiveAt"] {
+		t.Fatalf("peer pull renewed owner activity: %v", expired)
+	}
+}
+
+func TestBulletinLinkedRunningLossInterruptAndSuccessor(t *testing.T) {
+	// Contract: linked notice activity follows the selected native turn across owner loss, interruption and replacement.
+	store, clock, _ := fixtureBulletin(t)
+	owner := coordinationReader{principal: coordinationPrincipal{Type: "source", SourceID: "owner"}}
+	advance := func(ms int64) { clock.utc += ms; clock.elapsed += ms }
+	live := func(turn, state string, revision uint64) coordinationLiveTurn {
+		key := turnKey{"codex", "thread", turn}
+		evidence := codexTerminalEvidence(key, state, revision, true)
+		if state == "running" {
+			evidence = turnEvidence{key: key, owner: turnOwner{revision, turnActive}}
+		}
+		return coordinationLiveTurn{"thread", turn, state, (turnTransition{key: key}).advance(evidence).checkpoint()}
+	}
+	initial := live("first", "running", 1)
+	links := []bulletinLink{{ThreadID: initial.Thread, ObservedTurnID: new(initial.Turn), ScopeState: "running",
+		ObservedAt: new(clock.elapsed), Terminals: map[string]any{"first": initial.Checkpoint}}}
+	value, err := store.mutate("notice_post", object{"resources": []any{"app:installed"}, "intent": "Linked native fixture", "requestId": id()}, owner, links, nil, clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := obj(value["notice"])
+	read := func() object { return bulletinNoticeAt(t, store, clock, owner, entry["id"]) }
+	scope := func(row object) any { return field(arr(field(clone(row), "threadLinks"))[0], "scopeState") }
+	advance(60000)
+	store, err = openBulletinStore(store.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	afterLoss := read()
+	if scope(afterLoss) != "unknown" || uintOr(afterLoss["inactivityAgeSeconds"], 0) != 60 {
+		t.Fatalf("running before restart appeared live: %v", afterLoss)
+	}
+	cost := new(runtimeCost)
+	observe := func(turns ...coordinationLiveTurn) {
+		t.Helper()
+		if err := store.observeLiveTurns(turns, clock, cost); err != nil {
+			t.Fatal(err)
+		}
+		if err := store.maintain(clock, nil, cost); err != nil {
+			t.Fatal(err)
+		}
+	}
+	observe(live("first", "interrupted", 2))
+	interrupted := read()
+	if interrupted["state"] != "active" || scope(interrupted) != "interrupted" {
+		t.Fatalf("interruption closed linked work: %v", interrupted)
+	}
+	advance(1000)
+	observe(live("first", "running", 1))
+	if stale := read(); scope(stale) != "interrupted" || stale["lastActiveAt"] != interrupted["lastActiveAt"] {
+		t.Fatalf("stale live update refreshed terminal activity: %v", stale)
+	}
+	event := newCoordinationEvent("successor", "turn.successor", []string{"app:installed"})
+	event.Origin = &owner.principal
+	event.ThreadRefs = []coordinationThreadRef{{"thread", new("first")}, {"thread", new("second")}}
+	if err := store.observeTurnEvent(event, clock); err != nil {
+		t.Fatal(err)
+	}
+	if replacing := read(); scope(replacing) != "unknown" {
+		t.Fatalf("unobserved successor = %v", replacing)
+	}
+	advance(1000)
+	observe(live("second", "running", 3), live("first", "completed", 4))
+	if replacement := read(); replacement["state"] != "active" || scope(replacement) != "running" {
+		t.Fatalf("predecessor closed running successor: %v", replacement)
+	}
+	advance(1000)
+	observe(live("second", "completed", 5))
+	ended := read()
+	advance(1000)
+	observe(live("second", "completed", 5))
+	if again := read(); ended["closedReason"] != "threads-ended" || again["lastActiveAt"] != ended["lastActiveAt"] {
+		t.Fatalf("terminal replay = %v / %v", ended, again)
+	}
+}
+
+func TestBulletinDerivedNoticeDoesNotRenewAfterRestartAndInactivity(t *testing.T) {
+	// Recurring bug class: retry-replay acceptance of an existing dispatch cannot renew an inactive derived work claim.
+	store, clock, local := fixtureBulletin(t)
+	input := bulletinAcceptedDispatch(t, "fixture-dispatch", "new-turn")[0]
+	if err := store.dispatchNotice(input, clock); err != nil {
+		t.Fatal(err)
+	}
+	page, err := store.board(object{"view": "full"}, local, clock)
+	if err != nil || len(page["notices"].([]object)) != 1 {
+		t.Fatalf("derived notice = %v, %v", page, err)
+	}
+	notice := page["notices"].([]object)[0]
+	store, err = openBulletinStore(store.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clock.utc += bulletinInactiveMS
+	clock.elapsed += bulletinInactiveMS
+	for range 2 {
+		if err := store.dispatchNotice(input, clock); err != nil {
+			t.Fatal(err)
+		}
+		if err := store.maintain(clock, nil, new(runtimeCost)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	withdrawn := bulletinNoticeAt(t, store, clock, local, notice["id"])
+	all, err := store.board(object{"view": "full", "state": "all"}, local, clock)
+	if err != nil || len(all["notices"].([]object)) != 1 || withdrawn["state"] != "withdrawn" ||
+		withdrawn["lastActiveAt"] != notice["lastActiveAt"] {
+		t.Fatalf("dispatch replay renewed inactivity: %v, %v", all, err)
+	}
+}
+
+func TestBulletinManualProjectAndLaneNamesOverlapDerivedDispatch(t *testing.T) {
+	// Recurring bug class: lifecycle manually named resources and derived Git scopes must use the same registered identity.
+	store, clock, local := fixtureBulletin(t)
+	dir := t.TempDir()
+	t.Setenv("ARC_STATE_DIR", dir)
+	project := "00000000-0000-4000-8000-000000000001"
+	registry := object{"projects": []any{object{"id": project, "name": "Fixture Project",
+		"roots": []any{object{"path": "/fixture/repo", "commonDir": "/fixture/repo/.git"}}}}}
+	observeCoordinationProjects([]object{obj(arr(registry["projects"])[0])})
+	for _, item := range []struct{ alias, root, ref, canonical string }{
+		{"project:Fixture Project/main", "/fixture/repo", "refs/heads/main", "project:" + project + "/main"},
+		{"lane:Fixture Project/worker", "/fixture/worker", "refs/heads/wt/worker", "lane:" + project + "/worker"},
+	} {
+		args := object{"resources": []any{item.alias}, "intent": "Fixture manual work", "expectedDurationSeconds": 60}
+		if err := admitCoordinationResources(args); err != nil {
+			t.Fatal(err)
+		}
+		notice := writeBulletin(t, store, "notice_post", args, local, clock)["notice"]
+		scope := coordinationAssociateDispatch(object{"root": item.root, "commonDir": "/fixture/repo/.git", "ref": item.ref}, registry)
+		conflicts := store.advisory(scope["resources"].([]string), "", clock)["conflicts"].([]object)
+		if wire(field(notice, "resources")) != wire([]string{item.canonical}) || len(conflicts) != 1 ||
+			conflicts[0]["noticeId"] != field(notice, "id") || conflicts[0]["resource"] != item.canonical {
+			t.Fatalf("canonical overlap for %s = %v / %v", item.alias, notice, conflicts)
+		}
+	}
+}
+
+func TestBulletinRebindCancelsPendingMailFromOldGeneration(t *testing.T) {
+	// Recurring bug class: security mail admitted for an old binding generation cannot wake a re-bound recipient session.
+	ctx, route, sent := fixtureCoordinationWake(t)
+	owner := coordinationReader{principal: coordinationPrincipal{Type: "source", SourceID: "source"}}
+	result, err := withBulletinStore(func(store *bulletinStore) (object, error) {
+		return store.mutate("coordination_session", object{"action": "register", "requestId": id()},
+			owner, nil, &route, currentBulletinClock())
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := text(result["session"], "id")
+	old, err := resolveCoordinationRoute(ctx, "source", key)
+	if err != nil || old.route == nil {
+		t.Fatalf("initial route = %v, %v", old, err)
+	}
+	at := time.Now().Unix() - 31
+	request := id()
+	_, err = withCoordinationMessages(ctx, func(store *coordinationMessageStore, cost *runtimeCost) (object, error) {
+		args := object{"requestId": request, "toSourceId": "source", "toSessionId": key, "type": "request",
+			"resources": []any{"app:installed"}, "summary": "Fixture request"}
+		return store.send(args, "sender", old, at, cost)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := bindCoordinationRoute("source", key, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := bindCoordinationRoute("source", key, route.route); err != nil {
+		t.Fatal(err)
+	}
+	if err := bindCoordinationRoute("sender", key, nil); err == nil {
+		t.Fatal("foreign sender changed the recipient route")
+	}
+	rebound, err := resolveCoordinationRoute(ctx, "source", key)
+	if err != nil || rebound.route == nil || sameCoordinationRoute(rebound.route, old.route) {
+		t.Fatalf("generation after rebind = %v, %v", rebound, err)
+	}
+	if err := flushCoordinationMessages(ctx); err != nil {
+		t.Fatal(err)
+	}
+	page, err := withCoordinationMessages(ctx, func(store *coordinationMessageStore, cost *runtimeCost) (object, error) {
+		return store.list(object{}, "source", "fixture", time.Now().Unix(), cost)
+	})
+	if err != nil || len(*sent) != 0 || field(find(page["messages"], "messageId", request), "deliveryState") != "cancelled" {
+		t.Fatalf("old-generation mail = %v, sends = %v, error = %v", page, *sent, err)
+	}
+}
+
+func TestBulletinRevocationClosesRetainedRunningClaimWithoutRenewingIt(t *testing.T) {
+	// Contract: source revocation ends a work claim without treating historical native activity as a heartbeat.
+	store, clock, _ := fixtureBulletin(t)
+	owner := coordinationReader{principal: coordinationPrincipal{Type: "source", SourceID: "owner"}}
+	key := turnKey{"codex", "thread", "turn"}
+	checkpoint := (turnTransition{key: key}).advance(turnEvidence{key: key, owner: turnOwner{1, turnActive}}).checkpoint()
+	links := []bulletinLink{{ThreadID: "thread", ObservedTurnID: new("turn"), ScopeState: "running",
+		ObservedAt: new(clock.elapsed), Terminals: map[string]any{"turn": checkpoint}}}
+	value, err := store.mutate("notice_post", object{"resources": []any{"app:installed"}, "intent": "Linked fixture", "requestId": id()}, owner, links, nil, clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := obj(value["notice"])
+	clock.utc += 60000
+	clock.elapsed += 60000
+	store, err = openBulletinStore(store.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	historical := bulletinNoticeAt(t, store, clock, owner, entry["id"])
+	if links := arr(historical["threadLinks"]); len(links) != 1 || field(links[0], "scopeState") != "unknown" ||
+		uintOr(historical["inactivityAgeSeconds"], 0) != 60 {
+		t.Fatalf("running after restart = %v", historical)
+	}
+	if err := store.maintain(clock, []string{"owner"}, new(runtimeCost)); err != nil {
+		t.Fatal(err)
+	}
+	revoked := bulletinNoticeAt(t, store, clock, owner, entry["id"])
+	if revoked["closedReason"] != "source-revoked" || revoked["lastActiveAt"] != entry["lastActiveAt"] ||
+		len(store.conflicts([]string{"app:installed"}, "", "", clock)) != 0 {
+		t.Fatalf("revoked work = %v", revoked)
+	}
+}
+
+func TestBulletinNoticeEligibilityKeepsOnlyActiveRecipientClaims(t *testing.T) {
+	// Contract: an active notice or uncleared blocker holds push eligibility only for its recipient source.
+	store, clock, _ := fixtureBulletin(t)
+	owner := coordinationReader{principal: coordinationPrincipal{Type: "source", SourceID: "owner"}}
+	resources := []any{"app:installed"}
+	args := object{"type": "notice", "resources": resources}
+	route := coordinationRouteOutcome{&coordinationRoute{SourceID: "owner", RouteID: "fixture"}, "resolved"}
+	eligible := func(source string) bool {
+		return coordinationMessageDelivery(args, store.recipientResources(source), route).route != nil
+	}
+	notice := writeBulletin(t, store, "notice_post", object{"resources": resources, "intent": "Fixture claim"}, owner, clock)["notice"]
+	if !eligible("owner") || eligible("peer") {
+		t.Fatal("active owner notice did not scope the claim")
+	}
+	writeBulletin(t, store, "notice_close", object{"id": field(notice, "id"), "expectedRevision": field(notice, "revision")}, owner, clock)
+	if eligible("owner") {
+		t.Fatal("closed notice retained its claim")
+	}
+	blocker := writeBulletin(t, store, "blocker_open", object{"resources": resources, "causeCode": "fixture", "summary": "Hold fixture"}, owner, clock)["blocker"]
+	for _, revoked := range [][]string{{"owner"}, nil} {
+		if err := store.maintain(clock, revoked, new(runtimeCost)); err != nil {
+			t.Fatal(err)
+		}
+		if !eligible("owner") || eligible("peer") {
+			t.Fatal("uncleared owner blocker lost the claim")
+		}
+		clock.utc += bulletinInactiveMS
+		clock.elapsed += bulletinInactiveMS
+	}
+	page, err := store.board(object{"id": field(blocker, "id"), "view": "full"}, owner, clock)
+	if err != nil || len(page["blockers"].([]object)) != 1 || page["blockers"].([]object)[0]["state"] != "stale" {
+		t.Fatalf("stale blocker = %v, %v", page, err)
+	}
+	current := page["blockers"].([]object)[0]
+	writeBulletin(t, store, "blocker_clear", object{"id": current["id"], "expectedRevision": current["revision"],
+		"reason": "Fixture recovered", "evidenceIds": []any{"fixture-evidence"}}, owner, clock)
+	if eligible("owner") {
+		t.Fatal("cleared blocker retained the claim")
 	}
 }

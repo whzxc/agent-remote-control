@@ -205,26 +205,29 @@ func bulletinAuthenticatedActivity(ctx context.Context, reader coordinationReade
 		return err
 	}
 	_, err := withBulletinStore(func(store *bulletinStore) (struct{}, error) {
-		clock := currentBulletinClock()
-		if clock.certain {
-			for _, rows := range [][]*bulletinRecord{store.liveNotices, store.liveBlockers} {
-				for _, row := range rows {
-					if sameCoordinationOwner(row.Owner, reader.principal) && clock.elapsed > row.LastActiveAt {
-						row.LastActiveAt, row.freshActivity, store.dirty = clock.elapsed, true, true
-						store.maintainedAt = 0
-					}
-				}
-			}
-			for _, session := range store.state.Sessions {
-				if session.State == "active" && sameCoordinationOwner(session.Owner, reader.principal) && clock.elapsed > session.LastActiveAt {
-					session.LastActiveAt = clock.elapsed
-					store.dirty = true
+		return struct{}{}, store.authenticatedActivity(reader, currentBulletinClock())
+	})
+	return err
+}
+
+func (store *bulletinStore) authenticatedActivity(reader coordinationReader, clock bulletinClock) error {
+	if clock.certain {
+		for _, rows := range [][]*bulletinRecord{store.liveNotices, store.liveBlockers} {
+			for _, row := range rows {
+				if sameCoordinationOwner(row.Owner, reader.principal) && clock.elapsed > row.LastActiveAt {
+					row.LastActiveAt, row.freshActivity, store.dirty = clock.elapsed, true, true
+					store.maintainedAt = 0
 				}
 			}
 		}
-		return struct{}{}, store.flush(clock)
-	})
-	return err
+		for _, session := range store.state.Sessions {
+			if session.State == "active" && sameCoordinationOwner(session.Owner, reader.principal) && clock.elapsed > session.LastActiveAt {
+				session.LastActiveAt = clock.elapsed
+				store.dirty = true
+			}
+		}
+	}
+	return store.flush(clock)
 }
 
 func bulletinVerifyFix(ctx context.Context, args object) error {

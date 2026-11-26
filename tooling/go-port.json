@@ -609,14 +609,14 @@
       "go": [
         "internal/core/coordination_bulletin_tests_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/cost_tests.rs": {
       "segment": "B",
       "go": [
         "internal/core/coordination_cost_tests_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/git_watch/fixes.rs": {
       "segment": "B",
@@ -699,7 +699,7 @@
         "internal/core/coordination_routing.go",
         "internal/core/coordination_routing_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/tests.rs": {
       "segment": "B",

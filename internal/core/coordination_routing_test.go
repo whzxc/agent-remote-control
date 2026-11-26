@@ -50,3 +50,44 @@ func TestCoordinationFailedRegistrationDoesNotUseFallback(t *testing.T) {
 		}
 	}
 }
+
+func TestCoordinationBoardProjectsVerifiedAndLostSessionRoute(t *testing.T) {
+	// Recurring bug class: lifecycle the Board capability and sender repair must agree after verified routing is lost.
+	ctx, route, _ := fixtureCoordinationWake(t)
+	owner := coordinationReader{principal: coordinationPrincipal{Type: "source", SourceID: "source"}}
+	registration, err := withBulletinStore(func(store *bulletinStore) (object, error) {
+		return store.mutate("coordination_session", object{"action": "register", "requestId": id()},
+			owner, nil, &route, currentBulletinClock())
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	session := obj(registration["session"])
+	read := func(mode, reason string) {
+		t.Helper()
+		if err := coordinationSessionProjection(ctx, session); err != nil {
+			t.Fatal(err)
+		}
+		selected, err := resolveCoordinationRoute(ctx, "source", text(session, "id"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		status := coordinationRoutingDescription(selected, "source", text(session, "id"))
+		if session["deliveryCapability"] != mode || status["deliveryMode"] != mode ||
+			field(session["routing"], "reason") != reason || status["reason"] != reason ||
+			field(status["next"], "actor") != "recipient" || field(status["next"], "op") != "message_route" ||
+			field(field(status["next"], "args"), "sessionId") != session["id"] {
+			t.Fatalf("session projection = %v, sender action = %v", session, status)
+		}
+	}
+	read("proactive", "explicit-route")
+	state, err := readNotificationState()
+	if err != nil {
+		t.Fatal(err)
+	}
+	notificationReachability(findNotificationTarget(state, "source", "claude-session", notificationTestTarget))["state"] = "unverified"
+	if err := saveNotificationState(state); err != nil {
+		t.Fatal(err)
+	}
+	read("pull-only", "route-target-unverified")
+}

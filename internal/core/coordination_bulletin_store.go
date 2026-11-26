@@ -210,9 +210,16 @@ func openBulletinStore(path string) (*bulletinStore, error) {
 	}
 	for _, row := range state.Notices {
 		for i := range row.ThreadLinks {
-			if row.ThreadLinks[i].ScopeState == "running" || row.ThreadLinks[i].ScopeState == "active" || row.ThreadLinks[i].ScopeState == "awaiting-interaction" {
-				row.ThreadLinks[i].ScopeState = "unknown"
+			link := &row.ThreadLinks[i]
+			if link.ScopeState != "running" && link.ScopeState != "active" && link.ScopeState != "awaiting-interaction" {
+				continue
 			}
+			turn := strPtr(link.ObservedTurnID)
+			if previous, ok := restoreTurnTransition(link.Terminals[turn]); ok {
+				lost := previous.advance(turnEvidence{key: previous.key, owner: turnOwner{previous.owner.revision + 1, turnUnavailable}})
+				mergeBulletinLink(link, turn, "unknown", lost.checkpoint())
+			}
+			link.ScopeState = "unknown"
 		}
 	}
 	store.restarted = true

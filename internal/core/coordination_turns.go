@@ -128,36 +128,40 @@ func bulletinFromTurn(input coordinationEventInput) error {
 		return nil
 	}
 	_, err := withBulletinStore(func(store *bulletinStore) (struct{}, error) {
-		updated := false
-		for _, notice := range store.liveNotices {
-			for i := range notice.ThreadLinks {
-				link := &notice.ThreadLinks[i]
-				if input.Kind == "turn.successor" {
-					if len(input.ThreadRefs) != 2 || input.Origin == nil || !sameCoordinationOwner(notice.Owner, *input.Origin) {
-						continue
-					}
-					prior, next := input.ThreadRefs[0], input.ThreadRefs[1]
-					if link.ThreadID == prior.ThreadID && prior.ThreadID == next.ThreadID && prior.TurnID != nil && next.TurnID != nil && samePointer(prior.TurnID, link.ObservedTurnID) {
-						link.ObservedTurnID = next.TurnID
-						known := link.Terminals[*next.TurnID]
-						link.ScopeState = coordinationScope(coordinationTerminalStatus(known, str(known)))
-						updated = true
-					}
+		return struct{}{}, store.observeTurnEvent(input, currentBulletinClock())
+	})
+	return err
+}
+
+func (store *bulletinStore) observeTurnEvent(input coordinationEventInput, clock bulletinClock) error {
+	updated := false
+	for _, notice := range store.liveNotices {
+		for i := range notice.ThreadLinks {
+			link := &notice.ThreadLinks[i]
+			if input.Kind == "turn.successor" {
+				if len(input.ThreadRefs) != 2 || input.Origin == nil || !sameCoordinationOwner(notice.Owner, *input.Origin) {
 					continue
 				}
-				for _, ref := range input.ThreadRefs {
-					if ref.ThreadID == link.ThreadID && ref.TurnID != nil && coordinationTerminalStatus(nil, strPtr(input.Status)) != "" {
-						updated = mergeBulletinLink(link, *ref.TurnID, strPtr(input.Status), nil) || updated
-					}
+				prior, next := input.ThreadRefs[0], input.ThreadRefs[1]
+				if link.ThreadID == prior.ThreadID && prior.ThreadID == next.ThreadID && prior.TurnID != nil && next.TurnID != nil && samePointer(prior.TurnID, link.ObservedTurnID) {
+					link.ObservedTurnID = next.TurnID
+					known := link.Terminals[*next.TurnID]
+					link.ScopeState = coordinationScope(coordinationTerminalStatus(known, str(known)))
+					updated = true
+				}
+				continue
+			}
+			for _, ref := range input.ThreadRefs {
+				if ref.ThreadID == link.ThreadID && ref.TurnID != nil && coordinationTerminalStatus(nil, strPtr(input.Status)) != "" {
+					updated = mergeBulletinLink(link, *ref.TurnID, strPtr(input.Status), nil) || updated
 				}
 			}
 		}
-		if updated {
-			return struct{}{}, store.save(currentBulletinClock())
-		}
-		return struct{}{}, nil
-	})
-	return err
+	}
+	if updated {
+		return store.save(clock)
+	}
+	return nil
 }
 
 type coordinationLiveTurn struct {
@@ -181,37 +185,7 @@ func bulletinTick(ctx context.Context, service *service) error {
 		}
 		live := coordinationLiveTurns(ctx, service, keys)
 		_, err = withBulletinStore(func(store *bulletinStore) (struct{}, error) {
-			clock := currentBulletinClock()
-			for _, notice := range store.liveNotices {
-				cost.rows.Add(1)
-				for i := range notice.ThreadLinks {
-					link := &notice.ThreadLinks[i]
-					current := strPtr(link.ObservedTurnID)
-					observed := false
-					for _, turn := range live {
-						if turn.Thread != link.ThreadID || !coordinationIdentifier(turn.Turn) {
-							continue
-						}
-						cost.rows.Add(1)
-						store.dirty = mergeBulletinLink(link, turn.Turn, turn.Status, turn.Checkpoint) || store.dirty
-						if turn.Turn == current {
-							observed = true
-						}
-					}
-					if !observed && link.ScopeState == "running" {
-						store.dirty = mergeBulletinLink(link, current, "unknown", nil) || store.dirty
-					}
-					if observed && clock.certain && link.ScopeState != "unknown" {
-						link.ObservedAt = new(clock.elapsed)
-						notice.LastActiveAt, notice.freshActivity = max(notice.LastActiveAt, clock.elapsed), true
-						store.dirty = true
-					}
-				}
-			}
-			if store.dirty {
-				store.maintainedAt = 0
-			}
-			return struct{}{}, store.flush(clock)
+			return struct{}{}, store.observeLiveTurns(live, currentBulletinClock(), cost)
 		})
 		if err != nil {
 			return err
@@ -221,6 +195,39 @@ func bulletinTick(ctx context.Context, service *service) error {
 		return err
 	}
 	return reconcileBulletin()
+}
+
+func (store *bulletinStore) observeLiveTurns(live []coordinationLiveTurn, clock bulletinClock, cost *runtimeCost) error {
+	for _, notice := range store.liveNotices {
+		cost.rows.Add(1)
+		for i := range notice.ThreadLinks {
+			link := &notice.ThreadLinks[i]
+			current, previousScope := strPtr(link.ObservedTurnID), link.ScopeState
+			observed := false
+			for _, turn := range live {
+				if turn.Thread != link.ThreadID || !coordinationIdentifier(turn.Turn) {
+					continue
+				}
+				cost.rows.Add(1)
+				store.dirty = mergeBulletinLink(link, turn.Turn, turn.Status, turn.Checkpoint) || store.dirty
+				if turn.Turn == current {
+					observed = true
+				}
+			}
+			if !observed && link.ScopeState == "running" {
+				store.dirty = mergeBulletinLink(link, current, "unknown", nil) || store.dirty
+			}
+			if observed && clock.certain && link.ScopeState != "unknown" && (link.ScopeState == "running" || link.ScopeState != previousScope) {
+				link.ObservedAt = new(clock.elapsed)
+				notice.LastActiveAt, notice.freshActivity = max(notice.LastActiveAt, clock.elapsed), true
+				store.dirty = true
+			}
+		}
+	}
+	if store.dirty {
+		store.maintainedAt = 0
+	}
+	return store.flush(clock)
 }
 
 func init() {
