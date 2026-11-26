@@ -581,7 +581,11 @@ func resumeCodexMutation(ctx context.Context, r operationRequest, row object) (o
 			if err != nil {
 				return nil, err
 			}
-			if _, err := rpc.call(ctx, "thread/resume", object{"threadId": thread, "excludeTurns": true}, 10*time.Second); err != nil {
+			_, home, err := codexInputs()
+			if err != nil {
+				return nil, err
+			}
+			if _, err := callCodexBackgroundResume(ctx, r.service, rpc, home, thread, object{"threadId": thread, "excludeTurns": true}, 10*time.Second); err != nil {
 				return nil, err
 			}
 		}

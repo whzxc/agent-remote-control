@@ -261,6 +261,11 @@ func nativeNotificationObserve(ctx context.Context, s *service, b object) (objec
 	thread := text(b, "threadId")
 	selected := optionalProjectString(b["turnId"])
 	historical := text(b["observation"], "state") != "running" && text(b["observation"], "state") != "interaction-required"
+	binding, err := codexDesktopBinding(thread)
+	if err != nil {
+		return nil, err
+	}
+	historical = historical && binding["transport"] != "local-daemon"
 	observed, err := readCodexObservation(ctx, s, thread, selected, historical, false)
 	if err != nil {
 		return nil, err

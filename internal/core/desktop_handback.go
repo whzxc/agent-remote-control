@@ -474,11 +474,13 @@ func startNativeDesktopHandback(ctx context.Context, s *service) error {
 		}
 		results := make(chan result, 4)
 		samples := map[string]*desktopHandbackSample{}
-		startup, inFlight := true, 0
+		startup, discovered, inFlight := true, false, 0
 		scan := func() {
-			if startup {
+			if !discovered {
 				if err := discoverLegacyDesktopHandbacks(lifetime, s); err != nil {
 					recordLog("WARN", "Desktop handback discovery: "+err.Error(), nil)
+				} else {
+					discovered = true
 				}
 			}
 			entries, _ := cachedEntries(dir)
@@ -538,7 +540,7 @@ func startNativeDesktopHandback(ctx context.Context, s *service) error {
 					}
 				})
 			}
-			startup = false
+			startup = !discovered
 		}
 		scan()
 		for lifetime.Err() == nil {

@@ -365,27 +365,11 @@ func requestCodexNative(ctx context.Context, service *service, method string, ar
 		}
 		args = params
 	}
-	var acquisition string
+	var value any
 	if method == "thread/resume" && thread != "" {
-		if _, err := observeNotificationOwnership(thread, service.nativeWriterOwnership(ctx, home, thread)); err != nil {
-			return nil, err
-		}
-		acquisition, err = beginNotificationAcquisition(ctx, thread)
-		if err != nil {
-			return nil, err
-		}
-	}
-	value, err := connection.call(ctx, method, args, timeout)
-	if acquisition != "" {
-		if _, err := observeNotificationOwnership(thread, service.nativeWriterOwnership(ctx, home, thread)); err != nil {
-			recordLog("WARN", err.Error(), nil)
-		}
-		if endErr := endNotificationAcquisition(thread, acquisition); endErr != nil {
-			if err == nil {
-				return nil, errors.New("SUBMISSION_UNCONFIRMED: writer acquisition record failed: " + endErr.Error())
-			}
-			recordLog("WARN", endErr.Error(), nil)
-		}
+		value, err = callCodexBackgroundResume(ctx, service, connection, home, thread, args, timeout)
+	} else {
+		value, err = connection.call(ctx, method, args, timeout)
 	}
 	if thread != "" && nativeWriterRejected(err) {
 		if mutation && !directFixture && returned == nil && desktopNativeRequest != nil {
@@ -411,6 +395,30 @@ func requestCodexNative(ctx context.Context, service *service, method string, ar
 		}
 	}
 
+	return value, err
+}
+
+func callCodexBackgroundResume(ctx context.Context, service *service, connection *rpcConnection, home, thread string, args any, timeout time.Duration) (any, error) {
+	if _, err := observeNotificationOwnership(thread, service.nativeWriterOwnership(ctx, home, thread)); err != nil {
+		return nil, err
+	}
+	acquisition, err := beginNotificationAcquisition(ctx, thread)
+	if err != nil {
+		return nil, err
+	}
+	value, err := connection.call(ctx, "thread/resume", args, timeout)
+	if acquisition == "" {
+		return value, err
+	}
+	if _, issue := observeNotificationOwnership(thread, service.nativeWriterOwnership(ctx, home, thread)); issue != nil {
+		recordLog("WARN", issue.Error(), nil)
+	}
+	if issue := endNotificationAcquisition(thread, acquisition); issue != nil {
+		if err == nil {
+			return nil, errors.New("SUBMISSION_UNCONFIRMED: writer acquisition record failed: " + issue.Error())
+		}
+		recordLog("WARN", issue.Error(), nil)
+	}
 	return value, err
 }
 

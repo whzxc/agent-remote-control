@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 )
 
 func codexStaleInteraction(thread string) error {
@@ -127,6 +128,15 @@ func respondDesktopMutation(ctx context.Context, s *service, receipt, args, pend
 	if err != nil {
 		return nil, err
 	}
+	var baseline object
+	if pending["method"] == "request_user_input_async" {
+		state, err := requestCodexNative(ctx, s, "thread/read", object{"threadId": thread, "includeTurns": false}, 10*time.Second)
+		if err != nil {
+			baseline = object{"unavailable": err.Error()}
+		} else {
+			baseline = captureNativeChangeBaseline(ctx, text(field(state, "thread"), "cwd"))
+		}
+	}
 	receipt["threadId"], receipt["turnId"] = thread, field(pending["params"], "turnId")
 	if err := codexMutationCheckpoint(ctx, receipt, "responding"); err != nil {
 		return nil, err
@@ -143,6 +153,17 @@ func respondDesktopMutation(ctx context.Context, s *service, receipt, args, pend
 	}
 	if err := recordInteractionAnswer(ctx, pending, args); err != nil {
 		return nil, fmt.Errorf("SUBMISSION_UNCONFIRMED: response sent; answer persistence failed: %w", err)
+	}
+	if next := text(value, "nextTurnId"); next != "" {
+		if err := recordNativeChangeBaseline(thread, next, baseline); err != nil {
+			recordLog("WARN", err.Error(), nil)
+		}
+		if err := bindNotification(ctx, object{}, thread, next, "", nil); err != nil {
+			return nil, fmt.Errorf("SUBMISSION_UNCONFIRMED: %w", err)
+		}
+		if err := inheritNotificationBinding(ctx, thread, text(value, "answeredTurnId"), next); err != nil {
+			return nil, fmt.Errorf("SUBMISSION_UNCONFIRMED: %w", err)
+		}
 	}
 	if err := consumeRespondToken(ctx, args); err != nil {
 		return nil, fmt.Errorf("SUBMISSION_UNCONFIRMED: response sent; token persistence failed: %w", err)
