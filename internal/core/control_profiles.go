@@ -87,6 +87,8 @@ func renderGuide(origin, args object, ops []object, profile object, features gui
 		if !full {
 			contentKey = "orientation"
 		}
+	} else if !slices.Contains([]string{"notify", "coordination", "src", "device", "context", "review", "approvals"}, topic) {
+		contentKey = name
 	}
 	content := "MUST means a requirement. SHOULD means the default unless a concrete task-specific reason justifies an exception. MAY means an option.\n" + text(guides, contentKey)
 	if topic == "loop" {

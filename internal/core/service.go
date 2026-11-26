@@ -3,11 +3,19 @@ package core
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 )
+
+type nativeSchemaCache struct {
+	sync.Mutex
+	value object
+}
 
 type service struct {
 	metadata       object
@@ -16,6 +24,9 @@ type service struct {
 	source         requestSource
 	hub            hubPool
 	jobs           controlJobs
+	events         nativeEvents
+	waits          waitCalls
+	schemas        nativeSchemaCache
 	cleanup        []func()
 	desktop        func(context.Context, string, string, object) (any, error)
 }
@@ -39,7 +50,45 @@ func (s *service) close() {
 	}
 }
 
+var managementSourceProjection func(object)
+var validateTaskPanelArgs func(string, object) error
+var panelControlSource func(context.Context) (requestSource, error)
+var applyPriorDispatchPurpose func(string, object) error
+
 func (s *service) management(ctx context.Context, route, method string, body object) (any, error) {
+	audit := method != "GET" && !slices.Contains([]string{"cli/control", "runtime/lease", "src-conversations/observe",
+		"src-conversations/query", "logs/query", "agents/conversations", "agents/dispatch-catalog", "agents/dispatch-defaults/read",
+		"tasks/dispatch-defaults/read", "agents/conversations/timeline", "state/wait", "setup/next", "setup/wait"}, route)
+	var ingress any
+	if name, ok := strings.CutPrefix(route, "ingress/"); ok {
+		ingress, _, _ = strings.Cut(name, "/")
+	}
+	var operation any
+	if audit {
+		operation = id()
+		if err := appendLog(object{"time": now(), "level": "INFO", "msg": fmt.Sprintf("%s %s: started", method, route),
+			"operationId": operation, "ingressId": ingress, "phase": "started"}); err != nil {
+			return nil, err
+		}
+	}
+	value, err := s.managementRequest(ctx, route, method, body)
+	if err == nil && managementSourceProjection != nil {
+		managementSourceProjection(obj(value))
+	}
+	if audit || route == "runtime/lease" && err != nil {
+		outcome, level := "succeeded", "INFO"
+		if err != nil {
+			outcome, level = "failed", "ERROR"
+		}
+		if err := appendLog(object{"time": now(), "level": level, "msg": fmt.Sprintf("%s %s: %s", method, route, outcome),
+			"operationId": operation, "ingressId": ingress, "phase": outcome}); err != nil {
+			fmt.Fprintln(os.Stderr, "Cannot persist operation outcome:", err)
+		}
+	}
+	return value, err
+}
+
+func (s *service) managementRequest(ctx context.Context, route, method string, body object) (any, error) {
 	if handler, params := resolveRoute(method, route); handler != nil {
 		return handler(ctx, s, body, params)
 	}
@@ -57,6 +106,52 @@ func (s *service) management(ctx context.Context, route, method string, body obj
 	return nil, errors.New(PortPending)
 }
 
+func panelTaskOperation(ctx context.Context, service *service, body object, schema string) (any, error) {
+	if _, _, _, err := managementResolve(schema, object{"body": body}); err != nil {
+		return nil, err
+	}
+	name := text(body, "op")
+	args := clone(obj(body["args"]))
+	if args == nil {
+		args = object{}
+	}
+	if name == "codex_send" && args["purpose"] == nil {
+		if applyPriorDispatchPurpose == nil {
+			return nil, errors.New(PortPending)
+		}
+		if err := applyPriorDispatchPurpose(text(args, "threadId"), args); err != nil {
+			return nil, err
+		}
+	}
+	if (name == "codex_send" || name == "agent_send") && args["purpose"] == "self-test" {
+		if _, exists := args["notify"]; !exists {
+			args["notify"] = nil
+		}
+	}
+	if panelControlSource == nil {
+		return nil, errors.New(PortPending)
+	}
+	source, err := panelControlSource(ctx)
+	if err != nil {
+		return nil, err
+	}
+	policy := clone(defaultPolicy())
+	source.policy = policy
+	spec := operation(name)
+	if spec == nil {
+		return nil, errors.New("UNKNOWN_OP")
+	}
+	if invalid := checkSchema("op", name, name, spec["inputSchema"], args); invalid != nil {
+		return nil, errors.New(wire(invalid))
+	}
+	if validateTaskPanelArgs != nil {
+		if err := validateTaskPanelArgs(name, args); err != nil {
+			return nil, err
+		}
+	}
+	return executeOperation(withOrigin(ctx, source.origin), operationRequest{name, args, source, service, nil})
+}
+
 func (s *service) mcp(ctx context.Context, ingress string, request object) (object, error) {
 	source := s.source
 	if s.fixtureIngress != nil {
@@ -72,6 +167,12 @@ func (s *service) mcp(ctx context.Context, ingress string, request object) (obje
 }
 
 func init() {
+	registerRoute("POST", "tasks/control", func(ctx context.Context, s *service, body object, _ []string) (any, error) {
+		return panelTaskOperation(ctx, s, body, "tasks.control")
+	})
+	registerRoute("POST", "agents/respond", func(ctx context.Context, s *service, body object, _ []string) (any, error) {
+		return panelTaskOperation(ctx, s, body, "agents.respond")
+	})
 	registerRoute("GET", "healthz", func(_ context.Context, s *service, _ object, _ []string) (any, error) {
 		return object{"runtime": s.metadata["runtime"], "instance": s.metadata["instance"], "pid": s.metadata["pid"], "owner": "core",
 			"version": s.metadata["version"], "build": s.metadata["build"], "frontDoor": frontDoorStatus(text(s.metadata, "build"))}, nil
@@ -126,7 +227,7 @@ func (s *service) status(ctx context.Context) (object, error) {
 		"chatgpt": object{}, "resources": coreResourceStatus(), "logs": logs, "version": buildVersion,
 		"backendSession": s.metadata["instance"], "activeTurns": 0, "liveProcesses": 0, "uncertain": false, "draining": false,
 		"account": object{"state": "unknown", "observedAt": nil}, "lastInbound": nil, "schemaDiscovered": "unknown",
-		"operationVerified": "business-delivery-not-assessed", "activeWrites": controlJobCount(s), "pendingInteractions": 0,
+		"operationVerified": "business-delivery-not-assessed", "activeWrites": controlJobCount(s), "pendingInteractions": s.events.countPending(),
 		"toolCount": len(arr(catalog()["tools"])), "opCount": len(arr(catalog()["ops"])), "package": object{"version": buildVersion, "sha": "native"}}
 	running, ready := 0, 0
 	for _, item := range items {
@@ -145,11 +246,26 @@ func (s *service) status(ctx context.Context) (object, error) {
 		state = "starting"
 	}
 	core["transport"], core["registered"] = object{"state": state}, running > 0
-	result := object{"config": object{"configured": false}, "version": buildVersion, "platform": platformName(), "cliPath": cliExecutable(),
+	config := object{"configured": false}
+	if ingressConfigDefaults != nil {
+		config = ingressConfigDefaults()
+		config["configured"] = false
+		if ingressConfigSecrets != nil {
+			for _, key := range ingressConfigSecrets() {
+				delete(config, key)
+			}
+		}
+	}
+	result := object{"config": config, "version": buildVersion, "platform": platformName(), "cliPath": cliExecutable(),
 		"connection": object{"running": false, "mcpUrl": ""}, "tunnel": object{"state": "stopped", "error": ""},
 		"connector": object{"state": state}, "preferences": readPreferences(), "logs": logs, "core": core,
 		"frontDoor": frontDoorStatus(text(s.metadata, "build")), "ingresses": items,
 		"ingressSummary": object{"running": running, "ready": ready, "total": len(items)}}
+	if expected, err := expectedRemote(); err == nil {
+		result["remoteFaults"] = slices.DeleteFunc(expected, func(row object) bool {
+			return slices.ContainsFunc(items, func(actual object) bool { return actual["id"] == row["id"] && actual["state"] == "ready" })
+		})
+	}
 	for _, contribute := range statusContributions {
 		if err := contribute(ctx, s, result); err != nil {
 			return nil, err

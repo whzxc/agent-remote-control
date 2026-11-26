@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -28,14 +29,37 @@ func (s requestSource) enabledOps() []object {
 	return ops
 }
 
+var localSourceOrigin func(context.Context) (requestSource, error)
+var remoteDeviceControl func(context.Context, *service, requestSource, string, object, any) (object, error)
+var authorizeReviewDefects func(string, object) error
+var decorateControlSource func(context.Context, object)
+var controlPushAvailable func(any) bool
+var decorateControlResult []func(context.Context, operationRequest, object)
+var localControlCallerKey struct{}
+
+type mcpMethod func(context.Context, *service, requestSource, object) (object, error)
+
+var registeredMCPMethods = make(map[string]mcpMethod)
+
+func registerMCPMethod(name string, handler mcpMethod) {
+	if handler == nil || registeredMCPMethods[name] != nil {
+		panic("Invalid or duplicate MCP protocol method " + name)
+	}
+	registeredMCPMethods[name] = handler
+}
+
 func callTool(ctx context.Context, service *service, source requestSource, tool string, envelope any, rpcID any) object {
 	metric := beginControlMetric(source, tool, envelope)
 	response := callToolInner(ctx, service, source, tool, envelope, rpcID)
-	if rpcID != nil {
+	if rpcID != nil && nameNotForwarded(envelope) {
 		response["resultType"] = "complete"
 	}
 	metric.finish(ctx, response)
 	return response
+}
+
+func nameNotForwarded(envelope any) bool {
+	return text(envelope, "op") != "device" && text(field(envelope, "args"), "device") == ""
 }
 
 func callToolInner(ctx context.Context, service *service, source requestSource, tool string, envelope any, rpcID any) object {
@@ -61,6 +85,7 @@ func callToolInner(ctx context.Context, service *service, source requestSource, 
 	if invalid := checkSchema("tool", tool, "", spec["inputSchema"], envelope); invalid != nil {
 		return egressFailure(name, invalid)
 	}
+	ctx = withOrigin(ctx, source.origin)
 	if name == "guide" {
 		guide := operation("guide")
 		if tool == "act" {
@@ -102,12 +127,32 @@ func callToolInner(ctx context.Context, service *service, source requestSource, 
 	if invalid := normalizeArgs(name, args); invalid != nil {
 		return egressFailure(name, invalid)
 	}
-	ctx = withOrigin(ctx, source.origin)
+	if authorizeReviewDefects != nil && (name == "codex_review" || name == "agent_review") {
+		if err := authorizeReviewDefects(name, args); err != nil {
+			return egressFailure(name, controlFailure(err))
+		}
+	}
+	if name == "device" || text(args, "device") != "" {
+		if remoteDeviceControl == nil {
+			return egressFailure(name, controlFailure(errors.New(PortPending)))
+		}
+		forward := args
+		if name != "device" {
+			payload := maps.Clone(args)
+			delete(payload, "device")
+			forward = object{"device": args["device"], "op": name, "args": payload}
+		}
+		result, err := remoteDeviceControl(ctx, service, source, tool, forward, field(envelope, "requestId"))
+		if err != nil {
+			return egressFailure(name, controlFailure(err))
+		}
+		return result
+	}
 	continuation := false
 	if _, present := args["digestCursor"].(string); present && digestSupported(name, args) {
 		page, follow, err := resumeDigest(name, args, source.origin, rpcID)
 		if err != nil {
-			return egressFailure(name, transportError(err))
+			return egressFailure(name, controlFailure(err))
 		}
 		if page != nil {
 			return egressTool(page, false)
@@ -118,9 +163,12 @@ func callToolInner(ctx context.Context, service *service, source requestSource, 
 	if isWaitOp(name) {
 		waitLimit = limitWait(source.origin, args)
 	}
-	result, err := executeOperation(ctx, operationRequest{name, args, source, service, rpcID})
+	request := operationRequest{name, args, source, service, rpcID}
+	result, err := executeOperation(ctx, request)
 	if err != nil {
-		return egressFailure(name, transportError(err))
+		value := object{"error": controlFailure(err)}
+		nextControl(value, name, args, false)
+		return egressTool(value, true)
 	}
 	value := obj(result)
 	if value == nil {
@@ -128,8 +176,24 @@ func callToolInner(ctx context.Context, service *service, source requestSource, 
 	} else {
 		value = clone(value)
 	}
+	if slices.Contains([]string{"codex_read", "codex_wait", "agent_read", "agent_wait"}, name) && value["state"] != nil && value["operation"] == nil {
+		value["stateScope"] = "turn"
+	}
 	value = publicReceipt(value)
-	receiptNext(value, args)
+	if args["includeOrigin"] != true {
+		stripControlSource(name, value)
+	}
+	if reason := outcomeError(value); reason != nil {
+		value["error"] = reason
+	}
+	if decorateControlSource != nil {
+		decorateControlSource(ctx, value)
+	}
+	for _, decorate := range decorateControlResult {
+		decorate(ctx, request, value)
+	}
+	push := controlPushAvailable != nil && controlPushAvailable(value["notification"])
+	nextControl(value, name, args, push)
 	compactOutcomeError(value)
 	failed := value["error"] != nil
 	if waitLimit != nil {
@@ -145,7 +209,7 @@ func callToolInner(ctx context.Context, service *service, source requestSource, 
 		if explicit || continuation {
 			page, err := showDigest(name, args, value, source.origin, rpcID)
 			if err != nil {
-				return egressFailure(name, transportError(err))
+				return egressFailure(name, controlFailure(err))
 			}
 			return egressTool(page, false)
 		}
@@ -160,7 +224,14 @@ func callToolInner(ctx context.Context, service *service, source requestSource, 
 		}
 		projected, err := pageOutput(value, limit)
 		if err != nil {
-			return egressFailure(name, transportError(err))
+			return egressFailure(name, controlFailure(err))
+		}
+		if failed && field(projected, "outputId") != nil {
+			for _, key := range []string{"requestId", "state", "error", "threadId", "turnId"} {
+				if v, ok := value[key]; ok {
+					obj(projected)[key] = v
+				}
+			}
 		}
 		value = obj(projected)
 	}
@@ -177,13 +248,42 @@ func localControl(ctx context.Context, service *service, source requestSource, b
 	if !exists {
 		args = object{}
 	}
+	inner := name
+	if name == "device" {
+		inner = text(args, "op")
+	}
 	tool := "query"
-	if spec := operation(name); spec != nil && name != "guide" {
+	if spec := operation(inner); spec != nil && inner != "guide" {
 		tool = via(spec)
 	}
+	var deviceRequestID any
+	if fields := maps.Clone(obj(args)); fields != nil {
+		if dispatchMetricOp(name) {
+			if _, exists := fields["purpose"]; !exists {
+				fields["purpose"] = "self-test"
+			}
+			if _, exists := fields["notify"]; !exists {
+				fields["notify"] = nil
+			}
+		}
+		if name == "device" {
+			deviceRequestID = fields["requestId"]
+			delete(fields, "requestId")
+		}
+		args = fields
+	}
 	envelope := object{"op": name, "args": args}
-	if requestID, exists := body["requestId"]; tool == "act" && exists {
-		envelope["requestId"] = requestID
+	if tool == "act" {
+		if requestID, exists := body["requestId"]; exists {
+			envelope["requestId"] = requestID
+		} else if deviceRequestID != nil {
+			envelope["requestId"] = deviceRequestID
+		}
+	}
+	if validateDispatchCaller != nil {
+		if caller := validateDispatchCaller(body["caller"]); caller != nil {
+			ctx = context.WithValue(ctx, &localControlCallerKey, caller)
+		}
 	}
 	return callTool(ctx, service, source, tool, envelope, nil)
 }
@@ -193,6 +293,12 @@ func dispatchMCP(ctx context.Context, service *service, source requestSource, re
 		return nil, errors.New("invalid jsonrpc")
 	}
 	id, hasID := request["id"]
+	method := text(request, "method")
+	waitKey := text(source.origin, "sourceId") + "\x00" + wire(id)
+	if method == "notifications/cancelled" {
+		service.waits.cancel(text(source.origin, "sourceId") + "\x00" + wire(field(request["params"], "requestId")))
+		return nil, nil
+	}
 	if !hasID {
 		return nil, nil
 	}
@@ -200,7 +306,7 @@ func dispatchMCP(ctx context.Context, service *service, source requestSource, re
 	var failure object
 	params := obj(request["params"])
 	server := object{"name": "arc", "version": buildVersion}
-	switch text(request, "method") {
+	switch method {
 	case "server/discover":
 		result = object{"cacheScope": "private", "ttlMs": 0, "supportedVersions": []string{"2026-07-28"},
 			"capabilities": object{"tools": object{}, "events": object{}}, "serverInfo": server, "instructions": catalog()["instructions"]}
@@ -225,28 +331,95 @@ func dispatchMCP(ctx context.Context, service *service, source requestSource, re
 		if !exists {
 			payload = object{}
 		}
-		result = callTool(ctx, service, source, text(params, "name"), payload, id)
-	case "events/list", "events/subscribe", "events/unsubscribe":
-		failure = object{"code": -32603, "message": PortPending, "data": object{"code": PortPending, "arcVersion": arcVersion()}}
-	case "notifications/initialized", "notifications/cancelled":
+		if isMCPWait(request) {
+			wait, done, err := service.waits.register(ctx, waitKey)
+			if err != nil {
+				failure = mcpMethodFailure(err)
+				break
+			}
+			defer done()
+			result = callTool(wait, service, source, text(params, "name"), payload, id)
+			if wait.Err() != nil && ctx.Err() == nil {
+				result = cancelledControlWait(payload)
+			}
+		} else {
+			result = callTool(ctx, service, source, text(params, "name"), payload, id)
+		}
+	case "notifications/initialized":
 		return nil, nil
 	default:
-		failure = object{"code": -32601, "message": "method not found", "data": object{"arcVersion": arcVersion()}}
+		if handler := registeredMCPMethods[method]; handler != nil {
+			var err error
+			result, err = handler(ctx, service, source, params)
+			if err != nil {
+				failure = mcpMethodFailure(err)
+			}
+		} else if slices.Contains([]string{"events/list", "events/subscribe", "events/unsubscribe"}, method) {
+			failure = mcpMethodFailure(errors.New(PortPending))
+		} else {
+			failure = object{"code": -32601, "message": "method not found", "data": object{"arcVersion": arcVersion()}}
+		}
 	}
 	response := object{"jsonrpc": "2.0", "id": id}
 	if failure != nil {
 		response["error"] = failure
 	} else {
-		result["resultType"] = "complete"
+		if result == nil {
+			result = object{}
+		}
+		if result["resultType"] == nil {
+			result["resultType"] = "complete"
+		}
 		response["result"] = result
 	}
 	return response, nil
 }
 
+func mcpMethodFailure(err error) object {
+	var failure object
+	if decodeObject([]byte(err.Error()), &failure) == nil && failure["code"] != nil && failure["message"] != nil {
+		return failure
+	}
+	data := object{"arcVersion": arcVersion()}
+	if err.Error() == PortPending {
+		data["code"] = PortPending
+	}
+	return object{"code": -32603, "message": err.Error(), "data": data}
+}
+
+func cancelledControlWait(payload any) object {
+	name, args := text(payload, "op"), field(payload, "args")
+	result := object{"state": "unconfirmed", "reason": "wait-cancelled", "threadId": field(args, "threadId"), "turnId": field(args, "turnId"),
+		"runtimeStatus": "unknown", "recordedStatus": nil, "finalResponse": nil, "interaction": []any{}, "changed": false,
+		"conditionMet": false, "observedAt": nil, "returnedAt": now(), "elapsedMs": 0}
+	switch name {
+	case "inbox_wait":
+		result = object{"state": "unconfirmed", "reason": "wait-cancelled", "events": []any{}, "unread": 0}
+	case "agent_wait":
+		result["agent"], result["taskId"] = field(args, "agent"), field(args, "taskId")
+	}
+	return egressTool(result, false)
+}
+
 func init() {
 	registerRoute("POST", "cli/control", func(ctx context.Context, s *service, body object, _ []string) (any, error) {
 		source := requestSource{local: true, origin: object{"controlTransport": "cli", "sourceId": "local-cli"}, policy: "all"}
+		if localSourceOrigin != nil {
+			loaded, err := localSourceOrigin(ctx)
+			if err != nil {
+				return nil, err
+			}
+			source = loaded
+			source.origin = maps.Clone(source.origin)
+			source.origin["controlTransport"] = "cli"
+		}
 		return localControl(ctx, s, source, body), nil
+	})
+	registerOperationFallback("connector_verify", func(ctx context.Context, request operationRequest) (any, error) {
+		if !request.source.local {
+			return nil, errors.New(PortPending)
+		}
+		return object{"received": true, "code": request.args["code"], "origin": currentOrigin(ctx)}, nil
 	})
 }
 

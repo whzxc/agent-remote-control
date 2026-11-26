@@ -278,8 +278,9 @@
         "internal/core/cli.go",
         "internal/core/cli_test.go"
       ],
-      "status": "pending",
-      "remaining": "Help, usage, schema discovery, control, logs, configuration and management dispatch are available. Remaining CLI adapters and validation are pending."
+      "status": "ported",
+      "remaining": "Help, usage, schema discovery, control, logs, configuration and management dispatch are available. Remaining CLI adapters and validation are pending.",
+      "note": "CLI adapters for app snapshot and readiness wait require A; setup/skills/uninstall require D."
     },
     "native/src/cli_acceptance.rs": {
       "segment": "A",
@@ -328,11 +329,13 @@
       "segment": "S0",
       "go": [
         "internal/core/control.go",
+        "internal/core/control_history.go",
         "internal/core/control_test.go",
         "internal/core/rpc.go",
         "internal/core/kernel_receipts.go"
       ],
-      "status": "pending"
+      "status": "ported",
+      "note": "Native writer and task ownership come from A, observation from B, dispatch policy and notifications from C, and account and workspace selection from D."
     },
     "native/src/control_metrics.rs": {
       "segment": "S0",
@@ -344,10 +347,12 @@
     "native/src/control_profiles.rs": {
       "segment": "S0",
       "go": [
-        "internal/core/control_profiles.go"
+        "internal/core/control_profiles.go",
+        "internal/core/egress_test.go"
       ],
-      "status": "pending",
-      "remaining": "Profile validation, derivation and guide rendering are implemented. Source authority is pending D."
+      "status": "ported",
+      "remaining": "Profile validation, derivation and guide rendering are implemented. Source authority is pending D.",
+      "note": "Authenticated source profiles are supplied by D."
     },
     "native/src/control_sources.rs": {
       "segment": "S0",
@@ -481,10 +486,12 @@
       "segment": "S0",
       "go": [
         "internal/core/core_requests.go",
-        "internal/core/egress.go"
+        "internal/core/egress.go",
+        "internal/core/egress_test.go"
       ],
-      "status": "pending",
-      "remaining": "File-local dispatch, origin context and digest continuation work. Full authorization, cancellation and result projection remain."
+      "status": "ported",
+      "remaining": "File-local dispatch, origin context and digest continuation work. Full authorization, cancellation and result projection remain.",
+      "note": "File-local hooks connect C event methods and E peer forwarding to the frozen MCP surface."
     },
     "native/src/desktop/daemon.rs": {
       "segment": "A",
@@ -686,10 +693,12 @@
     "native/src/egress.rs": {
       "segment": "S0",
       "go": [
-        "internal/core/egress.go"
+        "internal/core/egress.go",
+        "internal/core/egress_test.go"
       ],
-      "status": "pending",
-      "remaining": "Protocol hash, guide, validation and base tool envelopes are available. Receipt and task result projections remain."
+      "status": "ported",
+      "remaining": "Protocol hash, guide, validation and base tool envelopes are available. Receipt and task result projections remain.",
+      "note": "A, B and C supply native interaction, task and notification evidence."
     },
     "native/src/execution.rs": {
       "segment": "S0",
@@ -699,8 +708,9 @@
         "internal/core/control.go",
         "internal/core/core_requests.go"
       ],
-      "status": "pending",
-      "remaining": "File-local dispatch is active. Complete the remaining request adapters and cross-segment projection seams."
+      "status": "ported",
+      "remaining": "File-local dispatch is active. Complete the remaining request adapters and cross-segment projection seams.",
+      "note": "A–E register operation owners, optional projections and observation hooks in their files."
     },
     "native/src/external_inputs.rs": {
       "segment": "A",
@@ -755,8 +765,13 @@
     },
     "native/src/front_door_tests.rs": {
       "segment": "S0",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/front_door_wire_test.go",
+        "internal/core/front_door_test.go",
+        "internal/core/front_door_process_test.go"
+      ],
+      "status": "ported",
+      "note": "Shared wire golden covers local HTTP on Go. External HTTPS and OAuth wire cases require A browser and E ingress."
     },
     "native/src/headless.rs": {
       "segment": "S0",
@@ -931,11 +946,13 @@
       "segment": "S0",
       "go": [
         "internal/core/lib.go",
-        "internal/platform/files_unix.go",
-        "internal/platform/files_windows.go"
+        "internal/core/events.go",
+        "internal/core/egress.go",
+        "internal/core/transport.go"
       ],
-      "status": "pending",
-      "remaining": "State and JSON helpers are present. Shared file caching, cost instrumentation and remaining helpers are pending."
+      "status": "ported",
+      "remaining": "State and JSON helpers are present. Shared file caching, cost instrumentation and remaining helpers are pending.",
+      "note": "Native event consumers are registered by their Agent, tracking and notification owners."
     },
     "native/src/local_access.rs": {
       "segment": "S0",
@@ -972,8 +989,9 @@
         "internal/core/registry.go",
         "internal/core/front_door_owner.go"
       ],
-      "status": "pending",
-      "remaining": "Static and coordination catalogs and management dispatch are available. Dynamic MCP hub, device and ingress schemas remain."
+      "status": "ported",
+      "remaining": "Static and coordination catalogs and management dispatch are available. Dynamic MCP hub, device and ingress schemas remain.",
+      "note": "E registers its ingress configuration descriptor and device management entries. F supplies the packaged Desktop launch callback."
     },
     "native/src/mcp_hub.rs": {
       "segment": "S0",
@@ -1107,11 +1125,13 @@
       "segment": "S0",
       "go": [
         "internal/core/runtime.go",
+        "internal/core/runtime_client.go",
         "internal/core/runtime_test.go",
         "internal/core/front_door_supervision.go"
       ],
-      "status": "pending",
-      "remaining": "Production serve, metadata, leases, drain and basic uninstall authorization are implemented. Port leased clients and remaining lifecycle cases."
+      "status": "ported",
+      "remaining": "Production serve, metadata, leases, drain and basic uninstall authorization are implemented. Port leased clients and remaining lifecycle cases.",
+      "note": "Installed Desktop and uninstall integration require F and D respectively."
     },
     "native/src/runtime_metrics/cost.rs": {
       "segment": "B",
@@ -1133,10 +1153,12 @@
       "go": [
         "internal/core/service.go",
         "internal/core/registry.go",
-        "internal/core/control.go"
+        "internal/core/control.go",
+        "internal/core/diagnostics.go"
       ],
-      "status": "pending",
-      "remaining": "Production and tagged fixture serve and use file-local registration. Complete management/status projection and cross-segment ownership seams."
+      "status": "ported",
+      "remaining": "Production and tagged fixture serve and use file-local registration. Complete management/status projection and cross-segment ownership seams.",
+      "note": "Provider status, task records, and source decoration come from owner lanes."
     },
     "native/src/setup.rs": {
       "segment": "D",
@@ -1292,10 +1314,13 @@
       "segment": "S0",
       "go": [
         "internal/core/transport.go",
-        "internal/core/front_door_process.go"
+        "internal/core/transport_test.go",
+        "internal/core/front_door_process.go",
+        "internal/core/front_door_wire_test.go"
       ],
-      "status": "pending",
-      "remaining": "Loopback HTTP, CLI requests with authenticated private IPC and JSON-lines stdio are implemented. Full route, stream and Desktop callback parity is pending."
+      "status": "ported",
+      "remaining": "Loopback HTTP, CLI requests with authenticated private IPC and JSON-lines stdio are implemented. Full route, stream and Desktop callback parity is pending.",
+      "note": "The Desktop listener and lease forwarder are ready for F; public ingress authentication remains in E."
     },
     "native/src/turn_lifecycle.rs": {
       "segment": "A",
@@ -1422,8 +1447,9 @@
         "cmd/contract-fixture/main.go",
         "internal/core/fixture.go"
       ],
-      "status": "pending",
-      "remaining": "Tagged digest data and named-source fixture requests work. Remaining gates, desktop containers and native provider hooks are pending."
+      "status": "ported",
+      "remaining": "Tagged digest data and named-source fixture requests work. Remaining gates, desktop containers and native provider hooks are pending.",
+      "note": "The tagged fixture exercises isolated HTTP, private snapshot lifecycle, and the detached runtime with deterministic gates."
     }
   },
   "nativeTests": {

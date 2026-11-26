@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -8,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -15,6 +17,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/whzxc/agent-remote-control/internal/canonjson"
 	"github.com/whzxc/agent-remote-control/internal/platform"
@@ -170,3 +173,61 @@ func saveBytes(path string, data []byte) error {
 	markCachedFileChanged(path, before)
 	return nil
 }
+
+func nativeCommand(ctx context.Context, binary string, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, binary, args...)
+	platform.ConfigureCommand(cmd)
+	return cmd
+}
+
+func decodeCommandOutput(data []byte) string {
+	if utf8.Valid(data) {
+		return string(data)
+	}
+	if decoded, ok := platform.DecodeOEM(data); ok {
+		return decoded
+	}
+	return strings.ToValidUTF8(string(data), "�")
+}
+
+func commandOutput(ctx context.Context, binary string, args ...string) (string, error) {
+	wait, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	out, err := nativeCommand(wait, binary, args...).Output()
+	if errors.Is(wait.Err(), context.DeadlineExceeded) {
+		return "", errors.New("COMMAND_TIMEOUT")
+	}
+	if err == nil {
+		return decodeCommandOutput(out), nil
+	}
+	var status *exec.ExitError
+	if errors.As(err, &status) {
+		message := strings.TrimSpace(decodeCommandOutput(status.Stderr))
+		if message == "" {
+			message = strings.TrimSpace(decodeCommandOutput(out))
+		}
+		if message == "" {
+			message = "Command failed: " + status.ProcessState.String()
+		}
+		return "", errors.New(message)
+	}
+	return "", err
+}
+
+var deviceDisplayName = sync.OnceValue(func() string {
+	ctx := context.Background()
+	if operatingSystem == "darwin" {
+		if name, err := commandOutput(ctx, "/usr/sbin/scutil", "--get", "ComputerName"); err == nil && strings.TrimSpace(name) != "" {
+			return strings.TrimSpace(name)
+		}
+	}
+	for _, env := range []string{"COMPUTERNAME", "HOSTNAME"} {
+		if name := strings.TrimSpace(os.Getenv(env)); name != "" {
+			return name
+		}
+	}
+	if name, err := os.Hostname(); err == nil && strings.TrimSpace(name) != "" {
+		return strings.TrimSpace(name)
+	}
+	return "This computer"
+})

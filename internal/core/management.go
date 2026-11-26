@@ -58,6 +58,9 @@ func desktopRoute(route string) bool {
 func managementResolve(name string, args object) (route, method string, body object, err error) {
 	spec := find(managementCatalog()["operations"], "name", name)
 	if spec == nil {
+		if strings.HasPrefix(name, "device.") {
+			return "", "", nil, errors.New(PortPending)
+		}
 		return "", "", nil, errors.New("UNKNOWN_OPERATION")
 	}
 	if invalid := checkSchema("management", name, "", spec["inputSchema"], args); invalid != nil {
@@ -81,6 +84,8 @@ func managementResolve(name string, args object) (route, method string, body obj
 	return route, method, body, nil
 }
 
+var startDesktopApp func(context.Context) (any, error)
+
 func managementCall(ctx context.Context, name string, args object) (any, error) {
 	route, method, body, err := managementResolve(name, args)
 	if err != nil {
@@ -90,6 +95,12 @@ func managementCall(ctx context.Context, name string, args object) (any, error) 
 		return queryLogs(body)
 	}
 	if name == "app.start" {
+		if operatingSystem == "linux" {
+			return startHeadless(ctx)
+		}
+		if startDesktopApp != nil {
+			return startDesktopApp(ctx)
+		}
 		return nil, errors.New(PortPending)
 	}
 	return forwardRequest(ctx, route, method, body)
@@ -130,7 +141,7 @@ func desktopForward(ctx context.Context, s *service, route string) (any, error) 
 }
 
 func managementStdio(ctx context.Context, input io.Reader, output io.Writer) error {
-	return serveJSONLines(input, output, func(request object) (any, error) {
+	return parallelJSONLines(ctx, input, output, 1<<20, false, func(ctx context.Context, _ io.Writer, request object) (any, error) {
 		id, hasID := request["id"]
 		if !hasID {
 			return nil, nil
@@ -172,8 +183,15 @@ func managementStdio(ctx context.Context, input io.Reader, output io.Writer) err
 			structured := object{}
 			if err != nil {
 				block["text"] = err.Error()
-				structured["error"] = transportError(err)
+				structured["error"] = object{"code": managementErrorCode(err.Error()), "message": err.Error()}
 			} else {
+				if fields := obj(value); fields != nil {
+					if reason := outcomeError(fields); reason != nil {
+						fields["error"] = reason
+						compactOutcomeError(fields)
+						err = errors.New("operation outcome failed")
+					}
+				}
 				block["text"] = wire(value)
 				structured["result"] = value
 			}
@@ -184,5 +202,37 @@ func managementStdio(ctx context.Context, input io.Reader, output io.Writer) err
 		}
 		reply["result"] = result
 		return reply, nil
+	})
+}
+
+func registerIngressManagementDescriptor(descriptor func() object) {
+	registerManagementCatalog(func(value object) {
+		current := descriptor()
+		value["ingressConfiguration"] = current
+		fields := object{}
+		for key, field := range obj(current["fields"]) {
+			fallback := obj(field)["default"]
+			kind := "string"
+			if _, ok := fallback.(bool); ok {
+				kind = "boolean"
+			} else if _, ok := uintValue(fallback); ok {
+				kind = "integer"
+			}
+			schema := object{"type": kind, "default": fallback}
+			if max, ok := uintValue(obj(field)["maxBytes"]); ok {
+				schema["maxLength"] = max
+			}
+			if _, ok := obj(field)["savedFlag"].(string); ok {
+				schema["writeOnly"] = true
+			}
+			fields[key] = schema
+		}
+		for _, op := range arr(value["operations"]) {
+			body := field(field(field(op, "inputSchema"), "properties"), "body")
+			properties := obj(field(body, "properties"))
+			if _, exists := properties["config"]; exists {
+				properties["config"] = object{"type": "object", "properties": fields, "additionalProperties": false}
+			}
+		}
 	})
 }

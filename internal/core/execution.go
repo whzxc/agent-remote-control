@@ -22,6 +22,7 @@ type registeredOperation struct {
 }
 
 var registeredOperations = make(map[string]registeredOperation)
+var fallbackOperations = make(map[string]operationHandler)
 var fixtureOperation func(operationRequest) (any, bool, error)
 
 func registerOperation(name string, handler operationHandler, available func(requestSource) bool) {
@@ -32,6 +33,27 @@ func registerOperation(name string, handler operationHandler, available func(req
 		panic(fmt.Sprintf("Duplicate control operation %s", name))
 	}
 	registeredOperations[name] = registeredOperation{handler, available}
+}
+
+func registerOperationFallback(name string, handler operationHandler) {
+	if handler == nil || fallbackOperations[name] != nil {
+		panic(fmt.Sprintf("Invalid or duplicate fallback operation %s", name))
+	}
+	fallbackOperations[name] = handler
+}
+
+type operationObserver func(context.Context, operationRequest, any, error)
+type operationProjection func(context.Context, operationRequest, object) error
+
+var operationObservers []operationObserver
+var operationProjections = make(map[string][]operationProjection)
+
+func registerOperationObserver(observe operationObserver) {
+	operationObservers = append(operationObservers, observe)
+}
+
+func registerOperationProjection(op string, project operationProjection) {
+	operationProjections[op] = append(operationProjections[op], project)
 }
 
 func operationAvailable(source requestSource, name string) bool {
@@ -47,7 +69,21 @@ func executeOperation(ctx context.Context, request operationRequest) (any, error
 	}
 	handler := registeredOperations[request.name].handle
 	if handler == nil {
+		handler = fallbackOperations[request.name]
+	}
+	if handler == nil {
 		return nil, errors.New(PortPending)
 	}
-	return handler(ctx, request)
+	value, err := handler(ctx, request)
+	for _, observe := range operationObservers {
+		observe(ctx, request, value, err)
+	}
+	if row := obj(value); err == nil && row != nil {
+		for _, project := range operationProjections[request.name] {
+			if err := project(ctx, request, row); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return value, err
 }

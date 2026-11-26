@@ -907,13 +907,14 @@ func validateCLIIngress(body object, patch bool) error {
 }
 
 func compactWithCoreLease(ctx context.Context) (any, error) {
-	if _, _, err := discoverLocal(ctx); err != nil {
+	binary, err := runtimeBinary()
+	if err != nil {
 		return nil, err
 	}
-	key := id()
-	if _, err := forwardRequest(ctx, "runtime/lease", http.MethodPost, object{"id": key, "kind": "cli", "pid": os.Getpid()}); err != nil {
+	client, err := connectRuntimeClient(ctx, binary, "cli")
+	if err != nil {
 		return nil, err
 	}
-	defer forwardRequest(context.WithoutCancel(ctx), "runtime/release", http.MethodPost, object{"id": key})
+	defer client.close(context.WithoutCancel(ctx))
 	return compactEventArchives()
 }

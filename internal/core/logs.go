@@ -89,6 +89,12 @@ func pruneLogs(dir, active string, at time.Time) error {
 	return nil
 }
 
+func appendLog(row object) error {
+	logLock.Lock()
+	defer logLock.Unlock()
+	return appendLogLocked(row)
+}
+
 func recordLog(level, message string, ingress any) {
 	logLock.Lock()
 	err := appendLogLocked(object{"time": now(), "level": level, "msg": message, "ingressId": ingress})

@@ -279,11 +279,15 @@ func forwardRequest(ctx context.Context, route, method string, body object) (any
 		(health["build"] != build && health["runtime"] != "go") {
 		return nil, errors.New(coreBuildMismatch)
 	}
+	return forwardToCore(ctx, metadata, route, method, body)
+}
+
+func forwardToCore(ctx context.Context, metadata object, route, method string, body object) (any, error) {
 	if conn, hello, attachErr := attachPrivate(ctx, "core"); attachErr == nil {
 		defer conn.Close()
 		return privateRequest(ctx, conn, hello, route, method, body)
 	}
-	ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, localRequestTimeout(route, body))
 	defer cancel()
 	address := "api/" + route
 	if route == "healthz" {
@@ -312,8 +316,90 @@ func stdioProxy(ctx context.Context, input io.Reader, output io.Writer) error {
 	return stdioConnection(ctx, port, token, ingress, input, output)
 }
 
+type synchronizedOutput struct {
+	sync.Mutex
+	writer io.Writer
+}
+
+func (o *synchronizedOutput) Write(data []byte) (int, error) {
+	o.Lock()
+	defer o.Unlock()
+	return o.writer.Write(data)
+}
+
+func parallelJSONLines(parent context.Context, input io.Reader, output io.Writer, limit int, cancelOnEOF bool,
+	dispatch func(context.Context, io.Writer, object) (any, error)) error {
+	ctx, cancel := context.WithCancel(parent)
+	defer cancel()
+	reader := bufio.NewScanner(input)
+	reader.Buffer(make([]byte, 8192), limit)
+	locked := &synchronizedOutput{writer: output}
+	slots := make(chan struct{}, maxInFlight)
+	var active sync.WaitGroup
+	var failure error
+	var failureOnce sync.Once
+	defer func() {
+		if cancelOnEOF {
+			cancel()
+		}
+		active.Wait()
+	}()
+	// While a process waits for another stdio request, allow a closed output
+	// pipe to end the loop without waiting for the caller to send another line.
+	closeInput := func() bool { return false }
+	if closer, ok := input.(io.ReadCloser); ok {
+		closeInput = context.AfterFunc(ctx, func() { _ = closer.Close() })
+	}
+	defer closeInput()
+	for reader.Scan() {
+		var request object
+		if err := decodeObject(reader.Bytes(), &request); err != nil {
+			cancel()
+			active.Wait()
+			return err
+		}
+		select {
+		case slots <- struct{}{}:
+		case <-ctx.Done():
+			active.Wait()
+			if failure != nil {
+				return failure
+			}
+			return ctx.Err()
+		}
+		active.Add(1)
+		go func() {
+			defer active.Done()
+			defer func() { <-slots }()
+			response, err := dispatch(ctx, locked, request)
+			if err == nil && response != nil {
+				err = outputLine(locked, wire(response))
+			}
+			if err != nil {
+				failureOnce.Do(func() {
+					failure = err
+					cancel()
+				})
+			}
+		}()
+	}
+	readErr := reader.Err()
+	if cancelOnEOF {
+		closeInput()
+		cancel()
+	}
+	active.Wait()
+	if failure != nil {
+		return failure
+	}
+	if parent.Err() != nil {
+		return parent.Err()
+	}
+	return readErr
+}
+
 func stdioConnection(ctx context.Context, port uint64, token, ingress string, input io.Reader, output io.Writer) error {
-	return serveJSONLines(input, output, func(request object) (any, error) {
+	return parallelJSONLines(ctx, input, output, 16<<20, true, func(ctx context.Context, writer io.Writer, request object) (any, error) {
 		timeout := 120 * time.Second
 		if isMCPWait(request) {
 			timeout = 1830 * time.Second
@@ -325,9 +411,12 @@ func stdioConnection(ctx context.Context, port uint64, token, ingress string, in
 		}
 		wait, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
-		result, err := sendLocalWithSSE(wait, port, token, "mcp/"+url.PathEscape(ingress), http.MethodPost, request, output)
+		result, err := sendLocalWithSSE(wait, port, token, "mcp/"+url.PathEscape(ingress), http.MethodPost, request, writer)
+		if errors.Is(err, outputClosed) {
+			return nil, err
+		}
 		id, exists := request["id"]
-		if !exists {
+		if !exists || ctx.Err() != nil {
 			return nil, nil
 		}
 		if err != nil {

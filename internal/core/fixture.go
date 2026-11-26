@@ -13,7 +13,9 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -139,8 +141,35 @@ func runFixtureService(parent context.Context, mode string, stdin io.Reader, std
 
 func fixtureDesktop(scenario string) func(context.Context, string, string, object) (any, error) {
 	var requests atomic.Uint64
+	var containers sync.Mutex
+	rows := []object{}
 	return func(_ context.Context, route, method string, body object) (any, error) {
 		ready := requests.Add(1) > 1
+		if scenario == "src-conversations" && strings.HasPrefix(route, "src-containers/") {
+			containers.Lock()
+			defer containers.Unlock()
+			account := body["accountId"]
+			if route == "src-containers/status" && method == "GET" {
+				copy := make([]object, 0, len(rows))
+				for _, row := range rows {
+					copy = append(copy, clone(row))
+				}
+				return object{"containers": copy}, nil
+			}
+			if method == "POST" && (route == "src-containers/clear" || route == "src-containers/open" || route == "src-containers/import") {
+				rows = slices.DeleteFunc(rows, func(row object) bool { return row["accountId"] == account })
+				switch route {
+				case "src-containers/clear":
+					return object{"accountId": account, "status": "not-imported"}, nil
+				case "src-containers/open":
+					rows = append(rows, object{"accountId": account, "storeId": body["storeId"], "url": body["url"], "active": true, "status": "signed-in"})
+					return object{"accountId": account, "status": "signed-in"}, nil
+				case "src-containers/import":
+					rows = append(rows, object{"accountId": account, "storeId": body["storeId"], "url": nil, "active": false, "open": false, "status": "importing"})
+					return object{"accountId": account, "status": "importing"}, nil
+				}
+			}
+		}
 		if route != "app/snapshot" || method != http.MethodPost || body["modelOnly"] != true {
 			return nil, fmt.Errorf("FIXTURE_DESKTOP_UNSUPPORTED")
 		}
@@ -149,7 +178,8 @@ func fixtureDesktop(scenario string) func(context.Context, string, string, objec
 			state = object{"ready": ready}
 		}
 		if panel := obj(body["taskPanel"]); panel != nil {
-			return nil, errors.New(PortPending)
+			detail = object{"agent": panel["agent"], "id": panel["id"], "following": true, "atLatest": true, "expanded": true, "state": "running",
+				"timeline": object{"status": "running", "entries": []object{{"text": strings.Repeat("x", 150000)}}}, "queue": []any{}, "disclosures": []any{}}
 		}
 		return object{"model": object{"layoutSettled": ready, "scenario": state, "taskDetail": detail}}, nil
 	}

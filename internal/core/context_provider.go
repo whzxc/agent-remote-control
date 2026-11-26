@@ -62,7 +62,7 @@ func contextProviderCommand(ctx context.Context) (*exec.Cmd, error) {
 	if config == nil {
 		return nil, errors.New("CONTEXT_PROVIDER_NOT_CONFIGURED")
 	}
-	cmd := exec.CommandContext(ctx, config.Command, config.Args...)
+	cmd := nativeCommand(ctx, config.Command, config.Args...)
 	cmd.Dir = config.CWD
 	cmd.Env = cmd.Environ()
 	for key, value := range config.Env {

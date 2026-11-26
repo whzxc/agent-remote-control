@@ -1,6 +1,8 @@
 package core
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"net/url"
@@ -136,8 +138,9 @@ func eventGuide() object {
 	}
 }
 
-var arcVersion = sync.OnceValue(func() string {
-	current := catalog()
+var arcVersion = sync.OnceValue(func() string { return protocolHash(catalog()) })
+
+func protocolHash(current object) string {
 	ops := []object{}
 	for _, row := range arr(current["ops"]) {
 		op := obj(row)
@@ -146,7 +149,7 @@ var arcVersion = sync.OnceValue(func() string {
 	}
 	slices.SortFunc(ops, func(a, b object) int { return strings.Compare(text(a, "op"), text(b, "op")) })
 	return hash([]byte(wire(object{"tools": current["tools"], "instructions": current["instructions"], "guides": current["guides"], "ops": ops, "events": eventGuide()})))[:12]
-})
+}
 
 func aliases(name string) (alias, canonical string) {
 	switch name {
@@ -213,9 +216,13 @@ func egressGuide(source requestSource, args object, ops []object) object {
 		result = renderGuide(source.origin, args, scoped, effectiveProfile(source.origin, source.profile, source.local),
 			guideFeatures{maintainer: readPreferences()["maintainer-mode"] == "on", context: contextProviderConfigured(), hub: readPreferences()["mcp-services"] == "on"})
 	}
+	return finishGuide(source.origin, args, result)
+}
+
+func finishGuide(origin, args, result object) object {
 	result["cliPath"] = cliExecutable()
-	if source.local {
-		result["sourceId"] = source.origin["sourceId"]
+	if origin["controlTransport"] == "cli" {
+		result["sourceId"] = origin["sourceId"]
 	}
 	digest := hash([]byte(wire(result)))
 	if args["knownGuideHash"] == digest {
@@ -234,7 +241,11 @@ func validator(scope, name string, schema any) (*jsonschema.Schema, error) {
 	}
 	compiler := jsonschema.NewCompiler()
 	compiler.DefaultDraft(jsonschema.Draft7)
-	compiler.AssertFormat()
+	// Rust jsonschema treats uuid as an unknown format in Draft 7. Patterns
+	// and the operation's own identity checks still enforce required UUIDs.
+	if draft := text(schema, "$schema"); draft == "" || strings.Contains(draft, "draft-07") {
+		compiler.RegisterFormat(&jsonschema.Format{Name: "uuid", Validate: func(any) error { return nil }})
+	}
 	address := "https://arc.invalid/" + url.PathEscape(scope) + "/" + url.PathEscape(name)
 	if err := compiler.AddResource(address, schema); err != nil {
 		return nil, err
@@ -423,6 +434,12 @@ func normalizeArgs(name string, args object) object {
 }
 
 func egressTool(value object, failed bool) object {
+	if reason := outcomeError(value); reason != nil {
+		value["error"], failed = reason, true
+	}
+	if failed {
+		compactOutcomeError(value)
+	}
 	value["arcVersion"] = arcVersion()
 	return object{"content": []any{object{"type": "text", "text": wire(value)}}, "isError": failed}
 }
@@ -647,49 +664,379 @@ func compactOutcomeError(value object) {
 }
 
 func receiptNext(value, args object) {
-	if _, ok := value["requestId"].(string); !ok {
+	nextControl(value, text(value, "operation"), args, false)
+}
+
+var controlRevisitMinutes func(object) any
+
+func nextControl(value object, name string, args object, push bool) {
+	requestID, receipt := value["requestId"].(string)
+	state := text(value, "state")
+	agent := strings.HasPrefix(name, "agent_") || strings.HasPrefix(text(value, "operation"), "agent_")
+	read := func(hint string) object {
+		return object{"via": "act", "op": "receipt", "args": object{"requestId": requestID, "action": "read"}, "hint": hint}
+	}
+	selected := func(key string) any {
+		if v, ok := value[key].(string); ok {
+			return v
+		}
+		if v, ok := args[key].(string); ok {
+			return v
+		}
+		return nil
+	}
+	thread, task, turn := selected("threadId"), selected("taskId"), selected("turnId")
+	waitName, readName := "codex_wait", "codex_read"
+	waitArgs, readArgs := object{"threadId": thread, "turnId": turn}, object{"threadId": thread}
+	if agent {
+		waitName, readName = "agent_wait", "agent_read"
+		waitArgs, readArgs = object{"agent": selected("agent"), "taskId": task, "turnId": turn}, object{"agent": selected("agent"), "taskId": task}
+	}
+	maps.DeleteFunc(waitArgs, func(_ string, value any) bool { return value == nil })
+	waitArgs["until"], waitArgs["timeoutMs"] = "terminal", 30000
+	existing := obj(value["next"])
+	explicitOp, hasExplicitOp := existing["op"]
+	_, explicitHint := existing["hint"].(string)
+	errorCode, message := text(value["error"], "code"), text(value["error"], "message")
+	var next object
+	switch {
+	case receipt && state == "unconfirmed":
+		next = read("Submission is unconfirmed. Read this original receipt with the same requestId. Do not resubmit the operation.")
+	case hasExplicitOp && (explicitOp == nil && explicitHint || str(explicitOp) != ""):
+		next = maps.Clone(existing)
+	case (errorCode == "DESKTOP_REQUEST_TIMEOUT" || message == "DESKTOP_REQUEST_TIMEOUT: thread-owner-discovery") && thread != nil:
+		next = object{"via": "query", "op": "codex_owner", "args": object{"threadId": thread},
+			"hint": "Inspect this exact thread owner before retrying. Unheld threads can be read from persisted native state; do not reclaim a held writer."}
+	case receipt && state == "executing":
+		next = read("The operation is executing. Read the original receipt for its outcome.")
+		next["retryAfterMs"] = 1000
+	case errorCode == "INVALID_ARGUMENTS":
+		next = errorNext(name, maps.Clone(obj(value["error"])))
+	case name == "command" && message == "RPC_TIMEOUT: command/exec":
+		next = object{"via": "query", "op": "guide", "args": object{"op": "process"},
+			"hint": "command owns its child process tree until exit or timeout. For work that must outlive this call, use act process action:spawn with params:{command:[...],cwd:<absolute directory>,processHandle:<unique handle>,timeoutMs:null}. It lasts only for the native backend session; inspect codex_events and stop it with process action:kill."}
+	case receipt && state == "awaiting-approval":
+		if text(value["desktopRecovery"], "state") == "waiting-for-local" {
+			next = read("A local decision is required in ARC before Codex Desktop can be prepared. Read this same receipt after the user makes a local choice.")
+		} else {
+			next = read("Inspect the original request, then decide according to user intent.")
+		}
+	case state == "interaction-required":
+		if agent {
+			next = object{"via": "query", "op": "agent_pending", "args": object{"agent": selected("agent"), "taskId": task},
+				"hint": "Read the pending interaction, then use act agent_respond with the user's decision."}
+		} else {
+			next = object{"via": "query", "op": "codex_pending", "args": object{},
+				"hint": "Read the pending interaction, then use act codex_respond; if none is exposed, use Codex Desktop."}
+		}
+	case (name == "codex_wait" || name == "agent_wait") && state == "timeout":
+		if digest, ok := value["snapshotHash"].(string); ok {
+			waitArgs["expectedHash"] = digest
+		}
+		for _, key := range []string{"until", "timeoutMs"} {
+			if v, ok := args[key]; ok {
+				waitArgs[key] = v
+			}
+		}
+		next = object{"via": "query", "op": waitName, "args": waitArgs, "hint": "Continue waiting with the same task and turn."}
+	case receipt && state == "reserved":
+		next = read("Read this original receipt until submission resolves. A threadId alone does not mean a turn was submitted. If progressStalled is true, inspect CLI logs/doctor and the owning app; do not redispatch or generate a new requestId.")
+		next["retryAfterMs"] = 1000
+	case receipt && state == "completed" && turn != nil && (dispatchReceipt(value) || dispatchMetricOp(name)):
+		if push {
+			next = object{"hint": "You may end this turn and wait for an [ARC] notification; use guide for the review workflow."}
+		} else {
+			next = object{"via": "query", "op": waitName, "args": waitArgs, "hint": "No verified push or duration estimate; schedule a revisit. Use brief waits only; do not redispatch."}
+			if controlRevisitMinutes != nil {
+				if minutes := controlRevisitMinutes(value); minutes != nil {
+					next["revisitAfterMinutes"] = minutes
+					next["hint"] = "No verified push; schedule a revisit using revisitAfterMinutes. Use brief waits only; do not redispatch."
+				}
+			}
+		}
+	case obj(field(value["error"], "next")) != nil:
+		next = maps.Clone(obj(field(value["error"], "next")))
+	case state == "running" && (thread != nil || task != nil):
+		next = object{"via": "query", "op": waitName, "args": waitArgs, "hint": "Wait on the same turn; do not submit another task."}
+	case interruptedTurn(value) && (agent && task != nil || !agent && thread != nil):
+		next = object{"via": "query", "op": readName, "args": readArgs, "hint": "Read the interrupted turn's recorded output before deciding whether to resume."}
+	case state == "unconfirmed" && (thread != nil || task != nil):
+		if !agent {
+			readArgs["statusOnly"] = true
+		}
+		next = object{"via": "query", "op": readName, "args": readArgs,
+			"hint": "Runtime ownership or progress is unknown. Inspect the owning session and this original task. Do not redispatch; notLoaded does not prove no native writer exists."}
+	case receipt && slices.Contains([]string{"failed", "rejected", "cancelled", "not-executed", "unconfirmed"}, state):
+		next = read("Inspect the surfaced failure and original receipt. Resolve its cause before a new authorized attempt; an unconfirmed effect must be reconciled without replay.")
+	case obj(value["error"]) != nil || value["ok"] == false:
+		next = errorNext(name, maps.Clone(obj(value["error"])))
+	default:
 		return
 	}
-	read := object{"via": "act", "op": "receipt", "args": object{"requestId": value["requestId"], "action": "read"}}
-	var next object
-	switch text(value, "state") {
-	case "unconfirmed":
-		next = read
-		next["hint"] = "Submission is unconfirmed. Read this original receipt with the same requestId. Do not resubmit the operation."
-	default:
-		next = obj(value["next"])
-	}
-	if next == nil {
-		switch text(value, "state") {
-		case "executing":
-			next = read
-			next["hint"] = "The operation is executing. Read the original receipt for its outcome."
-			next["retryAfterMs"] = 1000
-		case "awaiting-approval":
-			next = read
-			next["hint"] = "Inspect the original request, then decide according to user intent."
-			if text(value["desktopRecovery"], "state") == "waiting-for-local" {
-				next["hint"] = "A local decision is required in ARC before Codex Desktop can be prepared. Read this same receipt after the user makes a local choice."
-			}
-		case "reserved":
-			next = read
-			next["hint"] = "Read this original receipt until submission resolves. A threadId alone does not mean a turn was submitted. If progressStalled is true, inspect CLI logs/doctor and the owning app; do not redispatch or generate a new requestId."
-			next["retryAfterMs"] = 1000
-		case "failed", "rejected", "cancelled", "not-executed":
-			next = read
-			next["hint"] = "Inspect the surfaced failure and original receipt. Resolve its cause before a new authorized attempt; an unconfirmed effect must be reconciled without replay."
+	if receipt {
+		delete(next, "hash")
+		digest := hash([]byte(wire(next)))
+		if args["knownNextHash"] == digest && outcomeError(value) == nil && obj(value["error"]) == nil {
+			next = object{"hash": digest, "unchanged": true}
+		} else {
+			next["hash"] = digest
 		}
 	}
-	if next == nil {
-		return
+	value["next"] = next
+}
+
+func controlFailure(err error) object {
+	message := err.Error()
+	var value object
+	if strings.HasPrefix(message, "{") && decodeObject([]byte(message), &value) == nil && value["code"] != nil {
+		return value
 	}
-	next = maps.Clone(next)
-	delete(next, "hash")
-	digest := hash([]byte(wire(next)))
-	if args["knownNextHash"] == digest && outcomeError(value) == nil && obj(value["error"]) == nil {
-		value["next"] = object{"hash": digest, "unchanged": true}
-	} else {
-		next["hash"] = digest
-		value["next"] = next
+	if strings.Contains(message, "already has an active writer") {
+		return object{"code": "THREAD_WRITER_BUSY", "retryable": false,
+			"message": "Codex rejected the operation because another native session owns this thread. ARC runtimeStatus=notLoaded only describes ARC observation, not global writer ownership.",
+			"next": object{"via": "query", "op": "guide", "args": object{"op": "codex_owner"},
+				"hint": "Read the original receipt and thread status. Continue in the owning ChatGPT/Codex session, or explicitly close that session before retrying this same thread. Do not delete writer locks, auto-retry, or create a replacement thread."}}
 	}
+	if message == "DESKTOP_SNAPSHOT_TIMEOUT" {
+		return object{"code": message, "message": "Codex Desktop did not deliver a thread snapshot in time. Open this thread in Codex Desktop and inspect it before retrying."}
+	}
+	var rpc any
+	if raw, ok := strings.CutPrefix(message, "RPC_REJECTED:"); ok && unmarshalJSON([]byte(raw), &rpc) == nil {
+		return object{"code": "NATIVE_RPC_ERROR", "message": message, "rpcError": rpc}
+	}
+	code := managementErrorCode(message)
+	if code == "OP_UNAVAILABLE" || strings.HasPrefix(code, "DEVICE_") {
+		return object{"code": code, "message": message, "next": object{"via": "query", "op": "guide", "args": object{}}}
+	}
+	for _, nativeCode := range []string{PortPending, "REQUEST_ID_CONFLICT", "INVALID_REQUEST_ID", "SUBMISSION_UNCONFIRMED", "INDEX_NOT_READY"} {
+		if message == nativeCode || strings.HasPrefix(message, nativeCode+":") {
+			return object{"code": nativeCode, "message": message}
+		}
+	}
+	return object{"code": "CONTROL_ERROR", "message": message, "rpcError": nil}
+}
+
+func stripControlSource(name string, value object) {
+	strip := func(fields object) {
+		if fields == nil {
+			return
+		}
+		origin := fields["origin"]
+		delete(fields, "origin")
+		if _, present := fields["agentAccountId"].(string); present && origin != nil {
+			data := object{}
+			for _, key := range []string{"sourceId", "accountId"} {
+				if v, ok := field(origin, key).(string); ok {
+					data[key] = v
+				}
+			}
+			fields["origin"] = data
+		}
+	}
+	_, receipt := value["requestId"].(string)
+	if receipt && value["state"] != nil || slices.Contains([]string{"codex_read", "codex_tasks", "agent_read", "agent_tasks"}, name) {
+		strip(value)
+	}
+	for _, key := range map[string][]string{"codex_read": {"turns", "dispatches"}, "codex_tasks": {"tasks"}, "agent_read": {"dispatches"}, "agent_tasks": {"tasks"}}[name] {
+		for _, item := range arr(value[key]) {
+			strip(obj(item))
+		}
+	}
+}
+
+func egressToolValue(wrapper any) (any, error) {
+	for _, block := range arr(field(wrapper, "content")) {
+		if field(block, "type") == "text" {
+			var result any
+			if err := unmarshalJSON([]byte(text(block, "text")), &result); err != nil {
+				return nil, fmt.Errorf("Invalid ARC tool result JSON: %w", err)
+			}
+			return result, nil
+		}
+	}
+	return nil, errors.New("Invalid ARC tool result: expected JSON text content")
+}
+
+func stripNotificationInternal(value object) {
+	var stripAt func(any, []string)
+	stripAt = func(value any, path []string) {
+		if len(path) == 0 {
+			maps.DeleteFunc(obj(value), func(key string, _ any) bool { return strings.HasPrefix(key, "_") })
+			return
+		}
+		if path[0] == "*" {
+			for _, row := range arr(value) {
+				stripAt(row, path[1:])
+			}
+		} else {
+			stripAt(field(value, path[0]), path[1:])
+		}
+	}
+	stripAt(value, nil)
+	for _, path := range []string{"dispatches.*", "dispatches.*.terminal", "dispatches.*.coordinationPending",
+		"dispatches.*.coordinationPending.*", "terminal", "coordinationPending", "coordinationPending.*", "task", "runtime",
+		"runtime.ownership", "subscriptions.*", "deliveries.*", "deliveries.*.timing", "targets.*", "targets.*.pending.*",
+		"targets.*.pending.*.timing", "targets.*.recentBatches.*", "threads.*", "threads.*.turns.*",
+		"unboundPending.*", "unboundPending.*.timing", "mostWokenThreads.*", "summary", "summary.hidden"} {
+		stripAt(value, strings.Split(path, "."))
+	}
+}
+
+var validateDispatchCaller func(any) any
+
+func dispatchSummary(value object) object {
+	summary := object{}
+	if validateDispatchCaller != nil {
+		if caller := validateDispatchCaller(value["caller"]); caller != nil {
+			summary["caller"] = caller
+		}
+	}
+	for _, key := range []string{"trigger", "agentAccountId"} {
+		if name, ok := value[key].(string); ok {
+			summary[key] = name
+		}
+	}
+	known := func(value any) bool { return str(value) != "" && str(value) != "unknown" }
+	for _, key := range []string{"model", "effort", "serviceTier"} {
+		for _, raw := range []any{field(value["turnEvidence"], key), field(value["effectiveConfiguration"], key), value[key], field(value["options"], key)} {
+			if known(raw) {
+				summary[key] = raw
+				break
+			}
+		}
+	}
+	if key := value["threadServiceTier"]; summary["serviceTier"] == nil && known(key) {
+		summary["serviceTier"] = key
+	}
+	if summary["effort"] == nil {
+		for _, name := range []string{"thinkingLevel", "reasoning_effort"} {
+			if effort := field(value["options"], name); known(effort) {
+				summary["effort"] = effort
+				break
+			}
+		}
+	}
+	source := object{}
+	for _, pair := range [][2]string{{"id", "sourceId"}, {"accountId", "accountId"}, {"label", "sourceLabel"}, {"kind", "controlSource"}, {"deviceId", "deviceId"}} {
+		if raw := field(value["origin"], pair[1]); known(raw) {
+			source[pair[0]] = raw
+		}
+	}
+	if len(source) != 0 {
+		summary["controlSource"] = source
+	}
+	if len(summary) == 0 {
+		return nil
+	}
+	return summary
+}
+
+func runeExcerpt(value string, maxLength int) string {
+	for index := range value {
+		if maxLength == 0 {
+			return value[:index]
+		}
+		maxLength--
+	}
+	return value
+}
+
+func interactionPreview(request object) object {
+	params, exists := request["params"]
+	if !exists {
+		params = request
+	}
+	raw := arr(field(params, "questions"))
+	rows := []object{}
+	for _, entry := range raw[:min(len(raw), 6)] {
+		options := []object{}
+		if list := arr(field(entry, "options")); list != nil {
+			for _, option := range list[:min(len(list), 8)] {
+				label := metricString(option, text(option, "label"))
+				options = append(options, object{"label": runeExcerpt(label, 120), "description": runeExcerpt(text(option, "description"), 160)})
+			}
+		}
+		rows = append(rows, object{"id": field(entry, "id"), "question": runeExcerpt(text(entry, "question"), 480), "options": options})
+	}
+	if len(rows) == 0 {
+		for _, name := range []string{"question", "prompt", "message", "summary"} {
+			if prompt := text(params, name); prompt != "" {
+				options := arr(field(params, "options"))
+				if options == nil {
+					options = []any{}
+				}
+				rows = append(rows, object{"question": runeExcerpt(prompt, 480), "options": options[:min(len(options), 8)]})
+				break
+			}
+		}
+	}
+	questions := make([]string, 0, len(rows))
+	for _, row := range rows {
+		questions = append(questions, text(row, "question"))
+	}
+	count := len(rows)
+	if raw != nil {
+		count = len(raw)
+	}
+	response, hasResponse := request["responseId"]
+	if !hasResponse {
+		response = request["id"]
+	}
+	return object{"questions": rows, "summary": strings.Join(questions, "; "), "questionCount": count,
+		"responseId": response, "turnId": field(params, "turnId"), "backendSession": request["backendSession"], "routing": request["routing"]}
+}
+
+var readRecordedInteractions func(context.Context, *service, string) ([]any, error)
+
+func controlInteractionHistory(ctx context.Context, request operationRequest) (any, error) {
+	if readRecordedInteractions == nil {
+		return nil, errors.New(PortPending)
+	}
+	thread := text(request.args, "threadId")
+	entries, err := readRecordedInteractions(ctx, request.service, thread)
+	if err != nil {
+		return nil, err
+	}
+	rows := []object{}
+	for _, entry := range entries {
+		if field(entry, "type") != "interaction" || obj(field(entry, "response")) == nil {
+			continue
+		}
+		row := interactionPreview(obj(field(entry, "interaction")))
+		row["id"], row["turnId"], row["response"], row["status"] = field(entry, "id"), field(entry, "turnId"), field(entry, "response"), "answered"
+		rows = append(rows, row)
+	}
+	slices.Reverse(rows)
+	total := uint64(len(rows))
+	start := min(uintOr(request.args["offset"], 0), total)
+	end := min(start+min(uintOr(request.args["limit"], 20), 100), total)
+	var next any
+	if end < total {
+		next = end
+	}
+	return object{"threadId": thread, "interactions": rows[start:end], "total": total, "nextOffset": next}, nil
+}
+
+func panelState(panel any) any {
+	if obj(panel) == nil {
+		return panel
+	}
+	p := obj(panel)
+	result := selectFields(p, "agent", "id", "following", "atLatest", "expanded", "state", "turnId")
+	result["queueCount"], result["disclosureCount"] = len(arr(p["queue"])), len(arr(p["disclosures"]))
+	if timeline := obj(p["timeline"]); timeline != nil {
+		summary := selectFields(timeline, "status", "cursor", "snapshotHash", "coverage")
+		summary["entryCount"] = len(arr(timeline["entries"]))
+		result["timeline"] = summary
+		for _, name := range []string{"dispatchBackend", "handback"} {
+			if value, ok := obj(timeline["ownership"])[name]; ok {
+				result[name] = value
+			}
+		}
+	}
+	return result
+}
+
+func init() {
+	registerOperation("codex_interactions", controlInteractionHistory, nil)
 }

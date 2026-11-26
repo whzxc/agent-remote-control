@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -306,8 +307,9 @@ func receiptPersistenceError(row object, err error) error {
 }
 
 func init() {
+	registerOperationFallback("codex_pending", pendingControlInteractions)
 	for _, name := range slices.Sorted(maps.Keys(obj(catalog()["domains"]))) {
-		registerOperation(name, controlNativeDomain, nil)
+		registerOperationFallback(name, controlNativeDomain)
 	}
 	registerOperation("codex_query", func(ctx context.Context, r operationRequest) (any, error) {
 		if nativeControlRequest == nil {
@@ -324,4 +326,131 @@ func init() {
 		}
 		return nativeControlRequest(ctx, r.service, "fuzzyFileSearch", r.args, time.Minute)
 	}, nil)
+}
+
+var dispatchTitlePrefix = regexp.MustCompile(`^\s*(?:(?:[#>]+|[-*+]|[0-9]+[.)])\s+)*`)
+
+func dispatchTitle(args object) string {
+	if title := strings.Join(strings.Fields(text(args, "title")), " "); title != "" {
+		return runeExcerpt(title, 120)
+	}
+	prompt := text(args, "prompt")
+	if strings.TrimSpace(prompt) == "" {
+		lines := []string{}
+		for _, part := range arr(args["input"]) {
+			if text, ok := field(part, "text").(string); ok {
+				lines = append(lines, text)
+			}
+		}
+		prompt = strings.Join(lines, "\n")
+	}
+	for line := range strings.SplitSeq(prompt, "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			return runeExcerpt(strings.TrimSpace(dispatchTitlePrefix.ReplaceAllString(line, "")), 120)
+		}
+	}
+	return ""
+}
+
+func reconcileActiveConfiguration(dispatch, active, state object, records []object) error {
+	turn, exists := active["turnId"]
+	if !exists {
+		turn = active["id"]
+	}
+	var started object
+	if turn != nil {
+		for _, row := range slices.Backward(records) {
+			if row["turnId"] == turn && row["dispatchMode"] != "steered" {
+				started = row
+				break
+			}
+		}
+	}
+	provenance := obj(dispatch["source"])
+	if provenance == nil {
+		provenance = object{}
+		dispatch["source"] = provenance
+	}
+	for _, keys := range [][3]string{{"model", "latestModel", "model"}, {"effort", "latestReasoningEffort", "reasoningEffort"}, {"serviceTier", "serviceTier", "serviceTier"}} {
+		fieldName := keys[0]
+		resolved := "unknown"
+		for _, raw := range []any{active[fieldName], field(state["latestThreadSettings"], fieldName), state[keys[1]], state[keys[2]], started[fieldName]} {
+			if value := str(raw); value != "" && value != "unknown" {
+				resolved = value
+				break
+			}
+		}
+		if resolved != "unknown" && provenance[fieldName] == "explicit" && dispatch[fieldName] != resolved {
+			return errors.New("ACTIVE_TURN_CONFIGURATION: cannot change model/effort/serviceTier with steer; wait for completion or use sendMode:queue")
+		}
+		dispatch[fieldName], provenance[fieldName] = resolved, "active-turn"
+	}
+	return nil
+}
+
+func retryTurnParams(params object) object {
+	result := clone(params)
+	for _, key := range []string{"input", "threadId", "expectedTurnId"} {
+		delete(result, key)
+	}
+	return result
+}
+
+func configuredTurn(args object, cwd string) (object, error) {
+	params := selectFields(args, "model", "effort", "serviceTier")
+	maps.Copy(params, obj(args["turn"]))
+	if obj(params["sandboxPolicy"]) == nil && params["permissions"] == nil {
+		if mode, ok := args["mode"].(string); ok {
+			switch mode {
+			case "danger-full-access":
+				params["sandboxPolicy"] = object{"type": "dangerFullAccess"}
+			case "read-only":
+				params["sandboxPolicy"] = object{"type": "readOnly", "networkAccess": args["networkAccess"] == true}
+			default:
+				roots := []string{}
+				if cwd != "" {
+					roots = append(roots, cwd)
+				}
+				params["sandboxPolicy"] = object{"type": "workspaceWrite", "writableRoots": roots, "networkAccess": args["networkAccess"] == true,
+					"excludeTmpdirEnvVar": false, "excludeSlashTmp": false}
+			}
+		}
+	}
+	if _, present := args["networkAccess"]; present && params["sandboxPolicy"] == nil {
+		return nil, errors.New("networkAccess requires mode or sandboxPolicy")
+	}
+	return params, nil
+}
+
+var readThreadPending func(context.Context, *service, string) error
+var authorizeNativeInteraction func(context.Context, object) error
+
+func pendingControlInteractions(ctx context.Context, r operationRequest) (any, error) {
+	thread := text(r.args, "threadId")
+	if thread != "" {
+		if readThreadPending == nil {
+			return nil, errors.New(PortPending)
+		}
+		if err := readThreadPending(ctx, r.service, thread); err != nil {
+			return nil, err
+		}
+	}
+	requests := []object{}
+	for _, row := range r.service.events.pendingInteractions() {
+		if thread != "" && text(row["params"], "threadId") != thread {
+			continue
+		}
+		if row["responseId"] == nil {
+			row["responseId"] = wire(row["id"])
+		}
+		if authorizeNativeInteraction == nil {
+			return nil, errors.New(PortPending)
+		}
+		if err := authorizeNativeInteraction(ctx, row); err != nil {
+			return nil, err
+		}
+		row["questionSummary"] = interactionPreview(row)
+		requests = append(requests, row)
+	}
+	return object{"backendSession": r.service.metadata["instance"], "requests": requests}, nil
 }
