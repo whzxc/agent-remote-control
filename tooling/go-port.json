@@ -2883,28 +2883,23 @@
     },
     "tests/notification-account.test.ts": {
       "result": "blocked",
-      "passed": 0,
-      "failed": 2,
+      "passed": 1,
+      "failed": 1,
       "skipped": 0,
       "exitCode": 1,
       "caseResults": {
-        "passed": [],
+        "passed": [
+          "Cloud bind preserves a missing-session diagnosis and only safe routed profile identity"
+        ],
         "blocked": [
           {
-            "segment": "D",
-            "module": "accounts",
-            "route": "POST /api/accounts/add; GET /api/accounts",
-            "cases": [
-              "Cloud bind preserves a missing-session diagnosis and only safe routed profile identity"
-            ]
-          },
-          {
-            "segment": "E",
-            "module": "ingress",
-            "route": "POST /api/ingress",
+            "segment": "A",
+            "module": "src_conversations",
+            "route": "query src_conversations",
             "cases": [
               "Unrouted targets select only a uniquely visible profile and persist that choice"
-            ]
+            ],
+            "note": "Ambiguous and inconclusive visibility, unique profile selection, and challenge delivery pass before the first inventory read."
           }
         ]
       }
@@ -2919,15 +2914,15 @@
         "passed": [],
         "blocked": [
           {
-            "segment": "E",
-            "module": "ingress",
-            "route": "POST /api/ingress",
+            "segment": "A",
+            "module": "src_conversations",
+            "route": "query src_conversations; act src_conversation_open",
             "cases": [
               "Verified session aliases preserve Chat identity and task links through Core restart",
               "Source conversation ops isolate accounts and persist bindings through restart",
               "Source inventory includes other Claude accounts before a website container exists"
             ],
-            "note": "The first case also reaches D account setup and polling before failure. The other two stop on named MCP ingress discovery."
+            "note": "The alias case verifies challenge delivery, acknowledgement and whoami before the first source conversation inventory read."
           }
         ]
       }
