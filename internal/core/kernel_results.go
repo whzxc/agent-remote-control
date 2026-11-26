@@ -2,6 +2,7 @@ package core
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -164,7 +165,7 @@ func textContinuation(value string) (object, error) {
 		"retention": "temporary-cache", "expiresInSeconds": int(outputTTL.Seconds())}, nil
 }
 
-func readOutput(args object) (object, error) {
+func readOutput(ctx context.Context, args object) (object, error) {
 	output := text(args, "outputId")
 	if _, err := uuid.Parse(output); err != nil {
 		return nil, errors.New("INVALID_OUTPUT_ID")
@@ -172,8 +173,26 @@ func readOutput(args object) (object, error) {
 	base := filepath.Join(root(), "outputs", output)
 	offset := uintOr(args["offset"], 0)
 	length := min(uintOr(args["length"], 65536), 65536)
-	if _, err := os.Stat(base + ".digest"); err == nil {
-		return nil, errors.New(PortPending)
+	snapshot, expired, err := readDigest(output)
+	if err != nil {
+		return nil, err
+	}
+	if snapshot != nil {
+		if snapshot["scope"] != digestScope(currentOrigin(ctx)) {
+			return nil, errors.New("DIGEST_SCOPE_CHANGED: read with the original authorized source")
+		}
+		if expired {
+			return nil, errors.New(wire(object{"code": "OUTPUT_EXPIRED", "next": digestRestart(text(snapshot, "op"), obj(snapshot["args"]))}))
+		}
+		text, chars, err := readOutputSlice(strings.NewReader(wire(snapshot["value"])), offset, length)
+		if err != nil {
+			return nil, err
+		}
+		var next any
+		if offset < chars && length < chars-offset {
+			next = offset + length
+		}
+		return object{"outputId": output, "offset": offset, "text": text, "characters": chars, "nextOffset": next}, nil
 	}
 	for _, suffix := range []string{".txt", ".json"} {
 		file, err := os.Open(base + suffix)
@@ -294,4 +313,11 @@ func transportError(err error) object {
 		return failure
 	}
 	return object{"code": managementErrorCode(err.Error()), "message": fmt.Sprint(err)}
+}
+
+func init() {
+
+	registerOperation("control_output", func(ctx context.Context, req operationRequest) (any, error) {
+		return readOutput(ctx, req.args)
+	}, nil)
 }

@@ -28,13 +28,20 @@ The port follows Rust at the main commit from which the `go-core` lane was creat
 - Copy guide, catalog, schema, receipt, hint and error text verbatim from Rust when it is not already in a shared file. Never paraphrase it.
 - The Rust `test-fixture` feature maps to the Go `arcfixture` build tag. Synthetic hooks MUST NOT compile without the tag.
 
+## Porting conventions
+
+- Register control operations, catalog contributions and management routes in their owning Go files. Use `init()` with the Core registries. Replace the pending registration for your segment when implementing a handler.
+- Return errors through the normal dispatcher. Preserve the Rust code, message and recovery data. Operations without a handler return `GO_PORT_PENDING`.
+- Use `internal/canonjson` for wire and persisted JSON and for JSON-derived hashes, IDs, cursors and digests.
+- Place ported Rust unit cases in the corresponding `_test.go` file. Keep synthetic hooks and their tests under the `arcfixture` tag.
+
 ## Compatibility contracts
 
 1. Wire and text surfaces are frozen. This covers MCP tools `guide`, `query` and `act` and the `notification` event; guide, catalog, schema and error text; receipts and error codes; CLI commands, flags, help, output and exit codes; management HTTP routes used by `ui/` and the browser dashboard; OAuth endpoints and pages; device-link ALPN `arc-peer/3` and its routes; the relay-worker protocol; Codex app-server JSON-RPC usage; Claude Code hook and notification formats; and Tunnel client management.
 2. JSON bytes match `serde_json`. Every JSON-derived hash, ID, cursor and digest uses `internal/canonjson`.
    - `serde_json::Value` objects serialize with keys in byte order. `#[derive(Serialize)]` structs serialize in field declaration order. Port each site with its Rust order.
    - `<`, `>`, `&`, U+2028 and U+2029 stay unescaped. Control characters use serde's escapes.
-   - Floats use Rust formatting: `1.0` stays `1.0`, and exponents print as serde prints them, such as `1e21` and `1.5e-7`.
+   - Floats use `serde_json` formatting as captured in `internal/canonjson/testdata`; `1.0` stays `1.0`.
    - Integers stay integers through decode and encode, including u64 values above 2^53. Never round-trip numbers through float64.
    - Golden tests capture these cases from the Rust implementation.
 3. State is read and written in place. Keep state directory resolution, file names, JSON and TOML formats, SQLite schemas and pragmas, file modes (0700 directories, 0600 secrets), Windows ACLs, device-link identity and pairings, OAuth tokens and `dispatch-policy.json`. First Go launch performs no migration.

@@ -99,7 +99,7 @@ test('Antigravity local access accepts an empty configuration and preserves othe
     assert.equal(ingress.running, true);
     const guide = await f.sourceCall('local-antigravity', 'guide', {}, 'query');
     assert.equal(guide.profile.waitMode, 'push', JSON.stringify(guide));
-    const { stdout } = await promisify(execFile)(path.resolve(process.env.CARGO_TARGET_DIR || 'target', 'debug/arc'), ['cli', 'skill', 'install', '--target', 'antigravity'], {
+    const { stdout } = await promisify(execFile)((process.env.ARC_TEST_BINARY || path.resolve(process.env.CARGO_TARGET_DIR || 'target', 'debug/arc')), ['cli', 'skill', 'install', '--target', 'antigravity'], {
       env: { ...process.env, HOME: f.home, USERPROFILE: f.home },
     });
     assert.ok(stdout.includes('antigravity'));

@@ -125,3 +125,13 @@ func submitManagementOperation(ctx context.Context, service *service, body objec
 	}()
 	return result, nil
 }
+
+func init() {
+
+	registerRoute("POST", "operations", func(ctx context.Context, s *service, body object, _ []string) (any, error) {
+		return submitManagementOperation(ctx, s, body)
+	})
+	registerRoutePattern("GET", "operations/([^/]+)", func(_ context.Context, s *service, _ object, params []string) (any, error) {
+		return readManagementReceipt(params[0], text(s.metadata, "instance"))
+	})
+}

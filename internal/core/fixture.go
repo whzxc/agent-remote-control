@@ -59,6 +59,9 @@ func runFixtureService(parent context.Context, mode string, stdin io.Reader, std
 		return nil
 	}
 	defer lock.Close()
+	if err := recoverOwnedChildren(ctx, "core-children"); err != nil {
+		return err
+	}
 	recordLog("INFO", "Service starting", nil)
 	listener, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
@@ -77,28 +80,27 @@ func runFixtureService(parent context.Context, mode string, stdin io.Reader, std
 	pid := os.Getpid()
 	metadata := object{"port": port, "token": token, "pid": pid, "processStart": platform.ProcessStart(pid), "instance": id(),
 		"runtime": "go", "version": buildVersion, "owner": "core", "daemon": false, "build": build}
-	product := "custom"
-	policy := any("all")
-	if config, err := load(filepath.Join(root(), "ingresses/default/config.json")); err == nil {
-		if controlSource, ok := field(config, "controlSource").(string); ok {
-			product = controlSource
-		}
-		if value := field(config, "toolPolicy"); value != nil {
-			policy = value
+	s := &service{metadata: metadata, runtime: &runtimeState{leases: make(map[string]lease), stop: stop}, fixtureIngress: fixtureIngressSource}
+	for _, start := range serviceStartup {
+		if err := start(ctx, s); err != nil {
+			return err
 		}
 	}
-	s := &service{metadata: metadata, runtime: &runtimeState{leases: make(map[string]lease), stop: stop},
-		source: requestSource{origin: object{"controlSource": product}, profile: object{"product": product}, policy: policy}}
 	if snapshot, ok := os.LookupEnv("ARC_FIXTURE_SNAPSHOT"); ok {
 		s.desktop = fixtureDesktop(snapshot)
 	}
 	privateCore := newInProcess(s)
-	ipc, err := listenPrivate(ctx, "core", token, privateCore)
+	ipc, err := listenPrivate(ctx, "core", token, privateCore, nil)
 	if err != nil {
 		return err
 	}
 	defer ipc.Close()
 	defer privateCore.drain()
+	defer func() {
+		for _, name := range s.hub.names() {
+			s.hub.forget(name)
+		}
+	}()
 	server := &http.Server{Handler: localHandler(s, port, token), ReadHeaderTimeout: 5 * time.Second, MaxHeaderBytes: 16 * 1024}
 	server.SetKeepAlivesEnabled(false)
 	ended := make(chan error, 1)
@@ -158,5 +160,62 @@ func fixtureDesktop(scenario string) func(context.Context, string, string, objec
 			return nil, errors.New(PortPending)
 		}
 		return object{"model": object{"layoutSettled": ready, "scenario": state, "taskDetail": detail}}, nil
+	}
+}
+
+func fixtureIngressSource(ingress string) (requestSource, error) {
+	if ingress == "" {
+		if rows, err := load(filepath.Join(root(), "ingresses/index.json")); err == nil {
+			for _, item := range arr(rows) {
+				if ingress == "" || item == "default" {
+					ingress = str(item)
+				}
+			}
+		}
+		if ingress == "" {
+			ingress = "default"
+		}
+	}
+	if !routeID.MatchString(ingress) {
+		return requestSource{}, errors.New("invalid ingress id")
+	}
+	config, err := load(filepath.Join(root(), "ingresses", ingress, "config.json"))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return requestSource{}, err
+	}
+	if ingress != "default" && errors.Is(err, os.ErrNotExist) {
+		return requestSource{}, errors.New("ingress not found")
+	}
+	product := text(config, "controlSource")
+	if product == "" {
+		product = "custom"
+	}
+	policy := field(config, "toolPolicy")
+	if policy == nil {
+		policy = "all"
+	}
+	return requestSource{origin: object{"sourceId": ingress, "controlSource": product}, profile: object{"product": product}, policy: policy}, nil
+}
+
+func init() {
+	fixtureOperation = func(request operationRequest) (any, bool, error) {
+		path, exists := os.LookupEnv("ARC_FIXTURE_DIGESTS")
+		if !exists {
+			return nil, false, nil
+		}
+		value, err := load(path)
+		if err != nil {
+			return nil, false, err
+		}
+		result, present := obj(value)[request.name]
+		if !present {
+			return nil, false, nil
+		}
+		for _, key := range keys(obj(field(value, "expect"))) {
+			if wire(request.args[key]) != wire(field(field(value, "expect"), key)) {
+				return nil, false, fmt.Errorf("FIXTURE_ARGUMENT_MISMATCH: %s", key)
+			}
+		}
+		return result, true, nil
 	}
 }

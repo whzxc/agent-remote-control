@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -157,4 +158,148 @@ func (r *runtimeState) request(route string, body object) (object, error) {
 		return object{"closing": true}, nil
 	}
 	return nil, errors.New("UNKNOWN_ROUTE")
+}
+
+func init() {
+	registerRoute("GET", "runtime/clients", func(_ context.Context, s *service, _ object, _ []string) (any, error) {
+		return s.runtime.clients(), nil
+	})
+	registerRoute("POST", "runtime/uninstall", func(_ context.Context, s *service, args object, _ []string) (any, error) {
+		proof, _ := load(filepath.Join(root(), "uninstall-core.json"))
+		token := text(args, "token")
+		if token == "" || !secureToken(token, text(proof, "token")) || uintOr(field(proof, "pid"), 0) != uint64(os.Getpid()) ||
+			text(proof, "processStart") != platform.ProcessStart(os.Getpid()) {
+			return nil, errors.New("UNINSTALL_AUTH_REQUIRED: Run the local uninstall command.")
+		}
+		s.runtime.Lock()
+		s.runtime.closing = true
+		s.runtime.Unlock()
+		s.runtime.stop()
+		return object{"closing": true}, nil
+	})
+	for _, route := range []string{"runtime/lease", "runtime/release", "runtime/shutdown"} {
+		registerRoute("POST", route, func(_ context.Context, s *service, body object, _ []string) (any, error) {
+			return s.runtime.request(route, body)
+		})
+	}
+}
+
+const coreBuildMismatch = "CORE_BUILD_MISMATCH: Close other local entry points. Reload Desktop and CLI from the same build."
+
+func serveRuntime(parent context.Context, daemon bool) error {
+	guard, err := frontDoorStartupGuard()
+	if err != nil {
+		return err
+	}
+	defer guard.Close()
+	lock, err := lockCore()
+	if err != nil || lock == nil {
+		return err
+	}
+	defer lock.Close()
+	if _, err := os.Stat(filepath.Join(root(), "app/core-stopped.json")); err == nil {
+		return errors.New("CORE_STOPPED: Start Core from ARC Desktop.")
+	}
+	build, err := processBuildID()
+	if err != nil {
+		return err
+	}
+	if _, health, err := discoverLocal(parent); err == nil {
+		if text(health, "build") != build || health["owner"] != "core" || health["version"] != buildVersion {
+			return errors.New(coreBuildMismatch)
+		}
+		return nil
+	}
+	initializeResourceLimits()
+	if err := recoverOwnedChildren(parent, "core-children"); err != nil {
+		return err
+	}
+	secret, err := ensureFrontDoorSecret()
+	if err != nil {
+		return err
+	}
+	ctx, stop := context.WithCancel(parent)
+	defer stop()
+	ipcContext, endIPC := context.WithCancel(context.WithoutCancel(parent))
+	defer endIPC()
+	metadata := object{"pid": os.Getpid(), "processStart": platform.ProcessStart(os.Getpid()), "instance": id(),
+		"runtime": "rust", "version": buildVersion, "owner": "core", "daemon": daemon, "build": build}
+	s := &service{metadata: metadata, runtime: &runtimeState{leases: make(map[string]lease), stop: stop},
+		source: requestSource{origin: object{"controlSource": "custom"}, profile: object{"product": "custom"}, policy: "all"}}
+	core := newInProcess(s)
+	ipc, err := listenPrivate(ipcContext, "core", secret, core, nil)
+	if err != nil {
+		return err
+	}
+	defer ipc.Close()
+	info, err := ensureFrontDoor(ctx, build)
+	if err != nil {
+		return err
+	}
+	published := maps.Clone(metadata)
+	published["port"], published["token"] = info["port"], info["token"]
+	path := filepath.Join(root(), "app/native.json")
+	if err := save(path, published); err != nil {
+		return err
+	}
+	defer func() {
+		if existing, err := load(path); err == nil && text(existing, "instance") == text(metadata, "instance") {
+			_ = os.Remove(path)
+		}
+	}()
+	guard.Close()
+	recordLog("INFO", "Service starting", nil)
+	for _, start := range serviceStartup {
+		if err := start(ctx, s); err != nil {
+			return err
+		}
+	}
+	started := time.Now()
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+	var empty time.Time
+loop:
+	for {
+		select {
+		case <-ctx.Done():
+			break loop
+		case now := <-ticker.C:
+			if daemon || len(s.runtime.clients()) != 0 {
+				empty = time.Time{}
+				continue
+			}
+			if empty.IsZero() {
+				empty = now
+			}
+			if now.Sub(started) > 15*time.Second && now.Sub(empty) > 2*time.Second && s.runtime.closeIfIdle() {
+				break loop
+			}
+		}
+	}
+	core.drain()
+	drained := make(chan struct{})
+	go func() { core.active.Wait(); close(drained) }()
+	timer := time.NewTimer(drainTimeout)
+	defer timer.Stop()
+	select {
+	case <-drained:
+	case <-timer.C:
+		recordLog("WARN", "FRONT_DOOR_CORE_DRAIN_TIMEOUT", nil)
+	}
+	s.runtime.launches.close()
+	for _, name := range s.hub.names() {
+		s.hub.forget(name)
+	}
+	return nil
+}
+
+func (r *runtimeState) closeIfIdle() bool {
+	r.Lock()
+	defer r.Unlock()
+	r.expire(time.Now())
+	if len(r.leases) != 0 {
+		return false
+	}
+	r.closing = true
+	return true
 }

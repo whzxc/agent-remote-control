@@ -188,7 +188,7 @@ func callContextProvider(parent context.Context, name string, args object, timeo
 		input.Close()
 		return nil, err
 	}
-	if err := cmd.Start(); err != nil {
+	if err := startOwnedChild(cmd); err != nil {
 		input.Close()
 		output.Close()
 		return nil, fmt.Errorf("CONTEXT_PROVIDER_START_FAILED: %w", err)

@@ -24,9 +24,17 @@ const frontDoorStaleGeneration = "FRONT_DOOR_STALE_GENERATION: Response discarde
 
 type generation [16]byte
 
+func (g generation) MarshalJSON() ([]byte, error) {
+	var values [16]uint16
+	for i, v := range g {
+		values[i] = uint16(v)
+	}
+	return canonjson.Marshal(values)
+}
+
 type frontDoorHello struct {
 	Version         uint16     `json:"version"`
-	Generation      generation `json:"generation,format:array"`
+	Generation      generation `json:"generation"`
 	Readiness       string     `json:"readiness"`
 	MaxRequestBytes int        `json:"max_request_bytes"`
 	MaxFrameBytes   int        `json:"max_frame_bytes"`
@@ -54,7 +62,7 @@ type frontDoorContext struct {
 
 type frontDoorRequest struct {
 	Version    uint16            `json:"version"`
-	Generation generation        `json:"generation,format:array"`
+	Generation generation        `json:"generation"`
 	ID         string            `json:"id"`
 	Deadline   frontDoorDeadline `json:"deadline"`
 	Context    frontDoorContext  `json:"context"`
@@ -63,25 +71,25 @@ type frontDoorRequest struct {
 }
 
 type frontDoorResponse struct {
-	Generation generation `json:"generation,format:array"`
+	Generation generation `json:"generation"`
 	RequestID  string     `json:"request_id"`
 	Body       object     `json:"body"`
 }
 
 type frontDoorStream struct {
-	Generation generation `json:"generation,format:array"`
+	Generation generation `json:"generation"`
 	RequestID  string     `json:"request_id"`
 	Sequence   uint64     `json:"sequence"`
 	Body       any        `json:"body"`
 }
 
 type frontDoorCancellation struct {
-	Generation generation `json:"generation,format:array"`
+	Generation generation `json:"generation"`
 	RequestID  string     `json:"request_id"`
 }
 
 type frontDoorDrainAck struct {
-	Generation  generation `json:"generation,format:array"`
+	Generation  generation `json:"generation"`
 	Outstanding int        `json:"outstanding"`
 }
 

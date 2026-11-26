@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -297,4 +298,11 @@ func queryLogs(options object) (object, error) {
 		next = cursorFor(rows[len(rows)-1])
 	}
 	return object{"rows": selected, "cursor": next, "hasMore": more, "gap": cursor != "" && position == -1, "retention": object{"days": 7, "maxBytes": logMaxBytes}, "oldestAt": oldest, "newestAt": newest}, nil
+}
+
+func init() {
+
+	handler := func(_ context.Context, _ *service, body object, _ []string) (any, error) { return queryLogs(body) }
+	registerRoute("GET", "logs", handler)
+	registerRoute("POST", "logs/query", handler)
 }

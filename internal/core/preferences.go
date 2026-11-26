@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"errors"
 	"path/filepath"
 	"sync"
@@ -74,4 +75,16 @@ func changePreferences(body object, importing bool) (object, error) {
 		return nil, err
 	}
 	return effectivePreferences(stored), nil
+}
+
+func init() {
+
+	registerManagementCatalog(func(result object) { result["preferenceDefaults"] = preferenceDefaults() })
+	registerRoute("GET", "preferences", func(_ context.Context, _ *service, _ object, _ []string) (any, error) { return readPreferences(), nil })
+	registerRoute("PUT", "preferences", func(_ context.Context, _ *service, body object, _ []string) (any, error) {
+		return changePreferences(body, false)
+	})
+	registerRoute("POST", "preferences/import", func(_ context.Context, _ *service, body object, _ []string) (any, error) {
+		return changePreferences(body, true)
+	})
 }

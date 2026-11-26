@@ -13,6 +13,7 @@ type inProcess struct {
 	mu         sync.Mutex
 	draining   bool
 	pending    map[string]context.CancelFunc
+	active     sync.WaitGroup
 	target     transportTarget
 }
 
@@ -81,10 +82,12 @@ func (p *inProcess) admit(ctx context.Context, request frontDoorRequest) (any, e
 		return nil, errors.New("FRONT_DOOR_BUSY: Wait for an admitted request to finish.")
 	}
 	p.pending[request.ID] = cancel
+	p.active.Add(1)
 	p.mu.Unlock()
 	defer func() {
 		p.mu.Lock()
 		delete(p.pending, request.ID)
+		p.active.Done()
 		<-p.slots
 		p.mu.Unlock()
 	}()
@@ -99,12 +102,21 @@ func (p *inProcess) admit(ctx context.Context, request frontDoorRequest) (any, e
 }
 
 func (p *inProcess) dispatch(ctx context.Context, request frontDoorRequest) (any, error) {
-	if str(request.Context.Authority) != "Management" {
-		return nil, errors.New("FRONT_DOOR_CONTEXT_MISMATCH")
-	}
 	body := obj(request.Body)
 	if body == nil {
 		body = object{}
+	}
+	if str(request.Operation) == "Mcp" {
+		authority := obj(field(request.Context.Authority, "Ingress"))
+		ingress := text(authority, "ingress_id")
+		principal := authority["principal"]
+		if ingress == "" || text(principal, "type") != "ingress" || text(principal, "ingressId") != ingress || authority["header"] != nil {
+			return nil, errors.New("FRONT_DOOR_CONTEXT_MISMATCH")
+		}
+		return p.target.mcp(ctx, ingress, body)
+	}
+	if str(request.Context.Authority) != "Management" {
+		return nil, errors.New("FRONT_DOOR_CONTEXT_MISMATCH")
 	}
 	if name, ok := request.Operation.(string); ok {
 		switch name {
@@ -112,7 +124,7 @@ func (p *inProcess) dispatch(ctx context.Context, request frontDoorRequest) (any
 			return p.target.management(ctx, "healthz", http.MethodGet, body)
 		case "LocalControl":
 			return p.target.management(ctx, "cli/control", http.MethodPost, body)
-		case "Mcp", "PeerControl":
+		case "PeerControl":
 			return nil, errors.New(PortPending)
 		}
 	}

@@ -477,7 +477,7 @@
         "internal/core/core_requests.go"
       ],
       "status": "pending",
-      "remaining": "Catalog validation and MCP dispatch are available. Full authorization, cancellation, projection and operation integration remain."
+      "remaining": "File-local dispatch, origin context and digest continuation work. Full authorization, cancellation and result projection remain."
     },
     "native/src/desktop/daemon.rs": {
       "segment": "A",
@@ -685,10 +685,11 @@
     "native/src/execution.rs": {
       "segment": "S0",
       "go": [
-        "internal/core/execution.go"
+        "internal/core/execution.go",
+        "internal/core/registry.go"
       ],
       "status": "pending",
-      "remaining": "Pending operations use a structured error. Execution composition and dispatch remain."
+      "remaining": "File-local dispatch is active. Complete the remaining request adapters and cross-segment projection seams."
     },
     "native/src/external_inputs.rs": {
       "segment": "A",
@@ -709,19 +710,21 @@
       "segment": "S0",
       "go": [
         "internal/core/front_door_process.go",
+        "internal/core/front_door_process_test.go",
         "internal/platform/ipc_unix.go",
         "internal/platform/ipc_windows.go"
       ],
       "status": "pending",
-      "remaining": "Authenticated per-state-directory private Core sockets and pipes work in the tagged fixture. Detached front-door startup, staging, recovery and macOS update supervision are pending."
+      "remaining": "Production startup, authenticated IPC and detach work. Full stream transport, reconnect queue, macOS replacement and remaining Rust units remain."
     },
     "native/src/front_door/protocol.rs": {
       "segment": "S0",
       "go": [
-        "internal/core/front_door_protocol.go"
+        "internal/core/front_door_protocol.go",
+        "internal/core/front_door_process_test.go"
       ],
       "status": "pending",
-      "remaining": "Wire types, generation fences and bounded framing are present. The complete authority and interoperability contracts remain pending."
+      "remaining": "Private handshake generation framing now has a Go contract case. Port remaining authority types and their validation."
     },
     "native/src/front_door.rs": {
       "segment": "S0",
@@ -741,8 +744,7 @@
       "go": [
         "internal/core/headless.go"
       ],
-      "status": "pending",
-      "remaining": "Status is implemented. Daemon start, stop and systemd remain."
+      "status": "ported"
     },
     "native/src/https.rs": {
       "segment": "E",
@@ -794,8 +796,10 @@
     },
     "native/src/kernel/digests.rs": {
       "segment": "S0",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/kernel_digests.go"
+      ],
+      "status": "ported"
     },
     "native/src/kernel/event_store.rs": {
       "segment": "S0",
@@ -858,7 +862,7 @@
         "internal/core/kernel_results_test.go"
       ],
       "status": "pending",
-      "remaining": "Snapshot output, event archive reads, UTF-16 pagination and referenced schema definitions are implemented. Digest output and quota startup pruning are pending."
+      "remaining": "Digest and ordinary output reads work. Complete startup quota pruning and align error projection."
     },
     "native/src/kernel/task_projection.rs": {
       "segment": "S0",
@@ -885,9 +889,10 @@
     },
     "native/src/local_access.rs": {
       "segment": "S0",
-      "go": [],
-      "status": "pending",
-      "remaining": "Local MCP discovery, installation and client forwarding are pending."
+      "go": [
+        "internal/core/local_access.go"
+      ],
+      "status": "ported"
     },
     "native/src/local_gateway.rs": {
       "segment": "D",
@@ -908,8 +913,7 @@
         "cmd/arc/main.go",
         "internal/core/main.go"
       ],
-      "status": "pending",
-      "remaining": "Help, version, status, CLI and stdio are connected. Core, front door and detached host branches remain."
+      "status": "ported"
     },
     "native/src/management.rs": {
       "segment": "S0",
@@ -921,14 +925,17 @@
     },
     "native/src/mcp_hub.rs": {
       "segment": "S0",
-      "go": [],
-      "status": "pending",
-      "remaining": "The hub provider, pooling, operation discovery and disabled-state contract are pending."
+      "go": [
+        "internal/core/mcp_hub.go"
+      ],
+      "status": "ported"
     },
     "native/src/mcp_transport.rs": {
       "segment": "S0",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/mcp_transport.go"
+      ],
+      "status": "ported"
     },
     "native/src/oauth.rs": {
       "segment": "D",
@@ -953,8 +960,13 @@
     },
     "native/src/owned_children.rs": {
       "segment": "S0",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/owned_children.go",
+        "internal/core/owned_children_test.go",
+        "internal/platform/children_unix.go",
+        "internal/platform/children_windows.go"
+      ],
+      "status": "ported"
     },
     "native/src/package.rs": {
       "segment": "D",
@@ -1010,8 +1022,14 @@
     },
     "native/src/resources.rs": {
       "segment": "S0",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/resources.go",
+        "internal/platform/resources_darwin.go",
+        "internal/platform/resources_linux.go",
+        "internal/platform/resources_unix.go",
+        "internal/platform/resources_windows.go"
+      ],
+      "status": "ported"
     },
     "native/src/respond_tokens.rs": {
       "segment": "A",
@@ -1037,7 +1055,7 @@
         "internal/platform/process_windows.go"
       ],
       "status": "pending",
-      "remaining": "Build identity, lock and basic lease state are implemented. Detached startup, lease clients and reattachment are pending."
+      "remaining": "Production serve, metadata, leases, drain and basic uninstall authorization are implemented. Port leased clients and remaining lifecycle cases."
     },
     "native/src/runtime_metrics/cost.rs": {
       "segment": "B",
@@ -1057,10 +1075,11 @@
     "native/src/service.rs": {
       "segment": "S0",
       "go": [
-        "internal/core/service.go"
+        "internal/core/service.go",
+        "internal/core/registry.go"
       ],
       "status": "pending",
-      "remaining": "The tagged fixture exposes a loopback and private management subset. Production composition, status details and remaining routes are pending."
+      "remaining": "Production and tagged fixture serve and use file-local registration. Complete management/status projection and cross-segment ownership seams."
     },
     "native/src/setup.rs": {
       "segment": "D",
@@ -1346,7 +1365,7 @@
         "internal/core/fixture.go"
       ],
       "status": "pending",
-      "remaining": "Tagged CLI, runtime, HTTP, stdio and private management IPC are implemented. Named ingresses, the digest and failure gates, desktop containers and upstream provider hooks are pending."
+      "remaining": "Tagged digest data and named-source fixture requests work. Remaining gates, desktop containers and native provider hooks are pending."
     }
   },
   "nativeTests": {
@@ -1492,17 +1511,13 @@
       ]
     },
     "tests/digest-native.test.ts": {
-      "result": "failed",
-      "passed": 0,
-      "failed": 15,
+      "result": "blocked",
+      "passed": 14,
+      "failed": 1,
       "skipped": 0,
       "exitCode": 1,
       "firstDependencies": [
-        "E: named digest-local ingress; multiple owner projections belong to A, B, C and D"
-      ],
-      "otherFailures": [
-        "The ARC_FIXTURE_DIGESTS hook, digest paging, large reply measurement and cursor recovery are pending in S0. No output exists for the expiry test to age, so utime returns ENOENT.",
-        "Named ingress calls return an HTTP pending envelope without an MCP result, producing downstream undefined content/rows. See the per-file log for the affected cases."
+        "B: owner digests and oversized defaults completes the synthetic projections, then calls real events/board without fixture data. The real events reply is GO_PORT_PENDING."
       ]
     },
     "tests/dispatch-policy.test.ts": {
@@ -1541,18 +1556,13 @@
       }
     },
     "tests/mcp-hub.test.ts": {
-      "result": "failed",
-      "passed": 0,
-      "failed": 2,
+      "result": "passed",
+      "passed": 2,
+      "failed": 0,
       "skipped": 0,
-      "exitCode": 1,
-      "firstDependencies": [
-        "S0: mcp_hub and downstream mcp_transport"
-      ],
-      "otherFailures": [
-        "MCP hub exposes downstream tools: disabled mcp_tools returned GO_PORT_PENDING instead of OP_UNAVAILABLE.",
-        "Core restores enabled MCP hub services on restart: the test executes CARGO_TARGET_DIR/debug/arc directly, bypassing ARC_TEST_BINARY, so the isolated Go target returned ENOENT."
-      ]
+      "exitCode": 0,
+      "firstDependencies": [],
+      "evidence": "Both hub discovery/call and production Core restart pass using ARC_TEST_BINARY."
     },
     "tests/notification-account.test.ts": {
       "result": "blocked",

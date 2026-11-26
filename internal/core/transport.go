@@ -210,8 +210,13 @@ func forwardRequest(ctx context.Context, route, method string, body object) (any
 	if err != nil {
 		return nil, err
 	}
-	if health["runtime"] != "go" || health["build"] != metadata["build"] || health["owner"] != "core" {
-		return nil, errors.New("CORE_BUILD_MISMATCH: Close other local entry points. Reload Desktop and CLI from the same build.")
+	build, err := processBuildID()
+	if err != nil {
+		return nil, err
+	}
+	if health["build"] != metadata["build"] || health["owner"] != "core" || health["version"] != buildVersion ||
+		(health["build"] != build && health["runtime"] != "go") {
+		return nil, errors.New(coreBuildMismatch)
 	}
 	if conn, hello, attachErr := attachPrivate(ctx, "core"); attachErr == nil {
 		defer conn.Close()
@@ -243,6 +248,10 @@ func stdioProxy(ctx context.Context, input io.Reader, output io.Writer) error {
 	if !exists {
 		return errors.New("missing ingress id")
 	}
+	return stdioConnection(ctx, port, token, ingress, input, output)
+}
+
+func stdioConnection(ctx context.Context, port uint64, token, ingress string, input io.Reader, output io.Writer) error {
 	return serveJSONLines(input, output, func(request object) (any, error) {
 		timeout := 120 * time.Second
 		if isMCPWait(request) {

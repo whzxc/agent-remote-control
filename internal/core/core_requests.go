@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"errors"
 	"slices"
 )
@@ -16,14 +17,14 @@ func (s requestSource) enabledOps() []object {
 	ops := make([]object, 0, len(arr(catalog()["ops"])))
 	for _, row := range arr(catalog()["ops"]) {
 		spec := obj(row)
-		if policyAllows(s.policy, text(spec, "name")) {
+		if operationAvailable(s, text(spec, "name")) {
 			ops = append(ops, spec)
 		}
 	}
 	return ops
 }
 
-func callTool(source requestSource, tool string, envelope any) object {
+func callTool(ctx context.Context, service *service, source requestSource, tool string, envelope any, rpcID any) object {
 	name := text(envelope, "op")
 	args := obj(field(envelope, "args"))
 	if tool == "guide" {
@@ -60,7 +61,7 @@ func callTool(source requestSource, tool string, envelope any) object {
 			if operation(requested) == nil {
 				return egressFailure(name, unknownOp(requested, source.enabledOps()))
 			}
-			if !policyAllows(source.policy, requested) {
+			if !operationAvailable(source, requested) {
 				return egressFailure(name, opUnavailable(requested))
 			}
 		}
@@ -70,7 +71,7 @@ func callTool(source requestSource, tool string, envelope any) object {
 	if op == nil {
 		return egressFailure(name, unknownOp(name, source.enabledOps()))
 	}
-	if !policyAllows(source.policy, name) {
+	if !operationAvailable(source, name) {
 		return egressFailure(name, opUnavailable(name))
 	}
 	if name != "device" && tool != via(op) {
@@ -87,26 +88,73 @@ func callTool(source requestSource, tool string, envelope any) object {
 	if invalid := normalizeArgs(name, args); invalid != nil {
 		return egressFailure(name, invalid)
 	}
-	switch name {
-	case "control_output":
-		value, err := readOutput(args)
+	ctx = withOrigin(ctx, source.origin)
+	continuation := false
+	if _, present := args["digestCursor"].(string); present && digestSupported(name, args) {
+		page, follow, err := resumeDigest(name, args, source.origin, rpcID)
 		if err != nil {
 			return egressFailure(name, transportError(err))
 		}
-		return egressTool(value, false)
-	case "receipt":
-		// Receipt ownership and durable indexing are still pending.
-		return egressFailure(name, pendingFailure())
-	default:
-		return egressFailure(name, pendingFailure())
+		if page != nil {
+			return egressTool(page, false)
+		}
+		args, continuation = follow, true
 	}
+	var waitLimit object
+	if isWaitOp(name) {
+		waitLimit = limitWait(source.origin, args)
+	}
+	result, err := executeOperation(ctx, operationRequest{name, args, source, service, rpcID})
+	if err != nil {
+		return egressFailure(name, transportError(err))
+	}
+	value := obj(result)
+	if value == nil {
+		value = object{"value": result}
+	} else {
+		value = clone(value)
+	}
+	failed := value["state"] == "failed" || value["ok"] == false || value["error"] != nil
+	if waitLimit != nil {
+		value["waitLimit"] = waitLimit
+	}
+	if !failed && digestSupported(name, args) && !digestDetail(name, args) {
+		explicit := args["view"] == "digest"
+		automatic := args["view"] == nil && args["digestCursor"] == nil
+		if !explicit && !continuation && automatic && digestShown(value, rpcID) > 12*1024 {
+			value["arcVersion"] = arcVersion()
+			explicit = true
+		}
+		if explicit || continuation {
+			page, err := showDigest(name, args, value, source.origin, rpcID)
+			if err != nil {
+				return egressFailure(name, transportError(err))
+			}
+			return egressTool(page, false)
+		}
+		if automatic {
+			return egressTool(value, false)
+		}
+	}
+	if name != "control_output" {
+		limit := 12 * 1024
+		if args["view"] == "full" {
+			limit = 64 * 1024
+		}
+		projected, err := pageOutput(value, limit)
+		if err != nil {
+			return egressFailure(name, transportError(err))
+		}
+		value = obj(projected)
+	}
+	return egressTool(value, failed)
 }
 
 func opUnavailable(name string) object {
 	return object{"code": "OP_UNAVAILABLE", "op": name, "message": "This op is disabled by the ingress policy or unavailable on this device. Call guide for enabled ops."}
 }
 
-func localControl(source requestSource, body object) object {
+func localControl(ctx context.Context, service *service, source requestSource, body object) object {
 	name := text(body, "op")
 	args, exists := body["args"]
 	if !exists {
@@ -116,10 +164,14 @@ func localControl(source requestSource, body object) object {
 	if spec := operation(name); spec != nil && name != "guide" {
 		tool = via(spec)
 	}
-	return callTool(source, tool, object{"op": name, "args": args})
+	envelope := object{"op": name, "args": args}
+	if requestID, exists := body["requestId"]; tool == "act" && exists {
+		envelope["requestId"] = requestID
+	}
+	return callTool(ctx, service, source, tool, envelope, nil)
 }
 
-func dispatchMCP(source requestSource, request object) (object, error) {
+func dispatchMCP(ctx context.Context, service *service, source requestSource, request object) (object, error) {
 	if request["jsonrpc"] != "2.0" {
 		return nil, errors.New("invalid jsonrpc")
 	}
@@ -156,7 +208,7 @@ func dispatchMCP(source requestSource, request object) (object, error) {
 		if !exists {
 			payload = object{}
 		}
-		result = callTool(source, text(params, "name"), payload)
+		result = callTool(ctx, service, source, text(params, "name"), payload, id)
 	case "events/list", "events/subscribe", "events/unsubscribe":
 		failure = object{"code": -32603, "message": PortPending, "data": object{"code": PortPending, "arcVersion": arcVersion()}}
 	case "notifications/initialized", "notifications/cancelled":
@@ -172,4 +224,11 @@ func dispatchMCP(source requestSource, request object) (object, error) {
 		response["result"] = result
 	}
 	return response, nil
+}
+
+func init() {
+	registerRoute("POST", "cli/control", func(ctx context.Context, s *service, body object, _ []string) (any, error) {
+		source := requestSource{local: true, origin: object{"controlTransport": "cli", "sourceId": "local-cli"}, policy: "all"}
+		return localControl(ctx, s, source, body), nil
+	})
 }

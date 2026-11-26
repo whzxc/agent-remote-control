@@ -54,8 +54,14 @@ func ReplaceFile(from, to string) error {
 	return windows.MoveFileEx(source, target, windows.MOVEFILE_REPLACE_EXISTING)
 }
 
-func TryLock(file *os.File) (bool, error) {
-	err := windows.LockFileEx(windows.Handle(file.Fd()), windows.LOCKFILE_EXCLUSIVE_LOCK|windows.LOCKFILE_FAIL_IMMEDIATELY, 0, 1, 0, &windows.Overlapped{})
+func TryLock(file *os.File) (bool, error) { return TryFileLock(file, false) }
+
+func TryFileLock(file *os.File, shared bool) (bool, error) {
+	mode := uint32(windows.LOCKFILE_FAIL_IMMEDIATELY)
+	if !shared {
+		mode |= windows.LOCKFILE_EXCLUSIVE_LOCK
+	}
+	err := windows.LockFileEx(windows.Handle(file.Fd()), mode, 0, 1, 0, &windows.Overlapped{})
 	if errors.Is(err, windows.ERROR_LOCK_VIOLATION) {
 		return false, nil
 	}

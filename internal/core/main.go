@@ -52,13 +52,36 @@ func runCommand(ctx context.Context, args []string, stdin io.Reader, stdout, std
 				return err
 			}
 			return outputLine(stdout, wire(status))
-		case "serve", "daemon", "start", "stop", "front-door", "front-door-prepare", "codex-host", "task-host":
+		case "serve", "daemon":
+			return serveRuntime(ctx, args[0] == "daemon")
+		case "front-door":
+			return runFrontDoor(ctx)
+		case "start":
+			return printResult(stdout, func() (object, error) { return startHeadless(ctx) })
+		case "stop":
+			return printResult(stdout, func() (object, error) { return stopHeadless(ctx) })
+		case "front-door-prepare":
+			return prepareFrontDoorCommand(ctx, stdin, stdout, false)
+		case "codex-host", "task-host":
 			return errors.New(PortPending)
 		}
 	}
-	if slices.Equal(args, []string{"systemd", "install"}) || slices.Equal(args, []string{"front-door-prepare", "--hold"}) ||
-		runtime.GOOS == "darwin" && len(args) == 2 && args[0] == "package-check" {
+	if slices.Equal(args, []string{"systemd", "install"}) {
+		return printResult(stdout, installSystemd)
+	}
+	if slices.Equal(args, []string{"front-door-prepare", "--hold"}) {
+		return prepareFrontDoorCommand(ctx, stdin, stdout, true)
+	}
+	if runtime.GOOS == "darwin" && len(args) == 2 && args[0] == "package-check" {
 		return errors.New(PortPending)
 	}
 	return errors.New(topLevelUsage)
+}
+
+func printResult(out io.Writer, action func() (object, error)) error {
+	value, err := action()
+	if err != nil {
+		return err
+	}
+	return outputLine(out, wire(value))
 }

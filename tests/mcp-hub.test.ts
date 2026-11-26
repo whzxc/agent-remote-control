@@ -101,7 +101,7 @@ test('Core restores enabled MCP hub services on restart without a discovery requ
   await prepareCoreBinary(target);
   const work = await mkdtemp(path.join(tmpdir(), 'arc-mcp-restart-'));
   const script = path.join(work, 'server.mjs');
-  const binary = path.join(target, 'debug', process.platform === 'win32' ? 'arc.exe' : 'arc');
+  const binary = (process.env.ARC_TEST_BINARY || path.join(target, 'debug', process.platform === 'win32' ? 'arc.exe' : 'arc'));
   const stateDirectory = path.join(work, 'state');
   const env = { ...process.env, ARC_STATE_DIR: stateDirectory, CODEX_HOME: path.join(work, 'codex') };
   const run = (args: string[], input?: unknown) => JSON.parse(execFileSync(binary, args, {

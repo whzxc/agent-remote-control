@@ -11,7 +11,7 @@ func ProcessStart(pid int) string {
 		return ""
 	}
 	info, err := unix.SysctlKinfoProc("kern.proc.pid", pid)
-	if err != nil || info == nil || info.Proc.P_pid != int32(pid) {
+	if err != nil || info == nil || info.Proc.P_pid != int32(pid) || info.Proc.P_stat == 5 {
 		return ""
 	}
 	start := info.Proc.P_starttime

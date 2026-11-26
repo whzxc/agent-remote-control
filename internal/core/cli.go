@@ -189,6 +189,9 @@ func runCLI(ctx context.Context, arguments []string, stdin io.Reader, stdout, st
 	if invalid != "" {
 		return failure(invalid, usage, true)
 	}
+	if len(args) == 2 && args[0] == "local-mcp" {
+		return exitResult(stderr, localMCP(ctx, args[1], stdin, stdout))
+	}
 	if len(args) == 1 && args[0] == "mcp" {
 		if err := managementStdio(ctx, stdin, stdout); err != nil {
 			fmt.Fprintln(stderr, err)
