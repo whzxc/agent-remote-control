@@ -129,15 +129,16 @@ func runFixtureService(parent context.Context, mode string, stdin io.Reader, std
 	if err := s.start(ctx); err != nil {
 		return err
 	}
+	// Reconnecting a fixture must not dispatch through a partially restored index.
+	if os.Getenv("ARC_FIXTURE_INDEX_GATE") == "" {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-s.indexStartupDone:
+		}
+	}
 	switch mode {
 	case "http":
-		if os.Getenv("ARC_FIXTURE_INDEX_GATE") == "" {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-s.indexStartupDone:
-			}
-		}
 		if err := outputLine(stdout, wire(object{"port": port, "token": token})); err != nil {
 			return err
 		}
