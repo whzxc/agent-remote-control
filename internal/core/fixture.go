@@ -239,6 +239,9 @@ func fixtureIngressSource(ingress string) (requestSource, error) {
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return requestSource{}, err
 	}
+	if err == nil && text(config, "auth") != "oauth" {
+		return authenticatedSourceRequest(context.Background(), nil, ingress, object{"type": "ingress", "ingressId": ingress}, nil)
+	}
 	if ingress != "default" && errors.Is(err, os.ErrNotExist) {
 		return requestSource{}, errors.New("ingress not found")
 	}

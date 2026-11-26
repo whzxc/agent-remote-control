@@ -179,6 +179,16 @@ func init() {
 		}
 		return object{"code": code, "message": message}
 	})
+	readCoordinationSource = func(_ context.Context, origin object) (object, error) {
+		return readSourceAuthority(text(origin, "sourceId"))
+	}
+	coordinationRevokedSources = revokedCoordinationSources
+	coordinationTaskOrigin = func(thread string) object { return obj(taskSourceOrigin(thread, nil)) }
+	taskTrackingDecorateSource = func(origin object) {
+		if sources, err := coordinationSourceAuthorities(); err == nil {
+			decorateSourceLabels(origin, sources)
+		}
+	}
 	registerOperation("events", coordinationEventQuery, nil)
 	registerRoute("POST", "coordination/events", coordinationDesktopRequest("events", coordinationEventQuery))
 	registerRoute("GET", "coordination/resources", coordinationDesktopResources)

@@ -164,6 +164,10 @@ func receiptAdoptionContext(ctx context.Context) context.Context {
 
 func observeRuntimeFileCost(event fileCost) {
 	cost := currentRuntimeCost(event.Context)
+	if event.Context == nil && event.Path == accountIndexPath() {
+		// The account index publishes its pass and scan size through the work observer.
+		cost = runtimeCosts.counter("accounts")
+	}
 	if cost == nil {
 		return
 	}

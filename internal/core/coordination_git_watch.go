@@ -612,7 +612,23 @@ func observeCoordinationProjects(projects []object) {
 	}
 }
 
+func coordinationProjectRows(rows []any) []object {
+	projects := make([]object, 0, len(rows))
+	for _, row := range rows {
+		if project := obj(row); project != nil {
+			projects = append(projects, project)
+		}
+	}
+	return projects
+}
+
 func init() {
+	onRegisteredProjects = func(rows []any) { observeCoordinationProjects(coordinationProjectRows(rows)) }
+	coordinationProjectCatalog = func(ctx context.Context, service *service) ([]object, error) {
+		rows, err := cachedNativeProjects(ctx, service)
+		return coordinationProjectRows(rows), err
+	}
+	coordinationLocalGit = projectGit
 	coordinationGitCommon = func(root string) (string, error) { reader := coordinationRefReader{}; return reader.common(root, nil) }
 	coordinationGitTerminal = endCoordinationBaseline
 	coordinationGitPoll = pollCoordinationGit
