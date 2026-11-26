@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { ESLint } from 'eslint';
 import { parseTests, testFiles, ts, walk } from './test-cases.mjs';
+import { checkGoPort } from './check-go-port.mjs';
 
 const base = process.env.ARC_TEST_POLICY_BASE ?? 'HEAD';
 const allowlist = JSON.parse(readFileSync('tooling/test-policy-allowlist.json', 'utf8'));
@@ -25,8 +26,12 @@ const assertion = /\b(?:assert(?:_\w+)?!?\s*[.(]|expect\s*\()/;
 const mockCount = /(?:\b(?:mock|spy)\b[^;]*?(?:calls|callCount|calledTimes|times|len\(|length)|\b(?:calls|fallbacks|attempts|reads|invocations)\b[^;]*?(?:len\(|length|is_empty\()|\btoHaveBeenCalled(?:Times|Once)?\s*\()/;
 const stateRoot = /\bARC_STATE_DIR\b|\b(?:root|state_dir|stateDir)\s*\(|["'`](?:[^"'`]*[\\/])?(?:\.agent-remote-control|\.local[\\/]state[\\/]agent-remote-control|Library[\\/]Application Support[\\/]agent-remote-control)/;
 const fsOperation = /(?:^|[.:])(?:readFile(?:Sync)?|writeFile(?:Sync)?|appendFile(?:Sync)?|readdir(?:Sync)?|mkdir(?:Sync)?|rm(?:Sync)?|open(?:Sync)?|read_to_string|read|write|remove_file|remove_dir_all|create_dir_all|save|load)$/;
-for (const file of testFiles()) {
-  const source = readFileSync(file, 'utf8'), parsed = parseTests(file, source);
+const files = testFiles({ go: true });
+const goFiles = files.filter(file => file.endsWith('.go'));
+const goCases = goFiles.length === 0 ? {} : JSON.parse(execFileSync('go', ['run', './tooling/go-test-policy', ...goFiles], { encoding: 'utf8' }));
+for (const file of files) {
+  const source = readFileSync(file, 'utf8');
+  const parsed = file.endsWith('.go') ? { cases: goCases[file] } : parseTests(file, source);
   inventory.set(file, parsed);
   const locate = offset => parsed.cases.filter(c => offset >= c.start && offset < c.end).at(-1);
   const emit = (offset, rule, message) => report(file, locate(offset)?.name ?? '<harness>', source.slice(0, offset).split('\n').length, rule, message);
@@ -43,10 +48,14 @@ for (const file of testFiles()) {
         : 'Each non-legacy case requires exactly one allowed tag: // Contract: <reason>, // Algorithmic core: <reason>, or // Recurring bug class: <concurrency|lifecycle|retry-replay|persistence|security> <reason>.');
     if (c.comments.some(s => /^\/\/\s*(?:Contract|Algorithmic core|Recurring bug class|Regression|Property)\b/.test(s) && !tags.includes(s)))
       report(file, c.name, c.line, 'tag', 'Malformed test tag.');
+    if (file.endsWith('.go') && stateRoot.test(source.slice(c.start, c.end)) &&
+        /\b(?:os\.(?:Open|OpenFile|ReadFile|WriteFile|MkdirAll|RemoveAll)|load|save)\(/.test(source.slice(c.start, c.end))) {
+      emit(c.start, 'state-access', 'Use public operations or an injected temporary directory, not the ARC state directory.');
+    }
     for (const a of c.assertions) {
       if (mockCount.test(a.text)) emit(a.start, 'mock-count', 'Assert delivered facts or returned results, not mock invocation counts.');
       // Rust macros have token trees; JS literals are checked below with the TS AST.
-      if (file.endsWith('.rs') && /(?:(?:b?r#*|b)?"[^]*?[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}][^]*?"#*)/u.test(a.text))
+      if ((file.endsWith('.rs') || file.endsWith('.go')) && /(?:(?:b?r#*|b)?"[^]*?[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}][^]*?"#*)/u.test(a.text))
         emit(a.start, 'assertion-copy', 'CJK literals in assertions couple tests to localized copy; use structured facts.');
     }
   }
@@ -58,6 +67,7 @@ for (const file of testFiles()) {
     }
     continue;
   }
+  if (file.endsWith('.go')) continue;
   const host = ts.createCompilerHost({ noLib: true, noResolve: true });
   host.getSourceFile = name => name === file ? parsed.root : undefined;
   const checker = ts.createProgram([file], { noLib: true, noResolve: true, allowJs: true }, host).getTypeChecker();
@@ -114,5 +124,6 @@ const protectedPaths = ['tests/contract', 'tooling/test-policy-allowlist.json'];
 const changed = execFileSync('git', ['diff', '--name-only', base, '--', ...protectedPaths], { encoding: 'utf8' })
   + execFileSync('git', ['ls-files', '--others', '--exclude-standard', '--', ...protectedPaths], { encoding: 'utf8' });
 if (changed.trim() && process.env.ARC_TEST_POLICY_OWNER !== '1') failures.push('Protected test policy changed. Only an explicit control-source dispatch grant permits ARC_TEST_POLICY_OWNER=1.');
+failures.push(...checkGoPort());
 if (failures.length) { console.error([...new Set(failures)].join('\n')); process.exitCode = 1; }
 else console.log(`Test policy passed: ${[...inventory.values()].reduce((n, v) => n + v.cases.length, 0)} cases; ${allowlist.length} scoped exceptions.`);

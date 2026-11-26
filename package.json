@@ -15,6 +15,7 @@
     "artifacts:prune": "node tooling/retain-build-artifacts.mjs",
     "cache:prune": "node tooling/prune-build-cache.mjs",
     "test": "node tooling/test.mjs",
+    "test:go": "node tooling/go-test.mjs",
     "test:extended": "node tooling/test.mjs --extended",
     "check:package": "node tooling/check-package.mjs",
     "dev:ui": "vite --config vite.config.ts",

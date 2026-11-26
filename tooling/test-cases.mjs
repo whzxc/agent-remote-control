@@ -5,9 +5,9 @@ import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 registerDynamicLanguage({ rust });
 
-export function testFiles() {
+export function testFiles({ go = false } = {}) {
   return execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], { encoding: 'utf8' })
-    .split('\0').filter(file => (/\.(?:test\.[cm]?[jt]sx?|rs)$/.test(file) || /^tests\/.*\.[cm]?[jt]sx?$/.test(file)) && existsSync(file));
+    .split('\0').filter(file => (/\.(?:test\.[cm]?[jt]sx?|rs)$/.test(file) || (go && /_test\.go$/.test(file)) || /^tests\/.*\.[cm]?[jt]sx?$/.test(file)) && existsSync(file));
 }
 export function walk(node, visit) {
   visit(node);

@@ -5,14 +5,15 @@
 ```sh
 npm test
 npm run test:extended
+npm run test:go
 npm run accept:ui -- --task-dock
 ```
 
 `npm test` is the daily and normal-release entry point. Its 30-second wall-clock budget includes policy checks, file discovery and test startup. The runner reserves one second for npm startup and teardown and terminates the test process tree if the remaining budget expires. A timeout fails the command. It never turns incomplete coverage into a pass.
 
-Daily coverage includes the frozen MCP catalog envelopes and operation schemas, pure task/timeline/state logic, release logic, and bounded DOM interaction fixtures. It requires installed npm dependencies but no Rust build cache, Core, installed application, credentials, network service or browser installation. New Node test files join this path by default and must fit the shared budget.
+Daily coverage includes the frozen MCP catalog envelopes and operation schemas, pure task/timeline/state logic, release logic, and bounded DOM interaction fixtures. It requires installed npm dependencies and the Go toolchain for Go test policy. It runs without a Rust build cache, Core, installed application, credentials, network service or browser installation. New Node test files join this path by default and must fit the shared budget.
 
-`npm run test:extended` explicitly adds Rust library and Desktop tests plus native MCP, CLI, OAuth, dispatch, notification and lifecycle integration fixtures. It compiles current source and uses isolated temporary state. Native files are selected in `tooling/test-suites.mjs`. Use affected native cases when a change needs runtime evidence; use the extended entry point when broader coverage is requested. Normal releases do not invoke it.
+`npm run test:extended` explicitly adds Rust library and Desktop tests plus native MCP, CLI, OAuth, dispatch, notification and lifecycle integration fixtures. It compiles current source and uses isolated temporary state. Native files are selected in `tooling/test-suites.mjs`. Use affected native cases when a change needs runtime evidence; use the extended entry point when broader coverage is requested. Normal releases do not invoke it. During the [Go port](go-migration.md), the extended check also runs Go vet and unit tests. Use `ARC_IMPL=go npm run test:extended` to build the standalone Go Core and tagged contract fixture and run the same TypeScript tests with those binaries. Use `npm run test:go` for the Go-only checks.
 
 Browser layout checks remain in `npm run accept:ui`. `--task-dock` selects the request-dock layout fixture; the other acceptance scenarios use `--scenario=<name>`. Browser fixtures are excluded from both automatic test suites.
 
@@ -32,7 +33,7 @@ Keep negative coverage for frozen error contracts, authorization and data bounda
 
 ## Enforcement
 
-`npm run check:tests` runs first in `npm test`. TypeScript and Rust parsers locate cases and assertions, including parameterized cases declared in loops. ESLint is scoped to `tests/**`: Testing Library's DOM preset plus `no-container`, `no-debugging-utils` and `prefer-explicit-assert`; `no-node-access` is enabled. Use `within(document.body)` for each isolated happy-dom document; the import-time `screen` binding cannot follow replaced documents. DOM-global installation is harness plumbing; calls to `getComputedStyle` are prohibited.
+`npm run check:tests` runs first in `npm test`. TypeScript, Rust and Go parsers locate cases and assertions, including parameterized cases declared in loops. ESLint is scoped to `tests/**`: Testing Library's DOM preset plus `no-container`, `no-debugging-utils` and `prefer-explicit-assert`; `no-node-access` is enabled. Use `within(document.body)` for each isolated happy-dom document; the import-time `screen` binding cannot follow replaced documents. DOM-global installation is harness plumbing; calls to `getComputedStyle` are prohibited.
 
 The policy check rejects missing/duplicate tags, class selectors, computed-style reads, direct ARC state I/O, CJK assertion literals and mock invocation counts. It tracks local TS state-path aliases; Rust cases may use injected temporary directories through core APIs, but not the process ARC state root. Static checks cannot prove the truth of a regression label or infer every dynamic filesystem path. Do not hide forbidden assertions in helpers or generated code.
 

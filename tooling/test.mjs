@@ -2,7 +2,8 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { testEnvironment } from './test-environment.mjs';
-import { testFiles } from './test-suites.mjs';
+import { startupBenchmark, testFiles } from './test-suites.mjs';
+import { buildGoTestBinaries, testGo } from './go-test.mjs';
 
 const budgetError = () => Object.assign(new Error('Daily tests exceeded the 30-second budget. Move slow runtime coverage to test:extended.'), { code: 'TEST_BUDGET_EXCEEDED' });
 
@@ -43,7 +44,8 @@ async function main() {
   const args = process.argv.slice(2);
   if (args.length && (args.length !== 1 || args[0] !== '--extended')) throw new Error('Usage: npm test | npm run test:extended');
   const extended = args[0] === '--extended';
-  if (extended) (await import('./heavy-build.mjs')).enterHeavyBuild();
+  const go = process.env.ARC_IMPL === 'go';
+  if (extended && !go) (await import('./heavy-build.mjs')).enterHeavyBuild();
   const started = performance.now();
   // Leave one second for npm startup and process teardown.
   const deadline = extended ? undefined : started + 29_000;
@@ -51,7 +53,20 @@ async function main() {
   const run = (file, argv) => runTestCommand(file, argv, { env, timeoutMs: deadline === undefined ? undefined : deadline - performance.now() });
   await run(process.execPath, ['tooling/check-tests.mjs']);
   await run(process.execPath, ['tooling/check-ui-styles.mjs']);
-  if (extended) {
+  if (extended) await testGo(run);
+  if (extended && go) {
+    env.CARGO_TARGET_DIR = path.resolve(env.CARGO_TARGET_DIR || 'target', 'go-parity');
+    Object.assign(env, await buildGoTestBinaries((file, argv) => runTestCommand(file, argv, { env: { ...env, CGO_ENABLED: '0' } }), env));
+    const results = [];
+    for (const args of [
+      ['--test', startupBenchmark],
+      ['--test', '--test-concurrency=4', ...(await testFiles(true)).filter(file => file !== startupBenchmark)],
+    ]) {
+      try { await run(process.execPath, args); }
+      catch (error) { results.push(error.message); }
+    }
+    if (results.length) throw new Error(results.join('\n'));
+  } else if (extended) {
     try {
       await run('cargo', ['test', '--locked', '--manifest-path', 'native/Cargo.toml', '--lib']);
       if (process.platform === 'darwin') await run('cargo', ['test', '--locked', '-p', 'agent-remote-control', '--bin', 'agent-remote-control-desktop', 'src_conversations']);
@@ -62,7 +77,6 @@ async function main() {
       env.ARC_TEST_BINARY = path.join(debug, 'arc' + suffix);
       env.ARC_TEST_FIXTURE_BINARY = path.join(debug, 'contract-fixture' + suffix);
       // Measure startup and request latency without other process fixtures competing for CPU.
-      const startupBenchmark = 'tests/index-startup-native.test.ts';
       const files = await testFiles(true);
       await run(process.execPath, ['--test', startupBenchmark]);
       await run(process.execPath, ['--test', '--test-concurrency=4', ...files.filter(file => file !== startupBenchmark)]);

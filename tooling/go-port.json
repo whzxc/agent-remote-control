@@ -1,0 +1,1640 @@
+{
+  "baseline": "b04516d7148af7ae84b1ded31aa583c0871d7188",
+  "postBaselineRustCommits": [],
+  "files": {
+    "native/src/acceptance_fault.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/accounts/codex.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/accounts/identity.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/accounts/login.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/accounts/merge.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/accounts/mod.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/agents/activity.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/agents/adapter.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/agents/antigravity.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/agents/archive.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/agents/capabilities.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/agents/conversations/native/antigravity.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/agents/conversations/native.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/agents/conversations/tests.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/agents/conversations.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/agents/dispatch/catalogs.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/agents/dispatch.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/agents/driver.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/agents/lifecycle.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/agents/manifest.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/agents/mcp.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/agents/mod.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/agents/process.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/agents/resources.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/agents/wait.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/app_env.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/archive_index.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/browser.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/changes.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_accounts/browsers.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_accounts/mod.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_accounts/routing.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_accounts/system.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_accounts/visibility.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_notify/ax_tests.rs": {
+      "segment": "C",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_notify/continuation.rs": {
+      "segment": "C",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_notify/coordination_delivery.rs": {
+      "segment": "C",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_notify/device/tests.rs": {
+      "segment": "C",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_notify/device.rs": {
+      "segment": "C",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_notify/diagnostics.rs": {
+      "segment": "C",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_notify/governance.rs": {
+      "segment": "C",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_notify/index.rs": {
+      "segment": "C",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_notify/index_tests.rs": {
+      "segment": "C",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_notify/lifecycle.rs": {
+      "segment": "C",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_notify/mcp_events.rs": {
+      "segment": "C",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_notify/observer.rs": {
+      "segment": "C",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_notify/ownership.rs": {
+      "segment": "C",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_notify/reachability.rs": {
+      "segment": "C",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_notify/retry.rs": {
+      "segment": "C",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_notify/routing.rs": {
+      "segment": "C",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_notify/scheduler.rs": {
+      "segment": "C",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_notify/subscriptions.rs": {
+      "segment": "C",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_notify/tests/delivery_deadlines.rs": {
+      "segment": "C",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/claude_notify.rs": {
+      "segment": "C",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/cli.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/cli.go",
+        "internal/core/cli_test.go",
+        "docs/reference/embed.go"
+      ],
+      "status": "pending",
+      "remaining": "Help, usage, schema discovery, control, logs, configuration and management dispatch are available. Remaining CLI adapters and validation are pending."
+    },
+    "native/src/cli_acceptance.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/cli_shim.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/cli_shim.go"
+      ],
+      "status": "ported"
+    },
+    "native/src/cloudflare.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/codex_host.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/codex_progress.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/context.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/context.go"
+      ],
+      "status": "pending",
+      "remaining": "Excerpt projection is available. Task and project evidence projection remain."
+    },
+    "native/src/context_provider.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/context_provider.go"
+      ],
+      "status": "pending",
+      "remaining": "The provider process protocol is implemented. Owned-child registration, ACP and the control-operation wiring remain."
+    },
+    "native/src/control.rs": {
+      "segment": "S0",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/control_metrics.rs": {
+      "segment": "S0",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/control_profiles.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/control_profiles.go"
+      ],
+      "status": "pending",
+      "remaining": "Profile validation, derivation and guide rendering are implemented. Source authority is pending D."
+    },
+    "native/src/control_sources.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/control_sources.go"
+      ],
+      "status": "ported",
+      "remaining": "The wait-limit unit case still needs the egress continuation port."
+    },
+    "native/src/coordination/ax/import.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/coordination/ax/issue.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/coordination/ax/mod.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/coordination/ax/store.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/coordination/ax/tests.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/coordination/bulletin/dispatch.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/coordination/bulletin/mod.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/coordination/bulletin/store.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/coordination/bulletin/tests.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/coordination/cost_tests.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/coordination/git_watch/fixes.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/coordination/git_watch.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/coordination/journal.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/coordination/lifecycle.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/coordination/messages/mod.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/coordination/messages/store.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/coordination/messages/tests.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/coordination/mod.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/coordination/observers.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/coordination/recovery.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/coordination/routing.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/coordination/tests.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/coordination/turns.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/coordination/types.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/core_requests.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/core_requests.go"
+      ],
+      "status": "pending",
+      "remaining": "Catalog validation and MCP dispatch are available. Full authorization, cancellation, projection and operation integration remain."
+    },
+    "native/src/desktop/daemon.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/desktop/handback.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/desktop/interactions.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/desktop/recovery.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/desktop/settings.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/desktop/windows.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/desktop.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/addresses.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/client.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/connections.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/controller/path.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/controller/transfer.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/controller.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/controller_tests.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/events/tests.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/events.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/identity.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/mod.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/records.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/tests.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/tls.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/topology.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/transfer/execution.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/transfer/receiver.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/transfer/relay_fixture.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/transfer/tests.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/transfer/wire.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/transfer.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/transport.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/tunnel.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/tunnel_fixture.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/tunnel_tests.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/device_link/visibility.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/diagnostics.rs": {
+      "segment": "S0",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/dispatch_caller.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/dispatch_policy/decision.rs": {
+      "segment": "C",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/dispatch_policy/quality.rs": {
+      "segment": "C",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/dispatch_policy.rs": {
+      "segment": "C",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/dispatch_queue.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/egress.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/egress.go"
+      ],
+      "status": "pending",
+      "remaining": "Protocol hash, guide, validation and base tool envelopes are available. Receipt and task result projections remain."
+    },
+    "native/src/execution.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/execution.go"
+      ],
+      "status": "pending",
+      "remaining": "Pending operations use a structured error. Execution composition and dispatch remain."
+    },
+    "native/src/external_inputs.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/front_door/authority.rs": {
+      "segment": "S0",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/front_door/owner.rs": {
+      "segment": "S0",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/front_door/process.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/front_door_process.go",
+        "internal/platform/ipc_unix.go",
+        "internal/platform/ipc_windows.go"
+      ],
+      "status": "pending",
+      "remaining": "Authenticated per-state-directory private Core sockets and pipes work in the tagged fixture. Detached front-door startup, staging, recovery and macOS update supervision are pending."
+    },
+    "native/src/front_door/protocol.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/front_door_protocol.go"
+      ],
+      "status": "pending",
+      "remaining": "Wire types, generation fences and bounded framing are present. The complete authority and interoperability contracts remain pending."
+    },
+    "native/src/front_door.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/front_door.go"
+      ],
+      "status": "pending",
+      "remaining": "Private management admission, request cancellation, deadlines and generation checks are implemented. Streaming, queue, update drain and remaining authorities are pending."
+    },
+    "native/src/front_door_tests.rs": {
+      "segment": "S0",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/headless.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/headless.go"
+      ],
+      "status": "pending",
+      "remaining": "Status is implemented. Daemon start, stop and systemd remain."
+    },
+    "native/src/https.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/https_tunnel.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/i18n.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/i18n.go"
+      ],
+      "status": "ported"
+    },
+    "native/src/images.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/ingress/config.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/ingress.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/ingress_observation.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/interaction_responses.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/kernel/derived_index.rs": {
+      "segment": "S0",
+      "go": [],
+      "status": "pending",
+      "remaining": "Background index publication, adoption, lifecycle and the fixture gate are pending."
+    },
+    "native/src/kernel/digests.rs": {
+      "segment": "S0",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/kernel/event_store.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/kernel_event_store.go"
+      ],
+      "status": "ported"
+    },
+    "native/src/kernel/file_cache.rs": {
+      "segment": "S0",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/kernel/file_changes.rs": {
+      "segment": "S0",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/kernel/mod.rs": {
+      "segment": "S0",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/kernel/origin.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/kernel_origin.go"
+      ],
+      "status": "ported"
+    },
+    "native/src/kernel/policy.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/kernel_policy.go"
+      ],
+      "status": "ported"
+    },
+    "native/src/kernel/receipts/progress.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/kernel_receipts_progress.go",
+        "internal/core/kernel_receipts_progress_test.go"
+      ],
+      "status": "ported"
+    },
+    "native/src/kernel/receipts/projection.rs": {
+      "segment": "S0",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/kernel/receipts.rs": {
+      "segment": "S0",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/kernel/results.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/kernel_results.go",
+        "internal/core/kernel_results_test.go"
+      ],
+      "status": "pending",
+      "remaining": "Snapshot output, event archive reads, UTF-16 pagination and referenced schema definitions are implemented. Digest output and quota startup pruning are pending."
+    },
+    "native/src/kernel/task_projection.rs": {
+      "segment": "S0",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/launches.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/launches.go",
+        "internal/core/launches_test.go"
+      ],
+      "status": "ported"
+    },
+    "native/src/lib.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/lib.go",
+        "internal/platform/files_unix.go",
+        "internal/platform/files_windows.go"
+      ],
+      "status": "pending",
+      "remaining": "State and JSON helpers are present. Shared file caching, cost instrumentation and remaining helpers are pending."
+    },
+    "native/src/local_access.rs": {
+      "segment": "S0",
+      "go": [],
+      "status": "pending",
+      "remaining": "Local MCP discovery, installation and client forwarding are pending."
+    },
+    "native/src/local_gateway.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/logs.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/logs.go",
+        "internal/core/logs_test.go"
+      ],
+      "status": "ported"
+    },
+    "native/src/main.rs": {
+      "segment": "S0",
+      "go": [
+        "cmd/arc/main.go",
+        "internal/core/main.go"
+      ],
+      "status": "pending",
+      "remaining": "Help, version, status, CLI and stdio are connected. Core, front door and detached host branches remain."
+    },
+    "native/src/management.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/management.go"
+      ],
+      "status": "pending",
+      "remaining": "Static and coordination catalogs and management dispatch are available. Dynamic MCP hub, device and ingress schemas remain."
+    },
+    "native/src/mcp_hub.rs": {
+      "segment": "S0",
+      "go": [],
+      "status": "pending",
+      "remaining": "The hub provider, pooling, operation discovery and disabled-state contract are pending."
+    },
+    "native/src/mcp_transport.rs": {
+      "segment": "S0",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/oauth.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/operations.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/operations.go",
+        "internal/core/operations_test.go"
+      ],
+      "status": "ported"
+    },
+    "native/src/output.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/output.go"
+      ],
+      "status": "pending",
+      "remaining": "Line writing is implemented. Full streaming and broken-pipe behavior remain."
+    },
+    "native/src/owned_children.rs": {
+      "segment": "S0",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/package.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/permissions.rs": {
+      "segment": "S0",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/pets.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/preferences.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/preferences.go"
+      ],
+      "status": "ported"
+    },
+    "native/src/projects.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/proxy.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/relay/deploy.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/relay/identity.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/relay/mod.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/relay/transport.rs": {
+      "segment": "E",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/resources.rs": {
+      "segment": "S0",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/respond_tokens.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/review.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/rpc.rs": {
+      "segment": "S0",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/runtime.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/runtime.go",
+        "internal/platform/process_darwin.go",
+        "internal/platform/process_linux.go",
+        "internal/platform/process_windows.go"
+      ],
+      "status": "pending",
+      "remaining": "Build identity, lock and basic lease state are implemented. Detached startup, lease clients and reattachment are pending."
+    },
+    "native/src/runtime_metrics/cost.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/runtime_metrics.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/screen.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/service.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/service.go"
+      ],
+      "status": "pending",
+      "remaining": "The tagged fixture exposes a loopback and private management subset. Production composition, status details and remaining routes are pending."
+    },
+    "native/src/setup.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/setup_secret.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/shell_command.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/skills.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/sources.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/src_conversations/identity.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/src_conversations/import_state.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/src_conversations/mod.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/src_conversations/refs.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/src_conversations/registry.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/subscriptions/cache.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/subscriptions/mod.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/subscriptions/providers/antigravity.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/subscriptions/providers/claude.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/subscriptions/providers/codex.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/subscriptions/providers/cursor.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/subscriptions/providers/grok.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/subscriptions/providers/kimi.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/subscriptions/providers/mod.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/subscriptions/providers/opencode_go.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/subscriptions/types.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/task_host.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/task_overview.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/task_summary.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/task_tracking/antigravity.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/task_tracking/transcript_input.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/task_tracking/transcripts.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/task_tracking.rs": {
+      "segment": "B",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/text_files/binary.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/text_files.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/transport.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/transport.go"
+      ],
+      "status": "pending",
+      "remaining": "Loopback HTTP, CLI requests with authenticated private IPC and JSON-lines stdio are implemented. Full route, stream and Desktop callback parity is pending."
+    },
+    "native/src/turn_lifecycle.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/uninstall.rs": {
+      "segment": "D",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/wait_transport.rs": {
+      "segment": "S0",
+      "go": [
+        "internal/core/wait_transport.go",
+        "internal/core/wait_transport_test.go"
+      ],
+      "status": "pending",
+      "remaining": "Long wait framing and stdio progress forwarding are implemented. EOF cancellation and full transport regression parity are pending."
+    },
+    "native/src/waiter.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "native/src/writer.rs": {
+      "segment": "A",
+      "go": [],
+      "status": "pending"
+    },
+    "desktop/src/app_env.rs": {
+      "segment": "F",
+      "go": [],
+      "status": "pending"
+    },
+    "desktop/src/appearance.rs": {
+      "segment": "F",
+      "go": [],
+      "status": "pending"
+    },
+    "desktop/src/autostart.rs": {
+      "segment": "F",
+      "go": [],
+      "status": "pending"
+    },
+    "desktop/src/desktop_access.rs": {
+      "segment": "F",
+      "go": [],
+      "status": "pending"
+    },
+    "desktop/src/i18n.rs": {
+      "segment": "F",
+      "go": [],
+      "status": "pending"
+    },
+    "desktop/src/main.rs": {
+      "segment": "F",
+      "go": [],
+      "status": "pending"
+    },
+    "desktop/src/oauth_links.rs": {
+      "segment": "F",
+      "go": [],
+      "status": "pending"
+    },
+    "desktop/src/permissions.rs": {
+      "segment": "F",
+      "go": [],
+      "status": "pending"
+    },
+    "desktop/src/snapshot/macos.rs": {
+      "segment": "F",
+      "go": [],
+      "status": "pending"
+    },
+    "desktop/src/snapshot.rs": {
+      "segment": "F",
+      "go": [],
+      "status": "pending"
+    },
+    "desktop/src/src_conversations/import.rs": {
+      "segment": "F",
+      "go": [],
+      "status": "pending"
+    },
+    "desktop/src/src_conversations/jobs.rs": {
+      "segment": "F",
+      "go": [],
+      "status": "pending"
+    },
+    "desktop/src/src_conversations/mod.rs": {
+      "segment": "F",
+      "go": [],
+      "status": "pending"
+    },
+    "desktop/src/src_conversations/native.rs": {
+      "segment": "F",
+      "go": [],
+      "status": "pending"
+    },
+    "desktop/src/tray.rs": {
+      "segment": "F",
+      "go": [],
+      "status": "pending"
+    },
+    "desktop/src/updates.rs": {
+      "segment": "F",
+      "go": [],
+      "status": "pending"
+    },
+    "desktop/src/windows.rs": {
+      "segment": "F",
+      "go": [],
+      "status": "pending"
+    },
+    "desktop/src/windows_frame.rs": {
+      "segment": "F",
+      "go": [],
+      "status": "pending"
+    },
+    "tests/fixture/src/main.rs": {
+      "segment": "S0",
+      "go": [
+        "cmd/contract-fixture/main.go",
+        "internal/core/fixture.go"
+      ],
+      "status": "pending",
+      "remaining": "Tagged CLI, runtime, HTTP, stdio and private management IPC are implemented. Named ingresses, the digest and failure gates, desktop containers and upstream provider hooks are pending."
+    }
+  },
+  "nativeTests": {
+    "tests/acceptance-fault.test.ts": {
+      "result": "blocked",
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0,
+      "exitCode": 1,
+      "firstDependencies": [
+        "A: acceptance_fault and Codex task dispatch"
+      ]
+    },
+    "tests/accounts.test.ts": {
+      "result": "blocked",
+      "passed": 0,
+      "failed": 4,
+      "skipped": 0,
+      "exitCode": 1,
+      "firstDependencies": [
+        "D: Claude login, accounts and identity",
+        "B: runtime_metrics",
+        "C: notification profiles"
+      ]
+    },
+    "tests/agent-antigravity.test.ts": {
+      "result": "blocked",
+      "passed": 0,
+      "failed": 4,
+      "skipped": 0,
+      "exitCode": 1,
+      "firstDependencies": [
+        "A: Agent create, discovery, ACP and task tracking",
+        "B: runtime_metrics"
+      ]
+    },
+    "tests/agent-archive.test.ts": {
+      "result": "blocked",
+      "passed": 0,
+      "failed": 2,
+      "skipped": 0,
+      "exitCode": 1,
+      "firstDependencies": [
+        "A: Agent create, archive and task tracking"
+      ]
+    },
+    "tests/antigravity-desktop.test.ts": {
+      "result": "failed",
+      "passed": 0,
+      "failed": 4,
+      "skipped": 0,
+      "exitCode": 1,
+      "firstDependencies": [
+        "A: native Antigravity Agent",
+        "C: notification binding",
+        "D: sources",
+        "E: ingress"
+      ],
+      "otherFailures": [
+        "Antigravity local access accepts an empty configuration and preserves other servers on reinstall: the S0 local-access status/install paths are absent. antigravityAvailable is undefined."
+      ]
+    },
+    "tests/browser-native.test.ts": {
+      "result": "blocked",
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0,
+      "exitCode": 1,
+      "firstDependencies": [
+        "E: HTTPS ingress creation returns GO_PORT_PENDING. The test dereferences the absent config. A browser authorization/projection is not reached."
+      ]
+    },
+    "tests/browser-traffic-native.test.ts": {
+      "result": "blocked",
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0,
+      "exitCode": 1,
+      "firstDependencies": [
+        "E: HTTPS ingress creation returns GO_PORT_PENDING. The test dereferences the absent config. A browser authorization/projection is not reached."
+      ]
+    },
+    "tests/cli-failures.test.ts": {
+      "result": "blocked",
+      "passed": 1,
+      "failed": 2,
+      "skipped": 0,
+      "exitCode": 1,
+      "firstDependencies": [
+        "Direct CLI failures: A writer ownership and C notification binding; the case stops on the first codex_read.",
+        "Interrupted task reads and waits: A create/read/wait and C task settings; the case stops on codex_create."
+      ]
+    },
+    "tests/cli-readiness.test.ts": {
+      "result": "blocked",
+      "passed": 1,
+      "failed": 2,
+      "skipped": 0,
+      "exitCode": 1,
+      "firstDependencies": [
+        "Native and scenario POST model snapshot waits: A cli_acceptance. The absolute path, status and cached guide case passed."
+      ]
+    },
+    "tests/control-mcp.test.ts": {
+      "result": "blocked",
+      "passed": 0,
+      "failed": 94,
+      "skipped": 0,
+      "exitCode": 1,
+      "firstDependencies": [
+        "C: the shared setup PUT task-settings returns GO_PORT_PENDING, so no test body runs. A, B, D and E also own operations exercised by the cases."
+      ]
+    },
+    "tests/coordination-center-native.test.ts": {
+      "result": "blocked",
+      "passed": 0,
+      "failed": 3,
+      "skipped": 0,
+      "exitCode": 1,
+      "firstDependencies": [
+        "B: AX records, Board and coordination resources",
+        "D: projects"
+      ]
+    },
+    "tests/coordination-recovery.test.ts": {
+      "result": "blocked",
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0,
+      "exitCode": 1,
+      "firstDependencies": [
+        "E: named fixture ingress, which returns GO_PORT_PENDING before B negotiation/routing is exercised"
+      ]
+    },
+    "tests/desktop-dispatch.test.ts": {
+      "result": "blocked",
+      "passed": 0,
+      "failed": 4,
+      "skipped": 0,
+      "exitCode": 1,
+      "firstDependencies": [
+        "A: Codex writer, Desktop recovery and activity; C task settings"
+      ]
+    },
+    "tests/digest-native.test.ts": {
+      "result": "failed",
+      "passed": 0,
+      "failed": 15,
+      "skipped": 0,
+      "exitCode": 1,
+      "firstDependencies": [
+        "E: named digest-local ingress; multiple owner projections belong to A, B, C and D"
+      ],
+      "otherFailures": [
+        "The ARC_FIXTURE_DIGESTS hook, digest paging, large reply measurement and cursor recovery are pending in S0. No output exists for the expiry test to age, so utime returns ENOENT.",
+        "Named ingress calls return an HTTP pending envelope without an MCP result, producing downstream undefined content/rows. See the per-file log for the affected cases."
+      ]
+    },
+    "tests/dispatch-policy.test.ts": {
+      "result": "blocked",
+      "passed": 0,
+      "failed": 8,
+      "skipped": 0,
+      "exitCode": 1,
+      "firstDependencies": [
+        "C: dispatch policy, packs and criteria",
+        "A: write/dispatch",
+        "D: subscription credit balance",
+        "E: named ingress for the authorization case"
+      ]
+    },
+    "tests/index-startup-native.test.ts": {
+      "result": "blocked",
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0,
+      "exitCode": 1,
+      "firstDependencies": [
+        "B: runtime_metrics returns GO_PORT_PENDING after health, lease and guide succeed. Full publication and restart also need the S0 background index lifecycle and gate, A task state, C notification indexes and D source migration."
+      ],
+      "benchmarkMs": {
+        "rust": {
+          "initialReady": 2222.3,
+          "restartReady": 728.403,
+          "receiptAfterGate": 1631,
+          "guideMax": 14.587,
+          "unrelatedQueryMax": 20.821,
+          "pendingMax": 8.23,
+          "publishedMax": 11.087
+        },
+        "go": null
+      }
+    },
+    "tests/mcp-hub.test.ts": {
+      "result": "failed",
+      "passed": 0,
+      "failed": 2,
+      "skipped": 0,
+      "exitCode": 1,
+      "firstDependencies": [
+        "S0: mcp_hub and downstream mcp_transport"
+      ],
+      "otherFailures": [
+        "MCP hub exposes downstream tools: disabled mcp_tools returned GO_PORT_PENDING instead of OP_UNAVAILABLE.",
+        "Core restores enabled MCP hub services on restart: the test executes CARGO_TARGET_DIR/debug/arc directly, bypassing ARC_TEST_BINARY, so the isolated Go target returned ENOENT."
+      ]
+    },
+    "tests/notification-account.test.ts": {
+      "result": "blocked",
+      "passed": 0,
+      "failed": 2,
+      "skipped": 0,
+      "exitCode": 1,
+      "firstDependencies": [
+        "C: notification target binding",
+        "D: Claude account visibility and routing"
+      ]
+    },
+    "tests/src-conversations.test.ts": {
+      "result": "blocked",
+      "passed": 0,
+      "failed": 3,
+      "skipped": 0,
+      "exitCode": 1,
+      "firstDependencies": [
+        "A: source-conversation container, history and tracking",
+        "D: accounts",
+        "E: named ingress"
+      ]
+    },
+    "tests/task-feed-performance.test.ts": {
+      "result": "blocked",
+      "passed": 0,
+      "failed": 2,
+      "skipped": 0,
+      "exitCode": 1,
+      "firstDependencies": [
+        "A: task feed, Codex create and timelines",
+        "B: task tracking",
+        "C: task settings"
+      ]
+    },
+    "tests/task-list-cost.test.ts": {
+      "result": "blocked",
+      "passed": 0,
+      "failed": 5,
+      "skipped": 0,
+      "exitCode": 1,
+      "firstDependencies": [
+        "A: Codex task list and activity",
+        "B: runtime_metrics",
+        "S0: derived index and task projections follow the first pending reads"
+      ]
+    },
+    "tests/task-panel-state.test.ts": {
+      "result": "passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0,
+      "evidence": "Node loaded the file successfully. It declares no test cases."
+    },
+    "tests/timeline-subscription.test.ts": {
+      "result": "blocked",
+      "passed": 0,
+      "failed": 1,
+      "skipped": 0,
+      "exitCode": 1,
+      "firstDependencies": [
+        "A: Codex create",
+        "B: timeline tracking"
+      ]
+    },
+    "tests/writer-conflict.test.ts": {
+      "result": "blocked",
+      "passed": 0,
+      "failed": 13,
+      "skipped": 0,
+      "exitCode": 1,
+      "firstDependencies": [
+        "A: writer ownership, Codex activity and archive"
+      ]
+    }
+  },
+  "nativeRun": {
+    "goSource": "bbca131fafe700e0e1c530043270026118e732b6",
+    "platform": "darwin/arm64",
+    "toolchain": "go1.27.4",
+    "implementation": "go"
+  }
+}

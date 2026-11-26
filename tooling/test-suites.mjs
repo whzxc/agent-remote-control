@@ -1,6 +1,8 @@
 import { readdir } from 'node:fs/promises';
 
 // Native process fixtures and lifecycle waits run only on explicit request.
+export const startupBenchmark = 'tests/index-startup-native.test.ts';
+
 const integration = new Set([
   'antigravity-desktop.test.ts',
   'browser-native.test.ts',
@@ -20,4 +22,8 @@ export async function testFiles(extended = false) {
   return (await readdir(new URL('../tests/', import.meta.url), { recursive: true }))
     .filter(name => /\.test\.[cm]?[jt]sx?$/.test(name) && !browser.has(name) && (extended || !integration.has(name)))
     .sort().map(name => `tests/${name}`);
+}
+
+export function nativeTestFiles() {
+  return [...integration].sort().map(name => `tests/${name}`);
 }
