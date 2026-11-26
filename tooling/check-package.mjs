@@ -1,12 +1,14 @@
-import { developmentConfig } from './dev-identity.mjs';
+import { desktopExecutable, desktopIdentifier, desktopName, desktopScheme, developmentConfig } from './dev-identity.mjs';
 import { verifyMacosReleaseSignature } from './macos-signing.mjs';
+import { requireXcode } from './macos-icons.mjs';
 import { buildVersion } from './version.mjs';
 import { readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { toolFingerprint } from './catalog.mjs';
 import { readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
-const root = process.argv[2] || 'target/aarch64-apple-darwin/release/bundle/macos/Agent Remote Control.app';
+const root = process.argv[2] || `dist/desktop/${buildVersion()}/darwin-arm64/${desktopName}.app`;
+const adhoc = process.argv.includes('--adhoc');
 const catalog = JSON.parse(await readFile(new URL('../shared/core/catalog.json', import.meta.url), 'utf8'));
 toolFingerprint(catalog.tools);
 let bytes = 0;
@@ -29,12 +31,21 @@ for (const name of ['arc-setup', 'arc-local-code']) {
   }
 }
 if (process.platform === 'darwin' && root.endsWith('.app')) {
-  const identifier = execFileSync('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleIdentifier', path.join(root, 'Contents', 'Info.plist')], { encoding: 'utf8' }).trim();
-  if (!['com.whzxc.agent-remote-control', developmentConfig().identifier].includes(identifier)) throw new Error('Incorrect package bundle identifier.');
-  if (identifier === 'com.whzxc.agent-remote-control') {
-    verifyMacosReleaseSignature(root, identifier);
-    verifyMacosReleaseSignature(path.join(root, 'Contents/Resources/bin/arc'), `${identifier}.core`);
-    verifyMacosReleaseSignature(path.join(root, 'Contents/Resources/bin/arc-screen'), `${identifier}.screen`);
+  requireXcode(process.env);
+  const plist = path.join(root, 'Contents/Info.plist');
+  const value = key => execFileSync('/usr/libexec/PlistBuddy', ['-c', `Print :${key}`, plist], { encoding: 'utf8' }).trim();
+  const identifier = value('CFBundleIdentifier');
+  const config = identifier === desktopIdentifier ? { productName: desktopName, scheme: desktopScheme } : developmentConfig();
+  if (![desktopIdentifier, developmentConfig().identifier].includes(identifier) ||
+      value('CFBundleExecutable') !== desktopExecutable || value('CFBundleDisplayName') !== config.productName ||
+      value('CFBundleName') !== config.productName || value('LSMinimumSystemVersion') !== '13.0' ||
+      value('CFBundleURLTypes:0:CFBundleURLSchemes:0') !== config.scheme) {
+    throw new Error('Incorrect macOS package identity.');
+  }
+  for (const [file, id] of [[root, identifier], [path.join(root, 'Contents/Resources/bin/arc'), identifier + '.core'],
+    [path.join(root, 'Contents/Resources/bin/arc-screen'), identifier + '.screen']]) {
+    if (identifier === desktopIdentifier && !adhoc) verifyMacosReleaseSignature(file, id);
+    else execFileSync('codesign', ['--verify', '--strict', '-R', `=identifier "${id}"`, file], { stdio: 'inherit' });
   }
   const resources = path.join(root, 'Contents', 'Resources');
   const native = path.join(resources,'bin/arc');

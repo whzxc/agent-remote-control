@@ -6,8 +6,6 @@ export function compileIcon(source, output, env) {
   mkdirSync(output, { recursive: true });
   const icon = path.join(output, 'Icon.icon');
   cpSync(source, icon, { recursive: true });
-  // Compile outside the Node-hosted Tauri bundler, whose inherited stdin is
-  // closed on exec (tauri-apps/tauri#15991). Keep generated assets in target.
   execFileSync('xcrun', ['actool', icon, '--compile', output,
     '--output-format', 'human-readable-text', '--output-partial-info-plist', path.join(output, 'icon.plist'),
     '--app-icon', 'Icon', '--include-all-app-icons', '--enable-on-demand-resources', 'NO',

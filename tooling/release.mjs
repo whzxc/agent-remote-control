@@ -1,6 +1,5 @@
 import { requireMainCheckout } from './coding-lane.mjs';
-requireMainCheckout();
-import { readFile, writeFile, readdir, mkdir, copyFile, mkdtemp, stat, rename, rm } from 'node:fs/promises';
+import { readFile, writeFile, readdir, mkdir, mkdtemp, stat, rename, rm } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
@@ -10,9 +9,10 @@ import { buildLinux, preflightLinux } from './linux-release.mjs';
 import { testEnvironment } from './test-environment.mjs';
 import { buildVersion, stableVersion } from './version.mjs';
 import { readReleaseNotes } from './release-notes.mjs';
-import { releaseSigningEnv } from './release-signing.mjs';
+import { buildOnlyEnv, feedName, rehearsalSigning, signMygoFeed, updateTargets, verifier, verifyMygoFeed } from './release-signing.mjs';
+import { collectDesktop, fragmentName, installerName, requireEmptyStage, signTransition, tauriPayloadName } from './release-desktop.mjs';
 import { retainBuildArtifacts } from './retain-build-artifacts.mjs';
-import { macosSigningIdentity, verifyMacosReleaseSignature } from './macos-signing.mjs';
+import { macosSigningIdentity } from './macos-signing.mjs';
 import { gh, ghTransfer, releaseByTag, releaseById, requireDraftRelease, uploadReleaseAsset, publishedTags, fileDigest, publicationStages,
   validateResume, validateRemoteAssets, validateArtifactInventory, platformAssetNames, retry, boundedMap, stageTimer, parallelPlatforms, releasePlatforms } from './release-support.mjs';
 process.chdir(fileURLToPath(new URL('../', import.meta.url)));
@@ -23,21 +23,6 @@ const [mode, ...args] = process.argv.slice(2);
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const json = file => readFile(file, 'utf8').then(JSON.parse);
 const writeJson = (file, value) => writeFile(file, JSON.stringify(value, null, 2) + '\n');
-async function files(dir) {
-  const out = [];
-  for (const entry of await readdir(dir, { withFileTypes: true })) {
-    const file = path.join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...await files(file)); else out.push(file);
-  }
-  return out;
-}
-function verifySignatures(artifacts) {
-  try {
-    execFileSync('cargo', ['run', '--quiet', '--locked', '--manifest-path', 'tooling/verifier/Cargo.toml', '--', 'desktop/tauri.conf.json', ...artifacts], { stdio: 'inherit' });
-  } finally {
-    execFileSync(process.execPath, ['tooling/prune-build-cache.mjs'], { stdio: 'inherit' });
-  }
-}
 async function validateManifest(manifest, dir) {
   if (manifest.version !== version || !manifest.platforms || !Object.keys(manifest.platforms).every(key => ['darwin-aarch64', 'windows-x86_64', 'windows-x86_64-nsis'].includes(key))) throw new Error('Invalid release manifest');
   const keys = Object.keys(manifest.platforms);
@@ -48,18 +33,18 @@ async function validateManifest(manifest, dir) {
     const value = manifest.platforms[key];
     if (!value.url.startsWith(base + '/')) throw new Error('Unexpected updater download origin/version');
     const name = value.url.slice(base.length + 1);
-    if (name !== path.basename(name) || !/\.(gz|exe)$/.test(name)) throw new Error('Invalid updater asset name');
+    const target = key === 'darwin-aarch64' ? updateTargets.mac : updateTargets.windows;
+    if (name !== tauriPayloadName(target, version)) throw new Error('Invalid updater asset name');
     if ((await readFile(path.join(dir,name+'.sig'),'utf8')).trim() !== value.signature) throw new Error('Manifest signature mismatch');
     await readFile(path.join(dir,name));
   }
 
 }
 async function cask(dir) {
-  const dmg = (await files(dir)).filter(f => f.endsWith('_aarch64.dmg'));
-  if (dmg.length !== 1) throw new Error('Expected one Apple Silicon DMG');
+  const dmg = path.join(dir, installerName(updateTargets.mac, version));
   await writeFile(path.join(dir, 'agent-remote-control.rb'), `cask "agent-remote-control" do
   version "${version}"
-  sha256 "${hash(await readFile(dmg[0]))}"
+  sha256 "${(await fileDigest(dmg)).slice(7)}"
 
   url "https://github.com/${repo}/releases/download/v#{version}/agent-remote-control_#{version}_aarch64.dmg"
   name "Agent Remote Control"
@@ -87,28 +72,80 @@ function compare(a, b) {
   for (let i=0;i<3;i++) if(x[i]!==y[i]) return x[i]>y[i]?1:-1;
   return 0;
 }
-if (mode === 'release') {
-  const options = {};
-  const flags = new Set();
-  for (let i = 0; i < args.length; i++) {
-    const option = args[i];
-    if (['--version', '--platforms', '--resume'].includes(option)) {
-      const key = option.slice(2);
-      if (!args[i + 1] || args[i + 1].startsWith('--') || options[key] !== undefined) throw new Error(`Invalid or repeated ${option}`);
-      options[key] = args[++i];
-    } else if (option === '--dry-run' && !flags.has(option)) flags.add(option);
-    else throw new Error('release [--dry-run] [--version X.Y.Z] [--platforms mac,windows,linux] [--resume <artifact-dir>]');
+async function releaseInventory(output, selected, manifest, checkpoint) {
+  const names = platformAssetNames(manifest, version, selected);
+  const assets = await Promise.all(names.map(async name => ({
+    name, size: (await stat(path.join(output, name))).size, digest: await fileDigest(path.join(output, name)),
+  })));
+  validateArtifactInventory(assets, await readFile(path.join(output, 'SHA256SUMS.txt'), 'utf8'), checkpoint);
+  return assets;
+}
+
+async function verifyFeeds(output, selected, manifest, env) {
+  await validateManifest(manifest, output);
+  const payloads = [...new Set(Object.values(manifest.platforms).map(value => path.join(output, value.url.slice(base.length + 1))))];
+  if (payloads.length) console.log(verifier('verify-tauri', version, payloads, { publicOnly: true, env }));
+  for (const platform of selected) {
+    const target = updateTargets[platform];
+    if (target) await verifyMygoFeed({ target, version, directory: output, base, env });
   }
-  const resume = options.resume !== undefined;
-  const dryRun = flags.has('--dry-run');
-  if (resume && dryRun) throw new Error('--resume cannot be combined with --dry-run');
+}
+
+async function finalize(output, selected, notes, env) {
+  const manifest = { version, notes: notes.en, notes_zh_cn: notes.zh, pub_date: new Date().toISOString(), platforms: {} };
+  for (const platform of selected) {
+    const target = updateTargets[platform];
+    if (!target) continue;
+    const fragment = await json(path.join(output, fragmentName(target)));
+    if (fragment.version !== version) throw new Error('Mixed release versions');
+    Object.assign(manifest.platforms, fragment.platforms);
+    await signMygoFeed({ target, version, directory: output, base, notes, env });
+  }
+  await verifyFeeds(output, selected, manifest, env);
+  await writeFile(path.join(output, 'release-notes.md'), notes.body);
+  if (selected.includes('mac')) await cask(output);
+  await writeJson(path.join(output, 'latest.json'), manifest);
+  const sums = await Promise.all(platformAssetNames(manifest, version, selected).filter(name => name !== 'SHA256SUMS.txt').map(async name =>
+    `${(await fileDigest(path.join(output, name))).slice(7)}  ${name}`));
+  await writeFile(path.join(output, 'SHA256SUMS.txt'), sums.join('\n') + '\n');
+  return manifest;
+}
+
+const releaseBase = () => `https://github.com/${repo}/releases/download/v${version}`;
+
+async function localRehearsal(output, keyDirectory, selected) {
+  if (selected.includes('linux')) throw new Error('Offline desktop rehearsal supports mac and windows. Linux uses native Actions runners.');
+  if (!path.isAbsolute(output) || !path.isAbsolute(keyDirectory)) throw new Error('Use absolute output and test-key directories.');
+  await requireEmptyStage(output);
+  const env = { ...buildOnlyEnv(), ...await rehearsalSigning(keyDirectory), ARC_BUILD_VERSION: version };
+  console.log(verifier('check-keys', version, [], { env }) || 'Rehearsal public and private keys match.');
+  const sourceSha = git('rev-parse', 'HEAD');
+  if (git('status', '--porcelain')) throw new Error('Rehearsal requires clean, committed source.');
+  const parent = path.join(output, '.packages');
+  for (const platform of selected) {
+    const target = updateTargets[platform];
+    await runCommand(process.execPath, ['tooling/desktop-build.mjs', '--target', target.replace('-', '/'), '--output', parent, '--adhoc'],
+      { env: buildOnlyEnv(env) });
+    await collectDesktop({ target, version, input: path.join(parent, target), output });
+    await signTransition({ target, version, output, base, env });
+  }
+  const notes = { en: 'Local updater rehearsal.', zh: '本地更新演练。', body: 'Local updater rehearsal.\n\n<!-- lang:zh-CN -->\n\n本地更新演练。\n' };
+  const manifest = await finalize(output, selected, notes, env);
+  const assets = await releaseInventory(output, selected, manifest);
+  if (git('status', '--porcelain') || git('rev-parse', 'HEAD') !== sourceSha) throw new Error('Source changed during rehearsal.');
+  await writeJson(path.join(output, 'rehearsal.json'), { sourceSha, version, platforms: selected, assets });
+  console.log(`Verified local release rehearsal: ${output}`);
+}
+
+async function coordinateRelease(options, { resume, dryRun }) {
+  requireMainCheckout();
   const saved = resume ? await json(path.join(options.resume, 'release-state.json')) : undefined;
   const requested = options.version === undefined ? saved?.version : stableVersion(options.version);
   const platforms = releasePlatforms(options.platforms ?? saved?.platforms?.join(','));
   const mac = platforms.includes('mac');
   const windows = platforms.includes('windows');
   const linux = platforms.includes('linux');
-  execFileSync('npm', ['run', 'test:extended'], { stdio: 'inherit' });
+  if (!resume) execFileSync('npm', ['run', 'test:extended'], { env: testEnvironment(buildOnlyEnv()), stdio: 'inherit' });
   await mkdir('release-artifacts', { recursive: true });
   const timingDir = await mkdtemp(path.join('release-artifacts', '.timings-'));
   const timingFile = path.resolve(timingDir, 'stages.jsonl');
@@ -127,7 +164,6 @@ if (mode === 'release') {
     }
     return workerCleanup;
   };
-  const run = (script, ...args) => execFileSync(process.execPath, [script, ...args], { env, stdio: 'inherit' });
   const assertSource = () => {
     if (git('status', '--porcelain') || git('rev-parse', 'HEAD') !== sourceSha) throw new Error('Source changed during release; refusing to tag or publish');
     const tag = `v${version}`;
@@ -144,7 +180,8 @@ if (mode === 'release') {
   try {
     await timer.run('checks', async () => {
       if (!resume && (mac || windows) && (process.platform !== 'darwin' || process.arch !== 'arm64')) throw new Error('macOS releases require a local build and signing on an Apple Silicon Mac');
-      env = !resume && (mac || windows) ? releaseSigningEnv(true) : { ...process.env };
+      env = { ...process.env };
+      if (!resume && (mac || windows)) verifier('check-keys', requested || version, [], { env });
       env.ARC_RELEASE_TIMINGS_FILE = timingFile;
       if (!resume && mac) macosSigningIdentity(env, { release: true });
       sourceSha = git('rev-parse', 'HEAD');
@@ -182,7 +219,7 @@ if (mode === 'release') {
       }
       env.ARC_BUILD_VERSION = version;
       process.env.ARC_BUILD_VERSION = version;
-      base = `https://github.com/${repo}/releases/download/v${version}`;
+      base = releaseBase();
       console.log(`Release v${version} from ${sourceSha}; platforms: ${platforms.join(',')}; no version commit`);
     });
     if (resume) {
@@ -190,10 +227,10 @@ if (mode === 'release') {
     } else {
       output = path.resolve(await mkdtemp(path.join('release-artifacts', `v${version}-`)));
       console.log(`Release artifacts: ${output}`);
-      const tests = async () => timer.run('tests', () => runCommand('npm', ['test'], { env: testEnvironment(env) }));
+      const tests = async () => timer.run('tests', () => runCommand('npm', ['test'], { env: testEnvironment(buildOnlyEnv(env)) }));
       await timer.run('build/test critical path', async () => {
         await tests();
-        if (mac || windows) await timer.run('UI smoke', () => runCommand('npm', ['run', 'accept:ui'], { env: testEnvironment(env) }));
+        if (mac || windows) await timer.run('UI smoke', () => runCommand('npm', ['run', 'accept:ui'], { env: testEnvironment(buildOnlyEnv(env)) }));
         await timer.run('platform critical path', () => parallelPlatforms([
           ...(mac ? [() => timer.run('macOS wall', () => buildMac({ sourceSha, output, env, timer }))] : []),
           ...(windows ? [() => timer.run('Windows wall', () => buildWindows({ sourceSha, version, output, env, timer,
@@ -204,14 +241,11 @@ if (mode === 'release') {
       assertSource();
     }
     await timer.run('verification', async () => {
-      const selected = platforms;
-      if (!resume) run('tooling/release.mjs', 'finalize', output);
-      const manifest = await json(path.join(output, 'latest.json'));
-      await validateManifest(manifest, output);
-      const names = platformAssetNames(manifest, version, selected);
-      const assets = await Promise.all(names.map(async name => ({ name, size: (await stat(path.join(output, name))).size, digest: await fileDigest(path.join(output, name)) })));
-      // Checksums must describe exactly the payloads about to be uploaded.
-      validateArtifactInventory(assets, await readFile(path.join(output, 'SHA256SUMS.txt'), 'utf8'), resume ? state.assets : undefined);
+      const manifest = resume
+        ? await json(path.join(output, 'latest.json'))
+        : await finalize(output, platforms, await readReleaseNotes(version), env);
+      if (resume) await verifyFeeds(output, platforms, manifest, env);
+      const assets = await releaseInventory(output, platforms, manifest, resume ? state.assets : undefined);
       if (!resume && !dryRun) {
         state = { schema: 1, version, sourceSha, platforms, verified: true, assets };
         await saveState();
@@ -272,15 +306,16 @@ if (mode === 'release') {
       });
       else timer.skip('publish');
       await timer.run('readback', async () => {
-        await transferRetry('public latest.json', async () => {
+        const names = ['latest.json', ...platforms.filter(platform => updateTargets[platform]).map(platform => feedName(updateTargets[platform]))];
+        await boundedMap(names, name => transferRetry(`public ${name}`, async () => {
           const current = await releaseById(repo, state.releaseId);
           if (!current || current.draft || current.id !== state.releaseId || current.tag_name !== tag) throw new Error('Release is not public');
-          const response = await fetch(`https://github.com/${repo}/releases/latest/download/latest.json`, { signal: AbortSignal.timeout(60_000), cache: 'no-store' });
-          if (!response.ok) throw new Error(`Public latest.json returned HTTP ${response.status}`);
+          const response = await fetch(`https://github.com/${repo}/releases/latest/download/${name}`, { signal: AbortSignal.timeout(60_000), cache: 'no-store' });
+          if (!response.ok) throw new Error(`Public ${name} returned HTTP ${response.status}`);
           const bytes = Buffer.from(await response.arrayBuffer());
-          const expected = state.assets.find(asset => asset.name === 'latest.json');
-          if (bytes.length !== expected.size || `sha256:${hash(bytes)}` !== expected.digest) throw new Error('Public latest.json does not match this release');
-        });
+          const expected = state.assets.find(asset => asset.name === name);
+          if (bytes.length !== expected.size || `sha256:${hash(bytes)}` !== expected.digest) throw new Error(`Public ${name} does not match this release`);
+        }));
         state.complete = true;
         await saveState();
       });
@@ -297,64 +332,56 @@ if (mode === 'release') {
     console.table(rows);
     console.log(`Overall wall: ${((Date.now() - startedAt) / 1000).toFixed(1)}s (nested stages overlap)`);
   }
+}
+
+if (mode === 'release') {
+  const options = {};
+  const flags = new Set();
+  for (let i = 0; i < args.length; i++) {
+    const option = args[i];
+    if (['--version', '--platforms', '--resume', '--local-output', '--test-keys'].includes(option)) {
+      const key = option.slice(2);
+      if (!args[i + 1] || args[i + 1].startsWith('--') || options[key] !== undefined) throw new Error(`Invalid or repeated ${option}`);
+      options[key] = args[++i];
+    } else if (option === '--dry-run' && !flags.has(option)) flags.add(option);
+    else throw new Error('release [--dry-run] [--version X.Y.Z] [--platforms mac,windows,linux] [--resume DIR] [--local-output DIR --test-keys DIR]');
+  }
+  const resume = options.resume !== undefined;
+  const dryRun = flags.has('--dry-run');
+  if (resume && dryRun) throw new Error('--resume cannot be combined with --dry-run');
+  if (options['local-output'] || options['test-keys']) {
+    if (!dryRun || !options['local-output'] || !options['test-keys'] || !options.version) {
+      throw new Error('Local rehearsal requires --dry-run --version X.Y.Z --local-output DIR --test-keys DIR.');
+    }
+    version = stableVersion(options.version);
+    base = releaseBase();
+    await localRehearsal(options['local-output'], options['test-keys'], releasePlatforms(options.platforms));
+  } else {
+    await coordinateRelease(options, { resume, dryRun });
+  }
 } else if (mode === 'stage') {
-  const [target, input, output] = args;
-  if (!['darwin-aarch64','windows-x86_64'].includes(target) || !input || !output) throw new Error('stage <darwin-aarch64|windows-x86_64> <bundle-dir> <output-dir>');
-  if (target === 'darwin-aarch64') {
-    if (process.platform !== 'darwin') throw new Error('macOS artifacts must have their signatures verified on a Mac before staging');
-    const app = path.join(input, 'macos/Agent Remote Control.app');
-    verifyMacosReleaseSignature(app, 'com.whzxc.agent-remote-control');
-    execFileSync(process.execPath, ['tooling/check-package.mjs', app], { stdio: 'inherit' });
-  }
-  await mkdir(output,{recursive:true});
-  if ((await readdir(output)).length) throw new Error('Stage directory must be empty; use a fresh directory');
-  const productName = (await json('desktop/tauri.conf.json')).productName;
-  const candidates = (await files(input)).filter(f => {
-    const name = path.basename(f);
-    return target === 'darwin-aarch64'
-      ? [`agent-remote-control_${version}_aarch64.dmg`, `${productName}.app.tar.gz`, `${productName}.app.tar.gz.sig`].includes(name)
-      : name.startsWith(`${productName}_${version}_`) && /\.exe(?:\.sig)?$/.test(name);
-  });
-  for (const file of candidates) {
-    let name = path.basename(file).replace(/^Agent Remote Control/, 'agent-remote-control').replaceAll(' ','.');
-    if (target === 'darwin-aarch64' && name.includes('.app.tar.gz')) name = name.replace('.app.tar.gz', `_${version}_aarch64.app.tar.gz`);
-    await copyFile(file,path.join(output,name));
-  }
-  const staged = await files(output);
-  const payloads = staged.filter(f => target === 'darwin-aarch64' ? f.endsWith('.app.tar.gz') : /\.exe$/.test(f));
-  if (payloads.length !== 1) throw new Error('Missing/duplicate updater bundles');
-  if (target === 'darwin-aarch64' && staged.filter(f=>f.endsWith('_aarch64.dmg')).length !== 1) throw new Error('Missing Apple Silicon DMG');
-  const platforms = {};
-  for (const file of payloads) {
-    const value = { signature:(await readFile(file+'.sig','utf8')).trim(), url:`${base}/${path.basename(file)}` };
-    const keys = target === 'darwin-aarch64' ? ['darwin-aarch64'] : ['windows-x86_64','windows-x86_64-nsis'];
-    for (const key of keys) platforms[key] = value;
-  }
-  await writeJson(path.join(output,`${target}.json`), { version, platforms });
+  const [legacyTarget, input, output] = args;
+  const target = { 'darwin-aarch64': 'darwin-arm64', 'windows-x86_64': 'windows-amd64' }[legacyTarget] || legacyTarget;
+  if (!Object.values(updateTargets).includes(target) || !input || !output || args.length !== 3) throw new Error('stage <darwin-arm64|windows-amd64> <platform-dir> <output-dir>');
+  if (target === 'darwin-arm64') executePackageCheck(input);
+  await requireEmptyStage(output);
+  await collectDesktop({ target, version, input: path.resolve(input), output: path.resolve(output) });
+  await signTransition({ target, version, output, base });
   console.log(`Staged ${target} artifacts for metadata generation.`);
 } else if (mode === 'finalize') {
-  const [dir] = args;
-  if (!dir) throw new Error('finalize <artifact-dir>');
-  const entries = await readdir(dir);
-  const fragments = entries.filter(name => ['darwin-aarch64.json', 'windows-x86_64.json'].includes(name));
-  const linux = entries.filter(name => name === `agent-remote-control-v${version}-linux-x86_64.tar.gz` || name === `agent-remote-control-v${version}-linux-aarch64.tar.gz`);
-  if (!fragments.length && !linux.length) throw new Error('No platform artifacts');
-  const notes = await readReleaseNotes(version);
-  const manifest = { version, notes: notes.en, notes_zh_cn: notes.zh, pub_date: new Date().toISOString(), platforms: {} };
-  for (const name of fragments) {
-    const fragment = await json(path.join(dir, name));
-    if (fragment.version !== version) throw new Error('Mixed release versions');
-    Object.assign(manifest.platforms, fragment.platforms);
-  }
-  await validateManifest(manifest, dir);
-  const payloads = [...new Set(Object.values(manifest.platforms).map(value => path.join(dir, value.url.slice(base.length + 1))))];
-  if (payloads.length) verifySignatures(payloads);
-  await writeFile(path.join(dir, 'release-notes.md'), notes.body);
-  if (manifest.platforms['darwin-aarch64']) await cask(dir);
-  await writeJson(path.join(dir, 'latest.json'), manifest);
-  const assets = (await files(dir)).filter(f => /\.(dmg|exe|gz|sig)$/.test(f) || ['agent-remote-control.rb', 'latest.json', 'release-notes.md', 'install-agent-remote-control.sh'].includes(path.basename(f)));
-  const sums = new Map();
-  for (const file of assets) sums.set(path.basename(file), hash(await readFile(file)));
-  await writeFile(path.join(dir, 'SHA256SUMS.txt'), [...sums].sort(([a], [b]) => a.localeCompare(b)).map(([name, digest]) => `${digest}  ${name}`).join('\n') + '\n');
+  const [output] = args;
+  if (!output || args.length !== 1) throw new Error('finalize <artifact-dir>');
+  const entries = await readdir(output);
+  const selected = Object.entries(updateTargets).filter(([, target]) => entries.includes(fragmentName(target))).map(([platform]) => platform);
+  if (entries.includes(`agent-remote-control-v${version}-linux-x86_64.tar.gz`)) selected.push('linux');
+  if (!selected.length) throw new Error('No platform artifacts');
+  const manifest = await finalize(output, selected, await readReleaseNotes(version));
+  await releaseInventory(output, selected, manifest);
   console.log('Release metadata generated for staged platforms.');
 } else throw new Error('Expected release, stage, or finalize');
+
+function executePackageCheck(directory) {
+  if (process.platform !== 'darwin') throw new Error('macOS artifacts must be verified on a Mac before staging');
+  execFileSync(process.execPath, ['tooling/check-package.mjs', path.join(directory, 'Agent Remote Control.app')],
+    { env: buildOnlyEnv(), stdio: 'inherit' });
+}

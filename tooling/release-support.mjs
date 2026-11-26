@@ -139,6 +139,12 @@ export function platformAssetNames(manifest, version, platforms) {
     const name = new URL(manifest.platforms[key].url).pathname.split('/').at(-1);
     names.add(name); names.add(name + '.sig');
   }
+  for (const [platform, target] of [['mac', 'darwin-arm64'], ['windows', 'windows-amd64']]) {
+    if (platforms.includes(platform)) {
+      names.add(`agent-remote-control-${version}-${target}.tar.gz`);
+      names.add(`update-${target}.json`);
+    }
+  }
   if (platforms.includes('mac')) {
     names.add(`agent-remote-control_${version}_aarch64.dmg`);
     names.add('agent-remote-control.rb');

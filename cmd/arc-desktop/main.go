@@ -65,6 +65,9 @@ func main() {
 }
 
 func runDesktop(service *DesktopService) error {
+	if err := initUpdateFixture(); err != nil {
+		return err
+	}
 	args := os.Args[1:]
 	for i, argument := range args {
 		if argument == "--state-dir" && i+1 < len(args) {
@@ -128,7 +131,7 @@ func runDesktop(service *DesktopService) error {
 		}
 	})
 	mygo.App.OnActivate(func(visible bool) {
-		if service.opened && !visible {
+		if service.opened && !visible && !isUpdateFixture() {
 			service.show(nil)
 		}
 	})
@@ -150,7 +153,7 @@ func runDesktop(service *DesktopService) error {
 		}
 		service.installSources()
 		window := service.ensureWindow()
-		if !service.opened {
+		if !service.opened && !isUpdateFixture() {
 			service.opened = true
 			if development {
 				window.ShowInactive()

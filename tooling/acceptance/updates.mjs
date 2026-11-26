@@ -1,14 +1,15 @@
 import {toolResult} from '../mcp-result.mjs';
 import { requireMainCheckout } from '../coding-lane.mjs';
-requireMainCheckout();
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import {createServer} from 'node:http';
 import {execFile, spawn} from 'node:child_process';
 import {promisify} from 'node:util';
 import {mkdir, mkdtemp, readFile, writeFile, open, realpath} from 'node:fs/promises';
 import path from 'node:path';
 import { build as buildClient } from 'vite';
+import { developmentConfig, developmentEnvironment } from '../dev-identity.mjs';
+import { rehearsalSigning, verifier } from '../release-signing.mjs';
 
 // Real signed updater bytes, a private HTTP endpoint, and a disposable app/state.
 // No request in this runner targets the user's installed ARC state directory.
@@ -16,14 +17,20 @@ if (process.platform !== 'darwin' || process.arch !== 'arm64') throw new Error('
 const execute = promisify(execFile);
 const root = path.resolve(import.meta.dirname, '../..');
 process.chdir(root);
-const out = path.join(root, 'output/acceptance', `updates-${new Date().toISOString().replaceAll(':', '-')}`);
-await mkdir(out, {recursive:true});
-await mkdir(path.join(root, 'tmp'), { recursive: true });
-const temporary = await realpath(await mkdtemp(path.join(root, 'tmp', 'arc-update-acceptance-')));
-const stateDir = path.join(temporary, 'state');
-const target = path.join(temporary, 'ARC Update Acceptance.app');
+const [flag, directory] = process.argv.slice(2);
+if (flag && (flag !== '--directory' || !directory || !path.isAbsolute(directory) || process.argv.length !== 4)) {
+  throw new Error('Usage: npm run accept:updates [--directory /absolute/evidence]');
+}
+if (!directory) requireMainCheckout();
+const parent = directory || path.join(root, 'output/acceptance');
+await mkdir(parent, { recursive: true });
+const out = await realpath(await mkdtemp(path.join(parent, 'updates-')));
+const temporary = await realpath(await mkdtemp(path.join(out, 'arc-godev-home-')));
+const environment = developmentEnvironment(temporary, { ...process.env, ARC_DEV_INSTANCE_ID: randomBytes(6).toString('hex') });
+const stateDir = environment.ARC_STATE_DIR;
+const identity = developmentConfig(environment);
+const target = path.join(temporary, `${identity.productName}.app`);
 const candidate = path.join(temporary, 'Candidate.app');
-const environment = {...process.env, ARC_STATE_DIR:stateDir};
 const agent = 'update-fixture';
 const releaseTask = path.join(temporary, 'release-task');
 let taskId;
@@ -56,14 +63,14 @@ input.on('line',line=>{
 `);
 await writeFile(path.join(stateDir,'agents/manifests.json'),JSON.stringify([{id:agent,command:process.execPath,args:[agentScript],versionArgs:[],protocol:'acp-v1'}]));
 await writeFile(path.join(stateDir,'task-settings.json'),JSON.stringify({autoOpenCodex:false}));
-const manifest = { version: '0.0.1', notes: 'Direct update acceptance', platforms: {} };
+const manifest = { version: '0.0.1', notes: 'Direct update acceptance', date: new Date().toISOString() };
 const name = 'acceptance.app.tar.gz';
 let payload;
 let expected;
 let checkError = false, assetError = false, child;
 let observed, instance, nextId = 0, waiting;
 const commands = [], results = new Map();
-const clientDirectory = path.join(out, 'client');
+const clientDirectory = path.join(temporary, 'frontend');
 const transfers = [], report = {cases:[], temporary, stateDir, version:manifest.version};
 const sleep = ms => new Promise(resolve=>setTimeout(resolve,ms));
 const server = createServer(async (req,res)=>{
@@ -82,7 +89,7 @@ const server = createServer(async (req,res)=>{
     if (req.url === '/error') (report.runtimeErrors ??= []).push(value.error);
     res.end('{}');return;
   }
-  if(req.url === '/latest.json') {
+  if(req.url === '/update-darwin-arm64.json') {
     res.setHeader('Content-Type','application/json');
     res.writeHead(checkError ? 503 : 200);
     res.end(checkError ? '{"error":"fixture unavailable"}' : JSON.stringify(manifest));
@@ -103,13 +110,9 @@ await buildClient({ configFile: false, logLevel: 'error', define: {'process.env.
 await writeFile(path.join(clientDirectory,'index.html'), '<script type="module" src="./client.js"></script>');
 
 
-const config = path.join(out, 'updater-config.json');
-const mainWindow = JSON.parse(await readFile('desktop/tauri.conf.json','utf8')).app.windows[0];
-await writeFile(config, JSON.stringify({identifier:'com.whzxc.agent-remote-control',
-  build:{frontendDist:clientDirectory},
-  app:{windows:[{...mainWindow,url:'index.html',incognito:true,visible:false,focus:false,title:'ARC Update Acceptance'}],
-    security:{csp:`default-src 'self'; connect-src ipc: http://ipc.localhost ${endpoint}; style-src 'self' 'unsafe-inline'`}},
-  plugins:{updater:{endpoints:[endpoint+'/latest.json'],dangerousInsecureTransportProtocol:true}}}));
+const keys = path.join(out, 'test-keys');
+await execute('go', ['run', './tooling/verifier', 'generate-rehearsal-keys', keys]);
+const signing = { ...process.env, ...await rehearsalSigning(keys) };
 function submit(action) {
   const command={id:++nextId,action};
   if(waiting){waiting.end(JSON.stringify(command));waiting=undefined;}else commands.push(command);
@@ -169,15 +172,22 @@ async function regression(name, run) {
 }
 async function build(version) {
   console.log('START isolated debug build '+version);
-  const result=await command(['npm','run','desktop:build','--','--debug','--features','tauri-plugin-single-instance/semver','--config',config],{cwd:root,env:{...process.env,ARC_BUILD_VERSION:version},timeout:600_000});
+  const output = path.join(out, version);
+  const result = await command([process.execPath, 'tooling/desktop-build.mjs', '--development', '--no-image', '--update-fixture', temporary, '--output', output], {
+    cwd: root, env: { ...process.env, ARC_DEV_INSTANCE_ID: environment.ARC_DEV_INSTANCE_ID, ARC_BUILD_VERSION: version,
+      ARC_MYGO_UPDATE_BASE: endpoint, ARC_MYGO_UPDATE_PUBLIC_KEY: signing.ARC_MYGO_UPDATE_PUBLIC_KEY }, timeout: 600_000,
+  });
   await writeFile(path.join(out,`build-${version}.log`),result.stdout+'\n'+result.stderr);
-  return path.join(root,'target/aarch64-apple-darwin/debug/bundle/macos/Agent Remote Control.app');
+  return path.join(output, 'darwin-arm64', identity.productName + '.app');
 }
 try {
   const nextApp = await build('0.0.1');
-  payload = await readFile(nextApp + '.tar.gz');
-  const signature = (await readFile(nextApp + '.tar.gz.sig', 'utf8')).trim();
-  manifest.platforms['darwin-aarch64'] = { url: endpoint + '/' + name, signature };
+  const archive = path.join(out, name);
+  await command(['tar', '-czf', archive, '-C', path.dirname(nextApp), path.basename(nextApp)],
+    { env: { ...environment, COPYFILE_DISABLE: '1' } });
+  payload = await readFile(archive);
+  Object.assign(manifest, { url: endpoint + '/' + name, size: payload.length,
+    signature: verifier('sign-mygo', manifest.version, [archive], { env: signing }) });
   const hash = async file => createHash('sha256').update(await readFile(file)).digest('hex');
   expected = { desktop: await hash(path.join(nextApp, 'Contents/MacOS/agent-remote-control-desktop')), core: await hash(path.join(nextApp, 'Contents/Resources/bin/arc')) };
   const app=await build('0.0.0');
@@ -245,7 +255,14 @@ try {
 finally {
   report.transfers=transfers;
   if(taskId){try{await writeFile(releaseTask,'finish');await until(task,value=>['completed','failed','cancelled'].includes(value.status),5000);}catch{}}
-  if(child){try{await quit();}catch{}}
+  if (child) {
+    try { await quit(); } catch {}
+    if (child.exitCode === null && child.signalCode === null) {
+      const stopped = new Promise(resolve => child.once('exit', resolve));
+      child.kill('SIGTERM');
+      await stopped;
+    }
+  }
   server.closeAllConnections();await new Promise(resolve=>server.close(resolve));
   await writeFile(path.join(out,'report.json'),JSON.stringify(report,null,2)+'\n');
   console.log(JSON.stringify({ok:report.ok,directory:out,cases:report.cases,error:report.error}));

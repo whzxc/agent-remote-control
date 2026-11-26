@@ -1,94 +1,129 @@
-import { requireMainCheckout } from './coding-lane.mjs';
-requireMainCheckout();
 import { enterHeavyBuild } from './heavy-build.mjs';
+import { existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { cp, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { buildEnv } from './build-env.mjs';
-import { releaseSigningEnv } from './release-signing.mjs';
+import path from 'node:path';
+import { parseArgs } from 'node:util';
+import { buildEnv, goTarget, versionSymbol } from './build-env.mjs';
 import { preflightMacosSigning } from './macos-signing.mjs';
 import { compileIcon, requireXcode } from './macos-icons.mjs';
 import { stageTimer } from './release-support.mjs';
 import { buildNative } from './build-native.mjs';
-import { retainBuildArtifacts } from './retain-build-artifacts.mjs';
-const root = new URL('../', import.meta.url);
-const args = [fileURLToPath(new URL('node_modules/@tauri-apps/cli/tauri.js', root)), 'build'];
-if (process.platform === 'win32') args.push('--config', 'tauri.windows.conf.json');
-const unsigned = process.argv.includes('--unsigned-updater');
-if (unsigned && process.platform !== 'win32') throw new Error('--unsigned-updater is only supported on the Windows worker');
-const signing = unsigned ? {} : releaseSigningEnv(process.argv.includes('--release'));
-if (signing.TAURI_SIGNING_PRIVATE_KEY) args.push('--config', JSON.stringify({ bundle: { createUpdaterArtifacts: true } }));
-const buildArgs = process.argv.slice(2).filter(a => !['--release', '--unsigned-updater'].includes(a));
-const targetAt = buildArgs.findIndex(a => a === '--target' || a.startsWith('--target='));
-let target = targetAt < 0 ? undefined : buildArgs[targetAt] === '--target' ? buildArgs[targetAt + 1] : buildArgs[targetAt].slice('--target='.length);
-if (targetAt >= 0 && !target) throw new Error('--target requires a target triple');
-if (process.platform === 'darwin' && target && target !== 'aarch64-apple-darwin') throw new Error('macOS packages support only aarch64-apple-darwin');
-if (!target) {
-  target = process.platform === 'darwin' ? 'aarch64-apple-darwin' : process.platform === 'win32' ? 'x86_64-pc-windows-msvc' : undefined;
-  if (target) buildArgs.push('--target', target);
-}
-args.push(...buildArgs);
-const debug = buildArgs.some(a => a === '--debug' || a === '-d');
-const profile = debug ? 'debug' : 'release';
-const env = buildEnv(!debug);
-// Local-install candidates retain incremental dev builds without shipping assertions.
-if (debug) {
-  env.CARGO_PROFILE_DEV_OPT_LEVEL = '1';
-  env.CARGO_PROFILE_DEV_DEBUG_ASSERTIONS = 'false';
-}
-if (unsigned) for (const key of Object.keys(env)) if (/^(TAURI_SIGNING_|CSC_|WIN_CSC_)/.test(key)) delete env[key];
-args.push('--config', JSON.stringify({ version: env.ARC_BUILD_VERSION }));
-for (const key of ['TAURI_SIGNING_PRIVATE_KEY', 'TAURI_SIGNING_PRIVATE_KEY_PASSWORD']) {
-  if (signing[key] !== undefined) env[key] = signing[key];
-}
-let identity;
-if (process.platform === 'darwin') {
-  // Core staging signs even when Tauri bundling is disabled.
-  try {
-    identity = preflightMacosSigning(env);
-  } catch (error) {
-    console.error('macOS signing preflight failed. Have the control source run the ARC local install refresh (arc-local-install-refresh) from Terminal.');
-    console.error(error.message);
-    process.exit(1);
+import { prepareDesktop } from './prepare-desktop.mjs';
+import { finishMacosApp } from './macos-dev-app.mjs';
+import { desktopIdentifier, desktopName, desktopScheme, developmentConfig, developmentEnvironment } from './dev-identity.mjs';
+
+const root = fileURLToPath(new URL('../', import.meta.url));
+
+export async function buildDesktop({ target, output, development = false, release = false, noImage = false, debug = false, adhoc = false, updateFixture } = {}) {
+  const platform = goTarget(target);
+  if (!['darwin/arm64', 'windows/amd64'].includes(platform.name)) throw new Error('Desktop packages support darwin/arm64 and windows/amd64.');
+  if (platform.os === 'darwin' && process.platform !== 'darwin') throw new Error('macOS bundles require a macOS build host.');
+  const env = buildEnv();
+  const version = env.ARC_BUILD_VERSION;
+  const config = development ? developmentConfig(env) : { identifier: desktopIdentifier, productName: desktopName, scheme: desktopScheme };
+  if (release && (development || adhoc)) throw new Error('A release requires the production identity and certificate.');
+  for (const name of Object.keys(env)) {
+    if (/^(TAURI_SIGNING_|MYGO_UPDATER_PRIVATE_KEY$|ARC_MYGO_UPDATE_PRIVATE_KEY_FILE$|CSC_|WIN_CSC_)/.test(name)) delete env[name];
   }
-}
-enterHeavyBuild();
-for (const key of Object.keys(env)) if (/^(CSC_|WIN_CSC_)/.test(key)) delete env[key];
-if (process.platform === 'darwin') args.push('--config', JSON.stringify({ bundle: { macOS: {
-  signingIdentity: identity, hardenedRuntime: true,
-} } }));
-if (process.platform === 'darwin' && !buildArgs.includes('--no-bundle')) {
-  requireXcode(env);
-  compileIcon(fileURLToPath(new URL('desktop/icons/AgentRemoteControl.icon', root)),
-    fileURLToPath(new URL('target/release-icon/', root)), env);
-  args.push('--config', JSON.stringify({ bundle: { icon: [
-    'icons/icon.png', 'icons/macos/Icon.icns', '../target/release-icon/Assets.car',
-  ] } }));
-}
-const prune = fileURLToPath(new URL('tooling/prune-build-cache.mjs', root));
-execFileSync(process.execPath, [prune, `--keep=target/${target || profile}`], { cwd: fileURLToPath(root), env, stdio: 'inherit' });
-execFileSync(process.execPath, [fileURLToPath(new URL('tooling/prepare-desktop.mjs', root)), ...buildArgs],
-  { cwd: fileURLToPath(root), env, stdio: 'inherit' });
-const timed = (name, operation) => process.env.ARC_RELEASE_TIMINGS_FILE ? stageTimer().run(name, operation) : operation();
-const packageDesktop = async () => {
-  const tauriOptions = { cwd: fileURLToPath(new URL('desktop/', root)), env, stdio: 'inherit' };
-  const common = args.slice(2).filter(value => value !== '--no-bundle');
-  await timed('Rust Desktop/Core build', async () => execFileSync(process.execPath,
-    [args[0], 'build', ...common, '--features', 'core-bin', '--no-bundle'], tauriOptions));
-  await timed('Core staging/sign', () => buildNative({ release: !debug, target, bundled: true, stageOnly: true }));
-  if (!buildArgs.includes('--no-bundle')) await timed(process.platform === 'win32' ? 'NSIS bundle' : 'macOS app bundle/sign', async () => {
-    // Core is already packaged as a resource; keep it out of the installer's root binary list.
-    execFileSync(process.execPath, [args[0], 'bundle', ...common], tauriOptions);
+  delete env.ARC_MYGO_FIXTURE_FRONTEND;
+  if (updateFixture) {
+    developmentEnvironment(updateFixture);
+    const feed = new URL(env.ARC_MYGO_UPDATE_BASE);
+    if (!development || platform.os !== 'darwin' || feed.protocol !== 'http:' || feed.hostname !== '127.0.0.1' || !feed.port) {
+      throw new Error('An updater fixture requires macOS development packaging with a private loopback feed.');
+    }
+    env.GOFLAGS = '-tags=arcfixture';
+    env.ARC_MYGO_FIXTURE_FRONTEND = path.join(updateFixture, 'frontend');
+  }
+  env.ARC_MYGO_DEVELOPMENT = development ? '1' : '0';
+  env.ARC_MYGO_MACOS = platform.os === 'darwin' ? '1' : '0';
+  const key = development && !updateFixture ? '' : (env.ARC_MYGO_UPDATE_PUBLIC_KEY || '').trim();
+  if (key && !/^[A-Za-z0-9+/]{43}=$/.test(key)) throw new Error('ARC_MYGO_UPDATE_PUBLIC_KEY must be a Base64 Ed25519 key.');
+  env.ARC_MYGO_UPDATE_PUBLIC_KEY = key;
+  // MyGo owns its native frontend and package flags. Append ARC's matching
+  // runtime identity and Core version via its supported linker flag input.
+  env.MYGO_LDFLAGS = [
+    `-X ${versionSymbol}=${version}`, `-X main.bundleID=${config.identifier}`,
+    `-X 'main.appName=${config.productName}'`, `-X main.linkScheme=${config.scheme}`,
+    ...(key ? [`-X main.updatePublicKey=${key}`] : []),
+    ...(updateFixture ? [`-X 'main.updateFixtureHome=${updateFixture}'`] : []),
+    ...(env.ARC_MYGO_UPDATE_BASE ? [`-X main.updateBase=${new URL(env.ARC_MYGO_UPDATE_BASE).href}`] : []),
+  ].join(' ');
+  const productionSignature = platform.os === 'darwin' && !development && !adhoc;
+  const identity = productionSignature ? preflightMacosSigning(env) : '-';
+  const timed = (name, operation) => env.ARC_RELEASE_TIMINGS_FILE ? stageTimer().run(name, operation) : operation();
+  const run = (command, args, directory = root) => execFileSync(command, args, { cwd: directory, env, stdio: 'inherit' });
+  const input = path.join(root, 'dist/mygo-input');
+  await rm(input, { recursive: true, force: true });
+  await timed('Frontend and Core', async () => {
+    await prepareDesktop();
+    if (platform.os === 'darwin') requireXcode(env);
+    await buildNative({ release: !debug, target: platform.name, directory: path.join(input, 'bin'), pack: true, identifier: config.identifier });
   });
-  if (process.platform === 'darwin' && !buildArgs.includes('--no-bundle')) {
-    execFileSync(process.execPath, [fileURLToPath(new URL('tooling/check-package.mjs', root)),
-      `target/aarch64-apple-darwin/${profile}/bundle/macos/Agent Remote Control.app`],
-    { cwd: fileURLToPath(root), env, stdio: 'inherit' });
-    await timed('macOS DMG', async () => execFileSync('uv', ['run', '--script', fileURLToPath(new URL('tooling/build-dmg.py', root)),
-      profile], { cwd: fileURLToPath(root), env, stdio: 'inherit' }));
+  if (platform.os === 'darwin') {
+    const icon = path.join(root, 'desktop/icons/AgentRemoteControl.icon');
+    let source = icon;
+    if (development) {
+      source = path.join(input, 'Icon-dev.icon');
+      await cp(icon, source, { recursive: true });
+      const file = path.join(source, 'icon.json');
+      const design = JSON.parse(await readFile(file, 'utf8'));
+      design['fill-specializations'][0].value = { solid: 'srgb:0.87843,0.94902,0.99216,1.00000' };
+      await writeFile(file, JSON.stringify(design));
+    }
+    compileIcon(source, path.join(input, 'icon'), env);
   }
-  execFileSync(process.execPath, [prune, `--keep=target/${target || profile}`],
-    { cwd: fileURLToPath(root), env, stdio: 'inherit' });
-};
-if (process.env.ARC_RELEASE_TIMINGS_FILE) await stageTimer().run('Rust Desktop build/sign', packageDesktop);
-else await packageDesktop();
-await retainBuildArtifacts(fileURLToPath(root), true);
+  const parent = path.resolve(output || path.join(root, 'dist/desktop', development ? 'development' : version));
+  await mkdir(parent, { recursive: true });
+  const work = await mkdtemp(path.join(parent, '.build-'));
+  const name = `${platform.os}-${platform.arch}`;
+  try {
+    await timed('MyGo package', async () => run(process.execPath, [path.join(root, 'node_modules/mygo-cli/bin/mygo.js'), 'build',
+      '-platform', platform.name, '-o', work, '-skip-build-command', '-skip-dmg', '-skip-installer', '-skip-notarize', '-sign', '-',
+      ...(debug || development ? ['-debug'] : [])]));
+    const stage = path.join(work, name);
+    if (platform.os === 'darwin') {
+      const app = await finishMacosApp(stage, config, identity, env, path.join(input, 'icon/Icon.icns'));
+      const verification = productionSignature ? [] : ['--adhoc'];
+      run(process.execPath, [path.join(root, 'tooling/check-package.mjs'), app, ...verification]);
+      if (!noImage) await timed('macOS DMG', async () => run('uv', ['run', '--script', path.join(root, 'tooling/build-dmg.py'), app,
+        path.join(stage, `agent-remote-control_${version}_aarch64.dmg`)]));
+    } else if (!noImage) {
+      const installedNSIS = process.platform === 'win32' && process.env['ProgramFiles(x86)']
+        ? path.join(process.env['ProgramFiles(x86)'], 'NSIS/makensis.exe') : '';
+      const makensis = env.ARC_MAKENSIS || (installedNSIS && existsSync(installedNSIS) ? installedNSIS : 'makensis');
+      await timed('Windows NSIS installer', async () => run(makensis, [
+        `-DARC_VERSION=${version}`, `-DARC_PAYLOAD=${stage}`,
+        `-DARC_OUTPUT=${path.join(work, `agent-remote-control_${version}_x64-setup.exe`)}`,
+        path.join(root, 'tooling/windows-installer/installer.nsi'),
+      ]));
+      await rename(path.join(work, `agent-remote-control_${version}_x64-setup.exe`), path.join(stage, `agent-remote-control_${version}_x64-setup.exe`));
+    }
+    const destination = path.join(parent, name);
+    const previous = path.join(work, 'previous');
+    try { await rename(destination, previous); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+    try { await rename(stage, destination); }
+    catch (error) {
+      try { await rename(previous, destination); }
+      catch (rollback) { if (rollback.code !== 'ENOENT') throw rollback; }
+      throw error;
+    }
+    console.log(`Desktop package: ${destination}`);
+    return destination;
+  } finally {
+    await rm(work, { recursive: true, force: true });
+  }
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  enterHeavyBuild();
+  const { values } = parseArgs({ options: {
+    target: { type: 'string' }, output: { type: 'string' }, release: { type: 'boolean' }, adhoc: { type: 'boolean' },
+    development: { type: 'boolean' }, 'update-fixture': { type: 'string' }, debug: { type: 'boolean', short: 'd' },
+    'no-image': { type: 'boolean' }, 'no-bundle': { type: 'boolean' },
+  } });
+  await buildDesktop({ ...values, updateFixture: values['update-fixture'], noImage: values['no-image'] || values['no-bundle'] || values.development });
+}

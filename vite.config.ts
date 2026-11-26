@@ -8,7 +8,7 @@ import { request as httpRequest } from 'node:http';
 import path from 'node:path';
 import { stateDir } from './tooling/dev-state.mjs';
 import { requireMainCheckout } from './tooling/coding-lane.mjs';
-import { developmentPort } from './tooling/dev-identity.mjs';
+import { developmentConfig, developmentEnvironment, developmentPort } from './tooling/dev-identity.mjs';
 
 const stateRoot = stateDir;
 const packageVersion = buildVersion();
@@ -24,7 +24,14 @@ export default defineConfig(({ mode }) => ({
     name: 'connector-native-preview',
     configureServer(server) {
       if (mode === "fixtures") return;
-      requireMainCheckout();
+      if (mode === 'arc-desktop-development') {
+        const home = process.env.ARC_MYGO_DEV_HOME;
+        if (!home || developmentEnvironment(home).ARC_STATE_DIR !== stateRoot) throw new Error('Desktop development needs isolated state.');
+        server.middlewares.use((_request, response, next) => {
+          response.setHeader('Content-Security-Policy', developmentConfig().app.security.devCsp);
+          next();
+        });
+      } else requireMainCheckout();
       let checking: { owner: string; promise: Promise<Endpoint> } | undefined;
       function ownerIdentity() {
         try { return readFileSync(path.join(stateRoot, 'app/native.json'), 'utf8'); }

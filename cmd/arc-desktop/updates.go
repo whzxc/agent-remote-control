@@ -60,7 +60,7 @@ type updateProgress struct {
 var UpdateDownloadEvent = mygo.NewEvent[updateProgress]("arc:update-download")
 
 func (s *DesktopService) checkUpdate(ctx context.Context) (any, error) {
-	if bundleID != productionID || !mygo.Updater.Enabled() {
+	if (bundleID != productionID && !isUpdateFixture()) || !mygo.Updater.Enabled() {
 		return nil, nil
 	}
 	if _, err := updaterKey(); err != nil {
@@ -149,7 +149,7 @@ func (s *updateSource) Open(_ context.Context, target string) (io.ReadCloser, er
 
 func (s *updateSource) fetch(ctx context.Context, target string) (io.ReadCloser, error) {
 	parsed, err := url.Parse(target)
-	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil {
+	if err != nil || (parsed.Scheme != "https" && !updateFixtureURL(parsed)) || parsed.Host == "" || parsed.User != nil {
 		return nil, errors.New("Invalid update URL")
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
@@ -158,7 +158,7 @@ func (s *updateSource) fetch(ctx context.Context, target string) (io.ReadCloser,
 	}
 	client := *s.client
 	client.CheckRedirect = func(req *http.Request, previous []*http.Request) error {
-		if len(previous) >= 10 || req.URL.Scheme != "https" {
+		if len(previous) >= 10 || req.URL.Scheme != "https" && !updateFixtureURL(req.URL) {
 			return errors.New("Invalid update redirect")
 		}
 		return nil

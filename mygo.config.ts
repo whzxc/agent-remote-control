@@ -1,26 +1,41 @@
 import { defineConfig } from "mygo-cli";
+import { desktopExecutable, desktopIdentifier, desktopName, desktopScheme, developmentConfig } from "./tooling/dev-identity.mjs";
 
-const productName = "Agent Remote Control";
-const updateKey = process.env.ARC_MYGO_UPDATE_PUBLIC_KEY;
-const updateURL = "https://github.com/whzxc/agent-remote-control/releases/latest/download";
+const development = process.env.ARC_MYGO_DEVELOPMENT === "1";
+const identity = development ? developmentConfig() : { identifier: desktopIdentifier, productName: desktopName, scheme: desktopScheme };
+const fixtureFrontend = development ? process.env.ARC_MYGO_FIXTURE_FRONTEND : undefined;
+const updateKey = development && !fixtureFrontend ? undefined : process.env.ARC_MYGO_UPDATE_PUBLIC_KEY;
+const updateBase = process.env.ARC_MYGO_UPDATE_BASE || "https://github.com/whzxc/agent-remote-control/releases/latest/download";
+const resources = ["desktop/icons/menubar-18Template@2x.png", "desktop/icons/tray-logo.png", "dist/mygo-input/bin", "skills", "licenses"];
+if (process.env.ARC_MYGO_MACOS === "1") resources.push("dist/mygo-input/icon/Assets.car");
 
 export default defineConfig({
-  // MyGo derives the physical executable name from this field.
-  name: "agent-remote-control-desktop",
+  name: desktopExecutable,
   slug: "agent-remote-control",
-  identifier: "com.whzxc.agent-remote-control",
+  identifier: identity.identifier,
   version: process.env.ARC_BUILD_VERSION || "0.0.0",
   main: "./cmd/arc-desktop",
-  icon: "desktop/icons/icon.png",
-  frontendDist: "dist/ui",
-  buildCommand: "npm exec -- vite build --config vite.config.ts",
-  resources: ["desktop/icons/menubar-18Template@2x.png", "desktop/icons/tray-logo.png", "dist/mygo-input/bin"],
+  icon: development ? "desktop/icons/dev/icon.png" : "desktop/icons/icon.png",
+  frontendDist: fixtureFrontend || "dist/ui",
+  buildCommand: "node tooling/prepare-desktop.mjs",
+  resources,
   bindings: "ui/mygo.generated.ts",
-  urlSchemes: ["agent-remote-control"],
+  urlSchemes: [identity.scheme],
   macos: {
-    icon: "desktop/icons/AgentRemoteControl.icon",
-    infoPlist: { CFBundleName: productName, CFBundleDisplayName: productName },
+    minimumSystemVersion: "13.0",
+    infoPlist: {
+      CFBundleName: identity.productName,
+      CFBundleDisplayName: identity.productName,
+      CFBundleIconName: "Icon",
+      CFBundleIconFile: "Icon",
+      CFBundleDevelopmentRegion: "en",
+      CFBundleURLTypes: [{
+        CFBundleURLName: identity.identifier,
+        CFBundleTypeRole: "Viewer",
+        CFBundleURLSchemes: [identity.scheme],
+      }],
+    },
   },
-  windows: { displayName: productName, installDirName: productName },
-  ...(updateKey ? { updates: { publicKey: updateKey, url: updateURL } } : {}),
+  windows: { displayName: identity.productName, installDirName: desktopName },
+  ...(updateKey ? { updates: { publicKey: updateKey, url: fixtureFrontend ? updateBase.replace(/^http:/, "https:") : updateBase, deltas: 0 } } : {}),
 });

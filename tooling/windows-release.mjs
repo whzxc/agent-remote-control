@@ -1,9 +1,11 @@
 import { spawn, execFileSync } from 'node:child_process';
-import { readFile, writeFile, rm, copyFile } from 'node:fs/promises';
+import { readFile, writeFile, rm } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileDigest, dependencyEnv } from './release-support.mjs';
 import { installDependencies } from './build-cache.mjs';
+import { archiveName, buildOnlyEnv, archiveReceipt } from './release-signing.mjs';
+import { collectDesktop, signTransition } from './release-desktop.mjs';
 
 export function runCommand(file, args, options = {}) {
   return new Promise((resolve, reject) => {
@@ -31,7 +33,7 @@ const capture = (file, args) => execFileSync(file, args, { encoding: 'utf8', max
 const psQuote = value => `'${value.replaceAll("'", "''")}'`;
 const shellQuote = value => `'${value.replaceAll("'", "'\"'\"'")}'`;
 const sshOptions = ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15'];
-const workerEnv = () => Object.fromEntries(Object.entries(process.env).filter(([key]) => !/^(TAURI_SIGNING_|APPLE_|CSC_|WIN_CSC_)/.test(key)));
+const workerEnv = () => Object.fromEntries(Object.entries(buildOnlyEnv()).filter(([key]) => !/^(APPLE_|CSC_|WIN_CSC_)/.test(key)));
 export const workProfileRoot = (workRoot, override) => override?.trim() || path.join(workRoot, 'profiles', 'personal');
 const powershell = (host, script) => runCommand('ssh', [...sshOptions, host,
   `powershell.exe -NoLogo -NoProfile -NonInteractive -EncodedCommand ${Buffer.from("$ProgressPreference='SilentlyContinue'\n" + script, 'utf16le').toString('base64')}`], { env: workerEnv() });
@@ -120,21 +122,22 @@ if (!(Test-Path .git/packed-refs)) { git pack-refs --all; checked }
 if ((git rev-parse --verify --quiet HEAD) -ne '${sourceSha}') { git checkout --detach ${sourceSha}; checked }
 if ((git rev-parse HEAD) -ne '${sourceSha}') { throw 'Windows source SHA mismatch' }
 $env:ARC_BUILD_VERSION='${version}'
+$env:ARC_MYGO_UPDATE_PUBLIC_KEY=${psQuote(env.ARC_MYGO_UPDATE_PUBLIC_KEY)}
 node tooling/windows-build.mjs; checked`);
     });
     await timer.run('Windows artifact collection/sign', async () => {
       const name = `agent-remote-control_${version}_x64-setup.exe`;
-      for (const file of [name, 'windows-receipt.json', 'windows-stages.jsonl']) {
+      const archive = archiveName('windows-amd64', version);
+      for (const file of [name, archive, 'windows-receipt.json', 'windows-stages.jsonl']) {
         await runCommand('scp', [...sshOptions, `${host}:${remoteRoot}/source/release-artifacts/windows/${file}`, path.join(output, file)], { env: workerEnv() });
       }
       const receipt = JSON.parse(await readFile(path.join(output, 'windows-receipt.json')));
       validateWindowsReceipt(receipt, { version, sourceSha, digest: await fileDigest(path.join(output, name)) });
+      const copied = await archiveReceipt(path.join(output, archive));
+      if (receipt.archive?.name !== copied.name || receipt.archive?.sha256 !== copied.sha256) throw new Error('Windows MyGo archive receipt mismatch');
       onCollected();
-      await runCommand(process.execPath, ['node_modules/@tauri-apps/cli/tauri.js', 'signer', 'sign', path.join(output, name)], { env });
-      const signature = (await readFile(path.join(output, name + '.sig'), 'utf8')).trim();
-      const value = { signature, url: `https://github.com/whzxc/agent-remote-control/releases/download/v${version}/${name}` };
-      await writeFile(path.join(output, 'windows-x86_64.json'), JSON.stringify({ version,
-        platforms: { 'windows-x86_64': value, 'windows-x86_64-nsis': value } }, null, 2) + '\n');
+      await signTransition({ target: 'windows-amd64', version, output,
+        base: `https://github.com/whzxc/agent-remote-control/releases/download/v${version}`, env });
     });
   } finally {
     await rm(bundle, { force: true });
@@ -157,15 +160,14 @@ export async function buildMac({ sourceSha, output, env, timer }) {
     }
     await installDependencies(source, () => runCommand('npm', ['ci'], { cwd: source, env: dependencyEnv(env) }));
   });
-  await runCommand(process.execPath, ['tooling/desktop-build.mjs', '--release', '--target', 'aarch64-apple-darwin'], { cwd: source, env: { ...env, ARC_RELEASE_PLATFORM: 'mac' } });
+  const parent = path.join(source, 'dist/desktop-release');
+  await runCommand(process.execPath, ['tooling/desktop-build.mjs', '--release', '--target', 'darwin/arm64', '--output', parent],
+    { cwd: source, env: { ...buildOnlyEnv(env), ARC_RELEASE_PLATFORM: 'mac' } });
   await timer.run('macOS staging verification', async () => {
-    const staged = path.join(output, '.mac-stage');
-    await runCommand(process.execPath, ['tooling/release.mjs', 'stage', 'darwin-aarch64',
-      'target/aarch64-apple-darwin/release/bundle', staged], { cwd: source, env });
-    const { readdir } = await import('node:fs/promises');
-    for (const file of await readdir(staged)) await copyFile(path.join(staged, file), path.join(output, file));
-    await rm(staged, { recursive: true });
+    const version = env.ARC_BUILD_VERSION, target = 'darwin-arm64';
+    await collectDesktop({ target, version, input: path.join(parent, target), output });
+    await signTransition({ target, version, output, base: `https://github.com/whzxc/agent-remote-control/releases/download/v${version}`, env });
     if (capture('git', ['-C', source, 'status', '--porcelain']) || capture('git', ['-C', source, 'rev-parse', 'HEAD']) !== sourceSha) throw new Error('macOS build changed source');
-    await writeFile(path.join(output, 'macos-receipt.json'), JSON.stringify({ version: env.ARC_BUILD_VERSION, sourceSha, arch: 'aarch64' }) + '\n');
+    await writeFile(path.join(output, 'macos-receipt.json'), JSON.stringify({ version, sourceSha, arch: 'aarch64' }) + '\n');
   });
 }
