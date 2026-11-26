@@ -258,13 +258,14 @@ func dispatchQualityHistory(rows []object, agent string, cutoff time.Time) objec
 			} else {
 				unreviewed++
 			}
-			switch dispatchOutcome(row) {
-			case "completed":
+			state, _ := dispatchRecordTransition(row).wait()
+			switch state {
+			case waitCompleted:
 				if !hasReview {
 					completed++
 				}
-			case "failed", "interrupted":
-			case "running", "interaction-required":
+			case waitFailed, waitCancelled:
+			case waitRunning, waitInteraction:
 				running++
 			default:
 				unknown++

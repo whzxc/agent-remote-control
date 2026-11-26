@@ -14,7 +14,6 @@ import (
 // the optional native interval's gateway usage.
 var dispatchNativeTurnOutcome func(string, []any, string) (string, any)
 var dispatchNativeTurnMetadata func(object, string) (timing, configuration object)
-var dispatchGatewayTurnUsage func(context.Context, string, string, string, string) object
 var mergeDispatchLifecycle func(object, any) (state string, checkpoint any)
 
 func dispatchReviewConfiguration(metadata ...object) object {
@@ -105,7 +104,7 @@ func completeDispatch(ctx context.Context, s *service, thread, turn string, inco
 			timing, config = dispatchNativeTurnMetadata(obj(field(native, "thread")), turn)
 		}
 	}
-	if mergeDispatchLifecycle != nil && dispatchGatewayTurnUsage != nil {
+	if mergeDispatchLifecycle != nil {
 		state, _ := mergeDispatchLifecycle(rows[0], incoming)
 		if notificationTerminal(state) && slices.ContainsFunc(rows, func(v object) bool { return v["usage"] == nil }) {
 			start := str(dispatchFirstString(timing["startedAt"], rows[0]["submittedAt"]))
@@ -116,7 +115,7 @@ func completeDispatch(ctx context.Context, s *service, thread, turn string, inco
 			if end == "" && !reconciled {
 				end = now()
 			}
-			usage = dispatchGatewayTurnUsage(ctx, "codex", thread, start, end)
+			usage = fetchGatewayTurnUsage(ctx, "codex", thread, start, end)
 		}
 	}
 	return updateDispatchTurnRows(thread, turn, "", func(row object) {
@@ -237,7 +236,7 @@ func undoDispatchLocalReview(thread, turn, request string) (object, error) {
 	for _, row := range rows {
 		delete(row, "review")
 		if observations := arr(row["reviewObservations"]); observations != nil {
-			row["reviewObservations"] = slices.DeleteFunc(observations, func(obs any) bool { return field(obs, "requestId") == request })
+			row["reviewObservations"] = slices.DeleteFunc(slices.Clone(observations), func(obs any) bool { return field(obs, "requestId") == request })
 		}
 		path := dispatchExternalReviewPath(thread, turn)
 		if !isExternal {
@@ -282,7 +281,7 @@ func saveDispatchReview(ctx context.Context, thread, turn string, args, external
 	review := dispatchReviewRecord(args, currentOrigin(ctx), dispatch, external, now())
 	if dispatch == nil {
 		path := dispatchExternalReviewPath(thread, turn)
-		row, err := readDispatchRecord(path)
+		row, err := readDispatchRecord(ctx, path)
 		if errors.Is(err, os.ErrNotExist) {
 			row, err = clone(external), nil
 		}

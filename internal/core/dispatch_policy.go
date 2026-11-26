@@ -34,13 +34,9 @@ type dispatchPack struct {
 var dispatchPolicyMu sync.Mutex
 var dispatchPackName = regexp.MustCompile(`^[a-z0-9-]{1,40}$`)
 
-// Agent discovery belongs to A. Account refresh, the subscription snapshot and
-// the optional gateway quota belong to D.
+// Agent discovery belongs to the Agent host.
 var dispatchRegisteredAgent func(*service, string) bool
 var dispatchAgentFacts func(context.Context, *service, object) ([]object, error)
-var dispatchAccountsRefresh func(context.Context, *service) error
-var dispatchSubscriptionSnapshot func(*service) object
-var dispatchGatewayQuota func(context.Context) object
 
 // The tagged fixture runs only the specified read-only provider methods.
 var dispatchFixtureRegistered func(*service, string) (bool, bool)

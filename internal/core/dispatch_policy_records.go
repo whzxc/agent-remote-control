@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"os"
 	"path/filepath"
@@ -61,24 +62,33 @@ func dispatchCoordinationAdmission(base, thread, request string) (bool, error) {
 	return obj(field(field(row, "coordination"), "association")) != nil, err
 }
 
-func readDispatchRecord(path string) (object, error) {
-	value, err := cachedLoad(path)
+func readDispatchRecord(ctx context.Context, path string) (object, error) {
+	value, err := cachedJSONInContext(ctx, path)
 	if err != nil {
 		return nil, err
 	}
-	row := obj(value)
+	row := maps.Clone(obj(value))
 	if row == nil {
 		return nil, fmt.Errorf("INVALID_JSON: %s", path)
 	}
-	if importDispatchReview(row) {
+	if review := obj(row["review"]); review != nil && uintOr(review["qualityVersion"], 0) != 1 {
+		row["review"] = maps.Clone(review)
+		importDispatchReview(row)
 		if err := save(path, row); err != nil {
 			return nil, err
+		}
+		if ctx != nil {
+			recordFileCost(fileCost{Context: ctx, Path: path, Changed: 1})
 		}
 	}
 	return row, nil
 }
 
 func readDispatchRows(path string) ([]object, error) {
+	return readDispatchRowsInContext(nil, path)
+}
+
+func readDispatchRowsInContext(ctx context.Context, path string) ([]object, error) {
 	files, err := cachedEntries(path)
 	results := []object{}
 	if errors.Is(err, os.ErrNotExist) {
@@ -91,7 +101,7 @@ func readDispatchRows(path string) ([]object, error) {
 		if file.kind.IsDir() || !strings.HasSuffix(file.path, ".json") {
 			continue
 		}
-		row, err := readDispatchRecord(file.path)
+		row, err := readDispatchRecord(ctx, file.path)
 		if err != nil {
 			return nil, err
 		}
@@ -253,13 +263,13 @@ func (h *dispatchHistoryHeap) Pop() any {
 	return row
 }
 
-func dispatchHistoryRows(cutoff time.Time) ([]object, error) {
+func dispatchHistoryRows(ctx context.Context, cutoff time.Time) ([]object, error) {
 	dispatchRecordsMu.Lock()
 	defer dispatchRecordsMu.Unlock()
 	newest := dispatchHistoryHeap{}
 	for _, kind := range []string{"dispatches", "reviews"} {
 		dir := filepath.Join(root(), kind)
-		threads, err := os.ReadDir(dir)
+		threads, err := cachedEntries(dir)
 		if errors.Is(err, os.ErrNotExist) {
 			continue
 		}
@@ -267,27 +277,27 @@ func dispatchHistoryRows(cutoff time.Time) ([]object, error) {
 			return nil, err
 		}
 		for _, thread := range threads {
-			if !thread.IsDir() {
+			if !thread.kind.IsDir() {
 				continue
 			}
-			threadDir := filepath.Join(dir, thread.Name())
-			entries, err := os.ReadDir(threadDir)
+			threadDir := thread.path
+			entries, err := cachedEntries(threadDir)
 			if err != nil {
 				return nil, err
 			}
 			for _, entry := range entries {
-				if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+				if entry.kind.IsDir() || !strings.HasSuffix(entry.path, ".json") {
 					continue
 				}
-				info, err := entry.Info()
+				info, err := os.Stat(entry.path)
 				if err != nil {
 					return nil, err
 				}
 				if info.ModTime().Before(cutoff) {
 					continue
 				}
-				path := filepath.Join(threadDir, entry.Name())
-				row, err := readDispatchRecord(path)
+				path := entry.path
+				row, err := readDispatchRecord(ctx, path)
 				if err != nil {
 					return nil, err
 				}
@@ -541,7 +551,7 @@ func dispatchRevisitMinutes(receipt object) any {
 		return nil
 	}
 	cutoff := time.Now().Add(-30 * 24 * time.Hour)
-	rows, err := dispatchHistoryRows(cutoff)
+	rows, err := dispatchHistoryRows(nil, cutoff)
 	if err != nil {
 		return nil
 	}
@@ -639,8 +649,8 @@ func recordAgentDispatchSubmission(task object) error {
 func recordAgentDispatchObservation(ctx context.Context, task object, submission string) error {
 	agent, taskID, turn := text(task, "agent"), text(task, "taskId"), text(task, "turnId")
 	var usage object
-	if session := str(dispatchFirstString(task["sessionId"], task["threadId"])); session != "" && notificationTerminal(dispatchOutcome(task)) && dispatchGatewayTurnUsage != nil {
-		usage = dispatchGatewayTurnUsage(ctx, agent, session, text(task["dispatch"], "submittedAt"), now())
+	if session := str(dispatchFirstString(task["sessionId"], task["threadId"])); session != "" && notificationTerminal(dispatchOutcome(task)) {
+		usage = fetchGatewayTurnUsage(ctx, agent, session, text(task["dispatch"], "submittedAt"), now())
 	}
 	_, err := updateDispatchTurnRows(taskID, turn, agent, func(row object) {
 		if submission != "" {

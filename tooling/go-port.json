@@ -1037,7 +1037,7 @@
         "internal/core/dispatch_policy_quality.go",
         "internal/core/dispatch_policy_quality_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/dispatch_policy.rs": {
       "segment": "C",
@@ -1049,15 +1049,7 @@
         "internal/core/dispatch_policy_fixture.go",
         "internal/core/dispatch_policy_quality_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "D",
-          "items": [
-            "Provide dispatchAccountsRefresh, dispatchSubscriptionSnapshot, dispatchGatewayQuota and dispatchGatewayTurnUsage."
-          ]
-        }
-      ]
+      "status": "verified"
     },
     "native/src/dispatch_queue.rs": {
       "segment": "A",
@@ -1391,15 +1383,7 @@
         "internal/core/local_gateway.go",
         "internal/core/local_gateway_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "C",
-          "items": [
-            "Consume fetchCodexGatewayQuota and fetchGatewayTurnUsage in dispatch policy."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/logs.rs": {
       "segment": "S0",

@@ -526,10 +526,10 @@
     "native/src/dispatch_policy/quality.rs": {
       "outcomes_review_coverage_and_later_user_findings_are_independent": ["internal/core/dispatch_policy_quality_test.go#TestDispatchQualitySeparatesNativeAndReviewerEvidence"],
       "digest_keeps_unknown_coverage_and_new_review_fields_validate": ["internal/core/dispatch_policy_quality_test.go#TestDispatchDefectClassCountsRequireValidSum", "internal/core/dispatch_policy_quality_test.go#TestDispatchQualityHistoryReportsUnknownAndOverflow"],
-      "legacy_turn_and_review_attribution_keeps_only_observable_counts": {"tests": ["internal/core/dispatch_policy_quality_test.go#TestDispatchQualityStructuredCountsAndLegacyPrefix", "internal/core/dispatch_policy_quality_test.go#TestDispatchQualitySeparatesNativeAndReviewerEvidence"], "remaining": "Exercise legacy trigger and defect attribution together at the public quality view."},
-      "retained_history_keeps_newest_window_rows_and_bounds_only_window_overflow": {"tests": ["internal/core/dispatch_policy_quality_test.go#TestDispatchQualityHistoryReportsUnknownAndOverflow"], "remaining": "Check newest on-disk window selection with unchanged history costs."},
+      "legacy_turn_and_review_attribution_keeps_only_observable_counts": ["internal/core/dispatch_policy_quality_test.go#TestDispatchQualityStructuredCountsAndLegacyPrefix", "internal/core/dispatch_policy_quality_test.go#TestDispatchQualitySeparatesNativeAndReviewerEvidence", "internal/core/dispatch_policy_quality_test.go#TestDispatchQualityLegacyTurnsAndReviewsKeepObservableCounts"],
+      "retained_history_keeps_newest_window_rows_and_bounds_only_window_overflow": ["internal/core/dispatch_policy_quality_test.go#TestDispatchQualityHistoryReportsUnknownAndOverflow", "internal/core/dispatch_policy_quality_test.go#TestDispatchQualityDiskWindowKeepsNewestRowsAtCapacity"],
       "structured_counts_and_legacy_prefix_are_not_inferred_from_prose": ["internal/core/dispatch_policy_quality_test.go#TestDispatchQualityStructuredCountsAndLegacyPrefix", "internal/core/dispatch_policy_quality_test.go#TestDispatchDefectClassCountsRequireValidSum"],
-      "legacy_file_import_writes_once_and_warm_reads_never_write": {"tests": ["internal/core/dispatch_policy_quality_test.go#TestDispatchQualityLegacyReviewDoesNotChangeWithRepeatedReads"], "remaining": "Read a legacy file before and after its one-time persisted normalization."}
+      "legacy_file_import_writes_once_and_warm_reads_never_write": ["internal/core/dispatch_policy_quality_test.go#TestDispatchQualityLegacyReviewDoesNotChangeWithRepeatedReads"]
     },
     "native/src/egress.rs": {
       "public_receipts_preserve_recorded_answer_attribution": ["internal/core/egress_test.go#TestPublicReceiptPreservesRecordedAnswerAttribution"],

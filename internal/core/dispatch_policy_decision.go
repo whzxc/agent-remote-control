@@ -489,10 +489,8 @@ func dispatchCodexQuota(value any) object {
 }
 
 func queryDispatchPolicy(ctx context.Context, r operationRequest) (any, error) {
-	if dispatchAccountsRefresh != nil {
-		if err := dispatchAccountsRefresh(ctx, r.service); err != nil {
-			return nil, err
-		}
+	if err := activeAccountManager(r.service).refreshAccounts(ctx); err != nil {
+		return nil, err
 	}
 	policy, packs, err := readDispatchPolicy()
 	if err != nil {
@@ -502,13 +500,17 @@ func queryDispatchPolicy(ctx context.Context, r operationRequest) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	var snapshot object
-	if dispatchSubscriptionSnapshot != nil {
-		snapshot = dispatchSubscriptionSnapshot(r.service)
+	subscriptions, err := getSubscriptions(r.service)
+	if err != nil {
+		return nil, err
+	}
+	snapshot, err := subscriptions.snapshot()
+	if err != nil {
+		return nil, err
 	}
 	full := r.args["view"] == "full"
 	window := time.Now().Add(-30 * 24 * time.Hour)
-	history, historyErr := dispatchHistoryRows(window)
+	history, historyErr := dispatchHistoryRows(ctx, window)
 	rows := make([]any, 0, len(agents))
 	for _, row := range agents {
 		agent := text(row, "agent")
@@ -529,10 +531,7 @@ func queryDispatchPolicy(ctx context.Context, r operationRequest) (any, error) {
 		}
 		dispatchSetSection(row, "availability")["authentication"] = object{"inference": "unknown", "quotaAccess": access}
 		if agent == "codex" {
-			var quota object
-			if dispatchGatewayQuota != nil {
-				quota = dispatchGatewayQuota(ctx)
-			}
+			_, quota := fetchCodexGatewayQuota(ctx)
 			models, err := dispatchCodexModels(ctx, r.service)
 			row["observedAt"], row["authoritative"] = now(), err == nil
 			if err == nil {
