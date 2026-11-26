@@ -357,7 +357,8 @@
     "native/src/control_sources.rs": {
       "segment": "S0",
       "go": [
-        "internal/core/control_sources.go"
+        "internal/core/control_sources.go",
+        "internal/core/control_sources_test.go"
       ],
       "status": "ported",
       "remaining": "The wait-limit unit case still needs the egress continuation port."
@@ -987,7 +988,8 @@
       "go": [
         "internal/core/management.go",
         "internal/core/registry.go",
-        "internal/core/front_door_owner.go"
+        "internal/core/front_door_owner.go",
+        "internal/core/management_test.go"
       ],
       "status": "ported",
       "remaining": "Static and coordination catalogs and management dispatch are available. Dynamic MCP hub, device and ingress schemas remain.",
@@ -998,14 +1000,14 @@
       "go": [
         "internal/core/mcp_hub.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/mcp_transport.rs": {
       "segment": "S0",
       "go": [
         "internal/core/mcp_transport.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/oauth.rs": {
       "segment": "D",
@@ -1459,9 +1461,19 @@
       "failed": 1,
       "skipped": 0,
       "exitCode": 1,
-      "firstDependencies": [
-        "A: acceptance_fault and Codex task dispatch"
-      ]
+      "caseResults": {
+        "passed": [],
+        "blocked": [
+          {
+            "segment": "A",
+            "module": "codex_host",
+            "route": "act codex_create",
+            "cases": [
+              "Isolated faults reject real reads, expire and require a self-test thread"
+            ]
+          }
+        ]
+      }
     },
     "tests/accounts.test.ts": {
       "result": "blocked",
@@ -1469,11 +1481,22 @@
       "failed": 4,
       "skipped": 0,
       "exitCode": 1,
-      "firstDependencies": [
-        "D: Claude login, accounts and identity",
-        "B: runtime_metrics",
-        "C: notification profiles"
-      ]
+      "caseResults": {
+        "passed": [],
+        "blocked": [
+          {
+            "segment": "D",
+            "module": "accounts",
+            "route": "act account_add; query accounts",
+            "cases": [
+              "Account operations retain identity and removal tombstones",
+              "unchanged account reads reuse the index without account cost passes or row scans",
+              "account reads observe a replaced index and retain add remove and quota changes",
+              "Claude L1 notification profiles stay isolated across accounts"
+            ]
+          }
+        ]
+      }
     },
     "tests/agent-antigravity.test.ts": {
       "result": "blocked",
@@ -1481,10 +1504,29 @@
       "failed": 4,
       "skipped": 0,
       "exitCode": 1,
-      "firstDependencies": [
-        "A: Agent create, discovery, ACP and task tracking",
-        "B: runtime_metrics"
-      ]
+      "caseResults": {
+        "passed": [],
+        "blocked": [
+          {
+            "segment": "A",
+            "module": "agents",
+            "route": "act agent_create",
+            "cases": [
+              "Antigravity timelines retain replies, tool failures and denied work across turns and restart",
+              "Antigravity native defaults survive policy edits while current deny rules still apply",
+              "Agent dispatch history counts follow-up triggers and reviewed defects"
+            ]
+          },
+          {
+            "segment": "A",
+            "module": "agents",
+            "route": "GET /api/agents",
+            "cases": [
+              "Antigravity discovery and stream transport preserve terminal evidence and interrupt active work"
+            ]
+          }
+        ]
+      }
     },
     "tests/agent-archive.test.ts": {
       "result": "blocked",
@@ -1492,25 +1534,57 @@
       "failed": 2,
       "skipped": 0,
       "exitCode": 1,
-      "firstDependencies": [
-        "A: Agent create, archive and task tracking"
-      ]
+      "caseResults": {
+        "passed": [],
+        "blocked": [
+          {
+            "segment": "A",
+            "module": "agents",
+            "route": "act agent_create",
+            "cases": [
+              "agent archive refuses active work and interactions, then retains flushed evidence with durable replay",
+              "Pi archival hides native conversation duplicates and works while disabled without deleting upstream data"
+            ]
+          }
+        ]
+      }
     },
     "tests/antigravity-desktop.test.ts": {
-      "result": "failed",
+      "result": "blocked",
       "passed": 0,
       "failed": 4,
       "skipped": 0,
       "exitCode": 1,
-      "firstDependencies": [
-        "A: native Antigravity Agent",
-        "C: notification binding",
-        "D: sources",
-        "E: ingress"
-      ],
-      "otherFailures": [
-        "Antigravity local access accepts an empty configuration and preserves other servers on reinstall: the S0 local-access status/install paths are absent. antigravityAvailable is undefined."
-      ]
+      "caseResults": {
+        "passed": [],
+        "blocked": [
+          {
+            "segment": "E",
+            "module": "ingress",
+            "route": "GET /api/ingress/local-antigravity; POST /api/ingress",
+            "cases": [
+              "Antigravity local access accepts an empty configuration and preserves other servers on reinstall"
+            ]
+          },
+          {
+            "segment": "C",
+            "module": "claude_notify",
+            "route": "act notify_control (bind)",
+            "cases": [
+              "Antigravity verifies metadata before challenge and doorbell delivery and acknowledges the received code"
+            ]
+          },
+          {
+            "segment": "A",
+            "module": "agents",
+            "route": "POST /api/agents/conversations",
+            "cases": [
+              "Antigravity Desktop submits creates and resumed messages and discovers both native transcript roots",
+              "Combined conversations include native Codex and Antigravity rows in one paged order"
+            ]
+          }
+        ]
+      }
     },
     "tests/browser-native.test.ts": {
       "result": "blocked",
@@ -1518,9 +1592,19 @@
       "failed": 1,
       "skipped": 0,
       "exitCode": 1,
-      "firstDependencies": [
-        "E: HTTPS ingress creation returns GO_PORT_PENDING. The test dereferences the absent config. A browser authorization/projection is not reached."
-      ]
+      "caseResults": {
+        "passed": [],
+        "blocked": [
+          {
+            "segment": "E",
+            "module": "ingress",
+            "route": "POST /api/ingress",
+            "cases": [
+              "browser ingress requires an independent key, exposes reads only, and revokes sessions on rotation"
+            ]
+          }
+        ]
+      }
     },
     "tests/browser-traffic-native.test.ts": {
       "result": "blocked",
@@ -1528,9 +1612,19 @@
       "failed": 1,
       "skipped": 0,
       "exitCode": 1,
-      "firstDependencies": [
-        "E: HTTPS ingress creation returns GO_PORT_PENDING. The test dereferences the absent config. A browser authorization/projection is not reached."
-      ]
+      "caseResults": {
+        "passed": [],
+        "blocked": [
+          {
+            "segment": "E",
+            "module": "ingress",
+            "route": "POST /api/ingress",
+            "cases": [
+              "browser task polling sends compact metadata once and no body for unchanged reads"
+            ]
+          }
+        ]
+      }
     },
     "tests/cli-failures.test.ts": {
       "result": "blocked",
@@ -1538,10 +1632,30 @@
       "failed": 2,
       "skipped": 0,
       "exitCode": 1,
-      "firstDependencies": [
-        "Direct CLI failures: A writer ownership and C notification binding; the case stops on the first codex_read.",
-        "Interrupted task reads and waits: A create/read/wait and C task settings; the case stops on codex_create."
-      ]
+      "caseResults": {
+        "passed": [
+          "Resume guide and validation retain the interrupted-turn guard and receipt contract"
+        ],
+        "blocked": [
+          {
+            "segment": "A",
+            "module": "writer",
+            "route": "query codex_read",
+            "cases": [
+              "Direct CLI failures retain schema-valid recovery and fail the process"
+            ]
+          },
+          {
+            "segment": "C",
+            "module": "claude_notify",
+            "route": "PUT /api/task-settings",
+            "cases": [
+              "Interrupted task reads and waits succeed through the CLI envelope"
+            ],
+            "note": "The silently failed setup is followed by A codex_host act codex_create."
+          }
+        ]
+      }
     },
     "tests/cli-readiness.test.ts": {
       "result": "blocked",
@@ -1549,9 +1663,22 @@
       "failed": 2,
       "skipped": 0,
       "exitCode": 1,
-      "firstDependencies": [
-        "Native and scenario POST model snapshot waits: A cli_acceptance. The absolute path, status and cached guide case passed."
-      ]
+      "caseResults": {
+        "passed": [
+          "Agents can invoke the absolute CLI path returned by guide and status without an arc shim"
+        ],
+        "blocked": [
+          {
+            "segment": "A",
+            "module": "cli_acceptance",
+            "route": "arc cli wait --op app.snapshot",
+            "cases": [
+              "The documented native readiness command waits through POST model snapshots",
+              "The documented scenario readiness command waits through POST model snapshots"
+            ]
+          }
+        ]
+      }
     },
     "tests/control-mcp.test.ts": {
       "result": "blocked",
@@ -1559,9 +1686,113 @@
       "failed": 94,
       "skipped": 0,
       "exitCode": 1,
-      "firstDependencies": [
-        "C: the shared setup PUT task-settings returns GO_PORT_PENDING, so no test body runs. A, B, D and E also own operations exercised by the cases."
-      ]
+      "caseResults": {
+        "passed": [],
+        "blocked": [
+          {
+            "segment": "C",
+            "module": "claude_notify",
+            "route": "PUT /api/task-settings",
+            "cases": [
+              "current protocol discovery and tool results expose mandatory wire metadata",
+              "MCP lists frozen tools and guide exposes existing ops and native domains with valid object schemas",
+              "native pass-through domain actions preserve RPC payloads",
+              "typical fs, PTY, downstream MCP and file search calls preserve native fields and events without creating threads",
+              "mutation receipts remain idempotent across domain and escape hatch, including pending and conflicting retries",
+              "receipt reads retain their target when the installed front door injects an outer ID",
+              "native errors retain code/message/data for both direct reads and mutation receipts; raw null/array results survive",
+              "deployment fingerprints ignore tool/property ordering and runtime changes but detect every published definition change",
+              "setup clipboard preserves unrelated content on extraction failure and clears only after saving",
+              "setup rejects a short runtime key without saving or clearing; HTTPS fallback reuses the ingress",
+              "tool presets use the full registry, preserve exact allowlists and close only necessary read dependencies",
+              "real HTTP ingresses isolate discovery and direct execution; policy PUT preserves identity, metadata and peer availability",
+              "managed draft commits the selected policy instead of publishing all tools",
+              "Git writes use durable receipts, isolated identity and safe local workflows",
+              "latest items pin the newest turn and preserve explicit turn and native cursor semantics",
+              "creation starts its first turn without legacy history reads, cleans definite failures and retains uncertain submissions",
+              "guide exposes replay boundaries and durable writes survive concurrent retries and Core restart",
+              "HTTP ingress observations correlate failures and dropped streams without retaining content or credentials",
+              "OAuth diagnostics reveal supplied identity field structure without retaining their values or credentials",
+              "managed Cloudflare recovers an exited provider without status polling and stops supervision on disconnect",
+              "codex_pending retains terminal interaction ownership and staleness",
+              "respond tokens preserve legacy responses, bind thread and reject reuse",
+              "FIFO queue never steers, pauses on failures, supports cancellation/resume and stores durable state",
+              "local panel queues have durable sources, dispatch after completion and promote or cancel once",
+              "ARC answers retain their content and answering source after reconnect",
+              "capacity failures retry same model without replaying input, suppress intermediate failure and stop after budget or side effects",
+              "task overview defaults to compact live evidence and full view retains preview and cursor",
+              "Git change queries retain attribution and page through every commit",
+              "wait omits repeated nonterminal text and retains complete terminal replies",
+              "final text continuation preserves long Codex messages and the selected turn",
+              "final text continuation restores ACP archives and survives task reuse",
+              "inbox_wait filters unread events before limiting, isolates ingress and cooperates with ack",
+              "HTTP and HTTPS ingress wait streaming keeps final result intact and releases request IDs on disconnect",
+              "Claude task waits expose the source cap without delaying terminal results",
+              "stdio bridge forwards negotiated progress, preserves final replies and cancels on EOF",
+              "non-object MCP args report their JSON type without exposing submitted content",
+              "object MCP args preserve nested values, quotes and large multiline strings",
+              "argument errors are short, field-specific and leave unread inbox untouched",
+              "Git action and read limit aliases preserve behavior and search clamps its page size",
+              "cmd waitMs returns a pending receipt without changing the process timeout",
+              "MCP cmd default wait returns a receipt before the client deadline and preserves CLI and explicit waits",
+              "multi-root projects preserve legacy selection and resolve project cwd alternatives",
+              "large non-Git tree returns a bounded first layer and a truncation marker",
+              "Desktop seed is named before independent metadata read even with null rollout path",
+              "item and search pagination reconstruct the complete result",
+              "large Git diff is bounded and its immutable output pages retain text and file statistics",
+              "external terminal reviews remain supplementary across dispatch and history",
+              "review receipts omit notification delivery details including replay",
+              "ACP task tracking keeps approvals active and projects context, SSE and incremental timeline",
+              "source connection switching binds consent and preserves disconnected identities",
+              "frozen guide tool redirects query-only topics to query guide",
+              "guide progressively discloses every enabled op and caches projected content",
+              "Local skill installation gives Codex the same dispatch skill as Claude Code",
+              "Local Code exposes proactive AX reporting within the guide budget",
+              "control stats report byte baselines and waste candidates without call content",
+              "compact read defaults to the latest turn and item keys avoid duplicate complete items",
+              "command non-zero exits are completed results across MCP CLI and receipts",
+              "command not started retains its operation error",
+              "command output budgets preserve complete stdout and stderr through control_output",
+              "receipt next hashes omit repeated guidance only when explicitly supplied",
+              "review read returns complete outcomes without command outputs or intermediate messages",
+              "historical review file counts stop at the next clean turn baseline",
+              "lane summaries retain committed paths and diffstat across CLI and MCP dispatch and workspace removal",
+              "terminal snapshots preserve uncommitted text and binary statistics after workspace removal",
+              "removed lane without terminal evidence reports an explicit gap instead of an empty success",
+              "AX binary transfers verify bytes and reject duplicate append offsets",
+              "AX omitted request IDs return reusable receipts",
+              "AX status revisits and wait timeouts expose bounded progress evidence",
+              "AX CLI explicitly targets an isolated instance without installed fallback",
+              "AX topic guides return relevant operations and cache each view separately",
+              "AX unbound cloud-session verification explains binding and its next call",
+              "AX2 failed receipts report failure through MCP and CLI without losing identity",
+              "AX2 CLI guides accept full views and subcommands expose help without execution",
+              "AX2 oversized results retain identity and can be completely continued",
+              "AX2 status reads agree with wait observations and nonterminal receipts have next steps",
+              "AX2 interrupt resolves the active turn and preserves explicit IDs and retry identity",
+              "AX2 pending progress and flat answered history expose question content",
+              "AX2 archive supports ended ARC threads and explains active or external writer blocks",
+              "AX2 local follow-ups accept self-test purpose and inherit it without binding notifications",
+              "AX3 release hands off an idle connector thread without closing another owner",
+              "AX3 cloud binding is discoverable before dispatch and repairs an unbound task",
+              "Public failures provide a usable next without serialized duplicate reasons",
+              "app_env persists per instance, reads back and clears without exporting preferences",
+              "AX interface sends inherit explicit thread choices and notices observe linked running turns",
+              "AX foreground command receipts expose execution and process spawn supports session lifetime",
+              "coordination guide discovers shared coordination in normal mode",
+              "coordination registration exposes route repairs and current delivery consistently",
+              "logs accepts relative durations through the public schema",
+              "Maintainer mode defaults off, persists and switches progressive guide content live",
+              "Maintainer mode gates source triage and keeps normal AX reads reports and issue drafts usable",
+              "Maintainer mode local import reads only the selected synthetic queue",
+              "runtime diagnostics expose bounded content-free counters through query and management",
+              "macOS runtime CPU milliseconds agree with native process accounting",
+              "Codex delivery attribution survives receipt and task reads and local review undo"
+            ],
+            "note": "The shared setup stops before the case bodies."
+          }
+        ]
+      }
     },
     "tests/coordination-center-native.test.ts": {
       "result": "blocked",
@@ -1569,10 +1800,28 @@
       "failed": 3,
       "skipped": 0,
       "exitCode": 1,
-      "firstDependencies": [
-        "B: AX records, Board and coordination resources",
-        "D: projects"
-      ]
+      "caseResults": {
+        "passed": [],
+        "blocked": [
+          {
+            "segment": "B",
+            "module": "coordination/ax",
+            "route": "act ax_report",
+            "cases": [
+              "desktop AX reads preserve pagination, closed decisions and local evidence",
+              "board keeps AX attention structured without duplicate summary lines"
+            ]
+          },
+          {
+            "segment": "B",
+            "module": "coordination/bulletin",
+            "route": "POST /api/coordination/notice_post",
+            "cases": [
+              "desktop bulletin management uses local authority, owner revisions, replay and retained journal readback"
+            ]
+          }
+        ]
+      }
     },
     "tests/coordination-recovery.test.ts": {
       "result": "blocked",
@@ -1580,9 +1829,20 @@
       "failed": 1,
       "skipped": 0,
       "exitCode": 1,
-      "firstDependencies": [
-        "E: named fixture ingress, which returns GO_PORT_PENDING before B negotiation/routing is exercised"
-      ]
+      "caseResults": {
+        "passed": [],
+        "blocked": [
+          {
+            "segment": "E",
+            "module": "ingress",
+            "route": "POST /api/ingress",
+            "cases": [
+              "legacy negotiation recovery restores Messages, Board and session route operations"
+            ],
+            "note": "The named ingress is unavailable before B negotiation recovery."
+          }
+        ]
+      }
     },
     "tests/desktop-dispatch.test.ts": {
       "result": "blocked",
@@ -1590,9 +1850,43 @@
       "failed": 4,
       "skipped": 0,
       "exitCode": 1,
-      "firstDependencies": [
-        "A: Codex writer, Desktop recovery and activity; C task settings"
-      ]
+      "caseResults": {
+        "passed": [],
+        "blocked": [
+          {
+            "segment": "A",
+            "module": "writer",
+            "route": "act codex_send",
+            "cases": [
+              "Desktop and connector owners dispatch FIFO and steer only a confirmed native turn"
+            ]
+          },
+          {
+            "segment": "A",
+            "module": "codex_host",
+            "route": "query codex_query (thread/read)",
+            "cases": [
+              "AX unheld thread reads recover from silent Desktop discovery"
+            ]
+          },
+          {
+            "segment": "A",
+            "module": "agents",
+            "route": "GET /api/agents/activity",
+            "cases": [
+              "Codex activity and timelines retain the active native turn"
+            ]
+          },
+          {
+            "segment": "C",
+            "module": "claude_notify",
+            "route": "PUT /api/task-settings; GET /api/task-settings",
+            "cases": [
+              "Desktop recovery keeps create pending without accepting remote approval, while existing sends can fall back"
+            ]
+          }
+        ]
+      }
     },
     "tests/digest-native.test.ts": {
       "result": "blocked",
@@ -1600,9 +1894,35 @@
       "failed": 1,
       "skipped": 0,
       "exitCode": 1,
-      "firstDependencies": [
-        "B: owner digests and oversized defaults completes the synthetic projections, then calls real events/board without fixture data. The real events reply is GO_PORT_PENDING."
-      ]
+      "caseResults": {
+        "passed": [
+          "query carries one complete JSON text result and preserves error envelopes",
+          "digest owner pagination preserves filters and reaches the next native page",
+          "oversized opaque identities retain JSON, detail access and UTF-16 full continuation",
+          "expired digest and full-output cursors return schema-valid restart actions",
+          "remote query and CLI both return bounded digests without changing frozen tools",
+          "codex_tasks default measures the final wire result before choosing a digest",
+          "ax_list default measures the final wire result before choosing a digest",
+          "accounts default measures the final wire result before choosing a digest",
+          "notify_status default measures the final wire result before choosing a digest",
+          "board default measures the final wire result before choosing a digest",
+          "agent_tasks default measures the final wire result before choosing a digest",
+          "isolated notify digest preserves full-row actions in MCP text",
+          "account digest summaries retain visible aliases",
+          "digest wire size includes escaping and JSON-RPC framing"
+        ],
+        "blocked": [
+          {
+            "segment": "B",
+            "module": "coordination",
+            "route": "query events (digest)",
+            "cases": [
+              "owner digests and oversized defaults expose every snapshot row through valid MCP actions"
+            ],
+            "note": "The synthetic owner projections completed before this real query."
+          }
+        ]
+      }
     },
     "tests/dispatch-policy.test.ts": {
       "result": "blocked",
@@ -1610,12 +1930,48 @@
       "failed": 8,
       "skipped": 0,
       "exitCode": 1,
-      "firstDependencies": [
-        "C: dispatch policy, packs and criteria",
-        "A: write/dispatch",
-        "D: subscription credit balance",
-        "E: named ingress for the authorization case"
-      ]
+      "caseResults": {
+        "passed": [],
+        "blocked": [
+          {
+            "segment": "C",
+            "module": "dispatch_policy",
+            "route": "query dispatch_policy",
+            "cases": [
+              "Codex dispatch policy retains credit balance alongside exhausted subscription limits",
+              "Criteria replacement preserves other scopes and settings and exposes the active policy and formatted backup",
+              "Policy update uses the act and CLI envelopes with guarded error codes and ingress authorization",
+              "Concurrent policy replacements reject stale hashes without modifying policy or backup and backup failures preserve policy"
+            ]
+          },
+          {
+            "segment": "A",
+            "module": "text_files",
+            "route": "act write",
+            "cases": [
+              "Dispatch criteria hashes round-trip as strings or per-agent maps in both views",
+              "Decision policy folds sparse dispatches without losing full history or selection constraints"
+            ]
+          },
+          {
+            "segment": "C",
+            "module": "dispatch_policy",
+            "route": "act dispatch_pack_update",
+            "cases": [
+              "Pack updates use guarded hashes and appear in both dispatch_policy views"
+            ]
+          },
+          {
+            "segment": "C",
+            "module": "claude_notify",
+            "route": "PUT /api/task-settings",
+            "cases": [
+              "Pack dispatch appends its block once and ranks its defaults below explicit choices"
+            ],
+            "note": "The next missing op is C act dispatch_pack_update, followed by A act codex_create."
+          }
+        ]
+      }
     },
     "tests/index-startup-native.test.ts": {
       "result": "blocked",
@@ -1623,21 +1979,58 @@
       "failed": 1,
       "skipped": 0,
       "exitCode": 1,
-      "firstDependencies": [
-        "B: runtime_metrics returns GO_PORT_PENDING after health, lease and guide succeed. Full publication and restart also need the S0 background index lifecycle and gate, A task state, C notification indexes and D source migration."
-      ],
+      "caseResults": {
+        "passed": [],
+        "blocked": [
+          {
+            "segment": "B",
+            "module": "runtime_metrics",
+            "route": "query runtime_metrics",
+            "cases": [
+              "real Core serves health, leases, guide and query before realistic retained-state migration publishes"
+            ],
+            "note": "Metadata, health, lease and guide were reached. The first query and subsequent publication and restart phases are unavailable."
+          }
+        ]
+      },
       "benchmarkMs": {
         "rust": {
-          "initialReady": 2222.3,
-          "restartReady": 728.403,
-          "receiptAfterGate": 1631,
-          "guideMax": 14.587,
-          "unrelatedQueryMax": 20.821,
-          "pendingMax": 8.23,
-          "publishedMax": 11.087
+          "initial": {
+            "metadata": 1246.598,
+            "health": 1296.329,
+            "lease": 1300.247,
+            "guide": 1324.534,
+            "query": 1335.476
+          },
+          "restart": {
+            "metadata": 356.964,
+            "health": 401.959,
+            "lease": 403.614,
+            "guide": 673.828,
+            "query": 682.883
+          },
+          "receiptAfterGate": 1597,
+          "maxLatency": {
+            "guide": 12.193,
+            "unrelated": 14.534,
+            "pending": 8.212,
+            "published": 10.341
+          }
         },
-        "go": null
-      }
+        "go": {
+          "initial": {
+            "metadata": 247.739,
+            "health": 266.847,
+            "lease": 270.612,
+            "guide": 276.355,
+            "query": null
+          },
+          "restart": null,
+          "receiptAfterGate": null,
+          "maxLatency": null
+        }
+      },
+      "evidence": "Go phase timings came from an untracked copy that prints the existing measurements before the runtime_metrics assertion. The tracked Rust and Go runs used the unchanged native case."
     },
     "tests/mcp-hub.test.ts": {
       "result": "passed",
@@ -1645,8 +2038,13 @@
       "failed": 0,
       "skipped": 0,
       "exitCode": 0,
-      "firstDependencies": [],
-      "evidence": "Both hub discovery/call and production Core restart pass using ARC_TEST_BINARY."
+      "caseResults": {
+        "passed": [
+          "MCP hub exposes downstream tools to control sources through query and act",
+          "Core restores enabled MCP hub services on restart without a discovery request"
+        ],
+        "blocked": []
+      }
     },
     "tests/notification-account.test.ts": {
       "result": "blocked",
@@ -1654,10 +2052,27 @@
       "failed": 2,
       "skipped": 0,
       "exitCode": 1,
-      "firstDependencies": [
-        "C: notification target binding",
-        "D: Claude account visibility and routing"
-      ]
+      "caseResults": {
+        "passed": [],
+        "blocked": [
+          {
+            "segment": "D",
+            "module": "accounts",
+            "route": "POST /api/accounts/add; GET /api/accounts",
+            "cases": [
+              "Cloud bind preserves a missing-session diagnosis and only safe routed profile identity"
+            ]
+          },
+          {
+            "segment": "E",
+            "module": "ingress",
+            "route": "POST /api/ingress",
+            "cases": [
+              "Unrouted targets select only a uniquely visible profile and persist that choice"
+            ]
+          }
+        ]
+      }
     },
     "tests/src-conversations.test.ts": {
       "result": "blocked",
@@ -1665,11 +2080,22 @@
       "failed": 3,
       "skipped": 0,
       "exitCode": 1,
-      "firstDependencies": [
-        "A: source-conversation container, history and tracking",
-        "D: accounts",
-        "E: named ingress"
-      ]
+      "caseResults": {
+        "passed": [],
+        "blocked": [
+          {
+            "segment": "E",
+            "module": "ingress",
+            "route": "POST /api/ingress",
+            "cases": [
+              "Verified session aliases preserve Chat identity and task links through Core restart",
+              "Source conversation ops isolate accounts and persist bindings through restart",
+              "Source inventory includes other Claude accounts before a website container exists"
+            ],
+            "note": "The first case also reaches D account setup and polling before failure. The other two stop on named MCP ingress discovery."
+          }
+        ]
+      }
     },
     "tests/task-feed-performance.test.ts": {
       "result": "blocked",
@@ -1677,11 +2103,21 @@
       "failed": 2,
       "skipped": 0,
       "exitCode": 1,
-      "firstDependencies": [
-        "A: task feed, Codex create and timelines",
-        "B: task tracking",
-        "C: task settings"
-      ]
+      "caseResults": {
+        "passed": [],
+        "blocked": [
+          {
+            "segment": "C",
+            "module": "claude_notify",
+            "route": "PUT /api/task-settings",
+            "cases": [
+              "task feed sends only changes and recovers when the client misses a revision",
+              "a cold Codex timeline previews recent items and keeps the older history available"
+            ],
+            "note": "The following blockers are A POST /api/tasks/snapshot and act codex_create, respectively."
+          }
+        ]
+      }
     },
     "tests/task-list-cost.test.ts": {
       "result": "blocked",
@@ -1689,18 +2125,48 @@
       "failed": 5,
       "skipped": 0,
       "exitCode": 1,
-      "firstDependencies": [
-        "A: Codex task list and activity",
-        "B: runtime_metrics",
-        "S0: derived index and task projections follow the first pending reads"
-      ]
+      "caseResults": {
+        "passed": [],
+        "blocked": [
+          {
+            "segment": "A",
+            "module": "codex_host",
+            "route": "query codex_tasks",
+            "cases": [
+              "archived task filters are discoverable and listing never needs live enrichment by default"
+            ]
+          },
+          {
+            "segment": "A",
+            "module": "task_overview",
+            "route": "GET /api/tasks",
+            "cases": [
+              "cached task and status projections follow receipt replacement, runtime updates and deletion",
+              "memoized task projections retain fallback metadata and recover repaired receipts"
+            ]
+          },
+          {
+            "segment": "A",
+            "module": "agents",
+            "route": "GET /api/agents/activity",
+            "cases": [
+              "activity discovery finds a new transcript root and follows append and removal",
+              "activity rediscovers a resumed Codex session while its writer remains open"
+            ]
+          }
+        ]
+      }
     },
     "tests/task-panel-state.test.ts": {
       "result": "passed",
-      "passed": 1,
+      "passed": 0,
       "failed": 0,
       "skipped": 0,
       "exitCode": 0,
+      "caseResults": {
+        "passed": [],
+        "blocked": []
+      },
       "evidence": "Node loaded the file successfully. It declares no test cases."
     },
     "tests/timeline-subscription.test.ts": {
@@ -1709,10 +2175,20 @@
       "failed": 1,
       "skipped": 0,
       "exitCode": 1,
-      "firstDependencies": [
-        "A: Codex create",
-        "B: timeline tracking"
-      ]
+      "caseResults": {
+        "passed": [],
+        "blocked": [
+          {
+            "segment": "C",
+            "module": "claude_notify",
+            "route": "PUT /api/task-settings",
+            "cases": [
+              "unsubscribed timelines refresh newer turns and disclose incomplete observation"
+            ],
+            "note": "The following act codex_create (A codex_host) returns the asserted error."
+          }
+        ]
+      }
     },
     "tests/writer-conflict.test.ts": {
       "result": "blocked",
@@ -1720,15 +2196,68 @@
       "failed": 13,
       "skipped": 0,
       "exitCode": 1,
-      "firstDependencies": [
-        "A: writer ownership, Codex activity and archive"
-      ]
+      "caseResults": {
+        "passed": [],
+        "blocked": [
+          {
+            "segment": "A",
+            "module": "agents",
+            "route": "GET /api/agents/activity",
+            "cases": [
+              "Codex activity keeps the native thread identity across a growing window rollout",
+              "Initialized Codex side conversations become active only during a native turn",
+              "Codex Desktop records Fast settings immediately after its first turn context"
+            ]
+          },
+          {
+            "segment": "A",
+            "module": "writer",
+            "route": "act codex_send",
+            "cases": [
+              "native writer conflicts retain recovery guidance through send, load and read"
+            ]
+          },
+          {
+            "segment": "A",
+            "module": "agents",
+            "route": "POST /api/agents/conversations/timeline",
+            "cases": [
+              "Held external writers allow all read views while mutations retain owner recovery"
+            ]
+          },
+          {
+            "segment": "A",
+            "module": "writer",
+            "route": "act codex_release",
+            "cases": [
+              "Releasing an already unheld writer is a no-op before archive",
+              "Unknown writer state returns an unconfirmed release with owner recovery"
+            ]
+          },
+          {
+            "segment": "C",
+            "module": "claude_notify",
+            "route": "PUT /api/task-settings",
+            "cases": [
+              "Archive release is a no-op for an idle connector retaining its native writer",
+              "Connector release confirms asynchronous native unload for exactly one idle thread",
+              "Connector release returns a specific error and owner continuation when native cleanup retains the lock",
+              "Releasing the same connector thread twice succeeds after the writer is unheld",
+              "Connector release preserves native rejection as a specific per-thread release error",
+              "Active connector writer guidance reads status and release leaves the turn running"
+            ],
+            "note": "The following act codex_create (A codex_host) cannot create a task for release."
+          }
+        ]
+      }
     }
   },
   "nativeRun": {
-    "goSource": "bbca131fafe700e0e1c530043270026118e732b6",
+    "goSource": "47efe6f1579bbeaa21669b364c0cd3527918c9b7",
+    "s0CasesPassed": 18,
     "platform": "darwin/arm64",
     "toolchain": "go1.27.4",
-    "implementation": "go"
+    "implementation": "go",
+    "independentFailures": []
   }
 }
