@@ -181,8 +181,13 @@ func agentContentDelta(agent string, frame object) bool {
 	return false
 }
 
-func (p *nativeAgentProcess) checkpointStdoutLocked(data []byte) error {
-	if !p.consumeStdoutLocked(data) {
+func (p *nativeAgentProcess) checkpointStdoutLocked(frame object, noise []byte) error {
+	if frame != nil {
+		p.consumeLocked(frame)
+	} else if len(noise) != 0 {
+		p.task["stdoutDiagnostics"] = recordAgentStdoutDiagnostic(obj(p.task["stdoutDiagnostics"]), noise)
+	}
+	if !agentContentDelta(p.driver.id, frame) {
 		return p.persistLocked()
 	}
 	// Readers see each delta immediately. Persist the task and its journal offset
@@ -429,18 +434,27 @@ func (p *nativeAgentProcess) consumeLocked(frame object) {
 	}
 }
 
-func (p *nativeAgentProcess) consumeStdoutLocked(data []byte) bool {
+func decodeAgentStdout(data []byte) (object, []byte) {
 	data = bytes.TrimSpace(data)
-	if len(data) == 0 {
+	var frame object
+	if len(data) != 0 && decodeObject(data, &frame) == nil && frame != nil {
+		return frame, nil
+	}
+	return nil, data
+}
+
+func (p *nativeAgentProcess) rejectUnimplementedAgentRequest(ctx context.Context, frame object) bool {
+	method := text(frame, "method")
+	if p.driver.id == "pi" || p.driver.id == "antigravity" || frame["id"] == nil || method == "" || method == "session/request_permission" {
 		return false
 	}
-	var frame object
-	if decodeObject(data, &frame) == nil && frame != nil {
-		p.consumeLocked(frame)
-		return agentContentDelta(p.driver.id, frame)
+	write, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	reply := object{"jsonrpc": "2.0", "id": frame["id"], "error": object{"code": -32601, "message": "Client capability not supported"}}
+	if err := p.frame(write, reply); err != nil {
+		recordLog("WARN", "Agent capability response: "+err.Error(), nil)
 	}
-	p.task["stdoutDiagnostics"] = recordAgentStdoutDiagnostic(obj(p.task["stdoutDiagnostics"]), data)
-	return false
+	return true
 }
 
 func (p *nativeAgentProcess) exited(issue error) {
@@ -496,8 +510,12 @@ func (p *nativeAgentProcess) runDirect(reader *os.File) {
 			}
 			break
 		}
+		frame, noise := decodeAgentStdout(data)
+		if p.rejectUnimplementedAgentRequest(context.Background(), frame) {
+			continue
+		}
 		p.mu.Lock()
-		err = p.checkpointStdoutLocked(data)
+		err = p.checkpointStdoutLocked(frame, noise)
 		p.mu.Unlock()
 		if err != nil {
 			recordLog("WARN", "Agent task persistence: "+err.Error(), nil)
@@ -530,6 +548,14 @@ func (p *nativeAgentProcess) runHosted(ctx context.Context) {
 		recoverReceipt := false
 		for _, row := range rows {
 			after = uintOr(row["offset"], after)
+			var frame object
+			var noise []byte
+			if row["kind"] == "stdout" {
+				frame, noise = decodeAgentStdout([]byte(text(row, "frame")))
+				if p.rejectUnimplementedAgentRequest(ctx, frame) {
+					continue
+				}
+			}
 			p.mu.Lock()
 			task := p.task
 			state := dispatchSetSection(task, "taskHost")
@@ -537,7 +563,7 @@ func (p *nativeAgentProcess) runHosted(ctx context.Context) {
 			var checkpointErr error
 			switch row["kind"] {
 			case "stdout":
-				checkpointErr = p.checkpointStdoutLocked([]byte(text(row, "frame")))
+				checkpointErr = p.checkpointStdoutLocked(frame, noise)
 				recoverReceipt = recoverReceipt || state["promptResponded"] == true || agentTurnTerminal(task)
 			default:
 				if row["kind"] == "write" {

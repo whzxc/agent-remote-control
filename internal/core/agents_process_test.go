@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -133,7 +134,7 @@ func TestAgentStdoutKeepsReadingPastNoiseAndRetainsAbnormalExit(t *testing.T) {
 			"content": object{"type": "text", "text": "after-noise"}}}}),
 	} {
 		process.mu.Lock()
-		err := process.checkpointStdoutLocked([]byte(frame))
+		err := process.checkpointStdoutLocked(decodeAgentStdout([]byte(frame)))
 		process.mu.Unlock()
 		if err != nil {
 			t.Fatal(err)
@@ -164,12 +165,12 @@ func TestAgentContentDeltasKeepJournalProgressWithTheSavedSnapshot(t *testing.T)
 
 	process.mu.Lock()
 	obj(process.task["taskHost"])["ackedOffset"] = 1
-	deltaErr := process.checkpointStdoutLocked([]byte(wire(object{"method": "session/update", "params": object{"update": object{
+	deltaErr := process.checkpointStdoutLocked(object{"method": "session/update", "params": object{"update": object{
 		"sessionUpdate": "agent_message_chunk", "content": object{"type": "text", "text": "streamed"},
-	}}})))
+	}}}, nil)
 	previous, readErr := disk.nativeAgentTask("dsh", taskID)
 	obj(process.task["taskHost"])["ackedOffset"] = 2
-	structuralErr := process.checkpointStdoutLocked([]byte(wire(object{"method": "session/request_permission", "id": "permission"})))
+	structuralErr := process.checkpointStdoutLocked(object{"method": "session/request_permission", "id": "permission"}, nil)
 	process.mu.Unlock()
 	if deltaErr != nil || readErr != nil || structuralErr != nil {
 		t.Fatalf("checkpoints: delta=%v read=%v structural=%v", deltaErr, readErr, structuralErr)
@@ -217,3 +218,24 @@ func TestPiChoiceUsesNativeSubtypeAndKeepsInvalidChoicesPending(t *testing.T) {
 type agentTestOutput struct{ strings.Builder }
 
 func (*agentTestOutput) Close() error { return nil }
+
+func TestACPDeclinesUnadvertisedClientCapabilities(t *testing.T) {
+	// Contract: an ACP peer gets a native method-not-found response for an unsupported client request.
+	process := newNativeAgentProcess(nativeAgentDriver{id: "dsh", protocol: "acp-v1"}, object{"taskId": id()})
+	var output agentTestOutput
+	process.input = &output
+	request := object{"id": "native-call", "method": "fs/read_text_file", "params": object{"path": "/fixture"}}
+	if !process.rejectUnimplementedAgentRequest(t.Context(), request) {
+		t.Fatal("unadvertised capability request was not handled")
+	}
+	var reply object
+	if err := decodeObject([]byte(output.String()), &reply); err != nil || reply["id"] != "native-call" ||
+		field(reply["error"], "code") != json.Number("-32601") || field(reply["error"], "message") != "Client capability not supported" {
+		t.Fatalf("native rejection = %q, %v", output.String(), err)
+	}
+	for _, allowed := range []object{{"method": "session/update"}, {"id": "approval", "method": "session/request_permission"}} {
+		if process.rejectUnimplementedAgentRequest(t.Context(), allowed) {
+			t.Fatalf("supported or non-request frame was rejected: %s", wire(allowed))
+		}
+	}
+}
