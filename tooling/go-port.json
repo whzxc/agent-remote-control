@@ -184,7 +184,9 @@
     },
     "native/src/archive_index.rs": {
       "segment": "A",
-      "go": [],
+      "go": [
+        "internal/core/archive_index.go"
+      ],
       "status": "pending"
     },
     "native/src/browser.rs": {
@@ -1808,15 +1810,7 @@
         "internal/core/control.go",
         "internal/core/diagnostics.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Supply task and Agent records."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/setup.rs": {
       "segment": "D",
@@ -2010,8 +2004,11 @@
     },
     "native/src/task_overview.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/task_overview.go",
+        "internal/core/task_overview_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/task_summary.rs": {
       "segment": "A",
