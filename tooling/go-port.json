@@ -1980,9 +1980,12 @@
     "native/src/task_host.rs": {
       "segment": "A",
       "go": [
-        "internal/core/task_host.go"
+        "internal/core/task_host.go",
+        "internal/core/task_host_unix.go",
+        "internal/core/task_host_windows.go",
+        "internal/core/task_host_test.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/task_overview.rs": {
       "segment": "A",
@@ -2087,12 +2090,6 @@
       ],
       "status": "ported",
       "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Supply uninstallStopCodexHosts and uninstallStopTaskHosts for active detached owners."
-          ]
-        },
         {
           "owner": "F",
           "items": [

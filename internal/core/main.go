@@ -72,7 +72,7 @@ func runCommand(ctx context.Context, args []string, stdin io.Reader, stdout, std
 		case "codex-host":
 			return runCodexHost(stdin, stdout)
 		case "task-host":
-			return errors.New(PortPending)
+			return runTaskHost(ctx, stdin, stdout)
 		}
 	}
 	if slices.Equal(args, []string{"systemd", "install"}) {
