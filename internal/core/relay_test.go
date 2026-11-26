@@ -30,6 +30,10 @@ func TestRelayMemberLeavesOnlyWhenBothWorkerRoutesAreGone(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer closeGateway()
+	// The Worker runs on loopback. Keep the fixture independent of system proxy discovery.
+	if _, err := managementCall(ctx, "network.set", object{"body": object{"proxyMode": "direct", "proxyUrl": ""}}); err != nil {
+		t.Fatal(err)
+	}
 	var public, challenge atomic.Int32
 	public.Store(200)
 	challenge.Store(404)
