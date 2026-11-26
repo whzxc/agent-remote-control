@@ -71,7 +71,7 @@ test("task execution questions retain executable agent operation arguments", asy
     assert.equal(page.getByRole("alert").textContent, t("detail.sourceRevoked"));
     await render(h(TaskOutcome, { state: "failed", entries: [{ id: "failure", type: "error", text: "SOURCE_REVOKED", status: "failed" }] }));
     assert.ok(page.getByText(t("detail.sourceRevoked")));
-    const catalog = JSON.parse(await readFile(new URL("../native/src/catalog.json", import.meta.url), "utf8"));
+    const catalog = JSON.parse(await readFile(new URL("../shared/core/catalog.json", import.meta.url), "utf8"));
     const validator = new AjvJsonSchemaValidator();
     for (const call of calls) {
       const op = catalog.ops.find((op: any) => op.name === call.op);

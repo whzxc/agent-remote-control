@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { identifyPolicy, normalizeSelection, presetPolicy, type ToolCatalog, type ToolPolicy } from '../ui/toolPolicy.ts';
 import { buildVersion } from '../tooling/version.mjs';
 import { toolFingerprint } from '../tooling/catalog.mjs';
-const catalog = JSON.parse(await readFile(new URL('../native/src/catalog.json', import.meta.url), 'utf8'));
+const catalog = JSON.parse(await readFile(new URL('../shared/core/catalog.json', import.meta.url), 'utf8'));
 const version = buildVersion();
 
 let directory: string;

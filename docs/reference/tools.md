@@ -89,7 +89,7 @@ Every guide response includes `guideHash`. Reuse it with `query({"op":"guide","a
 
 Guide signatures and per-op schemas advertise only canonical parameter names: `operation` for Git and `lineCount` for reads. Legacy aliases remain accepted by execution, with no deprecation response. Conflicting canonical and legacy values still fail validation.
 
-The embedded [catalog](../../native/src/catalog.json) defines the fixed tools and current op registry. Names of the former tools remain op names, without tool aliases. The table below lists each op’s assigned entrypoint; mixed read/write ops such as receipt, screen, mcp, and codex_thread always use act, even for a read action. Assignment follows readOnlyHint, with connector_verify marked as a write because it saves verification state. Device link `device` supports both query and act; its per-op `via` lists both tools.
+The embedded [catalog](../../shared/core/catalog.json) defines the fixed tools and current op registry. Names of the former tools remain op names, without tool aliases. The table below lists each op’s assigned entrypoint; mixed read/write ops such as receipt, screen, mcp, and codex_thread always use act, even for a read action. Assignment follows readOnlyHint, with connector_verify marked as a write because it saves verification state. Device link `device` supports both query and act; its per-op `via` lists both tools.
 
 | Group | Ops via query | Ops via act |
 | --- | --- | --- |

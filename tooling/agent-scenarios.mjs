@@ -109,7 +109,7 @@ async function main() {
   if (!['capture', 'check', 'approve'].includes(mode) || (mode !== 'approve' && ids.length) || (mode === 'approve' && !ids.length)) {
     throw new Error('Usage: npm run agent-scenarios -- capture|check|approve <ids...>');
   }
-  const catalog = await readJSON(path.join(root, 'native/src/catalog.json'));
+  const catalog = await readJSON(path.join(root, 'shared/core/catalog.json'));
   const { capabilities } = await readJSON(path.join(source, 'capabilities.json'));
   const scenarios = await Promise.all((await readdir(path.join(source, 'scenarios'))).filter(file => file.endsWith('.json')).sort().map(async file => {
     const scenario = await readJSON(path.join(source, 'scenarios', file));

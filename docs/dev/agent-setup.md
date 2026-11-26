@@ -115,7 +115,7 @@ Steps are one vertical list. Claude connector addition shows URL/copy directly. 
 
 setup.dispatch saves goal, installs Codex skill, creates workspace, and reuses native creation/persistent receipts. Explicit send authorizes the setup task. setup.json stores dispatch.requestId/threadId/desktopUrl. Repeat clicks read the same receipt without another thread. Failed/unconfirmed creation retains the receipt and returns error.
 
-Generated prompts use native/src/model-prompts.json in English. They identify goal/CLI/state, read protocol, and loop setup next with the user's locale. They require one resource/local-tool scope confirmation unless already given, then complete delegated signed-in operations without per-item reconfirmation. They faithfully relay localized decide options, respect login/challenge/password/2FA/payment/policy exceptions, use wait as completion evidence, and transfer secrets only through official Copy/Core clipboard.
+Generated prompts use shared/core/model-prompts.json in English. They identify goal/CLI/state, read protocol, and loop setup next with the user's locale. They require one resource/local-tool scope confirmation unless already given, then complete delegated signed-in operations without per-item reconfirmation. They faithfully relay localized decide options, respect login/challenge/password/2FA/payment/policy exceptions, use wait as completion evidence, and transfer secrets only through official Copy/Core clipboard.
 
 ## Documentation and delivery scope
 

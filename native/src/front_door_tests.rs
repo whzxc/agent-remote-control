@@ -339,13 +339,13 @@ fn compare_wire(actual: Value) {
     if let Some(path) = std::env::var_os("ARC_CAPTURE_FRONT_DOOR_WIRE") {
         std::fs::write(path, serde_json::to_vec_pretty(&actual).unwrap()).unwrap();
     } else {
-        let expected: Value = serde_json::from_str(include_str!("front_door_wire.json")).unwrap();
+        let expected: Value = serde_json::from_str(include_str!("../../shared/core/front_door_wire.json")).unwrap();
         assert_eq!(actual, expected);
     }
 }
 
 fn actual_browser_wire() -> Value {
-    let baseline: Value = serde_json::from_str(include_str!("front_door_wire.json")).unwrap();
+    let baseline: Value = serde_json::from_str(include_str!("../../shared/core/front_door_wire.json")).unwrap();
     baseline["browser_allowed"].clone()
 }
 

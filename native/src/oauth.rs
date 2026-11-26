@@ -849,7 +849,7 @@ fn html() -> Response<Full<Bytes>> {
         .header("X-Frame-Options", "DENY")
         .header("X-Content-Type-Options", "nosniff")
         .header("Content-Security-Policy", "default-src 'none'; script-src 'self'; connect-src 'self'; img-src 'self'; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
-        .body(Full::new(Bytes::from_static(include_bytes!("oauth-page.html"))))
+        .body(Full::new(Bytes::from_static(include_bytes!("../../shared/core/oauth-page.html"))))
         .unwrap()
 }
 fn parameters(text: &str) -> Result<BTreeMap<String, String>> {
@@ -1026,7 +1026,7 @@ async fn route(
             "/oauth/page.js" => {
                 return Ok(asset(
                     "text/javascript; charset=utf-8",
-                    include_bytes!("oauth-page.js"),
+                    include_bytes!("../../shared/core/oauth-page.js"),
                 ))
             }
             "/oauth/tokens.css" => {

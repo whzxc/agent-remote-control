@@ -20,7 +20,7 @@ const save=async(name,value)=>{await mkdir(out,{recursive:true});await writeFile
 const put=async(name,value)=>{const file=path.join(dir,name);await mkdir(path.dirname(file),{recursive:true});await writeFile(file,JSON.stringify(value));};
 const read=async name=>JSON.parse(await readFile(path.join(dir,name),'utf8'));
 const check=(name,value)=>{assert.ok(value,name);report.checks.push(name);};
-const catalog=JSON.parse(await readFile(path.join(repo,'native/src/catalog.json'),'utf8'));
+const catalog=JSON.parse(await readFile(path.join(repo,'shared/core/catalog.json'),'utf8'));
 const fixture=path.join(repo,'target/debug/contract-fixture');
 const env={...process.env,HOME:path.join(dir,'home'),USERPROFILE:path.join(dir,'home'),XDG_CONFIG_HOME:path.join(dir,'home'),PATH:path.join(dir,'bin')+path.delimiter+process.env.PATH,ARC_STATE_DIR:dir,ARC_FIXTURE_BINARY:process.execPath,ARC_FIXTURE_SCRIPT:path.join(dir,'codex.mjs')};
 async function connect(){client=new Client({name:'notification-self-test',version:'1'});await client.connect(new StdioClientTransport({command:fixture,env,stderr:'pipe'}));}

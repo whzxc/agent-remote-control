@@ -3,7 +3,7 @@ use crate::*;
 
 pub fn catalog() -> Value {
     let mut value: Value =
-        serde_json::from_str(include_str!("management.json")).expect("management catalog");
+        serde_json::from_str(include_str!("../../shared/core/management.json")).expect("management catalog");
     // Desktop adapters inherit the current domain schemas, including revision and replay rules.
     let domain = crate::catalog();
     for op in [

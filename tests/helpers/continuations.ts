@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {AjvJsonSchemaValidator} from '@modelcontextprotocol/sdk/validation/ajv';
-const catalog=JSON.parse(readFileSync(new URL('../../native/src/catalog.json',import.meta.url),'utf8'));
+const catalog=JSON.parse(readFileSync(new URL('../../shared/core/catalog.json',import.meta.url),'utf8'));
 const engine=new AjvJsonSchemaValidator();
 const validators=new Map<string,ReturnType<typeof engine.getValidator>>();
 export function assertNextCalls(value: any): void {

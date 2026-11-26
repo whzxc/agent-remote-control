@@ -11,7 +11,7 @@ Approved responses form a separately versioned baseline for later structured dif
 ## Layout
 
 - `arch/agent-scenarios/capabilities.json` assigns every operation in
-  `native/src/catalog.json` to exactly one user-facing capability. Titles and
+  `shared/core/catalog.json` to exactly one user-facing capability. Titles and
   descriptions are English; `label` supplies the Chinese display name.
 - `arch/agent-scenarios/scenarios/<id>.json` owns the capability, exercised ops,
   title, setup calls, captured call, conclusions and known fixture artifacts.

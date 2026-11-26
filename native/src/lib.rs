@@ -431,7 +431,7 @@ pub async fn event(events: &SharedEvents, session: &str, method: &str, params: V
 pub fn catalog() -> &'static Value {
     static CATALOG: std::sync::OnceLock<Value> = std::sync::OnceLock::new();
     CATALOG
-        .get_or_init(|| serde_json::from_str(include_str!("catalog.json")).expect("tool catalog"))
+        .get_or_init(|| serde_json::from_str(include_str!("../../shared/core/catalog.json")).expect("tool catalog"))
 }
 pub(crate) fn validator(
     scope: &str,

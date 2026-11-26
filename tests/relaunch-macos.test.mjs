@@ -11,7 +11,7 @@ test('macOS relaunch waits for the old Desktop before handing arguments to Launc
   const oldExit = once(oldDesktop, 'exit');
   const args = ['-a', '/Applications/Example App.app', '--args', '--state-dir', '/tmp/example state;$(echo unsafe)'];
   const probe = `let alive=true;try{process.kill(Number(process.argv[1]),0)}catch{alive=false}process.stdout.write(JSON.stringify({alive,args:process.argv.slice(2)}))`;
-  const handoff = spawn('/bin/sh', [fileURLToPath(new URL('../native/src/relaunch-macos.sh', import.meta.url)), String(oldDesktop.pid), process.execPath, '-e', probe, '--', String(oldDesktop.pid), ...args]);
+  const handoff = spawn('/bin/sh', [fileURLToPath(new URL('../shared/core/relaunch-macos.sh', import.meta.url)), String(oldDesktop.pid), process.execPath, '-e', probe, '--', String(oldDesktop.pid), ...args]);
   const handoffExit = once(handoff, 'exit');
   let output = '';
   handoff.stdout.setEncoding('utf8').on('data', chunk => { output += chunk; });

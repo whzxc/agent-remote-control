@@ -5,7 +5,7 @@ import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv
 
 test('published MCP tool schemas retain the frozen envelopes and compile every operation schema', async () => {
   // Contract: guide/query/act names, input envelopes and read/write annotations are frozen; advertised operation schemas must be usable by clients.
-  const catalog = JSON.parse(await readFile(new URL('../native/src/catalog.json', import.meta.url), 'utf8'));
+  const catalog = JSON.parse(await readFile(new URL('../shared/core/catalog.json', import.meta.url), 'utf8'));
   assert.deepEqual(catalog.tools.map((tool: any) => tool.name).sort(), ['act', 'guide', 'query']);
   const op = { type: 'string' }, args = { type: 'object', additionalProperties: true };
   const properties = {
@@ -28,7 +28,7 @@ test('published MCP tool schemas retain the frozen envelopes and compile every o
 
 test('send and review schemas accept optional delivery attribution', async () => {
   // Contract: clients can validate trigger names and positive counts for supported defect classes.
-  const { ops } = JSON.parse(await readFile(new URL('../native/src/catalog.json', import.meta.url), 'utf8'));
+  const { ops } = JSON.parse(await readFile(new URL('../shared/core/catalog.json', import.meta.url), 'utf8'));
   const validator = new AjvJsonSchemaValidator();
   for (const name of ['codex_send', 'agent_send', 'codex_review', 'agent_review']) {
     const validate = validator.getValidator(ops.find((op: any) => op.name === name).inputSchema);
