@@ -124,6 +124,6 @@ const protectedPaths = ['tests/contract', 'tooling/test-policy-allowlist.json'];
 const changed = execFileSync('git', ['diff', '--name-only', base, '--', ...protectedPaths], { encoding: 'utf8' })
   + execFileSync('git', ['ls-files', '--others', '--exclude-standard', '--', ...protectedPaths], { encoding: 'utf8' });
 if (changed.trim() && process.env.ARC_TEST_POLICY_OWNER !== '1') failures.push('Protected test policy changed. Only an explicit control-source dispatch grant permits ARC_TEST_POLICY_OWNER=1.');
-failures.push(...checkGoPort());
+failures.push(...checkGoPort(inventory).failures);
 if (failures.length) { console.error([...new Set(failures)].join('\n')); process.exitCode = 1; }
 else console.log(`Test policy passed: ${[...inventory.values()].reduce((n, v) => n + v.cases.length, 0)} cases; ${allowlist.length} scoped exceptions.`);

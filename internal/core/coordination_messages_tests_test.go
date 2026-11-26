@@ -355,3 +355,49 @@ func TestMessagesLegacyRoutesTransferOnceWithoutOverwritingCurrentBinding(t *tes
 		t.Fatalf("edited route = %v, %v", second, err)
 	}
 }
+
+func TestMalformedMessagesSnapshotRemainsIntact(t *testing.T) {
+	// Recurring bug class: persistence a malformed snapshot must fail closed without replacing retained evidence.
+	path := filepath.Join(t.TempDir(), "state.json")
+	malformed := []byte(`{"messages":[`)
+	if err := os.WriteFile(path, malformed, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := openCoordinationMessageStore(path, nil); !errors.Is(err, errCoordinationMessageCorrupt) {
+		t.Fatalf("opening malformed messages = %v", err)
+	}
+	current, err := os.ReadFile(path)
+	if err != nil || string(current) != string(malformed) {
+		t.Fatalf("malformed snapshot was lost: %v", err)
+	}
+}
+
+func TestMessagesUnresolvedLegacyHoldSurvivesNewPeersUntilMediation(t *testing.T) {
+	// Recurring bug class: security recovered escalations hold their resources across new negotiations until local mediation.
+	store := fixtureCoordinationMail(t)
+	request := sendCoordinationMail(t, store, "one", "two", "request", 1000, nil)
+	key := text(request, "negotiationId")
+	legacy := store.negotiation(key)
+	legacy.State = "escalated"
+	legacy.Participants = []string{"one"}
+	store.data.Messages = []*coordinationMessageRow{}
+	if err := os.WriteFile(store.path, []byte(wire(store.data)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store, err := openCoordinationMessageStore(store.path, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next := object{"toSourceId": "three", "requestId": id(), "type": "request", "resources": []any{"app:installed"}, "summary": "Another exchange"}
+	if _, err := store.send(next, "one", coordinationRouteOutcome{}, 1010, nil); !errors.Is(err, errCoordinationNegotiationLimit) {
+		t.Fatalf("new peer bypassed a held resource: %v", err)
+	}
+	sendCoordinationMail(t, store, "one", "three", "request", 1011, object{"resources": []any{"host:other"}})
+	decision := object{"action": "resolve", "negotiationId": key, "expectedLastMessageId": request["messageId"], "reason": "Local mediation"}
+	if result, err := store.mediate(decision, 1012, nil); err != nil || field(result["negotiation"], "state") != "resolved" {
+		t.Fatalf("local mediation returned %v: %v", result, err)
+	}
+	if result, err := store.send(next, "one", coordinationRouteOutcome{}, 1013, nil); err != nil || field(result["message"], "negotiationId") == key {
+		t.Fatalf("mediated resource could not be used: %v: %v", result, err)
+	}
+}

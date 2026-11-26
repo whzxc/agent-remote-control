@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -475,6 +477,115 @@ func TestCoordinationRetentionCapsEventCountBytesAndWirePages(t *testing.T) {
 		page, err := reopened.query(coordinationReader{coordinationPrincipal{Type: "local-authority"}, "local"}, coordinationQuery{Limit: new(200)}, 1200)
 		if err != nil || len(wire(page)) > coordinationPageBytes || len(page["events"].([]object)) == 0 {
 			t.Fatalf("bounded page = %d bytes, %v", len(wire(page)), err)
+		}
+	}
+}
+
+func TestGitObserverRecoversRegistryAndPublishesOnlyObservedRefChanges(t *testing.T) {
+	// Recurring bug class: lifecycle a missing catalog or unreachable root must not fabricate Git movements or prevent recovery.
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	repo := t.TempDir()
+	git := func(args ...string) string {
+		t.Helper()
+		command := exec.CommandContext(t.Context(), "git", append([]string{"-C", repo, "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid"}, args...)...)
+		output, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %s: %v", args, output, err)
+		}
+		return strings.TrimSpace(string(output))
+	}
+	git("init", "--quiet", "-b", "main")
+	git("commit", "--quiet", "--allow-empty", "-m", "base")
+	base := git("rev-parse", "HEAD")
+	ctx := withRuntimeCost(t.Context(), "coordinationGit", "startup")
+	if err := pollCoordinationGit(ctx); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("missing project registry returned %v", err)
+	}
+	poll := func() {
+		t.Helper()
+		if err := pollCoordinationGit(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	const project = "observer-fixture"
+	observeCoordinationProjects([]object{{"id": project, "name": project, "roots": []any{
+		object{"path": repo}, object{"path": filepath.Join(repo, "unreachable")},
+	}}})
+	poll()
+	next := func() string {
+		git("commit", "--quiet", "--allow-empty", "-m", "next")
+		return git("rev-parse", "HEAD")
+	}()
+	poll()
+	git("branch", "wt/check")
+	poll()
+	git("update-ref", "refs/heads/wt/check", base)
+	poll()
+	git("branch", "-D", "wt/check")
+	poll()
+	s := &service{metadata: object{"instance": id()}}
+	result := callLocalCoordination(t, s, "events", object{"kinds": []any{"git.ref-moved"}})
+	events := arr(result["events"])
+	want := []struct {
+		movement, resource string
+		old, newOID        any
+	}{
+		{"moved", "project:" + project + "/main", base, next},
+		{"created", "lane:" + project + "/check", nil, next},
+		{"non-fast-forward", "lane:" + project + "/check", next, base},
+		{"deleted", "lane:" + project + "/check", base, nil},
+	}
+	if len(events) != len(want) {
+		t.Fatalf("project observation emitted %d ref changes: %v", len(events), result)
+	}
+	for _, w := range want {
+		if !slices.ContainsFunc(events, func(row any) bool {
+			observation := field(row, "observation")
+			return slices.Contains(arr(field(row, "resources")), any(w.resource)) && field(observation, "movement") == w.movement &&
+				field(observation, "oldOid") == w.old && field(observation, "newOid") == w.newOID
+		}) {
+			t.Fatalf("missing %s observation on %s: %v", w.movement, w.resource, events)
+		}
+	}
+	observers := obj(field(result["coverage"], "observers"))
+	if field(observers[project+"-1"], "state") != "unreachable-or-ref-capacity" {
+		t.Fatalf("unreachable root had no coverage gap: %v", observers)
+	}
+}
+
+func TestCoordinationSuccessorEventsRetainOrderedTurnEvidence(t *testing.T) {
+	// Contract: resumed and automatically retried turns expose ordered predecessor and successor references in Events.
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	thread := id()
+	for _, owner := range []string{"receipt", "dispatch"} {
+		row := object{"requestId": id(), "threadId": thread, "turnId": owner + "-new"}
+		if owner == "receipt" {
+			row["operation"], row["state"], row["arguments"] = "resume", "completed", object{"turnId": "receipt-old"}
+		} else {
+			row["dispatchSource"], row["retryOf"] = "native-retry", "dispatch-old"
+		}
+		inputs, err := coordinationOwnerInputs(owner, row, []string{"app:installed"})
+		if err != nil || len(inputs) != 1 {
+			t.Fatalf("%s projected %v, %v", owner, inputs, err)
+		}
+		if _, err := emitCoordinationEvent(inputs[0]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s := &service{metadata: object{"instance": id()}}
+	events := arr(callLocalCoordination(t, s, "events", object{"kinds": []any{"turn.successor"}})["events"])
+	if len(events) != 2 {
+		t.Fatalf("successor events = %v", events)
+	}
+	for _, owner := range []string{"receipt", "dispatch"} {
+		if !slices.ContainsFunc(events, func(row any) bool {
+			refs := arr(field(row, "threadRefs"))
+			return len(refs) == 2 && field(refs[0], "threadId") == thread && field(refs[1], "threadId") == thread &&
+				field(refs[0], "turnId") == owner+"-old" && field(refs[1], "turnId") == owner+"-new"
+		}) {
+			t.Fatalf("missing ordered %s successor references: %v", owner, events)
 		}
 	}
 }

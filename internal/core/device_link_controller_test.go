@@ -3,6 +3,9 @@ package core
 import (
 	"errors"
 	"fmt"
+	"net/netip"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 )
@@ -81,5 +84,69 @@ func TestControllerCoreLossRetainsTheMemberReceiptTarget(t *testing.T) {
 			field(field(args, "args"), "requestId") != item.want {
 			t.Fatalf("private recovery envelope %v", failure)
 		}
+	}
+}
+
+func TestOfflineDeviceTransferRejectsBeforeSourceAccess(t *testing.T) {
+	// Contract: an offline member returns DEVICE_OFFLINE and devices recovery before reading a local source.
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	const member = "offline-fixture"
+	controller := &deviceController{members: map[string]*deviceMember{
+		member: {peer: devicePeer{DeviceID: member, Name: "Offline fixture"}},
+	}}
+	_, err := controller.transfer(t.Context(), object{
+		"from": object{"path": "nonexistent-source"},
+		"to":   object{"device": member, "path": "nonexistent-destination"},
+	})
+	var failure object
+	if err == nil || decodeObject([]byte(err.Error()), &failure) != nil ||
+		failure["code"] != "DEVICE_OFFLINE" || field(failure["next"], "op") != "devices" {
+		t.Fatalf("offline transfer returned %v", err)
+	}
+}
+
+func TestDeviceGuideDisclosesFullScopeAndTransferRecovery(t *testing.T) {
+	// Contract: device guide disclosure and transfer receipt recovery follow the frozen MCP schemas.
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	if _, err := changePreferences(object{"values": object{"device-link": "on"}}, false); err != nil {
+		t.Fatal(err)
+	}
+	s := &service{metadata: object{"instance": id()}}
+	common := callLocalCoordination(t, s, "guide", object{})
+	full := callLocalCoordination(t, s, "guide", object{"view": "full"})
+	device := callLocalCoordination(t, s, "guide", object{"op": "device"})
+	transfer := callLocalCoordination(t, s, "guide", object{"op": "device_transfer"})
+	if find(common["ops"], "op", "device") != nil || find(common["ops"], "op", "devices") != nil ||
+		find(full["ops"], "op", "devices") == nil || wire(device["via"]) != `["query","act"]` ||
+		transfer["via"] != "act" || field(transfer["retry"], "mode") != "receipt" || !devicePeerForbidden("device_transfer") {
+		t.Fatalf("unexpected device guide contract: device=%v transfer=%v", device["via"], transfer["retry"])
+	}
+}
+
+func TestDeviceCLIErrorsKeepStableCodesAndRecovery(t *testing.T) {
+	// Contract: device CLI failures retain the version-one error envelope and guide recovery.
+	for _, code := range []string{"OP_UNAVAILABLE", "DEVICE_PAIRING_INVALID", "DEVICE_PROTOCOL_MISMATCH", "DEVICE_PEER_FORBIDDEN", "DEVICE_UNPAIRED"} {
+		result := cliErrorResponse(code+": Read cli guide.", "cli device offer", []string{"device", "offer"}, false)
+		if uintOr(result["schemaVersion"], 0) != 1 || result["ok"] != false ||
+			field(result["error"], "code") != code || field(result["next"], "op") != "guide" {
+			t.Fatalf("device CLI error for %s was %v", code, result)
+		}
+	}
+}
+
+func TestDeviceLANTLSErrorWinsOverLinkLocalTimeout(t *testing.T) {
+	// Algorithmic core: concurrent LAN dials report the strongest failure regardless of completion order.
+	ipv4 := netip.MustParseAddrPort("192.0.2.10:7143")
+	linkLocal := netip.MustParseAddrPort("[fe80::2%1]:7143")
+	failures := []deviceDialFailure{
+		{address: ipv4, dialable: true, message: "DEVICE_TLS_FAILED: Peer handshake failed"},
+		{address: linkLocal, dialable: true, message: "TCP connect deadline expired"},
+	}
+	for range 2 {
+		result := deviceLANDialError(failures).Error()
+		if managementErrorCode(result) != "DEVICE_TLS_FAILED" || !strings.Contains(result, ipv4.String()) {
+			t.Fatalf("a less informative LAN error won: %s", result)
+		}
+		slices.Reverse(failures)
 	}
 }

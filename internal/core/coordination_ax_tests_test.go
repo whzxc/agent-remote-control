@@ -304,3 +304,54 @@ func TestAXCandidateOverflowAndObservationReplayRemainBounded(t *testing.T) {
 		t.Fatalf("candidate = %v, %v", page, err)
 	}
 }
+
+func callLocalCoordination(t *testing.T, service *service, op string, args object) object {
+	t.Helper()
+	reply, err := service.managementRequest(t.Context(), "cli/control", "POST", object{"op": op, "args": args})
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := egressToolValue(reply)
+	if err != nil || obj(value) == nil {
+		t.Fatalf("%s returned %v: %v", op, value, err)
+	}
+	return obj(value)
+}
+
+func TestAXShortReadIDsResolveUniqueAndRejectAmbiguousPrefixes(t *testing.T) {
+	// Contract: AX digest IDs resolve to their report or return actionable ambiguity.
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	s := &service{metadata: object{"instance": id()}}
+	report := func(symptom string) string {
+		value := callLocalCoordination(t, s, "ax_report", object{"symptom": symptom, "expected": "Synthetic local evidence", "severity": "workaround"})
+		if key := text(value["entry"], "id"); len(key) >= 11 {
+			return key
+		}
+		t.Fatalf("report was not saved: %v", value)
+		return ""
+	}
+	key := report("Digest prefix fixture")
+	entries := arr(callLocalCoordination(t, s, "ax_list", object{"id": key[:11]})["entries"])
+	if len(entries) != 1 || field(entries[0], "id") != key {
+		t.Fatalf("unique short ID returned %v", entries)
+	}
+	report("Another prefix fixture")
+	ambiguous := callLocalCoordination(t, s, "ax_list", object{"id": "ax-"})
+	if field(ambiguous["error"], "code") != "INVALID_ARGUMENT" || field(ambiguous["next"], "op") != "guide" ||
+		!strings.Contains(text(ambiguous["error"], "message"), "full AX id") {
+		t.Fatalf("ambiguous ID returned %v", ambiguous)
+	}
+}
+
+func TestAXSchemaErrorsDiscloseTheRejectedFieldAndRecovery(t *testing.T) {
+	// Contract: invalid AX actions return the rejected field, operation signature, and correct guide invocation.
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	s := &service{metadata: object{"instance": id()}}
+	result := callLocalCoordination(t, s, "ax_triage", object{"id": "ax-fixture", "expectedRevision": 1, "action": "accept", "reason": "Fixture"})
+	failure := obj(result["error"])
+	if failure["code"] != "INVALID_ARGUMENTS" || failure["field"] != "/action" ||
+		!strings.HasPrefix(text(failure, "signature"), "ax_triage(") ||
+		field(field(field(failure["guide"], "arguments"), "args"), "op") != "ax_triage" {
+		t.Fatalf("invalid AX action returned %v", result)
+	}
+}

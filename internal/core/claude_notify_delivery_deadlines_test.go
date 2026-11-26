@@ -90,3 +90,46 @@ func TestNotificationDeliveryParkedDeadlineAndDueKeySurviveRestart(t *testing.T)
 		t.Fatalf("due work = %v, %v", nowRows, err)
 	}
 }
+
+func TestInterruptedNotificationRetainsEventAndTokenCredit(t *testing.T) {
+	// Recurring bug class: retry-replay an uncertain send must reuse its event ID and prior token charge after restart.
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	ctx := t.Context()
+	directory := physicalPath(notificationOwnerPath())
+	const event = "fixture-interrupted-event"
+	at := time.Now()
+	binding := newNotificationBinding("thread", "turn", "/fixture", "source", at)
+	binding["deliveries"] = []any{object{
+		"eventId": event, "key": "request:17", "status": "sending", "attemptedAt": at.Unix(), "tokenCharged": true,
+	}}
+	if err := persistNotificationBinding(binding); err != nil {
+		t.Fatal(err)
+	}
+	if err := openNotificationOwner(ctx, &service{}); err != nil {
+		t.Fatal(err)
+	}
+	closeNotificationOwner(directory)
+	if err := openNotificationOwner(ctx, &service{}); err != nil {
+		t.Fatal(err)
+	}
+	defer closeNotificationOwner(directory)
+	for range 2 {
+		if err := recoverNotificationDeliveries(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	row, err := readNotificationBinding("thread", "turn")
+	if err != nil {
+		t.Fatal(err)
+	}
+	deliveries := arr(row["deliveries"])
+	if len(deliveries) != 1 {
+		t.Fatalf("restart duplicated the event: %v", deliveries)
+	}
+	delivery := obj(deliveries[0])
+	if delivery["eventId"] != event || delivery["key"] != "request:17" || delivery["status"] != "pending" ||
+		delivery["tokenCharged"] != true || uintOr(delivery["failures"], 0) != 1 ||
+		uintOr(delivery["nextAttemptAt"], 0) <= uint64(at.Unix()) {
+		t.Fatalf("retry abandoned the original event, token, or backoff: %v", delivery)
+	}
+}

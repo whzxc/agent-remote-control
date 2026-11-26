@@ -1,6 +1,8 @@
 package core
 
 import (
+	"path/filepath"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -108,5 +110,37 @@ func TestDispatchQualityLegacyReviewDoesNotChangeWithRepeatedReads(t *testing.T)
 		if field(review, "foundBy") != "automation" || uintOr(field(review, "qualityVersion"), 0) != 1 || uintOr(field(review, "advisory"), 0) != 1 {
 			t.Fatalf("legacy review = %v", review)
 		}
+	}
+}
+
+func TestDispatchHistoryPollsOpenOnlyChangedTurns(t *testing.T) {
+	// Recurring bug class: persistence polling a dispatch view must reuse unchanged history and see externally replaced turns.
+	directory := t.TempDir()
+	for _, key := range []string{"before", "after"} {
+		saveKernelRow(t, filepath.Join(directory, key+".json"), object{"turnId": key, "state": "completed"})
+	}
+	poll := func() []object {
+		t.Helper()
+		rows, err := readDispatchRows(directory)
+		if err != nil || len(rows) != 2 {
+			t.Fatalf("dispatch history = %v, %v", rows, err)
+		}
+		return rows
+	}
+	poll()
+	initial := cacheDiagnostics()
+	poll()
+	warm := cacheDiagnostics()
+	if warm["fileOpens"] != initial["fileOpens"] || warm["directoryReads"] != initial["directoryReads"] {
+		t.Fatal("unchanged dispatch history reopened files or directories")
+	}
+	saveKernelRow(t, filepath.Join(directory, "before.json"), object{"turnId": "before", "state": "failed"})
+	result := poll()
+	if !slices.ContainsFunc(result, func(row object) bool { return row["turnId"] == "before" && row["state"] == "failed" }) {
+		t.Fatalf("dispatch replacement was not visible: %v", result)
+	}
+	after := cacheDiagnostics()
+	if uintOr(after["fileOpens"], 0) != uintOr(warm["fileOpens"], 0)+1 || after["directoryReads"] != warm["directoryReads"] {
+		t.Fatal("one changed turn reopened unrelated history")
 	}
 }

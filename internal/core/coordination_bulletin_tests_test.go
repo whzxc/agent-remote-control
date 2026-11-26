@@ -379,3 +379,134 @@ func TestBulletinLiveObservationCostIgnoresClosedHistory(t *testing.T) {
 		}
 	}
 }
+
+func TestBulletinStorageFailureRetainsLastPublishedNotice(t *testing.T) {
+	// Recurring bug class: persistence a failed close must leave the last committed notice readable and editable.
+	dir := t.TempDir()
+	t.Setenv("ARC_STATE_DIR", dir)
+	s := &service{metadata: object{"instance": id()}}
+	posted := callLocalCoordination(t, s, "notice_post", object{"intent": "Isolated fixture", "resources": []any{"app:installed"}, "expectedDurationSeconds": 60})
+	key := text(posted["notice"], "id")
+	if key == "" {
+		t.Fatalf("notice post returned %v", posted)
+	}
+	blocked := filepath.Join(dir, "coordination", "state.tmp")
+	if err := os.Mkdir(blocked, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	failure := callLocalCoordination(t, s, "notice_close", object{"id": key})
+	if field(failure["error"], "code") != "COORDINATION_STORAGE" {
+		t.Fatalf("failed close returned %v", failure)
+	}
+	board := callLocalCoordination(t, s, "board", object{"id": key, "view": "full"})
+	notices := arr(board["notices"])
+	if len(notices) != 1 || field(notices[0], "state") != "active" {
+		t.Fatalf("failed write changed the published board: %v", board)
+	}
+	project := strings.Repeat("p", 120)
+	observeCoordinationProjects([]object{{"id": project, "name": project, "roots": []any{}}})
+	resources := make([]any, 16)
+	for i := range resources {
+		resources[i] = fmt.Sprintf("lane:%s/%d%s", project, i, strings.Repeat("n", 120))
+	}
+	updated := callLocalCoordination(t, s, "notice_update", object{"id": key, "expectedRevision": 1, "resources": resources})
+	if uintOr(field(updated["notice"], "revision"), 0) != 2 {
+		t.Fatalf("notice could not be updated after storage recovered: %v", updated)
+	}
+	events := callLocalCoordination(t, s, "events", object{"kinds": []any{"notice.changed"}})
+	if len(arr(events["events"])) == 0 {
+		t.Fatalf("updated notice did not publish an event: %v", events)
+	}
+	for _, row := range arr(events["events"]) {
+		if len(wire(row)) >= 2048 {
+			t.Fatalf("notice event exceeded its metadata budget: %d bytes", len(wire(row)))
+		}
+	}
+}
+
+func TestBulletinLifecycleConflictsRequireVerifiedCommandOrigin(t *testing.T) {
+	// Recurring bug class: security lifecycle preflight can exclude its owner only after authenticating the command token.
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	store, clock, _ := fixtureBulletin(t)
+	keys := map[string]string{}
+	for _, source := range []string{"test-command-owner", "test-other-owner"} {
+		reader := coordinationReader{coordinationPrincipal{Type: "source", SourceID: source}, source}
+		notice := writeBulletin(t, store, "notice_post", object{"resources": []any{"app:installed"}, "intent": "Review fixture"}, reader, clock)
+		keys[source] = text(notice["notice"], "id")
+	}
+	params := object{"env": object{"EXISTING": "value", "ARC_TOOLING_ORIGIN": "forged"}}
+	coordinationCommandEnvironment(params, object{"sourceId": "test-command-owner"})
+	token := field(params["env"], "ARC_TOOLING_ORIGIN")
+	genuine := coordinationCommandSource(object{"toolingOrigin": token})
+	conflicts := store.advisory([]string{"app:installed"}, genuine, clock)["conflicts"].([]object)
+	if len(conflicts) != 1 || conflicts[0]["noticeId"] != keys["test-other-owner"] || field(params["env"], "EXISTING") != "value" {
+		t.Fatalf("genuine origin conflict set = %v", conflicts)
+	}
+	for _, token := range []any{nil, "test-command-owner", "forged"} {
+		source := coordinationCommandSource(object{"toolingOrigin": token})
+		if conflicts := store.advisory([]string{"app:installed"}, source, clock)["conflicts"].([]object); len(conflicts) != 2 {
+			t.Fatalf("unverified origin excluded a claim: %v", conflicts)
+		}
+	}
+}
+
+func TestBulletinKnownRunningLinkIsVisibleAtPost(t *testing.T) {
+	// Recurring bug class: lifecycle posting a notice with a running link must show its observed scope immediately.
+	store, clock, reader := fixtureBulletin(t)
+	posted, err := store.mutate("notice_post",
+		object{"intent": "Observe linked work", "requestId": id(), "resources": []any{"app:installed"}}, reader,
+		[]bulletinLink{{ThreadID: "fixture-thread", ObservedTurnID: new("fixture-turn"), ScopeState: "running", ObservedAt: new(clock.utc)}}, nil, clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	board, err := store.board(object{"id": field(posted["notice"], "id"), "view": "full"}, reader, clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	notices := arr(clone(board)["notices"])
+	if len(notices) != 1 {
+		t.Fatalf("linked notice readback returned %v", board)
+	}
+	links := arr(field(notices[0], "threadLinks"))
+	if len(links) != 1 || field(links[0], "scopeState") != "running" || field(notices[0], "activityCoverage") != "observed" {
+		t.Fatalf("running scope was lost at admission: %v", notices)
+	}
+}
+
+func TestBulletinUnattributedDispatchDoesNotClaimHostResources(t *testing.T) {
+	// Recurring bug class: lifecycle unattributed dispatches stay visible without inventing a conflicting claim.
+	store, clock, local := fixtureBulletin(t)
+	const unknown = "unattributed:dispatch"
+	for _, request := range []string{"first", "second"} {
+		row := object{"requestId": request, "agent": "codex", "dispatchMode": "new-turn", "threadId": request, "turnId": "turn",
+			"origin":       object{"sourceId": "fixture-source", "ingressId": "fixture-ingress"},
+			"coordination": object{"association": object{"resources": []any{}, "project": "unattributed", "lane": "unattributed", "source": "observed", "session": "unattributed"}}}
+		inputs, err := coordinationOwnerInputs("dispatch", row, []string{"host:fixture"})
+		if err != nil || len(inputs) != 1 || !slices.Equal(inputs[0].Resources, []string{unknown}) {
+			t.Fatalf("unattributed event expanded its scope: %v, %v", inputs, err)
+		}
+		if err := store.dispatchNotice(inputs[0], clock); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeBulletin(t, store, "notice_post", object{"intent": "Host work", "resources": []any{"host:fixture"}}, local, clock)
+	board, err := store.board(object{"view": "full"}, local, clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	notices := arr(clone(board)["notices"])
+	if len(notices) != 3 {
+		t.Fatalf("missing dispatch notices: %v", board)
+	}
+	for _, notice := range notices {
+		if field(notice, "dispatchId") != nil && len(arr(field(notice, "resources"))) != 0 {
+			t.Fatalf("unattributed dispatch claimed resources: %v", notice)
+		}
+	}
+	if conflicts := store.advisory([]string{"host:fixture"}, "", clock)["conflicts"].([]object); len(conflicts) != 1 {
+		t.Fatalf("host conflict set includes unattributed dispatches: %v", conflicts)
+	}
+	if _, err := coordinationResource(unknown); err == nil {
+		t.Fatal("the internal unattributed marker was accepted as a manual claim")
+	}
+}

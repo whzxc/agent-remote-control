@@ -233,3 +233,43 @@ func TestCancelledPairingCannotApplyALateApproval(t *testing.T) {
 		t.Fatalf("late approval created a pairing: %v", err)
 	}
 }
+
+func TestDevicePairingRejectsAThreeDeviceCycleBeforeApproval(t *testing.T) {
+	// Recurring bug class: security a descendant cannot become its root's controller.
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	root := newLoopbackPairingDevice(t, ctx, t.TempDir())
+	middle := newLoopbackPairingDevice(t, ctx, t.TempDir())
+	leaf := newLoopbackPairingDevice(t, ctx, t.TempDir())
+	link := func(controller, member *deviceManager) {
+		t.Helper()
+		memberOffer, err := member.offer()
+		if err != nil {
+			t.Fatal(err)
+		}
+		offer, err := decodeDeviceOffer(text(memberOffer, "pairingString"), netip.Addr.IsLoopback)
+		if err != nil {
+			t.Fatal(err)
+		}
+		controller.mu.Lock()
+		controller.stored.Members[member.identity.id] = devicePeer{DeviceID: member.identity.id, PublicKey: member.identity.publicKey, Name: "Fixture member", Addresses: offer.Addresses}
+		controller.mu.Unlock()
+		member.mu.Lock()
+		member.stored.Controller = &devicePeer{DeviceID: controller.identity.id, PublicKey: controller.identity.publicKey}
+		member.mu.Unlock()
+	}
+	link(root, middle)
+	link(middle, leaf)
+	rootOffer, err := root.offer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = leaf.dispatch(ctx, "pair", object{"pairingString": rootOffer["pairingString"]})
+	if err == nil || managementErrorCode(err.Error()) != "DEVICE_PAIRING_CYCLE" {
+		t.Fatalf("descendant pairing returned %v", err)
+	}
+	pending, err := root.dispatch(ctx, "pending", object{})
+	if err != nil || field(pending, "pending") != nil {
+		t.Fatalf("cycle reached approval: %v, %v", pending, err)
+	}
+}

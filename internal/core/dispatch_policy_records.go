@@ -62,7 +62,7 @@ func dispatchCoordinationAdmission(base, thread, request string) (bool, error) {
 }
 
 func readDispatchRecord(path string) (object, error) {
-	value, err := load(path)
+	value, err := cachedLoad(path)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func readDispatchRecord(path string) (object, error) {
 }
 
 func readDispatchRows(path string) ([]object, error) {
-	files, err := os.ReadDir(path)
+	files, err := cachedEntries(path)
 	results := []object{}
 	if errors.Is(err, os.ErrNotExist) {
 		return results, nil
@@ -88,10 +88,10 @@ func readDispatchRows(path string) ([]object, error) {
 		return nil, err
 	}
 	for _, file := range files {
-		if file.IsDir() || !strings.HasSuffix(file.Name(), ".json") {
+		if file.kind.IsDir() || !strings.HasSuffix(file.path, ".json") {
 			continue
 		}
-		row, err := readDispatchRecord(filepath.Join(path, file.Name()))
+		row, err := readDispatchRecord(file.path)
 		if err != nil {
 			return nil, err
 		}

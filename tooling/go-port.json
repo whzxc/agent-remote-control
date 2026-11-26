@@ -36,15 +36,7 @@
         "internal/core/accounts_identity.go",
         "internal/core/accounts_identity_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "C",
-          "items": [
-            "Confirm source-bound delivery evidence through confirmControlSourceAccount."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/accounts/login.rs": {
       "segment": "D",
@@ -221,15 +213,7 @@
       "go": [
         "internal/core/claude_accounts_routing.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "C",
-          "items": [
-            "Supply normalizeClaudeNotificationTarget and consume the host route bindings."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/claude_accounts/system.rs": {
       "segment": "D",
@@ -245,15 +229,7 @@
         "internal/core/claude_accounts_visibility.go",
         "internal/core/claude_accounts_visibility_fixture.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "C",
-          "items": [
-            "Consume claudeVisibilityCandidates after source-owned target validation."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/claude_notify/ax_tests.rs": {
       "segment": "C",
@@ -406,17 +382,11 @@
     "native/src/claude_notify/reachability.rs": {
       "segment": "C",
       "go": [
-        "internal/core/claude_notify_reachability.go"
+        "internal/core/claude_notify_reachability.go",
+        "internal/core/claude_accounts_routing.go"
       ],
       "status": "ported",
       "remaining": [
-        {
-          "owner": "D",
-          "items": [
-            "Provide profile identifiers, safe account metadata, visibility and identity confirmation.",
-            "Provide notificationClaudeIdentityStatus and notificationSourceRows for safe account and source identity projection."
-          ]
-        },
         {
           "owner": "A",
           "items": [
@@ -494,12 +464,6 @@
           "items": [
             "Call bindNotification, readNotification, notificationResumeContext and recordNotificationBindingFailure from accepted dispatch and native resume.",
             "Wire notificationRetryPending, recoverableNotificationResponse, recordNotificationResume and source-conversation binding readers to the native owners."
-          ]
-        },
-        {
-          "owner": "D",
-          "items": [
-            "Provide Claude profile runner, account route binding and legacy verified account resolution."
           ]
         },
         {
@@ -934,7 +898,8 @@
     "native/src/device_link/controller/transfer.rs": {
       "segment": "E",
       "go": [
-        "internal/core/device_link_controller_transfer.go"
+        "internal/core/device_link_controller_transfer.go",
+        "internal/core/device_link_controller_test.go"
       ],
       "status": "ported"
     },
@@ -980,7 +945,8 @@
     "native/src/device_link/identity.rs": {
       "segment": "E",
       "go": [
-        "internal/core/device_link_identity.go"
+        "internal/core/device_link_identity.go",
+        "internal/core/device_link_identity_test.go"
       ],
       "status": "ported"
     },
@@ -1019,7 +985,8 @@
       "segment": "E",
       "go": [
         "internal/core/device_link_topology.go",
-        "internal/core/device_link_controller_path.go"
+        "internal/core/device_link_controller_path.go",
+        "internal/core/device_link_pairing_test.go"
       ],
       "status": "ported"
     },
@@ -1055,7 +1022,8 @@
         "internal/core/device_link_transfer_test.go",
         "internal/core/device_link_tunnel_fixture_test.go",
         "internal/core/device_link_transfer_relay_fixture_test.go",
-        "internal/core/device_link_transfer_performance_darwin_test.go"
+        "internal/core/device_link_transfer_performance_darwin_test.go",
+        "internal/core/device_link_controller_test.go"
       ],
       "status": "ported"
     },
@@ -1154,7 +1122,8 @@
         "internal/core/dispatch_policy_records.go",
         "internal/core/dispatch_policy_review.go",
         "internal/core/dispatch_policy_test.go",
-        "internal/core/dispatch_policy_fixture.go"
+        "internal/core/dispatch_policy_fixture.go",
+        "internal/core/dispatch_policy_quality_test.go"
       ],
       "status": "ported",
       "remaining": [
@@ -1245,7 +1214,8 @@
       "go": [
         "internal/core/front_door_process.go",
         "internal/core/front_door_supervision.go",
-        "internal/core/front_door_process_test.go"
+        "internal/core/front_door_process_test.go",
+        "internal/platform/ipc_windows_test.go"
       ],
       "status": "ported"
     },
@@ -2508,115 +2478,118 @@
       }
     },
     "tests/control-mcp.test.ts": {
-      "result": "blocked",
-      "passed": 0,
-      "failed": 94,
+      "result": "failed",
+      "passed": 30,
+      "failed": 64,
       "skipped": 0,
       "exitCode": 1,
       "caseResults": {
-        "passed": [],
+        "passed": [
+          "current protocol discovery and tool results expose mandatory wire metadata",
+          "deployment fingerprints ignore tool/property ordering and runtime changes but detect every published definition change",
+          "tool presets use the full registry, preserve exact allowlists and close only necessary read dependencies",
+          "managed draft commits the selected policy instead of publishing all tools",
+          "Git writes use durable receipts, isolated identity and safe local workflows",
+          "HTTP ingress observations correlate failures and dropped streams without retaining content or credentials",
+          "OAuth diagnostics reveal supplied identity field structure without retaining their values or credentials",
+          "managed Cloudflare recovers an exited provider without status polling and stops supervision on disconnect",
+          "HTTP and HTTPS ingress wait streaming keeps final result intact and releases request IDs on disconnect",
+          "stdio bridge forwards negotiated progress, preserves final replies and cancels on EOF",
+          "non-object MCP args report their JSON type without exposing submitted content",
+          "Git action and read limit aliases preserve behavior and search clamps its page size",
+          "large Git diff is bounded and its immutable output pages retain text and file statistics",
+          "source connection switching binds consent and preserves disconnected identities",
+          "frozen guide tool redirects query-only topics to query guide",
+          "Local skill installation gives Codex the same dispatch skill as Claude Code",
+          "Local Code exposes proactive AX reporting within the guide budget",
+          "AX CLI explicitly targets an isolated instance without installed fallback",
+          "AX topic guides return relevant operations and cache each view separately",
+          "AX unbound cloud-session verification explains binding and its next call",
+          "AX2 CLI guides accept full views and subcommands expose help without execution",
+          "Public failures provide a usable next without serialized duplicate reasons",
+          "coordination guide discovers shared coordination in normal mode",
+          "coordination registration exposes route repairs and current delivery consistently",
+          "logs accepts relative durations through the public schema",
+          "Maintainer mode defaults off, persists and switches progressive guide content live",
+          "Maintainer mode gates source triage and keeps normal AX reads reports and issue drafts usable",
+          "Maintainer mode local import reads only the selected synthetic queue",
+          "runtime diagnostics expose bounded content-free counters through query and management",
+          "macOS runtime CPU milliseconds agree with native process accounting"
+        ],
+        "failed": [
+          "MCP lists frozen tools and guide exposes existing ops and native domains with valid object schemas",
+          "native pass-through domain actions preserve RPC payloads",
+          "typical fs, PTY, downstream MCP and file search calls preserve native fields and events without creating threads",
+          "mutation receipts remain idempotent across domain and escape hatch, including pending and conflicting retries",
+          "receipt reads retain their target when the installed front door injects an outer ID",
+          "native errors retain code/message/data for both direct reads and mutation receipts; raw null/array results survive",
+          "setup clipboard preserves unrelated content on extraction failure and clears only after saving",
+          "setup rejects a short runtime key without saving or clearing; HTTPS fallback reuses the ingress",
+          "latest items pin the newest turn and preserve explicit turn and native cursor semantics",
+          "creation starts its first turn without legacy history reads, cleans definite failures and retains uncertain submissions",
+          "guide exposes replay boundaries and durable writes survive concurrent retries and Core restart",
+          "codex_pending retains terminal interaction ownership and staleness",
+          "respond tokens preserve legacy responses, bind thread and reject reuse",
+          "FIFO queue never steers, pauses on failures, supports cancellation/resume and stores durable state",
+          "local panel queues have durable sources, dispatch after completion and promote or cancel once",
+          "ARC answers retain their content and answering source after reconnect",
+          "capacity failures retry same model without replaying input, suppress intermediate failure and stop after budget or side effects",
+          "task overview defaults to compact live evidence and full view retains preview and cursor",
+          "Git change queries retain attribution and page through every commit",
+          "wait omits repeated nonterminal text and retains complete terminal replies",
+          "final text continuation preserves long Codex messages and the selected turn",
+          "final text continuation restores ACP archives and survives task reuse",
+          "inbox_wait filters unread events before limiting, isolates ingress and cooperates with ack",
+          "Claude task waits expose the source cap without delaying terminal results",
+          "object MCP args preserve nested values, quotes and large multiline strings",
+          "argument errors are short, field-specific and leave unread inbox untouched",
+          "cmd waitMs returns a pending receipt without changing the process timeout",
+          "MCP cmd default wait returns a receipt before the client deadline and preserves CLI and explicit waits",
+          "multi-root projects preserve legacy selection and resolve project cwd alternatives",
+          "large non-Git tree returns a bounded first layer and a truncation marker",
+          "Desktop seed is named before independent metadata read even with null rollout path",
+          "item and search pagination reconstruct the complete result",
+          "external terminal reviews remain supplementary across dispatch and history",
+          "review receipts omit notification delivery details including replay",
+          "ACP task tracking keeps approvals active and projects context, SSE and incremental timeline",
+          "guide progressively discloses every enabled op and caches projected content",
+          "control stats report byte baselines and waste candidates without call content",
+          "compact read defaults to the latest turn and item keys avoid duplicate complete items",
+          "command non-zero exits are completed results across MCP CLI and receipts",
+          "command not started retains its operation error",
+          "command output budgets preserve complete stdout and stderr through control_output",
+          "receipt next hashes omit repeated guidance only when explicitly supplied",
+          "review read returns complete outcomes without command outputs or intermediate messages",
+          "historical review file counts stop at the next clean turn baseline",
+          "lane summaries retain committed paths and diffstat across CLI and MCP dispatch and workspace removal",
+          "terminal snapshots preserve uncommitted text and binary statistics after workspace removal",
+          "removed lane without terminal evidence reports an explicit gap instead of an empty success",
+          "AX binary transfers verify bytes and reject duplicate append offsets",
+          "AX omitted request IDs return reusable receipts",
+          "AX status revisits and wait timeouts expose bounded progress evidence",
+          "AX2 failed receipts report failure through MCP and CLI without losing identity",
+          "AX2 oversized results retain identity and can be completely continued",
+          "AX2 status reads agree with wait observations and nonterminal receipts have next steps",
+          "AX2 interrupt resolves the active turn and preserves explicit IDs and retry identity",
+          "AX2 pending progress and flat answered history expose question content",
+          "AX2 archive supports ended ARC threads and explains active or external writer blocks",
+          "AX2 local follow-ups accept self-test purpose and inherit it without binding notifications",
+          "AX3 release hands off an idle connector thread without closing another owner",
+          "AX3 cloud binding is discoverable before dispatch and repairs an unbound task",
+          "app_env persists per instance, reads back and clears without exporting preferences",
+          "AX interface sends inherit explicit thread choices and notices observe linked running turns",
+          "AX foreground command receipts expose execution and process spawn supports session lifetime",
+          "Codex delivery attribution survives receipt and task reads and local review undo"
+        ],
         "blocked": [
           {
-            "segment": "C",
-            "module": "claude_notify",
-            "route": "PUT /api/task-settings",
+            "segment": "A",
+            "module": "nativeControlRequest",
+            "route": "act codex_call",
             "cases": [
-              "current protocol discovery and tool results expose mandatory wire metadata",
-              "MCP lists frozen tools and guide exposes existing ops and native domains with valid object schemas",
-              "native pass-through domain actions preserve RPC payloads",
-              "typical fs, PTY, downstream MCP and file search calls preserve native fields and events without creating threads",
-              "mutation receipts remain idempotent across domain and escape hatch, including pending and conflicting retries",
-              "receipt reads retain their target when the installed front door injects an outer ID",
-              "native errors retain code/message/data for both direct reads and mutation receipts; raw null/array results survive",
-              "deployment fingerprints ignore tool/property ordering and runtime changes but detect every published definition change",
-              "setup clipboard preserves unrelated content on extraction failure and clears only after saving",
-              "setup rejects a short runtime key without saving or clearing; HTTPS fallback reuses the ingress",
-              "tool presets use the full registry, preserve exact allowlists and close only necessary read dependencies",
-              "real HTTP ingresses isolate discovery and direct execution; policy PUT preserves identity, metadata and peer availability",
-              "managed draft commits the selected policy instead of publishing all tools",
-              "Git writes use durable receipts, isolated identity and safe local workflows",
-              "latest items pin the newest turn and preserve explicit turn and native cursor semantics",
-              "creation starts its first turn without legacy history reads, cleans definite failures and retains uncertain submissions",
-              "guide exposes replay boundaries and durable writes survive concurrent retries and Core restart",
-              "HTTP ingress observations correlate failures and dropped streams without retaining content or credentials",
-              "OAuth diagnostics reveal supplied identity field structure without retaining their values or credentials",
-              "managed Cloudflare recovers an exited provider without status polling and stops supervision on disconnect",
-              "codex_pending retains terminal interaction ownership and staleness",
-              "respond tokens preserve legacy responses, bind thread and reject reuse",
-              "FIFO queue never steers, pauses on failures, supports cancellation/resume and stores durable state",
-              "local panel queues have durable sources, dispatch after completion and promote or cancel once",
-              "ARC answers retain their content and answering source after reconnect",
-              "capacity failures retry same model without replaying input, suppress intermediate failure and stop after budget or side effects",
-              "task overview defaults to compact live evidence and full view retains preview and cursor",
-              "Git change queries retain attribution and page through every commit",
-              "wait omits repeated nonterminal text and retains complete terminal replies",
-              "final text continuation preserves long Codex messages and the selected turn",
-              "final text continuation restores ACP archives and survives task reuse",
-              "inbox_wait filters unread events before limiting, isolates ingress and cooperates with ack",
-              "HTTP and HTTPS ingress wait streaming keeps final result intact and releases request IDs on disconnect",
-              "Claude task waits expose the source cap without delaying terminal results",
-              "stdio bridge forwards negotiated progress, preserves final replies and cancels on EOF",
-              "non-object MCP args report their JSON type without exposing submitted content",
-              "object MCP args preserve nested values, quotes and large multiline strings",
-              "argument errors are short, field-specific and leave unread inbox untouched",
-              "Git action and read limit aliases preserve behavior and search clamps its page size",
-              "cmd waitMs returns a pending receipt without changing the process timeout",
-              "MCP cmd default wait returns a receipt before the client deadline and preserves CLI and explicit waits",
-              "multi-root projects preserve legacy selection and resolve project cwd alternatives",
-              "large non-Git tree returns a bounded first layer and a truncation marker",
-              "Desktop seed is named before independent metadata read even with null rollout path",
-              "item and search pagination reconstruct the complete result",
-              "large Git diff is bounded and its immutable output pages retain text and file statistics",
-              "external terminal reviews remain supplementary across dispatch and history",
-              "review receipts omit notification delivery details including replay",
-              "ACP task tracking keeps approvals active and projects context, SSE and incremental timeline",
-              "source connection switching binds consent and preserves disconnected identities",
-              "frozen guide tool redirects query-only topics to query guide",
-              "guide progressively discloses every enabled op and caches projected content",
-              "Local skill installation gives Codex the same dispatch skill as Claude Code",
-              "Local Code exposes proactive AX reporting within the guide budget",
-              "control stats report byte baselines and waste candidates without call content",
-              "compact read defaults to the latest turn and item keys avoid duplicate complete items",
-              "command non-zero exits are completed results across MCP CLI and receipts",
-              "command not started retains its operation error",
-              "command output budgets preserve complete stdout and stderr through control_output",
-              "receipt next hashes omit repeated guidance only when explicitly supplied",
-              "review read returns complete outcomes without command outputs or intermediate messages",
-              "historical review file counts stop at the next clean turn baseline",
-              "lane summaries retain committed paths and diffstat across CLI and MCP dispatch and workspace removal",
-              "terminal snapshots preserve uncommitted text and binary statistics after workspace removal",
-              "removed lane without terminal evidence reports an explicit gap instead of an empty success",
-              "AX binary transfers verify bytes and reject duplicate append offsets",
-              "AX omitted request IDs return reusable receipts",
-              "AX status revisits and wait timeouts expose bounded progress evidence",
-              "AX CLI explicitly targets an isolated instance without installed fallback",
-              "AX topic guides return relevant operations and cache each view separately",
-              "AX unbound cloud-session verification explains binding and its next call",
-              "AX2 failed receipts report failure through MCP and CLI without losing identity",
-              "AX2 CLI guides accept full views and subcommands expose help without execution",
-              "AX2 oversized results retain identity and can be completely continued",
-              "AX2 status reads agree with wait observations and nonterminal receipts have next steps",
-              "AX2 interrupt resolves the active turn and preserves explicit IDs and retry identity",
-              "AX2 pending progress and flat answered history expose question content",
-              "AX2 archive supports ended ARC threads and explains active or external writer blocks",
-              "AX2 local follow-ups accept self-test purpose and inherit it without binding notifications",
-              "AX3 release hands off an idle connector thread without closing another owner",
-              "AX3 cloud binding is discoverable before dispatch and repairs an unbound task",
-              "Public failures provide a usable next without serialized duplicate reasons",
-              "app_env persists per instance, reads back and clears without exporting preferences",
-              "AX interface sends inherit explicit thread choices and notices observe linked running turns",
-              "AX foreground command receipts expose execution and process spawn supports session lifetime",
-              "coordination guide discovers shared coordination in normal mode",
-              "coordination registration exposes route repairs and current delivery consistently",
-              "logs accepts relative durations through the public schema",
-              "Maintainer mode defaults off, persists and switches progressive guide content live",
-              "Maintainer mode gates source triage and keeps normal AX reads reports and issue drafts usable",
-              "Maintainer mode local import reads only the selected synthetic queue",
-              "runtime diagnostics expose bounded content-free counters through query and management",
-              "macOS runtime CPU milliseconds agree with native process accounting",
-              "Codex delivery attribution survives receipt and task reads and local review undo"
+              "real HTTP ingresses isolate discovery and direct execution; policy PUT preserves identity, metadata and peer availability"
             ],
-            "note": "The shared setup stops before the case bodies."
+            "note": "The inventory, source policy and blocked-write receipt assertions pass. The allowed call needs the native RPC adapter."
           }
         ]
       }
@@ -2752,58 +2725,32 @@
       }
     },
     "tests/dispatch-policy.test.ts": {
-      "result": "blocked",
-      "passed": 0,
-      "failed": 8,
+      "result": "failed",
+      "passed": 3,
+      "failed": 5,
       "skipped": 0,
       "exitCode": 1,
       "caseResults": {
-        "passed": [],
+        "passed": [
+          "Codex dispatch policy retains credit balance alongside exhausted subscription limits",
+          "Policy update uses the act and CLI envelopes with guarded error codes and ingress authorization",
+          "Pack updates use guarded hashes and appear in both dispatch_policy views"
+        ],
+        "failed": [
+          "Dispatch criteria hashes round-trip as strings or per-agent maps in both views",
+          "Decision policy folds sparse dispatches without losing full history or selection constraints",
+          "Criteria replacement preserves other scopes and settings and exposes the active policy and formatted backup",
+          "Pack dispatch appends its block once and ranks its defaults below explicit choices"
+        ],
         "blocked": [
-          {
-            "segment": "C",
-            "module": "dispatch_policy",
-            "route": "query dispatch_policy",
-            "cases": [
-              "Codex dispatch policy retains credit balance alongside exhausted subscription limits",
-              "Criteria replacement preserves other scopes and settings and exposes the active policy and formatted backup",
-              "Policy update uses the act and CLI envelopes with guarded error codes and ingress authorization"
-            ]
-          },
           {
             "segment": "A",
             "module": "nativeControlRequest",
-            "route": "query fs/readFile; act fs/remove; act fs/createDirectory",
+            "route": "act fs/remove; act fs/createDirectory",
             "cases": [
               "Concurrent policy replacements reject stale hashes without modifying policy or backup and backup failures preserve policy"
             ],
-            "note": "The fs domain and its mutation receipts reach the missing native RPC adapter."
-          },
-          {
-            "segment": "A",
-            "module": "text_files",
-            "route": "act write",
-            "cases": [
-              "Dispatch criteria hashes round-trip as strings or per-agent maps in both views",
-              "Decision policy folds sparse dispatches without losing full history or selection constraints"
-            ]
-          },
-          {
-            "segment": "C",
-            "module": "dispatch_policy",
-            "route": "act dispatch_pack_update",
-            "cases": [
-              "Pack updates use guarded hashes and appear in both dispatch_policy views"
-            ]
-          },
-          {
-            "segment": "C",
-            "module": "claude_notify",
-            "route": "PUT /api/task-settings",
-            "cases": [
-              "Pack dispatch appends its block once and ranks its defaults below explicit choices"
-            ],
-            "note": "The next missing op is C act dispatch_pack_update, followed by A act codex_create."
+            "note": "Concurrent replacement and stale-hash assertions pass. The native filesystem mutation never reports completion."
           }
         ]
       }

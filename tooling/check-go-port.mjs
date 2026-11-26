@@ -1,10 +1,12 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { checkGoTestMap } from './check-go-test-map.mjs';
 import { nativeTestFiles } from './test-suites.mjs';
 
 const rustRoots = ['native/src', 'desktop/src', 'tests/fixture/src'];
 const segments = new Set(['S0', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']);
 
-export function checkGoPort() {
+export function checkGoPort(inventory, options) {
   const ledger = JSON.parse(readFileSync('tooling/go-port.json', 'utf8'));
   const failures = [];
   const rust = new Set(rustRoots.flatMap(root => existsSync(root)
@@ -39,6 +41,16 @@ export function checkGoPort() {
       }
     }
   }
+  const recordedCommits = new Set(ledger.postBaselineRustCommits);
+  const portedCommits = ledger.portedPostBaselineRustCommits ?? {};
+  for (const [sha, evidence] of Object.entries(portedCommits)) {
+    if (!recordedCommits.has(sha) || typeof evidence !== 'string' || !evidence.trim()) {
+      failures.push(`Invalid post-baseline Rust port entry for ${sha}.`);
+    }
+  }
+  for (const sha of recordedCommits) {
+    if (!rust.size && !Object.hasOwn(portedCommits, sha)) failures.push(`Post-baseline Rust commit ${sha} remains unported.`);
+  }
   const tests = new Set(nativeTestFiles());
   for (const file of tests) {
     const entry = ledger.nativeTests[file];
@@ -55,5 +67,20 @@ export function checkGoPort() {
     if (Object.values(ledger.files).some(entry => entry.status !== 'verified' || entry.remaining?.length))
       failures.push('Every source mapping must be verified before Rust cutover.');
   }
-  return failures;
+  const testMap = checkGoTestMap(ledger, inventory, options);
+  return { failures: [...failures, ...testMap.failures], testMap };
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const args = process.argv.slice(2);
+  if (args.some(arg => arg !== '--require-a')) throw new Error('Usage: node tooling/check-go-port.mjs [--require-a]');
+  const { failures, testMap } = checkGoPort(undefined, { requireA: args.includes('--require-a') });
+  console.log(JSON.stringify(testMap.counters));
+  for (const reason of testMap.reasons) console.log(reason);
+  if (failures.length) {
+    console.error(failures.join('\n'));
+    process.exitCode = 1;
+  } else {
+    console.log('Go port ledger and unit test map passed.');
+  }
 }
