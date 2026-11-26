@@ -214,17 +214,26 @@ SectionEnd
 Section "Uninstall"
   SetShellVarContext current
   ClearErrors
-  Delete "$INSTDIR\${DESKTOP}"
+  IfFileExists "$INSTDIR\${DESKTOP}" 0 check_webview
+  FileOpen $0 "$INSTDIR\${DESKTOP}" a
   ${If} ${Errors}
     Abort "请退出 Agent Remote Control 后重试。"
   ${EndIf}
+  FileClose $0
+check_webview:
   ; MyGo creates this per-user profile at runtime, even for a custom install location.
-  ; Directory.Delete removes junctions as links instead of walking their targets.
-  nsExec::ExecToLog `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -Command "try { [IO.Directory]::Delete([IO.Path]::Combine($$env:LOCALAPPDATA, '${PRODUCT}', 'WebView2'), $$true) } catch [IO.DirectoryNotFoundException] {} catch { Write-Error $$_; exit 1 }"`
+  InitPluginsDir
+  File /oname=$PLUGINSDIR\arc-remove-webview.ps1 "${ARC_REMOVE_WEBVIEW}"
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\arc-remove-webview.ps1"'
   Pop $0
   ${If} $0 != 0
     SetErrorLevel 1
     Abort "无法清除 Agent Remote Control 的 WebView2 数据。请退出后重试。"
+  ${EndIf}
+  ClearErrors
+  Delete "$INSTDIR\${DESKTOP}"
+  ${If} ${Errors}
+    Abort "请退出 Agent Remote Control 后重试。"
   ${EndIf}
   !include "${ARC_UNINSTALL_FILES}"
   SetOutPath "$TEMP"

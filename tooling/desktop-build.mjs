@@ -120,6 +120,7 @@ export async function buildDesktop({ target, output, development = false, releas
         `-DARC_VERSION=${version}`, `-DARC_PAYLOAD_FILES=${path.join(stage, '*')}`, `-DARC_UNINSTALL_FILES=${uninstall}`,
         `-DARC_ICON=${path.join(root, 'desktop/icons/icon.ico')}`,
         `-DARC_PAGES=${path.join(root, 'desktop/installer/pages.nsh')}`,
+        `-DARC_REMOVE_WEBVIEW=${path.join(root, 'tooling/windows-installer/remove-webview.ps1')}`,
         `-DARC_OUTPUT=${path.join(work, `agent-remote-control_${version}_x64-setup.exe`)}`,
         path.join(root, 'tooling/windows-installer/installer.nsi'),
       ]));
