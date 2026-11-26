@@ -388,11 +388,14 @@ Existing smaller HTTP limits still apply. Ordinary calls and streams retain an
 absolute 1830-second deadline; browser reads use 30 seconds. Each stream channel
 holds one frame and waits at most two seconds for its consumer.
 
-On normal Core replacement, Core closes business admissions, drains admitted calls
-for at most five seconds, then stops business observers and private connections.
+On normal Core replacement, Core closes business admissions and cancels admitted
+reads, including long polls and snapshot streams. It drains admitted writes for
+at most five seconds, then stops business observers and private connections.
 Drain acknowledgement belongs to the original generation. If the deadline expires,
 shutdown continues and callers reconcile original receipts. Crash skips drain.
 The front door retains the listeners and provider processes throughout either path.
+On Windows, Core has a fifteen-second process exit deadline from the start of
+drain. If cleanup stalls, process exit releases ownership for the next launch.
 
 Before transmission, waiting futures own permits in a front-door memory queue:
 at most 64 requests and 64 MiB of aggregate encoded request data. Queue admission

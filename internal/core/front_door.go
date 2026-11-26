@@ -13,8 +13,8 @@ const coreDraining = "FRONT_DOOR_CORE_DRAINING: Read current state after Core is
 const privateCancelled = "FRONT_DOOR_CANCELLED: Request cancelled; Agent execution is unchanged."
 
 type privateAdmission struct {
-	cancel        context.CancelCauseFunc
-	write, stream bool
+	cancel context.CancelCauseFunc
+	write  bool
 }
 
 type inProcess struct {
@@ -23,7 +23,7 @@ type inProcess struct {
 	mu                    sync.Mutex
 	draining, maintenance bool
 	pending               map[string]privateAdmission
-	active                sync.WaitGroup
+	writes                sync.WaitGroup
 	target                transportTarget
 }
 
@@ -50,7 +50,7 @@ func (p *inProcess) drain() {
 	defer p.mu.Unlock()
 	p.draining = true
 	for _, request := range p.pending {
-		if request.stream {
+		if !request.write {
 			request.cancel(errors.New(coreDraining))
 		}
 	}
@@ -59,7 +59,7 @@ func (p *inProcess) drain() {
 func (p *inProcess) drainRequests(ctx context.Context) (frontDoorDrainAck, error) {
 	p.drain()
 	drained := make(chan struct{})
-	go func() { p.active.Wait(); close(drained) }()
+	go func() { p.writes.Wait(); close(drained) }()
 	select {
 	case <-drained:
 		return frontDoorDrainAck{Generation: p.generation}, nil
@@ -113,15 +113,20 @@ func (p *inProcess) begin(ctx context.Context, request frontDoorRequest, stream 
 	}
 	deadline, end := context.WithTimeout(ctx, remaining)
 	wait, cancel := context.WithCancelCause(deadline)
-	p.pending[request.ID] = privateAdmission{cancel: cancel, write: isPrivateWrite(request), stream: stream}
-	p.active.Add(1)
+	write := !stream && isPrivateWrite(request)
+	p.pending[request.ID] = privateAdmission{cancel: cancel, write: write}
+	if write {
+		p.writes.Add(1)
+	}
 	return wait, func() {
 		end()
 		cancel(nil)
 		p.mu.Lock()
 		delete(p.pending, request.ID)
 		<-slots
-		p.active.Done()
+		if write {
+			p.writes.Done()
+		}
 		p.mu.Unlock()
 	}, nil
 }

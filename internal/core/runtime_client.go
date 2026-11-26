@@ -146,6 +146,32 @@ func runtimeOwner(ctx context.Context, build string) (object, error) {
 	return info, nil
 }
 
+func runtimeOwnerForStartup(ctx context.Context, build string) (object, error) {
+	if operatingSystem == "windows" {
+		wait, cancel := context.WithTimeout(ctx, windowsCoreShutdownLimit+time.Second)
+		defer cancel()
+		ctx = wait
+	}
+	const unavailable = "CORE_UNAVAILABLE: The existing Core still owns the state directory but did not answer its health check. Retry after it becomes responsive; inspect core.log if this persists."
+	for {
+		if info, err := runtimeOwner(ctx, build); info != nil || err != nil {
+			return info, err
+		}
+		if unlocked, err := coreUnlocked(); unlocked || err != nil {
+			return nil, err
+		}
+		if operatingSystem != "windows" {
+			return nil, errors.New(unavailable)
+		}
+		// A draining Core stops answering health checks before releasing its lock.
+		select {
+		case <-ctx.Done():
+			return nil, errors.New(unavailable)
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+}
+
 func (c *runtimeClient) subscriptions(ctx context.Context) (any, error) {
 	return c.request(ctx, "subscriptions", http.MethodGet, nil)
 }
@@ -206,18 +232,11 @@ func (c *runtimeClient) ensureCore(ctx context.Context) error {
 	if coreStopped() {
 		return errors.New("CORE_STOPPED: Start Core from ARC Desktop.")
 	}
-	info, err := runtimeOwner(ctx, c.build)
+	info, err := runtimeOwnerForStartup(ctx, c.build)
 	if err != nil {
 		return err
 	}
 	if info == nil {
-		unlocked, err := coreUnlocked()
-		if err != nil {
-			return err
-		}
-		if !unlocked {
-			return errors.New("CORE_UNAVAILABLE: The existing Core still owns the state directory but did not answer its health check. Retry after it becomes responsive; inspect core.log if this persists.")
-		}
 		if err := launchLeasedCore(ctx, c.binary, c.build); err != nil {
 			return err
 		}

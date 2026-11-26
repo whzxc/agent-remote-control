@@ -233,3 +233,30 @@ func TestPrivateCancellationAndDrainRetainGeneration(t *testing.T) {
 		t.Fatalf("ack = %v, %v", ack, err)
 	}
 }
+
+func TestCoreShutdownCancelsDesktopReadsWithoutWaitingForTheirWorkers(t *testing.T) {
+	// Recurring bug class: lifecycle an outstanding Desktop read kept the last client's Core draining.
+	endpoint := newInProcess(nil)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	reads := []object{{"route": "agents/activity", "method": "GET"}, {"route": "state/wait", "method": "POST"}}
+	var admitted []context.Context
+	for _, route := range reads {
+		read := requestForEndpoint(endpoint, object{"Management": route}, object{})
+		reading, release, err := endpoint.begin(t.Context(), read, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer release()
+		admitted = append(admitted, reading)
+	}
+	ack, err := endpoint.drainRequests(ctx)
+	if err != nil || ack.Generation != endpoint.generation {
+		t.Fatalf("Desktop reads held the shutdown drain open: %v, %v", ack, err)
+	}
+	for _, reading := range admitted {
+		if err := context.Cause(reading); err == nil || !strings.HasPrefix(err.Error(), "FRONT_DOOR_CORE_DRAINING:") {
+			t.Fatalf("admitted read was not cancelled for shutdown: %v", err)
+		}
+	}
+}

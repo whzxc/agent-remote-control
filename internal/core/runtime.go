@@ -223,7 +223,22 @@ func init() {
 
 const coreBuildMismatch = "CORE_BUILD_MISMATCH: Close other local entry points. Reload Desktop and CLI from the same build."
 
+const windowsCoreShutdownLimit = 15 * time.Second
+
+func coreShutdownWatchdog(limit time.Duration) *time.Timer {
+	return time.AfterFunc(limit, func() {
+		fmt.Fprintln(os.Stderr, "CORE_SHUTDOWN_DEADLINE: Core exited after bounded cleanup; detached Agent processes remain available.")
+		os.Exit(1)
+	})
+}
+
 func serveRuntime(parent context.Context, daemon bool) error {
+	var shutdownWatchdog *time.Timer
+	defer func() {
+		if shutdownWatchdog != nil {
+			shutdownWatchdog.Stop()
+		}
+	}()
 	guard, err := frontDoorStartupGuard()
 	if err != nil {
 		return err
@@ -327,10 +342,14 @@ loop:
 			}
 		}
 	}
+	if operatingSystem == "windows" {
+		shutdownWatchdog = coreShutdownWatchdog(windowsCoreShutdownLimit)
+	}
 	drain, cancelDrain := context.WithTimeout(context.WithoutCancel(ctx), drainTimeout)
 	defer cancelDrain()
 	if _, err := core.drainRequests(drain); err != nil {
 		recordLog("WARN", "FRONT_DOOR_CORE_DRAIN_TIMEOUT", nil)
+		endIPC()
 	}
 	s.runtime.launches.close()
 	return nil
@@ -386,7 +405,11 @@ func coreUnlocked() (bool, error) {
 }
 
 func waitCoreExit(ctx context.Context) error {
-	wait, cancel := context.WithTimeout(ctx, 10*time.Second)
+	limit := 10 * time.Second
+	if operatingSystem == "windows" {
+		limit = windowsCoreShutdownLimit + time.Second
+	}
+	wait, cancel := context.WithTimeout(ctx, limit)
 	defer cancel()
 	tick := time.NewTicker(100 * time.Millisecond)
 	defer tick.Stop()

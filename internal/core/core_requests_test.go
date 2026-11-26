@@ -38,7 +38,15 @@ func TestExplicitWaitCancellationPreservesTheOriginalMCPReply(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer listener.Close()
-	defer func() { cancel(); endpoint.drain(); endpoint.active.Wait() }()
+	defer func() {
+		cancel()
+		endpoint.drain()
+		select {
+		case <-started:
+			<-stopped
+		default:
+		}
+	}()
 	bridge := &gatewayBridge{}
 	request := object{"jsonrpc": "2.0", "id": "first", "method": "tools/call", "params": object{"name": "query",
 		"arguments": object{"op": op, "args": object{"threadId": "00000000-0000-4000-8000-000000000001", "timeoutMs": 10000}}}}

@@ -456,10 +456,11 @@ func isPrivateWrite(request frontDoorRequest) bool {
 		return spec != nil && via(spec) == "act"
 	}
 	if raw, ok := obj(request.Operation)["Management"]; ok {
+		route, method := text(raw, "route"), text(raw, "method")
 		if management, ok := raw.(privateManagement); ok {
-			return management.Method != http.MethodGet
+			route, method = management.Route, management.Method
 		}
-		return text(raw, "method") != http.MethodGet
+		return method != http.MethodGet && !(method == http.MethodPost && route == "state/wait")
 	}
 	if raw, ok := obj(request.Operation)["Authority"]; ok {
 		switch text(raw, "op") {
