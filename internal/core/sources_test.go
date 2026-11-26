@@ -50,12 +50,18 @@ func TestReceiptBatchLabelProjectionPreservesRecordedOwnership(t *testing.T) {
 		}
 	}
 	obj(sources[0])["label"] = "renamed-source"
-	obj(accounts[0])["alias"], obj(accounts[0])["removedAt"] = "renamed-account", now()
+	obj(accounts[0])["alias"] = "renamed-account"
 	decorateSourceLabels(batch, sources)
 	decorateAccountLabels(batch, accounts)
 	if text(field(rows[0], "origin"), "sourceLabel") != "renamed-source" || field(rows[0], "agentAccountAlias") != "renamed-account" ||
-		field(rows[0], "agentAccountId") != "account-0" || field(rows[0], "agentAccountRemoved") != true {
+		field(rows[0], "agentAccountId") != "account-0" || wire(field(rows[0], "arguments")) != unchanged {
 		t.Fatalf("unexpected updated labels: %v", rows[0])
+	}
+	obj(accounts[0])["removedAt"] = now()
+	decorateAccountLabels(batch, accounts)
+	if field(rows[0], "agentAccountRemoved") != true || field(rows[0], "agentAccountId") != "account-0" ||
+		field(rows[0], "agentAccountAlias") != "renamed-account" || wire(field(rows[0], "arguments")) != unchanged {
+		t.Fatalf("account removal rewrote the receipt: %v", rows[0])
 	}
 }
 

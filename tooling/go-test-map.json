@@ -679,7 +679,7 @@
     },
     "native/src/sources.rs": {
       "answer_attribution_resolves_current_source_identity": ["internal/core/sources_test.go#TestSourceAnswerAttributionUsesCurrentLabels"],
-      "receipt_batch_labels_fit_one_poll_budget_without_identity_reconciliation": {"tests": ["internal/core/sources_test.go#TestReceiptBatchLabelProjectionPreservesRecordedOwnership"], "remaining": "Recheck opaque argument preservation after account rename or tombstone."},
+      "receipt_batch_labels_fit_one_poll_budget_without_identity_reconciliation": ["internal/core/sources_test.go#TestReceiptBatchLabelProjectionPreservesRecordedOwnership"],
       "grant_authority_ignores_account_projection_and_tracks_revocation": ["internal/core/sources_test.go#TestSourceGrantAuthorityTracksRevocation"],
       "local_authority_refuses_revocation": ["internal/core/sources_test.go#TestBuiltinSourceAuthorityCannotBeRevoked"],
       "local_authority_repairs_legacy_lifecycle_once": ["internal/core/sources_test.go#TestBuiltinSourceLifecycleRepairIsIdempotent"],
