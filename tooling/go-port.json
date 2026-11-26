@@ -3,12 +3,14 @@
   "postBaselineRustCommits": [
     "071a5011de1d8ab72ca4a702e57d3aba3ae498ae",
     "856104fa7dfa24041125acffbf6f9217d6da03af",
-    "2acee2731139c0530c54f680084e10caaf2b9501"
+    "2acee2731139c0530c54f680084e10caaf2b9501",
+    "359fe72483ebae7881941a77c3700b1bdfe4bc9a"
   ],
   "portedPostBaselineRustCommits": {
     "071a5011de1d8ab72ca4a702e57d3aba3ae498ae": "Go embeds the same relocated runtime assets from shared/core.",
     "856104fa7dfa24041125acffbf6f9217d6da03af": "The six Rust core changes are formatting-only. Go consumes the same shared resources.",
-    "2acee2731139c0530c54f680084e10caaf2b9501": "Bounded busy pipe opens, missing-endpoint recovery, and single-handshake attachment publication. All five Windows named-pipe contracts passed in check (windows-latest), GitHub Actions run 45850979347: https://github.com/whzxc/agent-remote-control/actions/runs/45850979347/job/140016944438#step:9:1."
+    "2acee2731139c0530c54f680084e10caaf2b9501": "Bounded busy pipe opens, missing-endpoint recovery, and single-handshake attachment publication. All five Windows named-pipe contracts passed in check (windows-latest), GitHub Actions run 45850979347: https://github.com/whzxc/agent-remote-control/actions/runs/45850979347/job/140016944438#step:9:1.",
+    "359fe72483ebae7881941a77c3700b1bdfe4bc9a": "Rust include paths follow the assets relocated to shared/core; Go embeds the same files."
   },
   "files": {
     "native/src/acceptance_fault.rs": {
@@ -1095,15 +1097,8 @@
         "internal/core/front_door_test.go",
         "internal/core/front_door_authority.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "H",
-          "items": [
-            "Verify installed execution and the Desktop updater handoff."
-          ]
-        }
-      ]
+      "status": "verified",
+      "note": "Installed acceptance on macOS and Windows covered legacy-updater replacement from Rust releases and the front-door handoff to the Go build."
     },
     "native/src/front_door_tests.rs": {
       "segment": "S0",
@@ -1534,15 +1529,8 @@
         "internal/core/runtime_test.go",
         "internal/core/front_door_supervision.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "H",
-          "items": [
-            "Verify the installed Desktop and Core lease lifecycle."
-          ]
-        }
-      ]
+      "status": "verified",
+      "note": "Installed acceptance on macOS and Windows covered Desktop and CLI lease transitions, last-client Core exit and relaunch after update."
     },
     "native/src/runtime_metrics/cost.rs": {
       "segment": "B",
@@ -1842,15 +1830,8 @@
         "internal/core/uninstall.go",
         "internal/core/uninstall_windows.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "H",
-          "items": [
-            "Verify installed Desktop quit and platform uninstall handoff."
-          ]
-        }
-      ]
+      "status": "verified",
+      "note": "Installed acceptance on macOS and Windows covered Desktop quit and the platform uninstall handoff."
     },
     "native/src/wait_transport.rs": {
       "segment": "S0",
