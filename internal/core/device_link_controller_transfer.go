@@ -25,7 +25,10 @@ func (c *deviceController) admitTransfer(ctx context.Context, selector string, s
 			return nil, nil, errors.New("DEVICE_BUSY: Member request capacity reached; wait for an active request.")
 		}
 	}
-	prepared, err := c.prepare(ctx, member, path)
+	prepare, cancel := context.WithCancel(ctx)
+	defer cancel()
+	defer context.AfterFunc(member.ctx, cancel)()
+	prepared, err := c.prepare(prepare, member, path)
 	if err != nil {
 		release()
 		return nil, nil, err

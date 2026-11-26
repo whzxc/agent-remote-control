@@ -58,7 +58,7 @@ type deviceController struct {
 	identity           *deviceIdentity
 	transfers          deviceReceiverStore
 	discoveryMu        sync.Mutex
-	discovered         map[string]deviceResolution
+	discovery          map[int]map[deviceDNSKey][]deviceDNSRecord
 	pairedDiscoveryIDs sync.Map
 	transferJobs       sync.Map
 	recordsMu          sync.Mutex
@@ -74,7 +74,7 @@ func startDeviceController(ctx context.Context, s *service) error {
 		return err
 	}
 	ctx, cancel := context.WithCancel(ctx)
-	c := &deviceController{ctx: ctx, service: s, directory: directory, members: map[string]*deviceMember{}, records: records, discovered: make(map[string]deviceResolution)}
+	c := &deviceController{ctx: ctx, service: s, directory: directory, members: map[string]*deviceMember{}, records: records}
 	deviceControllers.Store(s, c)
 	done := make(chan struct{})
 	go func() {
@@ -122,7 +122,7 @@ func (c *deviceController) stopLocked() {
 	c.identity = nil
 	c.pairedDiscoveryIDs.Clear()
 	c.discoveryMu.Lock()
-	clear(c.discovered)
+	clear(c.discovery)
 	c.discoveryMu.Unlock()
 	for _, member := range current {
 		member.stop()
@@ -292,6 +292,32 @@ func deviceError(code, message string, next object) error {
 
 func deviceOffline() error {
 	return deviceError("DEVICE_OFFLINE", "Member is offline. Request was not transmitted.", deviceListAction())
+}
+
+func forwardedDeviceReceipt(request frontDoorRequest) (object, string) {
+	switch str(request.Operation) {
+	case "Mcp", "LocalControl":
+	default:
+		return nil, ""
+	}
+	envelope := privateEnvelope(request.Operation, obj(request.Body))
+	args := envelope["args"]
+	op := text(envelope, "op")
+	device, hasDevice := field(args, "device").(string)
+	if op != "device" && !hasDevice {
+		return nil, ""
+	}
+	target := request.ID
+	if op == "device" {
+		op, args = text(args, "op"), field(args, "args")
+	}
+	if op == "receipt" {
+		if receipt, ok := field(args, "requestId").(string); ok {
+			target = receipt
+		}
+	}
+	outer := object{"device": device, "op": "receipt", "args": object{"requestId": target, "action": "read"}}
+	return object{"via": "act", "op": "device", "args": outer}, target
 }
 
 func deviceUncertain(request, member, message string) error {
@@ -488,6 +514,17 @@ func deviceQualifyActions(value any, device string) {
 
 func init() {
 	registerServiceStartup(startDeviceController)
+	registerOperationProjection("dispatch_policy", func(_ context.Context, request operationRequest, result object) error {
+		if !deviceEnabled() {
+			return nil
+		}
+		controller, err := serviceDeviceController(request.service)
+		if err != nil {
+			return err
+		}
+		result["devices"] = controller.list(request.args["all"] == true)["devices"]
+		return nil
+	})
 	remoteDeviceControl = func(ctx context.Context, s *service, source requestSource, tool string, args object, request any) (object, error) {
 		c, err := serviceDeviceController(s)
 		if err != nil {

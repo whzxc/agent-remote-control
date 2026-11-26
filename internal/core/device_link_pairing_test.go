@@ -7,9 +7,37 @@ import (
 	"net"
 	"net/netip"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
+
+func newLoopbackPairingDevice(t *testing.T, ctx context.Context, directory string) *deviceManager {
+	t.Helper()
+	m, err := newDeviceManager(ctx, directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	address, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.stored.Port = uint16(address.Addr().(*net.TCPAddr).Port)
+	address.Close()
+	m.allow = netip.Addr.IsLoopback
+	m.bindings = func(port uint16) ([]deviceLANBinding, error) {
+		return []deviceLANBinding{{addr: netip.AddrPortFrom(netip.MustParseAddr("127.0.0.1"), port)}}, nil
+	}
+	m.dialAddresses = func(inputs []string) ([]netip.AddrPort, error) {
+		return deviceScopeAddresses(inputs, nil, netip.Addr.IsLoopback)
+	}
+	m.discovery = func(*deviceIdentity, uint16, []deviceLANBinding) (func(), error) { return func() {}, nil }
+	if err := m.reconcile(true); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = m.reconcile(false) })
+	return m
+}
 
 func TestGoDevicePairingRequiresApprovalAndForwardsPinnedRequest(t *testing.T) {
 	// Contract: arc-peer/3 consumes an offer only once and authorizes a private Core request under the approved controller identity.
@@ -25,54 +53,18 @@ func TestGoDevicePairingRequiresApprovalAndForwardsPinnedRequest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	local := &service{}
+	local := &service{metadata: object{"instance": id()}}
 	core := newInProcess(local)
 	listener, err := listenPrivate(ctx, "core", token, core, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer listener.Close()
-	newFixture := func(directory string) *deviceManager {
-		m, err := newDeviceManager(ctx, directory)
-		if err != nil {
-			t.Fatal(err)
-		}
-		address, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1)})
-		if err != nil {
-			t.Fatal(err)
-		}
-		m.stored.Port = uint16(address.Addr().(*net.TCPAddr).Port)
-		address.Close()
-		m.allow = netip.Addr.IsLoopback
-		m.bindings = func(port uint16) ([]deviceLANBinding, error) {
-			return []deviceLANBinding{{addr: netip.AddrPortFrom(netip.MustParseAddr("127.0.0.1"), port)}}, nil
-		}
-		m.dialAddresses = func(inputs []string) ([]netip.AddrPort, error) {
-			return deviceScopeAddresses(inputs, nil, netip.Addr.IsLoopback)
-		}
-		m.discovery = func(*deviceIdentity, uint16, []deviceLANBinding) (func(), error) { return func() {}, nil }
-		if err := m.reconcile(true); err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { _ = m.reconcile(false) })
-		return m
-	}
-	member := newFixture(filepath.Join(state, "device-link"))
-	controller := newFixture(filepath.Join(t.TempDir(), "device-link"))
+	member := newLoopbackPairingDevice(t, ctx, filepath.Join(state, "device-link"))
+	controller := newLoopbackPairingDevice(t, ctx, filepath.Join(t.TempDir(), "device-link"))
 	owner := &gatewayOwner{bridge: &gatewayBridge{}}
-	prev := deviceCorePeerSource
-	t.Cleanup(func() { deviceCorePeerSource = prev })
-	deviceCorePeerSource = func(_ context.Context, id, key string, _ bool) (requestSource, error) {
-		if id != controller.identity.id || key != controller.identity.publicKey {
-			return requestSource{}, context.Canceled
-		}
-		return requestSource{origin: object{"deviceId": id, "authType": "peer", "sourceId": "approved-controller", "controlSource": "custom"}, policy: "all"}, nil
-	}
-	member.authority = func(_ context.Context, op string, body object) (any, error) {
-		if op != "peer_connect" || body["deviceId"] != controller.identity.id || body["publicKey"] != controller.identity.publicKey {
-			return nil, context.Canceled
-		}
-		return object{}, nil
+	member.authority = func(ctx context.Context, op string, body object) (any, error) {
+		return requestSourceAuthority(ctx, owner.bridge, op, body)
 	}
 	member.control = func(ctx context.Context, id string, body object) (any, error) {
 		return owner.bridge.call(ctx, newPrivateRequest(ctx, "PeerControl", object{"Peer": privatePeerAuthority{DeviceID: id}}, body))
@@ -150,5 +142,94 @@ wait:
 		"version": deviceProtocolVersion, "tool": "query", "body": object{"op": "devices", "args": object{}}, "origin": object{},
 	}, time.Second); err == nil || managementErrorCode(err.Error()) != "DEVICE_PEER_FORBIDDEN" {
 		t.Fatalf("peer Device link call escaped the member boundary: %v", err)
+	}
+	request := id()
+	origin := object{"sourceId": "upstream-fixture", "sourceLabel": "Fixture upstream", "controlSource": "custom"}
+	act := func(op string, args object) (any, bool) {
+		t.Helper()
+		reply, err := channel.request(ctx, deviceReadPath+"request", object{"version": deviceProtocolVersion, "tool": "act",
+			"body": object{"op": op, "args": args, "requestId": request}, "origin": origin}, time.Second)
+		if err != nil {
+			t.Fatal(err)
+		}
+		value, err := egressToolValue(reply)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return value, field(reply, "isError") == true
+	}
+	if value, failed := act("notice_post", object{"intent": "Fixture peer request", "resources": []any{"app:installed"}, "expectedDurationSeconds": 60}); failed {
+		t.Fatalf("paired member write: %v", value)
+	}
+	receipt, failed := act("receipt", object{"requestId": request, "includeOrigin": true})
+	ownerOrigin := field(receipt, "origin")
+	if failed || field(ownerOrigin, "deviceId") != controller.identity.id || field(ownerOrigin, "authType") != "peer" ||
+		field(field(ownerOrigin, "peerOrigin"), "sourceId") != origin["sourceId"] {
+		t.Fatalf("peer receipt origin %v", receipt)
+	}
+	foreign := id()
+	if err := coreReceiptStore().reserve(ctx, object{"requestId": foreign, "backendSession": local.metadata["instance"], "state": "completed",
+		"operation": "notice_post", "origin": object{"authType": "peer", "deviceId": "other-controller"}}); err != nil {
+		t.Fatal(err)
+	}
+	if value, failed := act("receipt", object{"requestId": foreign}); !failed || field(field(value, "error"), "code") != "DEVICE_TASK_NOT_VISIBLE" {
+		t.Fatalf("foreign receipt escaped device authorization: %v", value)
+	}
+
+}
+
+func TestCancelledPairingCannotApplyALateApproval(t *testing.T) {
+	// Recurring bug class: concurrency cancellation must invalidate a consumed offer before local approval can create a pairing.
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	member := newLoopbackPairingDevice(t, ctx, t.TempDir())
+	controller := newLoopbackPairingDevice(t, ctx, t.TempDir())
+	member.authority = func(context.Context, string, object) (any, error) {
+		t.Error("cancelled pairing attempted to create a peer source")
+		return nil, nil
+	}
+	offer, err := member.offer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	result := make(chan error, 1)
+	go func() {
+		_, err := controller.dispatch(ctx, "pair", object{"pairingString": offer["pairingString"]})
+		result <- err
+	}()
+	waitForPending := func(want bool) {
+		t.Helper()
+		tick := time.NewTicker(5 * time.Millisecond)
+		defer tick.Stop()
+		for {
+			value, err := member.dispatch(ctx, "pending", object{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if (field(value, "pending") != nil) == want {
+				return
+			}
+			select {
+			case <-ctx.Done():
+				t.Fatal("member did not reach the expected pairing state")
+			case <-tick.C:
+			}
+		}
+	}
+	waitForPending(true)
+	if _, err := controller.dispatch(ctx, "cancel-pair", object{}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-result:
+		if err == nil || !strings.HasPrefix(err.Error(), "DEVICE_PAIRING_CANCELLED:") {
+			t.Fatalf("pairing cancellation: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	}
+	waitForPending(false)
+	if _, err := member.dispatch(ctx, "approve", object{}); err == nil || member.snapshot()["controller"] != nil {
+		t.Fatalf("late approval created a pairing: %v", err)
 	}
 }

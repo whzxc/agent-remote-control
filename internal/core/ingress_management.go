@@ -157,6 +157,26 @@ func (g *ingressGateway) manage(ctx context.Context, method, route string, body 
 		defer g.mu.RUnlock()
 		return g.ids(), nil
 	}
+	if action, primary := strings.CutPrefix(route, "_primary_request/"); primary {
+		g.mu.RLock()
+		ids := g.ids()
+		g.mu.RUnlock()
+		if len(ids) == 0 {
+			switch method + " " + action {
+			case "PUT config":
+				return g.manage(ctx, method, "_initial_config", body)
+			case "POST stop":
+				return object{"ok": true}, nil
+			default:
+				return nil, errors.New("no ingresses; run cli ingress add --stdin")
+			}
+		}
+		id := ids[0]
+		if slices.Contains(ids, "default") {
+			id = "default"
+		}
+		return g.manage(ctx, method, "_ingress_request/"+id+"/"+action, body)
+	}
 	if route == "_initial_config" {
 		if len(g.snapshot()) != 0 {
 			return nil, errors.New("ingress was created; refresh configuration")
@@ -477,6 +497,25 @@ func gatewayIngressRoutes() {
 
 func init() {
 	gatewayIngressRoutes()
+	for method, route := range map[string]string{
+		http.MethodGet: "config/credentials", http.MethodPut: "config", http.MethodPatch: "config/tunnel",
+		http.MethodPost: "(start|stop|verification/reset)",
+	} {
+		pattern := route
+		if method != http.MethodPost {
+			pattern = "(" + route + ")"
+		}
+		registerGatewayRoute(method, "_primary_request/"+pattern, func(ctx context.Context, owner *gatewayOwner, body object, params []string) (any, error) {
+			state, ok := networkGateways.Load(owner)
+			if !ok {
+				return nil, errors.New("core shutting down")
+			}
+			return state.(*ingressGateway).manage(ctx, method, "_primary_request/"+params[0], body)
+		})
+		registerRoutePattern(method, pattern, func(ctx context.Context, _ *service, body object, params []string) (any, error) {
+			return gatewayRequest(ctx, "_primary_request/"+params[0], method, body)
+		})
+	}
 	readIngressStatuses = func(ctx context.Context, _ *service) ([]object, error) {
 		reply, err := gatewayRequest(ctx, "ingress", http.MethodGet, object{})
 		if err != nil {

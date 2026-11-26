@@ -5,6 +5,8 @@ package core
 import (
 	"context"
 	"net/http"
+	"net/netip"
+	"net/url"
 )
 
 func startFixtureIngressGateway(ctx context.Context, token string, port uint64) (func(), error) {
@@ -37,6 +39,14 @@ func startFixtureIngressGateway(ctx context.Context, token string, port uint64) 
 }
 
 func init() {
+	fixtureRelayWorker = func(address string) bool {
+		u, err := url.Parse(address)
+		if err != nil || u.Scheme != "http" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+			return false
+		}
+		ip, err := netip.ParseAddr(u.Hostname())
+		return err == nil && ip.IsLoopback()
+	}
 	ingressFixtureSourceTransport = func(_ context.Context, s *service, id string, _ object, _ *string) (requestSource, error) {
 		return s.fixtureIngress(id)
 	}

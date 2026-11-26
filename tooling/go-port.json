@@ -303,30 +303,14 @@
       "go": [
         "internal/core/claude_notify_device_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "E",
-          "items": [
-            "Run controller/member delivery and qualified acknowledgement coverage with actual device-link fixtures."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/claude_notify/device.rs": {
       "segment": "C",
       "go": [
         "internal/core/claude_notify_device.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "E",
-          "items": [
-            "Call bindNotificationDevice, receiveNotificationDeviceEvent, reconcileNotificationDevice, markNotificationDeviceUnavailable and acknowledgeNotificationDeviceRead from the controller."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/claude_notify/diagnostics.rs": {
       "segment": "C",
@@ -380,15 +364,7 @@
         "internal/core/claude_notify_scheduler.go",
         "internal/core/claude_notify_mcp_events_fixture_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "E",
-          "items": [
-            "Provide notificationEventAuthorize and set eventPrincipal from authenticated ingress. Revalidate the principal at subscribe, unsubscribe and send."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/claude_notify/observer.rs": {
       "segment": "C",
@@ -542,12 +518,6 @@
           "owner": "A",
           "items": [
             "App snapshot and readiness adapters."
-          ]
-        },
-        {
-          "owner": "E",
-          "items": [
-            "Provide ingress configuration defaults and apply ingress validation and lifecycle."
           ]
         }
       ]
@@ -795,15 +765,7 @@
       "go": [
         "internal/core/coordination_messages_mod.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "E",
-          "items": [
-            "Supply named ingress management and authenticated MCP setup for legacy negotiation recovery."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/coordination/messages/store.rs": {
       "segment": "B",
@@ -889,12 +851,6 @@
       "status": "ported",
       "remaining": [
         {
-          "owner": "E",
-          "items": [
-            "Register peer forwarding and ingress authorization."
-          ]
-        },
-        {
           "owner": "A",
           "items": [
             "Supply task-summary projection, image blocks, and wait outcome compaction."
@@ -965,38 +921,57 @@
     "native/src/device_link/controller/path.rs": {
       "segment": "E",
       "go": [
-        "internal/core/device_link_controller_path.go"
+        "internal/core/device_link_controller_path.go",
+        "internal/core/device_link_controller_dns.go",
+        "internal/core/device_link_controller_dns_test.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/device_link/controller/transfer.rs": {
       "segment": "E",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/device_link_controller_transfer.go"
+      ],
+      "status": "ported"
     },
     "native/src/device_link/controller.rs": {
       "segment": "E",
       "go": [
-        "internal/core/device_link_controller.go"
+        "internal/core/device_link_controller.go",
+        "internal/core/device_link_management.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/device_link/controller_tests.rs": {
       "segment": "E",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/device_link_controller_test.go",
+        "internal/core/device_link_pairing_test.go"
+      ],
+      "status": "ported",
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Provide Agent task handlers for the end-to-end peer controller operation cases."
+          ]
+        }
+      ]
     },
     "native/src/device_link/events/tests.rs": {
       "segment": "E",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/device_link_events_test.go",
+        "internal/core/device_link_events_fixture_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/device_link/events.rs": {
       "segment": "E",
       "go": [
         "internal/core/device_link_events.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/device_link/identity.rs": {
       "segment": "E",
@@ -1012,7 +987,7 @@
         "internal/core/device_link_management.go",
         "internal/core/device_link_authority.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/device_link/records.rs": {
       "segment": "E",
@@ -1027,7 +1002,7 @@
         "internal/core/device_link_test.go",
         "internal/core/device_link_pairing_test.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/device_link/tls.rs": {
       "segment": "E",
@@ -1039,14 +1014,17 @@
     "native/src/device_link/topology.rs": {
       "segment": "E",
       "go": [
-        "internal/core/device_link_topology.go"
+        "internal/core/device_link_topology.go",
+        "internal/core/device_link_controller_path.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/device_link/transfer/execution.rs": {
       "segment": "E",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/device_link_transfer_execution.go"
+      ],
+      "status": "ported"
     },
     "native/src/device_link/transfer/receiver.rs": {
       "segment": "E",
@@ -1055,19 +1033,27 @@
         "internal/core/device_link_transfer_receiver_darwin.go",
         "internal/core/device_link_transfer_receiver_linux.go",
         "internal/core/device_link_transfer_receiver_unix.go",
-        "internal/core/device_link_transfer_receiver_windows.go"
+        "internal/core/device_link_transfer_receiver_windows.go",
+        "internal/core/device_link_transfer_receiver_test.go"
       ],
       "status": "ported"
     },
     "native/src/device_link/transfer/relay_fixture.rs": {
       "segment": "E",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/device_link_transfer_relay_fixture_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/device_link/transfer/tests.rs": {
       "segment": "E",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/device_link_transfer_test.go",
+        "internal/core/device_link_tunnel_fixture_test.go",
+        "internal/core/device_link_transfer_relay_fixture_test.go",
+        "internal/core/device_link_transfer_performance_darwin_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/device_link/transfer/wire.rs": {
       "segment": "E",
@@ -1089,7 +1075,7 @@
         "internal/core/device_link_transport.go",
         "internal/core/device_link_transport_dns.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/device_link/tunnel.rs": {
       "segment": "E",
@@ -1100,22 +1086,34 @@
     },
     "native/src/device_link/tunnel_fixture.rs": {
       "segment": "E",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/device_link_tunnel_fixture_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/device_link/tunnel_tests.rs": {
       "segment": "E",
       "go": [
-        "internal/core/device_link_tunnel_test.go"
+        "internal/core/device_link_tunnel_test.go",
+        "internal/core/device_link_tunnel_fixture_test.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/device_link/visibility.rs": {
       "segment": "E",
       "go": [
-        "internal/core/device_link_authority.go"
+        "internal/core/device_link_visibility.go",
+        "internal/core/device_link_visibility_test.go"
       ],
-      "status": "pending"
+      "status": "ported",
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Register deviceCoreAgentAvailable and provide peer-scoped native task projections through deviceCoreTaskRead."
+          ]
+        }
+      ]
     },
     "native/src/diagnostics.rs": {
       "segment": "S0",
@@ -1208,12 +1206,6 @@
           "items": [
             "Register agent and task operation owners."
           ]
-        },
-        {
-          "owner": "E",
-          "items": [
-            "Register network operations."
-          ]
         }
       ]
     },
@@ -1234,12 +1226,6 @@
           "items": [
             "Register browser authority."
           ]
-        },
-        {
-          "owner": "E",
-          "items": [
-            "Register peer and ingress authority."
-          ]
         }
       ]
     },
@@ -1248,15 +1234,7 @@
       "go": [
         "internal/core/front_door_owner.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "E",
-          "items": [
-            "Register ingress configuration, provider construction and lifecycle."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/front_door/process.rs": {
       "segment": "S0",
@@ -1265,15 +1243,7 @@
         "internal/core/front_door_supervision.go",
         "internal/core/front_door_process_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "E",
-          "items": [
-            "Restore persisted ingress and peer providers after each new gateway generation."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/front_door/protocol.rs": {
       "segment": "S0",
@@ -1297,12 +1267,6 @@
           "owner": "A",
           "items": [
             "Resolve browser key and status comparison for the browser authority."
-          ]
-        },
-        {
-          "owner": "E",
-          "items": [
-            "Resolve authenticated ingress authority and supply peer authorization and browser transport."
           ]
         }
       ]
@@ -1339,7 +1303,21 @@
         "internal/core/ingress_oauth.go",
         "internal/core/ingress_oauth_test.go"
       ],
-      "status": "ported"
+      "status": "ported",
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Bind ingressBrowserHTTP and currentBrowserKeyDigest to the browser handler and key authority."
+          ]
+        },
+        {
+          "owner": "C",
+          "items": [
+            "Distinguish a temporarily disconnected ingress from a revoked source when retrying webhook delivery."
+          ]
+        }
+      ]
     },
     "native/src/https_tunnel.rs": {
       "segment": "E",
@@ -1374,18 +1352,20 @@
         "internal/core/ingress.go",
         "internal/core/ingress_management.go",
         "internal/core/ingress_drafts.go",
+        "internal/core/ingress_fixture.go",
+        "internal/core/ingress_oauth.go",
         "internal/core/ingress_openai_tunnel.go",
-        "internal/core/ingress_openai_tunnel_test.go",
-        "internal/core/ingress_fixture.go"
+        "internal/core/ingress_openai_tunnel_test.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/ingress_observation.rs": {
       "segment": "E",
       "go": [
-        "internal/core/ingress_observation.go"
+        "internal/core/ingress_observation.go",
+        "internal/core/ingress_observation_test.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/interaction_responses.rs": {
       "segment": "A",
@@ -1719,9 +1699,10 @@
     "native/src/relay/mod.rs": {
       "segment": "E",
       "go": [
-        "internal/core/relay.go"
+        "internal/core/relay.go",
+        "internal/core/relay_test.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/relay/transport.rs": {
       "segment": "E",
@@ -1729,7 +1710,15 @@
         "internal/core/relay_transport.go",
         "internal/core/relay_transport_test.go"
       ],
-      "status": "pending"
+      "status": "ported",
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Supply the native system proxy resolver for relay, managed HTTPS and official Tunnel providers."
+          ]
+        }
+      ]
     },
     "native/src/resources.rs": {
       "segment": "S0",
@@ -1779,12 +1768,6 @@
           "owner": "A",
           "items": [
             "Resolve saved network settings and attach native task and Agent owners during startup."
-          ]
-        },
-        {
-          "owner": "E",
-          "items": [
-            "Supply ingress callback restoration, daemon autostart and remote fault status."
           ]
         }
       ]
@@ -1870,13 +1853,6 @@
             "Supply task and Agent records.",
             "Validate effective network proxy settings."
           ]
-        },
-        {
-          "owner": "E",
-          "items": [
-            "Supply ingress provider status.",
-            "Apply changed network preferences to ingress providers."
-          ]
         }
       ]
     },
@@ -1898,12 +1874,6 @@
           "owner": "C",
           "items": [
             "Supply setupReadNotification for loop completion evidence."
-          ]
-        },
-        {
-          "owner": "E",
-          "items": [
-            "Supply ingress configuration and setupCloudflareStatus, setupCloudflareLogin, setupCloudflareProvision and setupCloudflareStop."
           ]
         }
       ]
@@ -1943,12 +1913,6 @@
           "owner": "C",
           "items": [
             "Run notification-state migration at index preparation order 20 and publish readiness through sourceNotificationMigrationReady. Supply sourceDispatchRecords."
-          ]
-        },
-        {
-          "owner": "E",
-          "items": [
-            "Use source authority for ingress lifecycle and pairedSourceAuthority after native device authorization. Verify external OAuth and local-access fixtures."
           ]
         }
       ]
@@ -2151,12 +2115,6 @@
       "status": "ported",
       "remaining": [
         {
-          "owner": "E",
-          "items": [
-            "Connect public ingress authentication."
-          ]
-        },
-        {
           "owner": "F",
           "items": [
             "Register Desktop callbacks."
@@ -2314,12 +2272,6 @@
           "owner": "A",
           "items": [
             "Provide Agent, native task/writer, Desktop and source-container fixture support."
-          ]
-        },
-        {
-          "owner": "E",
-          "items": [
-            "Provide network and ingress fixtures."
           ]
         }
       ]

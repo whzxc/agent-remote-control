@@ -4,20 +4,16 @@ import (
 	"context"
 	"errors"
 	"maps"
-	"os"
 	"path/filepath"
 
-	"github.com/google/uuid"
 	"strings"
 )
 
-// The source owner revalidates the active peer credential and touches its origin.
-var deviceCorePeerSource func(context.Context, string, string, bool) (requestSource, error)
-
-// The Agent and dispatch owners supply the native task projection and membership.
-var deviceCoreTaskVisible func(context.Context, string, string, string) bool
+// Segment A supplies Agent availability and native task projections.
 var deviceCoreAgentAvailable func(context.Context, *service, string) bool
-var deviceCoreTaskRead func(context.Context, *service, requestSource, string, object) (any, error)
+
+// deviceCoreTaskRead returns the native operation result before MCP egress.
+var deviceCoreTaskRead func(context.Context, *service, requestSource, string, object) (object, error)
 
 func authorizedDeviceController(ctx context.Context, id string, touch bool) (requestSource, error) {
 	if !deviceEnabled() {
@@ -31,10 +27,7 @@ func authorizedDeviceController(ctx context.Context, id string, touch bool) (req
 	if peer == nil || peer.DeviceID != id {
 		return requestSource{}, errors.New("DEVICE_UNPAIRED: Pair and approve this controller locally; read cli guide.")
 	}
-	if deviceCorePeerSource == nil {
-		return requestSource{}, errors.New(PortPending)
-	}
-	source, err := deviceCorePeerSource(ctx, id, peer.PublicKey, touch)
+	source, err := linkedPeerSource(ctx, id, peer.PublicKey, touch)
 	if err != nil {
 		return requestSource{}, err
 	}
@@ -42,17 +35,6 @@ func authorizedDeviceController(ctx context.Context, id string, touch bool) (req
 		return requestSource{}, errors.New("DEVICE_UNPAIRED: Pair and approve this controller locally; read cli guide.")
 	}
 	return source, nil
-}
-
-func deviceOwnsOrigin(origin object, id string) bool {
-	owner := text(origin, "deviceId")
-	if owner == "" {
-		owner, _ = strings.CutPrefix(text(origin, "ingressId"), "peer:")
-		if owner == text(origin, "ingressId") {
-			return false
-		}
-	}
-	return id != "" && text(origin, "authType") == "peer" && owner == id
 }
 
 func dispatchDeviceControl(ctx context.Context, s *service, id string, body object) (any, error) {
@@ -106,65 +88,20 @@ func dispatchDeviceControl(ctx context.Context, s *service, id string, body obje
 		if deviceCoreTaskRead == nil {
 			return nil, errors.New(PortPending)
 		}
-		return deviceCoreTaskRead(ctx, s, source, op, args)
+		result, err := deviceCoreTaskRead(ctx, s, source, op, args)
+		if err != nil {
+			return egressTool(object{"error": controlFailure(err)}, true), nil
+		}
+		if op == "task_activity" {
+			filterDeviceActivity(ctx, obj(result), id)
+		}
+		return egressTool(result, false), nil
 	}
 	spec := operation(op)
 	if request.Tool == "act" && op != "receipt" && spec != nil && via(spec) == "act" && retryContract(spec)["mode"] != "receipt" {
 		return deviceRecordPeerWrite(ctx, s, source, request)
 	}
 	return callTool(ctx, s, source, request.Tool, request.Body, nil), nil
-}
-
-func deviceAuthorizeVisible(ctx context.Context, s *service, id, op string, args object) error {
-	denied := func() error {
-		return errors.New(wire(object{"code": "DEVICE_TASK_NOT_VISIBLE",
-			"message": "Only tasks dispatched by this controller are visible. List codex_tasks or agent_tasks on the paired member; query guide with topic:device.",
-			"next":    object{"via": "query", "op": "guide", "args": object{"topic": "device"}},
-		}))
-	}
-	switch op {
-	case "codex_query", "codex_call", "codex_thread", "codex_events":
-		return denied()
-	case "codex_pending", "codex_respond":
-		if _, ok := args["threadId"].(string); !ok {
-			return denied()
-		}
-	case "receipt":
-		return deviceAuthorizeReceipt(s, id, text(args, "requestId"), denied)
-	}
-	task := text(args, "threadId")
-	if task == "" {
-		task = text(args, "taskId")
-	}
-	agent := text(args, "agent")
-	if strings.HasPrefix(op, "codex_") {
-		agent = "codex"
-	}
-	if task != "" && (deviceCoreTaskVisible == nil || !deviceCoreTaskVisible(ctx, agent, task, id)) {
-		return denied()
-	}
-	return nil
-}
-
-func deviceAuthorizeReceipt(s *service, id, name string, denied func() error) error {
-	found := false
-	for _, store := range []receiptStore{coreReceiptStore(), agentReceiptStore()} {
-		row, err := store.read(name, text(s.metadata, "instance"))
-		if errors.Is(err, os.ErrNotExist) {
-			continue
-		}
-		if err != nil {
-			return err
-		}
-		if !deviceOwnsOrigin(obj(row["origin"]), id) {
-			return denied()
-		}
-		found = true
-	}
-	if !found {
-		return denied()
-	}
-	return nil
 }
 
 func linkedPeerSource(_ context.Context, device, key string, touch bool) (requestSource, error) {
@@ -186,26 +123,7 @@ func linkedPeerSource(_ context.Context, device, key string, touch bool) (reques
 	return requestSource{local: true, origin: origin, profile: row, policy: "all"}, nil
 }
 
-func peerVisibleTask(_ context.Context, agent, task, peer string) bool {
-	records, _ := dispatchRecords(task)
-	for _, row := range records {
-		if deviceOwnsOrigin(obj(row["origin"]), peer) {
-			return true
-		}
-	}
-	if agent == "codex" {
-		return false
-	}
-	if _, err := uuid.Parse(task); err != nil {
-		return false
-	}
-	row, err := cachedJSON(filepath.Join(root(), "agents/tasks", task+".json"))
-	return err == nil && field(row, "agent") == agent && deviceOwnsOrigin(obj(field(row, "origin")), peer)
-}
-
 func init() {
-	deviceCorePeerSource = linkedPeerSource
-	deviceCoreTaskVisible = peerVisibleTask
 	authorizePeerDevice = func(ctx context.Context, id string) error {
 		_, err := authorizedDeviceController(ctx, id, false)
 		return err

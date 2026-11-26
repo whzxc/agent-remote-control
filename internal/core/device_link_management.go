@@ -54,11 +54,20 @@ func deviceManagementCatalog(catalog object) {
 func init() {
 	registerLiveManagementCatalog(deviceManagementCatalog)
 	registerRoutePattern(http.MethodPost, `device/(snapshot|offer|pending|approve|decline|pair|cancel-pair|revoke|configure|address)`,
-		func(ctx context.Context, _ *service, body object, params []string) (any, error) {
+		func(ctx context.Context, s *service, body object, params []string) (any, error) {
 			if !deviceEnabled() {
 				return nil, errors.New(deviceUnavailableMessage)
 			}
-			return gatewayRequest(ctx, "device/"+params[0], http.MethodPost, body)
+			value, err := gatewayRequest(ctx, "device/"+params[0], http.MethodPost, body)
+			if err != nil || params[0] != "snapshot" {
+				return value, err
+			}
+			controller, err := serviceDeviceController(s)
+			if err != nil {
+				return nil, err
+			}
+			obj(value)["devices"] = controller.list(true)["devices"]
+			return value, nil
 		})
 	registerRoute(http.MethodPost, "device/tasks", func(ctx context.Context, s *service, body object, _ []string) (any, error) {
 		if !deviceEnabled() {

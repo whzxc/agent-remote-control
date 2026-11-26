@@ -75,7 +75,50 @@ func checkIngressTransport(_ context.Context, ingress string, principal object, 
 	return nil
 }
 
+func authorizeIngressNotification(ctx context.Context, _ *service, source requestSource, principal string) (requestSource, bool) {
+	if principal == "" {
+		return requestSource{}, false
+	}
+	row, err := readSourceAuthority(text(source.origin, "sourceId"))
+	if err != nil || row["state"] == "revoked" || row["connectionRemoved"] == true {
+		return requestSource{}, false
+	}
+	id := text(row, "ingressId")
+	if validateIngressID(id) != nil || text(source.origin, "ingressId") != "" && source.origin["ingressId"] != id {
+		return requestSource{}, false
+	}
+	state, err := gatewayRequest(ctx, "_entry/"+id, http.MethodGet, object{})
+	entry := field(state, "entry")
+	if err != nil || field(entry, "enabled") != true {
+		return requestSource{}, false
+	}
+	credential := row["credential"]
+	if field(entry, "auth") == "oauth" {
+		if field(credential, "type") != "oauth-grant" || field(credential, "grantId") != principal {
+			return requestSource{}, false
+		}
+		active, err := gatewayRequest(ctx, "_event_active/"+id, http.MethodGet, object{"principal": principal})
+		if err != nil || active != true {
+			return requestSource{}, false
+		}
+	} else {
+		kind := field(credential, "type")
+		config := field(entry, "config")
+		current := hash([]byte(wire([]any{id, field(entry, "auth"), field(entry, "bearerToken"), field(config, "tunnelId"), field(config, "apiKey")})))
+		if kind != "ingress" && kind != "local" || !secureToken(principal, current) {
+			return requestSource{}, false
+		}
+	}
+	source.profile = row
+	source.policy = field(entry, "toolPolicy")
+	if field(state, "connected") != true {
+		source.policy = object{"allowlist": []any{}}
+	}
+	return source, true
+}
+
 func init() {
+	notificationEventAuthorize = authorizeIngressNotification
 	gatewayOAuthIngress = currentGatewayOAuth
 	ingressOAuthHTTP = serveIngressOAuth
 	ingressOAuthAuthenticate = func(i *networkIngress, header, resource string) object {

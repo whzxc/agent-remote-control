@@ -2,7 +2,10 @@ package core
 
 import (
 	"context"
+	"maps"
 	"net/netip"
+	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -12,10 +15,18 @@ import (
 )
 
 type deviceResolution struct {
-	fullname  string
 	addresses []netip.AddrPort
 	version   uint16
-	expires   time.Time
+}
+
+type deviceDNSKey struct {
+	name string
+	kind dnsmessage.Type
+}
+
+type deviceDNSRecord struct {
+	body    dnsmessage.ResourceBody
+	expires time.Time
 }
 
 func (c *deviceController) discoveryLoop(ctx context.Context) {
@@ -87,87 +98,148 @@ func (c *deviceController) discoverOnInterface(ctx context.Context, binding devi
 }
 
 func (c *deviceController) discoveredMessage(message dnsmessage.Message, index int) {
-	type serviceRecord struct {
-		target string
-		port   uint16
-		ttl    uint32
-	}
-	type serviceProperties struct {
-		id      string
-		version uint16
-		valid   bool
-	}
-	records := map[string]serviceRecord{}
-	properties := map[string]serviceProperties{}
-	addresses := map[string][]netip.Addr{}
-	removed := map[string]bool{}
-	for _, recordsSection := range [][]dnsmessage.Resource{message.Answers, message.Additionals} {
-		for _, resource := range recordsSection {
-			name := strings.ToLower(resource.Header.Name.String())
-			switch body := resource.Body.(type) {
-			case *dnsmessage.PTRResource:
-				if name == deviceDNSService && resource.Header.TTL == 0 {
-					removed[strings.ToLower(body.PTR.String())] = true
-				}
-			case *dnsmessage.SRVResource:
-				if strings.HasSuffix(name, "."+deviceDNSService) && body.Port != 0 {
-					records[name] = serviceRecord{strings.ToLower(body.Target.String()), body.Port, resource.Header.TTL}
-				}
-			case *dnsmessage.TXTResource:
-				if strings.HasSuffix(name, "."+deviceDNSService) {
-					entry := serviceProperties{}
-					for _, pair := range body.TXT {
-						key, value, _ := strings.Cut(pair, "=")
-						switch key {
-						case "id":
-							entry.id = value
-						case "version":
-							version, err := strconv.ParseUint(value, 10, 16)
-							entry.version, entry.valid = uint16(version), err == nil
-						}
-					}
-					properties[name] = entry
-				}
-			case *dnsmessage.AResource:
-				if resource.Header.TTL != 0 && len(addresses[name]) < 64 {
-					addresses[name] = append(addresses[name], netip.AddrFrom4(body.A))
-				}
-			case *dnsmessage.AAAAResource:
-				if resource.Header.TTL != 0 && len(addresses[name]) < 64 {
-					ip := netip.AddrFrom16(body.AAAA)
-					if ip.IsLinkLocalUnicast() {
-						ip = ip.WithZone(strconv.Itoa(index))
-					}
-					addresses[name] = append(addresses[name], ip)
-				}
-			}
-		}
-	}
+	now := time.Now()
 	c.discoveryMu.Lock()
 	defer c.discoveryMu.Unlock()
-	for id, entry := range c.discovered {
-		if removed[entry.fullname] || time.Now().After(entry.expires) {
-			delete(c.discovered, id)
+	if c.discovery == nil {
+		c.discovery = make(map[int]map[deviceDNSKey][]deviceDNSRecord)
+	}
+	cache := c.discovery[index]
+	if cache == nil {
+		cache = make(map[deviceDNSKey][]deviceDNSRecord)
+		c.discovery[index] = cache
+	}
+	for key, records := range cache {
+		records = slices.DeleteFunc(records, func(record deviceDNSRecord) bool { return !record.expires.After(now) })
+		if len(records) == 0 {
+			delete(cache, key)
+		} else {
+			cache[key] = records
 		}
 	}
-	for instance, record := range records {
-		props := properties[instance]
-		if len(props.id) != 64 || !props.valid || record.ttl == 0 || removed[instance] {
-			continue
-		}
-		if _, ok := c.pairedDiscoveryIDs.Load(props.id); !ok {
-			continue
-		}
-		sockets := []netip.AddrPort{}
-		for _, address := range addresses[record.target] {
-			if deviceLANAddress(address) {
-				sockets = append(sockets, netip.AddrPortFrom(address, record.port))
+	flushed := make(map[deviceDNSKey]bool)
+	for _, section := range [][]dnsmessage.Resource{message.Answers, message.Additionals} {
+		for _, record := range section {
+			header := record.Header
+			if header.Class&0x7fff != dnsmessage.ClassINET {
+				continue
+			}
+			name := strings.ToLower(header.Name.String())
+			switch body := record.Body.(type) {
+			case *dnsmessage.PTRResource:
+				if name == deviceDNSService && header.TTL == 0 {
+					fullname := strings.ToLower(body.PTR.String())
+					delete(cache, deviceDNSKey{fullname, dnsmessage.TypeSRV})
+					delete(cache, deviceDNSKey{fullname, dnsmessage.TypeTXT})
+				}
+				continue
+			case *dnsmessage.SRVResource, *dnsmessage.TXTResource:
+				if !strings.HasSuffix(name, "."+deviceDNSService) {
+					continue
+				}
+			case *dnsmessage.AResource, *dnsmessage.AAAAResource:
+				if !strings.HasSuffix(name, ".local.") {
+					continue
+				}
+			default:
+				continue
+			}
+			key := deviceDNSKey{name, header.Type}
+			if header.TTL == 0 {
+				records := slices.DeleteFunc(cache[key], func(recordDNS deviceDNSRecord) bool { return reflect.DeepEqual(recordDNS.body, record.Body) })
+				if len(records) == 0 {
+					delete(cache, key)
+				} else {
+					cache[key] = records
+				}
+				continue
+			}
+			if header.Class&0x8000 != 0 && !flushed[key] {
+				delete(cache, key)
+				flushed[key] = true
+			}
+			records := cache[key]
+			if records == nil && len(cache) >= 512 {
+				continue
+			}
+			records = slices.DeleteFunc(records, func(recordDNS deviceDNSRecord) bool { return reflect.DeepEqual(recordDNS.body, record.Body) })
+			if len(records) < 64 {
+				cache[key] = append(records, deviceDNSRecord{record.Body, now.Add(time.Duration(header.TTL) * time.Second)})
 			}
 		}
-		if old := c.discovered[props.id]; old.fullname == instance && old.version == props.version {
-			sockets = append(sockets, old.addresses...)
-		}
-		sockets = deviceSortSockets(sockets)
-		c.discovered[props.id] = deviceResolution{instance, sockets[:min(len(sockets), 64)], props.version, time.Now().Add(time.Duration(record.ttl) * time.Second)}
 	}
+}
+
+func (c *deviceController) deviceDiscovery(id string, now time.Time) (deviceResolution, bool) {
+	c.discoveryMu.Lock()
+	defer c.discoveryMu.Unlock()
+	if _, paired := c.pairedDiscoveryIDs.Load(id); !paired {
+		return deviceResolution{}, false
+	}
+	var result deviceResolution
+	found := false
+	for _, index := range slices.Sorted(maps.Keys(c.discovery)) {
+		cache := c.discovery[index]
+		for key, records := range cache {
+			if key.kind != dnsmessage.TypeTXT {
+				continue
+			}
+			for _, record := range records {
+				if !record.expires.After(now) {
+					continue
+				}
+				properties := record.body.(*dnsmessage.TXTResource)
+				var device, protocol string
+				for _, property := range properties.TXT {
+					name, value, _ := strings.Cut(property, "=")
+					switch name {
+					case "id":
+						device = value
+					case "version":
+						protocol = value
+					}
+				}
+				version, err := strconv.ParseUint(protocol, 10, 16)
+				if device != id || err != nil || found && uint16(version) != result.version {
+					continue
+				}
+				for _, service := range cache[deviceDNSKey{key.name, dnsmessage.TypeSRV}] {
+					endpoint := service.body.(*dnsmessage.SRVResource)
+					if service.expires.After(now) && endpoint.Port != 0 {
+						found, result.version = true, uint16(version)
+						target := strings.ToLower(endpoint.Target.String())
+						result.addresses = append(result.addresses, deviceDNSAddresses(cache, target, endpoint.Port, index, now)...)
+					}
+				}
+			}
+		}
+	}
+	sockets := deviceSortSockets(result.addresses)
+	result.addresses = sockets[:min(len(sockets), 64)]
+	return result, found
+}
+
+func deviceDNSAddresses(cache map[deviceDNSKey][]deviceDNSRecord, target string, port uint16, index int, now time.Time) []netip.AddrPort {
+	addresses := []netip.AddrPort{}
+	for _, kind := range []dnsmessage.Type{dnsmessage.TypeA, dnsmessage.TypeAAAA} {
+		for _, record := range cache[deviceDNSKey{target, kind}] {
+			if !record.expires.After(now) {
+				continue
+			}
+			var address netip.Addr
+			switch value := record.body.(type) {
+			case *dnsmessage.AResource:
+				address = netip.AddrFrom4(value.A)
+			case *dnsmessage.AAAAResource:
+				address = netip.AddrFrom16(value.AAAA)
+				if address.IsLinkLocalUnicast() {
+					address = address.WithZone(strconv.Itoa(index))
+				}
+			}
+			if deviceLANAddress(address) {
+				addresses = append(addresses, netip.AddrPortFrom(address, port))
+			}
+		}
+	}
+	return addresses
 }

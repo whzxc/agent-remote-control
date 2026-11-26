@@ -197,7 +197,10 @@ func (c *deviceController) cancelTransfer(ctx context.Context, row object, store
 		var link *deviceTransferLink
 		link, _, err = c.admitTransfer(ctx, text(row, "device"), false)
 		if err == nil {
-			result, err = link.control(ctx, object{"action": "cancel", "requestId": request})
+			remote, cancel := context.WithCancel(ctx)
+			defer cancel()
+			defer context.AfterFunc(link.member.ctx, cancel)()
+			result, err = link.control(remote, object{"action": "cancel", "requestId": request})
 		}
 	} else {
 		directory := filepath.Join(c.directory, "transfer-receivers")

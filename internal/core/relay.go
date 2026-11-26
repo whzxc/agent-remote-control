@@ -484,6 +484,8 @@ func (m *relayManager) manage(ctx context.Context, action, method string, body o
 	return m.single(ctx, action, body)
 }
 
+var fixtureRelayWorker func(string) bool
+
 func (m *relayManager) single(ctx context.Context, action string, body object) (any, error) {
 	info, err := readRelay(text(body, "id"))
 	if err != nil {
@@ -491,7 +493,7 @@ func (m *relayManager) single(ctx context.Context, action string, body object) (
 	}
 	dir, _ := relayDirectory(text(info, "id"))
 	address := text(info, "url")
-	if runtimeFixture && action != "share" {
+	if runtimeFixture && action != "share" && (fixtureRelayWorker == nil || !fixtureRelayWorker(address)) {
 		return nil, errors.New(PortPending)
 	}
 	client, err := configuredRelayHTTP()

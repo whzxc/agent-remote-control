@@ -129,6 +129,7 @@ type deviceReceiver struct {
 	file       *os.File
 	sha        cryptohash.Hash
 	pathUnlock func()
+	published  bool
 }
 
 func receiverManifest(directory, request string) (string, error) {
@@ -353,6 +354,7 @@ func (r *deviceReceiver) save(meta object) error {
 	if err := save(r.manifest, meta); err != nil {
 		return err
 	}
+	r.meta = meta
 	file, err := os.OpenFile(r.manifest, os.O_RDWR, 0)
 	if err != nil {
 		return err
@@ -360,11 +362,7 @@ func (r *deviceReceiver) save(meta object) error {
 	if err := errors.Join(file.Sync(), file.Close()); err != nil {
 		return err
 	}
-	if err := syncDeviceTransferParent(r.manifest); err != nil {
-		return err
-	}
-	r.meta = meta
-	return nil
+	return syncDeviceTransferParent(r.manifest)
 }
 
 func (r *deviceReceiver) close() {
@@ -379,6 +377,9 @@ func (r *deviceReceiver) close() {
 }
 
 func (r *deviceReceiver) cancel() (object, error) {
+	if r.published && r.meta["state"] != "completed" {
+		return r.commit()
+	}
 	if r.meta["state"] == "completed" {
 		return clone(r.meta), nil
 	}
@@ -393,10 +394,13 @@ func (r *deviceReceiver) cancel() (object, error) {
 	}
 	next := clone(r.meta)
 	next["state"] = "cancelled"
-	if err := r.save(next); err != nil {
+	err := r.save(next)
+	if r.meta["state"] == next["state"] {
+		r.close()
+	}
+	if err != nil {
 		return nil, err
 	}
-	r.close()
 	return clone(next), nil
 }
 
@@ -466,11 +470,11 @@ func (r *deviceReceiver) receive(ctx context.Context, body io.Reader, offset, le
 	}
 	next := clone(r.meta)
 	next["offset"], next["sha256"] = offset+length, hex.EncodeToString(fullDigest.Sum(nil))
-	if err := r.save(next); err != nil {
-		return err
+	err = r.save(next)
+	if r.offset() == offset+length {
+		r.sha, verified = fullDigest, true
 	}
-	r.sha, verified = fullDigest, true
-	return nil
+	return err
 }
 
 func (r *deviceReceiver) commit() (object, error) {
@@ -488,26 +492,32 @@ func (r *deviceReceiver) commit() (object, error) {
 		return nil, err
 	}
 	temporary, path := text(r.meta, "temporary"), text(r.meta, "path")
-	var err error
-	if field(r.meta["spec"], "overwrite") == true {
-		err = platform.ReplaceFile(temporary, path)
-	} else {
-		err = renameNewDeviceTransfer(temporary, path)
-		if errors.Is(err, os.ErrExist) {
-			err = fmt.Errorf("DESTINATION_EXISTS: %w", err)
+	if !r.published {
+		var err error
+		if field(r.meta["spec"], "overwrite") == true {
+			err = platform.ReplaceFile(temporary, path)
+		} else {
+			err = renameNewDeviceTransfer(temporary, path)
+			if errors.Is(err, os.ErrExist) {
+				err = fmt.Errorf("DESTINATION_EXISTS: %w", err)
+			}
 		}
-	}
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
+		r.published = true
 	}
 	if err := syncDeviceTransferParent(path); err != nil {
 		return nil, err
 	}
 	next := clone(r.meta)
 	next["state"], next["sha256"] = "completed", sha
-	if err := r.save(next); err != nil {
+	err := r.save(next)
+	if r.meta["state"] == next["state"] {
+		r.close()
+	}
+	if err != nil {
 		return nil, err
 	}
-	r.close()
 	return clone(next), nil
 }

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -32,10 +31,7 @@ func (c *deviceController) memberAddresses(ctx context.Context, member *deviceMe
 	if peer.AddressOverride != nil {
 		return deviceOverrideSockets(ctx, *peer.AddressOverride)
 	}
-	c.discoveryMu.Lock()
-	discovered := c.discovered[peer.DeviceID]
-	c.discoveryMu.Unlock()
-	if discovered.expires.After(time.Now()) {
+	if discovered, found := c.deviceDiscovery(peer.DeviceID, time.Now()); found {
 		if discovered.version != deviceProtocolVersion {
 			return nil, errors.New("DEVICE_PROTOCOL_MISMATCH: Install matching peer protocol versions; query guide for device.")
 		}
@@ -151,7 +147,7 @@ func (c *deviceController) monitor(ctx context.Context, member *deviceMember) {
 		if err != nil {
 			misses++
 			member.mu.Lock()
-			if misses >= 3 || slices.Contains([]string{"DEVICE_CONNECTION_REFUSED", "DEVICE_PROTOCOL_MISMATCH"}, managementErrorCode(err.Error())) {
+			if misses >= 3 || managementErrorCode(err.Error()) == "DEVICE_CONNECTION_REFUSED" || strings.Contains(err.Error(), "DEVICE_PROTOCOL_MISMATCH") {
 				member.status.online = false
 			}
 			member.status.failure = err.Error()

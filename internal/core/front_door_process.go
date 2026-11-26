@@ -451,21 +451,12 @@ func lostPrivate(request frontDoorRequest, reason error) error {
 	if !isPrivateWrite(request) {
 		return fmt.Errorf("FRONT_DOOR_CORE_LOST: %s. Read failed; issue a new authorized read when Core is ready.", reason)
 	}
-	args := object{"action": "read", "requestId": request.ID}
-	next := object{"via": "act", "op": "receipt", "args": args}
-	envelope := privateEnvelope(request.Operation, obj(request.Body))
-	switch device := text(envelope["args"], "device"); {
-	case text(envelope, "op") == "device" && device != "":
-		if text(envelope["args"], "op") == "receipt" {
-			if target := text(field(envelope["args"], "args"), "requestId"); target != "" {
-				args["requestId"] = target
-			}
-		}
-		fallthrough
-	case device != "":
-		next["op"] = "device"
-		next["args"] = object{"device": device, "op": "receipt", "args": args}
+	if next, target := forwardedDeviceReceipt(request); next != nil {
+		return errors.New(wire(object{"code": -32603,
+			"message": "Controller Core disconnected after a member write; outcome is uncertain. Do not resend the write.",
+			"data":    object{"state": "unconfirmed", "requestId": target, "reason": reason.Error(), "next": next}}))
 	}
+	next := object{"via": "act", "op": "receipt", "args": object{"action": "read", "requestId": request.ID}}
 	return errors.New(wire(object{"code": -32603,
 		"message": "Core disconnected after write submission; outcome is uncertain. Do not repeat the write.",
 		"data":    object{"state": "unconfirmed", "requestId": request.ID, "reason": reason.Error(), "next": next}}))

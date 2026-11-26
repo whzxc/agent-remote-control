@@ -122,6 +122,11 @@ func TestExternalOAuthRevocationWire(t *testing.T) {
 	if string(reply) != `{"id":12,"jsonrpc":"2.0","result":{"resultType":"complete"}}` {
 		t.Fatalf("OAuth MCP response %s", reply)
 	}
+	_, reply = call(http.MethodPost, "/mcp", "application/json", `{"jsonrpc":"2.0","id":13,"method":"events/list"}`, token, http.StatusOK)
+	var events object
+	if err := decodeObject(reply, &events); err != nil || text(find(field(events["result"], "events"), "name", "notification"), "name") != "notification" {
+		t.Fatalf("OAuth event authority response %s: %v", reply, err)
+	}
 	gateway(http.MethodPost, "source/"+sourceID+"/disconnect", nil)
 	headers, reply = call(http.MethodPost, "/mcp", "application/json", ping, token, http.StatusUnauthorized)
 	if string(reply) != `{"error":"unauthorized"}` || headers.Get("Cache-Control") != "no-store" ||

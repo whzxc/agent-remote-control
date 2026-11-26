@@ -142,3 +142,132 @@ func TestPeerHandshakeBudgetUsesOneBucketPerSource(t *testing.T) {
 	}
 	release()
 }
+
+func TestUnresponsivePinnedPeerReleasesTheConnection(t *testing.T) {
+	// Recurring bug class: lifecycle a pinned HTTP/2 connection must expire when the caller stops answering keepalive probes.
+	ctx, cancel := context.WithTimeout(t.Context(), 19*time.Second)
+	defer cancel()
+	member, err := loadDeviceIdentity(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	controller, err := loadDeviceIdentity(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	socket, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pin := func(candidate string) bool { return candidate == controller.id }
+	server := newDevicePeerListener(member, pin, pin, func(w http.ResponseWriter, _ *http.Request, _, _ string) {
+		devicePeerReply(w, object{}, nil)
+	})
+	server.allow = netip.Addr.IsLoopback
+	exited := make(chan struct{})
+	go func() { defer close(exited); server.listen(ctx, socket) }()
+	defer func() { cancel(); <-exited }()
+	raw, err := (&tls.Dialer{Config: deviceClientTLS(controller, member.id)}).DialContext(ctx, "tcp", socket.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer raw.Close()
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = raw.SetDeadline(deadline)
+	}
+	if _, err := io.WriteString(raw, http2.ClientPreface); err != nil {
+		t.Fatal(err)
+	}
+	framer := http2.NewFramer(raw, raw)
+	if err := framer.WriteSettings(); err != nil {
+		t.Fatal(err)
+	}
+	ping := false
+	for {
+		frame, err := framer.ReadFrame()
+		if err != nil {
+			if !ping || ctx.Err() != nil {
+				t.Fatalf("peer did not enforce its keepalive bound: received ping=%v, %v", ping, err)
+			}
+			return
+		}
+		if frame, ok := frame.(*http2.SettingsFrame); ok && !frame.IsAck() {
+			if err := framer.WriteSettingsAck(); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if _, ok := frame.(*http2.PingFrame); ok {
+			ping = true
+		}
+	}
+}
+
+func TestPairOfferCarriesOnlyAllowedAddressesAndVersion(t *testing.T) {
+	// Contract: pairing keeps the pinned identity, LAN addresses and one-time secret and rejects unsupported versions.
+	offer := deviceOffer{
+		Version: deviceProtocolVersion, DeviceID: strings.Repeat("a", 64), Secret: strings.Repeat("b", 64),
+		Addresses: []string{"192.168.2.3:7143", "[fe80::1%2]:7143"},
+	}
+	decoded, err := decodeDeviceOffer(offer.encode(), deviceLANAddress)
+	if err != nil || wire(decoded) != wire(offer) {
+		t.Fatalf("pairing wire %v: %v", decoded, err)
+	}
+	offer.Version++
+	if _, err := decodeDeviceOffer(offer.encode(), deviceLANAddress); err == nil || managementErrorCode(err.Error()) != "DEVICE_PROTOCOL_MISMATCH" {
+		t.Fatalf("unsupported version: %v", err)
+	}
+	offer.Version = deviceProtocolVersion
+	offer.Addresses = append(offer.Addresses, "127.0.0.1:7143")
+	if _, err := decodeDeviceOffer(offer.encode(), deviceLANAddress); err == nil || managementErrorCode(err.Error()) != "DEVICE_PAIRING_INVALID" {
+		t.Fatalf("production pairing accepted a loopback offer: %v", err)
+	}
+}
+
+func TestPairedConnectionCapacityPreservesActiveRequests(t *testing.T) {
+	// Recurring bug class: concurrency admitting a replacement connection must preserve every active paired stream.
+	var pool deviceConnections
+	active := make([]func(), 0, deviceConnectionSlots)
+	connections := make([]*deviceConnection, 0, deviceConnectionSlots)
+	evicted := make(chan int, deviceConnectionSlots)
+	for i := range deviceConnectionSlots {
+		slot := pool.admit("controller", func() { evicted <- i })
+		if slot == nil {
+			t.Fatal("failed to allocate a paired slot")
+		}
+		connections = append(connections, slot)
+		defer slot.close()
+		done, ok := slot.request()
+		if !ok {
+			t.Fatal("failed to admit a request")
+		}
+		active = append(active, done)
+	}
+	if pool.admit("controller", func() {}) != nil {
+		t.Fatal("all active slots must refuse replacement")
+	}
+	active[0]()
+	if pool.admit("unrelated", func() {}) != nil {
+		t.Fatal("another controller replaced an idle pinned connection")
+	}
+	replacement := pool.admit("controller", func() {})
+	if replacement == nil {
+		t.Fatal("the same controller could not replace its idle connection")
+	}
+	defer replacement.close()
+	select {
+	case got := <-evicted:
+		if got != 0 {
+			t.Fatalf("replacement evicted an active slot %d", got)
+		}
+	default:
+		t.Fatal("replacement did not cancel the evicted connection")
+	}
+	for i := 1; i < len(connections); i++ {
+		done, ok := connections[i].request()
+		if !ok {
+			t.Fatal("an active stream lost its connection")
+		}
+		done()
+		active[i]()
+	}
+}
