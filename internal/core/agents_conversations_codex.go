@@ -44,7 +44,7 @@ func codexConversationPreview(ctx context.Context, s *service, thread string, ow
 	turn["items"] = input
 	var timeline taskTimeline
 	timeline.backfillCodex(object{"id": thread, "turns": []any{turn}}, nil, nil, 0, 0, now())
-	if err := projectInteractionAnswers(thread, func(request, response object) { timeline.answered(request, response) }); err != nil {
+	if err := projectInteractionAnswers(ctx, thread, func(request, response object) { timeline.answered(request, response) }); err != nil {
 		return nil, err
 	}
 	result := timeline.response(thread, 0)
@@ -133,7 +133,7 @@ func externalCodexConversationTimeline(ctx context.Context, s *service, thread s
 		timeline.backfillCodex(native, nil, nil, 0, 0, now())
 	}
 
-	if err := projectInteractionAnswers(thread, func(request, response object) { timeline.answered(request, response) }); err != nil {
+	if err := projectInteractionAnswers(ctx, thread, func(request, response object) { timeline.answered(request, response) }); err != nil {
 		return nil, err
 	}
 	result := timeline.response(thread, 0)
@@ -192,6 +192,7 @@ func nativeCodexConversationTimeline(ctx context.Context, s *service, args objec
 
 func trackedCodexConversation(ctx context.Context, s *service, thread string, after uint64, owner object, loaded bool) (object, error) {
 	var metadata object
+	var timings, configurations map[string]object
 	s.events.Lock()
 	timeline := s.events.taskTrackingTimeline(thread)
 	baseline, observed := timeline.Revision, timeline.ObservedEvents
@@ -202,8 +203,11 @@ func trackedCodexConversation(ctx context.Context, s *service, thread string, af
 		if err != nil {
 			return nil, err
 		}
+		if _, home, err := codexInputs(); err == nil {
+			timings, configurations = persistedCodexTimelineMetadata(ctx, home, metadata)
+		}
 	}
-	answers, err := readInteractionAnswers(interactionAnswersDirectory(thread))
+	answers, err := readInteractionAnswers(ctx, interactionAnswersDirectory(thread))
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +215,7 @@ func trackedCodexConversation(ctx context.Context, s *service, thread string, af
 	defer s.events.Unlock()
 	timeline = s.events.taskTrackingTimeline(thread)
 	if metadata != nil {
-		timeline.backfillCodex(metadata, nil, nil, baseline, observed, now())
+		timeline.backfillCodex(metadata, timings, configurations, baseline, observed, now())
 		timeline.ObservationLost = timeline.Unsubscribed
 	}
 	syncTrackedNativeInteractions(&s.events, now())
@@ -224,9 +228,6 @@ func trackedCodexConversation(ctx context.Context, s *service, thread string, af
 }
 
 func init() {
-	readTaskTrackingAnswers = func(_ context.Context, _ *service, thread string) ([]object, error) {
-		return readInteractionAnswers(interactionAnswersDirectory(thread))
-	}
 	resolveTrackedConversation = func(ctx context.Context, s *service, args object) (object, error) {
 		if args["agent"] != "codex" {
 			return nativeAgentTimeline(ctx, s, args)

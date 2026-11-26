@@ -40,7 +40,7 @@ func recordInteractionAnswer(ctx context.Context, request, args object) error {
 	return nil
 }
 
-func readInteractionAnswers(directory string) ([]object, error) {
+func readInteractionAnswers(ctx context.Context, directory string) ([]object, error) {
 	rows := []object{}
 	entries, err := cachedEntries(directory)
 	if errors.Is(err, os.ErrNotExist) {
@@ -53,7 +53,7 @@ func readInteractionAnswers(directory string) ([]object, error) {
 		if filepath.Ext(entry.path) != ".json" {
 			continue
 		}
-		row, err := cachedLoad(entry.path)
+		row, err := cachedLoadInContext(ctx, entry.path)
 		if err != nil {
 			return nil, err
 		}
@@ -65,8 +65,8 @@ func readInteractionAnswers(directory string) ([]object, error) {
 	return rows, nil
 }
 
-func projectInteractionAnswers(thread string, apply func(request, response object)) error {
-	rows, err := readInteractionAnswers(interactionAnswersDirectory(thread))
+func projectInteractionAnswers(ctx context.Context, thread string, apply func(request, response object)) error {
+	rows, err := readInteractionAnswers(ctx, interactionAnswersDirectory(thread))
 	if err != nil {
 		return err
 	}
@@ -77,8 +77,8 @@ func projectInteractionAnswers(thread string, apply func(request, response objec
 }
 
 func init() {
-	readTaskTrackingAnswers = func(_ context.Context, _ *service, thread string) ([]object, error) {
-		return readInteractionAnswers(interactionAnswersDirectory(thread))
+	readTaskTrackingAnswers = func(ctx context.Context, _ *service, thread string) ([]object, error) {
+		return readInteractionAnswers(ctx, interactionAnswersDirectory(thread))
 	}
 	decorateControlResult = append(decorateControlResult, func(_ context.Context, request operationRequest, result object) {
 		if request.name != "task_timeline" {

@@ -38,7 +38,7 @@ func TestProjectedInteractionAnswersKeepAttributionAndRefresh(t *testing.T) {
 	read := func() map[string]object {
 		t.Helper()
 		results := map[string]object{}
-		if err := projectInteractionAnswers("thread", func(request, response object) {
+		if err := projectInteractionAnswers(t.Context(), "thread", func(request, response object) {
 			results[text(request, "id")] = response
 		}); err != nil {
 			t.Fatal(err)
@@ -49,7 +49,7 @@ func TestProjectedInteractionAnswersKeepAttributionAndRefresh(t *testing.T) {
 		write(strconv.Itoa(i))
 	}
 	timeline := new(taskTimeline)
-	if err := projectInteractionAnswers("thread", func(request, response object) {
+	if err := projectInteractionAnswers(t.Context(), "thread", func(request, response object) {
 		timeline.answered(request, response)
 	}); err != nil {
 		t.Fatal(err)

@@ -53,6 +53,35 @@ func TestTimelineRoutesAttributeCompleteRolloutLines(t *testing.T) {
 	}
 }
 
+func TestTrackedTimelineRolloutMetadataPreservesCurrentOwnerState(t *testing.T) {
+	// Algorithmic core: cold timeline rollout supplies turn timing and settings without replacing native turn state.
+	home := t.TempDir()
+	const started = "2026-01-01T12:00:00Z"
+	const ended = "2026-01-01T12:02:00Z"
+	rollout := strings.Join([]string{
+		`{"type":"session_meta","payload":{"id":"thread"}}`,
+		`{"type":"event_msg","timestamp":"` + started + `","payload":{"type":"task_started","turn_id":"turn"}}`,
+		`{"type":"turn_context","payload":{"turn_id":"turn","cwd":"/fixture","model":"fixture-model"}}`,
+		`{"type":"turn_context","payload":{"turn_id":"turn","cwd":"/unrelated","model":"other-model"}}`,
+		`{"type":"event_msg","timestamp":"` + ended + `","payload":{"type":"task_complete"}}`,
+	}, "\n")
+	thread := object{"id": "thread", "path": writeTimelineRollout(t, home, rollout), "cwd": "/fixture",
+		"turns": []any{object{"id": "turn", "status": "inProgress", "items": []any{}}}}
+	ctx := context.WithValue(t.Context(), runtimeCostKey{}, runtimeCostContext{set: new(runtimeCostSet)})
+	timings, configurations := persistedCodexTimelineMetadata(runtimePollCost(ctx, "taskRead"), home, thread)
+	var timeline taskTimeline
+	timeline.backfillCodex(thread, timings, configurations, 0, 0, now())
+	if timing := timeline.TurnTimings["turn"]; timing["startedAt"] != started || timing["endedAt"] != ended ||
+		timeline.TurnDispatchSummaries["turn"]["model"] != "fixture-model" || timeline.turnStatus("turn") != "running" {
+		t.Fatalf("tracked timeline timing = %v, dispatch = %v, state = %s", timing, timeline.TurnDispatchSummaries, timeline.turnStatus("turn"))
+	}
+	metrics, err := runtimeMetrics(ctx, operationRequest{})
+	cost := field(field(metrics, "cost"), "taskRead")
+	if err != nil || field(cost, "rowsVisited") != uint64(5) || field(cost, "bytesRead") != uint64(len(rollout)-4) {
+		t.Fatalf("cold timeline cost = %v, %v", cost, err)
+	}
+}
+
 func TestRuntimeCostsAttributeNestedCacheReadsOnce(t *testing.T) {
 	// Contract: runtime_metrics attributes shared reads to the innermost owner and keeps content private.
 	costs := new(runtimeCostSet)

@@ -2,12 +2,14 @@ package core
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"unicode/utf16"
@@ -224,6 +226,99 @@ func readNativeHistory(home string, thread object) (string, error) {
 	return string(data), err
 }
 
+func recordRolloutLineCost(cost *runtimeCost, size int) {
+	if cost != nil {
+		cost.rows.Add(1)
+		cost.read.Add(uint64(size))
+		cost.parsed.Add(uint64(size))
+	}
+}
+
+// Timings and dispatch settings come from the rollout. Turn state and items
+// still come from the current native owner.
+func persistedCodexTimelineMetadata(ctx context.Context, home string, thread object) (timings, configurations map[string]object) {
+	if text(thread, "path") == "" {
+		return nil, nil
+	}
+	file, err := openNativeHistory(home, thread)
+	if err != nil {
+		return nil, nil
+	}
+	defer file.Close()
+	timings, configurations = map[string]object{}, map[string]object{}
+	var framing taskCodexTranscript
+	var tiers taskCodexThreadTier
+	turnTiers := map[string]any{}
+	var active string
+	var matched bool
+	cost := currentRuntimeCost(ctx)
+	at := now()
+	lines := bufio.NewReader(file)
+	for ctx.Err() == nil {
+		line, err := lines.ReadBytes('\n')
+		if err != nil && err != io.EOF || len(line) == 0 || !utf8.Valid(line) {
+			break
+		}
+		if bytes.HasSuffix(line, []byte{'\n'}) {
+			line = bytes.TrimSuffix(line[:len(line)-1], []byte{'\r'})
+		}
+		if len(line) > 1<<20 {
+			continue
+		}
+		recordRolloutLineCost(cost, len(line))
+		var event object
+		if decodeObject(line, &event) != nil || !framing.include(event) {
+			continue
+		}
+		payload := obj(event["payload"])
+		if event["type"] == "session_meta" {
+			matched = payload["id"] == thread["id"]
+		}
+		if !matched {
+			continue
+		}
+		if payload["type"] != "thread_settings_applied" || payload["thread_id"] == thread["id"] {
+			if turn := tiers.observe(event); turn != "" {
+				turnTiers[turn] = firstTaskText(tiers.Current, "unknown")
+				if current := configurations[turn]; current != nil {
+					current["threadServiceTier"] = turnTiers[turn]
+				}
+			}
+		}
+		turn, named := payload["turn_id"].(string)
+		timestamp, timed := event["timestamp"].(string)
+		switch event["type"] {
+		case "event_msg":
+			key := ""
+			switch payload["type"] {
+			case "task_started":
+				if named {
+					active, turnTiers[turn], key = turn, firstTaskText(tiers.Current, "unknown"), "startedAt"
+				}
+			case "task_complete", "turn_aborted":
+				if !named {
+					turn = active
+				}
+				key = "endedAt"
+			}
+			if key != "" && turn != "" && timed {
+				if timings[turn] == nil {
+					timings[turn] = object{}
+				}
+				timings[turn][key] = timestamp
+			}
+		case "turn_context":
+			if named && reflect.DeepEqual(payload["cwd"], thread["cwd"]) {
+				configurations[turn] = object{"scope": "turn", "source": "native-persisted-turn-context", "turnId": turn,
+					"model": payload["model"], "effort": payload["effort"], "serviceTier": payload["service_tier"],
+					"mode": field(payload["sandbox_policy"], "type"), "networkAccess": field(payload["sandbox_policy"], "network_access"),
+					"threadServiceTier": turnTiers[turn], "approvalPolicy": payload["approval_policy"], "observedAt": at}
+			}
+		}
+	}
+	return timings, configurations
+}
+
 func visitNativeRollout(ctx context.Context, input io.Reader, session string, visit func(object) error) error {
 	lines := bufio.NewReader(input)
 	cost := currentRuntimeCost(ctx)
@@ -236,11 +331,7 @@ func visitNativeRollout(ctx context.Context, input io.Reader, session string, vi
 		if err != nil {
 			return err
 		}
-		if cost != nil {
-			cost.rows.Add(1)
-			cost.read.Add(uint64(len(line)))
-			cost.parsed.Add(uint64(len(line)))
-		}
+		recordRolloutLineCost(cost, len(line))
 		var row object
 		if err := decodeObject(line, &row); err != nil {
 			return fmt.Errorf("INVALID_NATIVE_HISTORY: %w", err)
