@@ -2,6 +2,7 @@ package core
 
 import (
 	"container/heap"
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -576,4 +577,90 @@ func init() {
 		return err
 	}
 	controlRevisitMinutes = dispatchRevisitMinutes
+}
+
+func recordDispatchNativeRetry(thread, previous string, retry object) (bool, error) {
+	dispatchRecordsMu.Lock()
+	defer dispatchRecordsMu.Unlock()
+	dir, err := dispatchRecordDir(thread)
+	if err != nil {
+		return false, err
+	}
+	rows, err := readDispatchRows(dir)
+	if err != nil {
+		return false, err
+	}
+	turn := text(retry, "turnId")
+	var parent object
+	for _, row := range slices.Backward(rows) {
+		if row["turnId"] == turn {
+			return row["dispatchSource"] == "native-retry" && row["retryOf"] == previous, nil
+		}
+		if parent == nil && row["turnId"] == previous {
+			parent = row
+		}
+	}
+	if parent == nil {
+		return false, nil
+	}
+	if _, err := uuid.Parse(turn); err != nil {
+		return false, errors.New("INVALID_TURN_ID")
+	}
+	start, ok := uintValue(retry["startedAt"])
+	if !ok || start > 1<<63-1 {
+		return false, errors.New("NATIVE_RETRY_START_MISSING")
+	}
+	config := obj(retry["configuration"])
+	evidence := dispatchFirstString(config["source"], "native-persisted-turn-context")
+	row := object{"agent": "codex", "taskId": thread, "options": object{}, "requestId": turn, "threadId": thread, "turnId": turn,
+		"dispatchMode": "new-turn", "origin": parent["origin"], "dispatchSource": "native-retry", "retryOf": previous, "nativeTrigger": retry["trigger"],
+		"model": config["model"], "effort": config["effort"], "serviceTier": config["serviceTier"],
+		"source": object{"model": evidence, "effort": evidence, "serviceTier": evidence}, "configurationEvidence": evidence, "effectiveConfiguration": config,
+		"submittedAt": notificationISO(time.Unix(int64(start), 0)), "observedAt": now(), "purpose": parent["purpose"],
+		"reason": "Native retry of failed or interrupted ARC dispatch"}
+	return true, saveDispatchRecord(filepath.Join(dir, turn+".json"), row)
+}
+
+func recordAgentDispatch(ctx context.Context, task, args object, op string) error {
+	receipt := object{"agentAccountId": task["agentAccountId"], "origin": currentOrigin(ctx), "agent": task["agent"], "taskId": task["taskId"],
+		"threadId": task["taskId"], "turnId": task["turnId"], "requestId": args["requestId"], "dispatchMode": "new-turn",
+		"srcConversation": args["srcConversation"], "arguments": args, "task": object{"dispatch": task["dispatch"]},
+		"operation": op, "coordination": task["coordination"], "caller": ctx.Value(&localControlCallerKey)}
+	return recordDispatch(receipt)
+}
+
+func recordAgentDispatchSubmission(task object) error {
+	_, err := updateDispatchTurnRows(text(task, "taskId"), text(task, "turnId"), text(task, "agent"), func(row object) {
+		row["submissionObserved"] = true
+	})
+	return err
+}
+
+func recordAgentDispatchObservation(ctx context.Context, task object, submission string) error {
+	agent, taskID, turn := text(task, "agent"), text(task, "taskId"), text(task, "turnId")
+	var usage object
+	if session := str(dispatchFirstString(task["sessionId"], task["threadId"])); session != "" && notificationTerminal(dispatchOutcome(task)) && dispatchGatewayTurnUsage != nil {
+		usage = dispatchGatewayTurnUsage(ctx, agent, session, text(task["dispatch"], "submittedAt"), now())
+	}
+	_, err := updateDispatchTurnRows(taskID, turn, agent, func(row object) {
+		if submission != "" {
+			row["submission"] = submission
+		}
+		if row["submission"] == "accepted" {
+			recordDispatchOutcome(row, task["_turnLifecycle"], nil, "", false)
+		}
+		if obj(task["turnEvidence"]) != nil {
+			row["turnEvidence"] = task["turnEvidence"]
+		}
+		message := obj(task["lastMessage"])
+		if _, model := message["model"].(string); agent == "pi" && model {
+			if provider, ok := message["provider"].(string); ok {
+				row["turnEvidence"] = object{"model": provider + "/" + text(message, "model"), "source": "pi-assistant-message", "scope": "turn", "observedAt": now()}
+			}
+		}
+		if row["usage"] == nil && usage != nil {
+			row["usage"] = usage
+		}
+	})
+	return err
 }

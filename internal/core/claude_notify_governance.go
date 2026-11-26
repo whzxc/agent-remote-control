@@ -167,6 +167,7 @@ func notificationStatus(_ context.Context, r operationRequest) (any, error) {
 	}
 	threadFilter := text(r.args, "threadId")
 	compact := r.args["all"] == false || (r.args["all"] != true && targetFilter == "" && threadFilter == "")
+	syncNotificationSubscriptions(state, bindings)
 	bound := make(map[string][]object)
 	var matched []object
 	for _, b := range bindings {
@@ -318,7 +319,7 @@ func notificationStatus(_ context.Context, r operationRequest) (any, error) {
 			"hidden": object{"targets": totalTargets - len(targets), "threads": len(bound) - len(threads), "bindings": len(matched) - shownBindings,
 				"deliveries": totalDeliveries - len(deliveries), "subscriptions": totalSubscriptions - len(subscriptions), "recoveredDeliveries": hiddenRecovered}}}
 	stripNotificationInternal(result)
-	return result, nil
+	return result, saveNotificationState(state)
 }
 
 func keysOfNotificationThreads(values map[string][]object) []string {

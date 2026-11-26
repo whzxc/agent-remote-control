@@ -5,7 +5,6 @@ import (
 	"crypto/subtle"
 	"errors"
 	"slices"
-	"strings"
 )
 
 const notificationReceiptHeader = "⟢ ARC · automated, not from the user · guide topic:notify"
@@ -291,7 +290,7 @@ func verifyNotificationTarget(ctx context.Context, source, target, channel strin
 		if settings["notificationsEnabled"] == false {
 			return errors.New("NOTIFICATIONS_DISABLED")
 		}
-		if notificationSessionSend == nil || channel == "claude-session" && notificationClaudeIdentity == nil {
+		if notificationSessionSend == nil || channel == "claude-session" && (notificationClaudeIdentity == nil || notificationClaudeRun == nil) || channel == "antigravity-session" && notificationAntigravitySend == nil {
 			return errors.New(PortPending)
 		}
 		now := notificationClock().Unix()
@@ -348,7 +347,7 @@ func verifyNotificationTarget(ctx context.Context, source, target, channel strin
 		sent = "failed"
 	}
 	ownsAttempt := reach["challengeHash"] == digest || (reach["state"] == "verified" && t["accountId"] == profile)
-	missing := delivery != nil && strings.Contains(strings.ToLower(delivery.Error()), "session not found")
+	missing := delivery != nil && notificationSessionNotFound(delivery.Error())
 	if ownsAttempt {
 		reach["deliveryStatus"] = sent
 		if delivery != nil {

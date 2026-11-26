@@ -87,7 +87,19 @@ func projectNotificationObservation(b, observed object) error {
 	if title := text(observed, "title"); strings.TrimSpace(title) != "" {
 		b["threadTitle"] = title
 	}
+	if err := adoptNotificationContinuation(b, observed); err != nil {
+		return err
+	}
 	b["observation"] = diag
+	if field(b["successor"], "inherited") == true {
+		rows, err := notificationBindings()
+		if err != nil {
+			return err
+		}
+		if next := notificationContinuationNotice(b, observed, rows); next != nil {
+			observed["continuation"] = next
+		}
+	}
 	deliveries := arr(b["deliveries"])
 	if !notificationObservationChanged(old, diag) {
 		diag["observedAt"] = old["observedAt"]
@@ -284,7 +296,7 @@ func recoverNotificationObservations(ctx context.Context, s *service) error {
 		return nil
 	}
 	notificationEventOperation.Lock()
-	rows, err := notificationBindings()
+	rows, err := activeNotificationBindings()
 	notificationEventOperation.Unlock()
 	if err != nil {
 		return err

@@ -189,7 +189,7 @@ func postNotificationWebhook(ctx context.Context, sub object, messageID string, 
 	response, err := client.Do(request)
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
-			return 0, nil, errors.New("callback_timeout")
+			return 0, nil, errors.New("timeout")
 		}
 		return 0, nil, errors.New("connection_failed")
 	}
@@ -278,6 +278,8 @@ func notificationEventsRequest(ctx context.Context, s *service, source requestSo
 		return nil, err
 	}
 	subID := "sub_" + hash([]byte(wire([]any{sourceID, principal, notificationEventName, args, u.String()})))
+	notificationTransportMu.Lock()
+	defer notificationTransportMu.Unlock()
 	notificationEventOperation.Lock()
 	defer notificationEventOperation.Unlock()
 	state, err := readNotificationState()
