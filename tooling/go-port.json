@@ -1580,7 +1580,10 @@
     },
     "native/src/pets.rs": {
       "segment": "A",
-      "go": [],
+      "go": [
+        "internal/core/pets.go",
+        "internal/core/pets_test.go"
+      ],
       "status": "pending"
     },
     "native/src/preferences.rs": {
