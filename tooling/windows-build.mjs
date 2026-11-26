@@ -8,6 +8,7 @@ import { collectDesktop, installerName } from './release-desktop.mjs';
 import { archiveReceipt } from './release-signing.mjs';
 import { stableVersion } from './version.mjs';
 import { desktopExecutable } from './dev-identity.mjs';
+import { configureWindowsToolchain } from './windows-toolchain.mjs';
 
 if (process.platform !== 'win32' || process.arch !== 'x64') throw new Error('Windows x64 worker required');
 if (Object.keys(process.env).some(key => /^(TAURI_SIGNING_|ARC_MYGO_UPDATE_PRIVATE_KEY_FILE$|MYGO_UPDATER_PRIVATE_KEY$|CSC_|WIN_CSC_)/.test(key))) {
@@ -23,6 +24,7 @@ await mkdir(output, { recursive: true });
 process.env.ARC_RELEASE_TIMINGS_FILE = path.join(output, 'windows-stages.jsonl');
 process.env.ARC_RELEASE_PLATFORM = 'windows';
 const timer = stageTimer();
+await timer.run('Windows toolchain', () => configureWindowsToolchain());
 await timer.run('Windows dependencies', () => installDependencies(process.cwd(), async () => execFileSync('cmd.exe', ['/d', '/s', '/c', 'npm ci'], { stdio: 'inherit', env: dependencyEnv(process.env) })));
 const target = 'windows-amd64';
 const parent = path.resolve('dist/windows-release');
