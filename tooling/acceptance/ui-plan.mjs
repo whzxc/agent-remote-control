@@ -33,8 +33,8 @@ export async function uiFingerprint(root, runtime) {
   // Hash actual files, including uncommitted edits, without tying passes to commit IDs.
   const names = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z', '--',
     'ui', 'tooling/acceptance', 'tooling/version.mjs', 'tooling/dev-state.mjs',
-    'tooling/dev-identity.mjs', 'design/tokens.css', 'native/src/ingress/config.json',
-    'native/src/agents/builtins.json', 'vite.config.ts', 'package.json', 'package-lock.json'], { cwd: root, encoding: 'utf8' });
+    'tooling/dev-identity.mjs', 'design/tokens.css', 'shared/core/ingress-config.json',
+    'shared/core/builtins.json', 'vite.config.ts', 'package.json', 'package-lock.json'], { cwd: root, encoding: 'utf8' });
   const hash = createHash('sha256').update(JSON.stringify(runtime));
   for (const name of [...new Set(names.split('\0').filter(Boolean))].sort()) {
     hash.update(name).update('\0');

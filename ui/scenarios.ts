@@ -33,7 +33,7 @@ import type { Snapshot } from './subscriptions/types';
 import { selectAgentPanel } from './state/overviewPanels';
 import type { HubHealth, Status } from './state/types';
 import { controlSourcePlatform } from './controlSources';
-import config from '../native/src/ingress/config.json';
+import config from '../shared/core/ingress-config.json';
 import { acceptTaskExecution, resetTaskExecutions } from './state/taskExecution';
 import { taskScenario } from './scenarioTasks';
 import type { RequestRouting } from './state/requestRouting';

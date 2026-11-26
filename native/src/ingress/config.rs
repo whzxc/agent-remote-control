@@ -3,7 +3,7 @@ use crate::*;
 pub fn descriptor() -> &'static Value {
     static VALUE: std::sync::OnceLock<Value> = std::sync::OnceLock::new();
     VALUE.get_or_init(|| {
-        serde_json::from_str(include_str!("config.json")).expect("embedded ingress descriptor")
+        serde_json::from_str(include_str!("../../../shared/core/ingress-config.json")).expect("embedded ingress descriptor")
     })
 }
 pub fn defaults() -> Value {

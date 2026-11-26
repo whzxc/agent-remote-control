@@ -100,5 +100,5 @@ impl Manifest {
     }
 }
 pub(super) fn builtins() -> Result<Vec<Manifest>> {
-    serde_json::from_str(include_str!("builtins.json")).map_err(|e| e.to_string())
+    serde_json::from_str(include_str!("../../../shared/core/builtins.json")).map_err(|e| e.to_string())
 }

@@ -163,7 +163,7 @@
       "segment": "A",
       "go": [
         "internal/core/agents_manifest.go",
-        "native/src/agents/manifest_embed.go"
+        "shared/core/embed.go"
       ],
       "status": "verified"
     },
@@ -182,15 +182,7 @@
         "internal/core/agents_approval.go",
         "internal/core/agents_events.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "H",
-          "items": [
-            "Move the Agent manifest embed package out of native/src at cutover."
-          ]
-        }
-      ]
+      "status": "verified"
     },
     "native/src/agents/process.rs": {
       "segment": "A",
@@ -1165,17 +1157,9 @@
       "segment": "E",
       "go": [
         "internal/core/ingress_config.go",
-        "native/src/ingress/config_embed.go"
+        "shared/core/embed.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "H",
-          "items": [
-            "Move the ingress configuration embed package out of native/src at cutover."
-          ]
-        }
-      ]
+      "status": "verified"
     },
     "native/src/ingress.rs": {
       "segment": "E",

@@ -11,17 +11,9 @@ import (
 	"unicode"
 
 	"github.com/google/uuid"
-	"github.com/whzxc/agent-remote-control/internal/canonjson"
-	ingressAssets "github.com/whzxc/agent-remote-control/native/src/ingress"
 )
 
-var ingressDescriptor = sync.OnceValue(func() object {
-	var descriptor object
-	if err := canonjson.Unmarshal([]byte(ingressAssets.Descriptor), &descriptor); err != nil {
-		panic(err)
-	}
-	return descriptor
-})
+var ingressDescriptor = sync.OnceValue(func() object { return resource("ingress-config.json") })
 
 func ingressDefaults() object {
 	result := object{}

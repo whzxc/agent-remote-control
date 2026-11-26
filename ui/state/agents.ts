@@ -2,7 +2,7 @@ import { readOnlyBrowser } from "../browserMode";
 import { decorativeSvg } from "../assets/brand-reserve/decorative";
 import { api } from "../api";
 import { createStore, preference } from "./store";
-import builtins from "../../native/src/agents/builtins.json";
+import builtins from "../../shared/core/builtins.json";
 import { agentIcons } from "../assets/brand-reserve/magpie";
 import junieIcon from "../assets/brand-reserve/agents/junie/color.svg?raw";
 

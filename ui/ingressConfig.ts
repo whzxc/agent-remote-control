@@ -1,4 +1,4 @@
-import descriptor from '../native/src/ingress/config.json';
+import descriptor from '../shared/core/ingress-config.json';
 import type { Config } from './state/types';
 import type { ConnectionForm } from './state/connectionForm';
 

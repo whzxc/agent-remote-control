@@ -5,7 +5,7 @@ use sha2::{Digest, Sha512};
 use std::time::Duration;
 
 fn manifest() -> Value {
-    serde_json::from_str(include_str!("claude-adapter.json")).expect("bundled adapter manifest")
+    serde_json::from_str(include_str!("../../../shared/core/claude-adapter.json")).expect("bundled adapter manifest")
 }
 fn directory() -> PathBuf {
     root()
@@ -47,7 +47,7 @@ pub fn ready() -> bool {
     let dir = directory();
     load(&dir.join("ready.json"))
         .ok()
-        .is_some_and(|v| v == json!({"manifest":hash(include_bytes!("claude-adapter.json"))}))
+        .is_some_and(|v| v == json!({"manifest":hash(include_bytes!("../../../shared/core/claude-adapter.json"))}))
         && runtime(&dir).is_file()
         && entry(&dir).is_file()
 }
@@ -192,7 +192,7 @@ pub async fn prepare() -> Result<()> {
     }
     save(
         &staging.0.join("ready.json"),
-        &json!({"manifest":hash(include_bytes!("claude-adapter.json"))}),
+        &json!({"manifest":hash(include_bytes!("../../../shared/core/claude-adapter.json"))}),
     )?;
     let target = directory();
     // An incomplete version is replaceable; prior versions and active sessions are untouched.

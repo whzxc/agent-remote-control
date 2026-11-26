@@ -14,13 +14,16 @@ import (
 	"time"
 
 	"github.com/whzxc/agent-remote-control/internal/platform"
-	agentassets "github.com/whzxc/agent-remote-control/native/src/agents"
+	assets "github.com/whzxc/agent-remote-control/shared/core"
 )
 
 const adapterPackageLimit = 128 << 20
 
 func nativeClaudeAdapterManifest() (object, []byte, error) {
-	bytes := agentassets.ClaudeAdapter
+	bytes, err := assets.Files.ReadFile("claude-adapter.json")
+	if err != nil {
+		return nil, nil, err
+	}
 	var manifest object
 	if err := decodeObject(bytes, &manifest); err != nil {
 		return nil, nil, err

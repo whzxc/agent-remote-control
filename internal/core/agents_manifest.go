@@ -10,7 +10,7 @@ import (
 	"slices"
 	"strings"
 
-	agentassets "github.com/whzxc/agent-remote-control/native/src/agents"
+	assets "github.com/whzxc/agent-remote-control/shared/core"
 )
 
 type nativeACPManifest struct {
@@ -90,7 +90,11 @@ func parseNativeACPManifests(data []byte) ([]nativeACPManifest, error) {
 }
 
 func agentRegistry() ([]nativeAgentDriver, error) {
-	builtins, err := parseNativeACPManifests(agentassets.Builtins)
+	data, err := assets.Files.ReadFile("builtins.json")
+	if err != nil {
+		return nil, err
+	}
+	builtins, err := parseNativeACPManifests(data)
 	if err != nil {
 		return nil, err
 	}

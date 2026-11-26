@@ -1,4 +1,4 @@
-// Package core contains assets embedded by both ARC runtimes.
+// Package core contains embedded ARC descriptors and platform resources.
 package core
 
 import "embed"
