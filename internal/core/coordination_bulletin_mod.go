@@ -135,9 +135,11 @@ func bulletinValidate(op string, args object) error {
 
 func bulletinFailure(err error, op string) object {
 	message := err.Error()
-	code, _, _ := strings.Cut(message, ":")
+	code, detail, _ := strings.Cut(message, ":")
 	next := object{"op": nil, "hint": "Restore source authority or local coordination storage. Preserve state.json and the original receipt; rate-limited writes may retry after one minute."}
 	switch {
+	case code == "COORDINATION_CAPACITY":
+		next["hint"] = strings.TrimSpace(detail)
 	case strings.HasPrefix(message, "INVALID_ARGUMENT: use lane:<project>/<name>;"):
 		next = object{"via": "query", "op": "projects", "args": object{}, "hint": message}
 	case slices.Contains([]string{"COORDINATION_NOT_FOUND", "COORDINATION_REVISION_CONFLICT", "COORDINATION_STATE_CONFLICT", "COORDINATION_CURSOR_EXPIRED"}, code):

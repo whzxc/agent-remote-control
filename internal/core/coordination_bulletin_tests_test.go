@@ -795,6 +795,276 @@ func TestBulletinDerivedNoticeDoesNotRenewAfterRestartAndInactivity(t *testing.T
 	}
 }
 
+func TestBulletinWithdrawnDispatchNoticeExpiresFromWithdrawal(t *testing.T) {
+	// Recurring bug class: lifecycle a withdrawn dispatch expires seven days after withdrawal once its evidence is projected.
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	at := time.Now().UnixMilli()
+	clock := bulletinClock{utc: at, elapsed: at, certain: true}
+	reader := coordinationReader{principal: coordinationPrincipal{Type: "local-authority"}}
+	input := bulletinAcceptedDispatch(t, "expiring-dispatch", "new-turn")[0]
+	input.OccurredAt = new(coordinationTimestamp(clock.utc))
+	if _, err := emitCoordinationEvent(input); err != nil {
+		t.Fatal(err)
+	}
+	store, err := openBulletinStore(filepath.Join(root(), "coordination/state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	view := object{"state": "all", "view": "full"}
+	check := func(state string) {
+		t.Helper()
+		page, err := store.board(view, reader, clock)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rows := page["notices"].([]object)
+		if (state == "" && len(rows) != 0) || (state != "" && (len(rows) != 1 || rows[0]["state"] != state)) {
+			t.Fatalf("wanted notice state %q, got %v", state, rows)
+		}
+	}
+	advance := func(ms int64) {
+		t.Helper()
+		clock.utc += ms
+		clock.elapsed += ms
+		if err := store.maintain(clock, nil, new(runtimeCost)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	check("active")
+	advance(bulletinInactiveMS + 1000)
+	check("withdrawn")
+	if err := reconcileBulletin(); err != nil {
+		t.Fatal(err)
+	}
+	store, err = openBulletinStore(store.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	advance(bulletinRetentionMS - 1)
+	check("withdrawn")
+	advance(1)
+	check("")
+	if _, err := emitCoordinationEvent(input); err != nil {
+		t.Fatal(err)
+	}
+	store, err = openBulletinStore(store.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	check("")
+}
+
+func TestBulletinFullLegacyHistoryAllowsNewPosts(t *testing.T) {
+	// Recurring bug class: persistence legacy terminal history yields capacity while live work and pending evidence survive.
+	store, _, reader := fixtureBulletin(t)
+	clock := bulletinClock{utc: 2 * bulletinRetentionMS, elapsed: 2 * bulletinRetentionMS, certain: true}
+	withdrawnAt := clock.utc - bulletinRetentionMS + 1000
+	for i := range 256 {
+		state, lastActive, endedAt := "withdrawn", withdrawnAt, (*int64)(nil)
+		switch {
+		case i >= 208:
+			state, lastActive, endedAt = "closed", clock.utc-1000, new(clock.utc)
+		case i <= 1:
+			lastActive = withdrawnAt - 2000
+		case i == 3:
+			lastActive = withdrawnAt - 500
+		}
+		row := &bulletinRecord{ID: fmt.Sprintf("legacy-%d", i), Revision: 1, Owner: reader.principal,
+			Resources: []string{"app:installed"}, Intent: new("Synthetic history"),
+			CreatedAt: lastActive, LastActiveAt: lastActive, State: state, EndedAt: endedAt}
+		store.state.Notices = append(store.state.Notices, row)
+	}
+	if err := store.event(store.state.Notices[0], false); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.save(clock); err != nil {
+		t.Fatal(err)
+	}
+	store, err := openBulletinStore(store.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	post := func() string {
+		t.Helper()
+		result := writeBulletin(t, store, "notice_post", object{"resources": []any{"app:installed"}, "intent": "New work"}, reader, clock)
+		return text(result["notice"], "id")
+	}
+	visible := func(key string) bool {
+		t.Helper()
+		page, err := store.board(object{"id": key, "state": "all"}, reader, clock)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return len(page["notices"].([]object)) == 1
+	}
+	first := post()
+	if visible("legacy-1") || !visible("legacy-0") || !visible("legacy-3") {
+		t.Fatal("expiration must free the first slot and preserve pending evidence and younger history")
+	}
+	second := post()
+	if visible("legacy-3") || !visible("legacy-2") || !visible("legacy-0") || !visible(first) || !visible(second) {
+		t.Fatal("at capacity the oldest unprotected history must yield to live work")
+	}
+}
+
+func TestBulletinSnapshotRemainsReadableByLegacyRustSchema(t *testing.T) {
+	// Contract: bulletin snapshot keys remain readable by the strict Rust rollback schema.
+	path := filepath.Join(t.TempDir(), "state.json")
+	fixture := `{
+		"epoch":"legacy-fixture","revision":7,"dispatchAdmissionCleanupComplete":true,
+		"notices":[{
+			"id":"legacy-withdrawn","dispatchId":"fixture-dispatch","revision":2,
+			"association":{"resources":["app:installed"],"project":"unattributed","lane":"unattributed","source":"observed","session":"unattributed"},
+			"owner":{"type":"source","sourceId":"fixture-source","accountId":"fixture-account"},
+			"resources":["app:installed"],"intent":"Fixture work",
+			"threadLinks":[{"threadId":"fixture-thread","observedTurnId":"fixture-turn","scopeState":"unknown","terminals":{}}],
+			"evidenceIds":[],"createdAt":100,"lastActiveAt":200,"state":"withdrawn","closedReason":"owner-inactive"
+		}],
+		"blockers":[{
+			"id":"legacy-cleared","revision":2,"owner":{"type":"local-authority"},
+			"resources":["app:installed"],"threadLinks":[],"causeCode":"fixture","summary":"Fixture blocker",
+			"evidenceIds":["fixture-evidence"],"createdAt":100,"lastActiveAt":200,"state":"cleared","endedAt":300,
+			"clearedBy":{"type":"local-authority"}
+		}],
+		"sessions":[
+			{"id":"legacy-closed","owner":{"type":"local-authority"},"createdAt":100,"lastActiveAt":200,"state":"closed"},
+			{"id":"legacy-active","owner":{"type":"source","sourceId":"fixture-source"},"createdAt":100,"lastActiveAt":200,"state":"active",
+			 "route":{"sourceId":"fixture-source","routeId":"fixture-route","generation":"fixture-generation","bindingId":"fixture-binding"}}
+		],
+		"applied":{},"pending":[],"budgets":{}
+	}`
+	if err := os.WriteFile(path, []byte(fixture), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store, err := openBulletinStore(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clock := bulletinClock{utc: 1000, elapsed: 1000, certain: true}
+	reader := coordinationReader{principal: coordinationPrincipal{Type: "source", SourceID: "fixture-source"}}
+	args := object{"requestId": "fixture-post", "intent": "New fixture work", "resources": []any{"app:installed"}, "sessionId": "legacy-active"}
+	links := []bulletinLink{{ThreadID: "fixture-thread", ObservedTurnID: new("fixture-turn"), ScopeState: "unknown", Terminals: map[string]any{}}}
+	posted, err := store.mutate("notice_post", args, reader, links, nil, clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var saved object
+	if err := decodeObject(data, &saved); err != nil {
+		t.Fatal(err)
+	}
+
+	// Serialized names from the Rust 0.9.53/0.9.54 bulletin schema.
+	// Receipt results, recovery data and terminal facts use unrestricted serde_json::Value.
+	allowed := map[string]string{
+		"State":               "epoch revision dispatchAdmissionCleanupComplete notices blockers sessions applied pending budgets",
+		"Record":              "id dispatchId association revision owner ownerSessionId resources intent expectedDurationSeconds threadLinks causeCode summary evidenceIds fixingCommit reason suggestedNextStep createdAt lastActiveAt state closedReason endedAt recoverySelection clearedBy",
+		"Session":             "id owner createdAt lastActiveAt state route routeFailure",
+		"Link":                "threadId sessionBindingId observedTurnId scopeState observedAt terminals",
+		"Applied":             "digest result at",
+		"Source":              "type sourceId accountId",
+		"Principal":           "type",
+		"Route":               "sourceId routeId generation bindingId",
+		"DispatchAssociation": "resources project lane source session registryObservedAt",
+		"EventInput":          "transitionId kind resources origin occurredAt status threadRefs evidenceRefs attribution observation",
+		"ThreadRef":           "threadId turnId",
+		"EvidenceRef":         "kind id",
+		"Attribution":         "confidence threadIds",
+		"Observation":         "dispatchAssociation model sessionId sessionBindingId effort interruptedTurns resumeSubmissions attentionTurns oldOid newOid movement",
+	}
+	checkKeys := func(kind string, value any) object {
+		t.Helper()
+		if value == nil {
+			return nil
+		}
+		row := obj(value)
+		if row == nil {
+			t.Fatalf("%s must be an object, got %T", kind, value)
+		}
+		keys := strings.Fields(allowed[kind])
+		for key := range row {
+			if !slices.Contains(keys, key) {
+				t.Errorf("legacy Rust %s rejects key %q", kind, key)
+			}
+		}
+		return row
+	}
+	checkPrincipal := func(value any) {
+		t.Helper()
+		if text(value, "type") == "source" {
+			checkKeys("Source", value)
+		} else {
+			checkKeys("Principal", value)
+		}
+	}
+	checkKeys("State", saved)
+	for _, kind := range []string{"notices", "blockers"} {
+		for _, value := range arr(saved[kind]) {
+			row := checkKeys("Record", value)
+			checkPrincipal(row["owner"])
+			checkPrincipal(row["clearedBy"])
+			checkKeys("DispatchAssociation", row["association"])
+			for _, link := range arr(row["threadLinks"]) {
+				checkKeys("Link", link)
+			}
+		}
+	}
+	for _, value := range arr(saved["sessions"]) {
+		session := checkKeys("Session", value)
+		checkPrincipal(session["owner"])
+		checkKeys("Route", session["route"])
+	}
+	for _, value := range obj(saved["applied"]) {
+		checkKeys("Applied", value)
+	}
+	for _, value := range arr(saved["pending"]) {
+		event := checkKeys("EventInput", value)
+		checkPrincipal(event["origin"])
+		checkKeys("Attribution", event["attribution"])
+		observation := checkKeys("Observation", event["observation"])
+		checkKeys("DispatchAssociation", observation["dispatchAssociation"])
+		for _, ref := range arr(event["threadRefs"]) {
+			checkKeys("ThreadRef", ref)
+		}
+		for _, ref := range arr(event["evidenceRefs"]) {
+			checkKeys("EvidenceRef", ref)
+		}
+	}
+	noticeID := text(posted["notice"], "id")
+	if noticeID == "" || find(saved["notices"], "id", noticeID) == nil ||
+		uintOr(field(find(saved["notices"], "id", "legacy-withdrawn"), "endedAt"), 0) != 200 ||
+		find(saved["sessions"], "id", "legacy-closed") == nil {
+		t.Fatal("snapshot must retain the new post, repaired withdrawal, and legacy closed session")
+	}
+}
+
+func TestBulletinPerOwnerLiveCapsStillReject(t *testing.T) {
+	// Recurring bug class: lifecycle history eviction cannot bypass the per-owner limit on current claims.
+	for _, tc := range []struct {
+		op    string
+		limit int
+		args  object
+	}{
+		{"notice_post", 16, object{"resources": []any{"app:installed"}, "intent": "Fixture work"}},
+		{"blocker_open", 8, object{"resources": []any{"app:installed"}, "causeCode": "fixture", "summary": "Fixture blocker"}},
+	} {
+		store, clock, owner := fixtureBulletin(t)
+		for range tc.limit {
+			writeBulletin(t, store, tc.op, clone(tc.args), owner, clock)
+		}
+		args := clone(tc.args)
+		args["requestId"] = id()
+		if _, err := store.mutate(tc.op, args, owner, nil, nil, clock); err == nil || !strings.HasPrefix(err.Error(), "COORDINATION_CAPACITY:") {
+			t.Fatalf("%s above owner limit = %v", tc.op, err)
+		}
+		peer := coordinationReader{principal: coordinationPrincipal{Type: "source", SourceID: "peer"}}
+		writeBulletin(t, store, tc.op, clone(tc.args), peer, clock)
+	}
+}
+
 func TestBulletinManualProjectAndLaneNamesOverlapDerivedDispatch(t *testing.T) {
 	// Recurring bug class: lifecycle manually named resources and derived Git scopes must use the same registered identity.
 	store, clock, local := fixtureBulletin(t)

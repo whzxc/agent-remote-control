@@ -14,6 +14,8 @@ import (
 const bulletinInactiveMS = 6 * 60 * 60 * 1000
 const bulletinRetentionMS = 7 * 86400 * 1000
 const bulletinSnapshotBytes = 2 * 1024 * 1024
+const bulletinNoticeLimit = 256
+const bulletinBlockerLimit = 128
 
 var errBulletinCorrupt = errors.New("COORDINATION_CORRUPT: preserve coordination/state.json for local recovery")
 var errBulletinCursor = errors.New("COORDINATION_CURSOR_EXPIRED: restart board pagination")
@@ -94,6 +96,12 @@ type bulletinRecord struct {
 
 func (row *bulletinRecord) live() bool {
 	return row.State != "closed" && row.State != "withdrawn" && row.State != "cleared"
+}
+func (row *bulletinRecord) setState(state string, at int64) {
+	row.State = state
+	if !row.live() {
+		row.EndedAt = &at
+	}
 }
 func sameCoordinationOwner(a, b coordinationPrincipal) bool {
 	return a.Type == b.Type && (a.Type == "local-authority" || a.Type == "source" && a.SourceID == b.SourceID)
@@ -185,7 +193,7 @@ func openBulletinStore(path string) (*bulletinStore, error) {
 		return nil, errBulletinCorrupt
 	}
 	state := store.state
-	if len(state.Notices) > 256 || len(state.Blockers) > 128 || len(state.Sessions) > 128 || len(state.Pending) > 512 || len(state.Applied) > 2048 ||
+	if len(state.Notices) > bulletinNoticeLimit || len(state.Blockers) > bulletinBlockerLimit || len(state.Sessions) > 128 || len(state.Pending) > 512 || len(state.Applied) > 2048 ||
 		state.Notices == nil || state.Blockers == nil || state.Sessions == nil || state.Applied == nil || state.Pending == nil || state.Budgets == nil {
 		return nil, errBulletinCorrupt
 	}
@@ -208,6 +216,13 @@ func openBulletinStore(path string) (*bulletinStore, error) {
 			return nil, errBulletinCorrupt
 		}
 	}
+	if store.migrateEndTimes() {
+		if err := store.save(currentBulletinClock()); err != nil {
+			return nil, err
+		}
+	} else {
+		store.reindex()
+	}
 	for _, row := range state.Notices {
 		for i := range row.ThreadLinks {
 			link := &row.ThreadLinks[i]
@@ -223,8 +238,20 @@ func openBulletinStore(path string) (*bulletinStore, error) {
 		}
 	}
 	store.restarted = true
-	store.reindex()
 	return store, nil
+}
+
+func (store *bulletinStore) migrateEndTimes() bool {
+	changed := false
+	for _, rows := range [][]*bulletinRecord{store.state.Notices, store.state.Blockers} {
+		for _, row := range rows {
+			if !row.live() && row.EndedAt == nil {
+				row.EndedAt = new(row.LastActiveAt)
+				changed = true
+			}
+		}
+	}
+	return changed
 }
 
 func (store *bulletinStore) save(clock bulletinClock) error {
@@ -241,17 +268,22 @@ func (store *bulletinStore) save(clock bulletinClock) error {
 	return nil
 }
 
-func (store *bulletinStore) reindex() {
-	store.liveNotices, store.liveBlockers = store.liveNotices[:0], store.liveBlockers[:0]
-	store.noticeClaims, store.blockerClaims = map[string][]*bulletinRecord{}, map[string][]*bulletinRecord{}
-	store.dispatchNotices = map[string]bool{}
-	store.retentionAt, store.maintainedAt = 0, 0
+func (store *bulletinStore) pendingOwners() map[string]bool {
 	protected := map[string]bool{}
 	for _, event := range store.state.Pending {
 		for _, ref := range event.EvidenceRefs {
 			protected[ref.ID] = true
 		}
 	}
+	return protected
+}
+
+func (store *bulletinStore) reindex() {
+	store.liveNotices, store.liveBlockers = store.liveNotices[:0], store.liveBlockers[:0]
+	store.noticeClaims, store.blockerClaims = map[string][]*bulletinRecord{}, map[string][]*bulletinRecord{}
+	store.dispatchNotices = map[string]bool{}
+	store.retentionAt, store.maintainedAt = 0, 0
+	protected := store.pendingOwners()
 	for i, rows := range [][]*bulletinRecord{store.state.Notices, store.state.Blockers} {
 		live, claims := &store.liveNotices, store.noticeClaims
 		if i == 1 {
@@ -266,8 +298,7 @@ func (store *bulletinStore) reindex() {
 				for _, key := range row.Resources {
 					claims[key] = append(claims[key], row)
 				}
-			}
-			if row.EndedAt != nil && !protected[row.ID] {
+			} else if row.EndedAt != nil && !protected[row.ID] {
 				at := *row.EndedAt + bulletinRetentionMS
 				if store.retentionAt == 0 || at < store.retentionAt {
 					store.retentionAt = at
@@ -289,6 +320,10 @@ func (store *bulletinStore) linkedThreads(cost *runtimeCost) []string {
 	return axSet(threads)
 }
 
+func bulletinTransitionID(id string, revision uint64) string {
+	return fmt.Sprintf("bulletin-%s-%d", id, revision)
+}
+
 func (store *bulletinStore) event(row *bulletinRecord, blocker bool) error {
 	resources := row.Resources
 	if len(resources) == 0 && row.DispatchID != nil {
@@ -298,7 +333,7 @@ func (store *bulletinStore) event(row *bulletinRecord, blocker bool) error {
 	if blocker {
 		kind, evidence = "blocker.changed", "blocker"
 	}
-	event := newCoordinationEvent(fmt.Sprintf("bulletin-%s-%d", row.ID, row.Revision), kind, resources)
+	event := newCoordinationEvent(bulletinTransitionID(row.ID, row.Revision), kind, resources)
 	event.Origin, event.Status = &row.Owner, &status
 	event.EvidenceRefs = append(event.EvidenceRefs, coordinationEvidenceRef{evidence, row.ID})
 	chunk := 4
@@ -335,31 +370,53 @@ func (store *bulletinStore) event(row *bulletinRecord, blocker bool) error {
 }
 
 func (store *bulletinStore) prune(clock bulletinClock) {
-	expired := func(at int64, seconds uint64) bool { age := clock.age(at); return age != nil && *age >= seconds }
+	expired := func(at int64) bool { age := clock.age(at); return age != nil && *age >= bulletinRetentionMS/1000 }
 	before := len(store.state.Notices) + len(store.state.Blockers) + len(store.state.Sessions)
+	protected := store.pendingOwners()
 	discard := func(row *bulletinRecord) bool {
-		if row.EndedAt == nil || !expired(*row.EndedAt, bulletinRetentionMS/1000) {
-			return false
-		}
-		for _, event := range store.state.Pending {
-			for _, ref := range event.EvidenceRefs {
-				if ref.ID == row.ID {
-					return false
-				}
-			}
-		}
-		return true
+		return !row.live() && row.EndedAt != nil && expired(*row.EndedAt) && !protected[row.ID]
 	}
 	store.state.Notices = slices.DeleteFunc(store.state.Notices, discard)
 	store.state.Blockers = slices.DeleteFunc(store.state.Blockers, discard)
 	store.state.Sessions = slices.DeleteFunc(store.state.Sessions, func(s *bulletinSession) bool {
-		return s.State != "active" && expired(s.LastActiveAt, bulletinRetentionMS/1000)
+		return s.State != "active" && expired(s.LastActiveAt)
 	})
-	maps.DeleteFunc(store.state.Applied, func(_ string, a bulletinApplied) bool { return expired(a.At, bulletinRetentionMS/1000) })
+	maps.DeleteFunc(store.state.Applied, func(_ string, a bulletinApplied) bool { return expired(a.At) })
 	maps.DeleteFunc(store.state.Budgets, func(_ string, bucket [2]int64) bool { return clock.elapsed-bucket[0] >= 60000 })
 	if before != len(store.state.Notices)+len(store.state.Blockers)+len(store.state.Sessions) {
 		store.state.Revision++
 	}
+}
+
+// Both posting paths prune expired history before admitting a new record.
+func (store *bulletinStore) addRecord(row *bulletinRecord, blocker bool) error {
+	kind, rows, limit := "notices", &store.state.Notices, bulletinNoticeLimit
+	if blocker {
+		kind, rows, limit = "blockers", &store.state.Blockers, bulletinBlockerLimit
+	}
+	oldest := -1
+	if len(*rows) >= limit {
+		protected := store.pendingOwners()
+		for i, existing := range *rows {
+			if existing.live() || existing.EndedAt == nil || protected[existing.ID] {
+				continue
+			}
+			if oldest == -1 || *existing.EndedAt < *(*rows)[oldest].EndedAt {
+				oldest = i
+			}
+		}
+		if oldest == -1 {
+			return fmt.Errorf("COORDINATION_CAPACITY: all %d %s are live or awaiting event projection. End completed work or pull board to reconcile pending events", limit, kind)
+		}
+	}
+	if err := store.event(row, blocker); err != nil {
+		return err
+	}
+	if oldest != -1 {
+		*rows = slices.Delete(*rows, oldest, oldest+1)
+	}
+	*rows = append(*rows, row)
+	return nil
 }
 
 func (store *bulletinStore) cleanupDispatchAdmissions(clock bulletinClock, admission func(thread, request string) (bool, error), cost *runtimeCost) error {
@@ -442,13 +499,13 @@ func (store *bulletinStore) maintain(clock bulletinClock, revoked []string, cost
 			if state == row.State {
 				continue
 			}
-			row.State, row.ClosedReason = state, &reason
+			row.setState(state, clock.utc)
+			row.ClosedReason = &reason
 			row.Revision++
 			if blocker && state == "stale" {
 				row.RecoverySelection = staleBlockerRecovery()
 			}
-			if !blocker {
-				row.EndedAt = new(clock.utc)
+			if row.EndedAt != nil {
 				schedule(clock.utc + bulletinRetentionMS)
 			}
 			if err := store.event(row, blocker); err != nil {
@@ -538,7 +595,7 @@ func (store *bulletinStore) mutate(op string, args object, reader coordinationRe
 	}
 	store.prune(clock)
 	if len(store.state.Applied) >= 2048 {
-		return nil, errors.New("COORDINATION_CAPACITY: retain original receipts; retry after closed history retention")
+		return nil, errors.New("COORDINATION_CAPACITY: retain original receipts and retry after stored mutation replays expire")
 	}
 	actor := reader.principal
 	key := actor.SourceID
@@ -614,9 +671,9 @@ func (store *bulletinStore) applySession(args object, actor coordinationPrincipa
 
 func (store *bulletinStore) apply(op string, args object, actor coordinationPrincipal, links []bulletinLink, clock bulletinClock) (object, error) {
 	blocker := strings.HasPrefix(op, "blocker_")
-	kind, rows, totalLimit, ownerLimit := "notice", &store.state.Notices, 256, 16
+	kind, rows, ownerLimit := "notice", store.state.Notices, 16
 	if blocker {
-		kind, rows, totalLimit, ownerLimit = "blocker", &store.state.Blockers, 128, 8
+		kind, rows, ownerLimit = "blocker", store.state.Blockers, 8
 	}
 	project := func(row *bulletinRecord, includeConflicts bool) object {
 		result := object{kind: row.project(clock, store.restarted)}
@@ -634,13 +691,13 @@ func (store *bulletinStore) apply(op string, args object, actor coordinationPrin
 			return nil, errors.New("COORDINATION_OWNER_REQUIRED: register or select your active coordination session")
 		}
 		owned := 0
-		for _, row := range *rows {
+		for _, row := range rows {
 			if row.live() && sameCoordinationOwner(row.Owner, actor) {
 				owned++
 			}
 		}
-		if len(*rows) >= totalLimit || owned >= ownerLimit {
-			return nil, errors.New("COORDINATION_CAPACITY: close completed work and retain terminal history for seven days")
+		if owned >= ownerLimit {
+			return nil, fmt.Errorf("COORDINATION_CAPACITY: at most %d live %ss per owner. End completed work before retrying", ownerLimit, kind)
 		}
 		row := &bulletinRecord{ID: id(), Revision: 1, Owner: actor, OwnerSessionID: session, Resources: axStrings(args["resources"]), Intent: axOptional(args["intent"]),
 			ThreadLinks: links, CauseCode: axOptional(args["causeCode"]), Summary: axOptional(args["summary"]), EvidenceIDs: axStrings(args["evidenceIds"]),
@@ -648,14 +705,12 @@ func (store *bulletinStore) apply(op string, args object, actor coordinationPrin
 		if seconds, ok := uintValue(args["expectedDurationSeconds"]); ok {
 			row.ExpectedDuration = &seconds
 		}
-		if err := store.event(row, blocker); err != nil {
+		if err := store.addRecord(row, blocker); err != nil {
 			return nil, err
 		}
-		result := project(row, true)
-		*rows = append(*rows, row)
-		return result, nil
+		return project(row, true), nil
 	}
-	for _, row := range *rows {
+	for _, row := range rows {
 		if row.ID != text(args, "id") {
 			continue
 		}
@@ -689,7 +744,7 @@ func (store *bulletinStore) apply(op string, args object, actor coordinationPrin
 				row.LastActiveAt = clock.elapsed
 			}
 		case "notice_close":
-			row.State, row.EndedAt = "closed", new(clock.utc)
+			row.setState("closed", clock.utc)
 			row.ClosedReason = axOptional(args["reason"])
 			if row.ClosedReason == nil {
 				row.ClosedReason = new("owner-closed")
@@ -699,7 +754,7 @@ func (store *bulletinStore) apply(op string, args object, actor coordinationPrin
 			if row.State == "stale" {
 				row.RecoverySelection = staleBlockerRecovery()
 			}
-			row.State, row.EndedAt = "cleared", new(clock.utc)
+			row.setState("cleared", clock.utc)
 			row.FixingCommit = obj(args["fixingCommit"])
 			row.Reason, row.EvidenceIDs, row.SuggestedNextStep = axOptional(args["reason"]), axStrings(args["evidenceIds"]), axOptional(args["suggestedNextStep"])
 		default:

@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"errors"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -90,33 +89,48 @@ func bulletinFromDispatch(input coordinationEventInput) error {
 	if input.Kind != "dispatch.accepted" || input.Observation == nil || input.Observation.DispatchAssociation == nil {
 		return nil
 	}
-	_, err := withBulletinStore(func(store *bulletinStore) (struct{}, error) {
+	dispatch := bulletinDispatchRequest(input)
+	if dispatch == "" {
+		return nil
+	}
+	// A projected creation proves the notice was admitted even if its row was evicted.
+	projected, err := withCoordinationJournal(func(journal *coordinationJournal) (bool, error) {
+		first := bulletinTransitionID(bulletinDispatchNoticeID(dispatch), 1) + "-0"
+		_, unlinked := journal.transitions[first]
+		_, linked := journal.transitions[first+"-0"]
+		return unlinked || linked, nil
+	})
+	if err != nil || projected {
+		return err
+	}
+	_, err = withBulletinStore(func(store *bulletinStore) (struct{}, error) {
 		return struct{}{}, store.dispatchNotice(input, currentBulletinClock())
 	})
 	return err
+}
+
+func bulletinDispatchRequest(input coordinationEventInput) string {
+	for _, ref := range input.EvidenceRefs {
+		if ref.Kind == "request" {
+			return ref.ID
+		}
+	}
+	return ""
+}
+
+func bulletinDispatchNoticeID(dispatch string) string {
+	return "dispatch-" + hash([]byte(dispatch))
 }
 
 func (store *bulletinStore) dispatchNotice(input coordinationEventInput, clock bulletinClock) error {
 	if input.Observation == nil || input.Observation.DispatchAssociation == nil {
 		return nil
 	}
-	dispatch := ""
-	for _, ref := range input.EvidenceRefs {
-		if ref.Kind == "request" {
-			dispatch = ref.ID
-			break
-		}
-	}
-	if dispatch == "" {
-		return nil
-	}
-	if store.dispatchNotices[dispatch] {
+	dispatch := bulletinDispatchRequest(input)
+	if dispatch == "" || store.dispatchNotices[dispatch] {
 		return nil
 	}
 	store.prune(clock)
-	if len(store.state.Notices) >= 256 {
-		return errors.New("COORDINATION_CAPACITY: retain dispatch projection until bulletin capacity is available")
-	}
 	association := input.Observation.DispatchAssociation
 	owner := coordinationPrincipal{Type: "arc"}
 	if input.Origin != nil {
@@ -134,12 +148,11 @@ func (store *bulletinStore) dispatchNotice(input coordinationEventInput, clock b
 			at = phase.UnixMilli()
 		}
 	}
-	row := &bulletinRecord{ID: "dispatch-" + hash([]byte(dispatch)), DispatchID: &dispatch, Association: association, Revision: 1, Owner: owner,
+	row := &bulletinRecord{ID: bulletinDispatchNoticeID(dispatch), DispatchID: &dispatch, Association: association, Revision: 1, Owner: owner,
 		Resources: association.Resources, Intent: new("ARC dispatch"), ThreadLinks: links, EvidenceIDs: []string{}, CreatedAt: at, LastActiveAt: at, State: "active"}
-	if err := store.event(row, false); err != nil {
+	if err := store.addRecord(row, false); err != nil {
 		return err
 	}
-	store.state.Notices = append(store.state.Notices, row)
 	return store.save(clock)
 }
 

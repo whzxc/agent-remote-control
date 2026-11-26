@@ -301,11 +301,19 @@ The snapshot and one atomic temporary share 4 MiB. Limits are 256 notices,
 records. Each notice has at most 16 resources and 16 thread links. Per source,
 limits are 16 active notices, eight uncleared blockers, eight active sessions and
 four session registrations/hour. Writes share 30 mutations/minute/source;
-request-ID replay does not consume the budget twice. Terminal rows and mutation
-replay records retain seven days. Pending transitions prevent owner-row pruning.
-Capacity errors preserve existing state and require local cleanup/recovery. Incomplete
-receipts older than the replay retention cannot reapply an evicted mutation; inspect
-the original receipt and board before explicitly starting a new work scope.
+request-ID replay does not consume the budget twice. Terminal notices and blockers
+expire seven days after their recorded end time. Opening a legacy snapshot fills
+missing notice and blocker end times from the last recorded activity. Closed
+sessions expire seven days after their last recorded activity. The snapshot uses
+only fields declared by the Rust rollback schema. Pending transitions keep their
+owner rows until projection completes. New notices and blockers prune expired history
+first. At the global row limit, admission evicts the oldest terminal row of that
+kind without pending evidence. Admission rejects if all slots are live or protected
+by pending evidence. The per-source live limits still apply. Failed writes preserve
+the previous snapshot. Mutation replay records retain seven days independently of
+board history. Incomplete receipts older than the replay retention cannot reapply
+an evicted mutation; inspect the original receipt and board before explicitly
+starting a new work scope.
 
 Acquire and release the source authorization snapshot before the bulletin lock.
 Acquire request-ID locks before mutation. Thread-origin and fixing-commit evidence
