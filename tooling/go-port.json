@@ -278,14 +278,8 @@
         "internal/core/cli.go",
         "internal/core/cli_test.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
-        {
-          "owner": "S0",
-          "items": [
-            "Validate CLI commands and transport arguments, including schema and stream modes."
-          ]
-        },
         {
           "owner": "A",
           "items": [
@@ -296,6 +290,12 @@
           "owner": "D",
           "items": [
             "Setup, skills, and uninstall CLI adapters."
+          ]
+        },
+        {
+          "owner": "E",
+          "items": [
+            "Provide ingress configuration defaults and apply ingress validation and lifecycle."
           ]
         }
       ]
@@ -332,12 +332,24 @@
       "go": [
         "internal/core/context.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
         {
-          "owner": "S0",
+          "owner": "A",
           "items": [
-            "Compare task and project evidence projection with the Rust contract."
+            "Supply native Agent task and turn records to the context projection."
+          ]
+        },
+        {
+          "owner": "B",
+          "items": [
+            "Supply selected-turn tracking evidence and output redaction for context reads."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Supply project resolution and Git workspace evidence."
           ]
         }
       ]
@@ -347,12 +359,12 @@
       "go": [
         "internal/core/context_provider.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
         {
-          "owner": "S0",
+          "owner": "A",
           "items": [
-            "Complete owned-child registration, ACP and control operation wiring."
+            "Include the context provider ACP descriptor in native Agent MCP server lists."
           ]
         }
       ]
@@ -553,26 +565,40 @@
       "go": [
         "internal/core/core_requests.go",
         "internal/core/egress.go",
-        "internal/core/egress_test.go"
+        "internal/core/egress_test.go",
+        "internal/core/core_requests_test.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
-        {
-          "owner": "S0",
-          "items": [
-            "Complete authorization, cancellation and result projection."
-          ]
-        },
         {
           "owner": "C",
           "items": [
-            "Register notification event methods."
+            "Register notification event methods.",
+            "Supply notification retry and inbox projection, push availability, and observed turns."
           ]
         },
         {
           "owner": "E",
           "items": [
             "Register peer forwarding and ingress authorization."
+          ]
+        },
+        {
+          "owner": "A",
+          "items": [
+            "Supply task-summary projection, image blocks, and wait outcome compaction."
+          ]
+        },
+        {
+          "owner": "B",
+          "items": [
+            "Supply authenticated coordination activity and refresh task advisory data."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Resolve Local CLI and source authority and decorate public source labels."
           ]
         }
       ]
@@ -780,18 +806,13 @@
         "internal/core/egress.go",
         "internal/core/egress_test.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
-        {
-          "owner": "S0",
-          "items": [
-            "Complete receipt and task result projection."
-          ]
-        },
         {
           "owner": "A",
           "items": [
-            "Supply native task and interaction evidence."
+            "Supply native task and interaction evidence.",
+            "Register source-conversation error classification."
           ]
         },
         {
@@ -805,6 +826,12 @@
           "items": [
             "Supply notification evidence."
           ]
+        },
+        {
+          "owner": "E",
+          "items": [
+            "Register device-transfer error classification."
+          ]
         }
       ]
     },
@@ -816,14 +843,8 @@
         "internal/core/control.go",
         "internal/core/core_requests.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
-        {
-          "owner": "S0",
-          "items": [
-            "Complete request adapters and common dispatch projection."
-          ]
-        },
         {
           "owner": "A",
           "items": [
@@ -910,12 +931,12 @@
         "internal/core/front_door_supervision.go",
         "internal/core/front_door_process_test.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
         {
-          "owner": "S0",
+          "owner": "E",
           "items": [
-            "Complete streaming, reconnect queue, macOS replacement and related unit coverage."
+            "Restore persisted ingress and peer providers after each new gateway generation."
           ]
         }
       ]
@@ -927,15 +948,7 @@
         "internal/core/front_door_test.go",
         "internal/core/front_door_process_test.go"
       ],
-      "status": "pending",
-      "remaining": [
-        {
-          "owner": "S0",
-          "items": [
-            "Complete authority types and validation."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/front_door.rs": {
       "segment": "S0",
@@ -944,12 +957,24 @@
         "internal/core/front_door_test.go",
         "internal/core/front_door_authority.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
         {
-          "owner": "S0",
+          "owner": "A",
           "items": [
-            "Complete streaming, reconnect queue, update drain and remaining local authorities."
+            "Resolve browser key and status comparison for the browser authority."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Supply subscription publications and their change notifications."
+          ]
+        },
+        {
+          "owner": "E",
+          "items": [
+            "Resolve authenticated ingress authority and supply peer authorization and browser transport."
           ]
         }
       ]
@@ -973,6 +998,12 @@
           "owner": "E",
           "items": [
             "Enable external HTTPS and OAuth ingress wire coverage."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Supply OAuth source authority for the external wire cases."
           ]
         }
       ]
@@ -1030,14 +1061,27 @@
       "segment": "S0",
       "go": [
         "internal/core/kernel_derived_index.go",
-        "internal/core/kernel_receipts_test.go"
+        "internal/core/kernel_receipts_test.go",
+        "internal/core/kernel_derived_index_test.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
         {
-          "owner": "S0",
+          "owner": "B",
           "items": [
-            "Complete background publication, adoption, lifecycle and startup fixture gate."
+            "Consume index and file cost events in public runtime_metrics."
+          ]
+        },
+        {
+          "owner": "C",
+          "items": [
+            "Register notification-state migration, the notifications/tasks index and post-publication rescheduling."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Register source history migration and completion around the notification-state migration."
           ]
         }
       ]
@@ -1148,15 +1192,7 @@
         "internal/core/kernel_results_test.go",
         "internal/core/kernel_digests.go"
       ],
-      "status": "pending",
-      "remaining": [
-        {
-          "owner": "S0",
-          "items": [
-            "Complete startup quota pruning and error projection."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/kernel/task_projection.rs": {
       "segment": "S0",
@@ -1182,14 +1218,8 @@
         "internal/core/egress.go",
         "internal/core/transport.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
-        {
-          "owner": "S0",
-          "items": [
-            "Complete shared file caching, cost instrumentation and common helper parity."
-          ]
-        },
         {
           "owner": "A",
           "items": [
@@ -1246,24 +1276,25 @@
         "internal/core/front_door_owner.go",
         "internal/core/management_test.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
-        {
-          "owner": "S0",
-          "items": [
-            "Complete the dynamic MCP hub schema and local management dispatch."
-          ]
-        },
         {
           "owner": "E",
           "items": [
-            "Register device and ingress schemas."
+            "Register device and ingress schemas.",
+            "Register device-transfer error classification."
           ]
         },
         {
           "owner": "F",
           "items": [
             "Register the packaged Desktop launch callback."
+          ]
+        },
+        {
+          "owner": "A",
+          "items": [
+            "Register source-conversation error classification."
           ]
         }
       ]
@@ -1307,17 +1338,10 @@
       "segment": "S0",
       "go": [
         "internal/core/output.go",
-        "internal/core/main.go"
+        "internal/core/main.go",
+        "internal/core/output_test.go"
       ],
-      "status": "pending",
-      "remaining": [
-        {
-          "owner": "S0",
-          "items": [
-            "Complete flushing and broken-pipe behavior for command and streaming output."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/owned_children.rs": {
       "segment": "S0",
@@ -1419,24 +1443,43 @@
         "internal/core/runtime_test.go",
         "internal/core/front_door_supervision.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
-        {
-          "owner": "S0",
-          "items": [
-            "Complete leased clients and lifecycle parity."
-          ]
-        },
         {
           "owner": "D",
           "items": [
-            "Connect installed uninstall integration."
+            "Connect installed uninstall integration.",
+            "Provide subscription results and source migration."
           ]
         },
         {
           "owner": "F",
           "items": [
             "Connect installed Desktop lifecycle."
+          ]
+        },
+        {
+          "owner": "A",
+          "items": [
+            "Resolve saved network settings and attach native task and Agent owners during startup."
+          ]
+        },
+        {
+          "owner": "B",
+          "items": [
+            "Start coordination consumers after their indexes are ready."
+          ]
+        },
+        {
+          "owner": "C",
+          "items": [
+            "Start notification and policy workers after owner publication."
+          ]
+        },
+        {
+          "owner": "E",
+          "items": [
+            "Supply ingress callback restoration, daemon autostart and remote fault status."
           ]
         }
       ]
@@ -1464,18 +1507,13 @@
         "internal/core/control.go",
         "internal/core/diagnostics.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
-        {
-          "owner": "S0",
-          "items": [
-            "Complete management and status projection."
-          ]
-        },
         {
           "owner": "A",
           "items": [
-            "Supply task and Agent records."
+            "Supply task and Agent records.",
+            "Validate effective network proxy settings."
           ]
         },
         {
@@ -1493,7 +1531,8 @@
         {
           "owner": "E",
           "items": [
-            "Supply ingress provider status."
+            "Supply ingress provider status.",
+            "Apply changed network preferences to ingress providers."
           ]
         }
       ]
@@ -1656,14 +1695,8 @@
         "internal/core/front_door_process.go",
         "internal/core/front_door_wire_test.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
-        {
-          "owner": "S0",
-          "items": [
-            "Complete local route and stream parity and Desktop callback dispatch."
-          ]
-        },
         {
           "owner": "E",
           "items": [
@@ -1674,6 +1707,12 @@
           "owner": "F",
           "items": [
             "Register Desktop callbacks."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Supply subscription stream revisions and current publication."
           ]
         }
       ]
@@ -1692,14 +1731,16 @@
       "segment": "S0",
       "go": [
         "internal/core/wait_transport.go",
-        "internal/core/wait_transport_test.go"
+        "internal/core/wait_transport_test.go",
+        "internal/core/transport.go",
+        "internal/core/output.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
         {
-          "owner": "S0",
+          "owner": "B",
           "items": [
-            "Complete EOF cancellation and transport regression parity."
+            "Consume wait-heartbeat accounting with the runtime metrics owner."
           ]
         }
       ]
@@ -1808,16 +1849,11 @@
       "segment": "S0",
       "go": [
         "cmd/contract-fixture/main.go",
-        "internal/core/fixture.go"
+        "internal/core/fixture.go",
+        "internal/core/kernel_derived_index_test.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": [
-        {
-          "owner": "S0",
-          "items": [
-            "Complete common runtime, startup and stream fixture gates."
-          ]
-        },
         {
           "owner": "A",
           "items": [
@@ -2387,33 +2423,33 @@
       "benchmarkMs": {
         "rust": {
           "initial": {
-            "metadata": 1246.598,
-            "health": 1296.329,
-            "lease": 1300.247,
-            "guide": 1324.534,
-            "query": 1335.476
+            "metadata": 1247.379,
+            "health": 1271.986,
+            "lease": 1276.724,
+            "guide": 1347.219,
+            "query": 1363.508
           },
           "restart": {
-            "metadata": 356.964,
-            "health": 401.959,
-            "lease": 403.614,
-            "guide": 673.828,
-            "query": 682.883
+            "metadata": 417.899,
+            "health": 483.434,
+            "lease": 491.099,
+            "guide": 2239.759,
+            "query": 2252.497
           },
-          "receiptAfterGate": 1597,
+          "receiptAfterGate": 1661,
           "maxLatency": {
-            "guide": 12.193,
-            "unrelated": 14.534,
-            "pending": 8.212,
-            "published": 10.341
+            "guide": 23.121,
+            "unrelated": 21.426,
+            "pending": 36.975,
+            "published": 10.005
           }
         },
         "go": {
           "initial": {
-            "metadata": 247.739,
-            "health": 266.847,
-            "lease": 270.612,
-            "guide": 276.355,
+            "metadata": 271.873,
+            "health": 292.119,
+            "lease": 296.238,
+            "guide": 304.112,
             "query": null
           },
           "restart": null,
@@ -2644,7 +2680,7 @@
     }
   },
   "nativeRun": {
-    "goSource": "47efe6f1579bbeaa21669b364c0cd3527918c9b7",
+    "goSource": "3b772bdb12efa3b33bb1151718afdbcadb65f10e",
     "s0CasesPassed": 18,
     "platform": "darwin/arm64",
     "toolchain": "go1.27.4",
