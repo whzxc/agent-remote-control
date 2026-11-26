@@ -1,9 +1,42 @@
 package core
 
 import (
+	"context"
+	"errors"
+	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
+
+func TestDesktopAppStartReusesExistingDesktop(t *testing.T) {
+	// Contract: app.start returns the running Desktop's status through the ordinary local management route.
+	if operatingSystem == "linux" {
+		t.Skip("Linux app.start owns the headless lifecycle")
+	}
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	token, err := ensureFrontDoorSecret()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	want := object{"desktopPid": 1234, "bundleId": "fixture.app"}
+	target := &service{desktop: func(_ context.Context, route, method string, _ object) (any, error) {
+		if route != "app" || method != http.MethodGet {
+			return nil, errors.New("unexpected Desktop request")
+		}
+		return want, nil
+	}}
+	listener, err := listenPrivate(ctx, "core", token, newInProcess(target), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	if status, err := managementCall(ctx, "app.start", object{}); err != nil || wire(status) != wire(want) {
+		t.Fatalf("app.start status = %v, %v", status, err)
+	}
+}
 
 func TestDeviceManagementRestoresCompletePeerJSON(t *testing.T) {
 	// Contract: management readers receive the complete device task snapshot across MCP output pages.

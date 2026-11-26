@@ -1409,15 +1409,7 @@
         "internal/core/front_door_owner.go",
         "internal/core/management_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "F",
-          "items": [
-            "Register the packaged Desktop launch callback."
-          ]
-        }
-      ]
+      "status": "verified"
     },
     "native/src/mcp_hub.rs": {
       "segment": "S0",
@@ -1970,14 +1962,14 @@
       "go": [
         "cmd/arc-desktop/app_env.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "desktop/src/appearance.rs": {
       "segment": "F",
       "go": [
         "cmd/arc-desktop/appearance.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "desktop/src/autostart.rs": {
       "segment": "F",
@@ -1986,7 +1978,7 @@
         "cmd/arc-desktop/autostart_windows.go",
         "cmd/arc-desktop/autostart_other.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "desktop/src/desktop_access.rs": {
       "segment": "F",
@@ -1995,14 +1987,14 @@
         "cmd/arc-desktop/renderer.go",
         "internal/core/desktop_client.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "desktop/src/i18n.rs": {
       "segment": "F",
       "go": [
         "cmd/arc-desktop/i18n.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "desktop/src/main.rs": {
       "segment": "F",
@@ -2010,14 +2002,14 @@
         "cmd/arc-desktop/main.go",
         "cmd/arc-desktop/renderer.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "desktop/src/oauth_links.rs": {
       "segment": "F",
       "go": [
         "cmd/arc-desktop/oauth_links.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "desktop/src/permissions.rs": {
       "segment": "F",
@@ -2026,14 +2018,14 @@
         "cmd/arc-desktop/permissions_darwin.go",
         "cmd/arc-desktop/permissions_other.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "desktop/src/snapshot/macos.rs": {
       "segment": "F",
       "go": [
         "cmd/arc-desktop/snapshot_darwin.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "desktop/src/snapshot.rs": {
       "segment": "F",
@@ -2041,21 +2033,21 @@
         "cmd/arc-desktop/snapshot.go",
         "cmd/arc-desktop/snapshot_other.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "desktop/src/src_conversations/import.rs": {
       "segment": "F",
       "go": [
         "cmd/arc-desktop/src_conversations_import_darwin.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "desktop/src/src_conversations/jobs.rs": {
       "segment": "F",
       "go": [
         "cmd/arc-desktop/src_conversations_jobs_darwin.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "desktop/src/src_conversations/mod.rs": {
       "segment": "F",
@@ -2063,14 +2055,14 @@
         "cmd/arc-desktop/src_conversations_darwin.go",
         "cmd/arc-desktop/src_conversations_other.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "desktop/src/src_conversations/native.rs": {
       "segment": "F",
       "go": [
         "cmd/arc-desktop/src_conversations_native_darwin.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "desktop/src/tray.rs": {
       "segment": "F",
@@ -2079,14 +2071,14 @@
         "cmd/arc-desktop/tray_darwin.go",
         "cmd/arc-desktop/tray_other.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "desktop/src/updates.rs": {
       "segment": "F",
       "go": [
         "cmd/arc-desktop/updates.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "desktop/src/windows.rs": {
       "segment": "F",
@@ -2094,7 +2086,7 @@
         "cmd/arc-desktop/windows.go",
         "cmd/arc-desktop/window_state.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "desktop/src/windows_frame.rs": {
       "segment": "F",
@@ -2102,7 +2094,7 @@
         "cmd/arc-desktop/windows_frame_windows.go",
         "cmd/arc-desktop/windows_frame_other.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "tests/fixture/src/main.rs": {
       "segment": "S0",

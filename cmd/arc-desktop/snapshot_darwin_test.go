@@ -35,9 +35,29 @@ func TestPNGEncodingReleasesAppKitBuffersBeforeReturning(t *testing.T) {
 		if input == 0 {
 			t.Fatal("AppKit rejected synthetic input image")
 		}
-		encoded, err := encodePNG(input)
+		weak := cocoaClass("NSPointerArray").Send(objc.RegisterName("weakObjectsPointerArray"))
+		add, pointerAt := objc.RegisterName("addPointer:"), objc.RegisterName("pointerAtIndex:")
+		weak.Send(add, uintptr(input))
+		encoded, err := encodePNG(input, func(tiff, bitmap, data objc.ID) {
+			for _, object := range []objc.ID{tiff, bitmap, data} {
+				weak.Send(add, uintptr(object))
+			}
+		})
 		size := objc.Send[cocoaSize](input, objc.RegisterName("size"))
-		input.Send(objc.RegisterName("release"))
+		func() {
+			defer input.Send(objc.RegisterName("release"))
+			if count := objc.Send[uint](weak, objc.RegisterName("count")); count != 4 {
+				t.Fatalf("native encoder observed %d of 4 objects", count)
+			}
+			for index, kind := range []string{"TIFF", "bitmap", "PNG data"} {
+				if address := objc.Send[uintptr](weak, pointerAt, uint(index+1)); address != 0 {
+					t.Errorf("native %s survived the encoder autorelease pool", kind)
+				}
+			}
+		}()
+		if address := objc.Send[uintptr](weak, pointerAt, uint(0)); address != 0 {
+			t.Fatal("encoder retained its borrowed input image")
+		}
 		if err != nil {
 			t.Fatal(err)
 		}

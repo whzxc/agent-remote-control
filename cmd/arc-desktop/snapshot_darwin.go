@@ -119,7 +119,7 @@ func capturePNG(ctx context.Context, window *mygo.Window) ([]byte, error) {
 					result <- pngResult{err: errors.New("WKWebView takeSnapshot failed")}
 					return
 				}
-				data, err := encodePNG(image)
+				data, err := encodePNG(image, nil)
 				result <- pngResult{data, err}
 			})
 			if err != nil {
@@ -142,7 +142,7 @@ func capturePNG(ctx context.Context, window *mygo.Window) ([]byte, error) {
 	}
 }
 
-func encodePNG(image objc.ID) ([]byte, error) {
+func encodePNG(image objc.ID, observe func(tiff, bitmap, data objc.ID)) ([]byte, error) {
 	defer cocoaPool()()
 	tiff := image.Send(objc.RegisterName("TIFFRepresentation"))
 	if tiff == 0 {
@@ -156,6 +156,9 @@ func encodePNG(image objc.ID) ([]byte, error) {
 	data := bitmap.Send(objc.RegisterName("representationUsingType:properties:"), uint(4), properties)
 	if data == 0 {
 		return nil, errors.New("snapshot PNG encoding failed")
+	}
+	if observe != nil {
+		observe(tiff, bitmap, data)
 	}
 	length := objc.Send[int](data, objc.RegisterName("length"))
 	ptr := objc.Send[unsafe.Pointer](data, objc.RegisterName("bytes"))

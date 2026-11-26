@@ -6,9 +6,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/whzxc/agent-remote-control/internal/platform"
 )
 
 var baseManagementCatalog = sync.OnceValue(func() object {
@@ -98,7 +103,55 @@ func managementResolve(name string, args object) (route, method string, body obj
 	return route, method, body, nil
 }
 
-var startDesktopApp func(context.Context) (any, error)
+func startDesktopApp(ctx context.Context) (any, error) {
+	status := func(ctx context.Context) (any, error) {
+		return forwardRequest(ctx, "app", http.MethodGet, object{})
+	}
+	if running, err := status(ctx); err == nil {
+		return running, nil
+	}
+	executable := str(cliExecutable())
+	if executable == "" {
+		return nil, errors.New("invalid installation")
+	}
+	if operatingSystem == "darwin" {
+		app := appBundle(executable)
+		if app == "" || !skillFile(filepath.Join(app, "Contents/MacOS/agent-remote-control-desktop")) {
+			return nil, errors.New("invalid application bundle")
+		}
+		if _, err := commandOutput(ctx, "/usr/bin/open", "-a", app); err != nil {
+			return nil, err
+		}
+	} else {
+		const desktop = "agent-remote-control-desktop.exe"
+		if filepath.Base(executable) != desktop {
+			executable = filepath.Join(filepath.Dir(executable), "..", desktop)
+		}
+		command := exec.Command(executable)
+		platform.Detach(command)
+		if err := command.Start(); err != nil {
+			return nil, err
+		}
+		_ = command.Process.Release()
+	}
+	wait, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	retry := time.NewTicker(250 * time.Millisecond)
+	defer retry.Stop()
+	for {
+		if running, err := status(wait); err == nil {
+			return running, nil
+		}
+		select {
+		case <-wait.Done():
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			return nil, errors.New("APP_START_TIMEOUT")
+		case <-retry.C:
+		}
+	}
+}
 
 func managementCall(ctx context.Context, name string, args object) (any, error) {
 	route, method, body, err := managementResolve(name, args)
@@ -112,10 +165,7 @@ func managementCall(ctx context.Context, name string, args object) (any, error) 
 		if operatingSystem == "linux" {
 			return startHeadless(ctx)
 		}
-		if startDesktopApp != nil {
-			return startDesktopApp(ctx)
-		}
-		return nil, errors.New(PortPending)
+		return startDesktopApp(ctx)
 	}
 	return forwardRequest(ctx, route, method, body)
 }
