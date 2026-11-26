@@ -80,10 +80,15 @@ export async function stopCore(endpoint, owner) {
 // The front door lives independently of Core across development rebuilds.
 // Use its authenticated private shutdown only when closing this isolated state.
 export async function stopDevelopmentFrontDoor(stateDirectory) {
-  const state = process.platform === 'win32' ? stateDirectory : await realpath(stateDirectory);
-  if (path.basename(state) !== 'state' || !path.basename(path.dirname(state)).startsWith('arc-godev-home')) {
-    throw new Error('Front-door shutdown requires an isolated development state.');
+  const canonical = await realpath(stateDirectory).catch(error => {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  });
+  if (!canonical) return;
+  if (path.basename(canonical) !== 'state' || !/^(arc-godev-home|arc-mcp-restart-)/.test(path.basename(path.dirname(canonical)))) {
+    throw new Error('Front-door shutdown requires an isolated development or fixture state.');
   }
+  const state = process.platform === 'win32' ? stateDirectory : canonical;
   let owner;
   try { owner = JSON.parse(await readFile(path.join(state, 'app/front-door.json'), 'utf8')); }
   catch (error) { if (error.code === 'ENOENT') return; throw error; }

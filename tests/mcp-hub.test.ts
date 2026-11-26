@@ -6,6 +6,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { stopDevelopmentFrontDoor } from '../tooling/dev-core.mjs';
 import { nativeControl, prepareCoreBinary, testCoreBinary } from './helpers/native-control.ts';
 
 // Minimal newline-delimited MCP server: two tools/list pages, an echo tool and a tool that
@@ -153,6 +154,7 @@ test('Core restores enabled MCP hub services on restart without a discovery requ
       }
     }
   } finally {
-    await rm(work, { recursive: true, force: true });
+    try { await stopDevelopmentFrontDoor(stateDirectory); }
+    finally { await rm(work, { recursive: true, force: true }); }
   }
 });
