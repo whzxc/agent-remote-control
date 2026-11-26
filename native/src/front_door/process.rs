@@ -1,7 +1,7 @@
 //! Detached front door and private, authenticated socket/pipe attachment to Core.
 use super::*;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{fs::File, process::Stdio, time::Instant};
+use std::{fs::File, io, process::Stdio, time::Instant};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 static CORE_GENERATION: std::sync::Mutex<Option<Generation>> = std::sync::Mutex::new(None);
@@ -221,32 +221,113 @@ async fn read<S: AsyncRead + Unpin, T: DeserializeOwned>(
         .map_err(|e| e.to_string())?;
     serde_json::from_slice(&bytes).map_err(|e| e.to_string())
 }
-async fn raw_connect(owner: &str) -> Result<Stream> {
+#[cfg(windows)]
+const PIPE_BUSY: i32 = windows_sys::Win32::Foundation::ERROR_PIPE_BUSY as i32;
+#[cfg(windows)]
+const PIPE_OPEN_BUDGET: Duration = Duration::from_millis(200);
+
+async fn raw_connect(address: &str) -> io::Result<Stream> {
     #[cfg(unix)]
     {
-        tokio::net::UnixStream::connect(endpoint(owner))
-            .await
-            .map_err(|e| e.to_string())
+        tokio::net::UnixStream::connect(address).await
     }
     #[cfg(windows)]
     {
-        tokio::net::windows::named_pipe::ClientOptions::new()
-            .open(endpoint(owner))
-            .map_err(|e| e.to_string())
+        let client = tokio::net::windows::named_pipe::ClientOptions::new();
+        tokio::time::timeout(PIPE_OPEN_BUDGET, async {
+            loop {
+                match client.open(address) {
+                    Err(error) if error.raw_os_error() == Some(PIPE_BUSY) => {
+                        // The accept loop creates the next instance after a client connects.
+                        tokio::time::sleep(Duration::from_millis(10)).await;
+                    }
+                    result => return result,
+                }
+            }
+        })
+        .await
+        .unwrap_or_else(|_| Err(io::Error::from_raw_os_error(PIPE_BUSY)))
     }
 }
-async fn connect(owner: &str) -> Result<(Stream, Hello)> {
+
+#[derive(Debug)]
+enum ConnectError {
+    Open {
+        owner: &'static str,
+        error: io::Error,
+    },
+    Handshake(String),
+}
+impl ConnectError {
+    fn endpoint_missing(&self) -> bool {
+        matches!(
+            self,
+            Self::Open { error, .. }
+                if matches!(error.kind(), io::ErrorKind::NotFound | io::ErrorKind::ConnectionRefused)
+        )
+    }
+    fn has_code(&self, code: &str) -> bool {
+        matches!(self, Self::Handshake(error) if error.starts_with(code))
+    }
+}
+impl From<String> for ConnectError {
+    fn from(error: String) -> Self {
+        Self::Handshake(error)
+    }
+}
+impl From<ConnectError> for String {
+    fn from(failure: ConnectError) -> Self {
+        match failure {
+            ConnectError::Open { owner, error } => {
+                let code = if owner == "core" {
+                    "FRONT_DOOR_CORE_UNAVAILABLE"
+                } else {
+                    "FRONT_DOOR_UNAVAILABLE"
+                };
+                #[cfg(windows)]
+                if error.raw_os_error() == Some(PIPE_BUSY) {
+                    return format!("{code}: The local {owner} named pipe is busy. Retry the connection. ({error})");
+                }
+                format!("{code}: {error}. Continuity is reduced; Core-bound fallback transports disconnect during Core replacement.")
+            }
+            ConnectError::Handshake(error) => error,
+        }
+    }
+}
+
+async fn connect(owner: &'static str) -> std::result::Result<(Stream, Hello), ConnectError> {
     tokio::time::timeout(Duration::from_secs(3), async {
-        let code=if owner == "core" {"FRONT_DOOR_CORE_UNAVAILABLE"}else{"FRONT_DOOR_UNAVAILABLE"};
-        let mut stream=raw_connect(owner).await.map_err(|e|format!("{code}: {e}. Continuity is reduced; Core-bound fallback transports disconnect during Core replacement."))?;
-        write(&mut stream, &Attach::Hello { version: VERSION, token: secret()? }).await?;
+        let mut stream = raw_connect(&endpoint(owner))
+            .await
+            .map_err(|error| ConnectError::Open { owner, error })?;
+        let attach = Attach::Hello {
+            version: VERSION,
+            token: secret()?,
+        };
+        write(&mut stream, &attach).await?;
         let hello: Result<Hello> = read(&mut stream, 4096).await?;
         let hello = hello?;
-        if hello.version != VERSION { return Err("FRONT_DOOR_PROTOCOL_MISMATCH: Install a matching ARC build; run arc front-door-prepare before restarting Core.".into()); }
-        if owner == "core" {*CORE_GENERATION.lock().unwrap()=Some(hello.generation);}
-        if hello.readiness != Readiness::Ready { return Err("FRONT_DOOR_CORE_DRAINING: Wait for Core readiness and read the original receipt before retrying a write.".into()); }
-        Ok((stream,hello))
-    }).await.map_err(|_| "FRONT_DOOR_CONNECT_TIMEOUT: Wait for Core readiness before retrying.".to_owned())?
+        if hello.version != VERSION {
+            return Err(ConnectError::Handshake(
+                "FRONT_DOOR_PROTOCOL_MISMATCH: Install a matching ARC build; run arc front-door-prepare before restarting Core.".into(),
+            ));
+        }
+        if owner == "core" {
+            *CORE_GENERATION.lock().unwrap() = Some(hello.generation);
+        }
+        if hello.readiness != Readiness::Ready {
+            return Err(ConnectError::Handshake(
+                "FRONT_DOOR_CORE_DRAINING: Wait for Core readiness and read the original receipt before retrying a write.".into(),
+            ));
+        }
+        Ok((stream, hello))
+    })
+    .await
+    .map_err(|_| {
+        ConnectError::Handshake(
+            "FRONT_DOOR_CONNECT_TIMEOUT: Wait for Core readiness before retrying.".into(),
+        )
+    })?
 }
 
 pub(crate) async fn gateway_request(route: &str, method: &str, body: Value) -> Result<Value> {
@@ -572,10 +653,10 @@ async fn ready(request: &mut Request) -> Result<Stream> {
             match connect("core").await {
                 Ok((stream, hello)) => return Ok((stream, hello)),
                 Err(error)
-                    if error.starts_with("FRONT_DOOR_PROTOCOL_MISMATCH")
-                        || error.starts_with("FRONT_DOOR_PEER_UNAUTHORIZED") =>
+                    if error.has_code("FRONT_DOOR_PROTOCOL_MISMATCH")
+                        || error.has_code("FRONT_DOOR_PEER_UNAUTHORIZED") =>
                 {
-                    return Err(error)
+                    return Err(String::from(error))
                 }
                 Err(_) => tokio::time::sleep(Duration::from_millis(50)).await,
             }
@@ -1053,7 +1134,7 @@ pub(crate) async fn attach_core(
     };
     #[cfg(not(test))]
     let info = match ensure().await {
-        Ok(info) => info,
+        Ok(attachment) => attachment.info,
         Err(error) => {
             listener.abort();
             return Err(error);
@@ -1084,6 +1165,11 @@ fn publish_core(service: &Service, info: &Value) -> Result<()> {
     save(&root().join("app/native.json"), &native)
 }
 
+struct Attachment {
+    info: Value,
+    hello: Hello,
+}
+
 #[cfg(target_os = "macos")]
 const UPDATE_BACKOFF: Duration = Duration::from_secs(60);
 
@@ -1096,11 +1182,15 @@ struct Updater {
 }
 #[cfg(target_os = "macos")]
 impl Updater {
-    async fn refresh(&mut self, service: &Service, info: Value) -> Result<(Value, Option<File>)> {
+    async fn refresh(
+        &mut self,
+        service: &Service,
+        attachment: Attachment,
+    ) -> Result<(Attachment, Option<File>)> {
         use std::os::unix::fs::MetadataExt;
         let guard = replacement_lock()?;
         if guard.try_lock().is_err() {
-            return Ok((info, None));
+            return Ok((attachment, None));
         }
         let source = crate::runtime::binary()?;
         let metadata = std::fs::metadata(&source).map_err(|e| e.to_string())?;
@@ -1118,6 +1208,7 @@ impl Updater {
             self.installed = Some((stamp, crate::runtime::build_id(&source)?));
         }
         let target = self.installed.as_ref().unwrap().1.clone();
+        let info = &attachment.info;
         if info["build"] == target {
             let path = root().join("app/front-door-update.json");
             if let Ok(mut state) = load(&path) {
@@ -1131,7 +1222,7 @@ impl Updater {
                     prune_images(&root().join("front-door-bin"), &target)?;
                 }
             }
-            return Ok((info, None));
+            return Ok((attachment, None));
         }
         self.attempts
             .retain(|_, attempted| attempted.elapsed() < UPDATE_BACKOFF);
@@ -1142,7 +1233,7 @@ impl Updater {
                     .as_i64()
                     .is_some_and(|at| at > chrono::Utc::now().timestamp_millis()))
         {
-            return Ok((info, None));
+            return Ok((attachment, None));
         }
         self.attempts.insert(target.clone(), Instant::now());
         let previous_build = info["build"]
@@ -1206,7 +1297,7 @@ impl Updater {
         .await;
         state["state"] = json!("idle");
         match &result {
-            Ok(current) => state["currentBuild"] = current["build"].clone(),
+            Ok(current) => state["currentBuild"] = current.info["build"].clone(),
             Err(error) => {
                 if state["rollback"] != true {
                     state["lastOutcome"] = json!("failed");
@@ -1221,7 +1312,7 @@ impl Updater {
             prune_images(&root().join("front-door-bin"), &target)?;
         }
         // Keep installation exclusion through endpoint publication and provider restoration.
-        result.map(|info| (info, Some(guard)))
+        result.map(|attachment| (attachment, Some(guard)))
     }
 }
 async fn supervise(service: Arc<Service>) {
@@ -1231,16 +1322,20 @@ async fn supervise(service: Arc<Service>) {
     let mut delay = Duration::from_millis(250);
     loop {
         let result = async {
-            let info = match connect("front-door").await {
-                Ok(_) => load(&info_path())?,
-                Err(_) => {
+            let attachment = match connect("front-door").await {
+                Ok((_, hello)) => Attachment {
+                    info: load(&info_path())?,
+                    hello,
+                },
+                Err(error) if error.endpoint_missing() => {
                     // ensure holds the shared replacement lock for the entire launch.
                     ensure().await?
                 }
+                Err(error) => return Err(error.into()),
             };
             #[cfg(target_os = "macos")]
-            let (info, _update_guard) = updater.refresh(&service, info).await?;
-            let (_, hello) = connect("front-door").await?;
+            let (attachment, _update_guard) = updater.refresh(&service, attachment).await?;
+            let Attachment { info, hello } = attachment;
             if attached != Some(hello.generation) {
                 publish_core(&service, &info)?;
                 service.restore_remote().await?;
@@ -1303,12 +1398,17 @@ fn lock() -> Result<File> {
 /// Attach to a compatible owner; Core supervision updates its image on macOS.
 /// Only the install path may stop a protocol-incompatible owner.
 #[cfg_attr(test, allow(dead_code))]
-pub(crate) async fn ensure() -> Result<Value> {
+async fn ensure() -> Result<Attachment> {
     let _replacement = startup_guard()?;
     match connect("front-door").await {
-        Ok(_) => return load(&info_path()),
-        Err(error) if error.starts_with("FRONT_DOOR_PROTOCOL_MISMATCH") => return Err(error),
-        _ => {}
+        Ok((_, hello)) => {
+            return Ok(Attachment {
+                info: load(&info_path())?,
+                hello,
+            })
+        }
+        Err(error) if !error.endpoint_missing() => return Err(error.into()),
+        Err(_) => {}
     }
     let source = crate::runtime::binary()?;
     let binary = stage_image(&source, &root().join("front-door-bin"))?;
@@ -1333,12 +1433,15 @@ pub(crate) async fn ensure() -> Result<Value> {
                 binary
             }
         };
-    let info = launch_image(&binary).await?;
+    let attachment = launch_image(&binary).await?;
     #[cfg(target_os = "macos")]
-    prune_images(&root().join("front-door-bin"), string(&info, "build"))?;
-    Ok(info)
+    prune_images(
+        &root().join("front-door-bin"),
+        string(&attachment.info, "build"),
+    )?;
+    Ok(attachment)
 }
-async fn launch_image(binary: &Path) -> Result<Value> {
+async fn launch_image(binary: &Path) -> Result<Attachment> {
     let guard = lock()?;
     if guard.try_lock().is_err() {
         return Err("FRONT_DOOR_UNAVAILABLE: The front door still owns its lock. Inspect front-door.log; continuity is reduced until its endpoint recovers.".into());
@@ -1381,7 +1484,7 @@ async fn launch_image(binary: &Path) -> Result<Value> {
     let until = Instant::now() + Duration::from_secs(10);
     let readiness = async {
         loop {
-            if connect("front-door").await.is_ok() {
+            if let Ok((_, hello)) = connect("front-door").await {
                 let info = load(&info_path())?;
                 #[cfg(target_os = "macos")]
                 if info["pid"] != child.id()
@@ -1393,7 +1496,7 @@ async fn launch_image(binary: &Path) -> Result<Value> {
                             .into(),
                     );
                 }
-                return Ok(info);
+                return Ok(Attachment { info, hello });
             }
             if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
                 return Err(format!(
@@ -1413,11 +1516,11 @@ async fn launch_image(binary: &Path) -> Result<Value> {
     #[cfg(not(target_os = "macos"))]
     let readiness = readiness.await;
     match readiness {
-        Ok(info) => {
+        Ok(attachment) => {
             std::thread::spawn(move || {
                 let _ = child.wait();
             });
-            Ok(info)
+            Ok(attachment)
         }
         Err(error) => {
             let _ = child.kill();
@@ -1440,12 +1543,12 @@ pub async fn prepare_install() -> Result<File> {
     }
     match connect("front-door").await {
         Ok(_) => Ok(()),
-        Err(error) if error.starts_with("FRONT_DOOR_PROTOCOL_MISMATCH") => stop().await,
+        Err(error) if error.has_code("FRONT_DOOR_PROTOCOL_MISMATCH") => stop().await,
         Err(error) => {
             if lock()?.try_lock().is_ok() {
                 Ok(())
             } else {
-                Err(error)
+                Err(error.into())
             }
         }
     }?;
@@ -1475,7 +1578,9 @@ pub(crate) async fn stop() -> Result<()> {
     if guard.try_lock().is_ok() {
         return Ok(());
     }
-    let mut socket = raw_connect("front-door").await?;
+    let mut socket = raw_connect(&endpoint("front-door"))
+        .await
+        .map_err(|error| error.to_string())?;
     write(&mut socket, &Attach::Stop { token: secret()? }).await?;
     let _: Result<Value> = tokio::time::timeout(Duration::from_secs(3), read(&mut socket, 4096))
         .await
@@ -1580,6 +1685,69 @@ pub async fn run() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(windows)]
+    #[tokio::test(start_paused = true)]
+    async fn windows_pipe_connects_when_a_busy_listener_is_replenished() {
+        // Recurring bug class: concurrency Windows clients can arrive before the accept loop replaces its connected instance.
+        use tokio::net::windows::named_pipe::{ClientOptions, ServerOptions};
+
+        let address = format!(r"\\.\pipe\arc-test-{}", id());
+        let listening = ServerOptions::new().create(&address).unwrap();
+        let _occupied = ClientOptions::new().open(&address).unwrap();
+        listening.connect().await.unwrap();
+        let waiting = raw_connect(&address);
+        tokio::pin!(waiting);
+        assert!(futures_util::poll!(&mut waiting).is_pending());
+
+        let mut replacement = ServerOptions::new().create(&address).unwrap();
+        let mut client = waiting.await.unwrap();
+        replacement.connect().await.unwrap();
+        client.write_u8(42).await.unwrap();
+        assert_eq!(replacement.read_u8().await.unwrap(), 42);
+    }
+    #[cfg(windows)]
+    #[tokio::test(start_paused = true)]
+    async fn windows_pipe_preserves_busy_error_when_wait_expires() {
+        // Recurring bug class: lifecycle a busy IPC endpoint must stop waiting within its budget and retain the cause.
+        use tokio::net::windows::named_pipe::{ClientOptions, ServerOptions};
+
+        let address = format!(r"\\.\pipe\arc-test-{}", id());
+        let listening = ServerOptions::new().create(&address).unwrap();
+        let _occupied = ClientOptions::new().open(&address).unwrap();
+        listening.connect().await.unwrap();
+
+        let started = tokio::time::Instant::now();
+        let error = tokio::time::timeout(
+            PIPE_OPEN_BUDGET + Duration::from_secs(1),
+            raw_connect(&address),
+        )
+        .await
+        .unwrap()
+        .unwrap_err();
+        assert!(started.elapsed() >= PIPE_OPEN_BUDGET);
+        assert_eq!(error.raw_os_error(), Some(PIPE_BUSY));
+        let failure = ConnectError::Open {
+            owner: "front-door",
+            error,
+        };
+        assert!(!failure.endpoint_missing());
+    }
+    #[cfg(windows)]
+    #[tokio::test(start_paused = true)]
+    async fn windows_pipe_reports_a_missing_endpoint_without_waiting() {
+        // Recurring bug class: lifecycle a missing endpoint must allow owner recovery without a pipe-busy delay.
+        let address = format!(r"\\.\pipe\arc-test-{}", id());
+        let connect = raw_connect(&address);
+        tokio::pin!(connect);
+        let std::task::Poll::Ready(Err(error)) = futures_util::poll!(&mut connect) else {
+            panic!("a missing pipe must fail immediately");
+        };
+        assert!(ConnectError::Open {
+            owner: "front-door",
+            error
+        }
+        .endpoint_missing());
+    }
     fn hello() -> Hello {
         Hello {
             version: VERSION,
@@ -1622,7 +1790,7 @@ mod tests {
     }
     #[tokio::test]
     async fn waiting_requests_expire_without_changing_identity_or_deadline() {
-        // Recurring bug class: swap-time waiting restarted deadlines and lost the identity before Core attachment.
+        // Recurring bug class: retry-replay swap-time waiting restarted deadlines and lost the identity before Core attachment.
         let mut request = waiting_request(
             management_context(),
             Operation::LocalControl,
@@ -1674,7 +1842,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn fresh_front_door_launch_uses_the_installed_build_with_the_same_protocol() {
-        // Recurring bug class: 6dc72941 cached the first image for a protocol forever, so installing build B still launched build A.
+        // Recurring bug class: lifecycle restarting after an installation must use the installed build even when the protocol is unchanged.
         let fixture = ImageFixture::new();
         fixture.install("build-A");
         let first = stage_image(&fixture.installed, &fixture.images).unwrap();
@@ -1720,7 +1888,7 @@ mod tests {
     }
     #[test]
     fn generated_write_identity_is_the_identity_sent_to_the_receipt_owner() {
-        // Recurring bug class: a lost response could expose a transport ID different from the receipt ID generated inside Core.
+        // Recurring bug class: retry-replay a lost response could expose a transport ID different from the receipt ID generated inside Core.
         let request = request(
             &hello(),
             management_context(),

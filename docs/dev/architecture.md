@@ -481,8 +481,10 @@ image may change the protocol. Failure releases replacement ownership and resume
 the installed Core; its next start recreates the front door.
 
 While Core is alive, its attachment supervisor checks the front door once per
-second. Lost attachment runs the existing `ensure()` path, which retains the
-single-owner front-door lock and honors replacement ownership. Failed attempts
+second and uses the handshake to observe its generation. Windows retries busy
+private named pipe opens for up to 200 ms before sending a handshake or stop
+frame. An absent endpoint runs the `ensure()` path, which retains the single-owner
+front-door lock and honors replacement ownership. Failed attempts
 back off for 250 ms, 500 ms, 1 s, 2 s, 4 s, then at most 8 s; success resets the
 backoff. Each launched process is logged. Every newly attached front-door
 generation republishes the local endpoint and restores persisted remote connection

@@ -40,7 +40,7 @@ flowchart TB
   lifecycle["turn_lifecycle<br/>pure classification"]
   ext[("Codex Desktop IPC · Codex local daemon · ARC App Server · task-host")]
   gw[("Optional local gateway<br/>quotas · per-turn usage")]
-  fdq -->|"private IPC"| inproc
+  fdq -->|"private IPC<br/>bounded Windows pipe-open retry"| inproc
   exec --> OWNERS
   OWNERS --> KERNEL
   OWNERS --> ext
