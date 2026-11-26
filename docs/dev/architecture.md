@@ -494,21 +494,15 @@ belong to D3d. Private protocol v2 adds the queued authenticated-ingress context
 Installing v2 replaces a running v1 front door through this compatibility path;
 a compatible v2 front door remains retained until it restarts.
 
-The targeted process fixture uses synthetic providers and isolated state. Run it
-serially from the main checkout, or an explicitly authorized lane, after
-`npm run check:tests`:
-`cargo test --locked -p arc-core --features test-fixture --test front_door -- --ignored --test-threads=1`.
-The target requires `test-fixture` so the spawned Core and front door include its
-synthetic protocol-mismatch, webhook and response-loss hooks. Cargo rejects an
-explicit invocation without that feature before starting any fixture processes.
-It covers listener/provider identity, swap-time queued reads, snapshot reattachment,
-persisted MCP subscription identity/expiry, actionable unsupported event replay,
-completed-write receipt reconciliation after response loss, compatible install
-retention and rejected unauthorized/revoked sources. Fixture-only hooks hold a
-selected write response and permit one selected synthetic loopback callback URL.
-Production builds include neither hook. Real native-turn survival and public webhook
-notification delivery remain separate runtime acceptance steps. Fast private-protocol and HTTP authentication
-cases run with `cargo test --locked -p arc-core --lib front_door`.
+The tagged process fixtures use synthetic providers and isolated state. Run
+`node tooling/test.mjs --native tests/browser-native.test.ts tests/browser-traffic-native.test.ts tests/acceptance-fault.test.ts`
+for the ingress and fault cases. The runner checks test policy, stages the browser
+bundle and builds the Go Core and `arcfixture` executable. The tagged fixture adds
+synthetic protocol mismatch, webhook and response-loss hooks. The fast private
+protocol and HTTP authentication cases run with
+`go test ./internal/core -run 'FrontDoor|Private|Maintenance'` after the policy check.
+Real native-turn survival and public notification delivery have separate runtime
+acceptance.
 
 Core's `resources` module owns process resource policy. It runs at runtime startup and Service initialization, and checks again before each Rpc creates app-server. Desktop, login startup, and Linux daemon share this path. Login items do not maintain separate limits. macOS/Linux attempt to raise the `RLIMIT_NOFILE` soft limit to 8192 while preserving higher soft limits and the original hard limit. macOS also respects `OPEN_MAX` and the read-only `kern.maxfilesperproc`. Global system limits remain unchanged. Each attempt records the original, target, attempted, and measured values and failure reason. Failure or a below-target limit does not stop Core.
 
