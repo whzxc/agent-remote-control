@@ -354,59 +354,82 @@ func recoverNotificationObservations(ctx context.Context, s *service) error {
 	if observeNotificationTurn == nil || mergeNotificationLifecycle == nil {
 		return nil
 	}
+	defer beginRuntimeWork("notificationObserve")()
+	pass := beginRuntimeObservation()
+	defer pass.finish()
+	finishScan := pass.timePhase("scan")
 	notificationEventOperation.Lock()
 	rows, err := activeNotificationBindings()
 	notificationEventOperation.Unlock()
+	finishScan()
 	if err != nil {
 		return err
 	}
+	pass.add("bindingsScanned", uint64(len(rows)))
 	permits := make(chan struct{}, 8)
 	var workers sync.WaitGroup
-	defer workers.Wait()
+	var failed sync.Once
+	var passError error
+	recordError := func(err error) { failed.Do(func() { passError = err }) }
 	for _, b := range rows {
 		if b["scopeEnd"] != nil || b["device"] != nil {
 			continue
 		}
 		select {
 		case <-ctx.Done():
+			workers.Wait()
 			return ctx.Err()
 		case permits <- struct{}{}:
 		}
 		workers.Go(func() {
 			defer func() { <-permits }()
+			finishHistory := pass.timePhase("history")
 			observing, cancel := context.WithTimeout(ctx, 10*time.Second)
 			watch := captureNotificationEvidence(observing, s, b)
+			if notificationAgent(b) != "codex" {
+				pass.add("historyReads", 1)
+			}
 			observation, err := observeNotificationTurn(observing, s, b)
 			cancel()
+			finishHistory()
 			if ctx.Err() != nil {
 				return
 			}
+			defer pass.timePhase("process")()
 			if err != nil {
 				observation = object{"state": "unconfirmed", "reason": err.Error()}
 				if errors.Is(err, context.DeadlineExceeded) {
 					observation["reason"] = "native-observation-timeout"
 				}
 				if err := recordUnavailableNotification(b, observation); err != nil {
-					recordLog("WARN", "Notification observer: "+err.Error(), nil)
+					recordError(err)
 				}
 			} else {
 				if notificationIssueResponseToken != nil {
 					for _, item := range arr(observation["interaction"]) {
 						if req := obj(item); req != nil {
 							if err := notificationIssueResponseToken(text(b, "sourceId"), req); err != nil {
-								recordLog("WARN", "Notification interaction: "+err.Error(), nil)
+								recordError(err)
 								return
 							}
 						}
 					}
 				}
-				if err := handleNotificationObservation(ctx, s, text(b, "threadId"), text(b, "turnId"), observation); err != nil && err.Error() != PortPending {
-					recordLog("WARN", fmt.Sprintf("Notification observer: %s", err), nil)
+				if err := handleNotificationObservation(ctx, s, text(b, "threadId"), text(b, "turnId"), observation); err != nil {
+					recordError(err)
 				}
 			}
 			finishNotificationEvidence(ctx, s, b, watch)
 		})
 	}
+	workers.Wait()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if passError != nil {
+		return passError
+	}
+	pass.add("completedPasses", 1)
 	return nil
 }
 

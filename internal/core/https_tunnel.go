@@ -64,7 +64,7 @@ func providerBinary(provider string) string {
 	return name
 }
 
-func installManagedTunnel(ctx context.Context, provider string, settings object) (string, error) {
+func installManagedTunnel(ctx context.Context, provider string, proxy networkProxy) (string, error) {
 	managedTunnelInstallLock.Lock()
 	defer managedTunnelInstallLock.Unlock()
 	name := providerBinary(provider)
@@ -85,10 +85,7 @@ func installManagedTunnel(ctx context.Context, provider string, settings object)
 	if runtimeFixture {
 		return "", errors.New(PortPending)
 	}
-	client, err := relayHTTPClient(settings)
-	if err != nil {
-		return "", err
-	}
+	client := networkHTTPClient(proxy)
 	client.CheckRedirect = nil
 	defer client.CloseIdleConnections()
 	var address, digest, extension string
@@ -242,6 +239,7 @@ type managedTunnel struct {
 	binary, directory, admin, provider, upstream, selected string
 	args, env                                              []string
 	settings                                               object
+	proxy                                                  networkProxy
 	pinggyID, pinggyState                                  string
 	named                                                  bool
 	process                                                *managedHTTPSProcess
@@ -255,23 +253,28 @@ type managedTunnel struct {
 	degraded, unstable, stableSince                        time.Time
 }
 
-func providerCommand(ctx context.Context, binary string, config object, args ...string) *exec.Cmd {
-	cmd := officialTunnelCommand(ctx, binary, config, args...)
-	env := cmd.Env[:0]
-	for _, item := range cmd.Env {
+func providerCommand(ctx context.Context, binary string, proxy networkProxy, args ...string) *exec.Cmd {
+	cmd := nativeCommand(ctx, binary, args...)
+	var env []string
+	for _, item := range cmd.Environ() {
 		name, _, _ := strings.Cut(item, "=")
-		if name == "ACCESS_TOKEN" || slices.ContainsFunc([]string{"TUNNEL_", "NGROK_", "PINGGY_", "LX_"}, func(prefix string) bool { return strings.HasPrefix(name, prefix) }) {
+		if name == "ACCESS_TOKEN" || slices.ContainsFunc([]string{"TUNNEL_", "CLOUDFLARED_", "NGROK_", "PINGGY_", "LX_"}, func(prefix string) bool { return strings.HasPrefix(name, prefix) }) {
 			continue
 		}
 		env = append(env, item)
 	}
 	cmd.Env = env
+	proxy.apply(cmd)
 	return cmd
 }
 
 func prepareManagedTunnel(ctx context.Context, i *networkIngress, settings object, address string) (*managedTunnel, error) {
 	provider := text(settings, "httpsProvider")
-	binary, err := installManagedTunnel(ctx, provider, settings)
+	proxy, err := resolveNetworkProxy(ctx, settings)
+	if err != nil {
+		return nil, err
+	}
+	binary, err := installManagedTunnel(ctx, provider, proxy)
 	if err != nil {
 		return nil, err
 	}
@@ -291,7 +294,7 @@ func prepareManagedTunnel(ctx context.Context, i *networkIngress, settings objec
 		}
 	}()
 	tunnel := &managedTunnel{ingress: i, binary: binary, directory: directory, admin: hold.Addr().String(), provider: provider,
-		upstream: "http://" + address, settings: settings, health: object{}, selected: text(settings, "httpsUrl")}
+		upstream: "http://" + address, settings: settings, proxy: proxy, health: object{}, selected: text(settings, "httpsUrl")}
 	config := filepath.Join(directory, "config.yml")
 	switch provider {
 	case "cloudflare":
@@ -326,8 +329,8 @@ func prepareManagedTunnel(ctx context.Context, i *networkIngress, settings objec
 	case "ngrok":
 		agent := object{"authtoken": settings["ngrokAuthtoken"], "web_addr": tunnel.admin, "console_ui": false, "inspect_db_size": -1,
 			"log_format": "json", "log": "stdout", "update_check": false, "remote_management": false}
-		if settings["proxyMode"] == "custom" {
-			agent["proxy_url"] = settings["proxyUrl"]
+		if address := proxy.tunnelProxyURL(); address != "" {
+			agent["proxy_url"] = address
 		}
 		if err := save(config, object{"version": "3", "agent": agent}); err != nil {
 			return nil, err
@@ -385,7 +388,7 @@ func (t *managedTunnel) pinggyEnvironment() []string {
 }
 
 func (t *managedTunnel) spawn() error {
-	cmd := providerCommand(context.Background(), t.binary, t.settings, t.args...)
+	cmd := providerCommand(context.Background(), t.binary, t.proxy, t.args...)
 	cmd.Env = append(cmd.Env, t.env...)
 	cmd.Stdout, cmd.Stderr = &tunnelOutput{tunnel: t}, &tunnelOutput{tunnel: t}
 	if err := startOwnedChild(cmd); err != nil {
@@ -402,7 +405,7 @@ func (t *managedTunnel) stop() {
 	if t.pinggyID != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 		defer cancel()
-		cmd := providerCommand(ctx, t.binary, t.settings, "stop", t.pinggyID)
+		cmd := providerCommand(ctx, t.binary, t.proxy, "stop", t.pinggyID)
 		cmd.Env = append(cmd.Env, t.pinggyEnvironment()...)
 		_ = cmd.Run()
 	}

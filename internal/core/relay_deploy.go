@@ -199,29 +199,13 @@ func relayNodeBinary() string {
 
 func relayDeploymentCommand(ctx context.Context, binary string, args ...string) *exec.Cmd {
 	cmd := nativeCommand(ctx, binary, args...)
-	config, err := load(filepath.Join(root(), "app/preferences.json"))
-	if err != nil {
-		config = ingressDefaults()
-	}
-	mode, address := text(config, "proxyMode"), text(config, "proxyUrl")
-	bypass := strings.Trim(strings.Join([]string{os.Getenv("NO_PROXY"), os.Getenv("no_proxy"), "localhost,127.0.0.1,::1"}, ","), ",")
 	for _, item := range os.Environ() {
 		name, _, _ := strings.Cut(item, "=")
 		switch strings.ToUpper(name) {
-		case "CLOUDFLARE_API_TOKEN", "CF_API_TOKEN", "CLOUDFLARE_API_KEY", "CF_API_KEY", "CLOUDFLARE_ACCOUNT_ID", "CF_ACCOUNT_ID", "NO_PROXY":
+		case "CLOUDFLARE_API_TOKEN", "CF_API_TOKEN", "CLOUDFLARE_API_KEY", "CF_API_KEY", "CLOUDFLARE_ACCOUNT_ID", "CF_ACCOUNT_ID":
 			continue
-		case "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY":
-			if mode != "system" {
-				continue
-			}
 		}
 		cmd.Env = append(cmd.Env, item)
-	}
-	cmd.Env = append(cmd.Env, "NO_PROXY="+bypass, "no_proxy="+bypass)
-	if mode == "custom" {
-		for _, name := range []string{"HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"} {
-			cmd.Env = append(cmd.Env, name+"="+address)
-		}
 	}
 	if binary == relayNodeBinary() {
 		path := strings.Join(append([]string{filepath.Dir(binary)}, filepath.SplitList(os.Getenv("PATH"))...), string(os.PathListSeparator))
@@ -244,7 +228,7 @@ func relayEnsureNode(ctx context.Context, job *relayJob) error {
 		arch = "arm64"
 	}
 	name := fmt.Sprintf("node-%s-%s-%s.%s", relayNodeVersion, platformName, arch, extension)
-	client, err := configuredRelayHTTP()
+	client, err := configuredRelayHTTP(ctx)
 	if err != nil {
 		return err
 	}
@@ -323,8 +307,14 @@ func relayPrepareDeployment(ctx context.Context, config object, job *relayJob) (
 		if runtime.GOOS != "windows" {
 			npm = filepath.Join(relayNodeDirectory(), "lib", "node_modules", "npm", "bin", "npm-cli.js")
 		}
-		if _, err := relayRunTool(ctx, relayDeploymentCommand(ctx, relayNodeBinary(), npm, "install", "--prefix", install, "--no-audit",
-			"--no-fund", "--save-exact", "wrangler@"+relayWranglerVersion), job, false, false); err != nil {
+		proxy, err := resolveRelayNetworkProxy(ctx, relayNetworkSettings())
+		if err != nil {
+			return "", "", err
+		}
+		cmd := relayDeploymentCommand(ctx, relayNodeBinary(), npm, "install", "--prefix", install, "--no-audit",
+			"--no-fund", "--save-exact", "wrangler@"+relayWranglerVersion)
+		proxy.apply(cmd)
+		if _, err := relayRunTool(ctx, cmd, job, false, false); err != nil {
 			return "", "", err
 		}
 		if err := saveBytes(marker, []byte(relayWranglerVersion)); err != nil {
@@ -351,7 +341,12 @@ func relayPrepareDeployment(ctx context.Context, config object, job *relayJob) (
 }
 
 func relayWrangler(ctx context.Context, script, dir string, job *relayJob, openBrowser bool, args ...string) (string, error) {
+	proxy, err := resolveRelayNetworkProxy(ctx, relayNetworkSettings())
+	if err != nil {
+		return "", err
+	}
 	cmd := relayDeploymentCommand(ctx, relayNodeBinary(), append([]string{script}, args...)...)
+	proxy.apply(cmd)
 	cmd.Env = append(cmd.Env, "WRANGLER_SEND_METRICS=false", "NO_COLOR=1", "CI=true")
 	cmd.Dir = dir
 	return relayRunTool(ctx, cmd, job, args[0] == "login", openBrowser)
@@ -373,7 +368,7 @@ func relayWranglerToken(ctx context.Context, script, dir string, job *relayJob) 
 }
 
 func relayWorkerAPI(ctx context.Context, method, path, token string, body object) (int, object, error) {
-	client, err := configuredRelayHTTP()
+	client, err := configuredRelayHTTP(ctx)
 	if err != nil {
 		return 0, nil, err
 	}

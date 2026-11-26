@@ -188,12 +188,16 @@ func (m *relayManager) cancel() string {
 	return text(job.snapshot(), "ingressId")
 }
 
-func configuredRelayHTTP() (*http.Client, error) {
+func relayNetworkSettings() object {
 	value, err := load(filepath.Join(root(), "app/preferences.json"))
 	if err != nil {
 		value = ingressDefaults()
 	}
-	return relayHTTPClient(obj(value))
+	return obj(value)
+}
+
+func configuredRelayHTTP(ctx context.Context) (*http.Client, error) {
+	return relayHTTPClient(ctx, relayNetworkSettings())
 }
 
 func (m *relayManager) connect(ctx context.Context, info object, job *relayJob) (object, error) {
@@ -280,7 +284,7 @@ func (m *relayManager) execute(ctx context.Context, action string, body object, 
 	if runtimeFixture {
 		return nil, errors.New(PortPending)
 	}
-	client, err := configuredRelayHTTP()
+	client, err := configuredRelayHTTP(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -496,7 +500,7 @@ func (m *relayManager) single(ctx context.Context, action string, body object) (
 	if runtimeFixture && action != "share" && (fixtureRelayWorker == nil || !fixtureRelayWorker(address)) {
 		return nil, errors.New(PortPending)
 	}
-	client, err := configuredRelayHTTP()
+	client, err := configuredRelayHTTP(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -27,27 +27,19 @@ type relayControlError struct {
 
 func (err *relayControlError) Error() string { return err.message }
 
-func relayHTTPClient(config object) (*http.Client, error) {
-	transport := &http.Transport{
-		DialContext:       (&net.Dialer{Timeout: 20 * time.Second}).DialContext,
-		ForceAttemptHTTP2: false,
+func networkHTTPClient(proxy networkProxy) *http.Client {
+	return &http.Client{Transport: &http.Transport{
+		DialContext: (&net.Dialer{Timeout: 20 * time.Second}).DialContext,
+		Proxy:       proxy.proxyFor,
+	}, CheckRedirect: relayNoRedirect}
+}
+
+func relayHTTPClient(ctx context.Context, config object) (*http.Client, error) {
+	proxy, err := resolveRelayNetworkProxy(ctx, config)
+	if err != nil {
+		return nil, err
 	}
-	switch config["proxyMode"] {
-	case "system", nil:
-		transport.Proxy = http.ProxyFromEnvironment
-	case "custom":
-		u, err := url.Parse(text(config, "proxyUrl"))
-		if err != nil {
-			return nil, err
-		}
-		transport.Proxy = func(r *http.Request) (*url.URL, error) {
-			if ip := net.ParseIP(r.URL.Hostname()); ip.IsLoopback() || r.URL.Hostname() == "localhost" {
-				return nil, nil
-			}
-			return u, nil
-		}
-	}
-	return &http.Client{Transport: transport, CheckRedirect: relayNoRedirect}, nil
+	return networkHTTPClient(proxy), nil
 }
 
 func relayNoRedirect(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
@@ -450,7 +442,7 @@ func relayConnect(ctx context.Context, ingress *networkIngress, config object, l
 	if config["relayInstanceId"] != identity.id() {
 		return errors.New("Relay instance identity does not match this machine")
 	}
-	client, err := relayHTTPClient(config)
+	client, err := relayHTTPClient(ctx, config)
 	if err != nil {
 		return err
 	}

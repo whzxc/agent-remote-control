@@ -101,7 +101,11 @@ func cloudflareCommand(ctx context.Context, settings object, args ...string) (*e
 	if err := platform.PrivateDir(directory); err != nil {
 		return nil, err
 	}
-	binary, err := installManagedTunnel(ctx, "cloudflare", settings)
+	proxy, err := resolveNetworkProxy(ctx, settings)
+	if err != nil {
+		return nil, err
+	}
+	binary, err := installManagedTunnel(ctx, "cloudflare", proxy)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +113,7 @@ func cloudflareCommand(ctx context.Context, settings object, args ...string) (*e
 	if err := save(config, object{}); err != nil {
 		return nil, err
 	}
-	cmd := providerCommand(ctx, binary, settings, append([]string{"tunnel", "--no-autoupdate", "--config", config}, args...)...)
+	cmd := providerCommand(ctx, binary, proxy, append([]string{"tunnel", "--no-autoupdate", "--config", config}, args...)...)
 	cmd.Env = append(cmd.Env, "HOME="+directory, "USERPROFILE="+directory, "TUNNEL_ORIGIN_CERT="+cloudflareOriginCertificate())
 	return cmd, nil
 }
@@ -193,10 +197,11 @@ func cloudflareAPI(ctx context.Context, settings, cert object, path string) (any
 		}
 		return field(value, path), nil
 	}
-	client, err := relayHTTPClient(settings)
+	proxy, err := resolveNetworkProxy(ctx, settings)
 	if err != nil {
 		return nil, err
 	}
+	client := networkHTTPClient(proxy)
 	defer client.CloseIdleConnections()
 	wait, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()

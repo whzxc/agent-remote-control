@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -196,7 +195,7 @@ func TestRelayCancelClosesTheForwardedRequest(t *testing.T) {
 }
 
 func TestRelayWebsocketUsesHTTPProxy(t *testing.T) {
-	// Contract: the WebSocket upgrade uses the configured HTTP client proxy.
+	// Contract: a Relay WebSocket upgrade follows the system-mode Relay proxy.
 	peerSockets := make(chan *websocket.Conn, 1)
 	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Host != "relay.invalid" || r.URL.Path != "/connect/example" {
@@ -208,15 +207,17 @@ func TestRelayWebsocketUsesHTTPProxy(t *testing.T) {
 		}
 	}))
 	defer proxy.Close()
-	endpoint, err := url.Parse(proxy.URL)
+	t.Setenv("https_proxy", proxy.URL)
+	t.Setenv("http_proxy", proxy.URL)
+	t.Setenv("NO_PROXY", "")
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	httpClient, err := relayHTTPClient(ctx, object{"proxyMode": "system"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	transport := &http.Transport{Proxy: http.ProxyURL(endpoint)}
-	defer transport.CloseIdleConnections()
-	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
-	defer cancel()
-	client, err := relayUpgrade(ctx, &http.Client{Transport: transport}, "http://relay.invalid", "example", object{})
+	defer httpClient.CloseIdleConnections()
+	client, err := relayUpgrade(ctx, httpClient, "http://relay.invalid", "example", object{})
 	if err != nil {
 		t.Fatal(err)
 	}

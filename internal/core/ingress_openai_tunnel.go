@@ -54,7 +54,7 @@ func (t *officialTunnel) stop() {
 	_ = os.RemoveAll(t.directory)
 }
 
-func officialTunnelCommand(ctx context.Context, binary string, settings object, args ...string) *exec.Cmd {
+func officialTunnelCommand(ctx context.Context, binary string, args ...string) *exec.Cmd {
 	c := nativeCommand(ctx, binary, args...)
 	env := []string{}
 	for _, item := range os.Environ() {
@@ -64,15 +64,7 @@ func officialTunnelCommand(ctx context.Context, binary string, settings object, 
 				func(prefix string) bool { return strings.HasPrefix(name, prefix) }) {
 			continue
 		}
-		if settings["proxyMode"] != "system" && slices.Contains([]string{"HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy", "NO_PROXY", "no_proxy"}, name) {
-			continue
-		}
 		env = append(env, item)
-	}
-	if settings["proxyMode"] == "custom" {
-		proxy := text(settings, "proxyUrl")
-		env = append(env, "HTTP_PROXY="+proxy, "HTTPS_PROXY="+proxy, "http_proxy="+proxy, "https_proxy="+proxy,
-			"NO_PROXY=localhost,127.0.0.1,::1", "no_proxy=localhost,127.0.0.1,::1")
 	}
 	c.Env = append(env, "ARC_STATE_DIR="+root())
 	return c
@@ -81,7 +73,7 @@ func officialTunnelCommand(ctx context.Context, binary string, settings object, 
 func officialTunnelVersion(ctx context.Context, binary string) ([3]uint64, error) {
 	wait, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	cmd := officialTunnelCommand(wait, binary, ingressDefaults(), "--version")
+	cmd := officialTunnelCommand(wait, binary, "--version")
 	data, err := cmd.Output()
 	var version [3]uint64
 	if errors.Is(wait.Err(), context.DeadlineExceeded) {
@@ -203,10 +195,11 @@ func installOfficialTunnel(ctx context.Context, config object) (string, error) {
 	tag := "v" + openAITunnelMinimumVersion
 	name := "tunnel-client-" + tag + "-" + operatingSystem + "-" + runtime.GOARCH + ".zip"
 	base := "https://github.com/openai/tunnel-client/releases/download/" + tag
-	client, err := relayHTTPClient(config)
+	proxy, err := resolveNetworkProxy(ctx, config)
 	if err != nil {
 		return "", err
 	}
+	client := networkHTTPClient(proxy)
 	client.CheckRedirect = nil
 	defer client.CloseIdleConnections()
 	checksums, err := fetchTunnelAsset(ctx, client, base+"/SHA256SUMS.txt", 1024*1024)
@@ -323,6 +316,12 @@ func startOpenAITunnel(ctx context.Context, i *networkIngress, config object) er
 	if err != nil {
 		return err
 	}
+	proxy, err := resolveNetworkProxy(ctx, config)
+	if err != nil {
+		return err
+	}
+	recordLog("INFO", proxy.message, &i.id)
+
 	directory := filepath.Join(root(), "runs", id())
 	if err := platform.PrivateDir(directory); err != nil {
 		return err
@@ -345,9 +344,10 @@ func startOpenAITunnel(ctx context.Context, i *networkIngress, config object) er
 		return errors.New("Local communication has not started")
 	}
 	init, cancel := context.WithTimeout(ctx, 30*time.Second)
-	cmd := officialTunnelCommand(init, binary, config, "init", "--sample", "sample_mcp_stdio_local",
+	cmd := officialTunnelCommand(init, binary, "init", "--sample", "sample_mcp_stdio_local",
 		"--profile", "arc", "--profile-dir", directory, "--control-plane-api-key-ref", "file:"+key,
 		"--tunnel-id", text(config, "tunnelId"), "--health-listen-addr", "127.0.0.1:0", "--mcp-command", wire(exe)+" stdio")
+	proxy.apply(cmd)
 	result, err := cmd.CombinedOutput()
 	deadline := init.Err()
 	cancel()
@@ -363,8 +363,9 @@ func startOpenAITunnel(ctx context.Context, i *networkIngress, config object) er
 			codex = installed
 		}
 	}
-	cmd = officialTunnelCommand(context.Background(), binary, config, "run", "--profile", "arc", "--profile-dir", directory,
+	cmd = officialTunnelCommand(context.Background(), binary, "run", "--profile", "arc", "--profile-dir", directory,
 		"--health.url-file", filepath.Join(directory, "health.url"), "--mcp.connection-max-ttl", "31m")
+	proxy.apply(cmd)
 	cmd.Env = append(cmd.Env, "TUNNEL_CLIENT_CODEX_APP_SERVER_CMD="+codex, "TUNNEL_CLIENT_CODEX_APP_SERVER_ARGS=app-server",
 		"ARC_NATIVE_PORT="+strconv.FormatUint(i.owner.port, 10), "ARC_NATIVE_TOKEN="+i.owner.token, "ARC_INGRESS_ID="+i.id)
 	cmd.Stdout, cmd.Stderr = &openAITunnelLog{ingress: i}, &openAITunnelLog{ingress: i}
@@ -374,7 +375,6 @@ func startOpenAITunnel(ctx context.Context, i *networkIngress, config object) er
 	child := &officialTunnel{cmd: cmd, directory: directory, done: make(chan struct{})}
 	i.mu.Lock()
 	i.officialTunnel, i.providerStop = child, child.stop
-	i.providerStatus = object{"state": "unknown"}
 	i.mu.Unlock()
 	go func() {
 		_ = cmd.Wait()
