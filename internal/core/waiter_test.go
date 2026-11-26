@@ -133,6 +133,18 @@ func TestNativeWaitResponseCompaction(t *testing.T) {
 				}
 			}
 		}
+		noHash := clone(initial)
+		compactNativeWaitResponse(noHash, object{})
+		if wire(noHash) != wire(initial) {
+			t.Fatalf("response without a baseline was compacted: %s", wire(noHash))
+		}
+		changed := clone(initial)
+		changed["finalResponse"] = "different reply"
+		finishNativeWait(changed, waitTimeout, "deadline", time.Now(), &expected)
+		compactNativeWaitResponse(changed, object{"expectedHash": expected})
+		if changed["changed"] != true || changed["finalResponseUnchanged"] != nil || waitResponseText(changed) != "different reply" {
+			t.Fatalf("changed wait text was compacted: %s", wire(changed))
+		}
 	}
 }
 
@@ -168,9 +180,21 @@ func TestNativeWaitReadFailuresAndDeadline(t *testing.T) {
 		for range 10 {
 			reads = append(reads, nativeWaitTestRead{delay: 11 * time.Second, value: running})
 		}
-		value := runWaitTest(t, 300000, append(reads, nativeWaitTestRead{value: final}))
-		if value["state"] != "completed" || uintOr(value["elapsedMs"], 0) <= 90000 {
+		value := runWaitTest(t, 300000, append(reads,
+			nativeWaitTestRead{err: errors.New("RPC_TIMEOUT: thread/turns/list")}, nativeWaitTestRead{value: final}))
+		if elapsed := uintOr(value["elapsedMs"], 0); value["state"] != "completed" || elapsed <= 90000 || elapsed >= 300000 {
 			t.Fatal(wire(value))
+		}
+		changed := clone(running)
+		changed["finalResponse"] = "new partial"
+		value = runWaitTest(t, 90000, []nativeWaitTestRead{
+			{value: running}, {err: errors.New("DESKTOP_SNAPSHOT_TIMEOUT")},
+			{delay: 11 * time.Second, value: running}, {err: errors.New("RPC_TIMEOUT: thread/read")},
+			{value: changed}, {value: final},
+		})
+		if value["state"] != "completed" || value["conditionMet"] != true || value["changed"] != true ||
+			value["finalResponse"] != "final" || uintOr(value["elapsedMs"], 0) < 20000 {
+			t.Fatalf("combined read recovery = %s", wire(value))
 		}
 		value = runWaitTest(t, 3000, []nativeWaitTestRead{{value: running}, {delay: 9 * time.Second, value: final}})
 		if value["state"] != "timeout" || value["reason"] != "deadline" || value["observedAt"] != "last-success" {
@@ -196,6 +220,12 @@ func TestNativeWaitReadFailuresAndDeadline(t *testing.T) {
 			value = runWaitTest(t, 90000, []nativeWaitTestRead{{value: object{"state": string(state)}}})
 			if value["state"] != string(state) || value["conditionMet"] != state.terminal() || uintOr(value["elapsedMs"], 0) >= 100 {
 				t.Fatal(wire(value))
+			}
+		}
+		for _, reason := range []string{"runtime-owner-changed", "native-thread-id-mismatch"} {
+			value = runWaitTest(t, 90000, []nativeWaitTestRead{{err: errors.New(reason)}})
+			if value["state"] != "unconfirmed" || value["reason"] != reason || uintOr(value["elapsedMs"], 100) >= 100 {
+				t.Fatalf("immediate owner read failure = %s", wire(value))
 			}
 		}
 	})

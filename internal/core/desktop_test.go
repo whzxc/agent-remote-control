@@ -106,7 +106,7 @@ func TestDesktopSnapshotBudgetAndIdleExpiry(t *testing.T) {
 			}
 		}
 		report := obj(d.diagnostics()["snapshots"])
-		if uintOr(report["entries"], 99) > 64 || uintOr(report["wireBytes"], 0) > desktopSnapshotBytes || uintOr(report["evictions"], 0) == 0 {
+		if uintOr(report["entries"], 99) > 64 || uintOr(report["wireBytes"], 0) > 32*1024*1024 || uintOr(report["evictions"], 0) == 0 {
 			t.Fatal(wire(report))
 		}
 		if value, err := d.read(t.Context(), "fixture-0", true); err != nil || value["id"] != "fixture-0" {

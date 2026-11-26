@@ -72,7 +72,7 @@
         "internal/core/agents_activity.go",
         "internal/core/agents_activity_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/agents/adapter.rs": {
       "segment": "A",
@@ -124,7 +124,7 @@
       "go": [
         "internal/core/agents_conversations_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/agents/conversations.rs": {
       "segment": "A",
@@ -206,7 +206,7 @@
         "internal/core/agents_process.go",
         "internal/core/agents_process_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/agents/resources.rs": {
       "segment": "A",
@@ -498,7 +498,7 @@
         "internal/core/codex_progress.go",
         "internal/core/codex_progress_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/context.rs": {
       "segment": "S0",
@@ -754,7 +754,7 @@
         "internal/core/desktop_interactions.go",
         "internal/core/desktop_interactions_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/desktop/recovery.rs": {
       "segment": "A",
@@ -1021,7 +1021,7 @@
         "internal/core/dispatch_caller.go",
         "internal/core/dispatch_caller_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/dispatch_policy/decision.rs": {
       "segment": "C",
@@ -1241,7 +1241,7 @@
         "internal/core/interaction_responses.go",
         "internal/core/interaction_responses_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/kernel/derived_index.rs": {
       "segment": "S0",
@@ -1724,7 +1724,7 @@
         "internal/core/src_conversations_import_state.go",
         "internal/core/src_conversations_import_state_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/src_conversations/mod.rs": {
       "segment": "A",
@@ -1955,7 +1955,7 @@
         "internal/core/waiter_test.go",
         "internal/core/control_observation.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/writer.rs": {
       "segment": "A",

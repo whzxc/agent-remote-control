@@ -13,9 +13,12 @@ func TestDesktopAsyncQuestionRetainsTerminalTurnUntilNativeReply(t *testing.T) {
 		requests[0]["canRespond"] != true || field(requests[0]["params"], "turnId") != "old" {
 		t.Fatal(wire(requests))
 	}
-	events := nativeEvents{pending: map[string]object{"question": requests[0]}}
+	timeline := new(taskTimeline)
+	timeline.codex("turn/started", object{"turn": object{"id": "old"}}, "2026-01-01T00:00:00Z")
+	events := nativeEvents{pending: map[string]object{"question": requests[0]}, taskTimelines: map[string]*taskTimeline{"thread": timeline}}
 	visible := events.pendingInteractions()
-	if visible[0]["stale"] != true {
+	if len(visible) != 1 || visible[0]["stale"] != true || visible[0]["canRespond"] != true ||
+		field(visible[0]["params"], "turnId") != "old" {
 		t.Fatal(wire(visible))
 	}
 	reply := wire([]any{object{"questionItemId": requests[0]["nativeId"], "answer": "A"}})

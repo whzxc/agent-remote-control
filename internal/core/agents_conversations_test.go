@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"database/sql"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -44,7 +45,13 @@ func TestAntigravityNativeConversationShowsWALSummaryAndTurnEvidence(t *testing.
 		PRAGMA wal_checkpoint(TRUNCATE);`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec("INSERT INTO conversation_summaries VALUES (?, '', '', '', ?, 'Researcher', 'DONE', '')", session, parent); err != nil {
+	project := filepath.ToSlash(filepath.Join(home, "Fixture Project"))
+	if !strings.HasPrefix(project, "/") {
+		project = "/" + project
+	}
+	projectURI := (&url.URL{Scheme: "file", Path: project}).String()
+	if _, err := db.Exec("INSERT INTO conversation_summaries VALUES (?, '', '', ?, ?, 'Researcher', 'DONE', '')",
+		session, wire([]string{"https://example.test", projectURI}), parent); err != nil {
 		t.Fatal(err)
 	}
 	rows := listNativeAntigravity(t.Context())
@@ -53,7 +60,9 @@ func TestAntigravityNativeConversationShowsWALSummaryAndTurnEvidence(t *testing.
 	}
 	row := rows[0]
 	if row["title"] != "Researcher" || row["preview"] != "Find the result" || row["status"] != "completed" ||
-		row["relationKind"] != "subagent" || row["parentSessionId"] != parent || row["turnDurationMs"] != int64(3000) {
+		row["relationKind"] != "subagent" || row["parentSessionId"] != parent || row["turnDurationMs"] != int64(3000) ||
+		row["agentName"] != "Researcher" || row["project"] != filepath.Join(home, "Fixture Project") ||
+		uintOr(row["turnCount"], 0) != 2 || wire(row["dispatchSummary"]) != `{"model":"gemini-preview"}` {
 		t.Fatalf("native conversation = %s", wire(row))
 	}
 	if _, err := db.Exec("UPDATE conversation_summaries SET title = 'Native title'"); err != nil {
@@ -71,15 +80,21 @@ func TestAntigravityNativeConversationShowsWALSummaryAndTurnEvidence(t *testing.
 		t.Fatal(err)
 	}
 	history = result
-	var prompts []string
+	var prompts, answers []string
 	for _, item := range decodedTaskList(history["entries"]) {
 		if field(item, "role") == "user" {
 			prompts = append(prompts, text(item, "text"))
 		}
+		if field(item, "phase") == "final_answer" {
+			answers = append(answers, text(item, "text"))
+		}
 	}
 	if !reflect.DeepEqual(prompts, []string{"Find the result", "Continue"}) || history["readOnly"] != true ||
 		wire(history["dispatchSummary"]) != wire(row["dispatchSummary"]) ||
-		field(field(history["turnDispatchSummaries"], "0"), "effort") != "xhigh" {
+		wire(field(history["turnDispatchSummaries"], "0")) != `{"effort":"xhigh","model":"gemini-4-neon"}` ||
+		uintOr(field(field(history["turnTimings"], "0"), "durationMs"), 0) != 2000 ||
+		uintOr(field(field(history["turnTimings"], "3"), "durationMs"), 0) != 3000 ||
+		uintOr(history["turnCount"], 0) != 2 || !reflect.DeepEqual(answers, []string{"First result", "Second result"}) {
 		t.Fatalf("native timeline = %s", wire(history))
 	}
 }
@@ -120,6 +135,10 @@ func TestNativePiHistoryUsesMostRecentLeafAncestry(t *testing.T) {
 		text(entries[1], "text") != "Selected branch" || field(entries[2], "status") != "completed" ||
 		uintOr(field(field(entries[4], "notice"), "tokensBefore"), 0) != 10000 {
 		t.Fatalf("Pi branch = %s", wire(entries))
+	}
+	edits := decodedTaskList(field(entries[2], "edits"))
+	if len(edits) != 1 || field(field(edits[0], "newText"), "text") != "true" {
+		t.Fatalf("Pi edit = %s", wire(edits))
 	}
 }
 
@@ -171,7 +190,8 @@ func TestNativeClaudeSidechainsStayOutOfTopLevelList(t *testing.T) {
 func TestNativeConversationMetadataRefreshesChangedFiles(t *testing.T) {
 	// Recurring bug class: persistence native transcript metadata follows replacement and deletion.
 	const session = "11111111-1111-4111-8111-111111111111"
-	ctx := context.Background()
+	costs := new(runtimeCostSet)
+	ctx := context.WithValue(t.Context(), runtimeCostKey{}, runtimeCostContext{set: costs, owner: "taskRead"})
 	path := filepath.Join(t.TempDir(), session+".jsonl")
 	write := func(title string) {
 		t.Helper()
@@ -181,10 +201,14 @@ func TestNativeConversationMetadataRefreshesChangedFiles(t *testing.T) {
 		}
 	}
 	write("Before")
-	for range 2 {
-		if row := scanNativeAgentConversation(ctx, "claude", path); row["title"] != "Before" {
-			t.Fatalf("initial metadata = %s", wire(row))
-		}
+	if row := scanNativeAgentConversation(ctx, "claude", path); row["title"] != "Before" {
+		t.Fatalf("initial metadata = %s", wire(row))
+	}
+	cost := costs.counter("taskRead")
+	parsed, hits := cost.parsed.Load(), cost.hits.Load()
+	if row := scanNativeAgentConversation(ctx, "claude", path); row["title"] != "Before" ||
+		parsed == 0 || cost.parsed.Load() != parsed || cost.hits.Load() != hits+1 {
+		t.Fatalf("unchanged transcript was not served from parsed metadata: %s", wire(row))
 	}
 	write("After a longer edit")
 	if row := scanNativeAgentConversation(ctx, "claude", path); row["title"] != "After a longer edit" {

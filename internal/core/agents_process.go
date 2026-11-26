@@ -169,7 +169,8 @@ func agentContentDelta(agent string, frame object) bool {
 			}
 		}
 	case "antigravity":
-		return frame["type"] == "step_update" && field(frame["step_update"], "state") == "ACTIVE"
+		return dispatchFirstString(frame["method"], frame["event"], frame["type"]) == "step_update" &&
+			field(frame["step_update"], "state") == "ACTIVE"
 	default:
 		if frame["method"] == "session/update" {
 			switch field(field(frame["params"], "update"), "sessionUpdate") {

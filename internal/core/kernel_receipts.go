@@ -297,6 +297,7 @@ func readControlReceipt(ctx context.Context, request operationRequest) (any, err
 		if err != nil {
 			return nil, err
 		}
+		projectCodexReceiptProgress(ctx, request.service, result)
 		return result, nil
 	}
 	return object{"requestId": name, "state": "not-found", "executionState": "no-reservation"}, nil

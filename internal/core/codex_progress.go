@@ -310,11 +310,36 @@ func applyCodexProgress(ctx context.Context, events *nativeEvents, result, threa
 			}
 		}
 	}
-	if diagnostic := activity.diagnostic(id, selected, at); diagnostic != nil {
+	projectCodexProgress(result, activity.diagnostic(id, selected, at))
+}
+
+func projectCodexProgress(result, diagnostic object) {
+	if diagnostic["progressStalled"] == true {
 		result["progressStalled"] = true
 		maps.Copy(dispatchSetSection(result, "progress"), diagnostic)
 		result["reason"], result["next"] = diagnostic["reason"], diagnostic["next"]
 	}
+}
+
+func projectCodexReceiptProgress(ctx context.Context, service *service, receipt object) {
+	if op := text(receipt, "operation"); (op != "create" && op != "send") ||
+		uintOr(receipt["phaseAgeMs"], 0) < uint64(codexStallMs) {
+		return
+	}
+	thread := str(dispatchFirstString(receipt["threadId"], field(receipt["result"], "threadId")))
+	turn := str(dispatchFirstString(receipt["turnId"], field(receipt["result"], "turnId")))
+	if thread == "" || turn == "" {
+		return
+	}
+	read, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	metadata, err := nativeControlRequest(read, service, "thread/read", object{"threadId": thread, "includeTurns": true}, 2*time.Second)
+	if err != nil || field(field(field(metadata, "thread"), "status"), "type") != "active" {
+		return
+	}
+	progress := object{"state": "running", "turnId": turn}
+	applyCodexProgress(read, &service.events, progress, obj(field(metadata, "thread")))
+	projectCodexProgress(receipt, obj(progress["progress"]))
 }
 
 func init() {

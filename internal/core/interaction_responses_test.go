@@ -1,6 +1,7 @@
 package core
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -44,15 +45,37 @@ func TestProjectedInteractionAnswersKeepAttributionAndRefresh(t *testing.T) {
 		}
 		return results
 	}
-	write("approval")
+	for i := range 100 {
+		write(strconv.Itoa(i))
+	}
+	timeline := new(taskTimeline)
+	if err := projectInteractionAnswers("thread", func(request, response object) {
+		timeline.answered(request, response)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	history := timeline.response("thread", 0)
+	entries := decodedTaskList(history["entries"])
+	if len(entries) != 100 || wire(field(field(entries[0], "response"), "answeredBy")) != `{"kind":"source","sourceId":"fixture-controller"}` {
+		t.Fatalf("timeline lost restored answering party: %d entries", len(entries))
+	}
+	warm := cacheDiagnostics()
 	for range 3 {
-		result := read()["approval"]
-		if field(result["answeredBy"], "sourceId") != "fixture-controller" || field(result["result"], "decision") != "accept" {
+		rows := read()
+		result := rows["0"]
+		if len(rows) != 100 || field(result["answeredBy"], "sourceId") != "fixture-controller" || field(result["result"], "decision") != "accept" {
 			t.Fatalf("projected approval = %v", result)
 		}
 	}
+	if cost := cacheDiagnostics(); cost["fileOpens"] != warm["fileOpens"] || cost["directoryReads"] != warm["directoryReads"] {
+		t.Fatal("warm timeline polls reopened retained responses")
+	}
 	write("new")
-	if result := read(); len(result) != 2 || field(result["new"]["result"], "decision") != "accept" {
+	if result := read(); len(result) != 101 || field(result["new"]["result"], "decision") != "accept" {
 		t.Fatalf("updated durable answers = %v", result)
+	}
+	if cost := cacheDiagnostics(); uintOr(cost["fileOpens"], 0) != uintOr(warm["fileOpens"], 0)+1 ||
+		cost["directoryReads"] != warm["directoryReads"] {
+		t.Fatal("the new answer caused unrelated response I/O")
 	}
 }

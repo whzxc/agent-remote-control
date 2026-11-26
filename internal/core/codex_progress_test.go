@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -32,6 +33,35 @@ func TestCodexProgressRecognizesMidTurnStalls(t *testing.T) {
 	if activity.diagnostic("thread", "turn", progressFixtureAt(379)) != nil ||
 		activity.diagnostic("thread", "turn", progressFixtureAt(380))["progressStalled"] != true {
 		t.Fatal("mid-turn response did not reset inactivity")
+	}
+
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	t.Setenv("CODEX_HOME", t.TempDir())
+	previous := nativeControlRequest
+	t.Cleanup(func() { nativeControlRequest = previous })
+	started := time.Now().Add(-4 * time.Minute)
+	nativeControlRequest = func(_ context.Context, _ *service, method string, args any, _ time.Duration) (any, error) {
+		if method != "thread/read" || field(args, "includeTurns") != true || field(args, "threadId") != "thread" {
+			return nil, nil
+		}
+		return object{"thread": object{"id": field(args, "threadId"), "status": object{"type": "active"}, "turns": []any{
+			object{"id": "turn", "status": "inProgress", "startedAt": started.UnixMilli()},
+		}}}, nil
+	}
+	service := &service{metadata: object{"instance": "fixture"}}
+	defer service.close()
+	request := id()
+	row := object{"requestId": request, "state": "completed", "operation": "send", "backendSession": "fixture",
+		"createdAt": started.UTC().Format(time.RFC3339Nano), "result": object{"threadId": "thread", "turnId": "turn"}}
+	if err := coreReceiptStore().reserve(t.Context(), row); err != nil {
+		t.Fatal(err)
+	}
+	got, err := readControlReceipt(t.Context(), operationRequest{service: service, args: object{"requestId": request}})
+	public := publicReceipt(obj(got))
+	if err != nil || public["state"] != "completed" || public["requestId"] != request ||
+		public["progressStalled"] != true || field(public["next"], "op") != "codex_interrupt" ||
+		field(field(public["next"], "args"), "turnId") != "turn" {
+		t.Fatalf("completed dispatch receipt with a stalled native turn = %s (%v)", wire(public), err)
 	}
 }
 

@@ -108,18 +108,43 @@ func TestCodexActivitySamplesRetainSilentTurnsAndUpdateNativeTitles(t *testing.T
 	writeActivityRollout(t, index, object{"id": thread, "thread_name": "Initial"})
 	monitor := &codexActivityMonitor{}
 	t.Cleanup(monitor.close)
-	ctx := context.Background()
-	for _, observed := range []time.Time{nowAt, nowAt.Add(10 * time.Minute)} {
+	costs := new(runtimeCostSet)
+	ctx := context.WithValue(t.Context(), runtimeCostKey{}, runtimeCostContext{set: costs, owner: "activity"})
+	cost := costs.counter("activity")
+	if rows := monitor.sample(ctx, home, nowAt); len(rows) != 1 {
+		t.Fatalf("initial active snapshot = %s", wire(rows))
+	}
+	warmRead, warmParsed := cost.read.Load(), cost.parsed.Load()
+	for _, offset := range []time.Duration{2 * time.Second, 4 * time.Second, 6 * time.Second, 8 * time.Second, 10 * time.Minute} {
+		observed := nowAt.Add(offset)
 		if rows := monitor.sample(ctx, home, observed); len(rows) != 1 || rows[0]["title"] != "Initial" || rows[0]["turnId"] != "first" {
 			t.Fatalf("active snapshot = %s", wire(rows))
 		}
+	}
+	if warmRead == 0 || cost.read.Load() != warmRead || cost.parsed.Load() != warmParsed {
+		t.Fatal("unchanged activity repeatedly read the native rollout")
 	}
 	writeActivityRollout(t, index, object{"id": thread, "thread_name": "Renamed"})
 	if rows := monitor.sample(ctx, home, nowAt.Add(11*time.Minute)); len(rows) != 1 || rows[0]["title"] != "Renamed" {
 		t.Fatalf("renamed activity = %s", wire(rows))
 	}
-	writeActivityRollout(t, rollout, object{"type": "event_msg", "timestamp": at, "payload": object{"type": "task_complete", "turn_id": "first"}})
-	if rows := monitor.sample(ctx, home, nowAt.Add(12*time.Minute)); len(rows) != 0 {
+	info, err := os.Stat(index)
+	if err != nil || cost.read.Load()-warmRead != uint64(info.Size()) {
+		t.Fatalf("title refresh read data other than session_index.jsonl: %v", err)
+	}
+	replacement := filepath.Join(dir, "replacement.tmp")
+	writeActivityRollout(t, replacement,
+		object{"type": "session_meta", "timestamp": at, "payload": object{"id": thread}},
+		object{"type": "event_msg", "timestamp": at, "payload": object{"type": "task_started", "turn_id": "replacement-turn"}})
+	if err := os.Rename(replacement, rollout); err != nil {
+		t.Fatal(err)
+	}
+	if rows := monitor.sample(ctx, home, nowAt.Add(12*time.Minute)); len(rows) != 1 || rows[0]["turnId"] != "replacement-turn" ||
+		uintOr(rows[0]["turnCount"], 0) != 1 {
+		t.Fatalf("atomically replaced rollout = %s", wire(rows))
+	}
+	writeActivityRollout(t, rollout, object{"type": "event_msg", "timestamp": at, "payload": object{"type": "task_complete", "turn_id": "replacement-turn"}})
+	if rows := monitor.sample(ctx, home, nowAt.Add(13*time.Minute)); len(rows) != 0 {
 		t.Fatalf("terminal activity = %s", wire(rows))
 	}
 }

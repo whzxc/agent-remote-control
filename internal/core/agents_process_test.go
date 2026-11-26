@@ -3,9 +3,12 @@ package core
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -43,9 +46,13 @@ func isolateAgentProcessState(t *testing.T) {
 
 func TestDetachedAgentJournalRebuildsPermissionAndTerminalReceipt(t *testing.T) {
 	// Recurring bug class: lifecycle replay after Core exit retains permission state and can settle the original receipt.
-	isolateAgentProcessState(t)
+	notificationContext, _, flush, _ := notificationDeliveryFixture(t)
 	const turn = "turn"
 	taskID, requestID := id(), id()
+	if err := bindNotification(notificationContext, object{"agent": "dsh",
+		"notify": object{"channel": "claude-session", "target": notificationTestTarget}}, taskID, turn, "/fixture", nil); err != nil {
+		t.Fatal(err)
+	}
 	pid := os.Getpid()
 	start := platform.ProcessStart(pid)
 	if start == "" {
@@ -119,34 +126,97 @@ func TestDetachedAgentJournalRebuildsPermissionAndTerminalReceipt(t *testing.T) 
 	if err != nil || receipt["state"] != "completed" || field(receipt["result"], "output") != "finished" {
 		t.Fatalf("recovered receipt = %s, %v", wire(receipt), err)
 	}
+	disk := &service{}
+	observation, err := observeNativeAgentNotification(notificationContext, disk, object{"agent": "dsh", "taskId": taskID, "threadId": taskID, "turnId": turn})
+	if err != nil || observation["state"] != "completed" || observation["finalResponse"] != "finished" {
+		t.Fatalf("recovered notification observation = %s, %v", wire(observation), err)
+	}
+	var eventID string
+	for range 2 {
+		if err := handleNotificationObservation(notificationContext, disk, taskID, turn, observation); err != nil {
+			t.Fatal(err)
+		}
+		flush()
+		result, err := readNotification(notificationContext, taskID, turn, "")
+		completed := arr(result["deliveries"])
+		if err != nil || len(completed) != 1 || field(completed[0], "kind") != "completed" || field(completed[0], "state") != "delivered" {
+			t.Fatalf("recovered completion delivery = %s, %v", wire(result), err)
+		}
+		found := text(completed[0], "eventId")
+		if found == "" || eventID != "" && found != eventID {
+			t.Fatalf("replayed completion changed identity: %q → %q", eventID, found)
+		}
+		eventID = found
+	}
 }
 
 func TestAgentStdoutKeepsReadingPastNoiseAndRetainsAbnormalExit(t *testing.T) {
 	// Contract: Agent stdout JSON-lines protocol tolerates startup noise and retains explicit process failure evidence.
+	if os.Getenv("ARC_TEST_GO_AGENT_STDOUT_CHILD") == "1" {
+		fmt.Fprintln(os.Stdout, "startup password=fixture-secret")
+		fmt.Fprintln(os.Stdout, "[fixture] catalog")
+		fmt.Fprintln(os.Stdout, `{"method":"session/update","params":{"update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"after-noise"}}}}`)
+		_, _ = io.Copy(io.Discard, os.Stdin)
+		os.Exit(7)
+	}
 	isolateAgentProcessState(t)
 	taskID := id()
 	process := newNativeAgentProcess(nativeAgentDriver{id: "dsh", protocol: "acp-v1"},
 		object{"taskId": taskID, "agent": "dsh", "turnId": "turn", "status": "running"})
-	for _, frame := range []string{
-		"startup password=fixture-secret",
-		"[fixture] catalog",
-		wire(object{"method": "session/update", "params": object{"update": object{"sessionUpdate": "agent_message_chunk",
-			"content": object{"type": "text", "text": "after-noise"}}}}),
-	} {
-		process.mu.Lock()
-		err := process.checkpointStdoutLocked(decodeAgentStdout([]byte(frame)))
-		process.mu.Unlock()
-		if err != nil {
-			t.Fatal(err)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	process.child = exec.CommandContext(ctx, executable, "-test.run=^TestAgentStdoutKeepsReadingPastNoiseAndRetainsAbnormalExit$")
+	process.child.Env = append(os.Environ(), "ARC_TEST_GO_AGENT_STDOUT_CHILD=1")
+	stdin, err := process.child.StdinPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stdin.Close()
+	output, childOutput, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer output.Close()
+	defer childOutput.Close()
+	process.child.Stdout = childOutput
+	if err := process.child.Start(); err != nil {
+		t.Fatal(err)
+	}
+	_ = childOutput.Close()
+	go process.runDirect(output)
+	defer func() { cancel(); <-process.done }()
+	for {
+		change := process.signal()
+		if state := process.snapshot(); state["output"] == "after-noise" {
+			if state["status"] != "running" || uintOr(field(state["stdoutDiagnostics"], "skippedLines"), 0) != 2 ||
+				strings.Contains(wire(state["stdoutDiagnostics"]), "fixture-secret") {
+				t.Fatalf("stdout before child exit = %s", wire(state))
+			}
+			break
+		}
+		select {
+		case <-change:
+		case <-ctx.Done():
+			t.Fatal("subprocess stdout never advanced past startup noise")
+		case <-process.done:
+			t.Fatal("subprocess exited before its stdout could be observed")
 		}
 	}
-	if state := process.snapshot(); state["output"] != "after-noise" || uintOr(field(state["stdoutDiagnostics"], "skippedLines"), 0) != 2 {
-		t.Fatalf("stdout checkpoint = %s", wire(state))
+	_ = stdin.Close()
+	select {
+	case <-process.done:
+	case <-ctx.Done():
+		t.Fatal("subprocess did not exit")
 	}
-	process.exited(errors.New("fixture process exited 7"))
 	state, err := (&service{}).nativeAgentTask("dsh", taskID)
+	entries := decodedTaskList(field(state["tracking"], "entries"))
 	if err != nil || field(state, "status") != "unknown" || field(state, "output") != "after-noise" ||
-		!strings.Contains(text(state, "error"), "startup") || strings.Contains(wire(state), "fixture-secret") {
+		uintOr(state["exitCode"], 0) != 7 || !strings.Contains(text(state, "error"), "startup") ||
+		strings.Contains(wire(state), "fixture-secret") || !slices.ContainsFunc(entries, func(row any) bool { return field(row, "type") == "error" }) {
 		t.Fatalf("exit checkpoint = %s, %v", wire(state), err)
 	}
 }
@@ -154,6 +224,54 @@ func TestAgentStdoutKeepsReadingPastNoiseAndRetainsAbnormalExit(t *testing.T) {
 func TestAgentContentDeltasKeepJournalProgressWithTheSavedSnapshot(t *testing.T) {
 	// Recurring bug class: persistence a structural checkpoint commits the buffered Agent output and journal offset together.
 	isolateAgentProcessState(t)
+	acp := func(update string) object {
+		return object{"method": "session/update", "params": object{"update": object{"sessionUpdate": update}}}
+	}
+	for _, update := range []string{"agent_message_chunk", "agent_thought_chunk"} {
+		if !agentContentDelta("dsh", acp(update)) {
+			t.Errorf("ACP delta %s needs a structural checkpoint", update)
+		}
+	}
+	for _, update := range []string{"text_delta", "thinking_delta", "toolcall_delta"} {
+		if !agentContentDelta("pi", object{"type": "message_update", "assistantMessageEvent": object{"type": update}}) {
+			t.Errorf("Pi delta %s needs a structural checkpoint", update)
+		}
+	}
+	for _, update := range []string{"tool_call", "tool_call_update", "plan", "usage_update", "config_option_update", "current_mode_update"} {
+		if agentContentDelta("dsh", acp(update)) {
+			t.Errorf("ACP structural update %s deferred its checkpoint", update)
+		}
+	}
+	for _, method := range []string{"session/request_permission", "arc/user", "arc/settled", "arc/interaction-resolved", "error"} {
+		if agentContentDelta("dsh", object{"method": method}) {
+			t.Errorf("ACP structural method %s deferred its checkpoint", method)
+		}
+	}
+	for _, event := range []string{"agent_start", "agent_settled", "message_end", "tool_execution_start", "tool_execution_end", "extension_ui_request", "error"} {
+		if agentContentDelta("pi", object{"type": event}) {
+			t.Errorf("Pi structural event %s deferred its checkpoint", event)
+		}
+	}
+	for _, state := range []string{"ACTIVE", "DONE"} {
+		frame := object{"event": "step_update", "step_update": object{"state": state}}
+		if agentContentDelta("antigravity", frame) != (state == "ACTIVE") {
+			t.Errorf("Antigravity %s checkpoint classification was wrong", state)
+		}
+	}
+	option := object{"id": "model", "currentValue": "first"}
+	configuration := object{"configOptions": []any{option}}
+	task := object{"agent": "dsh", "metadata": configuration}
+	currentConfig := func() any {
+		return nativeAgentCatalogFacts(task, configuration, task["configurationObservedAt"], "acp-session", nil)["currentModel"]
+	}
+	task["output"], task["configurationObservedAt"] = "streamed", "later"
+	if currentConfig() != "first" {
+		t.Fatal("text and observation time changed the selected configuration")
+	}
+	option["currentValue"] = "second"
+	if currentConfig() != "second" {
+		t.Fatal("selected configuration did not follow the current option")
+	}
 	taskID := id()
 	disk := &service{}
 	process := newNativeAgentProcess(nativeAgentDriver{id: "dsh", protocol: "acp-v1"},
