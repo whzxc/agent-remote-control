@@ -281,18 +281,27 @@
     },
     "native/src/claude_notify/diagnostics.rs": {
       "segment": "C",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_notify_diagnostics.go"
+      ],
+      "status": "pending",
+      "remaining": "Turn diagnosis is mapped. Ownership and restart projections remain."
     },
     "native/src/claude_notify/governance.rs": {
       "segment": "C",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_notify_governance.go"
+      ],
+      "status": "pending",
+      "remaining": "Scope, controls and target buckets are mapped. Cached status, escalation and unit coverage remain."
     },
     "native/src/claude_notify/index.rs": {
       "segment": "C",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_notify_index.go"
+      ],
+      "status": "pending",
+      "remaining": "Canonical binding paths and persistence are mapped. Resident partitions, bounded repair and delivery deadlines remain."
     },
     "native/src/claude_notify/index_tests.rs": {
       "segment": "C",
@@ -301,18 +310,28 @@
     },
     "native/src/claude_notify/lifecycle.rs": {
       "segment": "C",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_notify_lifecycle.go"
+      ],
+      "status": "pending",
+      "remaining": "Scoped lifecycle admission is mapped. A supplies the exact-turn checkpoint merge and projection."
     },
     "native/src/claude_notify/mcp_events.rs": {
       "segment": "C",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_notify_mcp_events.go",
+        "internal/core/claude_notify_mcp_events_fixture.go"
+      ],
+      "status": "pending",
+      "remaining": "Registered event methods, callback verification and signing are mapped. E supplies current ingress and principal authority. Outbound settlement remains."
     },
     "native/src/claude_notify/observer.rs": {
       "segment": "C",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_notify_observer.go"
+      ],
+      "status": "pending",
+      "remaining": "Observation projection and durable inbox enqueue are mapped. Dormant native evidence watches and bounded restart recovery remain. A supplies exact-turn observations."
     },
     "native/src/claude_notify/ownership.rs": {
       "segment": "C",
@@ -321,18 +340,27 @@
     },
     "native/src/claude_notify/reachability.rs": {
       "segment": "C",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_notify_reachability.go"
+      ],
+      "status": "ported",
+      "note": "D supplies native Claude profile, route, visibility and identity functions. A supplies Antigravity session delivery and source-conversation projection."
     },
     "native/src/claude_notify/retry.rs": {
       "segment": "C",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_notify_retry.go"
+      ],
+      "status": "pending",
+      "remaining": "Capacity-only retry, receipt intent and backoff are mapped. A connects the native receipt mutation seam. Unit coverage remains."
     },
     "native/src/claude_notify/routing.rs": {
       "segment": "C",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_notify_routing.go"
+      ],
+      "status": "pending",
+      "remaining": "Request cooldown and management routes are mapped. Observer deadlines and unit coverage remain. A supplies app_env time and presence."
     },
     "native/src/claude_notify/scheduler.rs": {
       "segment": "C",
@@ -341,8 +369,10 @@
     },
     "native/src/claude_notify/subscriptions.rs": {
       "segment": "C",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_notify_subscriptions.go"
+      ],
+      "status": "ported"
     },
     "native/src/claude_notify/tests/delivery_deadlines.rs": {
       "segment": "C",
@@ -351,8 +381,12 @@
     },
     "native/src/claude_notify.rs": {
       "segment": "C",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_notify.go",
+        "internal/core/claude_notify_test.go"
+      ],
+      "status": "pending",
+      "remaining": "Task settings, source-scoped inbox, binding and acknowledgement are implemented. Delivery, restart and native unit coverage remain."
     },
     "native/src/cli.rs": {
       "segment": "S0",
@@ -832,18 +866,29 @@
     },
     "native/src/dispatch_policy/decision.rs": {
       "segment": "C",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/dispatch_policy_decision.go",
+        "internal/core/dispatch_policy_decision_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/dispatch_policy/quality.rs": {
       "segment": "C",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/dispatch_policy_quality.go"
+      ],
+      "status": "pending",
+      "remaining": "Defect validation, review normalization and quality summary are mapped. Unit coverage remains."
     },
     "native/src/dispatch_policy.rs": {
       "segment": "C",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/dispatch_policy.go",
+        "internal/core/dispatch_policy_records.go",
+        "internal/core/dispatch_policy_test.go"
+      ],
+      "status": "pending",
+      "remaining": "Policy, packs, defaults, history and dispatch persistence are mapped. Terminal completion, review and remaining unit cases are open. A supplies registered Agents and lifecycle evidence. B supplies atomic owner writes and later-fix correlation. D supplies account refresh and gateway quota."
     },
     "native/src/dispatch_queue.rs": {
       "segment": "A",
