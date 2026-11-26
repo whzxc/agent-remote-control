@@ -1,10 +1,12 @@
 {
   "baseline": "b04516d7148af7ae84b1ded31aa583c0871d7188",
   "postBaselineRustCommits": [
+    "071a5011de1d8ab72ca4a702e57d3aba3ae498ae",
     "856104fa7dfa24041125acffbf6f9217d6da03af",
     "2acee2731139c0530c54f680084e10caaf2b9501"
   ],
   "portedPostBaselineRustCommits": {
+    "071a5011de1d8ab72ca4a702e57d3aba3ae498ae": "Go embeds the same relocated runtime assets from shared/core.",
     "856104fa7dfa24041125acffbf6f9217d6da03af": "The six Rust core changes are formatting-only. Go consumes the same shared resources.",
     "2acee2731139c0530c54f680084e10caaf2b9501": "Bounded busy pipe opens, missing-endpoint recovery, and single-handshake attachment publication."
   },
@@ -15,7 +17,7 @@
         "internal/core/acceptance_fault.go",
         "internal/core/acceptance_fault_fixture.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/accounts/codex.rs": {
       "segment": "D",
@@ -23,7 +25,7 @@
         "internal/core/accounts_codex.go",
         "internal/core/accounts_codex_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/accounts/identity.rs": {
       "segment": "D",
@@ -31,14 +33,14 @@
         "internal/core/accounts_identity.go",
         "internal/core/accounts_identity_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/accounts/login.rs": {
       "segment": "D",
       "go": [
         "internal/core/accounts_login.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/accounts/merge.rs": {
       "segment": "D",
@@ -46,7 +48,7 @@
         "internal/core/accounts_merge.go",
         "internal/core/accounts_merge_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/accounts/mod.rs": {
       "segment": "D",
@@ -59,8 +61,7 @@
         {
           "owner": "C",
           "items": [
-            "Supply accountNotificationSessions and sendAccountNotification. Use notificationProviderAccounts and liveSourceAccounts for safe projections.",
-            "Call reconcileAccounts before notify_control and notify_status, and activeAccountManager(service).refreshAccounts before dispatch_policy. Propagate preparation errors."
+            "Complete account reconciliation on notification reads and writes and propagate preparation errors."
           ]
         }
       ]
@@ -78,7 +79,7 @@
       "go": [
         "internal/core/agents_adapter.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/agents/antigravity.rs": {
       "segment": "A",
@@ -87,21 +88,21 @@
         "internal/core/agents_antigravity_test.go",
         "internal/core/agents_driver.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/agents/archive.rs": {
       "segment": "A",
       "go": [
         "internal/core/agents_archive.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/agents/capabilities.rs": {
       "segment": "A",
       "go": [
         "internal/core/agents_capabilities.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/agents/conversations/native/antigravity.rs": {
       "segment": "A",
@@ -109,14 +110,14 @@
         "internal/core/agents_conversations_native_antigravity.go",
         "internal/core/agents_conversations_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/agents/conversations/native.rs": {
       "segment": "A",
       "go": [
         "internal/core/agents_conversations_native.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/agents/conversations/tests.rs": {
       "segment": "A",
@@ -132,7 +133,7 @@
         "internal/core/agents_conversations.go",
         "internal/core/agents_conversations_native.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/agents/dispatch/catalogs.rs": {
       "segment": "A",
@@ -140,14 +141,14 @@
         "internal/core/agents_dispatch_catalogs.go",
         "internal/core/agents_dispatch_catalogs_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/agents/dispatch.rs": {
       "segment": "A",
       "go": [
         "internal/core/agents_dispatch.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/agents/driver.rs": {
       "segment": "A",
@@ -157,14 +158,14 @@
         "internal/core/agents_navigation_windows.go",
         "internal/core/agents_navigation_other.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/agents/lifecycle.rs": {
       "segment": "A",
       "go": [
         "internal/core/agents_lifecycle.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/agents/manifest.rs": {
       "segment": "A",
@@ -172,14 +173,14 @@
         "internal/core/agents_manifest.go",
         "native/src/agents/manifest_embed.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/agents/mcp.rs": {
       "segment": "A",
       "go": [
         "internal/core/agents_mcp.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/agents/mod.rs": {
       "segment": "A",
@@ -189,7 +190,15 @@
         "internal/core/agents_approval.go",
         "internal/core/agents_events.go"
       ],
-      "status": "ported"
+      "status": "ported",
+      "remaining": [
+        {
+          "owner": "H",
+          "items": [
+            "Move the Agent manifest embed package out of native/src at cutover."
+          ]
+        }
+      ]
     },
     "native/src/agents/process.rs": {
       "segment": "A",
@@ -204,7 +213,7 @@
       "go": [
         "internal/core/agents_resources.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/agents/wait.rs": {
       "segment": "A",
@@ -212,7 +221,7 @@
         "internal/core/agents_wait.go",
         "internal/core/agents_wait_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/app_env.rs": {
       "segment": "A",
@@ -220,7 +229,7 @@
         "internal/core/app_env.go",
         "internal/core/app_env_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/archive_index.rs": {
       "segment": "A",
@@ -228,7 +237,7 @@
         "internal/core/archive_index.go",
         "internal/core/archive_index_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/browser.rs": {
       "segment": "A",
@@ -244,14 +253,14 @@
         "internal/core/changes.go",
         "internal/core/changes_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_accounts/browsers.rs": {
       "segment": "D",
       "go": [
         "internal/core/claude_accounts_browsers.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_accounts/mod.rs": {
       "segment": "D",
@@ -259,14 +268,14 @@
         "internal/core/claude_accounts.go",
         "internal/core/claude_accounts_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_accounts/routing.rs": {
       "segment": "D",
       "go": [
         "internal/core/claude_accounts_routing.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_accounts/system.rs": {
       "segment": "D",
@@ -274,7 +283,7 @@
         "internal/core/claude_accounts_system.go",
         "internal/core/claude_accounts_system_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_accounts/visibility.rs": {
       "segment": "D",
@@ -282,7 +291,7 @@
         "internal/core/claude_accounts_visibility.go",
         "internal/core/claude_accounts_visibility_fixture.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_notify/ax_tests.rs": {
       "segment": "C",
@@ -297,7 +306,7 @@
         "internal/core/claude_notify_continuation.go",
         "internal/core/claude_notify_continuation_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_notify/coordination_delivery.rs": {
       "segment": "C",
@@ -305,15 +314,7 @@
         "internal/core/claude_notify_coordination_delivery.go",
         "internal/core/claude_notify_coordination_delivery_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "D",
-          "items": [
-            "Provide notificationSourceAuthority for coordination and task delivery."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/claude_notify/device/tests.rs": {
       "segment": "C",
@@ -327,14 +328,14 @@
       "go": [
         "internal/core/claude_notify_device.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_notify/diagnostics.rs": {
       "segment": "C",
       "go": [
         "internal/core/claude_notify_diagnostics.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_notify/governance.rs": {
       "segment": "C",
@@ -342,14 +343,14 @@
         "internal/core/claude_notify_governance.go",
         "internal/core/claude_notify_governance_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_notify/index.rs": {
       "segment": "C",
       "go": [
         "internal/core/claude_notify_index.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_notify/index_tests.rs": {
       "segment": "C",
@@ -363,7 +364,7 @@
       "go": [
         "internal/core/claude_notify_lifecycle.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_notify/mcp_events.rs": {
       "segment": "C",
@@ -373,7 +374,7 @@
         "internal/core/claude_notify_scheduler.go",
         "internal/core/claude_notify_mcp_events_fixture_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_notify/observer.rs": {
       "segment": "C",
@@ -381,14 +382,14 @@
         "internal/core/claude_notify_observer.go",
         "internal/core/claude_notify_observer_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_notify/ownership.rs": {
       "segment": "C",
       "go": [
         "internal/core/claude_notify_ownership.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_notify/reachability.rs": {
       "segment": "C",
@@ -396,7 +397,7 @@
         "internal/core/claude_notify_reachability.go",
         "internal/core/claude_accounts_routing.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_notify/retry.rs": {
       "segment": "C",
@@ -404,7 +405,7 @@
         "internal/core/claude_notify_retry.go",
         "internal/core/claude_notify_retry_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_notify/routing.rs": {
       "segment": "C",
@@ -420,14 +421,14 @@
         "internal/core/claude_notify_scheduler.go",
         "internal/core/claude_notify_scheduler_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_notify/subscriptions.rs": {
       "segment": "C",
       "go": [
         "internal/core/claude_notify_subscriptions.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_notify/tests/delivery_deadlines.rs": {
       "segment": "C",
@@ -466,21 +467,21 @@
       "go": [
         "internal/core/cli_acceptance.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/cli_shim.rs": {
       "segment": "S0",
       "go": [
         "internal/core/cli_shim.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/cloudflare.rs": {
       "segment": "E",
       "go": [
         "internal/core/cloudflare.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/codex_host.rs": {
       "segment": "A",
@@ -489,7 +490,7 @@
         "internal/core/codex_host_unix.go",
         "internal/core/codex_host_windows.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/codex_progress.rs": {
       "segment": "A",
@@ -504,14 +505,14 @@
       "go": [
         "internal/core/context.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/context_provider.rs": {
       "segment": "S0",
       "go": [
         "internal/core/context_provider.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/control.rs": {
       "segment": "S0",
@@ -522,14 +523,14 @@
         "internal/core/rpc.go",
         "internal/core/kernel_receipts.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/control_metrics.rs": {
       "segment": "S0",
       "go": [
         "internal/core/control_metrics.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/control_profiles.rs": {
       "segment": "S0",
@@ -537,7 +538,7 @@
         "internal/core/control_profiles.go",
         "internal/core/egress_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/control_sources.rs": {
       "segment": "S0",
@@ -545,35 +546,35 @@
         "internal/core/control_sources.go",
         "internal/core/control_sources_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/ax/import.rs": {
       "segment": "B",
       "go": [
         "internal/core/coordination_ax_import.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/ax/issue.rs": {
       "segment": "B",
       "go": [
         "internal/core/coordination_ax_issue.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/ax/mod.rs": {
       "segment": "B",
       "go": [
         "internal/core/coordination_ax_mod.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/ax/store.rs": {
       "segment": "B",
       "go": [
         "internal/core/coordination_ax_store.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/ax/tests.rs": {
       "segment": "B",
@@ -587,21 +588,21 @@
       "go": [
         "internal/core/coordination_bulletin_dispatch.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/bulletin/mod.rs": {
       "segment": "B",
       "go": [
         "internal/core/coordination_bulletin_mod.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/bulletin/store.rs": {
       "segment": "B",
       "go": [
         "internal/core/coordination_bulletin_store.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/bulletin/tests.rs": {
       "segment": "B",
@@ -623,14 +624,14 @@
         "internal/core/coordination_git_watch_fixes.go",
         "internal/core/coordination_git_watch_fixes_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/git_watch.rs": {
       "segment": "B",
       "go": [
         "internal/core/coordination_git_watch.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/journal.rs": {
       "segment": "B",
@@ -638,7 +639,7 @@
         "internal/core/coordination_journal.go",
         "internal/core/coordination_tests_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/lifecycle.rs": {
       "segment": "B",
@@ -647,21 +648,21 @@
         "internal/core/coordination_lifecycle_unix.go",
         "internal/core/coordination_lifecycle_windows.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/messages/mod.rs": {
       "segment": "B",
       "go": [
         "internal/core/coordination_messages_mod.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/messages/store.rs": {
       "segment": "B",
       "go": [
         "internal/core/coordination_messages_store.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/messages/tests.rs": {
       "segment": "B",
@@ -675,14 +676,14 @@
       "go": [
         "internal/core/coordination_mod.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/observers.rs": {
       "segment": "B",
       "go": [
         "internal/core/coordination_observers.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/recovery.rs": {
       "segment": "B",
@@ -690,7 +691,7 @@
         "internal/core/coordination_recovery.go",
         "internal/core/coordination_recovery_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/routing.rs": {
       "segment": "B",
@@ -712,14 +713,14 @@
       "go": [
         "internal/core/coordination_turns.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/coordination/types.rs": {
       "segment": "B",
       "go": [
         "internal/core/coordination_types.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/core_requests.rs": {
       "segment": "S0",
@@ -729,7 +730,7 @@
         "internal/core/egress_test.go",
         "internal/core/core_requests_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/desktop/daemon.rs": {
       "segment": "A",
@@ -737,7 +738,7 @@
         "internal/core/desktop_daemon_darwin.go",
         "internal/core/desktop_backend.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/desktop/handback.rs": {
       "segment": "A",
@@ -745,7 +746,7 @@
         "internal/core/desktop_handback.go",
         "internal/core/desktop_handback_darwin.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/desktop/interactions.rs": {
       "segment": "A",
@@ -762,7 +763,7 @@
         "internal/core/desktop_recovery_darwin.go",
         "internal/core/control_approval.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/desktop/settings.rs": {
       "segment": "A",
@@ -770,14 +771,14 @@
         "internal/core/desktop_settings.go",
         "internal/core/desktop_settings_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/desktop/windows.rs": {
       "segment": "A",
       "go": [
         "internal/core/desktop_windows.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/desktop.rs": {
       "segment": "A",
@@ -787,7 +788,15 @@
         "internal/core/control_desktop.go",
         "internal/core/desktop_test.go"
       ],
-      "status": "ported"
+      "status": "ported",
+      "remaining": [
+        {
+          "owner": "F",
+          "items": [
+            "Verify the real Desktop snapshot provider at its native entry point."
+          ]
+        }
+      ]
     },
     "native/src/device_link/addresses.rs": {
       "segment": "E",
@@ -798,21 +807,21 @@
         "internal/core/device_link_addresses_windows.go",
         "internal/core/device_link_addresses_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/client.rs": {
       "segment": "E",
       "go": [
         "internal/core/device_link_client.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/connections.rs": {
       "segment": "E",
       "go": [
         "internal/core/device_link_connections.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/controller/path.rs": {
       "segment": "E",
@@ -829,7 +838,7 @@
         "internal/core/device_link_controller_transfer.go",
         "internal/core/device_link_controller_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/controller.rs": {
       "segment": "E",
@@ -837,7 +846,7 @@
         "internal/core/device_link_controller.go",
         "internal/core/device_link_management.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/controller_tests.rs": {
       "segment": "E",
@@ -860,7 +869,7 @@
       "go": [
         "internal/core/device_link_events.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/identity.rs": {
       "segment": "E",
@@ -868,7 +877,7 @@
         "internal/core/device_link_identity.go",
         "internal/core/device_link_identity_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/mod.rs": {
       "segment": "E",
@@ -877,14 +886,14 @@
         "internal/core/device_link_management.go",
         "internal/core/device_link_authority.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/records.rs": {
       "segment": "E",
       "go": [
         "internal/core/device_link_records.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/tests.rs": {
       "segment": "E",
@@ -899,7 +908,7 @@
       "go": [
         "internal/core/device_link_tls.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/topology.rs": {
       "segment": "E",
@@ -908,14 +917,14 @@
         "internal/core/device_link_controller_path.go",
         "internal/core/device_link_pairing_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/transfer/execution.rs": {
       "segment": "E",
       "go": [
         "internal/core/device_link_transfer_execution.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/transfer/receiver.rs": {
       "segment": "E",
@@ -927,14 +936,14 @@
         "internal/core/device_link_transfer_receiver_windows.go",
         "internal/core/device_link_transfer_receiver_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/transfer/relay_fixture.rs": {
       "segment": "E",
       "go": [
         "internal/core/device_link_transfer_relay_fixture_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/transfer/tests.rs": {
       "segment": "E",
@@ -952,14 +961,14 @@
       "go": [
         "internal/core/device_link_transfer_wire.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/transfer.rs": {
       "segment": "E",
       "go": [
         "internal/core/device_link_transfer.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/transport.rs": {
       "segment": "E",
@@ -967,21 +976,21 @@
         "internal/core/device_link_transport.go",
         "internal/core/device_link_transport_dns.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/tunnel.rs": {
       "segment": "E",
       "go": [
         "internal/core/device_link_tunnel.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/tunnel_fixture.rs": {
       "segment": "E",
       "go": [
         "internal/core/device_link_tunnel_fixture_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/tunnel_tests.rs": {
       "segment": "E",
@@ -989,7 +998,7 @@
         "internal/core/device_link_tunnel_test.go",
         "internal/core/device_link_tunnel_fixture_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/visibility.rs": {
       "segment": "E",
@@ -1004,7 +1013,7 @@
       "go": [
         "internal/core/diagnostics.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/dispatch_caller.rs": {
       "segment": "A",
@@ -1020,7 +1029,7 @@
         "internal/core/dispatch_policy_decision.go",
         "internal/core/dispatch_policy_decision_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/dispatch_policy/quality.rs": {
       "segment": "C",
@@ -1056,7 +1065,7 @@
         "internal/core/dispatch_queue.go",
         "internal/core/dispatch_queue_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/egress.rs": {
       "segment": "S0",
@@ -1074,28 +1083,28 @@
         "internal/core/control.go",
         "internal/core/core_requests.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/external_inputs.rs": {
       "segment": "A",
       "go": [
         "internal/core/external_inputs.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/front_door/authority.rs": {
       "segment": "S0",
       "go": [
         "internal/core/front_door_authority.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/front_door/owner.rs": {
       "segment": "S0",
       "go": [
         "internal/core/front_door_owner.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/front_door/process.rs": {
       "segment": "S0",
@@ -1105,7 +1114,15 @@
         "internal/core/front_door_process_test.go",
         "internal/platform/ipc_windows_test.go"
       ],
-      "status": "ported"
+      "status": "ported",
+      "remaining": [
+        {
+          "owner": "G",
+          "items": [
+            "Execute the named-pipe tests on Windows."
+          ]
+        }
+      ]
     },
     "native/src/front_door/protocol.rs": {
       "segment": "S0",
@@ -1114,7 +1131,7 @@
         "internal/core/front_door_test.go",
         "internal/core/front_door_process_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/front_door.rs": {
       "segment": "S0",
@@ -1123,7 +1140,15 @@
         "internal/core/front_door_test.go",
         "internal/core/front_door_authority.go"
       ],
-      "status": "ported"
+      "status": "ported",
+      "remaining": [
+        {
+          "owner": "H",
+          "items": [
+            "Verify installed execution and the Desktop updater handoff."
+          ]
+        }
+      ]
     },
     "native/src/front_door_tests.rs": {
       "segment": "S0",
@@ -1139,7 +1164,7 @@
       "go": [
         "internal/core/headless.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/https.rs": {
       "segment": "E",
@@ -1164,14 +1189,14 @@
       "go": [
         "internal/core/https_tunnel.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/i18n.rs": {
       "segment": "S0",
       "go": [
         "internal/core/i18n.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/images.rs": {
       "segment": "A",
@@ -1179,7 +1204,7 @@
         "internal/core/images.go",
         "internal/core/images_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/ingress/config.rs": {
       "segment": "E",
@@ -1187,7 +1212,15 @@
         "internal/core/ingress_config.go",
         "native/src/ingress/config_embed.go"
       ],
-      "status": "ported"
+      "status": "ported",
+      "remaining": [
+        {
+          "owner": "H",
+          "items": [
+            "Move the ingress configuration embed package out of native/src at cutover."
+          ]
+        }
+      ]
     },
     "native/src/ingress.rs": {
       "segment": "E",
@@ -1208,7 +1241,7 @@
         "internal/core/ingress_observation.go",
         "internal/core/ingress_observation_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/interaction_responses.rs": {
       "segment": "A",
@@ -1225,21 +1258,21 @@
         "internal/core/kernel_receipts_test.go",
         "internal/core/kernel_derived_index_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/kernel/digests.rs": {
       "segment": "S0",
       "go": [
         "internal/core/kernel_digests.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/kernel/event_store.rs": {
       "segment": "S0",
       "go": [
         "internal/core/kernel_event_store.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/kernel/file_cache.rs": {
       "segment": "S0",
@@ -1254,7 +1287,7 @@
       "go": [
         "internal/core/kernel_file_changes.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/kernel/mod.rs": {
       "segment": "S0",
@@ -1270,21 +1303,21 @@
         "internal/core/kernel_origin.go",
         "internal/core/kernel_policy.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/kernel/origin.rs": {
       "segment": "S0",
       "go": [
         "internal/core/kernel_origin.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/kernel/policy.rs": {
       "segment": "S0",
       "go": [
         "internal/core/kernel_policy.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/kernel/receipts/progress.rs": {
       "segment": "S0",
@@ -1300,7 +1333,7 @@
         "internal/core/kernel_receipts_projection.go",
         "internal/core/kernel_receipts_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/kernel/receipts.rs": {
       "segment": "S0",
@@ -1317,7 +1350,7 @@
         "internal/core/kernel_results_test.go",
         "internal/core/kernel_digests.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/kernel/task_projection.rs": {
       "segment": "S0",
@@ -1325,7 +1358,7 @@
         "internal/core/kernel_task_projection.go",
         "internal/core/kernel_receipts_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/launches.rs": {
       "segment": "S0",
@@ -1343,14 +1376,14 @@
         "internal/core/egress.go",
         "internal/core/transport.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/local_access.rs": {
       "segment": "S0",
       "go": [
         "internal/core/local_access.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/local_gateway.rs": {
       "segment": "D",
@@ -1374,7 +1407,7 @@
         "internal/core/logs.go",
         "internal/core/logs_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/main.rs": {
       "segment": "S0",
@@ -1382,7 +1415,7 @@
         "cmd/arc/main.go",
         "internal/core/main.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/management.rs": {
       "segment": "S0",
@@ -1414,7 +1447,7 @@
       "go": [
         "internal/core/mcp_transport.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/oauth.rs": {
       "segment": "D",
@@ -1424,7 +1457,7 @@
         "ui/oauth_assets.go",
         "desktop/icons/oauth_assets.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/operations.rs": {
       "segment": "S0",
@@ -1441,7 +1474,7 @@
         "internal/core/main.go",
         "internal/core/output_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/owned_children.rs": {
       "segment": "S0",
@@ -1451,7 +1484,7 @@
         "internal/platform/children_unix.go",
         "internal/platform/children_windows.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/package.rs": {
       "segment": "D",
@@ -1460,7 +1493,7 @@
         "internal/core/package_test.go",
         "skills/package_assets.go"
       ],
-      "status": "ported",
+      "status": "verified",
       "note": "Bundled skill bytes are embedded from skills/package_assets.go."
     },
     "native/src/permissions.rs": {
@@ -1468,7 +1501,7 @@
       "go": [
         "internal/core/permissions.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/pets.rs": {
       "segment": "A",
@@ -1476,14 +1509,14 @@
         "internal/core/pets.go",
         "internal/core/pets_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/preferences.rs": {
       "segment": "S0",
       "go": [
         "internal/core/preferences.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/projects.rs": {
       "segment": "D",
@@ -1491,14 +1524,14 @@
         "internal/core/projects.go",
         "internal/core/projects_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/proxy.rs": {
       "segment": "A",
       "go": [
         "internal/core/proxy.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/relay/deploy.rs": {
       "segment": "E",
@@ -1507,7 +1540,7 @@
         "internal/core/relay_deploy_test.go",
         "relay-worker/embed.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/relay/identity.rs": {
       "segment": "E",
@@ -1515,7 +1548,7 @@
         "internal/core/relay_identity.go",
         "internal/core/relay_identity_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/relay/mod.rs": {
       "segment": "E",
@@ -1523,7 +1556,7 @@
         "internal/core/relay.go",
         "internal/core/relay_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/relay/transport.rs": {
       "segment": "E",
@@ -1542,7 +1575,7 @@
         "internal/platform/resources_unix.go",
         "internal/platform/resources_windows.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/respond_tokens.rs": {
       "segment": "A",
@@ -1550,7 +1583,7 @@
         "internal/core/respond_tokens.go",
         "internal/core/respond_tokens_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/review.rs": {
       "segment": "A",
@@ -1558,14 +1591,14 @@
         "internal/core/review.go",
         "internal/core/control_read.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/rpc.rs": {
       "segment": "S0",
       "go": [
         "internal/core/rpc.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/runtime.rs": {
       "segment": "S0",
@@ -1578,9 +1611,9 @@
       "status": "ported",
       "remaining": [
         {
-          "owner": "F",
+          "owner": "H",
           "items": [
-            "Connect installed Desktop lifecycle."
+            "Verify the installed Desktop and Core lease lifecycle."
           ]
         }
       ]
@@ -1613,13 +1646,6 @@
       "status": "ported",
       "remaining": [
         {
-          "owner": "C",
-          "items": [
-            "Record completed notification observer passes and phase timings via beginRuntimeObservation, and measure notification observer and delivery work durations.",
-            "Expose the full notification binding cache and activity-index diagnostics through notificationDiagnostics."
-          ]
-        },
-        {
           "owner": "D",
           "items": [
             "Measure account refresh and account read work durations."
@@ -1630,6 +1656,13 @@
           "items": [
             "Supply Desktop IPC diagnostics and frame timings."
           ]
+        },
+        {
+          "owner": "C",
+          "items": [
+            "Complete notification observation ownership, reuse and reconciliation counters and phase timings.",
+            "Measure the complete notification delivery work pass and expose the complete binding cache diagnostics."
+          ]
         }
       ]
     },
@@ -1638,7 +1671,7 @@
       "go": [
         "internal/core/screen.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/service.rs": {
       "segment": "S0",
@@ -1648,7 +1681,7 @@
         "internal/core/control.go",
         "internal/core/diagnostics.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/setup.rs": {
       "segment": "D",
@@ -1656,15 +1689,7 @@
         "internal/core/setup.go",
         "internal/core/setup_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "C",
-          "items": [
-            "Supply setupReadNotification for loop completion evidence."
-          ]
-        }
-      ]
+      "status": "verified"
     },
     "native/src/setup_secret.rs": {
       "segment": "D",
@@ -1673,7 +1698,7 @@
         "internal/core/setup_secret_fixture.go",
         "internal/core/setup_secret_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/shell_command.rs": {
       "segment": "A",
@@ -1681,7 +1706,7 @@
         "internal/core/shell_command.go",
         "internal/core/shell_command_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/skills.rs": {
       "segment": "D",
@@ -1689,7 +1714,7 @@
         "internal/core/skills.go",
         "internal/core/skills_fixture.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/sources.rs": {
       "segment": "D",
@@ -1703,7 +1728,7 @@
         {
           "owner": "C",
           "items": [
-            "Run notification-state migration at index preparation order 20 and publish readiness through sourceNotificationMigrationReady. Supply sourceDispatchRecords."
+            "Align notification-state migration order and supply sourceNotificationMigrationReady."
           ]
         }
       ]
@@ -1714,7 +1739,7 @@
         "internal/core/src_conversations_identity.go",
         "internal/core/src_conversations_identity_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/src_conversations/import_state.rs": {
       "segment": "A",
@@ -1732,7 +1757,7 @@
         "internal/core/src_conversations_darwin.go",
         "internal/core/src_conversations_other.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/src_conversations/refs.rs": {
       "segment": "A",
@@ -1740,7 +1765,7 @@
         "internal/core/src_conversations_refs.go",
         "internal/core/src_conversations_refs_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/src_conversations/registry.rs": {
       "segment": "A",
@@ -1748,14 +1773,14 @@
         "internal/core/src_conversations_registry.go",
         "internal/core/src_conversations_registry_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/subscriptions/cache.rs": {
       "segment": "D",
       "go": [
         "internal/core/subscriptions_cache.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/subscriptions/mod.rs": {
       "segment": "D",
@@ -1763,7 +1788,7 @@
         "internal/core/subscriptions.go",
         "internal/core/subscriptions_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/subscriptions/providers/antigravity.rs": {
       "segment": "D",
@@ -1771,7 +1796,7 @@
         "internal/core/subscriptions_providers_antigravity.go",
         "internal/core/subscriptions_providers_antigravity_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/subscriptions/providers/claude.rs": {
       "segment": "D",
@@ -1779,14 +1804,14 @@
         "internal/core/subscriptions_providers_claude.go",
         "internal/core/subscriptions_providers_claude_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/subscriptions/providers/codex.rs": {
       "segment": "D",
       "go": [
         "internal/core/subscriptions_providers_codex.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/subscriptions/providers/cursor.rs": {
       "segment": "D",
@@ -1794,42 +1819,42 @@
         "internal/core/subscriptions_providers_cursor.go",
         "internal/core/subscriptions_providers_cursor_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/subscriptions/providers/grok.rs": {
       "segment": "D",
       "go": [
         "internal/core/subscriptions_providers_grok.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/subscriptions/providers/kimi.rs": {
       "segment": "D",
       "go": [
         "internal/core/subscriptions_providers_kimi.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/subscriptions/providers/mod.rs": {
       "segment": "D",
       "go": [
         "internal/core/subscriptions_providers.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/subscriptions/providers/opencode_go.rs": {
       "segment": "D",
       "go": [
         "internal/core/subscriptions_providers_opencode_go.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/subscriptions/types.rs": {
       "segment": "D",
       "go": [
         "internal/core/subscriptions_types.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/task_host.rs": {
       "segment": "A",
@@ -1839,7 +1864,7 @@
         "internal/core/task_host_windows.go",
         "internal/core/task_host_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/task_overview.rs": {
       "segment": "A",
@@ -1847,14 +1872,14 @@
         "internal/core/task_overview.go",
         "internal/core/task_overview_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/task_summary.rs": {
       "segment": "A",
       "go": [
         "internal/core/task_summary.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/task_tracking/antigravity.rs": {
       "segment": "B",
@@ -1862,7 +1887,7 @@
         "internal/core/task_tracking_antigravity.go",
         "internal/core/task_tracking_antigravity_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/task_tracking/transcript_input.rs": {
       "segment": "B",
@@ -1870,7 +1895,7 @@
         "internal/core/task_tracking_transcript_input.go",
         "internal/core/task_tracking_transcript_input_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/task_tracking/transcripts.rs": {
       "segment": "B",
@@ -1878,7 +1903,7 @@
         "internal/core/task_tracking_transcripts.go",
         "internal/core/task_tracking_transcripts_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/task_tracking.rs": {
       "segment": "B",
@@ -1893,14 +1918,14 @@
       "go": [
         "internal/core/text_files_binary.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/text_files.rs": {
       "segment": "A",
       "go": [
         "internal/core/text_files.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/transport.rs": {
       "segment": "S0",
@@ -1910,15 +1935,7 @@
         "internal/core/front_door_process.go",
         "internal/core/front_door_wire_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "F",
-          "items": [
-            "Register Desktop callbacks."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/turn_lifecycle.rs": {
       "segment": "A",
@@ -1926,7 +1943,7 @@
         "internal/core/turn_lifecycle.go",
         "internal/core/turn_lifecycle_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/uninstall.rs": {
       "segment": "D",
@@ -1937,9 +1954,9 @@
       "status": "ported",
       "remaining": [
         {
-          "owner": "F",
+          "owner": "H",
           "items": [
-            "Verify installed Desktop quit and platform uninstall handoff at integration."
+            "Verify installed Desktop quit and platform uninstall handoff."
           ]
         }
       ]
@@ -1969,7 +1986,7 @@
         "internal/core/writer.go",
         "internal/core/writer_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "desktop/src/app_env.rs": {
       "segment": "F",
@@ -2122,809 +2139,2144 @@
   },
   "nativeTests": {
     "tests/acceptance-fault.test.ts": {
-      "result": "blocked",
-      "passed": 0,
-      "failed": 1,
-      "skipped": 0,
-      "exitCode": 1,
-      "caseResults": {
-        "passed": [],
-        "blocked": [
-          {
-            "segment": "A",
-            "module": "codex_host",
-            "route": "act codex_create",
-            "cases": [
-              "Isolated faults reject real reads, expire and require a self-test thread"
-            ]
-          }
-        ]
+      "result": "passed",
+      "cases": {
+        "Isolated faults reject real reads, expire and require a self-test thread": {
+          "result": "passed",
+          "rust": [
+            "native/src/acceptance_fault.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        }
       }
     },
     "tests/accounts.test.ts": {
-      "result": "blocked",
-      "passed": 0,
-      "failed": 4,
-      "skipped": 0,
-      "exitCode": 1,
-      "caseResults": {
-        "passed": [],
-        "blocked": [
-          {
-            "segment": "D",
-            "module": "accounts",
-            "route": "act account_add; query accounts",
-            "cases": [
-              "Account operations retain identity and removal tombstones",
-              "unchanged account reads reuse the index without account cost passes or row scans",
-              "account reads observe a replaced index and retain add remove and quota changes",
-              "Claude L1 notification profiles stay isolated across accounts"
-            ]
-          }
-        ]
+      "result": "passed",
+      "cases": {
+        "Account operations retain identity and removal tombstones": {
+          "result": "passed",
+          "rust": [
+            "native/src/accounts/identity.rs",
+            "native/src/accounts/merge.rs",
+            "native/src/accounts/mod.rs",
+            "native/src/subscriptions/mod.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "unchanged account reads reuse the index without account cost passes or row scans": {
+          "result": "passed",
+          "rust": [
+            "native/src/accounts/mod.rs",
+            "native/src/runtime_metrics/cost.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "account reads observe a replaced index and retain add remove and quota changes": {
+          "result": "passed",
+          "rust": [
+            "native/src/accounts/identity.rs",
+            "native/src/accounts/merge.rs",
+            "native/src/accounts/mod.rs",
+            "native/src/subscriptions/mod.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Claude L1 notification profiles stay isolated across accounts": {
+          "result": "passed",
+          "rust": [
+            "native/src/accounts/mod.rs",
+            "native/src/claude_accounts/routing.rs",
+            "native/src/claude_notify/routing.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        }
       }
     },
     "tests/agent-antigravity.test.ts": {
-      "result": "blocked",
-      "passed": 0,
-      "failed": 4,
-      "skipped": 0,
-      "exitCode": 1,
-      "caseResults": {
-        "passed": [],
-        "blocked": [
-          {
-            "segment": "A",
-            "module": "agents",
-            "route": "act agent_create",
-            "cases": [
-              "Antigravity timelines retain replies, tool failures and denied work across turns and restart",
-              "Antigravity native defaults survive policy edits while current deny rules still apply",
-              "Agent dispatch history counts follow-up triggers and reviewed defects"
-            ]
-          },
-          {
-            "segment": "A",
-            "module": "agents",
-            "route": "GET /api/agents",
-            "cases": [
-              "Antigravity discovery and stream transport preserve terminal evidence and interrupt active work"
-            ]
-          }
-        ]
+      "result": "passed",
+      "cases": {
+        "Antigravity timelines retain replies, tool failures and denied work across turns and restart": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/antigravity.rs",
+            "native/src/agents/conversations/native/antigravity.rs",
+            "native/src/agents/dispatch.rs",
+            "native/src/task_tracking/antigravity.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Antigravity native defaults survive policy edits while current deny rules still apply": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/dispatch/catalogs.rs",
+            "native/src/dispatch_policy.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Antigravity discovery and stream transport preserve terminal evidence and interrupt active work": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/antigravity.rs",
+            "native/src/agents/conversations/native/antigravity.rs",
+            "native/src/agents/dispatch.rs",
+            "native/src/task_tracking/antigravity.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Agent dispatch history counts follow-up triggers and reviewed defects": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/dispatch.rs",
+            "native/src/dispatch_policy.rs",
+            "native/src/dispatch_policy/quality.rs",
+            "native/src/review.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        }
       }
     },
     "tests/agent-archive.test.ts": {
-      "result": "blocked",
-      "passed": 0,
-      "failed": 2,
-      "skipped": 0,
-      "exitCode": 1,
-      "caseResults": {
-        "passed": [],
-        "blocked": [
-          {
-            "segment": "A",
-            "module": "agents",
-            "route": "act agent_create",
-            "cases": [
-              "agent archive refuses active work and interactions, then retains flushed evidence with durable replay",
-              "Pi archival hides native conversation duplicates and works while disabled without deleting upstream data"
-            ]
-          }
-        ]
+      "result": "passed",
+      "cases": {
+        "agent archive refuses active work and interactions, then retains flushed evidence with durable replay": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/archive.rs",
+            "native/src/agents/lifecycle.rs",
+            "native/src/agents/wait.rs",
+            "native/src/archive_index.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/task_tracking.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Pi archival hides native conversation duplicates and works while disabled without deleting upstream data": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/archive.rs",
+            "native/src/agents/conversations.rs",
+            "native/src/agents/conversations/native.rs",
+            "native/src/archive_index.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        }
       }
     },
     "tests/antigravity-desktop.test.ts": {
-      "result": "blocked",
-      "passed": 0,
-      "failed": 4,
-      "skipped": 0,
-      "exitCode": 1,
-      "caseResults": {
-        "passed": [],
-        "blocked": [
-          {
-            "segment": "E",
-            "module": "ingress",
-            "route": "GET /api/ingress/local-antigravity; POST /api/ingress",
-            "cases": [
-              "Antigravity local access accepts an empty configuration and preserves other servers on reinstall"
-            ]
-          },
-          {
-            "segment": "C",
-            "module": "claude_notify",
-            "route": "act notify_control (bind)",
-            "cases": [
-              "Antigravity verifies metadata before challenge and doorbell delivery and acknowledges the received code"
-            ]
-          },
-          {
-            "segment": "A",
-            "module": "agents",
-            "route": "POST /api/agents/conversations",
-            "cases": [
-              "Antigravity Desktop submits creates and resumed messages and discovers both native transcript roots",
-              "Combined conversations include native Codex and Antigravity rows in one paged order"
-            ]
-          }
-        ]
+      "result": "passed",
+      "cases": {
+        "Antigravity local access accepts an empty configuration and preserves other servers on reinstall": {
+          "result": "passed",
+          "rust": [
+            "native/src/ingress.rs",
+            "native/src/local_access.rs",
+            "native/src/skills.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Antigravity verifies metadata before challenge and doorbell delivery and acknowledges the received code": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/antigravity.rs",
+            "native/src/claude_notify/reachability.rs",
+            "native/src/claude_notify/routing.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Antigravity Desktop submits creates and resumed messages and discovers both native transcript roots": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/antigravity.rs",
+            "native/src/agents/conversations.rs",
+            "native/src/agents/conversations/native.rs",
+            "native/src/agents/conversations/native/antigravity.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Combined conversations include native Codex and Antigravity rows in one paged order": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/antigravity.rs",
+            "native/src/agents/conversations.rs",
+            "native/src/agents/conversations/native.rs",
+            "native/src/agents/conversations/native/antigravity.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        }
       }
     },
     "tests/browser-native.test.ts": {
       "result": "blocked",
-      "passed": 0,
-      "failed": 1,
-      "skipped": 0,
-      "exitCode": 1,
-      "caseResults": {
-        "passed": [],
-        "blocked": [
-          {
-            "segment": "E",
-            "module": "ingress",
-            "route": "POST /api/ingress",
-            "cases": [
-              "browser ingress requires an independent key, exposes reads only, and revokes sessions on rotation"
-            ]
-          }
-        ]
+      "cases": {
+        "browser ingress requires an independent key, exposes reads only, and revokes sessions on rotation": {
+          "result": "blocked",
+          "owner": "G",
+          "reason": "The Go binary has no authenticated browser bundle bound to GET /.",
+          "rust": [
+            "native/src/browser.rs",
+            "native/src/front_door_tests.rs",
+            "native/src/https.rs",
+            "native/src/ingress.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        }
       }
     },
     "tests/browser-traffic-native.test.ts": {
-      "result": "blocked",
-      "passed": 0,
-      "failed": 1,
-      "skipped": 0,
-      "exitCode": 1,
-      "caseResults": {
-        "passed": [],
-        "blocked": [
-          {
-            "segment": "E",
-            "module": "ingress",
-            "route": "POST /api/ingress",
-            "cases": [
-              "browser task polling sends compact metadata once and no body for unchanged reads"
-            ]
-          }
-        ]
+      "result": "passed",
+      "cases": {
+        "browser task polling sends compact metadata once and no body for unchanged reads": {
+          "result": "passed",
+          "rust": [
+            "native/src/browser.rs",
+            "native/src/kernel/task_projection.rs",
+            "native/src/service.rs",
+            "native/src/task_overview.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        }
       }
     },
     "tests/cli-failures.test.ts": {
-      "result": "blocked",
-      "passed": 1,
-      "failed": 2,
-      "skipped": 0,
-      "exitCode": 1,
-      "caseResults": {
-        "passed": [
-          "Resume guide and validation retain the interrupted-turn guard and receipt contract"
-        ],
-        "blocked": [
-          {
-            "segment": "A",
-            "module": "writer",
-            "route": "query codex_read",
-            "cases": [
-              "Direct CLI failures retain schema-valid recovery and fail the process"
-            ]
-          },
-          {
-            "segment": "C",
-            "module": "claude_notify",
-            "route": "PUT /api/task-settings",
-            "cases": [
-              "Interrupted task reads and waits succeed through the CLI envelope"
-            ],
-            "note": "The silently failed setup is followed by A codex_host act codex_create."
-          }
-        ]
+      "result": "passed",
+      "cases": {
+        "Direct CLI failures retain schema-valid recovery and fail the process": {
+          "result": "passed",
+          "rust": [
+            "native/src/cli.rs",
+            "native/src/egress.rs",
+            "native/src/shell_command.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Resume guide and validation retain the interrupted-turn guard and receipt contract": {
+          "result": "passed",
+          "rust": [
+            "native/src/cli.rs",
+            "native/src/control.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/turn_lifecycle.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Interrupted task reads and waits succeed through the CLI envelope": {
+          "result": "passed",
+          "rust": [
+            "native/src/cli.rs",
+            "native/src/egress.rs",
+            "native/src/task_summary.rs",
+            "native/src/turn_lifecycle.rs",
+            "native/src/waiter.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        }
       }
     },
     "tests/cli-readiness.test.ts": {
-      "result": "blocked",
-      "passed": 1,
-      "failed": 2,
-      "skipped": 0,
-      "exitCode": 1,
-      "caseResults": {
-        "passed": [
-          "Agents can invoke the absolute CLI path returned by guide and status without an arc shim"
-        ],
-        "blocked": [
-          {
-            "segment": "A",
-            "module": "cli_acceptance",
-            "route": "arc cli wait --op app.snapshot",
-            "cases": [
-              "The documented native readiness command waits through POST model snapshots",
-              "The documented scenario readiness command waits through POST model snapshots"
-            ]
-          }
-        ]
+      "result": "passed",
+      "cases": {
+        "The documented native readiness command waits through POST model snapshots": {
+          "result": "passed",
+          "rust": [
+            "native/src/cli.rs",
+            "native/src/cli_acceptance.rs",
+            "native/src/management.rs",
+            "native/src/transport.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "The documented scenario readiness command waits through POST model snapshots": {
+          "result": "passed",
+          "rust": [
+            "native/src/cli.rs",
+            "native/src/cli_acceptance.rs",
+            "native/src/management.rs",
+            "native/src/transport.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Agents can invoke the absolute CLI path returned by guide and status without an arc shim": {
+          "result": "passed",
+          "rust": [
+            "native/src/cli.rs",
+            "native/src/cli_shim.rs",
+            "native/src/control.rs",
+            "native/src/service.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        }
       }
     },
     "tests/control-mcp.test.ts": {
-      "result": "failed",
-      "passed": 30,
-      "failed": 64,
-      "skipped": 0,
-      "exitCode": 1,
-      "caseResults": {
-        "passed": [
-          "current protocol discovery and tool results expose mandatory wire metadata",
-          "deployment fingerprints ignore tool/property ordering and runtime changes but detect every published definition change",
-          "tool presets use the full registry, preserve exact allowlists and close only necessary read dependencies",
-          "managed draft commits the selected policy instead of publishing all tools",
-          "Git writes use durable receipts, isolated identity and safe local workflows",
-          "HTTP ingress observations correlate failures and dropped streams without retaining content or credentials",
-          "OAuth diagnostics reveal supplied identity field structure without retaining their values or credentials",
-          "managed Cloudflare recovers an exited provider without status polling and stops supervision on disconnect",
-          "HTTP and HTTPS ingress wait streaming keeps final result intact and releases request IDs on disconnect",
-          "stdio bridge forwards negotiated progress, preserves final replies and cancels on EOF",
-          "non-object MCP args report their JSON type without exposing submitted content",
-          "Git action and read limit aliases preserve behavior and search clamps its page size",
-          "large Git diff is bounded and its immutable output pages retain text and file statistics",
-          "source connection switching binds consent and preserves disconnected identities",
-          "frozen guide tool redirects query-only topics to query guide",
-          "Local skill installation gives Codex the same dispatch skill as Claude Code",
-          "Local Code exposes proactive AX reporting within the guide budget",
-          "AX CLI explicitly targets an isolated instance without installed fallback",
-          "AX topic guides return relevant operations and cache each view separately",
-          "AX unbound cloud-session verification explains binding and its next call",
-          "AX2 CLI guides accept full views and subcommands expose help without execution",
-          "Public failures provide a usable next without serialized duplicate reasons",
-          "coordination guide discovers shared coordination in normal mode",
-          "coordination registration exposes route repairs and current delivery consistently",
-          "logs accepts relative durations through the public schema",
-          "Maintainer mode defaults off, persists and switches progressive guide content live",
-          "Maintainer mode gates source triage and keeps normal AX reads reports and issue drafts usable",
-          "Maintainer mode local import reads only the selected synthetic queue",
-          "runtime diagnostics expose bounded content-free counters through query and management",
-          "macOS runtime CPU milliseconds agree with native process accounting"
-        ],
-        "failed": [
-          "MCP lists frozen tools and guide exposes existing ops and native domains with valid object schemas",
-          "native pass-through domain actions preserve RPC payloads",
-          "typical fs, PTY, downstream MCP and file search calls preserve native fields and events without creating threads",
-          "mutation receipts remain idempotent across domain and escape hatch, including pending and conflicting retries",
-          "receipt reads retain their target when the installed front door injects an outer ID",
-          "native errors retain code/message/data for both direct reads and mutation receipts; raw null/array results survive",
-          "setup clipboard preserves unrelated content on extraction failure and clears only after saving",
-          "setup rejects a short runtime key without saving or clearing; HTTPS fallback reuses the ingress",
-          "latest items pin the newest turn and preserve explicit turn and native cursor semantics",
-          "creation starts its first turn without legacy history reads, cleans definite failures and retains uncertain submissions",
-          "guide exposes replay boundaries and durable writes survive concurrent retries and Core restart",
-          "codex_pending retains terminal interaction ownership and staleness",
-          "respond tokens preserve legacy responses, bind thread and reject reuse",
-          "FIFO queue never steers, pauses on failures, supports cancellation/resume and stores durable state",
-          "local panel queues have durable sources, dispatch after completion and promote or cancel once",
-          "ARC answers retain their content and answering source after reconnect",
-          "capacity failures retry same model without replaying input, suppress intermediate failure and stop after budget or side effects",
-          "task overview defaults to compact live evidence and full view retains preview and cursor",
-          "Git change queries retain attribution and page through every commit",
-          "wait omits repeated nonterminal text and retains complete terminal replies",
-          "final text continuation preserves long Codex messages and the selected turn",
-          "final text continuation restores ACP archives and survives task reuse",
-          "inbox_wait filters unread events before limiting, isolates ingress and cooperates with ack",
-          "Claude task waits expose the source cap without delaying terminal results",
-          "object MCP args preserve nested values, quotes and large multiline strings",
-          "argument errors are short, field-specific and leave unread inbox untouched",
-          "cmd waitMs returns a pending receipt without changing the process timeout",
-          "MCP cmd default wait returns a receipt before the client deadline and preserves CLI and explicit waits",
-          "multi-root projects preserve legacy selection and resolve project cwd alternatives",
-          "large non-Git tree returns a bounded first layer and a truncation marker",
-          "Desktop seed is named before independent metadata read even with null rollout path",
-          "item and search pagination reconstruct the complete result",
-          "external terminal reviews remain supplementary across dispatch and history",
-          "review receipts omit notification delivery details including replay",
-          "ACP task tracking keeps approvals active and projects context, SSE and incremental timeline",
-          "guide progressively discloses every enabled op and caches projected content",
-          "control stats report byte baselines and waste candidates without call content",
-          "compact read defaults to the latest turn and item keys avoid duplicate complete items",
-          "command non-zero exits are completed results across MCP CLI and receipts",
-          "command not started retains its operation error",
-          "command output budgets preserve complete stdout and stderr through control_output",
-          "receipt next hashes omit repeated guidance only when explicitly supplied",
-          "review read returns complete outcomes without command outputs or intermediate messages",
-          "historical review file counts stop at the next clean turn baseline",
-          "lane summaries retain committed paths and diffstat across CLI and MCP dispatch and workspace removal",
-          "terminal snapshots preserve uncommitted text and binary statistics after workspace removal",
-          "removed lane without terminal evidence reports an explicit gap instead of an empty success",
-          "AX binary transfers verify bytes and reject duplicate append offsets",
-          "AX omitted request IDs return reusable receipts",
-          "AX status revisits and wait timeouts expose bounded progress evidence",
-          "AX2 failed receipts report failure through MCP and CLI without losing identity",
-          "AX2 oversized results retain identity and can be completely continued",
-          "AX2 status reads agree with wait observations and nonterminal receipts have next steps",
-          "AX2 interrupt resolves the active turn and preserves explicit IDs and retry identity",
-          "AX2 pending progress and flat answered history expose question content",
-          "AX2 archive supports ended ARC threads and explains active or external writer blocks",
-          "AX2 local follow-ups accept self-test purpose and inherit it without binding notifications",
-          "AX3 release hands off an idle connector thread without closing another owner",
-          "AX3 cloud binding is discoverable before dispatch and repairs an unbound task",
-          "app_env persists per instance, reads back and clears without exporting preferences",
-          "AX interface sends inherit explicit thread choices and notices observe linked running turns",
-          "AX foreground command receipts expose execution and process spawn supports session lifetime",
-          "Codex delivery attribution survives receipt and task reads and local review undo"
-        ],
-        "blocked": [
-          {
-            "segment": "A",
-            "module": "nativeControlRequest",
-            "route": "act codex_call",
-            "cases": [
-              "real HTTP ingresses isolate discovery and direct execution; policy PUT preserves identity, metadata and peer availability"
-            ],
-            "note": "The inventory, source policy and blocked-write receipt assertions pass. The allowed call needs the native RPC adapter."
-          }
-        ]
+      "result": "passed",
+      "cases": {
+        "current protocol discovery and tool results expose mandatory wire metadata": {
+          "result": "passed",
+          "rust": [
+            "native/src/control_metrics.rs",
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "native/src/front_door.rs",
+            "native/src/mcp_transport.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "MCP lists frozen tools and guide exposes existing ops and native domains with valid object schemas": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/control_profiles.rs",
+            "native/src/egress.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "native pass-through domain actions preserve RPC payloads": {
+          "result": "passed",
+          "rust": [
+            "native/src/codex_host.rs",
+            "native/src/control.rs",
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "native/src/front_door.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/rpc.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "typical fs, PTY, downstream MCP and file search calls preserve native fields and events without creating threads": {
+          "result": "passed",
+          "rust": [
+            "native/src/codex_host.rs",
+            "native/src/control.rs",
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "native/src/front_door.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/rpc.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "mutation receipts remain idempotent across domain and escape hatch, including pending and conflicting retries": {
+          "result": "passed",
+          "rust": [
+            "native/src/codex_host.rs",
+            "native/src/control.rs",
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "native/src/front_door.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/rpc.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "receipt reads retain their target when the installed front door injects an outer ID": {
+          "result": "passed",
+          "rust": [
+            "native/src/codex_host.rs",
+            "native/src/control.rs",
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "native/src/front_door.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/rpc.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "native errors retain code/message/data for both direct reads and mutation receipts; raw null/array results survive": {
+          "result": "passed",
+          "rust": [
+            "native/src/codex_host.rs",
+            "native/src/control.rs",
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "native/src/front_door.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/rpc.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "deployment fingerprints ignore tool/property ordering and runtime changes but detect every published definition change": {
+          "result": "passed",
+          "rust": [
+            "native/src/control_profiles.rs",
+            "native/src/core_requests.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "setup clipboard preserves unrelated content on extraction failure and clears only after saving": {
+          "result": "passed",
+          "rust": [
+            "native/src/setup.rs",
+            "native/src/setup_secret.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "setup rejects a short runtime key without saving or clearing; HTTPS fallback reuses the ingress": {
+          "result": "passed",
+          "rust": [
+            "native/src/ingress.rs",
+            "native/src/setup.rs",
+            "native/src/setup_secret.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "tool presets use the full registry, preserve exact allowlists and close only necessary read dependencies": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/control_profiles.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "real HTTP ingresses isolate discovery and direct execution; policy PUT preserves identity, metadata and peer availability": {
+          "result": "passed",
+          "rust": [
+            "native/src/control_profiles.rs",
+            "native/src/https.rs",
+            "native/src/ingress.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "managed draft commits the selected policy instead of publishing all tools": {
+          "result": "passed",
+          "rust": [
+            "native/src/control_profiles.rs",
+            "native/src/ingress.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Git writes use durable receipts, isolated identity and safe local workflows": {
+          "result": "passed",
+          "rust": [
+            "native/src/changes.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/projects.rs",
+            "native/src/text_files.rs",
+            "native/src/text_files/binary.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "latest items pin the newest turn and preserve explicit turn and native cursor semantics": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/archive.rs",
+            "native/src/agents/dispatch.rs",
+            "native/src/agents/lifecycle.rs",
+            "native/src/codex_host.rs",
+            "native/src/codex_progress.rs",
+            "native/src/desktop.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/task_overview.rs",
+            "native/src/task_summary.rs",
+            "native/src/task_tracking.rs",
+            "native/src/turn_lifecycle.rs",
+            "native/src/waiter.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "creation starts its first turn without legacy history reads, cleans definite failures and retains uncertain submissions": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/archive.rs",
+            "native/src/agents/dispatch.rs",
+            "native/src/agents/lifecycle.rs",
+            "native/src/codex_host.rs",
+            "native/src/codex_progress.rs",
+            "native/src/desktop.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/task_overview.rs",
+            "native/src/task_summary.rs",
+            "native/src/task_tracking.rs",
+            "native/src/turn_lifecycle.rs",
+            "native/src/waiter.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "guide exposes replay boundaries and durable writes survive concurrent retries and Core restart": {
+          "result": "passed",
+          "rust": [
+            "native/src/changes.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/projects.rs",
+            "native/src/text_files.rs",
+            "native/src/text_files/binary.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "HTTP ingress observations correlate failures and dropped streams without retaining content or credentials": {
+          "result": "passed",
+          "rust": [
+            "native/src/https.rs",
+            "native/src/ingress.rs",
+            "native/src/ingress_observation.rs",
+            "native/src/oauth.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "OAuth diagnostics reveal supplied identity field structure without retaining their values or credentials": {
+          "result": "passed",
+          "rust": [
+            "native/src/https.rs",
+            "native/src/ingress.rs",
+            "native/src/ingress_observation.rs",
+            "native/src/oauth.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "managed Cloudflare recovers an exited provider without status polling and stops supervision on disconnect": {
+          "result": "passed",
+          "rust": [
+            "native/src/cloudflare.rs",
+            "native/src/https.rs",
+            "native/src/https_tunnel.rs",
+            "native/src/ingress.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "codex_pending retains terminal interaction ownership and staleness": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/desktop/interactions.rs",
+            "native/src/dispatch_queue.rs",
+            "native/src/interaction_responses.rs",
+            "native/src/respond_tokens.rs",
+            "native/src/service.rs",
+            "native/src/task_tracking.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "respond tokens preserve legacy responses, bind thread and reject reuse": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/desktop/interactions.rs",
+            "native/src/dispatch_queue.rs",
+            "native/src/interaction_responses.rs",
+            "native/src/respond_tokens.rs",
+            "native/src/service.rs",
+            "native/src/task_tracking.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "FIFO queue never steers, pauses on failures, supports cancellation/resume and stores durable state": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/desktop/interactions.rs",
+            "native/src/dispatch_queue.rs",
+            "native/src/interaction_responses.rs",
+            "native/src/respond_tokens.rs",
+            "native/src/service.rs",
+            "native/src/task_tracking.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "local panel queues have durable sources, dispatch after completion and promote or cancel once": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/desktop/interactions.rs",
+            "native/src/dispatch_queue.rs",
+            "native/src/interaction_responses.rs",
+            "native/src/respond_tokens.rs",
+            "native/src/service.rs",
+            "native/src/task_tracking.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "ARC answers retain their content and answering source after reconnect": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/desktop/interactions.rs",
+            "native/src/dispatch_queue.rs",
+            "native/src/interaction_responses.rs",
+            "native/src/respond_tokens.rs",
+            "native/src/service.rs",
+            "native/src/task_tracking.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "capacity failures retry same model without replaying input, suppress intermediate failure and stop after budget or side effects": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/archive.rs",
+            "native/src/agents/dispatch.rs",
+            "native/src/agents/lifecycle.rs",
+            "native/src/claude_notify/retry.rs",
+            "native/src/codex_host.rs",
+            "native/src/codex_progress.rs",
+            "native/src/desktop.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/task_overview.rs",
+            "native/src/task_summary.rs",
+            "native/src/task_tracking.rs",
+            "native/src/turn_lifecycle.rs",
+            "native/src/waiter.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "task overview defaults to compact live evidence and full view retains preview and cursor": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/archive.rs",
+            "native/src/agents/dispatch.rs",
+            "native/src/agents/lifecycle.rs",
+            "native/src/codex_host.rs",
+            "native/src/codex_progress.rs",
+            "native/src/desktop.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/task_overview.rs",
+            "native/src/task_summary.rs",
+            "native/src/task_tracking.rs",
+            "native/src/turn_lifecycle.rs",
+            "native/src/waiter.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Git change queries retain attribution and page through every commit": {
+          "result": "passed",
+          "rust": [
+            "native/src/changes.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/projects.rs",
+            "native/src/text_files.rs",
+            "native/src/text_files/binary.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "wait omits repeated nonterminal text and retains complete terminal replies": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/archive.rs",
+            "native/src/agents/dispatch.rs",
+            "native/src/agents/lifecycle.rs",
+            "native/src/codex_host.rs",
+            "native/src/codex_progress.rs",
+            "native/src/desktop.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/task_overview.rs",
+            "native/src/task_summary.rs",
+            "native/src/task_tracking.rs",
+            "native/src/turn_lifecycle.rs",
+            "native/src/waiter.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "final text continuation preserves long Codex messages and the selected turn": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/archive.rs",
+            "native/src/agents/dispatch.rs",
+            "native/src/agents/lifecycle.rs",
+            "native/src/codex_host.rs",
+            "native/src/codex_progress.rs",
+            "native/src/desktop.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/task_overview.rs",
+            "native/src/task_summary.rs",
+            "native/src/task_tracking.rs",
+            "native/src/turn_lifecycle.rs",
+            "native/src/waiter.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "final text continuation restores ACP archives and survives task reuse": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/archive.rs",
+            "native/src/agents/dispatch.rs",
+            "native/src/agents/lifecycle.rs",
+            "native/src/codex_host.rs",
+            "native/src/codex_progress.rs",
+            "native/src/desktop.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/task_overview.rs",
+            "native/src/task_summary.rs",
+            "native/src/task_tracking.rs",
+            "native/src/turn_lifecycle.rs",
+            "native/src/waiter.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "inbox_wait filters unread events before limiting, isolates ingress and cooperates with ack": {
+          "result": "passed",
+          "rust": [
+            "native/src/claude_notify.rs",
+            "native/src/claude_notify/reachability.rs",
+            "native/src/claude_notify/routing.rs",
+            "native/src/claude_notify/subscriptions.rs",
+            "native/src/https.rs",
+            "native/src/mcp_transport.rs",
+            "native/src/transport.rs",
+            "native/src/wait_transport.rs",
+            "native/src/waiter.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "HTTP and HTTPS ingress wait streaming keeps final result intact and releases request IDs on disconnect": {
+          "result": "passed",
+          "rust": [
+            "native/src/claude_notify.rs",
+            "native/src/claude_notify/reachability.rs",
+            "native/src/claude_notify/routing.rs",
+            "native/src/claude_notify/subscriptions.rs",
+            "native/src/https.rs",
+            "native/src/mcp_transport.rs",
+            "native/src/transport.rs",
+            "native/src/wait_transport.rs",
+            "native/src/waiter.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Claude task waits expose the source cap without delaying terminal results": {
+          "result": "passed",
+          "rust": [
+            "native/src/claude_notify.rs",
+            "native/src/claude_notify/reachability.rs",
+            "native/src/claude_notify/routing.rs",
+            "native/src/claude_notify/subscriptions.rs",
+            "native/src/https.rs",
+            "native/src/mcp_transport.rs",
+            "native/src/transport.rs",
+            "native/src/wait_transport.rs",
+            "native/src/waiter.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "stdio bridge forwards negotiated progress, preserves final replies and cancels on EOF": {
+          "result": "passed",
+          "rust": [
+            "native/src/claude_notify.rs",
+            "native/src/claude_notify/reachability.rs",
+            "native/src/claude_notify/routing.rs",
+            "native/src/claude_notify/subscriptions.rs",
+            "native/src/https.rs",
+            "native/src/mcp_transport.rs",
+            "native/src/transport.rs",
+            "native/src/wait_transport.rs",
+            "native/src/waiter.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "non-object MCP args report their JSON type without exposing submitted content": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/control_profiles.rs",
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "object MCP args preserve nested values, quotes and large multiline strings": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/control_profiles.rs",
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "argument errors are short, field-specific and leave unread inbox untouched": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/control_profiles.rs",
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Git action and read limit aliases preserve behavior and search clamps its page size": {
+          "result": "passed",
+          "rust": [
+            "native/src/changes.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/projects.rs",
+            "native/src/text_files.rs",
+            "native/src/text_files/binary.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "cmd waitMs returns a pending receipt without changing the process timeout": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/shell_command.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "MCP cmd default wait returns a receipt before the client deadline and preserves CLI and explicit waits": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/shell_command.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "multi-root projects preserve legacy selection and resolve project cwd alternatives": {
+          "result": "passed",
+          "rust": [
+            "native/src/changes.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/projects.rs",
+            "native/src/text_files.rs",
+            "native/src/text_files/binary.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "large non-Git tree returns a bounded first layer and a truncation marker": {
+          "result": "passed",
+          "rust": [
+            "native/src/changes.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/projects.rs",
+            "native/src/text_files.rs",
+            "native/src/text_files/binary.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Desktop seed is named before independent metadata read even with null rollout path": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/archive.rs",
+            "native/src/agents/dispatch.rs",
+            "native/src/agents/lifecycle.rs",
+            "native/src/codex_host.rs",
+            "native/src/codex_progress.rs",
+            "native/src/desktop.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/task_overview.rs",
+            "native/src/task_summary.rs",
+            "native/src/task_tracking.rs",
+            "native/src/turn_lifecycle.rs",
+            "native/src/waiter.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "item and search pagination reconstruct the complete result": {
+          "result": "passed",
+          "rust": [
+            "native/src/changes.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/projects.rs",
+            "native/src/text_files.rs",
+            "native/src/text_files/binary.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "large Git diff is bounded and its immutable output pages retain text and file statistics": {
+          "result": "passed",
+          "rust": [
+            "native/src/changes.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/projects.rs",
+            "native/src/text_files.rs",
+            "native/src/text_files/binary.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "external terminal reviews remain supplementary across dispatch and history": {
+          "result": "passed",
+          "rust": [
+            "native/src/changes.rs",
+            "native/src/dispatch_policy.rs",
+            "native/src/dispatch_policy/quality.rs",
+            "native/src/egress.rs",
+            "native/src/kernel/file_changes.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/review.rs",
+            "native/src/task_summary.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "review receipts omit notification delivery details including replay": {
+          "result": "passed",
+          "rust": [
+            "native/src/changes.rs",
+            "native/src/dispatch_policy.rs",
+            "native/src/dispatch_policy/quality.rs",
+            "native/src/egress.rs",
+            "native/src/kernel/file_changes.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/review.rs",
+            "native/src/task_summary.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "ACP task tracking keeps approvals active and projects context, SSE and incremental timeline": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/archive.rs",
+            "native/src/agents/dispatch.rs",
+            "native/src/agents/lifecycle.rs",
+            "native/src/codex_host.rs",
+            "native/src/codex_progress.rs",
+            "native/src/desktop.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/task_overview.rs",
+            "native/src/task_summary.rs",
+            "native/src/task_tracking.rs",
+            "native/src/turn_lifecycle.rs",
+            "native/src/waiter.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "source connection switching binds consent and preserves disconnected identities": {
+          "result": "passed",
+          "rust": [
+            "native/src/ingress.rs",
+            "native/src/oauth.rs",
+            "native/src/sources.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "frozen guide tool redirects query-only topics to query guide": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/control_profiles.rs",
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "guide progressively discloses every enabled op and caches projected content": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/control_profiles.rs",
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Local skill installation gives Codex the same dispatch skill as Claude Code": {
+          "result": "passed",
+          "rust": [
+            "native/src/skills.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Local Code exposes proactive AX reporting within the guide budget": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/control_profiles.rs",
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "control stats report byte baselines and waste candidates without call content": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/control_profiles.rs",
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "compact read defaults to the latest turn and item keys avoid duplicate complete items": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/archive.rs",
+            "native/src/agents/dispatch.rs",
+            "native/src/agents/lifecycle.rs",
+            "native/src/codex_host.rs",
+            "native/src/codex_progress.rs",
+            "native/src/desktop.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/task_overview.rs",
+            "native/src/task_summary.rs",
+            "native/src/task_tracking.rs",
+            "native/src/turn_lifecycle.rs",
+            "native/src/waiter.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "command non-zero exits are completed results across MCP CLI and receipts": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/shell_command.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "command not started retains its operation error": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/shell_command.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "command output budgets preserve complete stdout and stderr through control_output": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/shell_command.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "receipt next hashes omit repeated guidance only when explicitly supplied": {
+          "result": "passed",
+          "rust": [
+            "native/src/egress.rs",
+            "native/src/kernel/receipts/projection.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "review read returns complete outcomes without command outputs or intermediate messages": {
+          "result": "passed",
+          "rust": [
+            "native/src/changes.rs",
+            "native/src/dispatch_policy.rs",
+            "native/src/dispatch_policy/quality.rs",
+            "native/src/egress.rs",
+            "native/src/kernel/file_changes.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/review.rs",
+            "native/src/task_summary.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "historical review file counts stop at the next clean turn baseline": {
+          "result": "passed",
+          "rust": [
+            "native/src/changes.rs",
+            "native/src/dispatch_policy.rs",
+            "native/src/dispatch_policy/quality.rs",
+            "native/src/egress.rs",
+            "native/src/kernel/file_changes.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/review.rs",
+            "native/src/task_summary.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "lane summaries retain committed paths and diffstat across CLI and MCP dispatch and workspace removal": {
+          "result": "passed",
+          "rust": [
+            "native/src/changes.rs",
+            "native/src/dispatch_policy.rs",
+            "native/src/dispatch_policy/quality.rs",
+            "native/src/egress.rs",
+            "native/src/kernel/file_changes.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/review.rs",
+            "native/src/task_summary.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "terminal snapshots preserve uncommitted text and binary statistics after workspace removal": {
+          "result": "passed",
+          "rust": [
+            "native/src/changes.rs",
+            "native/src/dispatch_policy.rs",
+            "native/src/dispatch_policy/quality.rs",
+            "native/src/egress.rs",
+            "native/src/kernel/file_changes.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/review.rs",
+            "native/src/task_summary.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "removed lane without terminal evidence reports an explicit gap instead of an empty success": {
+          "result": "passed",
+          "rust": [
+            "native/src/changes.rs",
+            "native/src/dispatch_policy.rs",
+            "native/src/dispatch_policy/quality.rs",
+            "native/src/egress.rs",
+            "native/src/kernel/file_changes.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/review.rs",
+            "native/src/task_summary.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "AX binary transfers verify bytes and reject duplicate append offsets": {
+          "result": "passed",
+          "rust": [
+            "native/src/changes.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/projects.rs",
+            "native/src/text_files.rs",
+            "native/src/text_files/binary.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "AX omitted request IDs return reusable receipts": {
+          "result": "passed",
+          "rust": [
+            "native/src/codex_host.rs",
+            "native/src/control.rs",
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "native/src/front_door.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/rpc.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "AX status revisits and wait timeouts expose bounded progress evidence": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/archive.rs",
+            "native/src/agents/dispatch.rs",
+            "native/src/agents/lifecycle.rs",
+            "native/src/codex_host.rs",
+            "native/src/codex_progress.rs",
+            "native/src/desktop.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/task_overview.rs",
+            "native/src/task_summary.rs",
+            "native/src/task_tracking.rs",
+            "native/src/turn_lifecycle.rs",
+            "native/src/waiter.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "AX CLI explicitly targets an isolated instance without installed fallback": {
+          "result": "passed",
+          "rust": [
+            "native/src/cli.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "AX topic guides return relevant operations and cache each view separately": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/control_profiles.rs",
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "AX unbound cloud-session verification explains binding and its next call": {
+          "result": "passed",
+          "rust": [
+            "native/src/claude_notify.rs",
+            "native/src/claude_notify/reachability.rs",
+            "native/src/claude_notify/routing.rs",
+            "native/src/claude_notify/subscriptions.rs",
+            "native/src/https.rs",
+            "native/src/mcp_transport.rs",
+            "native/src/transport.rs",
+            "native/src/wait_transport.rs",
+            "native/src/waiter.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "AX2 failed receipts report failure through MCP and CLI without losing identity": {
+          "result": "passed",
+          "rust": [
+            "native/src/codex_host.rs",
+            "native/src/control.rs",
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "native/src/front_door.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/rpc.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "AX2 CLI guides accept full views and subcommands expose help without execution": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "AX2 oversized results retain identity and can be completely continued": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/archive.rs",
+            "native/src/agents/dispatch.rs",
+            "native/src/agents/lifecycle.rs",
+            "native/src/codex_host.rs",
+            "native/src/codex_progress.rs",
+            "native/src/desktop.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/task_overview.rs",
+            "native/src/task_summary.rs",
+            "native/src/task_tracking.rs",
+            "native/src/turn_lifecycle.rs",
+            "native/src/waiter.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "AX2 status reads agree with wait observations and nonterminal receipts have next steps": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/archive.rs",
+            "native/src/agents/dispatch.rs",
+            "native/src/agents/lifecycle.rs",
+            "native/src/codex_host.rs",
+            "native/src/codex_progress.rs",
+            "native/src/desktop.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/task_overview.rs",
+            "native/src/task_summary.rs",
+            "native/src/task_tracking.rs",
+            "native/src/turn_lifecycle.rs",
+            "native/src/waiter.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "AX2 interrupt resolves the active turn and preserves explicit IDs and retry identity": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/archive.rs",
+            "native/src/agents/dispatch.rs",
+            "native/src/agents/lifecycle.rs",
+            "native/src/codex_host.rs",
+            "native/src/codex_progress.rs",
+            "native/src/desktop.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/task_overview.rs",
+            "native/src/task_summary.rs",
+            "native/src/task_tracking.rs",
+            "native/src/turn_lifecycle.rs",
+            "native/src/waiter.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "AX2 pending progress and flat answered history expose question content": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/desktop/interactions.rs",
+            "native/src/dispatch_queue.rs",
+            "native/src/interaction_responses.rs",
+            "native/src/respond_tokens.rs",
+            "native/src/service.rs",
+            "native/src/task_tracking.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "AX2 archive supports ended ARC threads and explains active or external writer blocks": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/archive.rs",
+            "native/src/agents/dispatch.rs",
+            "native/src/agents/lifecycle.rs",
+            "native/src/codex_host.rs",
+            "native/src/codex_progress.rs",
+            "native/src/desktop.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/task_overview.rs",
+            "native/src/task_summary.rs",
+            "native/src/task_tracking.rs",
+            "native/src/turn_lifecycle.rs",
+            "native/src/waiter.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "AX2 local follow-ups accept self-test purpose and inherit it without binding notifications": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/desktop/interactions.rs",
+            "native/src/dispatch_queue.rs",
+            "native/src/interaction_responses.rs",
+            "native/src/respond_tokens.rs",
+            "native/src/service.rs",
+            "native/src/task_tracking.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "AX3 release hands off an idle connector thread without closing another owner": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/archive.rs",
+            "native/src/agents/dispatch.rs",
+            "native/src/agents/lifecycle.rs",
+            "native/src/codex_host.rs",
+            "native/src/codex_progress.rs",
+            "native/src/desktop.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/task_overview.rs",
+            "native/src/task_summary.rs",
+            "native/src/task_tracking.rs",
+            "native/src/turn_lifecycle.rs",
+            "native/src/waiter.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "AX3 cloud binding is discoverable before dispatch and repairs an unbound task": {
+          "result": "passed",
+          "rust": [
+            "native/src/claude_notify.rs",
+            "native/src/claude_notify/reachability.rs",
+            "native/src/claude_notify/routing.rs",
+            "native/src/claude_notify/subscriptions.rs",
+            "native/src/https.rs",
+            "native/src/mcp_transport.rs",
+            "native/src/transport.rs",
+            "native/src/wait_transport.rs",
+            "native/src/waiter.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Public failures provide a usable next without serialized duplicate reasons": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/control_profiles.rs",
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "app_env persists per instance, reads back and clears without exporting preferences": {
+          "result": "passed",
+          "rust": [
+            "native/src/app_env.rs",
+            "native/src/preferences.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "AX interface sends inherit explicit thread choices and notices observe linked running turns": {
+          "result": "passed",
+          "rust": [
+            "native/src/coordination/ax/import.rs",
+            "native/src/coordination/ax/issue.rs",
+            "native/src/coordination/ax/mod.rs",
+            "native/src/coordination/bulletin/dispatch.rs",
+            "native/src/coordination/mod.rs",
+            "native/src/coordination/observers.rs",
+            "native/src/coordination/routing.rs",
+            "native/src/preferences.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "AX foreground command receipts expose execution and process spawn supports session lifetime": {
+          "result": "passed",
+          "rust": [
+            "native/src/control.rs",
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/output.rs",
+            "native/src/shell_command.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "coordination guide discovers shared coordination in normal mode": {
+          "result": "passed",
+          "rust": [
+            "native/src/coordination/ax/import.rs",
+            "native/src/coordination/ax/issue.rs",
+            "native/src/coordination/ax/mod.rs",
+            "native/src/coordination/bulletin/dispatch.rs",
+            "native/src/coordination/mod.rs",
+            "native/src/coordination/observers.rs",
+            "native/src/coordination/routing.rs",
+            "native/src/preferences.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "coordination registration exposes route repairs and current delivery consistently": {
+          "result": "passed",
+          "rust": [
+            "native/src/coordination/ax/import.rs",
+            "native/src/coordination/ax/issue.rs",
+            "native/src/coordination/ax/mod.rs",
+            "native/src/coordination/bulletin/dispatch.rs",
+            "native/src/coordination/mod.rs",
+            "native/src/coordination/observers.rs",
+            "native/src/coordination/routing.rs",
+            "native/src/preferences.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "logs accepts relative durations through the public schema": {
+          "result": "passed",
+          "rust": [
+            "native/src/logs.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Maintainer mode defaults off, persists and switches progressive guide content live": {
+          "result": "passed",
+          "rust": [
+            "native/src/coordination/ax/import.rs",
+            "native/src/coordination/ax/issue.rs",
+            "native/src/coordination/ax/mod.rs",
+            "native/src/coordination/bulletin/dispatch.rs",
+            "native/src/coordination/mod.rs",
+            "native/src/coordination/observers.rs",
+            "native/src/coordination/routing.rs",
+            "native/src/preferences.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Maintainer mode gates source triage and keeps normal AX reads reports and issue drafts usable": {
+          "result": "passed",
+          "rust": [
+            "native/src/coordination/ax/import.rs",
+            "native/src/coordination/ax/issue.rs",
+            "native/src/coordination/ax/mod.rs",
+            "native/src/coordination/bulletin/dispatch.rs",
+            "native/src/coordination/mod.rs",
+            "native/src/coordination/observers.rs",
+            "native/src/coordination/routing.rs",
+            "native/src/preferences.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Maintainer mode local import reads only the selected synthetic queue": {
+          "result": "passed",
+          "rust": [
+            "native/src/coordination/ax/import.rs",
+            "native/src/coordination/ax/issue.rs",
+            "native/src/coordination/ax/mod.rs",
+            "native/src/coordination/bulletin/dispatch.rs",
+            "native/src/coordination/mod.rs",
+            "native/src/coordination/observers.rs",
+            "native/src/coordination/routing.rs",
+            "native/src/preferences.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "runtime diagnostics expose bounded content-free counters through query and management": {
+          "result": "passed",
+          "rust": [
+            "native/src/diagnostics.rs",
+            "native/src/management.rs",
+            "native/src/runtime_metrics.rs",
+            "native/src/runtime_metrics/cost.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "macOS runtime CPU milliseconds agree with native process accounting": {
+          "result": "passed",
+          "rust": [
+            "native/src/diagnostics.rs",
+            "native/src/management.rs",
+            "native/src/runtime_metrics.rs",
+            "native/src/runtime_metrics/cost.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Codex delivery attribution survives receipt and task reads and local review undo": {
+          "result": "passed",
+          "rust": [
+            "native/src/changes.rs",
+            "native/src/dispatch_policy.rs",
+            "native/src/dispatch_policy/quality.rs",
+            "native/src/egress.rs",
+            "native/src/kernel/file_changes.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/review.rs",
+            "native/src/task_summary.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        }
       }
     },
     "tests/coordination-center-native.test.ts": {
-      "result": "blocked",
-      "passed": 0,
-      "failed": 3,
-      "skipped": 0,
-      "exitCode": 1,
-      "caseResults": {
-        "passed": [],
-        "blocked": [
-          {
-            "segment": "B",
-            "module": "coordination/ax",
-            "route": "act ax_report",
-            "cases": [
-              "desktop AX reads preserve pagination, closed decisions and local evidence",
-              "board keeps AX attention structured without duplicate summary lines"
-            ]
-          },
-          {
-            "segment": "B",
-            "module": "coordination/bulletin",
-            "route": "POST /api/coordination/notice_post",
-            "cases": [
-              "desktop bulletin management uses local authority, owner revisions, replay and retained journal readback"
-            ]
-          }
-        ]
+      "result": "passed",
+      "cases": {
+        "desktop AX reads preserve pagination, closed decisions and local evidence": {
+          "result": "passed",
+          "rust": [
+            "native/src/coordination/ax/mod.rs",
+            "native/src/coordination/ax/store.rs",
+            "native/src/service.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "desktop bulletin management uses local authority, owner revisions, replay and retained journal readback": {
+          "result": "passed",
+          "rust": [
+            "native/src/coordination/bulletin/mod.rs",
+            "native/src/coordination/bulletin/store.rs",
+            "native/src/coordination/journal.rs",
+            "native/src/service.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "board keeps AX attention structured without duplicate summary lines": {
+          "result": "passed",
+          "rust": [
+            "native/src/coordination/ax/store.rs",
+            "native/src/coordination/bulletin/mod.rs",
+            "native/src/coordination/bulletin/store.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        }
       }
     },
     "tests/coordination-recovery.test.ts": {
-      "result": "blocked",
-      "passed": 0,
-      "failed": 1,
-      "skipped": 0,
-      "exitCode": 1,
-      "caseResults": {
-        "passed": [],
-        "blocked": [
-          {
-            "segment": "E",
-            "module": "ingress",
-            "route": "POST /api/ingress",
-            "cases": [
-              "legacy negotiation recovery restores Messages, Board and session route operations"
-            ],
-            "note": "The named ingress is unavailable before B negotiation recovery."
-          }
-        ]
+      "result": "passed",
+      "cases": {
+        "legacy negotiation recovery restores Messages, Board and session route operations": {
+          "result": "passed",
+          "rust": [
+            "native/src/coordination/bulletin/mod.rs",
+            "native/src/coordination/messages/mod.rs",
+            "native/src/coordination/messages/store.rs",
+            "native/src/coordination/recovery.rs",
+            "native/src/coordination/routing.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        }
       }
     },
     "tests/desktop-dispatch.test.ts": {
-      "result": "blocked",
-      "passed": 0,
-      "failed": 4,
-      "skipped": 0,
-      "exitCode": 1,
-      "caseResults": {
-        "passed": [],
-        "blocked": [
-          {
-            "segment": "A",
-            "module": "writer",
-            "route": "act codex_send",
-            "cases": [
-              "Desktop and connector owners dispatch FIFO and steer only a confirmed native turn"
-            ]
-          },
-          {
-            "segment": "A",
-            "module": "codex_host",
-            "route": "query codex_query (thread/read)",
-            "cases": [
-              "AX unheld thread reads recover from silent Desktop discovery"
-            ]
-          },
-          {
-            "segment": "A",
-            "module": "agents",
-            "route": "GET /api/agents/activity",
-            "cases": [
-              "Codex activity and timelines retain the active native turn"
-            ]
-          },
-          {
-            "segment": "C",
-            "module": "claude_notify",
-            "route": "PUT /api/task-settings; GET /api/task-settings",
-            "cases": [
-              "Desktop recovery keeps create pending without accepting remote approval, while existing sends can fall back"
-            ]
-          }
-        ]
+      "result": "passed",
+      "cases": {
+        "Desktop and connector owners dispatch FIFO and steer only a confirmed native turn": {
+          "result": "passed",
+          "rust": [
+            "native/src/codex_host.rs",
+            "native/src/desktop.rs",
+            "native/src/desktop/daemon.rs",
+            "native/src/desktop/interactions.rs",
+            "native/src/dispatch_queue.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "AX unheld thread reads recover from silent Desktop discovery": {
+          "result": "passed",
+          "rust": [
+            "native/src/desktop/daemon.rs",
+            "native/src/desktop/recovery.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Codex activity and timelines retain the active native turn": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/activity.rs",
+            "native/src/agents/conversations.rs",
+            "native/src/task_tracking.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Desktop recovery keeps create pending without accepting remote approval, while existing sends can fall back": {
+          "result": "passed",
+          "rust": [
+            "native/src/codex_host.rs",
+            "native/src/desktop/recovery.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        }
       }
     },
     "tests/digest-native.test.ts": {
-      "result": "blocked",
-      "passed": 14,
-      "failed": 1,
-      "skipped": 0,
-      "exitCode": 1,
-      "caseResults": {
-        "passed": [
-          "query carries one complete JSON text result and preserves error envelopes",
-          "digest owner pagination preserves filters and reaches the next native page",
-          "oversized opaque identities retain JSON, detail access and UTF-16 full continuation",
-          "expired digest and full-output cursors return schema-valid restart actions",
-          "remote query and CLI both return bounded digests without changing frozen tools",
-          "codex_tasks default measures the final wire result before choosing a digest",
-          "ax_list default measures the final wire result before choosing a digest",
-          "accounts default measures the final wire result before choosing a digest",
-          "notify_status default measures the final wire result before choosing a digest",
-          "board default measures the final wire result before choosing a digest",
-          "agent_tasks default measures the final wire result before choosing a digest",
-          "isolated notify digest preserves full-row actions in MCP text",
-          "account digest summaries retain visible aliases",
-          "digest wire size includes escaping and JSON-RPC framing"
-        ],
-        "blocked": [
-          {
-            "segment": "B",
-            "module": "coordination",
-            "route": "query events (digest)",
-            "cases": [
-              "owner digests and oversized defaults expose every snapshot row through valid MCP actions"
-            ],
-            "note": "The synthetic owner projections completed before this real query."
-          }
-        ]
+      "result": "passed",
+      "cases": {
+        "query carries one complete JSON text result and preserves error envelopes": {
+          "result": "passed",
+          "rust": [
+            "native/src/core_requests.rs",
+            "native/src/egress.rs",
+            "native/src/mcp_transport.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "owner digests and oversized defaults expose every snapshot row through valid MCP actions": {
+          "result": "passed",
+          "rust": [
+            "native/src/coordination/bulletin/mod.rs",
+            "native/src/coordination/mod.rs",
+            "native/src/kernel/digests.rs",
+            "native/src/kernel/results.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "digest owner pagination preserves filters and reaches the next native page": {
+          "result": "passed",
+          "rust": [
+            "native/src/kernel/digests.rs",
+            "native/src/kernel/results.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "oversized opaque identities retain JSON, detail access and UTF-16 full continuation": {
+          "result": "passed",
+          "rust": [
+            "native/src/kernel/digests.rs",
+            "native/src/kernel/results.rs",
+            "native/src/output.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "expired digest and full-output cursors return schema-valid restart actions": {
+          "result": "passed",
+          "rust": [
+            "native/src/kernel/digests.rs",
+            "native/src/kernel/results.rs",
+            "native/src/output.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "remote query and CLI both return bounded digests without changing frozen tools": {
+          "result": "passed",
+          "rust": [
+            "native/src/cli.rs",
+            "native/src/kernel/digests.rs",
+            "native/src/mcp_transport.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "codex_tasks default measures the final wire result before choosing a digest": {
+          "result": "passed",
+          "rust": [
+            "native/src/egress.rs",
+            "native/src/kernel/digests.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "ax_list default measures the final wire result before choosing a digest": {
+          "result": "passed",
+          "rust": [
+            "native/src/egress.rs",
+            "native/src/kernel/digests.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "accounts default measures the final wire result before choosing a digest": {
+          "result": "passed",
+          "rust": [
+            "native/src/egress.rs",
+            "native/src/kernel/digests.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "notify_status default measures the final wire result before choosing a digest": {
+          "result": "passed",
+          "rust": [
+            "native/src/egress.rs",
+            "native/src/kernel/digests.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "board default measures the final wire result before choosing a digest": {
+          "result": "passed",
+          "rust": [
+            "native/src/egress.rs",
+            "native/src/kernel/digests.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "agent_tasks default measures the final wire result before choosing a digest": {
+          "result": "passed",
+          "rust": [
+            "native/src/egress.rs",
+            "native/src/kernel/digests.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "isolated notify digest preserves full-row actions in MCP text": {
+          "result": "passed",
+          "rust": [
+            "native/src/egress.rs",
+            "native/src/kernel/digests.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "account digest summaries retain visible aliases": {
+          "result": "passed",
+          "rust": [
+            "native/src/egress.rs",
+            "native/src/kernel/digests.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "digest wire size includes escaping and JSON-RPC framing": {
+          "result": "passed",
+          "rust": [
+            "native/src/egress.rs",
+            "native/src/kernel/digests.rs",
+            "native/src/mcp_transport.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        }
       }
     },
     "tests/dispatch-policy.test.ts": {
-      "result": "failed",
-      "passed": 3,
-      "failed": 5,
-      "skipped": 0,
-      "exitCode": 1,
-      "caseResults": {
-        "passed": [
-          "Codex dispatch policy retains credit balance alongside exhausted subscription limits",
-          "Policy update uses the act and CLI envelopes with guarded error codes and ingress authorization",
-          "Pack updates use guarded hashes and appear in both dispatch_policy views"
-        ],
-        "failed": [
-          "Dispatch criteria hashes round-trip as strings or per-agent maps in both views",
-          "Decision policy folds sparse dispatches without losing full history or selection constraints",
-          "Criteria replacement preserves other scopes and settings and exposes the active policy and formatted backup",
-          "Pack dispatch appends its block once and ranks its defaults below explicit choices"
-        ],
-        "blocked": [
-          {
-            "segment": "A",
-            "module": "nativeControlRequest",
-            "route": "act fs/remove; act fs/createDirectory",
-            "cases": [
-              "Concurrent policy replacements reject stale hashes without modifying policy or backup and backup failures preserve policy"
-            ],
-            "note": "Concurrent replacement and stale-hash assertions pass. The native filesystem mutation never reports completion."
-          }
-        ]
+      "result": "passed",
+      "cases": {
+        "Codex dispatch policy retains credit balance alongside exhausted subscription limits": {
+          "result": "passed",
+          "rust": [
+            "native/src/dispatch_policy.rs",
+            "native/src/local_gateway.rs",
+            "native/src/subscriptions/providers/codex.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Dispatch criteria hashes round-trip as strings or per-agent maps in both views": {
+          "result": "passed",
+          "rust": [
+            "native/src/dispatch_policy.rs",
+            "native/src/dispatch_policy/decision.rs",
+            "native/src/dispatch_policy/quality.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Decision policy folds sparse dispatches without losing full history or selection constraints": {
+          "result": "passed",
+          "rust": [
+            "native/src/dispatch_policy.rs",
+            "native/src/dispatch_policy/decision.rs",
+            "native/src/dispatch_policy/quality.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Criteria replacement preserves other scopes and settings and exposes the active policy and formatted backup": {
+          "result": "passed",
+          "rust": [
+            "native/src/dispatch_policy.rs",
+            "native/src/dispatch_policy/decision.rs",
+            "native/src/dispatch_policy/quality.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Policy update uses the act and CLI envelopes with guarded error codes and ingress authorization": {
+          "result": "passed",
+          "rust": [
+            "native/src/cli.rs",
+            "native/src/dispatch_policy.rs",
+            "native/src/egress.rs",
+            "native/src/ingress.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Concurrent policy replacements reject stale hashes without modifying policy or backup and backup failures preserve policy": {
+          "result": "passed",
+          "rust": [
+            "native/src/dispatch_policy.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Pack updates use guarded hashes and appear in both dispatch_policy views": {
+          "result": "passed",
+          "rust": [
+            "native/src/dispatch_policy.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Pack dispatch appends its block once and ranks its defaults below explicit choices": {
+          "result": "passed",
+          "rust": [
+            "native/src/codex_host.rs",
+            "native/src/dispatch_policy.rs",
+            "native/src/dispatch_policy/decision.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        }
       }
     },
     "tests/index-startup-native.test.ts": {
-      "result": "blocked",
-      "passed": 0,
-      "failed": 1,
-      "skipped": 0,
-      "exitCode": 1,
-      "caseResults": {
-        "passed": [],
-        "blocked": [
-          {
-            "segment": "A",
-            "module": "task_overview; turn_lifecycle",
-            "route": "GET /api/tasks; notification observation",
-            "cases": [
-              "real Core serves health, leases, guide and query before realistic retained-state migration publishes"
-            ],
-            "note": "Guide, runtime metrics and all three durable publications complete. The tasks request returns GO_PORT_PENDING during publication and missing Agent observation hooks stop restart verification."
-          }
-        ]
-      },
-      "benchmarkMs": {
-        "rust": {
-          "initial": {
-            "metadata": 1034.808,
-            "health": 1078.621,
-            "lease": 1082.704,
-            "guide": 1364.822,
-            "query": 1377.061
-          },
-          "restart": {
-            "metadata": 380.985,
-            "health": 422.25,
-            "lease": 426.501,
-            "guide": 721.158,
-            "query": 730.368
-          },
-          "receiptAfterGate": 1646,
-          "maxLatency": {
-            "guide": 19.889,
-            "unrelated": 13.341,
-            "pending": 9.094,
-            "published": 12.627
-          }
-        },
-        "go": {
-          "initial": {
-            "metadata": 256.51,
-            "health": 287.404,
-            "lease": 291.654,
-            "guide": 300.21,
-            "query": null
-          },
-          "restart": null,
-          "receiptAfterGate": null,
-          "maxLatency": null
-        },
-        "i1": {
-          "rustReference": {
-            "guide": 21.116,
-            "unrelated": 26.891,
-            "pending": 13.269,
-            "published": 15.24
-          },
-          "goBefore": {
-            "guide": 129.916,
-            "unrelated": 194.147,
-            "pending": 5.352,
-            "published": 10.387
-          },
-          "goAfter": {
-            "guide": 11.019,
-            "unrelated": 13.453,
-            "pending": 11.631,
-            "published": 6.334
-          },
-          "note": "Same installed-shape native fixture on darwin/arm64. Watcher registration and filesystem work no longer hold the event state or registry locks."
+      "result": "passed",
+      "cases": {
+        "real Core serves health, leases, guide and query before realistic retained-state migration publishes": {
+          "result": "passed",
+          "rust": [
+            "native/src/claude_notify.rs",
+            "native/src/claude_notify/index.rs",
+            "native/src/claude_notify/observer.rs",
+            "native/src/kernel/derived_index.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/kernel/task_projection.rs",
+            "native/src/runtime.rs",
+            "native/src/runtime_metrics.rs",
+            "native/src/runtime_metrics/cost.rs",
+            "native/src/sources.rs",
+            "native/src/task_overview.rs",
+            "native/src/transport.rs",
+            "tests/fixture/src/main.rs"
+          ]
         }
-      },
-      "evidence": "Go phase timings came from an untracked copy that prints the existing measurements before the runtime_metrics assertion. The tracked Rust and Go runs used the unchanged native case."
+      }
     },
     "tests/mcp-hub.test.ts": {
       "result": "passed",
-      "passed": 2,
-      "failed": 0,
-      "skipped": 0,
-      "exitCode": 0,
-      "caseResults": {
-        "passed": [
-          "MCP hub exposes downstream tools to control sources through query and act",
-          "Core restores enabled MCP hub services on restart without a discovery request"
-        ],
-        "blocked": []
+      "cases": {
+        "MCP hub exposes downstream tools to control sources through query and act": {
+          "result": "passed",
+          "rust": [
+            "native/src/mcp_hub.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Core restores enabled MCP hub services on restart without a discovery request": {
+          "result": "passed",
+          "rust": [
+            "native/src/mcp_hub.rs",
+            "native/src/runtime.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        }
       }
     },
     "tests/notification-account.test.ts": {
-      "result": "blocked",
-      "passed": 1,
-      "failed": 1,
-      "skipped": 0,
-      "exitCode": 1,
-      "caseResults": {
-        "passed": [
-          "Cloud bind preserves a missing-session diagnosis and only safe routed profile identity"
-        ],
-        "blocked": [
-          {
-            "segment": "A",
-            "module": "src_conversations",
-            "route": "query src_conversations",
-            "cases": [
-              "Unrouted targets select only a uniquely visible profile and persist that choice"
-            ],
-            "note": "Ambiguous and inconclusive visibility, unique profile selection, and challenge delivery pass before the first inventory read."
-          }
-        ]
+      "result": "passed",
+      "cases": {
+        "Cloud bind preserves a missing-session diagnosis and only safe routed profile identity": {
+          "result": "passed",
+          "rust": [
+            "native/src/accounts/mod.rs",
+            "native/src/claude_accounts/routing.rs",
+            "native/src/claude_notify.rs",
+            "native/src/claude_notify/reachability.rs",
+            "native/src/claude_notify/routing.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Unrouted targets select only a uniquely visible profile and persist that choice": {
+          "result": "passed",
+          "rust": [
+            "native/src/accounts/mod.rs",
+            "native/src/claude_accounts/routing.rs",
+            "native/src/claude_notify.rs",
+            "native/src/claude_notify/reachability.rs",
+            "native/src/claude_notify/routing.rs",
+            "native/src/src_conversations/identity.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        }
       }
     },
     "tests/src-conversations.test.ts": {
-      "result": "blocked",
-      "passed": 0,
-      "failed": 3,
-      "skipped": 0,
-      "exitCode": 1,
-      "caseResults": {
-        "passed": [],
-        "blocked": [
-          {
-            "segment": "A",
-            "module": "src_conversations",
-            "route": "query src_conversations; act src_conversation_open",
-            "cases": [
-              "Verified session aliases preserve Chat identity and task links through Core restart",
-              "Source conversation ops isolate accounts and persist bindings through restart",
-              "Source inventory includes other Claude accounts before a website container exists"
-            ],
-            "note": "The alias case verifies challenge delivery, acknowledgement and whoami before the first source conversation inventory read."
-          }
-        ]
+      "result": "passed",
+      "cases": {
+        "Verified session aliases preserve Chat identity and task links through Core restart": {
+          "result": "passed",
+          "rust": [
+            "native/src/claude_notify.rs",
+            "native/src/sources.rs",
+            "native/src/src_conversations/identity.rs",
+            "native/src/src_conversations/refs.rs",
+            "native/src/src_conversations/registry.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Source conversation ops isolate accounts and persist bindings through restart": {
+          "result": "passed",
+          "rust": [
+            "native/src/src_conversations/import_state.rs",
+            "native/src/src_conversations/mod.rs",
+            "native/src/src_conversations/refs.rs",
+            "native/src/src_conversations/registry.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Source inventory includes other Claude accounts before a website container exists": {
+          "result": "passed",
+          "rust": [
+            "native/src/sources.rs",
+            "native/src/src_conversations/registry.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        }
       }
     },
     "tests/task-feed-performance.test.ts": {
-      "result": "blocked",
-      "passed": 0,
-      "failed": 2,
-      "skipped": 0,
-      "exitCode": 1,
-      "caseResults": {
-        "passed": [],
-        "blocked": [
-          {
-            "segment": "C",
-            "module": "claude_notify",
-            "route": "PUT /api/task-settings",
-            "cases": [
-              "task feed sends only changes and recovers when the client misses a revision",
-              "a cold Codex timeline previews recent items and keeps the older history available"
-            ],
-            "note": "The following blockers are A POST /api/tasks/snapshot and act codex_create, respectively."
-          }
-        ]
+      "result": "passed",
+      "cases": {
+        "task feed sends only changes and recovers when the client misses a revision": {
+          "result": "passed",
+          "rust": [
+            "native/src/kernel/task_projection.rs",
+            "native/src/service.rs",
+            "native/src/task_overview.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "a cold Codex timeline previews recent items and keeps the older history available": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/conversations.rs",
+            "native/src/agents/conversations/native.rs",
+            "native/src/service.rs",
+            "native/src/transport.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        }
       }
     },
     "tests/task-list-cost.test.ts": {
-      "result": "blocked",
-      "passed": 0,
-      "failed": 5,
-      "skipped": 0,
-      "exitCode": 1,
-      "caseResults": {
-        "passed": [],
-        "blocked": [
-          {
-            "segment": "A",
-            "module": "codex_host",
-            "route": "query codex_tasks",
-            "cases": [
-              "archived task filters are discoverable and listing never needs live enrichment by default"
-            ]
-          },
-          {
-            "segment": "A",
-            "module": "task_overview",
-            "route": "GET /api/tasks",
-            "cases": [
-              "cached task and status projections follow receipt replacement, runtime updates and deletion",
-              "memoized task projections retain fallback metadata and recover repaired receipts"
-            ]
-          },
-          {
-            "segment": "A",
-            "module": "agents",
-            "route": "GET /api/agents/activity",
-            "cases": [
-              "activity discovery finds a new transcript root and follows append and removal",
-              "activity rediscovers a resumed Codex session while its writer remains open"
-            ]
-          }
-        ]
+      "result": "passed",
+      "cases": {
+        "archived task filters are discoverable and listing never needs live enrichment by default": {
+          "result": "passed",
+          "rust": [
+            "native/src/task_overview.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "cached task and status projections follow receipt replacement, runtime updates and deletion": {
+          "result": "passed",
+          "rust": [
+            "native/src/kernel/file_changes.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/kernel/task_projection.rs",
+            "native/src/runtime_metrics/cost.rs",
+            "native/src/task_overview.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "activity discovery finds a new transcript root and follows append and removal": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/activity.rs",
+            "native/src/agents/conversations/native.rs",
+            "native/src/runtime_metrics/cost.rs",
+            "native/src/task_tracking/transcripts.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "activity rediscovers a resumed Codex session while its writer remains open": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/activity.rs",
+            "native/src/agents/conversations/native.rs",
+            "native/src/runtime_metrics/cost.rs",
+            "native/src/task_tracking/transcripts.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "memoized task projections retain fallback metadata and recover repaired receipts": {
+          "result": "passed",
+          "rust": [
+            "native/src/kernel/file_changes.rs",
+            "native/src/kernel/receipts.rs",
+            "native/src/kernel/task_projection.rs",
+            "native/src/runtime_metrics/cost.rs",
+            "native/src/task_overview.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        }
       }
     },
     "tests/task-panel-state.test.ts": {
       "result": "passed",
-      "passed": 0,
-      "failed": 0,
-      "skipped": 0,
-      "exitCode": 0,
-      "caseResults": {
-        "passed": [],
-        "blocked": []
-      },
-      "evidence": "Node loaded the file successfully. It declares no test cases."
+      "cases": {}
     },
     "tests/timeline-subscription.test.ts": {
-      "result": "blocked",
-      "passed": 0,
-      "failed": 1,
-      "skipped": 0,
-      "exitCode": 1,
-      "caseResults": {
-        "passed": [],
-        "blocked": [
-          {
-            "segment": "C",
-            "module": "claude_notify",
-            "route": "PUT /api/task-settings",
-            "cases": [
-              "unsubscribed timelines refresh newer turns and disclose incomplete observation"
-            ],
-            "note": "The following act codex_create (A codex_host) returns the asserted error."
-          }
-        ]
+      "result": "passed",
+      "cases": {
+        "unsubscribed timelines refresh newer turns and disclose incomplete observation": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/activity.rs",
+            "native/src/agents/conversations.rs",
+            "native/src/codex_progress.rs",
+            "native/src/task_tracking.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        }
       }
     },
     "tests/writer-conflict.test.ts": {
-      "result": "blocked",
-      "passed": 0,
-      "failed": 13,
-      "skipped": 0,
-      "exitCode": 1,
-      "caseResults": {
-        "passed": [],
-        "blocked": [
-          {
-            "segment": "A",
-            "module": "agents",
-            "route": "GET /api/agents/activity",
-            "cases": [
-              "Codex activity keeps the native thread identity across a growing window rollout",
-              "Initialized Codex side conversations become active only during a native turn",
-              "Codex Desktop records Fast settings immediately after its first turn context"
-            ]
-          },
-          {
-            "segment": "A",
-            "module": "writer",
-            "route": "act codex_send",
-            "cases": [
-              "native writer conflicts retain recovery guidance through send, load and read"
-            ]
-          },
-          {
-            "segment": "A",
-            "module": "agents",
-            "route": "POST /api/agents/conversations/timeline",
-            "cases": [
-              "Held external writers allow all read views while mutations retain owner recovery"
-            ]
-          },
-          {
-            "segment": "A",
-            "module": "writer",
-            "route": "act codex_release",
-            "cases": [
-              "Releasing an already unheld writer is a no-op before archive",
-              "Unknown writer state returns an unconfirmed release with owner recovery"
-            ]
-          },
-          {
-            "segment": "C",
-            "module": "claude_notify",
-            "route": "PUT /api/task-settings",
-            "cases": [
-              "Archive release is a no-op for an idle connector retaining its native writer",
-              "Connector release confirms asynchronous native unload for exactly one idle thread",
-              "Connector release returns a specific error and owner continuation when native cleanup retains the lock",
-              "Releasing the same connector thread twice succeeds after the writer is unheld",
-              "Connector release preserves native rejection as a specific per-thread release error",
-              "Active connector writer guidance reads status and release leaves the turn running"
-            ],
-            "note": "The following act codex_create (A codex_host) cannot create a task for release."
-          }
-        ]
+      "result": "passed",
+      "cases": {
+        "Codex activity keeps the native thread identity across a growing window rollout": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/activity.rs",
+            "native/src/agents/conversations.rs",
+            "native/src/desktop/settings.rs",
+            "native/src/task_tracking.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Initialized Codex side conversations become active only during a native turn": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/activity.rs",
+            "native/src/agents/conversations.rs",
+            "native/src/desktop/settings.rs",
+            "native/src/task_tracking.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "native writer conflicts retain recovery guidance through send, load and read": {
+          "result": "passed",
+          "rust": [
+            "native/src/codex_host.rs",
+            "native/src/control.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Codex Desktop records Fast settings immediately after its first turn context": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/activity.rs",
+            "native/src/agents/conversations.rs",
+            "native/src/desktop/settings.rs",
+            "native/src/task_tracking.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Held external writers allow all read views while mutations retain owner recovery": {
+          "result": "passed",
+          "rust": [
+            "native/src/codex_host.rs",
+            "native/src/control.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Releasing an already unheld writer is a no-op before archive": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/archive.rs",
+            "native/src/codex_host.rs",
+            "native/src/control.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Archive release is a no-op for an idle connector retaining its native writer": {
+          "result": "passed",
+          "rust": [
+            "native/src/agents/archive.rs",
+            "native/src/codex_host.rs",
+            "native/src/control.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Connector release confirms asynchronous native unload for exactly one idle thread": {
+          "result": "passed",
+          "rust": [
+            "native/src/codex_host.rs",
+            "native/src/control.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Connector release returns a specific error and owner continuation when native cleanup retains the lock": {
+          "result": "passed",
+          "rust": [
+            "native/src/codex_host.rs",
+            "native/src/control.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Releasing the same connector thread twice succeeds after the writer is unheld": {
+          "result": "passed",
+          "rust": [
+            "native/src/codex_host.rs",
+            "native/src/control.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Unknown writer state returns an unconfirmed release with owner recovery": {
+          "result": "passed",
+          "rust": [
+            "native/src/codex_host.rs",
+            "native/src/control.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Connector release preserves native rejection as a specific per-thread release error": {
+          "result": "passed",
+          "rust": [
+            "native/src/codex_host.rs",
+            "native/src/control.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        },
+        "Active connector writer guidance reads status and release leaves the turn running": {
+          "result": "passed",
+          "rust": [
+            "native/src/codex_host.rs",
+            "native/src/control.rs",
+            "native/src/writer.rs",
+            "tests/fixture/src/main.rs"
+          ]
+        }
       }
     }
   },
   "nativeRun": {
-    "goSource": "941b0e91fd4c844b10e03980833fbaf88660df6b",
-    "s0CasesPassed": 18,
+    "goSource": "039da3cf9d1e400850fad2a70ddc9de49636750f",
     "platform": "darwin/arm64",
     "toolchain": "go1.27.4",
-    "implementation": "go",
-    "independentFailures": []
+    "implementation": "go"
   }
 }

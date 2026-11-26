@@ -74,13 +74,15 @@ The port follows Rust at the main commit from which the `go-core` lane was creat
 - The native TS suites selected in `tooling/test-suites.mjs` are the parity oracle. `ARC_IMPL=go` makes `npm run test:extended` build `cmd/arc` and `cmd/contract-fixture` instead of Cargo and run the same files through `ARC_TEST_BINARY` and `ARC_TEST_FIXTURE_BINARY`.
 - Do not edit test assertions, `tests/contract/` or `tooling/test-policy-allowlist.json`. Report a case that depends on a Rust-only artifact to the control source.
 - Port each module's Rust unit tests with the module as Go `_test.go` cases. They follow [Testing](testing.md): Contract, Regression or Property, with one reason tag per case. `check:tests` governs Go tests.
-- `npm run test:go` runs `go vet ./...` and `go test ./...`. `test:extended` includes it. Daily `npm test` keeps its 30-second budget.
+- `npm run test:go` runs `go vet` and `go test` on repository packages with and without the `arcfixture` tag. `test:extended` includes it. Daily `npm test` keeps its 30-second budget.
 - Every Go commit cross-compiles with `CGO_ENABLED=0` for darwin/arm64, windows/amd64, linux/amd64 and linux/arm64.
 - Unported operations return the single error code `GO_PORT_PENDING`. A check fails if the code remains at cutover.
 
 ## Ledger
 
-`tooling/go-port.json` maps every Rust source file under `native/src`, `desktop/src` and `tests/fixture/src` to its segment, Go files and status: `pending`, `ported` or `verified`. It also records each native TS file's result on Go and each post-baseline Rust commit. `verified` requires the module's ported unit tests and its native TS files to pass on Go. A check fails when a Rust file is unmapped.
+`tooling/go-port.json` maps every Rust source file under `native/src`, `desktop/src` and `tests/fixture/src` to its segment, Go files and status: `pending`, `ported` or `verified`. Each native TS case lists the Rust files it covers and its Go result. Failed and blocked cases name an owner and a reason. `verified` requires complete unit mappings and a passing result for every native case covering the file.
+
+Run `node tooling/check-go-port.mjs --cutover` to check for unverified Rust files, incomplete unit mappings, failed or blocked native cases, unported Rust commits since the baseline and `GO_PORT_PENDING` in Go sources. The control source records an approved unit mapping exception using `"accepted": {"owner": "control-source", "note": "..."}`. A partial unit mapping still prevents its file from being verified.
 
 ## Segments
 

@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { parseTests, testFiles } from './test-cases.mjs';
 
 const required = ['S0', 'B', 'C', 'D', 'E'];
@@ -19,6 +20,8 @@ function loadInventory() {
 export function checkGoTestMap(ledger, inventory = loadInventory(), { requireA = false } = {}) {
   const map = JSON.parse(readFileSync('tooling/go-test-map.json', 'utf8'));
   const failures = [];
+  const incompleteFiles = new Set();
+  let unacceptedMappings = 0;
   const entries = Object.entries(ledger.files);
   const enforce = new Set(required);
   const segmentA = entries.filter(([, row]) => row.segment === 'A');
@@ -42,16 +45,22 @@ export function checkGoTestMap(ledger, inventory = loadInventory(), { requireA =
     }
   };
   for (const [file, row] of entries) {
-    if (!existsSync(file)) continue;
-    const cases = new Set((inventory.get(file)?.cases ?? []).map(test => test.name));
     const mapped = map.files[file] ?? {};
+    const cases = new Set(existsSync(file)
+      ? (inventory.get(file)?.cases ?? []).map(test => test.name)
+      : Object.keys(mapped));
     for (const name of cases) {
       const label = `${file}#${name}`;
       if (!Object.hasOwn(mapped, name)) {
+        incompleteFiles.add(file);
         if (enforce.has(row.segment)) failures.push(`Go test map is missing ${label}.`);
         continue;
       }
       const entry = mapped[name];
+      const accepted = entry?.accepted?.owner === 'control-source' &&
+        typeof entry.accepted.note === 'string' && entry.accepted.note.trim();
+      if (entry?.accepted !== undefined && !accepted)
+        failures.push(`Invalid control-source acceptance for ${label}.`);
       if (Array.isArray(entry)) {
         verifyTargets(entry, label, true);
         count(row.segment).mapped++;
@@ -59,13 +68,19 @@ export function checkGoTestMap(ledger, inventory = loadInventory(), { requireA =
         verifyTargets(entry.tests, label, true);
         count(row.segment).mapped++;
         count(row.segment).partial++;
+        incompleteFiles.add(file);
+        if (!accepted) unacceptedMappings++;
       } else if (entry && dropKinds.has(entry.drop) && typeof entry.reason === 'string' && entry.reason.trim()) {
         const withRepresentative = entry.drop === 'redundant' || entry.drop === 'acceptance-only';
         if (withRepresentative) verifyTargets(entry.coveredBy, label, false);
         count(row.segment).dropped++;
         reasons.add(`${row.segment} ${label}: ${entry.reason}`);
       } else if (entry?.until === 'A' && typeof entry.reason === 'string' && entry.reason.trim()) {
-        if (enforce.has('A')) failures.push(`${label} was deferred until I2: ${entry.reason}`);
+        if (!accepted) {
+          incompleteFiles.add(file);
+          unacceptedMappings++;
+          if (enforce.has('A')) failures.push(`${label} was deferred until I2: ${entry.reason}`);
+        }
         count(row.segment).deferred++;
       } else {
         failures.push(`Invalid Go test mapping for ${label}.`);
@@ -88,5 +103,17 @@ export function checkGoTestMap(ledger, inventory = loadInventory(), { requireA =
     }
     count(segment).added = tests.length;
   }
-  return { failures, counters, reasons: [...reasons] };
+  return { failures, counters, reasons: [...reasons], incompleteFiles, unacceptedMappings };
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const args = process.argv.slice(2);
+  if (args.some(arg => arg !== '--require-a')) throw new Error('Usage: node tooling/check-go-test-map.mjs [--require-a]');
+  const ledger = JSON.parse(readFileSync('tooling/go-port.json', 'utf8'));
+  const { failures, counters } = checkGoTestMap(ledger, undefined, { requireA: args.includes('--require-a') });
+  console.log(JSON.stringify(counters));
+  if (failures.length) {
+    console.error(failures.join('\n'));
+    process.exitCode = 1;
+  }
 }

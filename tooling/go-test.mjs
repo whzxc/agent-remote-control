@@ -1,17 +1,39 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stableVersion } from './version.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const tagged = ['-tags', 'arcfixture'];
+const excluded = new Set(['node_modules', 'vendor', 'third_party', 'third-party', 'testdata']);
+
+export function repositoryGoFiles() {
+  const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z', '--', '*.go'], {
+    cwd: root, encoding: 'utf8',
+  }).split('\0').filter(Boolean);
+  return files.filter(file => {
+    let directory = root;
+    for (const name of file.split('/').slice(0, -1)) {
+      directory = path.join(directory, name);
+      if (excluded.has(name) || /^[._]/.test(name) || existsSync(path.join(directory, 'go.mod'))) return false;
+    }
+    return existsSync(path.join(root, file));
+  });
+}
 
 export async function testGo(run) {
-  await run('go', ['vet', './...']);
-  await run('go', ['test', './...']);
-  await run('go', ['vet', ...tagged, './...']);
-  await run('go', ['test', ...tagged, './...']);
+  const directories = [...new Set(repositoryGoFiles().map(file => './' + path.posix.dirname(file)))];
+  for (const tags of [[], tagged]) {
+    // Go decides which repository directories are packages for this platform and tag set.
+    const format = '{{if or .GoFiles .CgoFiles .TestGoFiles .XTestGoFiles .InvalidGoFiles}}{{.ImportPath}}{{end}}';
+    const packages = execFileSync('go', ['list', '-e', '-f', format, ...tags, ...directories], {
+      cwd: root, encoding: 'utf8',
+    }).trim().split('\n').filter(Boolean);
+    if (!packages.length) throw new Error('No repository Go packages found.');
+    await run('go', ['vet', ...tags, ...packages]);
+    await run('go', ['test', ...tags, ...packages]);
+  }
 }
 
 export async function buildGoTestBinaries(run, env) {
