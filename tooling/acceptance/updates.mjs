@@ -9,7 +9,7 @@ import {mkdir, mkdtemp, readFile, writeFile, open, realpath} from 'node:fs/promi
 import path from 'node:path';
 import { build as buildClient } from 'vite';
 import { developmentConfig, developmentEnvironment } from '../dev-identity.mjs';
-import { coreRequest, readCore, stopCore, stopDevelopmentFrontDoor } from '../dev-core.mjs';
+import { coreRequest, processAlive, readCore, stopCore, stopDevelopmentFrontDoor } from '../dev-core.mjs';
 import { rehearsalSigning, verifier } from '../release-signing.mjs';
 
 // Real signed updater bytes, a private HTTP endpoint, and a disposable app/state.
@@ -153,7 +153,17 @@ async function control(op,args) {
   if(value.isError)throw new Error(JSON.stringify(toolResult(value)));
   return toolResult(value);
 }
-async function task() { return control('agent_read',{agent,taskId}); }
+async function task() {
+  const view = await control('agent_read', { agent, taskId });
+  // Producer identity is private in Go. Observe it in the disposable
+  // fixture state while using the public API for status and final output.
+  const evidence = JSON.parse(await readFile(path.join(stateDir, 'agents/tasks', taskId + '.json'), 'utf8'));
+  const host = evidence.taskHost;
+  return { status: view.status, finalResponse: view.finalResponse, taskHost: host && {
+    hostProtocol: host.hostProtocol, hostPid: host.hostPid, hostStart: host.hostStart,
+    agentPid: host.agentPid, ackedOffset: host.ackedOffset,
+  } };
+}
 async function until(read, accept, timeout=90_000) {
   const deadline=Date.now()+timeout;let last;
   while(Date.now()<deadline) {if(report.runtimeErrors?.length)throw new Error(report.runtimeErrors.join('\n'));try {last=await read();} catch(error){last=String(error);await sleep(150);continue;}if(accept(last))return last;await sleep(150);}
@@ -231,9 +241,10 @@ try {
     // Regression: a ready update was routed through settling, countdown and task recovery instead of installing immediately.
     const created=await control('agent_create',{agent,cwd:temporary,prompt:'Hold the fixture tool across update.',approval:'approved',purpose:'self-test',notify:null,requestId:crypto.randomUUID(),waitMs:1});
     taskId=created.taskId;
-    assert.ok(taskId,JSON.stringify(created));
+    assert.match(taskId, /^[a-f0-9-]{36}$/);
     const active=await until(task,value=>value.status==='running' && value.taskHost?.hostPid);
     assert.equal(active.taskHost.hostProtocol,1);
+    assert.ok(processAlive(active.taskHost.hostPid) && processAlive(active.taskHost.agentPid));
     await until(()=>control('agent_events',{agent,taskId}),value=>value.events?.some(row=>row.method==='session/update' && row.params?.params?.update?.toolCallId==='held-tool'));
     const before = await cli('app','status'), oldCore = await cli('call','health');
     const endpoint = JSON.parse(await readFile(path.join(stateDir, 'app/native.json'), 'utf8'));
@@ -254,6 +265,7 @@ try {
     const restored=await until(task,value=>value.status==='running' && value.taskHost?.hostPid===active.taskHost.hostPid);
     assert.equal(restored.taskHost.hostStart,active.taskHost.hostStart);
     assert.equal(restored.taskHost.agentPid,active.taskHost.agentPid);
+    assert.ok(processAlive(restored.taskHost.hostPid) && processAlive(restored.taskHost.agentPid));
     await writeFile(releaseTask,'finish');
     const finished=await until(task,value=>value.status==='completed');
     assert.equal(finished.finalResponse,'UPDATE_TASK_COMPLETED');
