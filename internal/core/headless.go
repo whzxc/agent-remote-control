@@ -77,7 +77,12 @@ func startHeadless(ctx context.Context) (object, error) {
 	if err := platform.PrivateDir(root()); err != nil {
 		return nil, err
 	}
-	binary, err := os.Executable()
+	replacement, err := prepareFrontDoorInstall(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer replacement.Close()
+	binary, err := runtimeBinary()
 	if err != nil {
 		return nil, err
 	}
@@ -89,6 +94,7 @@ func startHeadless(ctx context.Context) (object, error) {
 	cmd := exec.Command(binary, "daemon")
 	cmd.Stderr = log
 	platform.Detach(cmd)
+	_ = replacement.Close()
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("Core start failed: %w", err)
 	}
@@ -130,6 +136,9 @@ func stopHeadless(ctx context.Context) (object, error) {
 	_, err = forwardRequest(ctx, "runtime/shutdown", "POST", object{"id": client})
 	_, _ = forwardRequest(ctx, "runtime/release", "POST", object{"id": client})
 	if err != nil {
+		return nil, err
+	}
+	if err := waitCoreExit(ctx); err != nil {
 		return nil, err
 	}
 	return headlessStatus(ctx)

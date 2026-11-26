@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -192,11 +193,7 @@ func runCLI(ctx context.Context, arguments []string, stdin io.Reader, stdout, st
 		return exitResult(stderr, localMCP(ctx, args[1], stdin, stdout))
 	}
 	if len(args) == 1 && args[0] == "mcp" {
-		if err := managementStdio(ctx, stdin, stdout); err != nil {
-			fmt.Fprintln(stderr, err)
-			return 1
-		}
-		return 0
+		return exitResult(stderr, managementStdio(ctx, stdin, stdout))
 	}
 	if len(args) == 1 && args[0] == "watch" || slices.Equal(args, []string{"logs", "--follow"}) {
 		route, logs := "state.wait", args[0] == "logs"
@@ -212,8 +209,8 @@ func runCLI(ctx context.Context, arguments []string, stdin io.Reader, stdout, st
 			}
 			cursor = text(value, "cursor")
 			if !logs || len(arr(field(value, "rows"))) > 0 {
-				if code := output(object{"ok": true, "result": value}, 0); code != 0 {
-					return code
+				if err := outputLine(stdout, wire(object{"ok": true, "result": value})); err != nil {
+					return exitResult(stderr, err)
 				}
 			}
 			if logs {
@@ -447,6 +444,19 @@ func executeCLI(ctx context.Context, args []string, stdin io.Reader) (any, error
 		return help, nil
 	}
 	read := func(route string) (any, error) { return forwardRequest(ctx, route, http.MethodGet, nil) }
+	var setupLocale string
+	if args[0] == "setup" {
+		if at := slices.Index(args, "--locale"); at >= 0 {
+			if at+1 == len(args) || args[at+1] != "en" && args[at+1] != "zh-CN" {
+				return nil, errors.New("INVALID_ARGUMENT: --locale must be zh-CN or en")
+			}
+			setupLocale = args[at+1]
+			args = slices.Delete(slices.Clone(args), at, at+2)
+			if slices.Contains(args, "--locale") || len(args) > 1 && (args[1] == "reset" || args[1] == "playbook") {
+				return nil, errors.New("INVALID_ARGUMENT: --locale is supported once on setup next/apply/wait")
+			}
+		}
+	}
 	var body object
 	if slices.Contains(args, "--stdin") && args[0] != "wait" && !(len(args) > 1 && args[0] == "app" && args[1] == "snapshot") {
 		value, err := stdinJSON(stdin)
@@ -479,6 +489,12 @@ func executeCLI(ctx context.Context, args []string, stdin io.Reader) (any, error
 		return installShim(ctx)
 	case "status":
 		return read("status")
+	case "stats":
+		since := "1d"
+		if len(args) == 4 {
+			since = args[3]
+		}
+		return controlMetricsReport(since)
 	case "logs":
 		if len(args) > 1 && args[1] == "--offline" {
 			return queryLogs(object{})
@@ -538,6 +554,366 @@ func executeCLI(ctx context.Context, args []string, stdin io.Reader) (any, error
 		if args[1] != "snapshot" {
 			return managementCall(ctx, "app."+args[1], object{})
 		}
+		return externalCLI(ctx, args, body, stdin)
+	}
+	return executeCLIRoute(ctx, args, body, setupLocale, stdin)
+}
+
+func cliCommandLine(args []string, input object) string {
+	quote := func(value string) string {
+		replacement := "'\"'\"'"
+		if operatingSystem == "windows" {
+			replacement = "''"
+		}
+		return "'" + strings.ReplaceAll(value, "'", replacement) + "'"
+	}
+	binary, err := runtimeBinary()
+	if err != nil {
+		binary = "arc"
+	}
+	parts := make([]string, len(args))
+	for i, arg := range args {
+		parts[i] = quote(arg)
+	}
+	command := "ARC_STATE_DIR=" + quote(root()) + " " + quote(binary) + " cli " + strings.Join(parts, " ")
+	if operatingSystem == "windows" {
+		command = "& { $env:ARC_STATE_DIR = " + quote(root()) + "; $input | & " + quote(binary) + " cli " + strings.Join(parts, " ") + " }"
+		if input != nil {
+			command = quote(wire(input)) + " | " + command
+		}
+	} else if input != nil {
+		command = "printf '%s' " + quote(wire(input)) + " | " + command
+	}
+	return command
+}
+
+type cliExtension func(context.Context, []string, object, io.Reader) (any, error)
+
+var cliExtensions = make(map[string]cliExtension)
+
+func registerCLI(command string, execute cliExtension) {
+	if execute == nil || cliExtensions[command] != nil {
+		panic("Invalid or duplicate CLI command " + command)
+	}
+	cliExtensions[command] = execute
+}
+
+func externalCLI(ctx context.Context, args []string, body object, stdin io.Reader) (any, error) {
+	name := strings.Join(args[:min(2, len(args))], " ")
+	if run := cliExtensions[name]; run != nil {
+		return run(ctx, args, body, stdin)
+	}
+	if run := cliExtensions[args[0]]; run != nil {
+		return run(ctx, args, body, stdin)
 	}
 	return nil, errors.New(PortPending)
+}
+
+func executeCLIRoute(ctx context.Context, args []string, body object, setupLocale string, stdin io.Reader) (any, error) {
+	action := ""
+	if len(args) > 1 {
+		action = args[1]
+	}
+	request := func(route, method string, input object) (any, error) {
+		return forwardRequest(ctx, route, method, input)
+	}
+	get := func(route string) (any, error) { return request(route, http.MethodGet, nil) }
+	call := func(name string, input object) (any, error) {
+		if input == nil {
+			return managementCall(ctx, name, object{})
+		}
+		return managementCall(ctx, name, object{"body": input})
+	}
+	switch args[0] {
+	case "stats", "control", "logs", "config", "status", "guide", "capabilities", "schema", "call":
+		return nil, errors.New("Command arguments do not match. Check usage.")
+	case "device":
+		switch action {
+		case "offer", "pending", "approve", "decline":
+			return call("device."+action, nil)
+		case "pair":
+			return call("device.pair", object{"pairingString": args[2]})
+		case "revoke":
+			return call("device.revoke", object{"deviceId": args[2]})
+		case "address":
+			var address any
+			if args[3] != "--clear" {
+				address = args[3]
+			}
+			return call("device.address", object{"device": args[2], "address": address})
+		case "configure":
+			return call("device.configure", body)
+		}
+	case "setup":
+		input := object{}
+		if setupLocale != "" {
+			input["locale"] = setupLocale
+		}
+		switch action {
+		case "", "next", "--goal":
+			for i, command := range args {
+				if command == "--goal" && i+1 < len(args) {
+					input["goal"] = args[i+1]
+				}
+			}
+			return call("setup.next", input)
+		case "apply":
+			input["stepId"], input["input"] = args[2], body
+			return call("setup.apply", input)
+		case "wait":
+			if len(args) == 4 {
+				seconds, err := strconv.ParseUint(args[3], 10, 64)
+				if err != nil {
+					return nil, errors.New("INVALID_ARGUMENT: timeout must be seconds")
+				}
+				input["timeout"] = seconds
+			}
+			return call("setup.wait", input)
+		case "reset":
+			return request("setup/reset", http.MethodDelete, nil)
+		}
+	case "source":
+		if action == "list" {
+			return get("source")
+		}
+		route := "source/" + args[2]
+		switch action {
+		case "update":
+			return request(route, http.MethodPut, body)
+		case "disconnect", "claim":
+			return request(route+"/"+action, http.MethodPost, body)
+		case "switch":
+			if args[3] == "--cancel" {
+				return request(route+"/switch", http.MethodDelete, nil)
+			}
+			return request(route+"/switch", http.MethodPost, object{"ingressId": args[3]})
+		}
+	case "ax":
+		return request("ax/"+action, http.MethodPost, object{strings.TrimPrefix(args[2], "--"): args[3]})
+	case "storage":
+		return compactWithCoreLease(ctx)
+	case "context":
+		return request("context", http.MethodPost, body)
+	case "configure":
+		return request("config/tunnel", http.MethodPatch, body)
+	case "network":
+		return request("network", http.MethodPut, body)
+	case "connect":
+		return request("start", http.MethodPost, nil)
+	case "disconnect":
+		return request("stop", http.MethodPost, nil)
+	case "subscriptions":
+		switch action {
+		case "get":
+			return get("subscriptions")
+		case "set":
+			return request("subscriptions/settings", http.MethodPut, body)
+		case "refresh", "open":
+			input := object{}
+			if len(args) > 2 {
+				input["providerId"] = args[2]
+			}
+			return request("subscriptions/"+action, http.MethodPost, input)
+		}
+	case "doctor":
+		status, err := get("status")
+		if err != nil {
+			return nil, err
+		}
+		permissions, err := get("permissions/passive")
+		if err != nil {
+			return nil, err
+		}
+		rows := []object{}
+		for _, item := range arr(field(status, "ingresses")) {
+			ingress := obj(item)
+			row := selectFields(ingress, "id", "state", "error", "verification")
+			row["configured"] = field(ingress["config"], "configured")
+			row["diagnostics"], row["preset"], row["onboarding"] = ingressDiagnostics(ingress), sourcePreset(text(ingress, "controlSource")), cliOnboarding(ingress)
+			rows = append(rows, row)
+		}
+		core := field(status, "core")
+		return object{"permissions": permissions, "ingresses": rows, "summary": field(status, "ingressSummary"),
+			"desktop": field(core, "desktop"), "appServer": field(core, "appServer"), "resources": field(core, "resources"),
+			"executionVerified": false, "diagnostics": field(status, "diagnostics")}, nil
+	case "verify", "onboarding":
+		items, err := get("ingress")
+		if err != nil {
+			return nil, err
+		}
+		if action == "--fresh" {
+			for _, item := range arr(items) {
+				if _, err := request("ingress/"+text(item, "id")+"/verification/reset", http.MethodPost, nil); err != nil {
+					return nil, err
+				}
+			}
+			return get("ingress")
+		}
+		rows := []object{}
+		for _, item := range arr(items) {
+			rows = append(rows, cliOnboarding(obj(item)))
+		}
+		return object{"ingresses": rows}, nil
+	case "ingress":
+		switch action {
+		case "list":
+			value, err := get("ingress")
+			if err != nil {
+				return nil, err
+			}
+			for _, item := range arr(value) {
+				obj(item)["preset"] = sourcePreset(text(item, "controlSource"))
+			}
+			return value, nil
+		case "add", "update":
+			if err := validateCLIIngress(body, action == "update"); err != nil {
+				return nil, err
+			}
+			if action == "add" {
+				return request("ingress", http.MethodPost, body)
+			}
+			return request("ingress/"+args[2], http.MethodPut, body)
+		case "remove":
+			return request("ingress/"+args[2], http.MethodDelete, nil)
+		case "start", "stop", "restart", "probe":
+			return request("ingress/"+args[2]+"/"+action, http.MethodPost, nil)
+		case "start-all", "stop-all":
+			return request("ingress/"+action, http.MethodPost, nil)
+		case "token":
+			return request("ingress/"+args[3]+"/token", http.MethodPost, nil)
+		case "oauth":
+			route := "ingress/" + args[3] + "/oauth"
+			switch args[2] {
+			case "list":
+				return get(route)
+			case "request":
+				return get(route + "/request/" + args[4])
+			default:
+				return request(route+"/"+args[2], http.MethodPost, body)
+			}
+		case "verify":
+			route := "ingress/" + args[2]
+			if len(args) == 4 {
+				if _, err := request(route+"/verification/reset", http.MethodPost, nil); err != nil {
+					return nil, err
+				}
+			}
+			value, err := get(route)
+			if err != nil {
+				return nil, err
+			}
+			onboarding := cliOnboarding(obj(value))
+			if len(args) == 4 {
+				return onboarding, nil
+			}
+			return object{"ingress": value, "onboarding": onboarding}, nil
+		case "doctor":
+			value, err := get("status")
+			if err != nil {
+				return nil, err
+			}
+			row := find(field(value, "ingresses"), "id", args[2])
+			if row == nil {
+				return nil, errors.New("ingress not found")
+			}
+			findings := []any{}
+			for _, entry := range arr(field(field(value, "diagnostics"), "findings")) {
+				scope := field(entry, "scope")
+				if text(scope, "id") == args[2] || text(scope, "ingressId") == args[2] {
+					findings = append(findings, entry)
+				}
+			}
+			return object{"ingress": row, "onboarding": cliOnboarding(row), "findings": findings}, nil
+		}
+	}
+	return externalCLI(ctx, args, body, stdin)
+}
+
+func cliOnboarding(ingress object) object {
+	config, verification := obj(ingress["config"]), obj(ingress["verification"])
+	stage := "client_setup_or_verify"
+	switch {
+	case config["configured"] != true:
+		stage = "configure"
+	case ingress["state"] != "ready":
+		stage = "start"
+	default:
+		if _, ok := verification["challengeVerifiedAt"].(string); ok {
+			stage = "inbound_verified"
+		}
+	}
+	return object{"ingressId": ingress["id"], "controlSource": ingress["controlSource"], "stage": stage, "transport": ingress["transport"],
+		"authentication": ingress["auth"], "url": ingress["url"], "tunnelId": config["tunnelId"], "verification": verification,
+		"diagnostics": ingressDiagnostics(ingress), "preset": sourcePreset(text(ingress, "controlSource")),
+		"identityNote":   "Ingress controlSource is an initial product default. Authenticated calls resolve a credential-anchored sourceId; origin.controlSource is that source product. Bearer clients sharing one connection share one source.",
+		"clientSetup":    "Read preset.status, supportedAuth and caveat before connecting. Conditional paths require client verification; auth-limited paths must not silently fall back to none. A preset is not an installed integration.",
+		"secretDelivery": "Supply credentials using stdin or a protected local file. Never paste tokens into chat or use command-line arguments."}
+}
+
+func validateCLIIngress(body object, patch bool) error {
+	allowed := []string{"name", "controlSource", "transport", "auth", "bearerToken", "enabled", "toolPolicy", "config"}
+	if !patch {
+		allowed = append(allowed, "id")
+	} else if _, exists := body["id"]; exists {
+		return errors.New("A patch cannot contain id. Put id in the command arguments after update. stdin accepts only patch fields to change.")
+	}
+	for _, key := range keys(body) {
+		value := body[key]
+		if !slices.Contains(allowed, key) {
+			return fmt.Errorf("Unknown fields: %s. Allowed fields: %s", key, strings.Join(allowed, "、"))
+		}
+		switch key {
+		case "enabled":
+			if _, ok := value.(bool); !ok {
+				return fmt.Errorf("enabled must be boolean, got %s", jsonType(value))
+			}
+		case "config":
+			if obj(value) == nil {
+				return fmt.Errorf("config must be object, got %s", jsonType(value))
+			}
+			if ingressConfigDefaults == nil {
+				return errors.New(PortPending)
+			}
+			defaults := ingressConfigDefaults()
+			for _, name := range keys(obj(value)) {
+				raw := field(value, name)
+				expected, known := defaults[name]
+				if !known {
+					return fmt.Errorf("Unknown fields: config.%s. Allowed fields: config.%s", name, strings.Join(keys(defaults), "、config."))
+				}
+				if got, required := jsonType(raw), jsonType(expected); got != required {
+					return fmt.Errorf("config.%s must be %s, got %s", name, required, got)
+				}
+			}
+		case "toolPolicy":
+			if value == "all" {
+				continue
+			}
+			if len(obj(value)) != 1 || arr(field(value, "allowlist")) == nil {
+				return errors.New("toolPolicy must be the string \"all\" or an object with an allowlist array")
+			}
+			for index, item := range arr(field(value, "allowlist")) {
+				if _, ok := item.(string); !ok {
+					return fmt.Errorf("toolPolicy.allowlist[%d] must be string, got %s", index, jsonType(item))
+				}
+			}
+		default:
+			if _, ok := value.(string); !ok {
+				return fmt.Errorf("%s must be string, got %s", key, jsonType(value))
+			}
+		}
+	}
+	return nil
+}
+
+func compactWithCoreLease(ctx context.Context) (any, error) {
+	if _, _, err := discoverLocal(ctx); err != nil {
+		return nil, err
+	}
+	key := id()
+	if _, err := forwardRequest(ctx, "runtime/lease", http.MethodPost, object{"id": key, "kind": "cli", "pid": os.Getpid()}); err != nil {
+		return nil, err
+	}
+	defer forwardRequest(context.WithoutCancel(ctx), "runtime/release", http.MethodPost, object{"id": key})
+	return compactEventArchives()
 }

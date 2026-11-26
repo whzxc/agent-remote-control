@@ -2,9 +2,13 @@ package core
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestWaitStreamProgressAndFinalResponse(t *testing.T) {
@@ -35,5 +39,35 @@ func TestWaitStreamProgressAndFinalResponse(t *testing.T) {
 		if err := decodeObject([]byte(payload), &decoded); err != nil || wire(decoded) != wire(result) {
 			t.Fatalf("JSON response %v (%v)", decoded, err)
 		}
+	}
+}
+
+func TestWaitStreamCancelsWhenTheClientDisconnects(t *testing.T) {
+	// Recurring bug class: lifecycle a dropped response body or disconnected socket left a wait running.
+	for _, raw := range []bool{false, true} {
+		finished := make(chan struct{})
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			serveWaitStream(w, r, object{"id": 1}, func(ctx context.Context) (object, error) {
+				defer close(finished)
+				<-ctx.Done()
+				return nil, ctx.Err()
+			})
+		}))
+		result, err := server.Client().Get(server.URL)
+		if err != nil {
+			server.Close()
+			t.Fatal(err)
+		}
+		if raw {
+			server.CloseClientConnections()
+		}
+		_ = result.Body.Close()
+		select {
+		case <-finished:
+		case <-time.After(time.Second):
+			server.Close()
+			t.Fatal("disconnected wait remained active")
+		}
+		server.Close()
 	}
 }

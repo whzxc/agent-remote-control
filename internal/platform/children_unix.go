@@ -28,3 +28,9 @@ func SignalTree(pid int, force bool) {
 		_ = unix.Kill(pid, sig)
 	}
 }
+
+func KillOwnedGroup(pid int) {
+	if pid > 0 {
+		_ = unix.Kill(-pid, unix.SIGKILL)
+	}
+}

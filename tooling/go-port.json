@@ -276,8 +276,7 @@
       "segment": "S0",
       "go": [
         "internal/core/cli.go",
-        "internal/core/cli_test.go",
-        "docs/reference/embed.go"
+        "internal/core/cli_test.go"
       ],
       "status": "pending",
       "remaining": "Help, usage, schema discovery, control, logs, configuration and management dispatch are available. Remaining CLI adapters and validation are pending."
@@ -314,7 +313,7 @@
       "go": [
         "internal/core/context.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": "Excerpt projection is available. Task and project evidence projection remain."
     },
     "native/src/context_provider.rs": {
@@ -322,18 +321,25 @@
       "go": [
         "internal/core/context_provider.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": "The provider process protocol is implemented. Owned-child registration, ACP and the control-operation wiring remain."
     },
     "native/src/control.rs": {
       "segment": "S0",
-      "go": [],
+      "go": [
+        "internal/core/control.go",
+        "internal/core/control_test.go",
+        "internal/core/rpc.go",
+        "internal/core/kernel_receipts.go"
+      ],
       "status": "pending"
     },
     "native/src/control_metrics.rs": {
       "segment": "S0",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/control_metrics.go"
+      ],
+      "status": "ported"
     },
     "native/src/control_profiles.rs": {
       "segment": "S0",
@@ -474,7 +480,8 @@
     "native/src/core_requests.rs": {
       "segment": "S0",
       "go": [
-        "internal/core/core_requests.go"
+        "internal/core/core_requests.go",
+        "internal/core/egress.go"
       ],
       "status": "pending",
       "remaining": "File-local dispatch, origin context and digest continuation work. Full authorization, cancellation and result projection remain."
@@ -646,8 +653,10 @@
     },
     "native/src/diagnostics.rs": {
       "segment": "S0",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/diagnostics.go"
+      ],
+      "status": "ported"
     },
     "native/src/dispatch_caller.rs": {
       "segment": "A",
@@ -686,7 +695,9 @@
       "segment": "S0",
       "go": [
         "internal/core/execution.go",
-        "internal/core/registry.go"
+        "internal/core/registry.go",
+        "internal/core/control.go",
+        "internal/core/core_requests.go"
       ],
       "status": "pending",
       "remaining": "File-local dispatch is active. Complete the remaining request adapters and cross-segment projection seams."
@@ -698,40 +709,48 @@
     },
     "native/src/front_door/authority.rs": {
       "segment": "S0",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/front_door_authority.go"
+      ],
+      "status": "ported",
+      "note": "Source and credential lifecycle are delegated to segment D through private authority registrations. Browser and peer authority require A and E."
     },
     "native/src/front_door/owner.rs": {
       "segment": "S0",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/front_door_owner.go"
+      ],
+      "status": "ported",
+      "note": "Provider construction, ingress configuration and provider lifecycle are supplied by segment E."
     },
     "native/src/front_door/process.rs": {
       "segment": "S0",
       "go": [
         "internal/core/front_door_process.go",
-        "internal/core/front_door_process_test.go",
-        "internal/platform/ipc_unix.go",
-        "internal/platform/ipc_windows.go"
+        "internal/core/front_door_supervision.go",
+        "internal/core/front_door_process_test.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": "Production startup, authenticated IPC and detach work. Full stream transport, reconnect queue, macOS replacement and remaining Rust units remain."
     },
     "native/src/front_door/protocol.rs": {
       "segment": "S0",
       "go": [
         "internal/core/front_door_protocol.go",
+        "internal/core/front_door_test.go",
         "internal/core/front_door_process_test.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": "Private handshake generation framing now has a Go contract case. Port remaining authority types and their validation."
     },
     "native/src/front_door.rs": {
       "segment": "S0",
       "go": [
-        "internal/core/front_door.go"
+        "internal/core/front_door.go",
+        "internal/core/front_door_test.go",
+        "internal/core/front_door_authority.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": "Private management admission, request cancellation, deadlines and generation checks are implemented. Streaming, queue, update drain and remaining authorities are pending."
     },
     "native/src/front_door_tests.rs": {
@@ -949,7 +968,9 @@
     "native/src/management.rs": {
       "segment": "S0",
       "go": [
-        "internal/core/management.go"
+        "internal/core/management.go",
+        "internal/core/registry.go",
+        "internal/core/front_door_owner.go"
       ],
       "status": "pending",
       "remaining": "Static and coordination catalogs and management dispatch are available. Dynamic MCP hub, device and ingress schemas remain."
@@ -1007,8 +1028,10 @@
     },
     "native/src/permissions.rs": {
       "segment": "S0",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/permissions.go"
+      ],
+      "status": "ported"
     },
     "native/src/pets.rs": {
       "segment": "A",
@@ -1075,16 +1098,17 @@
     },
     "native/src/rpc.rs": {
       "segment": "S0",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/rpc.go"
+      ],
+      "status": "ported"
     },
     "native/src/runtime.rs": {
       "segment": "S0",
       "go": [
         "internal/core/runtime.go",
-        "internal/platform/process_darwin.go",
-        "internal/platform/process_linux.go",
-        "internal/platform/process_windows.go"
+        "internal/core/runtime_test.go",
+        "internal/core/front_door_supervision.go"
       ],
       "status": "pending",
       "remaining": "Production serve, metadata, leases, drain and basic uninstall authorization are implemented. Port leased clients and remaining lifecycle cases."
@@ -1108,7 +1132,8 @@
       "segment": "S0",
       "go": [
         "internal/core/service.go",
-        "internal/core/registry.go"
+        "internal/core/registry.go",
+        "internal/core/control.go"
       ],
       "status": "pending",
       "remaining": "Production and tagged fixture serve and use file-local registration. Complete management/status projection and cross-segment ownership seams."
@@ -1266,7 +1291,8 @@
     "native/src/transport.rs": {
       "segment": "S0",
       "go": [
-        "internal/core/transport.go"
+        "internal/core/transport.go",
+        "internal/core/front_door_process.go"
       ],
       "status": "pending",
       "remaining": "Loopback HTTP, CLI requests with authenticated private IPC and JSON-lines stdio are implemented. Full route, stream and Desktop callback parity is pending."
@@ -1287,7 +1313,7 @@
         "internal/core/wait_transport.go",
         "internal/core/wait_transport_test.go"
       ],
-      "status": "pending",
+      "status": "ported",
       "remaining": "Long wait framing and stdio progress forwarding are implemented. EOF cancellation and full transport regression parity are pending."
     },
     "native/src/waiter.rs": {

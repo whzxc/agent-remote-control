@@ -126,10 +126,7 @@ func platformName() string {
 }
 
 func desktopForward(ctx context.Context, s *service, route string) (any, error) {
-	if s.desktop == nil {
-		return nil, errors.New(PortPending)
-	}
-	return s.desktop(ctx, route, http.MethodGet, object{})
+	return s.management(ctx, route, http.MethodGet, object{})
 }
 
 func managementStdio(ctx context.Context, input io.Reader, output io.Writer) error {

@@ -4,6 +4,10 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
+	"sync"
+
+	"github.com/google/uuid"
 )
 
 type requestSource struct {
@@ -25,6 +29,16 @@ func (s requestSource) enabledOps() []object {
 }
 
 func callTool(ctx context.Context, service *service, source requestSource, tool string, envelope any, rpcID any) object {
+	metric := beginControlMetric(source, tool, envelope)
+	response := callToolInner(ctx, service, source, tool, envelope, rpcID)
+	if rpcID != nil {
+		response["resultType"] = "complete"
+	}
+	metric.finish(ctx, response)
+	return response
+}
+
+func callToolInner(ctx context.Context, service *service, source requestSource, tool string, envelope any, rpcID any) object {
 	name := text(envelope, "op")
 	args := obj(field(envelope, "args"))
 	if tool == "guide" {
@@ -234,4 +248,76 @@ func init() {
 		source := requestSource{local: true, origin: object{"controlTransport": "cli", "sourceId": "local-cli"}, policy: "all"}
 		return localControl(ctx, s, source, body), nil
 	})
+}
+
+type waitCalls struct {
+	mu    sync.Mutex
+	calls map[string]context.CancelFunc
+}
+
+func (w *waitCalls) register(parent context.Context, key string) (context.Context, func(), error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if _, exists := w.calls[key]; exists {
+		return nil, nil, errors.New("duplicate active wait request id")
+	}
+	if w.calls == nil {
+		w.calls = make(map[string]context.CancelFunc)
+	}
+	ctx, cancel := context.WithCancel(parent)
+	w.calls[key] = cancel
+	return ctx, func() {
+		w.mu.Lock()
+		delete(w.calls, key)
+		w.mu.Unlock()
+		cancel()
+	}, nil
+}
+
+func (w *waitCalls) cancel(key string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if cancel := w.calls[key]; cancel != nil {
+		cancel()
+	}
+}
+
+func browserRouteAllowed(route, method string) bool {
+	switch method {
+	case "GET":
+		if slices.Contains([]string{"status", "source", "agents", "agents/activity", "subscriptions", "tasks", "preferences", "accounts",
+			"events", "subscriptions/events", "agents/activity/events", "relay/list", "relay/progress", "updates/history"}, route) {
+			return true
+		}
+		for _, prefix := range []string{"accounts/", "agents/timeline/", "tasks/runtime/"} {
+			if id, ok := strings.CutPrefix(route, prefix); ok {
+				_, err := uuid.Parse(id)
+				return err == nil
+			}
+		}
+	case "POST":
+		return slices.Contains([]string{"agents/conversations", "agents/conversations/timeline", "coordination/board", "coordination/events",
+			"coordination/ax_list", "agents/dispatch-catalog", "agents/dispatch-defaults/read", "agents/resources",
+			"tasks/reviews", "tasks/control", "tasks/request-routing"}, route)
+	}
+	return false
+}
+
+func authorizeBrowserRoute(route, method string, body object) error {
+	if !browserRouteAllowed(route, method) || route == "tasks/control" && body["op"] != "codex_queue" ||
+		route == "tasks/request-routing" && body["action"] != "read" || route == "agents/resources" && body["action"] != "image" {
+		return errors.New("FRONT_DOOR_BROWSER_FORBIDDEN")
+	}
+	if method == "POST" {
+		for _, spec := range arr(managementCatalog()["operations"]) {
+			if field(spec, "route") == route && field(spec, "method") == "POST" {
+				if _, _, _, err := managementResolve(text(spec, "name"), object{"body": body}); err != nil {
+					return errors.New("FRONT_DOOR_BROWSER_INVALID")
+				}
+				return nil
+			}
+		}
+		return errors.New("FRONT_DOOR_BROWSER_FORBIDDEN")
+	}
+	return nil
 }

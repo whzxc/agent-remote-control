@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -30,6 +31,9 @@ func RunFixture(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			return runCLI(ctx, args[1:], stdin, stdout, stderr)
 		case "stdio", "front-door":
 			return exitResult(stderr, runCommand(ctx, args, stdin, stdout, stderr))
+		case "runtime":
+			err := serveRuntime(ctx, false)
+			return exitResult(stderr, errors.Join(err, stopFrontDoor(context.WithoutCancel(ctx))))
 		case "desktop-get":
 			if len(args) < 2 {
 				return exitResult(stderr, errors.New("A desktop route is required"))
@@ -113,13 +117,6 @@ func runFixtureService(parent context.Context, mode string, stdin io.Reader, std
 	}
 	defer os.Remove(info)
 	switch mode {
-	case "runtime":
-		select {
-		case <-ctx.Done():
-			return nil
-		case err := <-ended:
-			return err
-		}
 	case "http":
 		if err := outputLine(stdout, wire(object{"port": port, "token": token})); err != nil {
 			return err
@@ -193,6 +190,62 @@ func fixtureIngressSource(ingress string) (requestSource, error) {
 }
 
 func init() {
+	runtimeFixture = true
+	rpcFixtureArgs = func() ([]string, error) {
+		script, ok := os.LookupEnv("ARC_FIXTURE_SCRIPT")
+		if !ok {
+			return nil, errors.New("fixture script missing")
+		}
+		return []string{script}, nil
+	}
+	configureRuntimeFixture = func(s *service) {
+		s.metadata["runtime"] = "go"
+		s.fixtureIngress = fixtureIngressSource
+	}
+	privateFixtureResponse = func(ctx context.Context, requestID string) error {
+		if os.Getenv("ARC_FIXTURE_LOST_RESPONSE_ID") != requestID {
+			return nil
+		}
+		gate, present := os.LookupEnv("ARC_FIXTURE_LOST_RESPONSE_GATE")
+		if !present {
+			return nil
+		}
+		ready := strings.TrimSuffix(gate, filepath.Ext(gate)) + ".ready"
+		if err := save(ready, object{"ready": true}); err != nil {
+			return err
+		}
+		timer := time.NewTicker(10 * time.Millisecond)
+		defer timer.Stop()
+		for {
+			if _, err := os.Stat(gate); errors.Is(err, os.ErrNotExist) {
+				return nil
+			} else if err != nil {
+				return err
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-timer.C:
+			}
+		}
+	}
+	fixtureIncompatibleFrontDoor = func() bool {
+		path, ok := os.LookupEnv("ARC_FIXTURE_FRONT_DOOR_INCOMPATIBLE")
+		if !ok {
+			return false
+		}
+		_, err := os.Stat(path)
+		return err == nil
+	}
+	privateFixtureAdmitted = func(request frontDoorRequest) error {
+		if id, ok := os.LookupEnv("ARC_FIXTURE_ADMITTED_RPC_ID"); ok && id == wire(field(request.Body, "id")) {
+			if path, ok := os.LookupEnv("ARC_FIXTURE_ADMITTED_GATE"); ok {
+				return save(path, object{"admitted": true})
+			}
+		}
+		return nil
+	}
+
 	indexFixtureGate = func(ctx context.Context) error {
 		path, exists := os.LookupEnv("ARC_FIXTURE_INDEX_GATE")
 		if !exists {

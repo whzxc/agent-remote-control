@@ -32,6 +32,23 @@ func (g generation) MarshalJSON() ([]byte, error) {
 	return canonjson.Marshal(values)
 }
 
+func (g *generation) UnmarshalJSON(data []byte) error {
+	var values []uint16
+	if err := canonjson.Unmarshal(data, &values); err != nil {
+		return err
+	}
+	if len(values) != len(g) || len(data) == 0 || data[0] != '[' {
+		return errors.New("FRONT_DOOR_INVALID_GENERATION")
+	}
+	for i, value := range values {
+		if value > 255 {
+			return errors.New("FRONT_DOOR_INVALID_GENERATION")
+		}
+		g[i] = byte(value)
+	}
+	return nil
+}
+
 type frontDoorHello struct {
 	Version         uint16     `json:"version"`
 	Generation      generation `json:"generation"`
@@ -100,21 +117,45 @@ func generationFence(current, tagged generation) error {
 	return nil
 }
 
-func writeFrame(output io.Writer, value any) error {
+func boundedPrivateJSON(value any, limit int) ([]byte, error) {
 	data, err := canonjson.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > limit {
+		return nil, errors.New(frontDoorFrameTooLarge)
+	}
+	return data, nil
+}
+
+func validatePrivateResponse(request frontDoorRequest, response frontDoorResponse) error {
+	if err := generationFence(request.Generation, response.Generation); err != nil {
+		return err
+	}
+	if response.RequestID != request.ID {
+		return errors.New("FRONT_DOOR_REQUEST_MISMATCH")
+	}
+	_, err := request.Deadline.remaining()
+	return err
+}
+
+func writeFrame(output io.Writer, value any) error {
+	data, err := boundedPrivateJSON(value, maxFrameBytes)
 	if err != nil {
 		return err
 	}
-	if len(data) > maxFrameBytes {
-		return errors.New(frontDoorFrameTooLarge)
-	}
 	var header [4]byte
 	binary.BigEndian.PutUint32(header[:], uint32(len(data)))
-	if _, err := output.Write(header[:]); err != nil {
-		return err
+	for _, part := range [][]byte{header[:], data} {
+		written, err := output.Write(part)
+		if err != nil {
+			return err
+		}
+		if written != len(part) {
+			return io.ErrShortWrite
+		}
 	}
-	_, err = output.Write(data)
-	return err
+	return nil
 }
 
 func readFrame(input io.Reader, limit uint32, value any) error {

@@ -202,3 +202,30 @@ func callContextProvider(parent context.Context, name string, args object, timeo
 	}
 	return result, err
 }
+
+func contextProviderACPServer() (object, error) {
+	config, err := readContextProviderConfig()
+	if err != nil || config == nil {
+		return nil, err
+	}
+	binary, err := os.Executable()
+	if err != nil {
+		return nil, err
+	}
+	return object{"name": "context-provider", "command": binary, "args": []string{"context-provider-stdio"},
+		"env": []object{{"name": "ARC_STATE_DIR", "value": root()}}}, nil
+}
+
+func providerOperation(ctx context.Context, request operationRequest) (any, error) {
+	timeout := 10 * time.Second
+	if request.name == "context_amend" || request.name == "context_check" {
+		timeout = 120 * time.Second
+	}
+	return callContextProvider(ctx, strings.TrimPrefix(request.name, "context_"), request.args, timeout)
+}
+
+func init() {
+	for _, name := range []string{"context_resolve", "context_search", "context_read", "context_check", "context_amend"} {
+		registerOperation(name, providerOperation, nil)
+	}
+}

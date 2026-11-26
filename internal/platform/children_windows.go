@@ -23,3 +23,5 @@ func SignalTree(pid int, _ bool) {
 	OwnChild(cmd)
 	_ = cmd.Run()
 }
+
+func KillOwnedGroup(_ int) {}

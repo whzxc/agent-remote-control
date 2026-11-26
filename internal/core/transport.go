@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/whzxc/agent-remote-control/internal/canonjson"
@@ -28,7 +29,7 @@ func httpReply(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(status)
-	if status != http.StatusNoContent {
+	if status != http.StatusNoContent && status != http.StatusNotModified {
 		_, _ = io.WriteString(w, wire(value))
 	}
 }
@@ -65,7 +66,12 @@ func localHandler(target transportTarget, port int, token string) http.Handler {
 		data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, limit))
 		_ = request.SetReadDeadline(time.Time{})
 		if err != nil {
-			httpReply(w, http.StatusBadRequest, object{"error": "invalid request body"})
+			var timeout net.Error
+			if errors.As(err, &timeout) && timeout.Timeout() {
+				httpReply(w, http.StatusRequestTimeout, object{"error": "request timeout"})
+			} else {
+				httpReply(w, http.StatusBadRequest, object{"error": err.Error()})
+			}
 			return
 		}
 		body := object{}
@@ -73,6 +79,14 @@ func localHandler(target transportTarget, port int, token string) http.Handler {
 			if err := decodeObject(data, &body); err != nil || body == nil {
 				httpReply(w, http.StatusBadRequest, object{"error": "invalid JSON"})
 				return
+			}
+		}
+		if r.Method == http.MethodGet {
+			if kind := snapshotKind(r.URL.Path); kind != "" {
+				if bridge, ok := target.(*gatewayBridge); ok {
+					serveSnapshotHTTP(w, r, bridge, kind)
+					return
+				}
 			}
 		}
 		var result any
@@ -87,11 +101,10 @@ func localHandler(target transportTarget, port int, token string) http.Handler {
 				return
 			}
 			value, err := target.mcp(r.Context(), ingress, body)
-			if err == nil && value == nil {
-				httpReply(w, http.StatusAccepted, nil)
-				return
-			}
 			result, failure = value, err
+			if value == nil {
+				result = nil
+			}
 		case r.Method == http.MethodGet && r.URL.Path == "/healthz":
 			result, failure = target.management(r.Context(), "healthz", http.MethodGet, body)
 		case strings.HasPrefix(r.URL.Path, "/api/"):
@@ -102,7 +115,11 @@ func localHandler(target transportTarget, port int, token string) http.Handler {
 					return
 				}
 			}
-			result, failure = target.management(r.Context(), route, r.Method, body)
+			ctx := r.Context()
+			if r.Method != http.MethodGet && route != "app/snapshot" && route != "cli/control" {
+				ctx = context.WithoutCancel(ctx)
+			}
+			result, failure = target.management(ctx, route, r.Method, body)
 		default:
 			httpReply(w, http.StatusNotFound, object{"error": "UNKNOWN_ROUTE"})
 			return
@@ -111,7 +128,51 @@ func localHandler(target transportTarget, port int, token string) http.Handler {
 			httpReply(w, http.StatusBadRequest, object{"error": failure.Error()})
 			return
 		}
-		httpReply(w, http.StatusOK, result)
+		status := http.StatusOK
+		if strings.HasPrefix(r.URL.Path, "/api/") && (r.Method == http.MethodGet ||
+			r.URL.Path == "/api/agents/conversations" || r.URL.Path == "/api/agents/conversations/timeline" || r.URL.Path == "/api/tasks/reviews") {
+			data := wire(result)
+			etag := "\"" + hash([]byte(data)) + "\""
+			w.Header().Set("ETag", etag)
+			for _, value := range strings.Split(r.Header.Get("If-None-Match"), ",") {
+				tag := strings.TrimSpace(value)
+				if tag == "*" || strings.TrimPrefix(tag, "W/") == etag {
+					status = http.StatusNotModified
+					break
+				}
+			}
+		}
+		httpReply(w, status, result)
+	})
+}
+
+func snapshotKind(path string) string {
+	switch path {
+	case "/api/events":
+		return "Status"
+	case "/api/browser/events":
+		return "Browser"
+	case "/api/subscriptions/events":
+		return "Subscriptions"
+	case "/api/agents/activity/events":
+		return "Activity"
+	}
+	return ""
+}
+
+func serveSnapshotHTTP(w http.ResponseWriter, r *http.Request, bridge *gatewayBridge, kind string) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-store")
+	controller := http.NewResponseController(w)
+	if err := controller.Flush(); err != nil {
+		return
+	}
+	_ = bridge.snapshot(r.Context(), kind, func(frame string) error {
+		_ = controller.SetWriteDeadline(time.Now().Add(2 * time.Second))
+		if _, err := io.WriteString(w, frame); err != nil {
+			return err
+		}
+		return controller.Flush()
 	})
 }
 
@@ -297,4 +358,134 @@ func serveJSONLines(input io.Reader, output io.Writer, dispatch func(object) (an
 		}
 	}
 	return reader.Err()
+}
+
+const desktopBusy = "DESKTOP_BUSY: Too many desktop requests are in flight. Wait for completion and read current state before retrying."
+
+type desktopTransport struct {
+	server   *http.Server
+	listener net.Listener
+	endpoint object
+}
+
+type desktopListener struct {
+	net.Listener
+	slots chan struct{}
+}
+
+type desktopConn struct {
+	net.Conn
+	release func()
+	once    sync.Once
+}
+
+func (c *desktopConn) Close() error {
+	c.once.Do(c.release)
+	return c.Conn.Close()
+}
+
+func (l desktopListener) Accept() (net.Conn, error) {
+	for {
+		conn, err := l.Listener.Accept()
+		if err != nil {
+			return nil, err
+		}
+		select {
+		case l.slots <- struct{}{}:
+			return &desktopConn{Conn: conn, release: func() { <-l.slots }}, nil
+		default:
+			_ = conn.Close()
+		}
+	}
+}
+
+func desktopOperation(route, method string) bool {
+	return desktopRoute(route) || route == "service" && (method == http.MethodGet || method == http.MethodPost) ||
+		route == "subscriptions/open" && method == http.MethodPost
+}
+
+func listenDesktop(owner func(context.Context, string, string, object) (any, error)) (*desktopTransport, error) {
+	raw, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		return nil, err
+	}
+	listener := desktopListener{Listener: raw, slots: make(chan struct{}, 32)}
+	port := raw.Addr().(*net.TCPAddr).Port
+	token := id() + id()
+	address := strconv.Itoa(port)
+	admitted := make(chan struct{}, 16)
+	server := &http.Server{
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       5 * time.Second,
+		MaxHeaderBytes:    16 << 10,
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if (r.Host != "127.0.0.1:"+address && !strings.EqualFold(r.Host, "localhost:"+address)) ||
+				!secureToken(r.Header.Get("Authorization"), "Bearer "+token) || r.Header.Get("Origin") != "" {
+				httpReply(w, http.StatusBadRequest, object{"error": "unauthorized"})
+				return
+			}
+			route := strings.TrimPrefix(r.URL.Path, "/api/")
+			if route == r.URL.Path || !desktopOperation(route, r.Method) {
+				httpReply(w, http.StatusBadRequest, object{"error": "UNKNOWN_ROUTE"})
+				return
+			}
+			select {
+			case admitted <- struct{}{}:
+				defer func() { <-admitted }()
+			default:
+				httpReply(w, http.StatusBadRequest, object{"error": desktopBusy})
+				return
+			}
+			data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 65536))
+			body := object{}
+			if err == nil && len(data) > 0 {
+				err = decodeObject(data, &body)
+			}
+			if err != nil {
+				httpReply(w, http.StatusBadRequest, object{"error": err.Error()})
+				return
+			}
+			_ = http.NewResponseController(w).SetReadDeadline(time.Time{})
+			ctx := r.Context()
+			if r.Method != http.MethodGet && route != "app/snapshot" {
+				ctx = context.WithoutCancel(ctx)
+			}
+			value, err := owner(ctx, route, r.Method, body)
+			if err != nil {
+				httpReply(w, http.StatusBadRequest, object{"error": err.Error()})
+				return
+			}
+			httpReply(w, http.StatusOK, value)
+		}),
+	}
+	server.SetKeepAlivesEnabled(false)
+	go func() { _ = server.Serve(listener) }()
+	return &desktopTransport{server, listener, object{"port": port, "token": token}}, nil
+}
+
+func (t *desktopTransport) close() {
+	_ = t.listener.Close()
+	_ = t.server.Close()
+}
+
+func localRequestTimeout(route string, body object) time.Duration {
+	switch {
+	case route == "setup/wait":
+		return time.Duration(min(uintOr(body["timeout"], 60), 86400)+30) * time.Second
+	case route == "setup/apply", route == "start", strings.HasSuffix(route, "/start"),
+		strings.HasSuffix(route, "/restart"), strings.HasSuffix(route, "/start-all"), strings.HasPrefix(route, "updates/"):
+		return 360 * time.Second
+	default:
+		return 120 * time.Second
+	}
+}
+
+func forwardDesktop(ctx context.Context, endpoint object, route, method string, body object) (any, error) {
+	port := uintOr(endpoint["port"], 0)
+	if port == 0 || port > 65535 {
+		return nil, errors.New("invalid local endpoint")
+	}
+	wait, cancel := context.WithTimeout(ctx, localRequestTimeout(route, body))
+	defer cancel()
+	return sendLocal(wait, port, text(endpoint, "token"), "api/"+route, method, body)
 }

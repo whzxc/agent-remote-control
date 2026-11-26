@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"net/http"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/whzxc/agent-remote-control/internal/canonjson"
@@ -64,12 +66,95 @@ func secureToken(a, b string) bool {
 	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
+type privateListener struct {
+	mu sync.Mutex
+	net.Listener
+	path   string
+	closed bool
+	done   chan struct{}
+}
+
+func (l *privateListener) Accept() (net.Conn, error) {
+	for {
+		l.mu.Lock()
+		listener := l.Listener
+		l.mu.Unlock()
+		conn, err := listener.Accept()
+		if err == nil {
+			return conn, nil
+		}
+		l.mu.Lock()
+		rebound := !l.closed && listener != l.Listener
+		l.mu.Unlock()
+		if !rebound {
+			return nil, err
+		}
+	}
+}
+
+func (l *privateListener) Close() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.closed {
+		return nil
+	}
+	l.closed = true
+	close(l.done)
+	err := l.Listener.Close()
+	if operatingSystem != "windows" {
+		_ = os.Remove(l.path)
+		_ = os.Remove(filepath.Dir(l.path))
+	}
+	return err
+}
+
+func openPrivateListener(path string) (net.Listener, error) {
+	listener, err := platform.ListenIPC(path)
+	if local, ok := listener.(*net.UnixListener); ok {
+		local.SetUnlinkOnClose(false)
+	}
+	return listener, err
+}
+
+func (l *privateListener) supervise(ctx context.Context) {
+	tick := time.NewTicker(5 * time.Second)
+	defer tick.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-l.done:
+			return
+		case <-tick.C:
+		}
+		l.mu.Lock()
+		if !l.closed {
+			if _, err := os.Lstat(l.path); errors.Is(err, os.ErrNotExist) {
+				rebound, err := openPrivateListener(l.path)
+				if err == nil {
+					old := l.Listener
+					l.Listener = rebound
+					_ = old.Close()
+				} else {
+					recordLog("ERROR", "Cannot rebind private ARC endpoint: "+err.Error(), nil)
+				}
+			}
+		}
+		l.mu.Unlock()
+	}
+}
+
 func listenPrivate(ctx context.Context, endpoint, token string, core *inProcess, stop func()) (net.Listener, error) {
-	listener, err := platform.ListenIPC(ipcEndpoint(endpoint))
+	path := ipcEndpoint(endpoint)
+	socket, err := openPrivateListener(path)
 	if err != nil {
 		return nil, err
 	}
-	connections := make(chan struct{}, maxInFlight+maxQueued)
+	listener := &privateListener{Listener: socket, path: path, done: make(chan struct{})}
+	if operatingSystem != "windows" {
+		go listener.supervise(ctx)
+	}
+	connections := make(chan struct{}, maxInFlight)
 	go func() {
 		for {
 			conn, err := listener.Accept()
@@ -112,6 +197,9 @@ func servePrivate(parent context.Context, core *inProcess, token string, conn ne
 	if err := canonjson.Unmarshal(attach["Hello"], &message); err != nil || !secureToken(token, message.Token) {
 		return
 	}
+	if stop != nil && fixtureIncompatibleFrontDoor != nil && fixtureIncompatibleFrontDoor() {
+		message.Version = 0
+	}
 	hello, err := core.hello(message.Version)
 	if err != nil {
 		_ = writeFrame(conn, object{"Err": err.Error()})
@@ -133,8 +221,11 @@ func servePrivate(parent context.Context, core *inProcess, token string, conn ne
 		return
 	}
 	frame := envelope["Request"]
+	stream := false
 	if stop != nil {
 		frame = envelope["Gateway"]
+	} else if snapshot, ok := envelope["Stream"]; ok {
+		frame, stream = snapshot, true
 	}
 	if len(frame) == 0 || len(frame) > maxRequestBytes {
 		return
@@ -156,10 +247,26 @@ func servePrivate(parent context.Context, core *inProcess, token string, conn ne
 		_, _ = conn.Read(unexpected[:])
 		cancel()
 	}()
+	if stream {
+		err := core.snapshotStream(ctx, request, func(frame frontDoorStream) error {
+			_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Second))
+			return writeFrame(conn, object{"Ok": frame})
+		})
+		if err != nil && ctx.Err() == nil {
+			_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Second))
+			_ = writeFrame(conn, object{"Err": err.Error()})
+		}
+		return
+	}
 	value, err := core.admit(ctx, request)
 	body := object{"Ok": value}
 	if err != nil {
 		body = object{"Err": err.Error()}
+	}
+	if privateFixtureResponse != nil {
+		if err := privateFixtureResponse(ctx, request.ID); err != nil {
+			return
+		}
 	}
 	_ = writeFrame(conn, frontDoorResponse{Generation: core.generation, RequestID: request.ID, Body: body})
 }
@@ -216,80 +323,192 @@ type privateManagement struct {
 	Method string `json:"method"`
 }
 
-func privateRequest(ctx context.Context, conn net.Conn, hello frontDoorHello, route, method string, body object) (any, error) {
-	var operationName any = object{"Management": privateManagement{Route: route, Method: method}}
+func privateManagementOperation(route, method string) any {
 	switch route {
 	case "healthz":
-		operationName = "Health"
+		return "Health"
 	case "cli/control":
-		operationName = "LocalControl"
+		return "LocalControl"
 	}
-	return exchangePrivate(ctx, conn, hello, operationName, "Management", body, route, method)
+	return object{"Management": privateManagement{Route: route, Method: method}}
 }
 
-func exchangePrivate(ctx context.Context, conn net.Conn, hello frontDoorHello, operationName any, authority any, body object, route, method string) (any, error) {
+func privateRequest(ctx context.Context, conn net.Conn, hello frontDoorHello, route, method string, body object) (any, error) {
+	request := newPrivateRequest(ctx, privateManagementOperation(route, method), "Management", body)
+	request.Generation = hello.Generation
+	return exchangePrivate(ctx, conn, request, "Request")
+}
+
+func privateEnvelope(operationName any, body object) object {
+	switch str(operationName) {
+	case "Mcp":
+		return obj(field(body["params"], "arguments"))
+	case "PeerControl":
+		return obj(body["body"])
+	default:
+		return body
+	}
+}
+
+func newPrivateRequest(ctx context.Context, operationName any, authority any, body object) frontDoorRequest {
+	body = maps.Clone(body)
+	switch str(operationName) {
+	case "Mcp":
+		if params := maps.Clone(obj(body["params"])); params != nil {
+			if args := obj(params["arguments"]); args != nil {
+				params["arguments"] = maps.Clone(args)
+			}
+			body["params"] = params
+		}
+	case "PeerControl":
+		body["body"] = maps.Clone(obj(body["body"]))
+	}
+	envelope := privateEnvelope(operationName, body)
+	requestID := text(field(envelope, "args"), "requestId")
+	if requestID == "" {
+		requestID = text(envelope, "requestId")
+	}
+	if requestID == "" {
+		requestID = id()
+	}
+	if _, supplied := envelope["requestId"]; !supplied && retryContract(operation(text(envelope, "op")))["mode"] == "receipt" {
+		switch str(operationName) {
+		case "Mcp":
+			if envelope != nil && body["method"] == "tools/call" && field(body["params"], "name") == "act" {
+				envelope["requestId"] = requestID
+			}
+		case "LocalControl":
+			envelope["requestId"] = requestID
+		case "PeerControl":
+			if envelope != nil && body["tool"] == "act" {
+				envelope["requestId"] = requestID
+			}
+		}
+	}
 	timeout := 120 * time.Second
-	if str(operationName) == "Mcp" && isMCPWait(body) {
-		timeout = 1830 * time.Second
+	switch str(operationName) {
+	case "Mcp":
+		switch {
+		case isMCPWait(body):
+			timeout = 1830 * time.Second
+		case text(envelope, "op") == "context_amend" || text(envelope, "op") == "context_check":
+			timeout = 150 * time.Second
+		}
+	case "":
+		if obj(operationName)["Snapshot"] != nil {
+			timeout = 1830 * time.Second
+		}
+		if management, ok := obj(operationName)["Management"].(privateManagement); ok {
+			timeout = localRequestTimeout(management.Route, body)
+		}
 	}
 	deadline := time.Now().Add(timeout)
 	if limit, ok := ctx.Deadline(); ok && limit.Before(deadline) {
 		deadline = limit
 	}
-	_ = conn.SetDeadline(deadline)
+	return frontDoorRequest{Version: frontDoorVersion, ID: requestID, Deadline: frontDoorDeadline{UnixMS: uint64(deadline.UnixMilli())},
+		Context: frontDoorContext{Authority: authority}, Operation: operationName, Body: body}
+}
+
+func isPrivateWrite(request frontDoorRequest) bool {
+	body := obj(request.Body)
+	envelope := privateEnvelope(request.Operation, body)
+	args := envelope["args"]
+	op := text(envelope, "op")
+	if op == "device" {
+		op, args = text(args, "op"), field(args, "args")
+	}
+	if op == "receipt" && (text(args, "action") == "" || text(args, "action") == "read") {
+		return false
+	}
+	switch str(request.Operation) {
+	case "Health":
+		return false
+	case "Mcp":
+		return body["method"] == "tools/call" && field(body["params"], "name") == "act"
+	case "PeerControl":
+		return body["tool"] == "act"
+	case "LocalControl":
+		spec := operation(op)
+		return spec != nil && via(spec) == "act"
+	}
+	if raw, ok := obj(request.Operation)["Management"]; ok {
+		if management, ok := raw.(privateManagement); ok {
+			return management.Method != http.MethodGet
+		}
+		return text(raw, "method") != http.MethodGet
+	}
+	if raw, ok := obj(request.Operation)["Authority"]; ok {
+		switch text(raw, "op") {
+		case "get", "for_grant", "control_sources", "candidates", "grant_active", "validate_claim", "active_grants", "default_policy", "ingress_retired":
+			return false
+		}
+		return true
+	}
+	return false
+}
+
+func lostPrivate(request frontDoorRequest, reason error) error {
+	if !isPrivateWrite(request) {
+		return fmt.Errorf("FRONT_DOOR_CORE_LOST: %s. Read failed; issue a new authorized read when Core is ready.", reason)
+	}
+	args := object{"action": "read", "requestId": request.ID}
+	next := object{"via": "act", "op": "receipt", "args": args}
+	envelope := privateEnvelope(request.Operation, obj(request.Body))
+	switch device := text(envelope["args"], "device"); {
+	case text(envelope, "op") == "device" && device != "":
+		if text(envelope["args"], "op") == "receipt" {
+			if target := text(field(envelope["args"], "args"), "requestId"); target != "" {
+				args["requestId"] = target
+			}
+		}
+		fallthrough
+	case device != "":
+		next["op"] = "device"
+		next["args"] = object{"device": device, "op": "receipt", "args": args}
+	}
+	return errors.New(wire(object{"code": -32603,
+		"message": "Core disconnected after write submission; outcome is uncertain. Do not repeat the write.",
+		"data":    object{"state": "unconfirmed", "requestId": request.ID, "reason": reason.Error(), "next": next}}))
+}
+
+func notSentPrivate(request frontDoorRequest, code, reason string) error {
+	return errors.New(wire(object{"code": -32603, "message": code + ": " + reason + " Request was not sent to Core.",
+		"data": object{"requestId": request.ID, "next": object{"via": "query", "op": "guide", "args": object{"topic": "loop"}}}}))
+}
+
+func exchangePrivate(ctx context.Context, conn net.Conn, request frontDoorRequest, envelope string) (any, error) {
+	if _, err := request.Deadline.remaining(); err != nil {
+		return nil, notSentPrivate(request, "FRONT_DOOR_DEADLINE_EXPIRED", "The original admission deadline expired. Read current state before retrying with the same requestId.")
+	}
+	_ = conn.SetDeadline(time.UnixMilli(int64(request.Deadline.UnixMS)))
 	stop := context.AfterFunc(ctx, func() { conn.Close() })
 	defer stop()
-	requestID := text(field(body, "args"), "requestId")
-	if requestID == "" {
-		requestID = text(body, "requestId")
-	}
-	if requestID == "" {
-		requestID = id()
-	}
-	request := frontDoorRequest{Version: hello.Version, Generation: hello.Generation, ID: requestID,
-		Deadline: frontDoorDeadline{UnixMS: uint64(deadline.UnixMilli())}, Context: frontDoorContext{Authority: authority},
-		Operation: operationName, Body: body}
-	encoded, err := canonjson.Marshal(request)
+	encoded, err := boundedPrivateJSON(request, maxRequestBytes)
 	if err != nil {
 		return nil, err
 	}
-	if len(encoded) > maxRequestBytes {
-		return nil, errors.New(frontDoorFrameTooLarge)
-	}
-	isWrite := method != http.MethodGet && route != "app/snapshot"
-	if str(operationName) == "Mcp" {
-		params := body["params"]
-		isWrite = body["method"] == "tools/call" && field(params, "name") == "act"
-	}
-	if route == "cli/control" {
-		spec := operation(text(body, "op"))
-		isWrite = spec != nil && via(spec) == "act" && (spec["name"] != "receipt" || field(field(body, "args"), "action") != "read" && field(field(body, "args"), "action") != nil)
-	}
-	lost := func(reason error) error {
-		if isWrite {
-			return errors.New(wire(object{"code": -32603, "message": "Core disconnected after write submission; outcome is uncertain. Do not repeat the write.",
-				"data": object{"state": "unconfirmed", "requestId": requestID, "reason": reason.Error(),
-					"next": object{"via": "act", "op": "receipt", "args": object{"action": "read", "requestId": requestID}}}}))
-		}
-		return fmt.Errorf("FRONT_DOOR_CORE_LOST: %s. Read failed; issue a new authorized read when Core is ready.", reason)
-	}
-	if err := writeFrame(conn, object{"Request": json.RawMessage(encoded)}); err != nil {
-		return nil, lost(err)
+	if err := writeFrame(conn, object{envelope: json.RawMessage(encoded)}); err != nil {
+		return nil, lostPrivate(request, err)
 	}
 	var response frontDoorResponse
 	if err := readFrame(conn, maxFrameBytes, &response); err != nil {
-		return nil, lost(err)
+		return nil, lostPrivate(request, err)
 	}
-	if err := generationFence(hello.Generation, response.Generation); err != nil {
-		return nil, lost(err)
+	if err := validatePrivateResponse(request, response); err != nil {
+		return nil, lostPrivate(request, err)
 	}
-	if response.RequestID != requestID {
-		return nil, lost(errors.New("FRONT_DOOR_REQUEST_MISMATCH"))
+	if failure, ok := response.Body["Err"].(string); ok {
+		if isPrivateWrite(request) && (strings.HasPrefix(failure, "FRONT_DOOR_DEADLINE_EXPIRED") || strings.HasPrefix(failure, "FRONT_DOOR_CANCELLED")) {
+			return nil, lostPrivate(request, errors.New(failure))
+		}
+		return nil, errors.New(failure)
 	}
-	if err, ok := response.Body["Err"].(string); ok {
-		return nil, errors.New(err)
+	value, present := response.Body["Ok"]
+	if !present || len(response.Body) != 1 {
+		return nil, lostPrivate(request, errors.New("FRONT_DOOR_INVALID_RESPONSE"))
 	}
-	return response.Body["Ok"], nil
+	return value, nil
 }
 
 type privateIngress struct {
@@ -298,28 +517,231 @@ type privateIngress struct {
 	Header    any    `json:"header"`
 }
 
-type gatewayBridge struct{}
-
-func (gatewayBridge) management(ctx context.Context, route, method string, body object) (any, error) {
-	conn, hello, err := attachPrivate(ctx, "core")
-	if err != nil {
-		return nil, fmt.Errorf("FRONT_DOOR_CORE_UNAVAILABLE: %w", err)
-	}
-	defer conn.Close()
-	return privateRequest(ctx, conn, hello, route, method, body)
+type gatewayBridge struct {
+	mu                             sync.Mutex
+	waiting, bytes                 int
+	current                        generation
+	dialSequence, acceptedSequence uint64
+	waitCalls                      waitCalls
 }
 
-func (gatewayBridge) mcp(ctx context.Context, ingress string, request object) (object, error) {
-	conn, hello, err := attachPrivate(ctx, "core")
+func (b *gatewayBridge) reserve(request frontDoorRequest) (func(), error) {
+	data, err := boundedPrivateJSON(request, maxRequestBytes)
 	if err != nil {
-		return nil, fmt.Errorf("FRONT_DOOR_CORE_UNAVAILABLE: %w", err)
+		return nil, err
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.waiting == maxQueued || b.bytes+len(data) > maxQueueBytes {
+		return nil, notSentPrivate(request, "FRONT_DOOR_BUSY", "The Core admission queue is full.")
+	}
+	b.waiting++
+	b.bytes += len(data)
+	return func() {
+		b.mu.Lock()
+		b.waiting--
+		b.bytes -= len(data)
+		b.mu.Unlock()
+	}, nil
+}
+
+func (b *gatewayBridge) ready(wait context.Context, request *frontDoorRequest) (net.Conn, error) {
+	const deadlineMessage = "The original admission deadline expired. Read current state before retrying with the same requestId."
+	if _, err := request.Deadline.remaining(); err != nil {
+		return nil, notSentPrivate(*request, "FRONT_DOOR_DEADLINE_EXPIRED", deadlineMessage)
+	}
+	release, err := b.reserve(*request)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	for {
+		b.mu.Lock()
+		b.dialSequence++
+		sequence := b.dialSequence
+		b.mu.Unlock()
+		conn, hello, err := attachPrivate(wait, "core")
+		if err == nil {
+			request.Generation = hello.Generation
+			b.mu.Lock()
+			if sequence > b.acceptedSequence {
+				b.acceptedSequence, b.current = sequence, hello.Generation
+			}
+			current := b.current
+			b.mu.Unlock()
+			if request.Generation == current {
+				return conn, nil
+			}
+			_ = conn.Close()
+		} else if strings.HasPrefix(err.Error(), "FRONT_DOOR_PROTOCOL_MISMATCH") || strings.HasPrefix(err.Error(), "FRONT_DOOR_PEER_UNAUTHORIZED") {
+			return nil, err
+		}
+		select {
+		case <-wait.Done():
+			if errors.Is(wait.Err(), context.Canceled) {
+				return nil, errors.New(privateCancelled)
+			}
+			return nil, notSentPrivate(*request, "FRONT_DOOR_DEADLINE_EXPIRED", deadlineMessage)
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+}
+
+func (b *gatewayBridge) fence(frame generation) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return generationFence(b.current, frame)
+}
+
+func (b *gatewayBridge) call(ctx context.Context, request frontDoorRequest) (any, error) {
+	wait, cancel := context.WithDeadline(ctx, time.UnixMilli(int64(request.Deadline.UnixMS)))
+	defer cancel()
+	conn, err := b.ready(wait, &request)
+	if err != nil {
+		return nil, err
 	}
 	defer conn.Close()
+	value, err := exchangePrivate(wait, conn, request, "Request")
+	if fence := b.fence(request.Generation); fence != nil {
+		return nil, lostPrivate(request, fence)
+	}
+	return value, err
+}
+
+func (b *gatewayBridge) snapshot(ctx context.Context, kind string, send func(string) error) error {
+	request := newPrivateRequest(ctx, object{"Snapshot": object{"kind": kind}}, "Management", object{})
+	wait, cancel := context.WithDeadline(ctx, time.UnixMilli(int64(request.Deadline.UnixMS)))
+	defer cancel()
+	report := func(message string) error {
+		return send("event: error\ndata: " + wire(object{"error": message}) + "\n\n")
+	}
+	for {
+		err, retry := b.streamSnapshot(wait, &request, send)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if !retry {
+			return report(err.Error())
+		}
+		if err := report(err.Error()); err != nil {
+			return err
+		}
+	}
+}
+
+func (b *gatewayBridge) streamSnapshot(ctx context.Context, request *frontDoorRequest, send func(string) error) (error, bool) {
+	type readyResult struct {
+		conn net.Conn
+		err  error
+	}
+	handoff := make(chan readyResult)
+	attach, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		conn, err := b.ready(attach, request)
+		select {
+		case handoff <- readyResult{conn, err}:
+		case <-attach.Done():
+			if conn != nil {
+				_ = conn.Close()
+			}
+		}
+	}()
+	tick := time.NewTicker(15 * time.Second)
+	defer tick.Stop()
+	var conn net.Conn
+	for conn == nil {
+		select {
+		case ready := <-handoff:
+			if ready.err != nil {
+				return ready.err, false
+			}
+			conn = ready.conn
+		case <-tick.C:
+			if err := send(": keepalive\n\n"); err != nil {
+				return err, false
+			}
+		case <-ctx.Done():
+			return ctx.Err(), false
+		}
+	}
+	defer conn.Close()
+	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
+	defer stop()
+	_ = conn.SetDeadline(time.UnixMilli(int64(request.Deadline.UnixMS)))
+	if err := writeFrame(conn, object{"Stream": *request}); err != nil {
+		return err, false
+	}
+	for sequence := uint64(0); ; sequence++ {
+		var wireFrame struct {
+			OK    *frontDoorStream `json:"Ok"`
+			Error string           `json:"Err"`
+		}
+		if err := readFrame(conn, maxFrameBytes, &wireFrame); err != nil {
+			return fmt.Errorf("FRONT_DOOR_CORE_LOST: %s. Snapshot gap; reattaching to Core. Read a fresh snapshot if reattachment expires.", err), ctx.Err() == nil
+		}
+		if wireFrame.Error != "" {
+			if strings.HasPrefix(wireFrame.Error, "FRONT_DOOR_CORE_DRAINING") {
+				return errors.New("FRONT_DOOR_CORE_DRAINING: Snapshot gap; reattaching after Core is ready. Read a fresh snapshot if reattachment expires."), true
+			}
+			return errors.New(wireFrame.Error + " Read current source authority and reconnect the snapshot stream."), false
+		}
+		frame := wireFrame.OK
+		if frame == nil || frame.RequestID != request.ID || frame.Sequence != sequence {
+			return errors.New("FRONT_DOOR_REQUEST_MISMATCH"), false
+		}
+		if err := generationFence(request.Generation, frame.Generation); err != nil {
+			return err, false
+		}
+		if err := b.fence(frame.Generation); err != nil {
+			return err, false
+		}
+		body := ": keepalive\n\n"
+		if frame.Body != nil {
+			body = "event: snapshot\ndata: " + wire(frame.Body) + "\n\n"
+		}
+		if err := send(body); err != nil {
+			return err, false
+		}
+	}
+}
+
+func (b *gatewayBridge) management(ctx context.Context, route, method string, body object) (any, error) {
+	return b.call(ctx, newPrivateRequest(ctx, privateManagementOperation(route, method), "Management", body))
+}
+
+func (b *gatewayBridge) mcp(ctx context.Context, ingress string, request object) (object, error) {
 	if ingress == "" {
 		ingress = "default"
 	}
+	key := ingress + "\x00" + wire(request["id"])
+	if request["method"] == "notifications/cancelled" {
+		b.waitCalls.cancel(ingress + "\x00" + wire(field(request["params"], "requestId")))
+		return nil, nil
+	}
+	if isMCPWait(request) {
+		var done func()
+		var err error
+		ctx, done, err = b.waitCalls.register(ctx, key)
+		if err != nil {
+			return nil, err
+		}
+		defer done()
+	}
 	authority := object{"Ingress": privateIngress{ingress, object{"type": "ingress", "ingressId": ingress}, nil}}
-	payload, err := exchangePrivate(ctx, conn, hello, "Mcp", authority, request, "", "")
+	payload, err := b.call(ctx, newPrivateRequest(ctx, "Mcp", authority, request))
+	if err != nil {
+		if id, present := request["id"]; present {
+			var failure object
+			if decodeObject([]byte(err.Error()), &failure) == nil && failure["code"] != nil && failure["message"] != nil {
+				return object{"jsonrpc": "2.0", "id": id, "error": failure}, nil
+			}
+			if strings.HasPrefix(err.Error(), "FRONT_DOOR_") {
+				return object{"jsonrpc": "2.0", "id": id, "error": object{"code": -32603, "message": err.Error(),
+					"data": object{"arcVersion": arcVersion()}}}, nil
+			}
+		}
+	}
 	return obj(payload), err
 }
 
@@ -374,8 +796,13 @@ func runFrontDoor(parent context.Context) error {
 	port := httpListener.Addr().(*net.TCPAddr).Port
 	ctx, stop := context.WithCancel(parent)
 	defer stop()
-	bridge := gatewayBridge{}
-	admissions := newInProcess(bridge)
+	bridge := &gatewayBridge{}
+	owner := &gatewayOwner{bridge: bridge, token: secret, port: uint64(port)}
+	defer owner.close()
+	if err := owner.start(ctx); err != nil {
+		return err
+	}
+	admissions := newInProcess(owner)
 	info := object{"pid": os.Getpid(), "processStart": platform.ProcessStart(os.Getpid()),
 		"protocol": frontDoorVersion, "build": build, "port": port, "token": secret}
 	path := frontDoorInfoPath()
@@ -404,15 +831,18 @@ func runFrontDoor(parent context.Context) error {
 }
 
 func stageFrontDoor(source, build string) (string, error) {
-	dir := filepath.Join(root(), "front-door-bin", fmt.Sprintf("v%d", frontDoorVersion), build)
+	return stageFrontDoorAt(frontDoorImages(), source, build)
+}
+
+func stageFrontDoorAt(images, source, build string) (string, error) {
+	if !validBuildHash(build) {
+		return "", errors.New("FRONT_DOOR_BUILD_CHANGED: invalid installed build identity")
+	}
+	image := frontDoorImageAt(images, build)
+	dir := filepath.Dir(image)
 	if err := platform.PrivateDir(dir); err != nil {
 		return "", err
 	}
-	name := "arc"
-	if operatingSystem == "windows" {
-		name += ".exe"
-	}
-	image := filepath.Join(dir, name)
 	if hash, err := buildID(image); err == nil {
 		if hash != build {
 			return "", errors.New("FRONT_DOOR_BUILD_CHANGED: The staged image differs from the installed build.")
@@ -445,26 +875,54 @@ func stageFrontDoor(source, build string) (string, error) {
 	return image, nil
 }
 
-func ensureFrontDoor(ctx context.Context, build string) (object, error) {
-	readInfo := func(ctx context.Context) (object, error) {
-		attach, _, err := attachPrivate(ctx, "front-door")
-		if err != nil {
-			return nil, err
-		}
-		attach.Close()
-		value, err := load(frontDoorInfoPath())
-		if err != nil {
-			return nil, err
-		}
-		info := obj(value)
-		if info["build"] != build {
-			return nil, errors.New(coreBuildMismatch)
-		}
-		return info, nil
+var fixtureIncompatibleFrontDoor func() bool
+var privateFixtureResponse func(context.Context, string) error
+
+func readFrontDoorInfo(ctx context.Context) (object, frontDoorHello, error) {
+	conn, hello, err := attachPrivate(ctx, "front-door")
+	if err != nil {
+		return nil, hello, err
 	}
-	if info, err := readInfo(ctx); err == nil || err.Error() == coreBuildMismatch || strings.HasPrefix(err.Error(), "FRONT_DOOR_PROTOCOL_MISMATCH") {
+	_ = conn.Close()
+	value, err := load(frontDoorInfoPath())
+	if err != nil {
+		return nil, hello, err
+	}
+	info := obj(value)
+	port := uintOr(info["port"], 0)
+	if port == 0 || port > 65535 || uintOr(info["pid"], 0) == 0 || uintOr(info["protocol"], 0) != frontDoorVersion {
+		return nil, hello, errors.New("FRONT_DOOR_PORT_MISSING")
+	}
+	return info, hello, nil
+}
+
+func ensureFrontDoor(ctx context.Context, build string) (object, error) {
+	if info, _, err := readFrontDoorInfo(ctx); err == nil || incompatibleFrontDoor(err) {
 		return info, err
 	}
+	source, err := runtimeBinary()
+	if err != nil {
+		return nil, err
+	}
+	image, err := stageFrontDoor(source, build)
+	if err != nil {
+		return nil, err
+	}
+	if operatingSystem == "darwin" {
+		update, _ := load(filepath.Join(root(), "app/front-door-update.json"))
+		if text(update, "targetBuild") == build && text(update, "lastOutcome") != "updated" &&
+			uintOr(field(update, "retryAt"), 0) > uint64(time.Now().UnixMilli()) {
+			current := text(update, "currentBuild")
+			if !validBuildHash(current) {
+				return nil, errors.New("FRONT_DOOR_START_FAILED: The current image build is unavailable.")
+			}
+			image = frontDoorImage(current)
+		}
+	}
+	return launchFrontDoor(ctx, image)
+}
+
+func launchFrontDoor(ctx context.Context, image string) (object, error) {
 	guard, err := frontDoorLock("front-door.lock", false)
 	if err != nil {
 		return nil, err
@@ -473,11 +931,7 @@ func ensureFrontDoor(ctx context.Context, build string) (object, error) {
 		return nil, errors.New("FRONT_DOOR_UNAVAILABLE: The front door still owns its lock. Inspect front-door.log; continuity is reduced until its endpoint recovers.")
 	}
 	defer guard.Close()
-	source, err := os.Executable()
-	if err != nil {
-		return nil, err
-	}
-	image, err := stageFrontDoor(source, build)
+	build, err := buildID(image)
 	if err != nil {
 		return nil, err
 	}
@@ -490,7 +944,7 @@ func ensureFrontDoor(ctx context.Context, build string) (object, error) {
 	command.Env = append(os.Environ(), "ARC_STATE_DIR="+root())
 	command.Stderr = log
 	platform.Detach(command)
-	guard.Close()
+	_ = guard.Close()
 	if err := command.Start(); err != nil {
 		return nil, err
 	}
@@ -502,9 +956,9 @@ func ensureFrontDoor(ctx context.Context, build string) (object, error) {
 	tick := time.NewTicker(50 * time.Millisecond)
 	defer tick.Stop()
 	for {
-		info, readyErr := readInfo(wait)
+		info, _, readyErr := readFrontDoorInfo(wait)
 		if readyErr == nil {
-			if uintOr(info["pid"], 0) == uint64(command.Process.Pid) {
+			if uintOr(info["pid"], 0) == uint64(command.Process.Pid) && text(info, "build") == build {
 				return info, nil
 			}
 			_ = command.Process.Kill()
@@ -522,6 +976,50 @@ func ensureFrontDoor(ctx context.Context, build string) (object, error) {
 		case <-tick.C:
 		}
 	}
+}
+
+func frontDoorImages() string {
+	return filepath.Join(root(), "front-door-bin", fmt.Sprintf("v%d", frontDoorVersion))
+}
+
+func frontDoorImage(build string) string {
+	return frontDoorImageAt(frontDoorImages(), build)
+}
+
+func frontDoorImageAt(images, build string) string {
+	name := "arc"
+	if operatingSystem == "windows" {
+		name += ".exe"
+	}
+	return filepath.Join(images, build, name)
+}
+
+func validBuildHash(value string) bool {
+	return len(value) == 64 && strings.IndexFunc(value, func(c rune) bool {
+		return (c < '0' || c > '9') && (c < 'a' || c > 'f')
+	}) == -1
+}
+
+func pruneFrontDoorImages(current string) error {
+	return pruneFrontDoorImagesAt(frontDoorImages(), current)
+}
+
+func pruneFrontDoorImagesAt(dir, current string) error {
+	if !validBuildHash(current) {
+		return errors.New("FRONT_DOOR_BUILD_CHANGED: invalid installed build identity")
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if entry.Name() != current && entry.IsDir() && validBuildHash(entry.Name()) {
+			if err := os.RemoveAll(filepath.Join(dir, entry.Name())); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func stopFrontDoor(ctx context.Context) error {
@@ -575,13 +1073,48 @@ func stopFrontDoor(ctx context.Context) error {
 	}
 }
 
-func prepareFrontDoorCommand(ctx context.Context, input io.Reader, output io.Writer, hold bool) error {
+func prepareFrontDoorInstall(ctx context.Context) (*os.File, error) {
 	guard, err := frontDoorLock("front-door-install.lock", false)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if guard == nil {
-		return errors.New("CORE_UNAVAILABLE: Installation holds the replacement path; retry after it finishes.")
+		return nil, errors.New("CORE_UNAVAILABLE: Another installer or Core startup holds the replacement path.")
+	}
+	failure := func(err error) (*os.File, error) {
+		_ = guard.Close()
+		return nil, err
+	}
+	unlocked, err := coreUnlocked()
+	if err != nil {
+		return failure(err)
+	}
+	if !unlocked {
+		return failure(errors.New("CORE_UNAVAILABLE: Stop Desktop and Core before preparing front-door replacement."))
+	}
+	if _, _, err := readFrontDoorInfo(ctx); err != nil {
+		if incompatibleFrontDoor(err) {
+			if err := stopFrontDoor(ctx); err != nil {
+				return failure(err)
+			}
+		} else {
+			isFree, lockErr := frontDoorLock("front-door.lock", false)
+			if lockErr != nil {
+				return failure(lockErr)
+			}
+			if isFree == nil {
+				return failure(err)
+			}
+			_ = isFree.Close()
+		}
+	}
+	return guard, nil
+}
+
+func prepareFrontDoorCommand(ctx context.Context, input io.Reader, output io.Writer, hold bool) error {
+	guard, err := prepareFrontDoorInstall(ctx)
+	if err != nil {
+		return err
 	}
 	defer guard.Close()
 	if !hold {
@@ -590,7 +1123,7 @@ func prepareFrontDoorCommand(ctx context.Context, input io.Reader, output io.Wri
 	if err := outputLine(output, "ready"); err != nil {
 		return err
 	}
-	_, err = bufio.NewReader(input).ReadString('\n')
+	_, err = bufio.NewReader(input).ReadByte()
 	if errors.Is(err, io.EOF) {
 		return nil
 	}

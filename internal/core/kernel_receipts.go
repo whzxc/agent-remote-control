@@ -251,6 +251,9 @@ func readControlReceipt(ctx context.Context, request operationRequest) (any, err
 	switch text(request.args, "action") {
 	case "", "read":
 	default:
+		if decideControlReceipt != nil {
+			return decideControlReceipt(ctx, request)
+		}
 		return nil, errors.New(PortPending)
 	}
 	session := text(request.service.metadata, "instance")

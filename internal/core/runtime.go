@@ -97,6 +97,34 @@ func (r *runtimeState) clients() []object {
 	return clients
 }
 
+func (r *runtimeState) desktopRequest(ctx context.Context, route, method string, body object) (any, error) {
+	if operatingSystem == "linux" && route != "app/snapshot" {
+		return nil, errors.New("DESKTOP_UNSUPPORTED: this operation requires a desktop UI; Linux runs headless.")
+	}
+	r.Lock()
+	r.expire(time.Now())
+	var endpoint object
+	for _, lease := range r.leases {
+		if lease.desktop != nil {
+			endpoint = lease.desktop
+			break
+		}
+	}
+	r.Unlock()
+	if endpoint == nil {
+		return nil, errors.New("Desktop is not running. This operation requires the Desktop entry point.")
+	}
+	select {
+	case desktopForwards <- struct{}{}:
+		defer func() { <-desktopForwards }()
+	default:
+		return nil, errors.New(desktopBusy)
+	}
+	return forwardDesktop(ctx, endpoint, route, method, body)
+}
+
+var desktopForwards = make(chan struct{}, 16)
+
 func (r *runtimeState) request(route string, body object) (object, error) {
 	key := text(body, "id")
 	if _, err := uuid.Parse(key); err != nil {
@@ -160,22 +188,26 @@ func (r *runtimeState) request(route string, body object) (object, error) {
 	return nil, errors.New("UNKNOWN_ROUTE")
 }
 
+func (r *runtimeState) uninstall(token string, proof any) (object, error) {
+	if token == "" || !secureToken(token, text(proof, "token")) || uintOr(field(proof, "pid"), 0) != uint64(os.Getpid()) ||
+		text(proof, "processStart") == "" || text(proof, "processStart") != platform.ProcessStart(os.Getpid()) {
+		return nil, errors.New("UNINSTALL_AUTH_REQUIRED: run the local uninstall command")
+	}
+	r.Lock()
+	r.closing = true
+	r.Unlock()
+	r.launches.close()
+	r.stop()
+	return object{"closing": true}, nil
+}
+
 func init() {
 	registerRoute("GET", "runtime/clients", func(_ context.Context, s *service, _ object, _ []string) (any, error) {
 		return s.runtime.clients(), nil
 	})
 	registerRoute("POST", "runtime/uninstall", func(_ context.Context, s *service, args object, _ []string) (any, error) {
 		proof, _ := load(filepath.Join(root(), "uninstall-core.json"))
-		token := text(args, "token")
-		if token == "" || !secureToken(token, text(proof, "token")) || uintOr(field(proof, "pid"), 0) != uint64(os.Getpid()) ||
-			text(proof, "processStart") != platform.ProcessStart(os.Getpid()) {
-			return nil, errors.New("UNINSTALL_AUTH_REQUIRED: Run the local uninstall command.")
-		}
-		s.runtime.Lock()
-		s.runtime.closing = true
-		s.runtime.Unlock()
-		s.runtime.stop()
-		return object{"closing": true}, nil
+		return s.runtime.uninstall(text(args, "token"), proof)
 	})
 	for _, route := range []string{"runtime/lease", "runtime/release", "runtime/shutdown"} {
 		registerRoute("POST", route, func(_ context.Context, s *service, body object, _ []string) (any, error) {
@@ -199,6 +231,9 @@ func serveRuntime(parent context.Context, daemon bool) error {
 	defer lock.Close()
 	if _, err := os.Stat(filepath.Join(root(), "app/core-stopped.json")); err == nil {
 		return errors.New("CORE_STOPPED: Start Core from ARC Desktop.")
+	}
+	if err := migrateCoreMetadata(); err != nil {
+		return err
 	}
 	build, err := processBuildID()
 	if err != nil {
@@ -226,6 +261,9 @@ func serveRuntime(parent context.Context, daemon bool) error {
 		"runtime": "rust", "version": buildVersion, "owner": "core", "daemon": daemon, "build": build}
 	s := &service{metadata: metadata, runtime: &runtimeState{leases: make(map[string]lease), stop: stop},
 		source: requestSource{origin: object{"controlSource": "custom"}, profile: object{"product": "custom"}, policy: "all"}}
+	if configureRuntimeFixture != nil {
+		configureRuntimeFixture(s)
+	}
 	core := newInProcess(s)
 	ipc, err := listenPrivate(ipcContext, "core", secret, core, nil)
 	if err != nil {
@@ -253,6 +291,16 @@ func serveRuntime(parent context.Context, daemon bool) error {
 	if err := s.start(ctx); err != nil {
 		return err
 	}
+	supervisor, stopSupervisor := context.WithCancel(ctx)
+	supervised := make(chan struct{})
+	go func() {
+		defer close(supervised)
+		superviseFrontDoor(supervisor, s, core, path, published)
+	}()
+	defer func() {
+		stopSupervisor()
+		<-supervised
+	}()
 	started := time.Now()
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
@@ -297,5 +345,75 @@ func (r *runtimeState) closeIfIdle() bool {
 		return false
 	}
 	r.closing = true
+	r.launches.close()
 	return true
+}
+
+func migrateCoreMetadata() error {
+	old, next := filepath.Join(root(), "web"), filepath.Join(root(), "app")
+	if _, err := os.Stat(old); errors.Is(err, os.ErrNotExist) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	if _, err := os.Stat(next); errors.Is(err, os.ErrNotExist) {
+		return os.Rename(old, next)
+	} else if err != nil {
+		return err
+	}
+	return os.RemoveAll(old)
+}
+
+var runtimeFixture bool
+var configureRuntimeFixture func(*service)
+
+func runtimeBinary() (string, error) {
+	executable, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	name := "arc"
+	if operatingSystem == "windows" {
+		name += ".exe"
+	}
+	base := filepath.Base(executable)
+	if base == name || runtimeFixture && (base == "contract-fixture" || base == "contract-fixture.exe") {
+		return executable, nil
+	}
+	parent := filepath.Dir(executable)
+	for _, path := range []string{filepath.Join(parent, "../Resources/bin", name), filepath.Join(parent, "bin", name)} {
+		if info, err := os.Stat(path); err == nil && info.Mode().IsRegular() {
+			return path, nil
+		}
+	}
+	return "", errors.New("The installation is missing the standalone Core executable.")
+}
+
+func coreUnlocked() (bool, error) {
+	lock, err := os.OpenFile(filepath.Join(root(), "core.lock"), os.O_RDWR, 0)
+	if errors.Is(err, os.ErrNotExist) {
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	defer lock.Close()
+	return platform.TryLock(lock)
+}
+
+func waitCoreExit(ctx context.Context) error {
+	wait, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	tick := time.NewTicker(100 * time.Millisecond)
+	defer tick.Stop()
+	for {
+		if unlocked, err := coreUnlocked(); unlocked || err != nil {
+			return err
+		}
+		select {
+		case <-wait.Done():
+			return errors.New("Core shutdown timed out")
+		case <-tick.C:
+		}
+	}
 }
