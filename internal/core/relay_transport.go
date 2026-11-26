@@ -512,7 +512,10 @@ func startRelayIngress(ingress *networkIngress, config object) error {
 		delay := time.Second
 		for ctx.Err() == nil {
 			start := time.Now()
-			err := relayConnect(ctx, ingress, config, "http://"+address)
+			ingress.mu.RLock()
+			current := obj(ingress.entry["config"])
+			ingress.mu.RUnlock()
+			err := relayConnect(ctx, ingress, current, "http://"+address)
 			if ctx.Err() != nil {
 				return
 			}

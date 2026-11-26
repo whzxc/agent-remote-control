@@ -35,3 +35,9 @@ func startFixtureIngressGateway(ctx context.Context, token string, port uint64) 
 		owner.close()
 	}, nil
 }
+
+func init() {
+	ingressFixtureSourceTransport = func(_ context.Context, s *service, id string, _ object, _ *string) (requestSource, error) {
+		return s.fixtureIngress(id)
+	}
+}

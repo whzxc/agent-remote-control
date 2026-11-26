@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -104,5 +105,227 @@ func deviceDispatchOp(op string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func deviceBindingArguments(op string, args object) (any, error) {
+	if !deviceDispatchOp(op) {
+		return nil, nil
+	}
+	if notify, exists := args["notify"]; exists {
+		schema := obj(field(field(operation(op), "inputSchema"), "properties"))["notify"]
+		if obj(schema) == nil {
+			return nil, fmt.Errorf("INVALID_ARGUMENT: %s does not accept notify; query guide for this op.", op)
+		}
+		if invalid := checkSchema("device-notify", op, "notify", schema, notify); invalid != nil {
+			return nil, errors.New(wire(invalid))
+		}
+	}
+	args = clone(args)
+	if err := normalizeNotification(args); err != nil {
+		return nil, err
+	}
+	binding := object{"agent": args["agent"], "title": dispatchTitle(args), "purpose": args["purpose"], "previousTurnId": args["turnId"]}
+	if notify, exists := args["notify"]; exists {
+		binding["notify"] = notify
+	}
+	return binding, nil
+}
+
+func (c *deviceController) bindForwardResult(ctx context.Context, m *deviceMember, request string, value any) error {
+	c.recordsMu.Lock()
+	row := c.records.forward(request)
+	var ticket deviceForwardRecord
+	if row != nil {
+		ticket = *row
+	}
+	c.recordsMu.Unlock()
+	if ticket.DeviceID != m.peer.DeviceID || ticket.Notification == nil {
+		return nil
+	}
+	result := clone(obj(value))
+	if result == nil {
+		return nil
+	}
+	result["requestId"] = request
+	bound, err := bindNotificationDevice(ctx, ticket.DeviceID, m.peer.Name, ticket.SourceID, ticket.Op, obj(ticket.Notification), result)
+	if err != nil || !bound {
+		return err
+	}
+	return c.changeRecords(func(records *deviceRecords) {
+		if row := records.forward(request); row != nil && row.DeviceID == ticket.DeviceID {
+			row.Notification = nil
+		}
+	})
+}
+
+func (c *deviceController) peerEventRequest(ctx context.Context, m *deviceMember, op string, args object) (any, error) {
+	m.mu.RLock()
+	online, path := m.status.online, m.status.path
+	m.mu.RUnlock()
+	if !online {
+		return nil, deviceOffline()
+	}
+	select {
+	case m.slots <- struct{}{}:
+		defer func() { <-m.slots }()
+	default:
+		return nil, errors.New("DEVICE_BUSY: Member request capacity reached; wait for an active request.")
+	}
+	wait, cancel := context.WithTimeout(ctx, 23*time.Second)
+	defer cancel()
+	prepared, err := c.prepare(wait, m, path)
+	if err != nil {
+		return nil, err
+	}
+	payload := object{"version": deviceProtocolVersion, "tool": "query", "body": object{"op": op, "args": args}, "origin": object{}}
+	response, err := prepared.send(wait, payload, 23*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	value, err := egressToolValue(response)
+	if err != nil {
+		return nil, err
+	}
+	if field(response, "isError") == true {
+		return nil, errors.New(wire(value))
+	}
+	return value, nil
+}
+
+func (c *deviceController) receivePeerEvent(ctx context.Context, member *deviceMember, event object) error {
+	device := member.peer.DeviceID
+	task := text(event, "threadId")
+	if task == "" {
+		task = text(event, "taskId")
+	}
+	exists, err := hasNotificationDeviceBinding(device, task, text(event, "turnId"))
+	if err != nil {
+		return err
+	}
+	if !exists {
+		request := text(event["causedBy"], "requestId")
+		if err := c.changeRecords(func(records *deviceRecords) {
+			records.associateReceipt(device, request, event)
+		}); err != nil {
+			return err
+		}
+		if err := c.bindForwardResult(ctx, member, request, event); err != nil {
+			return err
+		}
+	}
+	c.recordsMu.Lock()
+	source, known := c.records.taskSource(device, task)
+	c.recordsMu.Unlock()
+	if known {
+		return receiveNotificationDeviceEvent(ctx, c.service, device, source, event)
+	}
+	return nil
+}
+
+func (c *deviceController) reconcilePeerEvents(ctx context.Context, member *deviceMember) error {
+	device := member.peer.DeviceID
+	bindings, err := openNotificationDeviceBindings(device)
+	if err != nil {
+		return err
+	}
+	for _, value := range bindings {
+		member.mu.RLock()
+		online := member.status.online
+		member.mu.RUnlock()
+		if !online {
+			break
+		}
+		row := obj(value)
+		c.recordsMu.Lock()
+		source, known := c.records.taskSource(device, text(row, "taskId"))
+		c.recordsMu.Unlock()
+		if !known || source != row["sourceId"] {
+			continue
+		}
+		status, err := c.peerEventRequest(ctx, member, text(row, "op"), obj(row["args"]))
+		if err != nil {
+			if err := markNotificationDeviceUnavailable(device, row); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := reconcileNotificationDevice(ctx, c.service, device, source, row, obj(status)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *deviceController) pollPeerEvents(ctx context.Context, member *deviceMember) {
+	var epoch, cursor any
+	unavailable := false
+	device := member.peer.DeviceID
+	unavailableStatus := func() {
+		if !unavailable {
+			_ = markNotificationDeviceUnavailable(device, nil)
+			unavailable = true
+		}
+	}
+	for ctx.Err() == nil {
+		member.mu.RLock()
+		online, changed := member.status.online, member.changed
+		member.mu.RUnlock()
+		if !online {
+			unavailableStatus()
+			cursor = nil
+			select {
+			case <-ctx.Done():
+				return
+			case <-changed:
+				continue
+			}
+		}
+		wait := 0
+		if cursor != nil {
+			wait = devicePeerEventWaitMS
+		}
+		result, err := c.peerEventRequest(ctx, member, devicePeerTaskEvents, object{"cursor": cursor, "epoch": epoch, "waitMs": wait})
+		if ctx.Err() != nil {
+			return
+		}
+		if err != nil {
+			recordLog("WARN", "Member events: "+err.Error(), nil)
+			unavailableStatus()
+			cursor = nil
+			timer := time.NewTimer(2 * time.Second)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return
+			case <-timer.C:
+				continue
+			}
+		}
+		unavailable = false
+		if cursor == nil || field(result, "gap") == true || field(result, "epoch") != epoch {
+			if err := c.reconcilePeerEvents(ctx, member); err != nil {
+				recordLog("WARN", err.Error(), nil)
+			}
+		}
+		failed := false
+		for _, row := range arr(field(result, "events")) {
+			if err := c.receivePeerEvent(ctx, member, obj(field(row, "event"))); err != nil {
+				recordLog("WARN", err.Error(), nil)
+				failed = true
+			}
+		}
+		epoch, cursor = field(result, "epoch"), field(result, "cursor")
+		if failed {
+			cursor = nil
+		}
+	}
+}
+
+func init() {
+	notificationObservePeer = func(source string, event object) { peerEvents.publish(source, event) }
+	deviceNotificationBinding = deviceBindingArguments
+	deviceAcknowledgeRead = func(_ context.Context, device, source, op string, args object, value any) error {
+		return acknowledgeNotificationDeviceRead(device, source, op, args, obj(value))
 	}
 }

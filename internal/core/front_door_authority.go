@@ -15,6 +15,7 @@ var authorizePeerDevice func(context.Context, string) error
 var authenticateIngressPrincipal func(context.Context, *service, string, object, *string) (requestSource, error)
 var resolveAuthenticatedMCP func(context.Context, *service, string, string) (requestSource, error)
 var validateMCPCredential func(context.Context, string, string, any) error
+var ingressFixtureSourceTransport func(context.Context, *service, string, object, *string) (requestSource, error)
 var currentBrowserKeyDigest func(context.Context) (string, error)
 var peerControlRequest func(context.Context, *service, string, object) (any, error)
 
@@ -122,6 +123,12 @@ func privateIngressSource(ctx context.Context, target *service, authority object
 			return requestSource{}, errors.New(contextMismatch)
 		}
 		return target.fixtureIngress(ingress)
+	}
+	if err := checkIngressTransport(ctx, ingress, principal, header); err != nil {
+		return requestSource{}, err
+	}
+	if target.fixtureIngress != nil && principal["type"] == "ingress" && ingressFixtureSourceTransport != nil {
+		return ingressFixtureSourceTransport(ctx, target, ingress, principal, header)
 	}
 	if authenticateIngressPrincipal != nil {
 		return authenticateIngressPrincipal(ctx, target, ingress, principal, header)

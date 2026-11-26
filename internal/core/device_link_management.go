@@ -77,6 +77,9 @@ func init() {
 		return nil
 	})
 	registerOperation("connector_verify", func(ctx context.Context, r operationRequest) (any, error) {
+		if r.source.local {
+			return object{"received": true, "code": r.args["code"], "origin": r.source.origin}, nil
+		}
 		ingressID := waitScope(ctx, r.source)
 		if _, err := validateVerificationIngress(ingressID); err != nil {
 			return nil, err

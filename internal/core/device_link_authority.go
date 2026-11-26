@@ -6,6 +6,8 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+
+	"github.com/google/uuid"
 	"strings"
 )
 
@@ -165,7 +167,45 @@ func deviceAuthorizeReceipt(s *service, id, name string, denied func() error) er
 	return nil
 }
 
+func linkedPeerSource(_ context.Context, device, key string, touch bool) (requestSource, error) {
+	row, err := pairedSourceAuthority(device, key)
+	if err != nil {
+		return requestSource{}, err
+	}
+	if row["connectionRemoved"] == true {
+		return requestSource{}, sourceAuthorizationError(row)
+	}
+	origin := object{"deviceId": device, "authType": "peer", "sourceId": row["id"]}
+	if touch {
+		origin, err = touchControlSource(row, "peer")
+		if err != nil {
+			return requestSource{}, err
+		}
+		origin["deviceId"] = device
+	}
+	return requestSource{local: true, origin: origin, profile: row, policy: "all"}, nil
+}
+
+func peerVisibleTask(_ context.Context, agent, task, peer string) bool {
+	records, _ := dispatchRecords(task)
+	for _, row := range records {
+		if deviceOwnsOrigin(obj(row["origin"]), peer) {
+			return true
+		}
+	}
+	if agent == "codex" {
+		return false
+	}
+	if _, err := uuid.Parse(task); err != nil {
+		return false
+	}
+	row, err := cachedJSON(filepath.Join(root(), "agents/tasks", task+".json"))
+	return err == nil && field(row, "agent") == agent && deviceOwnsOrigin(obj(field(row, "origin")), peer)
+}
+
 func init() {
+	deviceCorePeerSource = linkedPeerSource
+	deviceCoreTaskVisible = peerVisibleTask
 	authorizePeerDevice = func(ctx context.Context, id string) error {
 		_, err := authorizedDeviceController(ctx, id, false)
 		return err

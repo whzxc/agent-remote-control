@@ -1321,12 +1321,6 @@
           "items": [
             "Enable browser wire coverage against the Go front door."
           ]
-        },
-        {
-          "owner": "E",
-          "items": [
-            "Enable external HTTPS and OAuth ingress wire coverage."
-          ]
         }
       ]
     },
@@ -1341,9 +1335,11 @@
       "segment": "E",
       "go": [
         "internal/core/https.go",
-        "internal/core/https_test.go"
+        "internal/core/https_test.go",
+        "internal/core/ingress_oauth.go",
+        "internal/core/ingress_oauth_test.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/https_tunnel.rs": {
       "segment": "E",
@@ -1624,15 +1620,7 @@
         "ui/oauth_assets.go",
         "desktop/icons/oauth_assets.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "E",
-          "items": [
-            "Supply gatewayOAuthIngress with the live ingress lock and OAuth resource. Route external OAuth and discovery HTTP to ingressOAuth.writeHTTP, forwarding safe observation through the ingress trace. Authenticate transport through transportPrincipal."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/operations.rs": {
       "segment": "S0",
@@ -1713,8 +1701,12 @@
     },
     "native/src/relay/deploy.rs": {
       "segment": "E",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/relay_deploy.go",
+        "internal/core/relay_deploy_test.go",
+        "relay-worker/embed.go"
+      ],
+      "status": "ported"
     },
     "native/src/relay/identity.rs": {
       "segment": "E",

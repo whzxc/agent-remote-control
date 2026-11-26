@@ -270,7 +270,15 @@ func lockReceipt(request string) func() {
 		requestLocks.Unlock()
 	}
 }
+
+var ownedReceiptLookup []func(context.Context, operationRequest) (any, bool, error)
+
 func readControlReceipt(ctx context.Context, request operationRequest) (any, error) {
+	for _, lookup := range ownedReceiptLookup {
+		if value, found, err := lookup(ctx, request); found || err != nil {
+			return value, err
+		}
+	}
 	name := text(request.args, "requestId")
 	switch text(request.args, "action") {
 	case "", "read":

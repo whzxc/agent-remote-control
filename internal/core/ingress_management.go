@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 )
 
 func (g *ingressGateway) update(ctx context.Context, i *networkIngress, patch object, rotate bool) (object, error) {
@@ -73,8 +74,11 @@ func (g *ingressGateway) update(ctx context.Context, i *networkIngress, patch ob
 				return nil, err
 			}
 		}
-		if (entry["auth"] != previous["auth"] || entry["transport"] != previous["transport"]) && ingressOAuthReset != nil {
-			if err := ingressOAuthReset(ctx, i); err != nil {
+		if entry["auth"] != previous["auth"] || entry["transport"] != previous["transport"] {
+			i.oauth.mu.Lock()
+			err := i.oauth.reset(ctx)
+			i.oauth.mu.Unlock()
+			if err != nil {
 				return nil, err
 			}
 		}
@@ -113,19 +117,14 @@ func (g *ingressGateway) remove(ctx context.Context, i *networkIngress) (object,
 	i.retired = true
 	entry := i.entry
 	i.mu.Unlock()
-	if sourceAuthorityHandlers["remove_connection"] != nil {
-		var pending []string
-		if ingressOAuthPending != nil {
-			pending = ingressOAuthPending(i)
-		}
-		if _, err := requestSourceAuthority(ctx, i.owner.bridge, "remove_connection", object{"entry": entry, "pending": pending}); err != nil {
-			return nil, err
-		}
+	i.oauth.mu.Lock()
+	defer i.oauth.mu.Unlock()
+	pending := oauthIDValues(i.oauth.pendingIDs())
+	if _, err := requestSourceAuthority(ctx, i.owner.bridge, "remove_connection", object{"entry": entry, "pending": pending}); err != nil {
+		return nil, err
 	}
-	if ingressOAuthReset != nil {
-		if err := ingressOAuthReset(ctx, i); err != nil {
-			return nil, err
-		}
+	if err := i.oauth.reset(ctx); err != nil {
+		return nil, err
 	}
 	ids := slices.DeleteFunc(g.ids(), func(id string) bool { return id == i.id })
 	if err := save(filepath.Join(root(), "ingresses/index.json"), ids); err != nil {
@@ -138,8 +137,6 @@ func (g *ingressGateway) remove(ctx context.Context, i *networkIngress) (object,
 	return object{"removed": i.id}, nil
 }
 
-var ingressOAuthPending func(*networkIngress) []string
-
 func (g *ingressGateway) manage(ctx context.Context, method, route string, body object) (any, error) {
 	if route == "ingress-drafts" || strings.HasPrefix(route, "ingress-drafts/") {
 		return g.draftRoute(ctx, method, route, body)
@@ -149,7 +146,7 @@ func (g *ingressGateway) manage(ctx context.Context, method, route string, body 
 	}
 	if route == "_network" {
 		for _, i := range g.snapshot() {
-			if _, err := g.update(ctx, i, object{"config": body}, false); err != nil {
+			if err := i.changeNetworkPreferences(body); err != nil {
 				return nil, err
 			}
 		}
@@ -219,12 +216,38 @@ func (g *ingressGateway) manage(ctx context.Context, method, route string, body 
 	switch prefix {
 	case "_status":
 		return i.status(), nil
+	case "_relay_ready":
+		wait, cancel := context.WithTimeout(ctx, 60*time.Second)
+		defer cancel()
+		tick := time.NewTicker(100 * time.Millisecond)
+		defer tick.Stop()
+		for {
+			i.mu.RLock()
+			status, running := i.providerStatus, i.providerStop != nil
+			i.mu.RUnlock()
+			if status["state"] == "ready" {
+				return object{}, nil
+			}
+			if !running {
+				return nil, errors.New("Relay connection stopped")
+			}
+			select {
+			case <-wait.Done():
+				return nil, errors.New("Relay connection not ready: " + text(status, "error"))
+			case <-tick.C:
+			}
+		}
 	case "_entry":
 		i.mu.RLock()
 		defer i.mu.RUnlock()
 		return object{"entry": i.entry, "connected": i.running, "url": i.url}, nil
 	case "_verified":
 		return object{}, i.observe("verifiedAt", now(), true)
+	case "_event_active":
+		i.mu.RLock()
+		resource := i.url
+		i.mu.RUnlock()
+		return i.oauth.eventGrantActive(ctx, text(body, "principal"), resource), nil
 	case "_connector_verify":
 		i.mu.Lock()
 		defer i.mu.Unlock()
@@ -242,23 +265,7 @@ func (g *ingressGateway) manage(ctx context.Context, method, route string, body 
 	case "_ingress_request":
 		return i.manageLegacy(ctx, method, action, body)
 	}
-	if strings.HasPrefix(action, "oauth") {
-		i.lifecycle.Lock()
-		defer i.lifecycle.Unlock()
-		i.mu.RLock()
-		entry, retired := i.entry, i.retired
-		i.mu.RUnlock()
-		if retired {
-			return nil, errors.New("Connection configuration changed; retry")
-		}
-		if entry["auth"] != "oauth" {
-			return nil, errors.New("OAuth is not enabled for this connection")
-		}
-		if ingressOAuthManagement == nil {
-			return nil, errors.New(PortPending)
-		}
-		return ingressOAuthManagement(ctx, i, method, action, body)
-	}
+
 	switch method + " " + action {
 	case "GET ":
 		return i.summary(ctx)
@@ -326,15 +333,45 @@ func (g *ingressGateway) manage(ctx context.Context, method, route string, body 
 	}
 }
 
+func (i *networkIngress) changeNetworkPreferences(body object) error {
+	i.lifecycle.Lock()
+	defer i.lifecycle.Unlock()
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	config := clone(obj(i.entry["config"]))
+	mode, address := text(body, "proxyMode"), strings.TrimSpace(text(body, "proxyUrl"))
+	if err := ingressValidateProxy(mode, address); err != nil {
+		return err
+	}
+	config["proxyMode"], config["proxyUrl"] = mode, address
+	next := clone(i.entry)
+	next["config"] = config
+	if err := saveIngressEntry(next); err != nil {
+		return err
+	}
+	i.entry = next
+	return nil
+}
+
 func (i *networkIngress) manageLegacy(ctx context.Context, method, action string, body object) (any, error) {
 	switch method + " " + action {
 	case "GET status":
 		return i.status(), nil
+	case "GET core":
+		return i.status()["core"], nil
 	case "GET config/credentials":
 		i.mu.RLock()
 		defer i.mu.RUnlock()
 		config := i.entry["config"]
-		return object{"apiKey": field(config, "apiKey"), "bearerToken": i.entry["bearerToken"]}, nil
+		result := object{"bearerToken": i.entry["bearerToken"]}
+		for _, name := range ingressSecretFields() {
+			result[name] = field(config, name)
+		}
+		return result, nil
+	case "PUT network":
+		return object{"ok": true}, i.changeNetworkPreferences(body)
+	case "PUT config", "PATCH config/tunnel":
+		return i.updateLegacyConfig(method, body)
 	case "POST verification/reset":
 		return i.resetVerificationResult()
 	case "POST start", "POST stop":
@@ -344,14 +381,79 @@ func (i *networkIngress) manageLegacy(ctx context.Context, method, action string
 	}
 }
 
+func (i *networkIngress) updateLegacyConfig(method string, body object) (object, error) {
+	i.lifecycle.Lock()
+	defer i.lifecycle.Unlock()
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	if i.running || i.providerStop != nil {
+		return nil, errors.New("Disconnect first")
+	}
+	previous := obj(i.entry["config"])
+	var settings object
+	if method == http.MethodPatch {
+		settings = clone(previous)
+		settings["connectionMode"] = "tunnel"
+		for key, value := range body {
+			if key != "tunnelId" && key != "apiKey" {
+				return nil, errors.New("Only tunnelId and apiKey are accepted")
+			}
+			settings[key] = value
+		}
+	} else {
+		settings = clone(body)
+	}
+	for _, raw := range obj(ingressDescriptor()["fields"]) {
+		if flag := text(raw, "savedFlag"); flag != "" {
+			delete(settings, flag)
+		}
+	}
+	delete(settings, "configured")
+	if err := ingressValidateConfig(settings); err != nil {
+		return nil, err
+	}
+	for _, key := range ingressSecretFields() {
+		if settings[key] == "" {
+			settings[key] = previous[key]
+		}
+	}
+	if !ingressConfigured(settings) {
+		return nil, errors.New("Complete the selected connection method's settings")
+	}
+	next := clone(i.entry)
+	next["config"] = settings
+	switch settings["connectionMode"] {
+	case "https", "relay":
+		next["transport"] = settings["connectionMode"]
+		if next["auth"] == "openai" {
+			next["auth"] = "none"
+		}
+	default:
+		next["transport"], next["auth"] = "openai-tunnel", "openai"
+	}
+	if err := saveIngressEntry(next); err != nil {
+		return nil, err
+	}
+	i.entry = next
+	if binding := ingressBinding(settings); binding != i.verification["binding"] {
+		verification := object{"binding": binding, "code": id(), "verifiedAt": nil}
+		if err := save(filepath.Join(i.directory, "verification.json"), verification); err != nil {
+			return nil, err
+		}
+		i.verification = verification
+	}
+	return object{"ok": true}, nil
+}
+
 func gatewayIngressRoutes() {
 	const ingress = `ingress/([A-Za-z0-9_-]{1,64})`
 	definitions := map[string][]string{
-		"GET": {`ingress`, `ingress-drafts/[A-Za-z0-9_-]{1,64}`, ingress, ingress + `/oauth(?:/request/[A-Za-z0-9_-]{1,64})?`,
+		"GET": {`ingress`, `ingress-drafts/[A-Za-z0-9_-]{1,64}`, ingress,
 			`_entries`, `_(?:entry|status|relay_ready|event_active)/[A-Za-z0-9_-]{1,64}`, `_ingress_request/[A-Za-z0-9_-]{1,64}/.+`},
-		"POST": {`ingress`, `ingress-drafts`, `ingress-drafts/[A-Za-z0-9_-]{1,64}/commit`, `ingress/(?:start-all|stop-all)`, ingress + `/(?:start|stop|restart|token|credentials|verification/reset|probe|install|oauth/(?:decision|revoke|register|client/remove))`,
+		"POST": {`ingress`, `ingress-drafts`, `ingress-drafts/[A-Za-z0-9_-]{1,64}/commit`, `ingress/(?:start-all|stop-all)`, ingress + `/(?:start|stop|restart|token|credentials|verification/reset|probe|install)`,
 			`_(?:restore|autostart|initial_config|network)`, `_(?:verified|connector_verify)/[A-Za-z0-9_-]{1,64}`, `_ingress_request/[A-Za-z0-9_-]{1,64}/.+`},
-		"PUT":    {ingress},
+		"PUT":    {ingress, `_initial_config`, `_ingress_request/[A-Za-z0-9_-]{1,64}/.+`},
+		"PATCH":  {`_ingress_request/[A-Za-z0-9_-]{1,64}/.+`},
 		"DELETE": {ingress, `ingress-drafts/[A-Za-z0-9_-]{1,64}`},
 	}
 	for method, routes := range definitions {

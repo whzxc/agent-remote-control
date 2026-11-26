@@ -163,6 +163,14 @@ func (o *ingressObservation) authenticated(principal object) {
 	}
 }
 
+func (o *ingressObservation) oauthClient(client string) {
+	if client != "" {
+		o.mu.Lock()
+		defer o.mu.Unlock()
+		o.row["oauthClientHash"] = hash([]byte(client))
+	}
+}
+
 var ingressOAuthFields = map[string][]string{
 	"/oauth/register":  {"client_name", "redirect_uris", "grant_types", "response_types", "scope", "token_endpoint_auth_method"},
 	"/oauth/authorize": {"client_id", "redirect_uri", "response_type", "resource", "scope", "code_challenge", "code_challenge_method", "state"},
@@ -170,7 +178,7 @@ var ingressOAuthFields = map[string][]string{
 	"/oauth/revoke":    {"token", "token_type_hint", "client_id", "client_secret"},
 }
 
-func (o *ingressObservation) oauthFields(endpoint, location string, value object) {
+func (o *ingressObservation) oauthFields(endpoint, location string, value any) {
 	known, ok := ingressOAuthFields[endpoint]
 	if !ok {
 		return

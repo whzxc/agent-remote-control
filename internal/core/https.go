@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
-	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -124,7 +123,6 @@ func httpsIngressError(w http.ResponseWriter, status int, message string) {
 var ingressBrowserHTTP func(http.ResponseWriter, *http.Request, *networkIngress, string)
 var ingressOAuthHTTP func(http.ResponseWriter, *http.Request, *networkIngress, string, *ingressObservation)
 var ingressOAuthAuthenticate func(*networkIngress, string, string) object
-var ingressOAuthValidate func(context.Context, string, object, string) error
 var ingressPeerTunnelHTTP func(http.ResponseWriter, *http.Request, *networkIngress)
 
 func ingressAllowsHeader(entry object, header string) bool {
@@ -302,6 +300,9 @@ func serveHTTPSIngress(w http.ResponseWriter, r *http.Request, i *networkIngress
 }
 
 func (i *networkIngress) forwardMCP(ctx context.Context, body, principal object, header string) (object, error) {
+	if err := i.observe("firstMcpRequestAt", now(), true); err != nil {
+		return nil, err
+	}
 	if body["method"] == "notifications/cancelled" {
 		i.waits.cancel(wire(field(body["params"], "requestId")))
 		return nil, nil
@@ -343,40 +344,4 @@ func (i *networkIngress) forwardMCP(ctx context.Context, body, principal object,
 func strNumericEqual(value any, want string) bool {
 	number, ok := value.(json.Number)
 	return ok && number.String() == want
-}
-
-func ingressAuthenticatedSource(ctx context.Context, service *service, id string, principal object, header *string) (requestSource, error) {
-	entry, err := loadIngressEntry(id)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) && id == "default" && header == nil &&
-			principal["type"] == "ingress" && principal["ingressId"] == id {
-			return service.source, nil
-		}
-		return requestSource{}, err
-	}
-	if entry["enabled"] != true {
-		return requestSource{}, errors.New("Local connection disabled")
-	}
-	auth := text(entry, "auth")
-	if principal["type"] == "oauth-grant" && auth == "oauth" && header != nil && ingressOAuthValidate != nil {
-		if err := ingressOAuthValidate(ctx, id, principal, *header); err != nil {
-			return requestSource{}, err
-		}
-	} else if principal["type"] != "ingress" || principal["ingressId"] != id || !(header != nil && ingressAllowsHeader(entry, *header) ||
-		header == nil && (entry["transport"] == "local" || entry["transport"] == "openai-tunnel")) {
-		return requestSource{}, errors.New(contextMismatch)
-	}
-	if service.fixtureIngress != nil && auth != "oauth" {
-		return service.fixtureIngress(id)
-	}
-	if ingressSourceAuthority == nil {
-		return requestSource{}, errors.New(PortPending)
-	}
-	return ingressSourceAuthority(ctx, entry, principal, header)
-}
-
-var ingressSourceAuthority func(context.Context, object, object, *string) (requestSource, error)
-
-func init() {
-	authenticateIngressPrincipal = ingressAuthenticatedSource
 }

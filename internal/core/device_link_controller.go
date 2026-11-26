@@ -29,10 +29,16 @@ type deviceMember struct {
 	cancel              context.CancelFunc
 	done                chan struct{}
 	mu                  sync.RWMutex
+	changed             chan struct{}
 	status              deviceMemberStatus
 	business, heartbeat deviceSession
 	tunnel              deviceTunnelClient
 	slots               chan struct{}
+}
+
+func (member *deviceMember) signalStatus() {
+	close(member.changed)
+	member.changed = make(chan struct{})
 }
 
 func (member *deviceMember) stop() {
@@ -44,13 +50,19 @@ func (member *deviceMember) stop() {
 }
 
 type deviceController struct {
-	ctx       context.Context
-	directory string
-	mu        sync.Mutex
-	members   map[string]*deviceMember
-	identity  *deviceIdentity
-	recordsMu sync.Mutex
-	records   deviceRecords
+	ctx                context.Context
+	service            *service
+	directory          string
+	mu                 sync.Mutex
+	members            map[string]*deviceMember
+	identity           *deviceIdentity
+	transfers          deviceReceiverStore
+	discoveryMu        sync.Mutex
+	discovered         map[string]deviceResolution
+	pairedDiscoveryIDs sync.Map
+	transferJobs       sync.Map
+	recordsMu          sync.Mutex
+	records            deviceRecords
 }
 
 var deviceControllers sync.Map // *service -> *deviceController
@@ -62,7 +74,7 @@ func startDeviceController(ctx context.Context, s *service) error {
 		return err
 	}
 	ctx, cancel := context.WithCancel(ctx)
-	c := &deviceController{ctx: ctx, directory: directory, members: map[string]*deviceMember{}, records: records}
+	c := &deviceController{ctx: ctx, service: s, directory: directory, members: map[string]*deviceMember{}, records: records, discovered: make(map[string]deviceResolution)}
 	deviceControllers.Store(s, c)
 	done := make(chan struct{})
 	go func() {
@@ -80,12 +92,25 @@ func startDeviceController(ctx context.Context, s *service) error {
 			}
 		}
 	}()
+	discoveryDone := make(chan struct{})
+	go func() {
+		defer close(discoveryDone)
+		c.discoveryLoop(ctx)
+	}()
 	s.cleanup = append(s.cleanup, func() {
 		cancel()
 		<-done
+		<-discoveryDone
 		c.mu.Lock()
 		c.stopLocked()
 		c.mu.Unlock()
+		c.transferJobs.Range(func(_, value any) bool {
+			job := value.(*deviceTransferJob)
+			job.cancel()
+			<-job.done
+			return true
+		})
+		c.transfers.close()
 		deviceControllers.Delete(s)
 	})
 	return nil
@@ -95,6 +120,10 @@ func (c *deviceController) stopLocked() {
 	current := c.members
 	c.members = make(map[string]*deviceMember)
 	c.identity = nil
+	c.pairedDiscoveryIDs.Clear()
+	c.discoveryMu.Lock()
+	clear(c.discovered)
+	c.discoveryMu.Unlock()
 	for _, member := range current {
 		member.stop()
 	}
@@ -135,6 +164,7 @@ func (c *deviceController) sync() error {
 			deviceOptionalString(next.AddressOverride) != deviceOptionalString(current.peer.AddressOverride) {
 			current.stop()
 			delete(c.members, id)
+			c.pairedDiscoveryIDs.Delete(id)
 		}
 	}
 	for id, peer := range stored.Members {
@@ -148,11 +178,15 @@ func (c *deviceController) sync() error {
 			status.lastSeen = last
 		}
 		c.recordsMu.Unlock()
-		member := &deviceMember{peer: peer, identity: c.identity, ctx: ctx, cancel: cancel, done: make(chan struct{}), status: status, slots: make(chan struct{}, 64)}
+		member := &deviceMember{peer: peer, identity: c.identity, ctx: ctx, cancel: cancel, done: make(chan struct{}), changed: make(chan struct{}), status: status, slots: make(chan struct{}, 64)}
 		c.members[id] = member
+		c.pairedDiscoveryIDs.Store(id, struct{}{})
 		go func() {
 			defer close(member.done)
-			c.monitor(ctx, member)
+			var workers sync.WaitGroup
+			workers.Go(func() { c.monitor(ctx, member) })
+			workers.Go(func() { c.pollPeerEvents(ctx, member) })
+			workers.Wait()
 		}()
 	}
 	return nil
@@ -285,7 +319,6 @@ func (c *deviceController) admitForward(record deviceForwardRecord) error {
 }
 
 var deviceNotificationBinding func(string, object) (any, error)
-var deviceBindNotification func(context.Context, string, string, any) error
 var deviceAcknowledgeRead func(context.Context, string, string, string, object, any) error
 
 func (c *deviceController) forward(ctx context.Context, tool string, args object, callerRequest any, origin object) (object, error) {
@@ -352,6 +385,7 @@ func (c *deviceController) forward(ctx context.Context, tool string, args object
 	case err != nil && managementErrorCode(err.Error()) == "DEVICE_CONNECTION_REFUSED":
 		member.mu.Lock()
 		member.status.online = false
+		member.signalStatus()
 		member.mu.Unlock()
 		return nil, deviceOffline()
 	case err != nil:
@@ -416,8 +450,8 @@ func (c *deviceController) forward(ctx context.Context, tool string, args object
 	}); err != nil {
 		return failure(err)
 	}
-	if !failed && deviceBindNotification != nil {
-		if err := deviceBindNotification(ctx, device, request, value); err != nil {
+	if !failed {
+		if err := c.bindForwardResult(ctx, member, request, value); err != nil {
 			return failure(err)
 		}
 	}

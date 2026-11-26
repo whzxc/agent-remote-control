@@ -30,6 +30,7 @@ type networkIngress struct {
 	lifecycle               sync.Mutex
 	mu                      sync.RWMutex
 	entry, verification     object
+	oauth                   *ingressOAuth
 	server                  *http.Server
 	managedHealth           object
 	managedURLs             []string
@@ -62,7 +63,11 @@ func newNetworkIngress(owner *gatewayOwner, entry object) (*networkIngress, erro
 			return nil, err
 		}
 	}
-	return &networkIngress{owner: owner, id: ingressID, directory: directory, entry: entry, verification: obj(verification)}, nil
+	oauth, err := newIngressOAuth(directory, owner.bridge)
+	if err != nil {
+		return nil, err
+	}
+	return &networkIngress{owner: owner, id: ingressID, directory: directory, entry: entry, verification: obj(verification), oauth: oauth}, nil
 }
 
 func (i *networkIngress) observe(field string, value any, once bool) error {
@@ -172,8 +177,10 @@ func (i *networkIngress) summary(ctx context.Context) (object, error) {
 	if result["state"] == "ready" {
 		result["tunnelError"] = ""
 	}
-	if entry["auth"] == "oauth" && ingressOAuthSnapshot != nil {
-		snapshot, err := ingressOAuthSnapshot(i)
+	if entry["auth"] == "oauth" {
+		i.oauth.mu.Lock()
+		snapshot, err := i.oauth.snapshot(ctx)
+		i.oauth.mu.Unlock()
 		if err != nil {
 			return nil, err
 		}
@@ -205,10 +212,6 @@ func (i *networkIngress) summary(ctx context.Context) (object, error) {
 	result["diagnostics"] = ingressDiagnostics(result)
 	return result, nil
 }
-
-var ingressOAuthSnapshot func(*networkIngress) (any, error)
-var ingressOAuthManagement func(context.Context, *networkIngress, string, string, object) (any, error)
-var ingressOAuthReset func(context.Context, *networkIngress) error
 
 // Provider implementations are owned by their transport module.
 var startManagedIngress func(context.Context, *networkIngress, object) error

@@ -376,6 +376,10 @@ func cloudflareProvision(ctx context.Context, settings object) (object, error) {
 }
 
 func init() {
+	setupCloudflareStatus = func(context.Context) object { return cloudflareStatus() }
+	setupCloudflareLogin = cloudflareLogin
+	setupCloudflareProvision = cloudflareProvision
+	setupCloudflareStop = stopCloudflareLogin
 	registerServiceStartup(func(_ context.Context, s *service) error {
 		s.cleanup = append(s.cleanup, stopCloudflareLogin)
 		return nil

@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/netip"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -28,7 +30,22 @@ func (c *deviceController) channel(ctx context.Context, member *deviceMember, he
 func (c *deviceController) memberAddresses(ctx context.Context, member *deviceMember) ([]netip.AddrPort, error) {
 	peer := member.peer
 	if peer.AddressOverride != nil {
-		return deviceConnectAddresses([]string{*peer.AddressOverride})
+		return deviceOverrideSockets(ctx, *peer.AddressOverride)
+	}
+	c.discoveryMu.Lock()
+	discovered := c.discovered[peer.DeviceID]
+	c.discoveryMu.Unlock()
+	if discovered.expires.After(time.Now()) {
+		if discovered.version != deviceProtocolVersion {
+			return nil, errors.New("DEVICE_PROTOCOL_MISMATCH: Install matching peer protocol versions; query guide for device.")
+		}
+		if len(discovered.addresses) > 0 {
+			addresses := make([]string, 0, len(discovered.addresses))
+			for _, addr := range discovered.addresses {
+				addresses = append(addresses, addr.String())
+			}
+			return deviceConnectAddresses(addresses)
+		}
 	}
 	member.mu.RLock()
 	facts := member.status.hello
@@ -37,6 +54,31 @@ func (c *deviceController) memberAddresses(ctx context.Context, member *deviceMe
 		return deviceConnectAddresses(deviceStringList(fields))
 	}
 	return deviceConnectAddresses(peer.Addresses)
+}
+
+func deviceOverrideSockets(ctx context.Context, address string) ([]netip.AddrPort, error) {
+	if socket, err := netip.ParseAddrPort(address); err == nil {
+		return deviceConnectAddresses([]string{socket.String()})
+	}
+	host, rawPort, err := net.SplitHostPort(address)
+	if err != nil {
+		return nil, fmt.Errorf("DEVICE_LAN_UNAVAILABLE: %s; check the controller address override.", err)
+	}
+	port, err := strconv.ParseUint(rawPort, 10, 16)
+	if err != nil {
+		return nil, fmt.Errorf("DEVICE_LAN_UNAVAILABLE: %s; check the controller address override.", err)
+	}
+	resolved, err := net.DefaultResolver.LookupNetIP(ctx, "ip", host)
+	if err != nil {
+		return nil, fmt.Errorf("DEVICE_LAN_UNAVAILABLE: %s; check the controller address override.", err)
+	}
+	addresses := []string{}
+	for _, ip := range resolved {
+		if deviceLANAddress(ip) && len(addresses) < 64 {
+			addresses = append(addresses, netip.AddrPortFrom(ip, uint16(port)).String())
+		}
+	}
+	return deviceConnectAddresses(addresses)
 }
 
 func deviceStringList(values []any) []string {
@@ -113,6 +155,7 @@ func (c *deviceController) monitor(ctx context.Context, member *deviceMember) {
 				member.status.online = false
 			}
 			member.status.failure = err.Error()
+			member.signalStatus()
 			member.mu.Unlock()
 		} else {
 			peer := member.peer
@@ -128,6 +171,7 @@ func (c *deviceController) monitor(ctx context.Context, member *deviceMember) {
 			ms := time.Since(start).Milliseconds()
 			member.mu.Lock()
 			member.status = deviceMemberStatus{online: true, path: path, lastSeen: seen, latency: ms, hello: hello}
+			member.signalStatus()
 			member.mu.Unlock()
 			if err := c.changeRecords(func(records *deviceRecords) {
 				records.Facts[peer.DeviceID] = hello
