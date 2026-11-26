@@ -82,8 +82,8 @@
     "native/src/images.rs": {
       "detects_magic_before_extension_and_rejects_invalid_images": ["internal/core/images_test.go#TestNativeImageDetectsContentBeforeExtension"],
       "scales_and_limits_encoded_image_bytes": ["internal/core/images_test.go#TestNativeImageScalesAndBoundsOutput"],
-      "preserves_bounded_originals_and_avoids_small_resize_inflation": {"tests": ["internal/core/images_test.go#TestNativeImagePreservesBoundedOriginal"], "remaining": "Cover all four input formats and byte-bound reencoding below the edge limit."},
-      "thread_images_enforce_scope_and_default_is_unchanged": {"tests": ["internal/core/images_test.go#TestNativeThreadImagesRespectWorkspaceAndThreadScope"], "remaining": "Assert parent-path escape rejection and exact default public-wire preservation."}
+      "preserves_bounded_originals_and_avoids_small_resize_inflation": ["internal/core/images_test.go#TestNativeImagePreservesBoundedOriginal"],
+      "thread_images_enforce_scope_and_default_is_unchanged": ["internal/core/images_test.go#TestNativeThreadImagesRespectWorkspaceAndThreadScope"]
     },
     "native/src/interaction_responses.rs": {
       "answer_attribution_is_bounded_and_never_inferred_from_a_label": ["internal/core/interaction_responses_test.go#TestInteractionAnswerAttributionUsesExplicitOrigin"],
@@ -91,9 +91,9 @@
       "timeline_polls_reuse_answers_and_pick_up_a_new_response": {"tests": ["internal/core/interaction_responses_test.go#TestProjectedInteractionAnswersKeepAttributionAndRefresh"], "remaining": "Assert the warm-poll I/O bound before the next response."}
     },
     "native/src/pets.rs": {
-      "page_resolution_is_host_and_path_bounded": {"tests": ["internal/core/pets_test.go#TestNativePetPageLimitsHostsAndPaths"], "remaining": "Check download host and path negatives independently of the page URL."},
-      "atlas_dimensions_and_manifest_agree": {"tests": ["internal/core/pets_test.go#TestNativePetAtlasMustMatchDeclaredVersion"], "remaining": "Check a missing pet ID independently of atlas dimensions."},
-      "archives_cannot_escape_or_add_files": {"tests": ["internal/core/pets_test.go#TestNativePetArchiveRejectsTraversalDuplicatesAndSymlinks"], "remaining": "Use a valid atlas in negative archives so entry validation is the only rejection."}
+      "page_resolution_is_host_and_path_bounded": ["internal/core/pets_test.go#TestNativePetPageLimitsHostsAndPaths"],
+      "atlas_dimensions_and_manifest_agree": ["internal/core/pets_test.go#TestNativePetAtlasMustMatchDeclaredVersion"],
+      "archives_cannot_escape_or_add_files": ["internal/core/pets_test.go#TestNativePetArchiveRejectsTraversalDuplicatesAndSymlinks"]
     },
     "native/src/respond_tokens.rs": {
       "tokens_survive_session_changes_but_reject_wrong_scope_expiry_and_reuse": ["internal/core/respond_tokens_test.go#TestRespondTokenSurvivesDesktopReattachment"]
@@ -726,7 +726,7 @@
     }
   },
   "added": {
-    "A": ["internal/core/agents_process_test.go#TestACPDeclinesUnadvertisedClientCapabilities", "internal/core/agents_process_test.go#TestPiChoiceUsesNativeSubtypeAndKeepsInvalidChoicesPending", "internal/core/browser_test.go#TestBrowserFrontDoorWire", "internal/core/changes_test.go#TestNativeChangeSnapshotRemainsBoundToTerminalWorkspace"],
+    "A": ["internal/core/images_test.go#TestNativeWebPResizingPreservesAlphaAndUsesFirstAnimationFrame", "internal/core/agents_process_test.go#TestACPDeclinesUnadvertisedClientCapabilities", "internal/core/agents_process_test.go#TestPiChoiceUsesNativeSubtypeAndKeepsInvalidChoicesPending", "internal/core/browser_test.go#TestBrowserFrontDoorWire", "internal/core/changes_test.go#TestNativeChangeSnapshotRemainsBoundToTerminalWorkspace"],
     "B": ["internal/core/coordination_ax_tests_test.go#TestAXShortReadIDsResolveUniqueAndRejectAmbiguousPrefixes", "internal/core/coordination_ax_tests_test.go#TestAXSchemaErrorsDiscloseTheRejectedFieldAndRecovery", "internal/core/coordination_bulletin_tests_test.go#TestBulletinStorageFailureRetainsLastPublishedNotice", "internal/core/coordination_bulletin_tests_test.go#TestBulletinLifecycleConflictsRequireVerifiedCommandOrigin", "internal/core/coordination_messages_tests_test.go#TestMalformedMessagesSnapshotRemainsIntact", "internal/core/coordination_messages_tests_test.go#TestMessagesUnresolvedLegacyHoldSurvivesNewPeersUntilMediation", "internal/core/coordination_tests_test.go#TestGitObserverRecoversRegistryAndPublishesOnlyObservedRefChanges", "internal/core/coordination_tests_test.go#TestCoordinationSuccessorEventsRetainOrderedTurnEvidence", "internal/core/coordination_bulletin_tests_test.go#TestBulletinKnownRunningLinkIsVisibleAtPost", "internal/core/coordination_bulletin_tests_test.go#TestBulletinUnattributedDispatchDoesNotClaimHostResources"],
     "C": ["internal/core/claude_notify_delivery_deadlines_test.go#TestInterruptedNotificationRetainsEventAndTokenCredit", "internal/core/dispatch_policy_quality_test.go#TestDispatchHistoryPollsOpenOnlyChangedTurns"],
     "E": ["internal/core/device_link_identity_test.go#TestDeviceLinkLoadsRustIdentityAndPairingsInPlace", "internal/core/device_link_controller_test.go#TestOfflineDeviceTransferRejectsBeforeSourceAccess", "internal/core/device_link_controller_test.go#TestDeviceGuideDisclosesFullScopeAndTransferRecovery", "internal/core/device_link_pairing_test.go#TestDevicePairingRejectsAThreeDeviceCycleBeforeApproval", "internal/core/device_link_controller_test.go#TestDeviceLANTLSErrorWinsOverLinkLocalTimeout", "internal/core/device_link_controller_test.go#TestDeviceCLIErrorsKeepStableCodesAndRecovery", "internal/core/relay_test.go#TestRelayCancellationRetainsDraftRecovery", "internal/core/relay_test.go#TestRelayManagementRequiresLocalAuthority", "internal/core/relay_transport_test.go#TestRelayWaitsForTheExpectedDeploymentVersion", "internal/core/relay_transport_test.go#TestRelayCancelClosesTheForwardedRequest", "internal/core/relay_transport_test.go#TestRelayWebsocketUsesHTTPProxy"],

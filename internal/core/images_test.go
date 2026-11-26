@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"image"
 	"image/color"
+	"image/gif"
 	"image/jpeg"
 	"image/png"
 	"os"
@@ -81,14 +82,27 @@ func TestNativeImageScalesAndBoundsOutput(t *testing.T) {
 
 func TestNativeImagePreservesBoundedOriginal(t *testing.T) {
 	// Algorithmic core: bounded input is preserved and a small resize must not inflate the original.
-	pngData := fixtureNativePNG(t, 40, 20, false)
-	bounded, err := prepareNativeImage(pngData, "image.bin", object{"quality": 1})
-	if err != nil {
+	canvas := image.NewNRGBA(image.Rect(0, 0, 40, 20))
+	var jpegData, gifData bytes.Buffer
+	if err := jpeg.Encode(&jpegData, canvas, nil); err != nil {
 		t.Fatal(err)
 	}
-	if data, err := base64.StdEncoding.DecodeString(text(bounded.content, "data")); err != nil || !bytes.Equal(data, pngData) ||
-		bounded.metadata["sha256"] != bounded.metadata["returnedSha256"] || bounded.metadata["reencoded"] != false {
-		t.Fatalf("bounded original = %s, %v", wire(bounded.metadata), err)
+	if err := gif.Encode(&gifData, canvas, nil); err != nil {
+		t.Fatal(err)
+	}
+	for mime, original := range map[string][]byte{
+		"image/png": fixtureNativePNG(t, 40, 20, false), "image/jpeg": jpegData.Bytes(),
+		"image/gif": gifData.Bytes(), "image/webp": fixtureWebP(t, "opaque"),
+	} {
+		bounded, err := prepareNativeImage(original, "image.bin", object{"quality": 1})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if data, err := base64.StdEncoding.DecodeString(text(bounded.content, "data")); err != nil || !bytes.Equal(data, original) ||
+			bounded.metadata["sha256"] != bounded.metadata["returnedSha256"] || bounded.metadata["reencoded"] != false ||
+			bounded.content["mimeType"] != mime {
+			t.Fatalf("bounded %s original = %s, %v", mime, wire(bounded.metadata), err)
+		}
 	}
 	input, err := png.Decode(bytes.NewReader(fixtureNativePNG(t, 1620, 863, true)))
 	if err != nil {
@@ -105,6 +119,12 @@ func TestNativeImagePreservesBoundedOriginal(t *testing.T) {
 	large, err := prepareNativeImage(original.Bytes(), "large-resize.jpg", object{"maxEdge": 1400})
 	if err != nil || large.metadata["reencoded"] != true || uintOr(large.metadata["width"], 0) > 1400 {
 		t.Fatalf("large reduction = %s, %v", wire(large.metadata), err)
+	}
+	overBudget := fixtureNativePNG(t, 800, 800, true)
+	reduced, err := prepareNativeImage(overBudget, "oversized.png", nil)
+	if len(overBudget) <= nativeImageMaxBytes || err != nil || reduced.metadata["reencoded"] != true ||
+		uintOr(reduced.metadata["bytes"], 0) > nativeImageMaxBytes {
+		t.Fatalf("below-edge byte budget = %s, %v", wire(reduced.metadata), err)
 	}
 }
 
@@ -136,8 +156,10 @@ func TestNativeThreadImagesRespectWorkspaceAndThreadScope(t *testing.T) {
 	if _, err := nativeVisualPath(own, visuals, "other-thread"); err == nil {
 		t.Fatal("another thread's visualization was accepted")
 	}
-	if _, err := nativeImagePath(outside, "test-thread", workspace); err == nil {
-		t.Fatal("out-of-workspace file was accepted")
+	for _, file := range []string{outside, "../outside.png"} {
+		if _, err := nativeImagePath(file, "test-thread", workspace); err == nil {
+			t.Fatalf("out-of-workspace file %q was accepted", file)
+		}
 	}
 	if operatingSystem != "windows" {
 		if err := os.Symlink(outside, filepath.Join(workspace, "escape.png")); err != nil {
@@ -148,8 +170,11 @@ func TestNativeThreadImagesRespectWorkspaceAndThreadScope(t *testing.T) {
 		}
 	}
 	items := []any{object{"id": "fixture-item", "type": "agentMessage", "text": "![image](image.png)"}}
-	if blocks := nativeImagesFromItems(items, "test-thread", workspace, object{}); len(blocks) != 0 {
-		t.Fatalf("default result included images: %s", wire(blocks))
+	value := object{"items": items}
+	original := egressTool(clone(value), false)
+	attachNativeImages(value, nativeImagesFromItems(items, "test-thread", workspace, object{}))
+	if got := egressTool(value, false); wire(got) != wire(original) {
+		t.Fatalf("default result changed: %s", wire(got))
 	}
 	if blocks := nativeImagesFromItems(items, "test-thread", workspace, object{"includeImages": true}); len(blocks) != 2 || field(blocks[1], "type") != "image" {
 		t.Fatalf("workspace image blocks = %s", wire(blocks))
@@ -159,5 +184,45 @@ func TestNativeThreadImagesRespectWorkspaceAndThreadScope(t *testing.T) {
 	if blocks := nativeImagesFromItems(items, "test-thread", workspace, object{"includeImages": true}); len(blocks) != 2 ||
 		field(blocks[1], "mimeType") != "image/png" || strings.Contains(text(blocks[0], "text"), "base64") {
 		t.Fatalf("embedded evidence = %s", wire(blocks))
+	}
+}
+
+func fixtureWebP(t *testing.T, name string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join("testdata", "go-a-webp", name+".webp"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
+func TestNativeWebPResizingPreservesAlphaAndUsesFirstAnimationFrame(t *testing.T) {
+	// Contract: attachment resizing preserves alpha and projects the first frame of animated WebP.
+	for _, row := range []struct {
+		name, mime string
+		alpha      uint8
+	}{{"opaque", "image/jpeg", 255}, {"alpha", "image/png", 128}, {"animated", "image/jpeg", 255}} {
+		original := fixtureWebP(t, row.name)
+		bounded, err := prepareNativeImage(original, "image.webp", object{"maxEdge": 2048})
+		if err != nil || bounded.content["mimeType"] != "image/webp" || bounded.content["data"] != base64.StdEncoding.EncodeToString(original) {
+			t.Fatalf("%s original = %s, %v", row.name, wire(bounded.metadata), err)
+		}
+		prepared, err := prepareNativeImage(original, "image.webp", object{"maxEdge": 8})
+		if err != nil || prepared.content["mimeType"] != row.mime || prepared.metadata["reencoded"] != true {
+			t.Fatalf("%s resize = %s, %v", row.name, wire(prepared.metadata), err)
+		}
+		data, err := base64.StdEncoding.DecodeString(text(prepared.content, "data"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		decoded, _, err := image.Decode(bytes.NewReader(data))
+		if err != nil {
+			t.Fatal(err)
+		}
+		pixel := color.NRGBAModel.Convert(decoded.At(0, 0)).(color.NRGBA)
+		if max(decoded.Bounds().Dx(), decoded.Bounds().Dy()) != 8 || pixel.A != row.alpha ||
+			row.name == "animated" && (pixel.R < 10 || pixel.R > 14) {
+			t.Fatalf("%s resized bounds = %v, first pixel = %v", row.name, decoded.Bounds(), pixel)
+		}
 	}
 }

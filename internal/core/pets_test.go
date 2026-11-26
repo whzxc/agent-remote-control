@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -27,6 +28,12 @@ func TestNativePetPageLimitsHostsAndPaths(t *testing.T) {
 			t.Fatalf("page %q was accepted", url)
 		}
 	}
+	budget := 1
+	for _, input := range []string{"http://codex-pets.net/a", "https://raw.githubusercontent.com/other/repo/main/a", "https://evil.test/a"} {
+		if _, err := nativePetDownload(t.Context(), input, &budget); err == nil || !strings.Contains(err.Error(), "download host or protocol is not allowed") {
+			t.Fatalf("download %q = %v", input, err)
+		}
+	}
 }
 
 func TestNativePetAtlasMustMatchDeclaredVersion(t *testing.T) {
@@ -45,31 +52,67 @@ func TestNativePetAtlasMustMatchDeclaredVersion(t *testing.T) {
 	if _, err := validateNativePet([]byte(`{"id":"a","spritesheetPath":"../x.png"}`), nil); err == nil {
 		t.Fatal("path traversal in atlas name was accepted")
 	}
+	for _, row := range []struct {
+		name    string
+		version int
+	}{{"atlas-v1", 1}, {"atlas-v2", 2}} {
+		sprite := fixtureWebP(t, row.name)
+		manifest := object{"id": "fixture", "spritesheetPath": "spritesheet.webp", "spriteVersionNumber": row.version}
+		info, err := validateNativePet([]byte(wire(manifest)), sprite)
+		if err != nil || info["version"] != row.version || info["pixelArt"] != true {
+			t.Fatalf("WebP atlas = %s, %v", wire(info), err)
+		}
+		manifest["spriteVersionNumber"] = 3 - row.version
+		if _, err := validateNativePet([]byte(wire(manifest)), sprite); err == nil || !strings.Contains(err.Error(), "spriteVersionNumber disagree") {
+			t.Fatalf("mismatched WebP atlas version = %v", err)
+		}
+		manifest["spriteVersionNumber"] = row.version
+		delete(manifest, "id")
+		if _, err := validateNativePet([]byte(wire(manifest)), sprite); err == nil || !strings.Contains(err.Error(), "needs id") {
+			t.Fatalf("atlas without ID = %v", err)
+		}
+	}
+	manifest := []byte(`{"id":"fixture","spritesheetPath":"spritesheet.webp"}`)
+	if _, err := validateNativePet(manifest, fixtureWebP(t, "animated")); err == nil || !strings.Contains(err.Error(), "use a static atlas") {
+		t.Fatalf("animated WebP atlas = %v", err)
+	}
 }
 
 func TestNativePetArchiveRejectsTraversalDuplicatesAndSymlinks(t *testing.T) {
 	// Algorithmic core: ZIP imports reject unsafe, duplicate, or unrelated entries before extraction.
-	for _, names := range [][2]string{{"../pet.json", "spritesheet.png"}, {"pet.json", "pet.json"}, {"pet.json", "other.txt"}, {"pet.json", "symlink.png"}} {
+	sprite := fixtureWebP(t, "atlas-v1")
+	manifest := []byte(`{"id":"fixture","spritesheetPath":"spritesheet.webp"}`)
+	for _, row := range []struct {
+		names            [2]string
+		symlink, allowed bool
+	}{
+		{names: [2]string{"pet.json", "spritesheet.webp"}, allowed: true},
+		{names: [2]string{"../pet.json", "spritesheet.webp"}},
+		{names: [2]string{"pet.json", "pet.json"}},
+		{names: [2]string{"pet.json", "other.webp"}},
+		{names: [2]string{"pet.json", "spritesheet.webp"}, symlink: true},
+	} {
 		var raw bytes.Buffer
 		archive := zip.NewWriter(&raw)
-		for _, name := range names {
-			header := &zip.FileHeader{Name: name}
-			if name == "symlink.png" {
+		for i, data := range [][]byte{manifest, sprite} {
+			header := &zip.FileHeader{Name: row.names[i]}
+			if row.symlink && i == 1 {
 				header.SetMode(os.ModeSymlink | 0700)
 			}
 			writer, err := archive.CreateHeader(header)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := writer.Write([]byte(`{"id":"a","spritesheetPath":"spritesheet.png"}`)); err != nil {
+			if _, err := writer.Write(data); err != nil {
 				t.Fatal(err)
 			}
 		}
 		if err := archive.Close(); err != nil {
 			t.Fatal(err)
 		}
-		if _, _, err := unpackNativePet(raw.Bytes()); err == nil {
-			t.Fatalf("unsafe archive %v accepted", names)
+		gotManifest, gotSprite, err := unpackNativePet(raw.Bytes())
+		if (err == nil) != row.allowed || row.allowed && (!bytes.Equal(gotManifest, manifest) || !bytes.Equal(gotSprite, sprite)) {
+			t.Fatalf("archive %+v = %v", row, err)
 		}
 	}
 }

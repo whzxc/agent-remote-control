@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"image"
 	"image/color"
+	"image/draw"
 	_ "image/gif"
 	"image/jpeg"
 	"image/png"
@@ -16,6 +18,8 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"golang.org/x/image/webp"
 )
 
 const nativeImageMaxBytes = 1 << 20
@@ -68,7 +72,7 @@ func prepareNativeImage(data []byte, path string, args object) (preparedNativeIm
 		return result, errors.New("UNSUPPORTED_IMAGE_FORMAT")
 	}
 	input := bytes.NewReader(data)
-	shape, _, err := image.DecodeConfig(input)
+	shape, format, err := image.DecodeConfig(input)
 	if err != nil {
 		return result, fmt.Errorf("INVALID_IMAGE: %w", err)
 	}
@@ -76,7 +80,12 @@ func prepareNativeImage(data []byte, path string, args object) (preparedNativeIm
 		return result, errors.New("INVALID_IMAGE: Image size exceeds limit")
 	}
 	input.Reset(data)
-	decoded, _, err := image.Decode(input)
+	var decoded image.Image
+	if format == "webp" && len(data) >= 30 && string(data[12:16]) == "VP8X" && data[20]&2 != 0 {
+		decoded, err = decodeNativeWebPFrame(data, image.Pt(shape.Width, shape.Height))
+	} else {
+		decoded, _, err = image.Decode(input)
+	}
 	if err != nil {
 		return result, fmt.Errorf("INVALID_IMAGE: %w", err)
 	}
@@ -133,6 +142,80 @@ func prepareNativeImage(data []byte, path string, args object) (preparedNativeIm
 		}
 		decoded = resizeNativeImage(decoded, max(1, largest*3/4))
 	}
+}
+
+// The Rust image decoder projects the first animation frame onto the WebP
+// canvas. Decode the nested still-image chunks with the same Go WebP decoder.
+func decodeNativeWebPFrame(data []byte, size image.Point) (image.Image, error) {
+	invalid := errors.New("invalid WebP animation")
+	end := uint64(binary.LittleEndian.Uint32(data[4:8])) + 8
+	if end < 30 || end > uint64(len(data)) {
+		return nil, invalid
+	}
+	var background color.NRGBA
+	hasBackground := false
+	for chunks := data[30:end]; len(chunks) >= 8; {
+		length := uint64(binary.LittleEndian.Uint32(chunks[4:8]))
+		next := 8 + length + length%2
+		if next > uint64(len(chunks)) {
+			return nil, invalid
+		}
+		payload := chunks[8 : 8+length]
+		switch string(chunks[:4]) {
+		case "ANIM":
+			if len(payload) != 6 {
+				return nil, invalid
+			}
+			background = color.NRGBA{R: payload[2], G: payload[1], B: payload[0], A: payload[3]}
+			hasBackground = true
+		case "ANMF":
+			if !hasBackground || len(payload) < 32 {
+				return nil, invalid
+			}
+			read24 := func(b []byte) int { return int(b[0]) | int(b[1])<<8 | int(b[2])<<16 }
+			origin := image.Pt(2*read24(payload), 2*read24(payload[3:]))
+			frameSize := image.Pt(1+read24(payload[6:]), 1+read24(payload[9:]))
+			frameBounds := image.Rectangle{Min: origin, Max: origin.Add(frameSize)}
+			if !frameBounds.In(image.Rectangle{Max: size}) || max(frameSize.X, frameSize.Y) > 16384 {
+				return nil, invalid
+			}
+			// An ALPH chunk requires a VP8X header in the reconstructed still image.
+			still := []byte("RIFF\x00\x00\x00\x00WEBP")
+			switch string(payload[16:20]) {
+			case "VP8 ", "VP8L":
+			case "ALPH":
+				still = append(still, []byte("VP8X\x0a\x00\x00\x00\x10\x00\x00\x00")...)
+				still = append(still, payload[6:12]...)
+			default:
+				return nil, invalid
+			}
+			still = append(still, payload[16:]...)
+			binary.LittleEndian.PutUint32(still[4:8], uint32(len(still)-8))
+			config, err := webp.DecodeConfig(bytes.NewReader(still))
+			if err != nil || image.Pt(config.Width, config.Height) != frameSize {
+				return nil, invalid
+			}
+			frame, err := webp.Decode(bytes.NewReader(still))
+			if err != nil {
+				return nil, err
+			}
+			canvas := image.NewNRGBA(image.Rectangle{Max: size})
+			draw.Draw(canvas, canvas.Bounds(), image.NewUniform(background), image.Point{}, draw.Src)
+			op := draw.Over
+			if payload[15]&2 != 0 {
+				op = draw.Src
+			}
+			draw.Draw(canvas, frameBounds, frame, frame.Bounds().Min, op)
+			if data[20]&0x10 == 0 {
+				for i := 3; i < len(canvas.Pix); i += 4 {
+					canvas.Pix[i] = 255
+				}
+			}
+			return canvas, nil
+		}
+		chunks = chunks[next:]
+	}
+	return nil, invalid
 }
 
 type imageWeight struct {

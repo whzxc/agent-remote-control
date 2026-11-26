@@ -1179,7 +1179,7 @@
         "internal/core/images.go",
         "internal/core/images_test.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/ingress/config.rs": {
       "segment": "E",
@@ -1476,7 +1476,7 @@
         "internal/core/pets.go",
         "internal/core/pets_test.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/preferences.rs": {
       "segment": "S0",
