@@ -218,7 +218,16 @@ Section "Uninstall"
   ${If} ${Errors}
     Abort "请退出 Agent Remote Control 后重试。"
   ${EndIf}
+  ; MyGo creates this per-user profile at runtime, even for a custom install location.
+  ; Directory.Delete removes junctions as links instead of walking their targets.
+  nsExec::ExecToLog `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -Command "try { [IO.Directory]::Delete([IO.Path]::Combine($$env:LOCALAPPDATA, '${PRODUCT}', 'WebView2'), $$true) } catch [IO.DirectoryNotFoundException] {} catch { Write-Error $$_; exit 1 }"`
+  Pop $0
+  ${If} $0 != 0
+    SetErrorLevel 1
+    Abort "无法清除 Agent Remote Control 的 WebView2 数据。请退出后重试。"
+  ${EndIf}
   !include "${ARC_UNINSTALL_FILES}"
+  SetOutPath "$TEMP"
   Delete "$INSTDIR\uninstall.exe"
   Delete "$SMPROGRAMS\${PRODUCT}.lnk"
   Delete "$DESKTOP\${PRODUCT}.lnk"
@@ -233,4 +242,5 @@ Section "Uninstall"
   File /oname=$PLUGINSDIR\arc-peer-firewall.ps1 "${ARC_PEER_FIREWALL_SCRIPT}"
   ExecShellWait "runas" "$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\arc-peer-firewall.ps1" -StateDirectory "$LOCALAPPDATA\agent-remote-control" -Remove' SW_HIDE
   RMDir "$INSTDIR"
+  RMDir "$LOCALAPPDATA\${PRODUCT}"
 SectionEnd

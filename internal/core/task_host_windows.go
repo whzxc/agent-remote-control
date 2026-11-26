@@ -9,6 +9,10 @@ import (
 
 func signalTaskHostAgent(pid int, kill bool) { platform.SignalTree(pid, kill) }
 
+func signalVerifiedTaskHostAgent(pid int, start string) {
+	platform.SignalVerifiedTree(pid, start, true)
+}
+
 func removeTaskHostSocketDirectory(string) {}
 
 func taskHostOwnTree() (func(), error) {

@@ -364,7 +364,10 @@ Ordinary Desktop quit retains the lease-based Core shutdown policy.
 macOS uninstall stops Core, acquires replacement exclusion, stops the front door,
 reclaims any indexed provider children and removes the front-door image directory,
 metadata, private IPC directory and child index. Detached executor cleanup follows
-through the existing native host indexes.
+through the existing native host indexes. The installed Desktop bundle is the
+TCC client for Desktop-managed Core and arc-screen requests. The helper signing
+identifiers label executables inside that bundle. Uninstall resets the Desktop
+bundle's TCC grants before moving or deleting it.
 
 macOS and Linux use mode-0600 Unix sockets in a mode-0700 directory under
 `/tmp/arc-ipc-<uid>-<state-hash>/`. The hash uses the canonical state path and avoids
@@ -461,6 +464,11 @@ Core and front-door children use disjoint `core-children/` and
 predecessor's process trees, checking process creation identity before signalling.
 The detached front door itself never enters the Core index. Uninstall stops Core,
 the front door and its providers, then the detached executor owners.
+On Windows, tree shutdown verifies the root's creation identity, checks descendant
+creation times against their parents, and terminates through the verified handles.
+The Windows CLI starts a windowless cleanup process that waits for the CLI to
+exit before removing files and publishing the result file. The NSIS uninstaller
+removes its packaged files and MyGo's per-user WebView2 profile.
 
 `arc front-door-prepare` is the install compatibility check. A compatible running
 front door is retained regardless of the installed build ID. An incompatible one

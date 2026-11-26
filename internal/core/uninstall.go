@@ -110,14 +110,17 @@ func quitDesktopForUninstall(ctx context.Context) error {
 	if err != nil {
 		return nil
 	}
-	if _, err := forwardRequest(ctx, "app/quit", "POST", object{}); err != nil {
-		return err
-	}
 	pid, ok := uintValue(field(desktop, "pid"))
 	if !ok || pid == 0 || pid > 1<<31-1 {
 		return errors.New("Desktop PID unavailable")
 	}
 	start := platform.ProcessStart(int(pid))
+	if _, err := forwardRequest(ctx, "app/quit", "POST", object{}); err != nil {
+		if start != "" && platform.ProcessStart(int(pid)) != start {
+			return nil
+		}
+		return err
+	}
 	wait, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	tick := time.NewTicker(200 * time.Millisecond)
@@ -266,10 +269,12 @@ func runUninstall(ctx context.Context, purge bool) (object, error) {
 			if err != nil {
 				return nil, err
 			}
+			// Core and arc-screen are executables inside this bundle. macOS
+			// attributes their Desktop-managed privacy requests to the app.
+			if _, err := commandOutput(ctx, "/usr/bin/tccutil", "reset", "All", bundle); err != nil {
+				warnings = append(warnings, object{"action": "tccutil reset All", "bundleId": bundle, "error": err.Error()})
+			}
 			for _, id := range []string{bundle, bundle + ".core", bundle + ".screen"} {
-				if _, err := commandOutput(ctx, "/usr/bin/tccutil", "reset", "All", id); err != nil {
-					warnings = append(warnings, object{"action": "tccutil reset All", "bundleId": id, "error": err.Error()})
-				}
 				for _, dir := range []string{"WebKit", "Caches", "Application Support", "HTTPStorages"} {
 					paths = append(paths, filepath.Join(home, "Library", dir, id))
 				}
@@ -283,6 +288,9 @@ func runUninstall(ctx context.Context, purge bool) (object, error) {
 			}
 		}
 		if app != "" {
+			if local := os.Getenv("LOCALAPPDATA"); local != "" {
+				paths = append(paths, filepath.Join(local, "Agent Remote Control", "WebView2"))
+			}
 			if data := uninstallDataDir(home); data != "" {
 				paths = append(paths, filepath.Join(data, "Microsoft/Windows/Start Menu/Programs/Agent Remote Control.lnk"))
 			}

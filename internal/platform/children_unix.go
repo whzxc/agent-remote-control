@@ -29,6 +29,12 @@ func SignalTree(pid int, force bool) {
 	}
 }
 
+func SignalVerifiedTree(pid int, expectedStart string, force bool) {
+	if expectedStart != "" && ProcessStart(pid) == expectedStart {
+		SignalTree(pid, force)
+	}
+}
+
 func KillOwnedGroup(pid int) {
 	if pid > 0 {
 		_ = unix.Kill(-pid, unix.SIGKILL)

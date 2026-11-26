@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/whzxc/agent-remote-control/internal/platform"
 	"golang.org/x/sys/unix"
 )
 
@@ -15,6 +16,12 @@ func signalTaskHostAgent(pid int, kill bool) {
 		signal = unix.SIGKILL
 	}
 	_ = unix.Kill(-pid, signal)
+}
+
+func signalVerifiedTaskHostAgent(pid int, start string) {
+	if start != "" && platform.ProcessStart(pid) == start {
+		signalTaskHostAgent(pid, true)
+	}
 }
 
 func removeTaskHostSocketDirectory(socket string) {

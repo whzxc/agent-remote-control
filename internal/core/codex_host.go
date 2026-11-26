@@ -124,12 +124,13 @@ func stopCodexHost(_ context.Context, profile string) error {
 	record, err := loadCodexHost(profile)
 	if err == nil {
 		if pid := codexHostPID(record); pid != 0 {
-			platform.SignalTree(pid, false)
+			start := text(record, "processStart")
+			platform.SignalVerifiedTree(pid, start, false)
 			deadline := time.Now().Add(5 * time.Second)
 			for codexHostPID(record) == pid {
 				if time.Now().After(deadline) {
 					if codexHostPID(record) == pid {
-						platform.SignalTree(pid, true)
+						platform.SignalVerifiedTree(pid, start, true)
 					}
 					break
 				}

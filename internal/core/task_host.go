@@ -854,10 +854,10 @@ func stopTaskHostIndex(ctx context.Context, client *taskHostClient) {
 		}
 	}
 	if pid := taskHostIdentity(client.index, "agentPid", "agentStart"); pid != 0 {
-		signalTaskHostAgent(pid, true)
+		signalVerifiedTaskHostAgent(pid, text(client.index, "agentStart"))
 	}
 	if pid := taskHostIdentity(client.index, "hostPid", "hostStart"); pid != 0 {
-		platform.SignalTree(pid, true)
+		platform.SignalVerifiedTree(pid, text(client.index, "hostStart"), true)
 	}
 }
 

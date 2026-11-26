@@ -474,7 +474,8 @@ keys are not deleted by local uninstall.
 
 Use the same `ARC_STATE_DIR` as the installation. Windows finishes after the CLI
 exits and returns `state: scheduled` with `resultPath`; read that JSON receipt for
-completion or errors. Linux uses the freedesktop Trash layout; a cross-filesystem
+completion or errors. The Windows Recycle Bin requires an interactive user
+session. Linux uses the freedesktop Trash layout; a cross-filesystem
 move that cannot be completed leaves the source and reports an error. The command
 is local-only and is not exposed through MCP.
 

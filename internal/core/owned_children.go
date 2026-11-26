@@ -78,7 +78,7 @@ func reclaimChild(ctx context.Context, pid int, start string) error {
 	if platform.ProcessStart(pid) != start {
 		return nil
 	}
-	platform.SignalTree(pid, false)
+	platform.SignalVerifiedTree(pid, start, false)
 	deadline := time.NewTimer(5 * time.Second)
 	defer deadline.Stop()
 	ticker := time.NewTicker(50 * time.Millisecond)
@@ -92,7 +92,7 @@ func reclaimChild(ctx context.Context, pid int, start string) error {
 			if platform.ProcessStart(pid) != start {
 				return nil
 			}
-			platform.SignalTree(pid, true)
+			platform.SignalVerifiedTree(pid, start, true)
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
