@@ -29,7 +29,7 @@ func TestRegisteredProjectGivesBasenameRecovery(t *testing.T) {
 	failure := controlFailure(err)
 	next := obj(failure["next"])
 	if failure["code"] != "PROJECT_NOT_FOUND" || next["via"] != "query" || next["op"] != "projects" || wire(next["args"]) != "{}" ||
-		!strings.Contains(text(next, "hint"), "workspace-id") || !strings.Contains(text(next, "hint"), root) {
+		!strings.Contains(text(next, "hint"), "workspace-id") || !strings.Contains(text(next, "hint"), wire(root)) {
 		t.Fatalf("unexpected project recovery: %v", failure)
 	}
 	for _, id := range []string{"workspace", "workspace-id"} {

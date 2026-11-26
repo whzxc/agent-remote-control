@@ -33,7 +33,8 @@ func TestDesktopAppStartReusesExistingDesktop(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer listener.Close()
-	if status, err := managementCall(ctx, "app.start", object{}); err != nil || wire(status) != wire(want) {
+	launch := func(context.Context) error { return errors.New("app.start attempted to launch a second Desktop") }
+	if status, err := managementCallWithDesktopLauncher(ctx, "app.start", object{}, launch); err != nil || wire(status) != wire(want) {
 		t.Fatalf("app.start status = %v, %v", status, err)
 	}
 }

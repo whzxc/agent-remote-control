@@ -391,11 +391,21 @@ func taskHostCommandSpec(command *exec.Cmd) (object, error) {
 		args = append(args, arg)
 	}
 	env := object{}
-	for _, pair := range command.Environ() {
+	environment := command.Env
+	if environment == nil {
+		environment = os.Environ()
+	}
+	keys := make(map[string]string)
+	for _, pair := range environment {
 		if !utf8.ValidString(pair) {
 			return nil, errors.New("TASK_HOST_NON_UTF8: use the direct transport for non-UTF-8 launch values")
 		}
 		if key, value, ok := strings.Cut(pair, "="); ok && key != "" {
+			if operatingSystem == "windows" {
+				folded := strings.ToLower(key)
+				delete(env, keys[folded])
+				keys[folded] = key
+			}
 			env[key] = value
 		}
 	}

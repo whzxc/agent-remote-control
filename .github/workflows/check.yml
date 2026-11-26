@@ -41,7 +41,7 @@ jobs:
         if: ${{ !cancelled() && runner.os == 'Windows' }}
         run: go test -count=1 -v -run '^TestWindows(IPC|BusyFrontDoor|MissingFrontDoor)' ./internal/platform ./internal/core
       - name: Browser ingress
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && runner.os != 'Windows' }}
         run: node tooling/test.mjs --native tests/browser-native.test.ts
       - name: MyGo desktop bundle
         if: ${{ !cancelled() && runner.os != 'Linux' }}

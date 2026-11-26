@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/whzxc/agent-remote-control/internal/platform"
 )
 
 func physicalPath(path string) string {
@@ -37,7 +38,7 @@ func belowPath(path, parent string) bool {
 type fileChanges struct {
 	sync.Mutex
 	registration sync.Mutex
-	watcher      *fsnotify.Watcher
+	watcher      *platform.FileWatcher
 	files        map[string]string
 	directories  map[string]int
 	paths        map[string]bool
@@ -58,7 +59,7 @@ var fileWatchers struct {
 }
 
 func newFileChanges() *fileChanges {
-	watcher, err := fsnotify.NewWatcher()
+	watcher, err := platform.NewFileWatcher()
 	w := &fileChanges{watcher: watcher, files: make(map[string]string), directories: make(map[string]int), paths: make(map[string]bool),
 		own: make(map[string]*pendingFileWrite), wake: make(chan struct{}, 1)}
 	w.failed.Store(err != nil)
@@ -88,7 +89,10 @@ func (w *fileChanges) watchLoop() {
 			if !ok {
 				return
 			}
-			w.changed(event.Name)
+			if isDerivedIndexPath(event.Name) {
+				continue
+			}
+			w.acceptPhysical(physicalPath(event.Name))
 			if event.Has(fsnotify.Create) || event.Has(fsnotify.Rename) {
 				w.refreshParents(event.Name)
 			}
@@ -327,14 +331,14 @@ func repairPaths(directory string, cursor *repairCursor, limit int) ([]string, e
 }
 
 type discoveryChanges struct {
-	watcher  *fsnotify.Watcher
+	watcher  *platform.FileWatcher
 	revision atomic.Uint64
 	failed   atomic.Bool
 	wake     chan struct{}
 }
 
 func watchDiscovery(paths []string, relevant func(string) bool) (*discoveryChanges, error) {
-	watcher, err := fsnotify.NewWatcher()
+	watcher, err := platform.NewFileWatcher()
 	if err != nil {
 		return nil, err
 	}
@@ -342,6 +346,9 @@ func watchDiscovery(paths []string, relevant func(string) bool) (*discoveryChang
 	input := make([]string, 0, len(paths))
 	roots := map[string]bool{}
 	watchTree := func(path string) error {
+		if platform.FileWatcherRecursive {
+			return watcher.Add(path)
+		}
 		return filepath.WalkDir(path, func(path string, entry os.DirEntry, err error) error {
 			if err != nil {
 				return err
@@ -381,7 +388,7 @@ func watchDiscovery(paths []string, relevant func(string) bool) (*discoveryChang
 				if !ok {
 					return
 				}
-				if event.Has(fsnotify.Create) {
+				if !platform.FileWatcherRecursive && event.Has(fsnotify.Create) {
 					if state, err := os.Stat(event.Name); err == nil && state.IsDir() {
 						if watchTree(event.Name) != nil {
 							result.failed.Store(true)

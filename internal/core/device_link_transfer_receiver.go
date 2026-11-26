@@ -481,18 +481,30 @@ func (r *deviceReceiver) commit() (object, error) {
 	if r.meta["state"] == "completed" {
 		return clone(r.meta), nil
 	}
-	if r.meta["state"] != "receiving" || r.file == nil || uintOr(field(r.meta["spec"], "total"), 0) != r.offset() {
+	if r.meta["state"] != "receiving" || uintOr(field(r.meta["spec"], "total"), 0) != r.offset() {
 		return nil, errors.New("OFFSET_MISMATCH: receive all verified bytes before commit")
 	}
 	sha := hex.EncodeToString(r.sha.Sum(nil))
 	if expected, ok := field(r.meta["spec"], "expectedSha256").(string); ok && !strings.EqualFold(expected, sha) {
 		return nil, errors.New("SHA256_MISMATCH: destination unchanged")
 	}
-	if err := r.file.Sync(); err != nil {
-		return nil, err
-	}
 	temporary, path := text(r.meta, "temporary"), text(r.meta, "path")
 	if !r.published {
+		if r.file == nil {
+			file, err := os.OpenFile(temporary, os.O_RDWR, 0)
+			if err != nil {
+				return nil, err
+			}
+			r.file = file
+		}
+		if err := r.file.Sync(); err != nil {
+			return nil, err
+		}
+		closeErr := r.file.Close()
+		r.file = nil
+		if closeErr != nil {
+			return nil, closeErr
+		}
 		var err error
 		if field(r.meta["spec"], "overwrite") == true {
 			err = platform.ReplaceFile(temporary, path)

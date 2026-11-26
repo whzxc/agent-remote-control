@@ -59,7 +59,7 @@ The port follows Rust at the main commit from which the `go-core` lane was creat
 | reqwest (json, form, stream, socks) | `net/http` with `http.ProxyURL` (socks5 supported) |
 | tokio-tungstenite | `github.com/coder/websocket` |
 | rusqlite (bundled) | `modernc.org/sqlite` |
-| notify | `github.com/fsnotify/fsnotify` |
+| notify | FSEvents via `github.com/ebitengine/purego` on macOS, `github.com/fsnotify/fsnotify` elsewhere |
 | mdns-sd, if-addrs, socket2 | a pure-Go DNS-SD library, `net.Interfaces`, `net.KeepAliveConfig`, `golang.org/x/sys` |
 | jsonschema | `github.com/santhosh-tekuri/jsonschema/v6`; client-visible error text matches Rust |
 | image (png, jpeg, webp, gif) | `image/*`, `golang.org/x/image/webp` |

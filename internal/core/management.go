@@ -78,36 +78,41 @@ func managementResolve(name string, args object) (route, method string, body obj
 	return route, method, body, nil
 }
 
-func startDesktopApp(ctx context.Context) (any, error) {
+func launchDesktopApp(ctx context.Context) error {
+	executable := str(cliExecutable())
+	if executable == "" {
+		return errors.New("invalid installation")
+	}
+	if operatingSystem == "darwin" {
+		app := appBundle(executable)
+		if app == "" || !skillFile(filepath.Join(app, "Contents/MacOS/agent-remote-control-desktop")) {
+			return errors.New("invalid application bundle")
+		}
+		_, err := commandOutput(ctx, "/usr/bin/open", "-a", app)
+		return err
+	}
+	const desktop = "agent-remote-control-desktop.exe"
+	if filepath.Base(executable) != desktop {
+		executable = filepath.Join(filepath.Dir(executable), "..", desktop)
+	}
+	command := exec.Command(executable)
+	platform.Detach(command)
+	if err := command.Start(); err != nil {
+		return err
+	}
+	_ = command.Process.Release()
+	return nil
+}
+
+func startDesktopApp(ctx context.Context, launch func(context.Context) error) (any, error) {
 	status := func(ctx context.Context) (any, error) {
 		return forwardRequest(ctx, "app", http.MethodGet, object{})
 	}
 	if running, err := status(ctx); err == nil {
 		return running, nil
 	}
-	executable := str(cliExecutable())
-	if executable == "" {
-		return nil, errors.New("invalid installation")
-	}
-	if operatingSystem == "darwin" {
-		app := appBundle(executable)
-		if app == "" || !skillFile(filepath.Join(app, "Contents/MacOS/agent-remote-control-desktop")) {
-			return nil, errors.New("invalid application bundle")
-		}
-		if _, err := commandOutput(ctx, "/usr/bin/open", "-a", app); err != nil {
-			return nil, err
-		}
-	} else {
-		const desktop = "agent-remote-control-desktop.exe"
-		if filepath.Base(executable) != desktop {
-			executable = filepath.Join(filepath.Dir(executable), "..", desktop)
-		}
-		command := exec.Command(executable)
-		platform.Detach(command)
-		if err := command.Start(); err != nil {
-			return nil, err
-		}
-		_ = command.Process.Release()
+	if err := launch(ctx); err != nil {
+		return nil, err
 	}
 	wait, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -129,6 +134,10 @@ func startDesktopApp(ctx context.Context) (any, error) {
 }
 
 func managementCall(ctx context.Context, name string, args object) (any, error) {
+	return managementCallWithDesktopLauncher(ctx, name, args, launchDesktopApp)
+}
+
+func managementCallWithDesktopLauncher(ctx context.Context, name string, args object, launch func(context.Context) error) (any, error) {
 	route, method, body, err := managementResolve(name, args)
 	if err != nil {
 		return nil, err
@@ -140,7 +149,7 @@ func managementCall(ctx context.Context, name string, args object) (any, error) 
 		if operatingSystem == "linux" {
 			return startHeadless(ctx)
 		}
-		return startDesktopApp(ctx)
+		return startDesktopApp(ctx, launch)
 	}
 	return forwardRequest(ctx, route, method, body)
 }

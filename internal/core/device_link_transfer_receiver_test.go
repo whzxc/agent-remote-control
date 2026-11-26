@@ -33,6 +33,9 @@ func TestPublishedTransferRepairsACompletionCheckpointFailure(t *testing.T) {
 	if _, err := receiver.commit(); err == nil {
 		t.Fatal("completion unexpectedly persisted under a file")
 	}
+	if got, err := os.ReadFile(target); err != nil || !bytes.Equal(got, data) {
+		t.Fatalf("verified bytes were not published before the checkpoint failure: %v", err)
+	}
 	receiver.manifest = manifest
 	result, err := receiver.commit()
 	if err != nil || result["state"] != "completed" || result["sha256"] != sum {

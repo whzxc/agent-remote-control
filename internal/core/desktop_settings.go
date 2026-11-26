@@ -23,7 +23,11 @@ var desktopPermissionAtoms = []string{desktopPermissionSelection, desktopPermiss
 func readDesktopPermissionAtoms(ctx context.Context, home string) (object, error) {
 	path := filepath.Join(home, ".codex-global-state.sqlite")
 	if _, err := os.Stat(path); err == nil {
-		uri := url.URL{Scheme: "file", Path: filepath.ToSlash(path), RawQuery: "mode=ro"}
+		uriPath := filepath.ToSlash(path)
+		if filepath.VolumeName(path) != "" && !strings.HasPrefix(uriPath, "/") {
+			uriPath = "/" + uriPath
+		}
+		uri := url.URL{Scheme: "file", Path: uriPath, RawQuery: "mode=ro"}
 		db, err := sql.Open("sqlite", uri.String())
 		if err != nil {
 			return nil, err

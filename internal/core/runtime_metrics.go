@@ -5,7 +5,8 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
-	"time"
+
+	"github.com/whzxc/agent-remote-control/internal/platform"
 )
 
 var runtimeWorkNames = [...]string{"status", "accounts", "activity", "notificationObserve", "notificationDelivery", "desktopFrame"}
@@ -15,7 +16,7 @@ type runtimeWorkCounter struct {
 }
 
 var runtimeWorkCounters [len(runtimeWorkNames)]runtimeWorkCounter
-var runtimeMetricsStarted = sync.OnceValue(time.Now)
+var runtimeMetricsStarted = sync.OnceValue(platform.StartElapsed)
 
 func beginRuntimeWork(name string) func() {
 	runtimeMetricsStarted()
@@ -26,9 +27,9 @@ func beginRuntimeWork(name string) func() {
 		counter := &runtimeWorkCounters[i]
 		counter.calls.Add(1)
 		counter.inFlight.Add(1)
-		started := time.Now()
+		wallTime := platform.StartElapsed()
 		return func() {
-			elapsed := uint64(time.Since(started).Microseconds())
+			elapsed := uint64(wallTime().Microseconds())
 			counter.total.Add(elapsed)
 			for previous := counter.max.Load(); elapsed > previous && !counter.max.CompareAndSwap(previous, elapsed); previous = counter.max.Load() {
 			}
@@ -100,13 +101,13 @@ func (pass *runtimeObservationPass) timePhase(phase string) func() {
 	if pass == nil {
 		return func() {}
 	}
-	started := time.Now()
+	wallTime := platform.StartElapsed()
 	for i, known := range runtimeObservationPhases {
 		if phase == known {
 			return func() {
 				runtimeObservation.Lock()
 				defer runtimeObservation.Unlock()
-				pass.sample.wall[i] += uint64(time.Since(started).Microseconds())
+				pass.sample.wall[i] += uint64(wallTime().Microseconds())
 			}
 		}
 	}
@@ -143,7 +144,7 @@ var runtimeDesktopDiagnostics func(*service) object
 var runtimeTimelineDiagnostics func(*nativeEvents) (int, int)
 
 func runtimeMetrics(ctx context.Context, request operationRequest) (any, error) {
-	started := runtimeMetricsStarted()
+	wallTime := runtimeMetricsStarted()
 	var work []object
 	for i, name := range runtimeWorkNames {
 		counter := &runtimeWorkCounters[i]
@@ -180,7 +181,7 @@ func runtimeMetrics(ctx context.Context, request operationRequest) (any, error) 
 		s.events.Unlock()
 	}
 	return object{
-		"schemaVersion": 1, "pid": os.Getpid(), "observedAt": now(), "buildId": buildID, "elapsedMs": time.Since(started).Milliseconds(),
+		"schemaVersion": 1, "pid": os.Getpid(), "observedAt": now(), "buildId": buildID, "elapsedMs": wallTime().Milliseconds(),
 		"process": runtimeProcessMetrics(), "work": work, "notificationObserve": runtimeObservationSnapshot(), "cost": cost,
 		"indexWatches": watchDiagnostics(), "caches": object{"json": cacheDiagnostics(), "notificationBindings": bindings},
 		"instance": instance, "desktopIpc": desktop, "events": events,

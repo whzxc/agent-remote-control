@@ -43,7 +43,7 @@ func coordinationAssociateDispatch(baseline, registry any) object {
 				resources = append(resources, key)
 				lane = "git-baseline"
 			}
-		} else if p, ok := field(baseline, "root").(string); ok && filepath.Join(p, ".git") == text(baseline, "commonDir") {
+		} else if p, ok := field(baseline, "root").(string); ok && filepath.Join(p, ".git") == filepath.Clean(text(baseline, "commonDir")) {
 			resources = append(resources, "project:"+matches[0]+"/main")
 			lane = "not-a-lane"
 		}
