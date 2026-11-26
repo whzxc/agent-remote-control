@@ -2818,13 +2818,13 @@
         "passed": [],
         "blocked": [
           {
-            "segment": "B",
-            "module": "runtime_metrics",
-            "route": "query runtime_metrics",
+            "segment": "A",
+            "module": "task_overview; turn_lifecycle",
+            "route": "GET /api/tasks; notification observation",
             "cases": [
               "real Core serves health, leases, guide and query before realistic retained-state migration publishes"
             ],
-            "note": "Metadata, health, lease and guide were reached. The first query and subsequent publication and restart phases are unavailable."
+            "note": "Guide, runtime metrics and all three durable publications complete. The tasks request returns GO_PORT_PENDING during publication and missing Agent observation hooks stop restart verification."
           }
         ]
       },
@@ -2863,6 +2863,27 @@
           "restart": null,
           "receiptAfterGate": null,
           "maxLatency": null
+        },
+        "i1": {
+          "rustReference": {
+            "guide": 21.116,
+            "unrelated": 26.891,
+            "pending": 13.269,
+            "published": 15.24
+          },
+          "goBefore": {
+            "guide": 129.916,
+            "unrelated": 194.147,
+            "pending": 5.352,
+            "published": 10.387
+          },
+          "goAfter": {
+            "guide": 11.019,
+            "unrelated": 13.453,
+            "pending": 11.631,
+            "published": 6.334
+          },
+          "note": "Same installed-shape native fixture on darwin/arm64. Watcher registration and filesystem work no longer hold the event state or registry locks."
         }
       },
       "evidence": "Go phase timings came from an untracked copy that prints the existing measurements before the runtime_metrics assertion. The tracked Rust and Go runs used the unchanged native case."

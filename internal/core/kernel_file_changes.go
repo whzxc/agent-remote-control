@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -35,14 +36,15 @@ func belowPath(path, parent string) bool {
 
 type fileChanges struct {
 	sync.Mutex
-	watcher     *fsnotify.Watcher
-	files       map[string]string
-	directories map[string]int
-	paths       map[string]bool
-	own         map[string]*pendingFileWrite
-	wake        chan struct{}
-	failed      bool
-	closed      bool
+	registration sync.Mutex
+	watcher      *fsnotify.Watcher
+	files        map[string]string
+	directories  map[string]int
+	paths        map[string]bool
+	own          map[string]*pendingFileWrite
+	wake         chan struct{}
+	failed       atomic.Bool
+	closed       bool
 }
 
 type pendingFileWrite struct {
@@ -58,7 +60,8 @@ var fileWatchers struct {
 func newFileChanges() *fileChanges {
 	watcher, err := fsnotify.NewWatcher()
 	w := &fileChanges{watcher: watcher, files: make(map[string]string), directories: make(map[string]int), paths: make(map[string]bool),
-		own: make(map[string]*pendingFileWrite), wake: make(chan struct{}, 1), failed: err != nil}
+		own: make(map[string]*pendingFileWrite), wake: make(chan struct{}, 1)}
+	w.failed.Store(err != nil)
 	fileWatchers.Lock()
 	if fileWatchers.active == nil {
 		fileWatchers.active = make(map[*fileChanges]bool)
@@ -87,16 +90,14 @@ func (w *fileChanges) watchLoop() {
 			}
 			w.changed(event.Name)
 			if event.Has(fsnotify.Create) || event.Has(fsnotify.Rename) {
-				w.refreshParents()
+				w.refreshParents(event.Name)
 			}
 		case _, ok := <-w.watcher.Errors:
 			if !ok {
 				return
 			}
-			w.Lock()
-			w.failed = true
+			w.failed.Store(true)
 			w.notify()
-			w.Unlock()
 		}
 	}
 }
@@ -114,44 +115,57 @@ func closestDirectory(path string) string {
 	}
 }
 
-func (w *fileChanges) refreshParents() {
-	w.Lock()
-	defer w.Unlock()
+func (w *fileChanges) refreshParents(changed string) {
+	w.registration.Lock()
+	defer w.registration.Unlock()
+	if w.closed {
+		return
+	}
 	for path, old := range w.files {
-		candidate := closestDirectory(filepath.Dir(path))
+		parent := filepath.Dir(path)
+		if !belowPath(parent, changed) {
+			continue
+		}
+		candidate := closestDirectory(parent)
 		if candidate == "" || candidate == old {
 			continue
 		}
-		w.removeDirectory(old)
+		// Register before swapping the old parent so writes during a move
+		// are either observed under the old watch or picked up below.
 		w.addDirectory(candidate)
+		w.Lock()
 		w.files[path] = candidate
+		w.Unlock()
+		w.removeDirectory(old)
 		if filepath.Base(path) == ".index-watch" {
 			if entries, err := os.ReadDir(candidate); err == nil {
 				for _, entry := range entries {
-					w.accept(filepath.Join(candidate, entry.Name()))
+					w.acceptPhysical(filepath.Join(candidate, entry.Name()))
 				}
 			}
 		} else {
-			w.accept(path)
+			w.acceptPhysical(path)
 		}
 	}
 }
 
 func (w *fileChanges) add(path string) {
 	path = physicalPath(path)
-	w.Lock()
-	defer w.Unlock()
-	if _, ok := w.files[path]; ok {
+	w.registration.Lock()
+	defer w.registration.Unlock()
+	if _, ok := w.files[path]; ok || w.closed {
 		return
 	}
 	parent := closestDirectory(filepath.Dir(path))
+	w.Lock()
 	w.files[path] = parent
+	w.Unlock()
 	w.addDirectory(parent)
 }
 
 func (w *fileChanges) addDirectory(parent string) {
 	if w.directories[parent] == 0 && (parent == "" || w.watcher == nil || w.watcher.Add(parent) != nil) {
-		w.failed = true
+		w.failed.Store(true)
 		w.notify()
 	}
 	w.directories[parent]++
@@ -169,19 +183,21 @@ func (w *fileChanges) removeDirectory(parent string) {
 
 func (w *fileChanges) remove(path string) {
 	path = physicalPath(path)
+	w.registration.Lock()
+	defer w.registration.Unlock()
 	w.Lock()
-	defer w.Unlock()
-	if parent, exists := w.files[path]; exists {
+	parent, exists := w.files[path]
+	if exists {
 		delete(w.files, path)
 		delete(w.own, path)
+	}
+	w.Unlock()
+	if exists {
 		w.removeDirectory(parent)
 	}
 }
 
 func (w *fileChanges) accept(path string) {
-	if slices.Contains(strings.Split(path, string(filepath.Separator)), ".activity-index") {
-		return
-	}
 	if own := w.own[path]; own != nil {
 		if own.writing {
 			return
@@ -198,8 +214,18 @@ func (w *fileChanges) accept(path string) {
 		w.notify()
 	}
 }
+func isDerivedIndexPath(path string) bool {
+	separator := string(filepath.Separator)
+	return strings.Contains(separator+path+separator, separator+".activity-index"+separator)
+}
+
 func (w *fileChanges) changed(path string) {
-	path = physicalPath(path)
+	if !isDerivedIndexPath(path) {
+		w.acceptPhysical(physicalPath(path))
+	}
+}
+
+func (w *fileChanges) acceptPhysical(path string) {
 	w.Lock()
 	defer w.Unlock()
 	if !w.closed {
@@ -208,11 +234,15 @@ func (w *fileChanges) changed(path string) {
 }
 
 func publishChangedFile(path string) {
+	if isDerivedIndexPath(path) {
+		return
+	}
 	path = physicalPath(path)
 	fileWatchers.Lock()
-	defer fileWatchers.Unlock()
-	for watcher := range fileWatchers.active {
-		watcher.changed(path)
+	watchers := slices.Collect(maps.Keys(fileWatchers.active))
+	fileWatchers.Unlock()
+	for _, watcher := range watchers {
+		watcher.acceptPhysical(path)
 	}
 }
 
@@ -239,13 +269,15 @@ func (w *fileChanges) drain() ([]string, bool) {
 	}
 	slices.Sort(paths)
 	clear(w.paths)
-	return paths, w.failed
+	return paths, w.failed.Load()
 }
 
 func (w *fileChanges) close() {
 	fileWatchers.Lock()
 	delete(fileWatchers.active, w)
 	fileWatchers.Unlock()
+	w.registration.Lock()
+	defer w.registration.Unlock()
 	w.Lock()
 	wasClosed := w.closed
 	w.closed = true
@@ -260,11 +292,9 @@ func watchDiagnostics() object {
 	defer fileWatchers.Unlock()
 	failed := 0
 	for active := range fileWatchers.active {
-		active.Lock()
-		if active.failed {
+		if active.failed.Load() {
 			failed++
 		}
-		active.Unlock()
 	}
 	return object{"watchers": len(fileWatchers.active), "coverageGaps": failed}
 }
