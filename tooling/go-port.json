@@ -56,15 +56,7 @@
         "internal/core/accounts.go",
         "internal/core/accounts_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "C",
-          "items": [
-            "Complete account reconciliation on notification reads and writes and propagate preparation errors."
-          ]
-        }
-      ]
+      "status": "verified"
     },
     "native/src/agents/activity.rs": {
       "segment": "A",
@@ -444,15 +436,7 @@
         "internal/core/claude_notify_migration.go",
         "internal/core/claude_notify_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "F",
-          "items": [
-            "Provide the Desktop notification escalation destination."
-          ]
-        }
-      ]
+      "status": "verified"
     },
     "native/src/cli.rs": {
       "segment": "S0",
@@ -788,15 +772,7 @@
         "internal/core/control_desktop.go",
         "internal/core/desktop_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "F",
-          "items": [
-            "Verify the real Desktop snapshot provider at its native entry point."
-          ]
-        }
-      ]
+      "status": "verified"
     },
     "native/src/device_link/addresses.rs": {
       "segment": "E",
@@ -1167,15 +1143,7 @@
         "internal/core/ingress_oauth.go",
         "internal/core/ingress_oauth_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "C",
-          "items": [
-            "Distinguish a temporarily disconnected ingress from a revoked source when retrying webhook delivery."
-          ]
-        }
-      ]
+      "status": "verified"
     },
     "native/src/https_tunnel.rs": {
       "segment": "E",
@@ -1601,15 +1569,7 @@
         "internal/core/runtime_metrics_cost.go",
         "internal/core/runtime_metrics_cost_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "F",
-          "items": [
-            "Attribute the Desktop timeline and frame paths to their owner scopes."
-          ]
-        }
-      ]
+      "status": "verified"
     },
     "native/src/runtime_metrics.rs": {
       "segment": "B",
@@ -1620,21 +1580,7 @@
         "internal/core/runtime_metrics_windows.go",
         "internal/core/runtime_metrics_other.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "D",
-          "items": [
-            "Measure account refresh and account read work durations."
-          ]
-        },
-        {
-          "owner": "F",
-          "items": [
-            "Supply Desktop IPC diagnostics and frame timings."
-          ]
-        }
-      ]
+      "status": "verified"
     },
     "native/src/screen.rs": {
       "segment": "A",
@@ -1693,15 +1639,7 @@
         "internal/core/sources_test.go",
         "internal/core/sources_fixture.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "C",
-          "items": [
-            "Align notification-state migration order and supply sourceNotificationMigrationReady."
-          ]
-        }
-      ]
+      "status": "verified"
     },
     "native/src/src_conversations/identity.rs": {
       "segment": "A",
@@ -2032,7 +1970,8 @@
       "segment": "F",
       "go": [
         "cmd/arc-desktop/snapshot.go",
-        "cmd/arc-desktop/snapshot_other.go"
+        "cmd/arc-desktop/snapshot_other.go",
+        "cmd/arc-desktop/snapshot_test.go"
       ],
       "status": "verified"
     },
