@@ -353,6 +353,15 @@ func TestCoordinationDispatchAndTerminalObservationsStayMetadataOnly(t *testing.
 			t.Fatalf("state %s = %v", status, events)
 		}
 	}
+	row["status"], row["terminal"] = "completed", object{"state": "completed"}
+	key := turnKey{"pi", "thread", "turn"}
+	row["_turnLifecycle"] = (turnTransition{key: key}).advance(turnEvidence{key: key, owner: turnOwner{1, turnUnavailable}}).checkpoint()
+	for _, owner := range []string{"agent", "dispatch"} {
+		events, err := coordinationOwnerInputs(owner, row, []string{"host:fixture", "app:installed"})
+		if err != nil || slices.ContainsFunc(events, func(event coordinationEventInput) bool { return event.Kind == "turn.terminal" }) {
+			t.Fatalf("%s owner loss over stale terminal projection = %v, %v", owner, events, err)
+		}
+	}
 }
 
 func TestCoordinationSourceAuthorityUsesCredentialRevision(t *testing.T) {

@@ -108,6 +108,7 @@ func persistNotificationBinding(binding object) error {
 	if err != nil {
 		return err
 	}
+	defer index.collection.watch.ownWrite(path)()
 	if err = indexChange(context.Background(), path, func() (any, error) { return projection, save(path, binding) }); err != nil {
 		return err
 	}

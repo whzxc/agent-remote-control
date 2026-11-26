@@ -454,7 +454,7 @@ func reviewAgentDispatch(ctx context.Context, args, snapshot object) (object, er
 		if turn == latest {
 			status, checkpoint = snapshot["status"], snapshot["_turnLifecycle"]
 		}
-		incoming := object{"agent": agent, "taskId": task, "turnId": turn, "state": status, "_turnLifecycle": checkpoint}
+		incoming := turnSnapshot(turnKey{agent, task, turn}, str(status), checkpoint).checkpoint()
 		recordDispatchOutcome(row, incoming, nil, "", true)
 		if row["agent"] != agent || supplied && turn != requested || !supplied && !notificationTerminal(dispatchOutcome(row)) {
 			continue

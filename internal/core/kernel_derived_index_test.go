@@ -5,12 +5,77 @@ package core
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestNotificationAndReceiptScaleRebuildKeepsCoreReady(t *testing.T) {
+	// Recurring bug class: lifecycle installed-scale index migration prevented guide, query and Desktop leases from starting.
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	gate := filepath.Join(root(), "index-gate")
+	t.Setenv("ARC_FIXTURE_INDEX_GATE", gate)
+	if err := saveBytes(gate, nil); err != nil {
+		t.Fatal(err)
+	}
+	coreOwner, notificationOwner := coreReceiptStore().base, notificationOwnerPath()
+	const receipts, bindings = 9000, 1100
+	payload := strings.Repeat("x", 6000)
+	for range receipts {
+		request := id()
+		row := object{"requestId": request, "state": "completed", "backendSession": "fixture", "result": object{"payload": payload}}
+		if err := saveBytes(filepath.Join(coreOwner, request+".json"), []byte(wire(row))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for index := range bindings {
+		thread := fmt.Sprintf("scale-%d", index)
+		row := newNotificationBinding(thread, "turn", "/fixture", "source", time.Now())
+		row["scopeEnd"] = "scope-ended"
+		row["observation"] = object{"state": "completed", "recordedStatus": "completed", "reconciliation": "reconciled"}
+		if err := saveBytes(notificationBindingPath(thread, "turn"), []byte(wire(row))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	defer cancel()
+	s := &service{runtime: &runtimeState{leases: make(map[string]lease)}}
+	defer s.close()
+	prepareRuntimeIndexes(s)(ctx)
+	started := time.Now()
+	if _, err := s.runtime.request("runtime/lease", object{"id": id(), "kind": "desktop", "pid": os.Getpid()}); err != nil {
+		t.Fatal(err)
+	}
+	for _, op := range []string{"guide", "runtime_metrics"} {
+		reply := callTool(ctx, s, requestSource{local: true, policy: "all"}, "query", object{"op": op, "args": object{}}, nil)
+		if reply["isError"] != false {
+			t.Fatalf("%s was unavailable behind the startup gate: %v", op, reply)
+		}
+	}
+	if _, err := notificationStatusIndex(); err == nil || !strings.HasPrefix(err.Error(), "INDEX_NOT_READY") {
+		t.Fatalf("notification owner before gate release = %v", err)
+	}
+	if elapsed := time.Since(started); elapsed > time.Second {
+		t.Fatalf("readiness took %v while the index was held", elapsed)
+	}
+	if err := os.Remove(gate); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-s.indexStartupDone:
+	case <-ctx.Done():
+		t.Fatal("retained indexes did not publish")
+	}
+	for owner, rows := range map[string]int{coreOwner: receipts, notificationOwner: bindings} {
+		header, err := indexCurrent(owner)
+		if err != nil || header.Count != rows {
+			t.Fatalf("installed-scale owner %s = %v, %v", owner, header, err)
+		}
+	}
+}
 
 func TestStartupIndexGatePublishesAndAdoptsReceiptOwners(t *testing.T) {
 	// Recurring bug class: lifecycle owner reads raced startup before their durable resident index was ready.

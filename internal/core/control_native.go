@@ -582,7 +582,8 @@ func executeNativeCodexReceipt(ctx context.Context, s *service, operation string
 		input["cwd"], params = cwd, input
 	}
 	result, err := performNativeCodexMutation(ctx, s, method, params, duration, row)
-	if err != nil && strings.HasPrefix(err.Error(), "RPC_REJECTED:") && !nativeWriterRejected(err) {
+	if err != nil && (strings.HasPrefix(err.Error(), "RPC_REJECTED:") && !nativeWriterRejected(err) ||
+		method == "fs/fetchFile" || method == "fs/writeFile" && nativeTransferOptions(obj(params))) {
 		row["next"] = errorNext(operation, controlFailure(err))
 	}
 	return result, err

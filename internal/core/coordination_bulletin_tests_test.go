@@ -176,6 +176,107 @@ func TestBulletinAdmissionUsesCanonicalResourcesAndReadbackOnly(t *testing.T) {
 	}
 }
 
+func bulletinAcceptedDispatch(t *testing.T, request, mode string) []coordinationEventInput {
+	t.Helper()
+	row := object{"requestId": request, "threadId": "derived-thread", "turnId": "first",
+		"dispatchMode": mode, "origin": object{"sourceId": "source-a"},
+		"coordination": object{"association": object{"resources": []string{"lane:fixture-project/worker"},
+			"project": "registered-root", "session": "unattributed", "source": "observed", "lane": "git-baseline"}}}
+	events, err := coordinationOwnerInputs("dispatch", row, []string{"host:fixture", "app:installed"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return events
+}
+
+func TestBulletinProjectsOneNoticeForAcceptedDispatch(t *testing.T) {
+	// Recurring bug class: retry-replay accepted dispatch replays and steering must not create new Board notices.
+	store, clock, reader := fixtureBulletin(t)
+	events := bulletinAcceptedDispatch(t, "accepted-request", "new-turn")
+	for range 2 {
+		for _, event := range events {
+			if err := store.dispatchNotice(event, clock); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if steer := bulletinAcceptedDispatch(t, "steer-request", "steered"); len(steer) != 0 {
+		t.Fatalf("steering produced an admission = %v", steer)
+	}
+	for _, view := range []string{"summary", "full"} {
+		board, err := store.board(object{"view": view}, reader, clock)
+		notices := arr(clone(board)["notices"])
+		if err != nil || len(notices) != 1 || field(field(notices[0], "association"), "session") != "unattributed" {
+			t.Fatalf("%s admission notice = %v, %v", view, board, err)
+		}
+		notice := obj(notices[0])
+		if view == "full" && (notice["dispatchId"] != "accepted-request" || notice["ownerSourceId"] != "source-a" ||
+			notice["ownerSessionId"] != nil || wire(notice["resources"]) != wire([]string{"lane:fixture-project/worker"}) ||
+			find(notice["threadLinks"], "threadId", "derived-thread") == nil) {
+			t.Fatalf("accepted dispatch notice = %v", notice)
+		}
+	}
+}
+
+func TestBulletinAdmissionWarnsAndReplayKeepsOriginalIdentity(t *testing.T) {
+	// Contract: dispatch admission records actionable conflicts and replay refreshes them without changing the original receipt.
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	const resource = "lane:fixture-project/worker"
+	reader := coordinationReader{coordinationPrincipal{Type: "local-authority"}, "authority"}
+	var admitted object
+	var peerNotice, peerBlocker string
+	_, err := withBulletinStore(func(store *bulletinStore) (struct{}, error) {
+		clock := currentBulletinClock()
+		notice := writeBulletin(t, store, "notice_post", object{"resources": []any{resource}, "intent": "Fixture work", "expectedDurationSeconds": 60}, reader, clock)
+		blocker := writeBulletin(t, store, "blocker_open", object{"resources": []any{resource}, "causeCode": "inspection", "summary": "Fixture blocker"}, reader, clock)
+		peerNotice, peerBlocker = text(notice["notice"], "id"), text(blocker["blocker"], "id")
+		admitted = clone(store.advisory([]string{resource}, "", clock))
+		conflicts := arr(admitted["conflicts"])
+		if len(conflicts) != 2 || text(admitted["boardRevision"], "epoch") == "" {
+			t.Fatalf("admission conflicts = %v", admitted)
+		}
+		for _, conflict := range conflicts {
+			kind := text(conflict, "kind")
+			want := map[string]string{"notice": peerNotice, "blocker": peerBlocker}[kind]
+			args := obj(field(field(conflict, "boardRead"), "args"))
+			read, err := store.board(args, reader, clock)
+			rows, _ := read[kind+"s"].([]object)
+			if want == "" || field(conflict, "id") != want || uintOr(field(conflict, "inactivityAgeSeconds"), 1) != 0 || err != nil || len(rows) == 0 {
+				t.Fatalf("conflict continuation = %v, %v, %v", conflict, read, err)
+			}
+		}
+		for _, event := range bulletinAcceptedDispatch(t, "replay-request", "new-turn") {
+			if err := store.dispatchNotice(event, clock); err != nil {
+				return struct{}{}, err
+			}
+		}
+		return struct{}{}, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt := object{"requestId": "replay-request", "operation": "create", "state": "completed", "threadId": "derived-thread", "turnId": "first",
+		"coordination": object{"association": object{"resources": []any{resource}}, "admissionBoardRevision": admitted["boardRevision"], "freshness": "admission"}}
+	replay := clone(receipt)
+	refreshCoordinationDispatchAdvisory(t.Context(), replay)
+	read := publicReceipt(replay)
+	for _, key := range []string{"requestId", "threadId", "turnId", "state"} {
+		if read[key] != receipt[key] {
+			t.Fatalf("changed replay identity = %v", read)
+		}
+	}
+	advisory := obj(read["coordination"])
+	if advisory["freshness"] != "refreshed" || wire(advisory["admissionBoardRevision"]) != wire(admitted["boardRevision"]) ||
+		uintOr(field(advisory["boardRevision"], "revision"), 0) <= uintOr(field(admitted["boardRevision"], "revision"), 0) {
+		t.Fatalf("replay revision = %v", advisory)
+	}
+	var conflicts []any
+	if err := unmarshalJSON([]byte(wire(advisory["conflicts"])), &conflicts); err != nil ||
+		len(conflicts) != 2 || find(conflicts, "noticeId", peerNotice) == nil || find(conflicts, "blockerId", peerBlocker) == nil {
+		t.Fatalf("replay conflicts = %v, %v", conflicts, err)
+	}
+}
+
 func TestBulletinSessionRouteBindingSurvivesRestartAndUnbind(t *testing.T) {
 	// Recurring bug class: persistence the current session route generation survives replay and changes only on rebind.
 	t.Setenv("ARC_STATE_DIR", t.TempDir())

@@ -498,6 +498,13 @@ func notificationEvent(bind, d object) object {
 		"dispatches": d["dispatches"], "externalUserInputs": d["externalUserInputs"], "finalResponse": d["finalResponse"], "error": failure,
 		"reconciliation": d["reconciliation"], "continuation": d["continuation"], "recovery": d["recovery"], "ownership": owner, "next": next}
 	projectNotificationDevice(bind, event)
+	if dispatches := arr(event["dispatches"]); dispatches != nil {
+		rows := make([]any, 0, len(dispatches))
+		for _, dispatch := range dispatches {
+			rows = append(rows, clone(obj(dispatch)))
+		}
+		event["dispatches"] = rows
+	}
 	stripNotificationInternal(event)
 	return event
 }
@@ -1185,6 +1192,10 @@ func projectNotificationControlResult(ctx context.Context, r operationRequest, v
 	defer notificationEventOperation.Unlock()
 	if err := acknowledgeNotificationReads(source, reads); err != nil {
 		recordLog("WARN", "Inbox read tracking failed: "+err.Error(), nil)
+	}
+	if r.name == "guide" && (text(value["profile"], "name") == "local-code" ||
+		r.args["op"] == nil && r.args["view"] != "full" && (r.args["topic"] == nil || r.args["topic"] == "loop")) {
+		return
 	}
 	if value["view"] == "digest" || r.args["view"] == "digest" || r.args["view"] == "summary" || r.name == "inbox_wait" ||
 		r.name == "dispatch_policy" && r.args["view"] != "full" || r.name == "codex_read" && r.args["view"] == "review" {

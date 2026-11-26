@@ -1,10 +1,93 @@
 package core
 
 import (
+	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestDispatchReviewsPreserveARCAndExternalProvenance(t *testing.T) {
+	// Contract: ARC reviews retain the original dispatch receipt and external reviews expose native configuration.
+	args := object{"verdict": "rework", "note": "Check failed", "requestId": "review-request"}
+	origin := object{"sourceId": "source-id", "controlSource": "claude", "sessionId": "session", "target": "target"}
+	arc := dispatchReviewRecord(args, origin, object{"requestId": "dispatch-request"}, nil, "timestamp")
+	if arc["verdict"] != args["verdict"] || arc["note"] != args["note"] || arc["requestId"] != args["requestId"] ||
+		arc["reviewedAt"] != "timestamp" || arc["dispatchOrigin"] != "arc" || arc["dispatchRequestId"] != "dispatch-request" ||
+		wire(arc["reviewer"]) != wire(origin) {
+		t.Fatalf("ARC review = %v", arc)
+	}
+	external := dispatchReviewRecord(args, origin, nil, object{"model": "model", "effort": "high"}, "timestamp")
+	if external["dispatchOrigin"] != "external" || external["dispatchRequestId"] != nil || external["model"] != "model" ||
+		external["effort"] != "high" || external["serviceTier"] != nil {
+		t.Fatalf("external review = %v", external)
+	}
+}
+
+func TestDispatchReviewsRequireNativeTerminalTurns(t *testing.T) {
+	// Recurring bug class: lifecycle a review could select a running or missing turn or borrow a newer turn's configuration.
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	core := &service{metadata: object{"instance": id()}}
+	transport := nativeControlRequest
+	t.Cleanup(func() { nativeControlRequest = transport })
+	defer core.close()
+	turns := []any{object{"id": "running", "status": "inProgress"}, object{"id": "done", "status": "completed"}}
+	nativeControlRequest = func(_ context.Context, _ *service, method string, _ any, _ time.Duration) (any, error) {
+		switch method {
+		case "thread/turns/list":
+			return object{"data": turns}, nil
+		case "thread/read":
+			return object{"thread": object{"model": "native-model"}}, nil
+		default:
+			return nil, fmt.Errorf("unexpected native method: %s", method)
+		}
+	}
+	for _, example := range []struct {
+		requested any
+		selection string
+		failure   string
+	}{
+		{nil, "done", ""}, {"missing", "", "REVIEW_TERMINAL_TURN_NOT_FOUND"},
+		{"running", "", "REVIEW_REQUIRES_TERMINAL_TURN"},
+	} {
+		args := object{"threadId": id(), "verdict": "pass"}
+		if example.requested != nil {
+			args["turnId"] = example.requested
+		}
+		value, err := dispatchCodexReview(t.Context(), operationRequest{name: "codex_review", args: args, service: core})
+		if err != nil {
+			t.Fatal(err)
+		}
+		receipt := obj(value)
+		if example.failure == "" {
+			if receipt["state"] != "completed" || field(receipt["result"], "turnId") != example.selection {
+				t.Fatalf("selected receipt = %v", receipt)
+			}
+		} else if receipt["state"] != "failed" || !strings.Contains(text(outcomeError(receipt), "message"), example.failure) {
+			t.Fatalf("rejected review = %v", receipt)
+		}
+	}
+	task := id()
+	snapshot := object{"agent": "example", "turnId": "latest", "status": "completed", "model": "model", "options": object{"effort": "high"},
+		"tracking": object{"turnStatuses": object{"older": "completed"}, "turnTimings": object{"older": object{"endedAt": "2026-01-01T00:00:00Z"}}}}
+	for _, turn := range []string{"latest", "older"} {
+		result, err := reviewAgentDispatch(t.Context(), object{"agent": "example", "taskId": task, "turnId": turn, "verdict": "pass"}, snapshot)
+		review := obj(result["review"])
+		if err != nil || review["dispatchOrigin"] != "external" ||
+			turn == "latest" && (review["model"] != "model" || review["effort"] != "high") ||
+			turn == "older" && review["model"] != nil {
+			t.Fatalf("review for %s = %v, %v", turn, result, err)
+		}
+	}
+	snapshot["status"] = "running"
+	for turn, want := range map[string]string{"latest": "REVIEW_REQUIRES_TERMINAL_TURN", "missing": "REVIEW_TERMINAL_TURN_NOT_FOUND"} {
+		_, err := reviewAgentDispatch(t.Context(), object{"agent": "example", "taskId": id(), "turnId": turn, "verdict": "pass"}, snapshot)
+		if err == nil || err.Error() != want {
+			t.Fatalf("review for %s = %v", turn, err)
+		}
+	}
+}
 
 func TestDispatchPolicyPreservesLatestExplicitFields(t *testing.T) {
 	// Algorithmic core: omitted model and effort inherit their independent last explicit choices.
@@ -103,17 +186,10 @@ func TestDispatchReviewConfigurationUsesNativeEvidenceInOrder(t *testing.T) {
 func TestDispatchHistoryUsesAuthoritativeOutcomeAndPreservesPackCoverage(t *testing.T) {
 	// Contract: dispatch history keeps native outcomes separate from external reviews and self-tests.
 	at := time.Now()
-	prev := dispatchLifecycleOutcome
-	t.Cleanup(func() { dispatchLifecycleOutcome = prev })
-	dispatchLifecycleOutcome = func(row object) string {
-		if observed := text(row["_turnLifecycle"], "outcome"); observed != "" {
-			return observed
-		}
-		return text(row["terminal"], "state")
-	}
 	row := object{"agent": "codex", "threadId": "thread", "turnId": "arc", "dispatchMode": "new-turn", "submittedAt": at.Format(time.RFC3339Nano),
 		"model": "model", "effort": "high", "serviceTier": "priority", "options": object{}, "review": object{"verdict": "pass"},
-		"terminal": object{"state": "failed", "observedDurationMs": 60000}, "_turnLifecycle": object{"outcome": "completed"}, "pack": object{"name": "class"}}
+		"terminal": object{"state": "failed", "observedDurationMs": 60000}, "pack": object{"name": "class"}}
+	row["_turnLifecycle"] = turnSnapshot(turnKey{"codex", "thread", "arc"}, "completed", nil).checkpoint()
 	external := clone(row)
 	external["turnId"], external["dispatchOrigin"] = "external", "external"
 	external["review"] = object{"verdict": "rework", "reviewedAt": at.Format(time.RFC3339Nano)}
@@ -132,6 +208,58 @@ func TestDispatchHistoryUsesAuthoritativeOutcomeAndPreservesPackCoverage(t *test
 	}
 	if line := summarizeDispatchPacks(rows, at.Add(-time.Hour))["class"]; line != "n1 med1.0m pass1 rework0 unrev0" {
 		t.Fatalf("pack history = %s", line)
+	}
+	unreviewed := clone(row)
+	unreviewed["agent"], unreviewed["submission"] = "pi", "accepted"
+	unreviewed["_turnLifecycle"] = turnSnapshot(turnKey{"pi", "thread", "arc"}, "completed", nil).checkpoint()
+	delete(unreviewed, "review")
+	history = summarizeDispatchHistory([]object{unreviewed}, "pi", false, at.Add(-time.Hour))
+	groups = arr(history["groups"])
+	if len(groups) != 1 || uintOr(field(groups[0], "failed"), 1) != 0 || uintOr(field(groups[0], "interrupted"), 1) != 0 ||
+		uintOr(field(groups[0], "durationSamples"), 0) != 1 ||
+		uintOr(field(field(field(history, "quality"), "unreviewedCompletions"), "count"), 0) != 1 {
+		t.Fatalf("unreviewed completion history = %v", history)
+	}
+	if line := summarizeDispatchPacks([]object{unreviewed}, at.Add(-time.Hour))["class"]; strings.Contains(line, "fail") {
+		t.Fatalf("pack counted the stale failure: %s", line)
+	}
+}
+
+func TestDispatchHistoryDeduplicatesExternalReviewsWithoutCountingDurations(t *testing.T) {
+	// Contract: external reviews contribute once to the configuration group and never to ARC duration samples.
+	at := time.Now()
+	stamp := at.Format(time.RFC3339Nano)
+	arc := object{"agent": "codex", "threadId": "thread", "turnId": "arc", "dispatchMode": "new-turn", "submittedAt": stamp,
+		"model": "model", "effort": "high", "serviceTier": "priority", "options": object{}, "review": object{"verdict": "pass"},
+		"terminal": object{"state": "completed", "observedDurationMs": 60000}}
+	external := clone(arc)
+	external["turnId"], external["dispatchOrigin"] = "external", "external"
+	external["review"] = object{"verdict": "rework", "reviewedAt": stamp}
+	external["terminal"] = object{"state": "failed", "observedDurationMs": 1}
+	unknown, other := clone(external), clone(external)
+	unknown["turnId"], unknown["effort"] = "unknown", nil
+	other["turnId"], other["model"] = "other", "another-model"
+	rows := []object{arc, external, clone(external), unknown, other}
+	cutoff := at.Add(-time.Hour)
+	groups := arr(summarizeDispatchHistory(rows, "codex", false, cutoff)["groups"])
+	if len(groups) != 2 {
+		t.Fatalf("external configuration groups = %v", groups)
+	}
+	group := find(groups, "model", "model")
+	if uintOr(group["dispatches"], 0) != 1 || uintOr(group["pass"], 0) != 1 || uintOr(group["failed"], 1) != 0 ||
+		uintOr(group["unreviewed"], 1) != 0 || uintOr(group["rework"], 1) != 0 ||
+		group["medianObservedDurationMs"] != float64(60000) || uintOr(group["durationSamples"], 0) != 1 ||
+		wire(group["external"]) != wire(object{"reviews": 1, "pass": 0, "rework": 1}) {
+		t.Fatalf("external reviews altered the primary group: %v", group)
+	}
+	compact := arr(summarizeDispatchHistory(rows, "codex", true, cutoff)["groups"])
+	group = find(compact, "model", "other")
+	if uintOr(field(group["external"], "reviews"), 0) != 2 || uintOr(group["durationSamples"], 0) != 1 {
+		t.Fatalf("compact external reviews = %v", compact)
+	}
+	arc["purpose"] = "self-test"
+	if got := arr(summarizeDispatchHistory([]object{arc}, "codex", false, cutoff)["groups"]); len(got) != 0 {
+		t.Fatalf("self-test polluted history: %v", got)
 	}
 }
 

@@ -437,6 +437,9 @@ func nativeCodexWait(ctx context.Context, r operationRequest) (any, error) {
 		delete(result, "_turnLifecycle")
 	}
 	nativeWaitCondition(result, r.args)
+	if progress := obj(result["progress"]); result["state"] == "timeout" && progress != nil {
+		enrichNativeReviewProgress(ctx, thread, progress)
+	}
 	if wantsTaskSummary(r.name, r.args) {
 		turn := find(nativeTurns, "id", text(result, "turnId"))
 		if err := addCodexTaskSummaryEvidence(ctx, thread, result, turn); err != nil {

@@ -212,7 +212,7 @@ func trackedCodexConversation(ctx context.Context, s *service, thread string, af
 	timeline = s.events.taskTrackingTimeline(thread)
 	if metadata != nil {
 		timeline.backfillCodex(metadata, nil, nil, baseline, observed, now())
-		timeline.ObservationLost = false
+		timeline.ObservationLost = timeline.Unsubscribed
 	}
 	syncTrackedNativeInteractions(&s.events, now())
 	for _, answer := range answers {

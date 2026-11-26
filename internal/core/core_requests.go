@@ -137,7 +137,11 @@ func callToolInner(ctx context.Context, service *service, source requestSource, 
 		for _, observe := range onAuthenticatedControl {
 			observe(ctx, source)
 		}
-		return egressTool(egressGuide(source, args, source.enabledOps()), false)
+		value := egressGuide(source, args, source.enabledOps())
+		for _, decorate := range decorateControlResult {
+			decorate(ctx, operationRequest{name, args, source, service, rpcID}, value)
+		}
+		return egressTool(value, false)
 	}
 	op := operation(name)
 	if op == nil {

@@ -471,6 +471,7 @@ type taskTimeline struct {
 	PiError                 any               `json:"piError"`
 	HistoryLoaded           bool              `json:"-"`
 	ObservationLost         bool              `json:"-"`
+	Unsubscribed            bool              `json:"-"`
 	chunk                   *taskTextChunk
 	buffers                 map[string]string
 	transcript              taskCodexTranscript
@@ -1337,7 +1338,7 @@ func (t *taskTimeline) backfillCodex(thread any, timings, configurations map[str
 				status = "cancelled"
 			case "completed":
 			default:
-				if history.Status == "running" && field(item, "type") != "userMessage" && field(item, "type") != "steeringUserMessage" {
+				if trackedTurnStatus(history.Status) == "running" && field(item, "type") != "userMessage" && field(item, "type") != "steeringUserMessage" {
 					status = "running"
 				}
 			}
@@ -1367,7 +1368,7 @@ func (t *taskTimeline) backfillCodex(thread any, timings, configurations map[str
 	}
 	t.Partial = history.Partial
 	t.ToolObserved = t.ToolObserved || history.ToolObserved
-	active := t.Turn
+	active, liveStatus := t.Turn, t.Status
 	for turn, checkpoint := range history.TurnLifecycles {
 		if t.TurnLifecycles[turn] != nil && !trackedTurnEnded(checkpoint) {
 			continue
@@ -1375,14 +1376,19 @@ func (t *taskTimeline) backfillCodex(thread any, timings, configurations map[str
 		t.Turn = turn
 		t.recordStatus(trackedTurnStatus(checkpoint), obj(checkpoint))
 	}
-	t.Turn = active
-	if t.ObservedEvents == observed || t.Status == "" {
+	t.Turn, t.Status = active, liveStatus
+	if t.ObservedEvents == observed || liveStatus == "" {
 		if active != history.Turn {
 			t.TurnStartedAt = nil
 		}
-		t.Turn = history.Turn
+		t.Turn, t.Status = history.Turn, history.Status
 	}
-	t.Status = trackedTurnStatus(t.lifecycle(t.Turn))
+	if t.Turn != "" {
+		status := trackedTurnStatus(t.lifecycle(t.Turn))
+		if t.Status != "inProgress" || status != "running" {
+			t.Status = status
+		}
+	}
 	for position, row := range history.Entries {
 		started, ended := row["startedAt"], row["endedAt"]
 		id := text(row, "id")

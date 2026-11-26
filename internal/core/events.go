@@ -193,6 +193,22 @@ func (e *nativeEvents) rpcObserver() rpcObserver {
 			defer e.Unlock()
 			delete(e.pending, key)
 		},
+		subscription: func(_ *rpcConnection, thread string, resumed bool) {
+			if thread == "" {
+				return
+			}
+			e.Lock()
+			defer e.Unlock()
+			timeline := e.taskTrackingTimeline(thread)
+			timeline.Unsubscribed = !resumed
+			if resumed {
+				timeline.ObservationLost = false
+				timeline.HistoryLoaded = false
+			} else {
+				timeline.loseObservation()
+			}
+			e.signal()
+		},
 		disconnected: func(c *rpcConnection) {
 			e.Lock()
 			maps.DeleteFunc(e.pending, func(_ string, row object) bool {

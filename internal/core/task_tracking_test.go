@@ -45,6 +45,25 @@ func TestTrackedTerminalHistorySurvivesLateWritesAndRestart(t *testing.T) {
 			t.Fatalf("history fabricated observation times: %v", historical)
 		}
 	}
+	timeline := trackedTestTimeline()
+	timeline.codex("turn/started", object{"turn": object{"id": "prior"}}, at)
+	timeline.codex("item/started", object{"turnId": "prior", "item": object{"id": "command", "type": "commandExecution"}}, at)
+	timeline.backfillCodex(object{"id": "fixture", "turns": []any{object{"id": "prior", "status": "completed", "items": []any{}}}},
+		nil, nil, timeline.Revision, timeline.ObservedEvents, at)
+	timeline.codex("turn/started", object{"turn": object{"id": "successor"}}, at)
+	timeline.codex("item/commandExecution/outputDelta", object{"turnId": "prior", "itemId": "command", "delta": "late output"}, at)
+	timeline.codex("turn/completed", object{"turn": object{"id": "prior", "status": "failed"}}, at)
+	var restored taskTimeline
+	if err := unmarshalJSON([]byte(wire(timeline)), &restored); err != nil {
+		t.Fatal(err)
+	}
+	result := restored.response("fixture", 0)
+	entries, _ := result["entries"].([]object)
+	if result["status"] != "running" || field(result["turnStatuses"], "prior") != "unknown" ||
+		obj(field(result["conflicts"], "prior")) == nil || len(entries) != 1 ||
+		field(entries[0]["output"], "text") != "late output" {
+		t.Fatalf("restored conflicted predecessor = %v", result)
+	}
 }
 
 func TestTrackedInteractionsStayWithTheirNativeTurnAndBackend(t *testing.T) {
@@ -63,22 +82,66 @@ func TestTrackedInteractionsStayWithTheirNativeTurnAndBackend(t *testing.T) {
 	obj(active["params"])["turnId"] = "second"
 	active["next"] = object{"op": "codex_respond", "args": object{"requestId": "response-token"}}
 	timeline.syncInteractions([]object{active}, at)
-	response := object{"resolvedAt": at, "answeredBy": object{"kind": "source", "sourceId": "fixture-reader"}}
-	timeline.answered(active, response)
+	respond := func(row object, answer string) {
+		timeline.answered(row, object{"resolvedAt": at, "answeredBy": object{"kind": "source", "sourceId": "fixture-reader"},
+			"result": object{"answer": answer}})
+	}
+	respond(active, "second-turn")
 	for _, session := range []string{"backend-one", "backend-two"} {
 		old["backendSession"] = session
-		timeline.answered(old, response)
+		respond(old, session)
 	}
-	if len(timeline.Entries) != 3 {
-		t.Fatalf("answer identities collapsed: %v", timeline.Entries)
+	var restored taskTimeline
+	if err := unmarshalJSON([]byte(wire(timeline)), &restored); err != nil {
+		t.Fatal(err)
 	}
-	for _, row := range timeline.Entries {
+	rows := restored.response("fixture", 0)["entries"].([]object)
+	want := []string{"second-turn", "backend-one", "backend-two"}
+	if len(rows) != len(want) {
+		t.Fatalf("answer identities collapsed: %v", rows)
+	}
+	for index, row := range rows {
 		if row["status"] != "completed" || field(field(row["response"], "answeredBy"), "sourceId") != "fixture-reader" {
 			t.Fatalf("response attribution = %v", row)
+		}
+		if field(field(row["response"], "result"), "answer") != want[index] {
+			t.Fatalf("restored answer = %v", row)
 		}
 		if row["turnId"] == "second" && field(field(row["interaction"], "respond"), "op") != "codex_respond" {
 			t.Fatalf("reply handle = %v", row)
 		}
+	}
+}
+
+func TestTrackedACPBackfillPreservesPermissionIdentity(t *testing.T) {
+	// Contract: backfilled ACP permissions retain their native ID and expose scoped agent_respond arguments.
+	const at = "2026-02-01T00:00:00.000Z"
+	timeline := &taskTimeline{}
+	timeline.agent("session/update", object{"params": object{"update": object{
+		"sessionUpdate": "tool_call", "toolCallId": "read-1", "title": "Read example",
+		"rawInput": object{"file_path": "src/example.go"},
+	}}}, at)
+	request := object{"id": 17, "method": "session/request_permission", "params": object{
+		"toolCall": object{"toolCallId": "read-1"}, "options": []any{object{"optionId": "allow", "kind": "allow_once"}},
+	}}
+	timeline.enrichPermission(request)
+	call := field(request["params"], "toolCall")
+	if field(call, "path") != "src/example.go" || field(call, "title") != "Read example" || request["id"] != 17 {
+		t.Fatalf("enriched request = %v", request)
+	}
+	timeline.agent("session/request_permission", request, at)
+	info := object{"id": "task", "taskId": "task", "agent": "example", "startedAt": at}
+	session := timeline.session("task", info, "arc-task", nil)
+	response := field(session["interaction"], "respond")
+	if session["phase"] != "interaction" || session["headline"] != "src/example.go" ||
+		field(response, "op") != "agent_respond" ||
+		wire(field(response, "args")) != wire(object{"agent": "example", "taskId": "task", "interactionId": 17}) {
+		t.Fatalf("permission activity = %v", session)
+	}
+	timeline.resolve(17, at)
+	entries := timeline.response("task", 0)["entries"].([]object)
+	if len(entries) != 2 || entries[1]["status"] != "completed" {
+		t.Fatalf("resolved permission = %v", entries)
 	}
 }
 

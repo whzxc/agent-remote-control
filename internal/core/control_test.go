@@ -30,11 +30,11 @@ func TestSubmissionHistorySkipsFreshThreads(t *testing.T) {
 func TestNativeCleanupIgnoresOnlyUnmaterializedThreads(t *testing.T) {
 	// Algorithmic core: cleanup distinguishes a thread that never materialized from unknown archive outcomes.
 	result, err := nativeCleanupResult(errors.New("NATIVE_RPC_ERROR: thread example is not materialized yet; thread/archive is unavailable before first user message"))
-	if err != nil || result["archived"] != false || result["reason"] != "thread-not-materialized" {
+	if err != nil || wire(result) != wire(object{"archived": false, "reason": "thread-not-materialized"}) {
 		t.Fatalf("unmaterialized cleanup = %v, %v", result, err)
 	}
 	result, err = nativeCleanupResult(nil)
-	if err != nil || result["archived"] != true {
+	if err != nil || wire(result) != wire(object{"archived": true}) {
 		t.Fatalf("native cleanup = %v, %v", result, err)
 	}
 	timeout := errors.New("RPC_TIMEOUT: thread/archive")

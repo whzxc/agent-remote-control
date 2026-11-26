@@ -347,7 +347,7 @@ func codexConversationClockForThread(ctx context.Context, home string, thread an
 func (m *codexActivityMonitor) sample(ctx context.Context, home string, now time.Time) []object {
 	m.Lock()
 	defer m.Unlock()
-	dir := filepath.Join(home, "sessions")
+	dir := physicalPath(filepath.Join(home, "sessions"))
 	if dir != m.root {
 		if m.watch != nil {
 			_ = m.watch.watcher.Close()
@@ -458,7 +458,7 @@ func readNativeAgentActivity(ctx context.Context, s *service) (object, error) {
 	nowAt := time.Now()
 	var rows []object
 	if !slices.Contains(disabled, any("codex")) {
-		if _, home, err := codexInputs(); err == nil {
+		if home, err := nativeCodexHome(); err == nil {
 			rows = s.codex.activity.sample(ctx, home, nowAt)
 		}
 	}
@@ -585,7 +585,7 @@ func nativeCodexLiveActivity(events *nativeEvents) map[string]object {
 	defer events.Unlock()
 	result := map[string]object{}
 	for thread, timeline := range events.taskTimelines {
-		if timeline.Status == "running" || timeline.Status == "inProgress" || pending[thread] {
+		if !timeline.Unsubscribed && (timeline.Status == "running" || timeline.Status == "inProgress" || pending[thread]) {
 			result[thread] = timeline.session(thread, timeline.Info, "codex-thread", nil)
 		}
 	}

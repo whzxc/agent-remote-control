@@ -390,9 +390,15 @@ func validationError(op string, schema any, err *jsonschema.ValidationError) obj
 		if len(k.Subschemas) > 1 {
 			message = "Conflicting parameters; use one form from guide."
 		} else {
+			if detail := closestSchemaBranch(err); detail != nil {
+				return validationError(op, schema, detail)
+			}
 			message = "Parameters do not match a supported form; see guide."
 		}
 	case *kind.AnyOf:
+		if detail := closestSchemaBranch(err); detail != nil {
+			return validationError(op, schema, detail)
+		}
 		message = "Parameters do not match a supported form; see guide."
 	default:
 		if len(err.Causes) > 0 {
@@ -403,6 +409,21 @@ func validationError(op string, schema any, err *jsonschema.ValidationError) obj
 		fieldPath = "/"
 	}
 	return invalidArguments(op, fieldPath, message)
+}
+
+func closestSchemaBranch(err *jsonschema.ValidationError) *jsonschema.ValidationError {
+	var closest *jsonschema.ValidationError
+	best := 0
+	for _, cause := range err.Causes {
+		count, first := 1, cause
+		if _, grouped := cause.ErrorKind.(*kind.Group); grouped && len(cause.Causes) != 0 {
+			count, first = len(cause.Causes), cause.Causes[0]
+		}
+		if closest == nil || count < best {
+			best, closest = count, first
+		}
+	}
+	return closest
 }
 
 func checkSchema(scope, name, op string, schema, args any) object {

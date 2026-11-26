@@ -1,7 +1,6 @@
 package core
 
 import (
-	"encoding/json"
 	"errors"
 	"maps"
 	"regexp"
@@ -27,9 +26,11 @@ func TestPublicReceiptPreservesRecordedAnswerAttribution(t *testing.T) {
 	// Algorithmic core: public receipt projection preserves explicit attribution and does not infer an answer author.
 	for _, author := range []object{{"kind": "source", "sourceId": "controller"}, {"kind": "local-ui"}, {"kind": "unknown"}} {
 		for _, source := range []object{{"answeredBy": author}, {"approval": object{"decision": "approved", "answeredBy": author}}} {
-			row := object{"requestId": "fixture", "state": "completed"}
+			row := object{"requestId": "fixture", "state": "completed",
+				"arguments": object{"prompt": "private fixture input"}, "digest": "private digest", "_turnLifecycle": object{"internal": true}}
 			maps.Copy(row, source)
-			if value := publicReceipt(row); wire(value["answeredBy"]) != wire(author) {
+			if value := publicReceipt(row); wire(value["answeredBy"]) != wire(author) ||
+				value["arguments"] != nil || value["digest"] != nil || value["_turnLifecycle"] != nil {
 				t.Fatalf("attribution = %v", value)
 			}
 		}
@@ -158,6 +159,10 @@ func TestCommandValidationLinksToCorrectFieldContract(t *testing.T) {
 			!strings.Contains(text(next, "hint"), key) || !strings.Contains(text(next, "hint"), strconv.FormatUint(limit, 10)) {
 			t.Fatalf("%s validation = %v, %v", key, out, err)
 		}
+	}
+	missingWorkdir := checkSchema("op", "command", "command", spec["inputSchema"], object{"cmd": "true"})
+	if missingWorkdir["field"] != "/cwd" || missingWorkdir["message"] != "Required field is missing." {
+		t.Fatalf("missing workdir validation = %v", missingWorkdir)
 	}
 	value := object{"error": controlFailure(errors.New("RPC_REJECTED: command failed"))}
 	nextControl(value, "command", nil, false)
@@ -308,9 +313,13 @@ func TestInterfaceRecoveryNamesExactOperation(t *testing.T) {
 	// Contract: thread owner discovery, command lifetime, and pending execution each provide the current recovery operation.
 	thread := "thread-fixture"
 	timeout := controlFailure(errors.New("DESKTOP_REQUEST_TIMEOUT: thread-owner-discovery"))
-	for _, value := range []object{{"error": timeout}, {"threadId": thread, "error": timeout}} {
-		nextControl(value, "codex_read", object{"threadId": thread}, false)
-		if text(value["next"], "op") != "codex_owner" || text(field(value["next"], "args"), "threadId") != thread {
+	for _, name := range []string{"codex_read", "receipt"} {
+		value, args := object{"error": timeout}, object{"threadId": thread}
+		if name == "receipt" {
+			value["threadId"], args = thread, object{"requestId": "00000000-0000-4000-8000-000000000001"}
+		}
+		nextControl(value, name, args, false)
+		if text(value["next"], "op") != "codex_owner" || wire(field(value["next"], "args")) != wire(object{"threadId": thread}) {
 			t.Fatalf("owner recovery = %v", value)
 		}
 	}
@@ -332,7 +341,8 @@ func TestWriterRejectionExplainsNativeOwnership(t *testing.T) {
 		`RPC_REJECTED:{"code":-32600,"message":"thread 00000000-0000-4000-8000-000000000001 already has an active writer"}`,
 		`THREAD_LOAD_FAILED: desktop=DESKTOP_REJECTED:"no-client-found"; app-server=RPC_REJECTED:{"message":"thread 00000000-0000-4000-8000-000000000001 already has an active writer"}`} {
 		error := controlFailure(errors.New(message))
-		if error["code"] != "THREAD_WRITER_BUSY" || error["retryable"] != false || field(error["next"], "op") != "guide" || error["nativeError"] != nil {
+		if error["code"] != "THREAD_WRITER_BUSY" || error["retryable"] != false || field(error["next"], "op") != "guide" ||
+			wire(field(error["next"], "args")) != wire(object{"op": "codex_owner"}) || error["nativeError"] != nil {
 			t.Fatalf("writer rejection = %v", error)
 		}
 	}
@@ -366,7 +376,7 @@ func TestProtocolVersionTracksVisibleContract(t *testing.T) {
 		}
 	}
 	modified = clone(original)
-	obj(field(modified["guides"], "en"))["remote-push"] = json.Number("17")
+	obj(field(modified["guides"], "en"))["remote-push"] = "Changed remote push guide text."
 	if protocolHash(modified) == want {
 		t.Fatal("guide content did not change protocol version")
 	}

@@ -182,7 +182,8 @@ func launchControlMutation(ctx context.Context, service *service, store receiptS
 			if row["operation"] == "command" || strings.HasPrefix(err.Error(), "RPC_REJECTED:") {
 				failure = controlFailure(err)
 			}
-			row["state"], row["error"] = state, failure
+			row["state"] = state
+			dispatchSetSection(row, "result")["error"] = failure
 		}
 		if err := store.checkpoint(context.WithoutCancel(job), row); err != nil {
 			result <- receiptExecutionResult{err: receiptPersistenceError(row, err)}
