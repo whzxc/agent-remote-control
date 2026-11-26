@@ -117,7 +117,7 @@ func TestDeviceTunnelTransfersUseBoundedVerifiedRanges(t *testing.T) {
 func TestAuthenticatedTunnelRemainsAdmittedWithLANSlotsFull(t *testing.T) {
 	// Recurring bug class: concurrency idle paired LAN channels must leave capacity for authenticated tunnel requests.
 	ctx, member, controller, link := openDeviceTunnelFixture(t, t.TempDir())
-	address := pairedDeviceListener(t, ctx, member.identity, controller, member.servePeer)
+	address, _ := pairedDeviceListener(t, ctx, member.identity, controller, member.servePeer)
 	for range 8 {
 		channel, failure := dialDeviceChannel(ctx, deviceClientTLS(controller, member.identity.id), address)
 		if channel == nil {

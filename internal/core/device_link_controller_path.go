@@ -19,7 +19,11 @@ func (c *deviceController) channel(ctx context.Context, member *deviceMember, he
 	if existing := session.cached(); existing != nil {
 		return existing, nil
 	}
-	addresses, err := c.memberAddresses(ctx, member)
+	resolve := c.resolveLAN
+	if resolve == nil {
+		resolve = c.memberAddresses
+	}
+	addresses, err := resolve(ctx, member)
 	if err != nil {
 		return nil, err
 	}
@@ -139,49 +143,52 @@ func (c *deviceController) monitor(ctx context.Context, member *deviceMember) {
 	defer ticks.Stop()
 	var misses int
 	for {
-		start := time.Now()
-		hello, path, err := c.probe(ctx, member)
-		if ctx.Err() != nil {
-			return
-		}
-		if err != nil {
-			misses++
-			member.mu.Lock()
-			if misses >= 3 || managementErrorCode(err.Error()) == "DEVICE_CONNECTION_REFUSED" || strings.Contains(err.Error(), "DEVICE_PROTOCOL_MISMATCH") {
-				member.status.online = false
-			}
-			member.status.failure = err.Error()
-			member.signalStatus()
-			member.mu.Unlock()
-		} else {
-			peer := member.peer
-			_, learnErr := gatewayRequest(ctx, "_peer_learn", "POST", object{"deviceId": peer.DeviceID, "publicKey": peer.PublicKey, "hello": hello})
-			if learnErr != nil && ctx.Err() == nil {
-				recordLog("WARN", learnErr.Error(), nil)
-			}
-			if ctx.Err() != nil {
-				return
-			}
-			misses = 0
-			seen := now()
-			ms := time.Since(start).Milliseconds()
-			member.mu.Lock()
-			member.status = deviceMemberStatus{online: true, path: path, lastSeen: seen, latency: ms, hello: hello}
-			member.signalStatus()
-			member.mu.Unlock()
-			if err := c.changeRecords(func(records *deviceRecords) {
-				records.Facts[peer.DeviceID] = hello
-				records.LastSeen[peer.DeviceID] = seen
-			}); err != nil {
-				recordLog("WARN", err.Error(), nil)
-			}
-		}
+		misses = c.heartbeat(ctx, member, misses)
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticks.C:
 		}
 	}
+}
+
+func (c *deviceController) heartbeat(ctx context.Context, member *deviceMember, misses int) int {
+	start := time.Now()
+	hello, path, err := c.probe(ctx, member)
+	if ctx.Err() != nil {
+		return misses
+	}
+	if err != nil {
+		misses++
+		member.mu.Lock()
+		if misses >= 3 || managementErrorCode(err.Error()) == "DEVICE_CONNECTION_REFUSED" || strings.Contains(err.Error(), "DEVICE_PROTOCOL_MISMATCH") {
+			member.status.online = false
+		}
+		member.status.failure = err.Error()
+		member.signalStatus()
+		member.mu.Unlock()
+		return misses
+	}
+	peer := member.peer
+	_, learnErr := gatewayRequest(ctx, "_peer_learn", "POST", object{"deviceId": peer.DeviceID, "publicKey": peer.PublicKey, "hello": hello})
+	if ctx.Err() != nil {
+		return misses
+	}
+	if learnErr != nil {
+		recordLog("WARN", learnErr.Error(), nil)
+	}
+	seen := now()
+	member.mu.Lock()
+	member.status = deviceMemberStatus{online: true, path: path, lastSeen: seen, latency: time.Since(start).Milliseconds(), hello: hello}
+	member.signalStatus()
+	member.mu.Unlock()
+	if err := c.changeRecords(func(records *deviceRecords) {
+		records.Facts[peer.DeviceID] = hello
+		records.LastSeen[peer.DeviceID] = seen
+	}); err != nil {
+		recordLog("WARN", err.Error(), nil)
+	}
+	return 0
 }
 
 type devicePreparedPath struct {

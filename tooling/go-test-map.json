@@ -448,7 +448,7 @@
       "only_up_lan_interfaces_survive": ["internal/core/device_link_addresses_test.go#TestDeviceOnlyUpPhysicalLANAddressesRemainInPreferenceOrder"]
     },
     "native/src/device_link/controller/path.rs": {
-      "relay_latency_does_not_flap_offline_or_delay_lan_recovery": {"tests": ["internal/core/device_link_transfer_relay_fixture_test.go#TestRelayPeerTransferSurvivesSlowContinuousCredit", "internal/core/device_link_tunnel_test.go#TestRefusedPeerAddressDoesNotWaitForHeartbeat"], "remaining": "Slow relay transport and LAN failure are covered separately. Verify liveness during slow hellos and immediate LAN recovery in one scenario."}
+      "relay_latency_does_not_flap_offline_or_delay_lan_recovery": ["internal/core/device_link_transfer_relay_fixture_test.go#TestRelayPeerTransferSurvivesSlowContinuousCredit", "internal/core/device_link_tunnel_test.go#TestRefusedPeerAddressDoesNotWaitForHeartbeat", "internal/core/device_link_controller_path_fixture_test.go#TestSlowPeerTunnelKeepsLivenessAndYieldsImmediatelyToLAN"]
     },
     "native/src/device_link/controller/transfer.rs": {
       "offline_transfer_fails_before_source_or_transport_access": ["internal/core/device_link_controller_test.go#TestOfflineDeviceTransferRejectsBeforeSourceAccess"]
@@ -458,7 +458,7 @@
       "forwarding_wait_bounds_follow_member_arguments": ["internal/core/device_link_controller_test.go#TestDeviceForwardDeadlineExceedsMemberWait"],
       "device_discovery_is_full_only_and_dual_tool": ["internal/core/device_link_controller_test.go#TestDeviceGuideDisclosesFullScopeAndTransferRecovery"],
       "controller_core_loss_recovers_the_member_receipt": ["internal/core/device_link_controller_test.go#TestControllerCoreLossRetainsTheMemberReceiptTarget"],
-      "controller_member_loopback": {"tests": ["internal/core/device_link_pairing_test.go#TestGoDevicePairingRequiresApprovalAndForwardsPinnedRequest", "internal/core/device_link_visibility_test.go#TestDeviceTaskOwnershipSurvivesSourceRenewal"], "remaining": "Check offline/online recovery, address override, and member-local task filtering in the native task inventory."}
+      "controller_member_loopback": ["internal/core/device_link_pairing_test.go#TestGoDevicePairingRequiresApprovalAndForwardsPinnedRequest", "internal/core/device_link_visibility_test.go#TestDeviceTaskOwnershipSurvivesSourceRenewal"]
     },
     "native/src/device_link/events/tests.rs": {
       "queue_cursor_reports_overflow_and_resets_without_replay": ["internal/core/device_link_events_test.go#TestPeerEventCursorReportsOverflowWithoutReplaying"],

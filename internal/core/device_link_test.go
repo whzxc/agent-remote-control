@@ -385,7 +385,7 @@ func TestPairedLANReplacesIdleChannelWithoutClosingActiveRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 	started, release := make(chan struct{}), make(chan struct{})
-	listener := pairedDeviceListener(t, ctx, member, controller, func(w http.ResponseWriter, r *http.Request, _, _ string) {
+	listener, _ := pairedDeviceListener(t, ctx, member, controller, func(w http.ResponseWriter, r *http.Request, _, _ string) {
 		if r.URL.Path == deviceReadPath+"hold" {
 			close(started)
 			select {
@@ -435,7 +435,7 @@ func TestPairedLANReplacesIdleChannelWithoutClosingActiveRequest(t *testing.T) {
 }
 
 func pairedDeviceListener(t *testing.T, parent context.Context, member, controller *deviceIdentity,
-	handle func(http.ResponseWriter, *http.Request, string, string)) netip.AddrPort {
+	handle func(http.ResponseWriter, *http.Request, string, string)) (netip.AddrPort, func()) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(parent)
 	socket, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1)})
@@ -448,6 +448,7 @@ func pairedDeviceListener(t *testing.T, parent context.Context, member, controll
 	server.allow = netip.Addr.IsLoopback
 	done := make(chan struct{})
 	go func() { defer close(done); server.listen(ctx, socket) }()
-	t.Cleanup(func() { cancel(); <-done })
-	return socket.Addr().(*net.TCPAddr).AddrPort()
+	stop := func() { cancel(); <-done }
+	t.Cleanup(stop)
+	return socket.Addr().(*net.TCPAddr).AddrPort(), stop
 }

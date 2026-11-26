@@ -323,6 +323,8 @@ func (c *deviceTunnelClient) prepare(ctx context.Context, identity *deviceIdenti
 	return token, nil
 }
 
+var doDeviceTunnelRequest = (*http.Client).Do
+
 func devicePostTunnel(ctx context.Context, url, route, token string, body object, bound time.Duration) (any, error) {
 	raw := wire(body)
 	if len(raw) > deviceTunnelRequestCap {
@@ -343,7 +345,7 @@ func devicePostTunnel(ctx context.Context, url, route, token string, body object
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
-	res, err := client.Do(req)
+	res, err := doDeviceTunnelRequest(client, req)
 	if err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			return nil, errors.New("DEVICE_RESPONSE_LOST: HTTPS peer deadline expired; retain write receipt IDs and query devices.")

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net"
 	"net/netip"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -44,6 +45,9 @@ func TestGoDevicePairingRequiresApprovalAndForwardsPinnedRequest(t *testing.T) {
 	// Contract: arc-peer/3 consumes an offer only once and authorizes a private Core request under the approved controller identity.
 	state := t.TempDir()
 	t.Setenv("ARC_STATE_DIR", state)
+	t.Setenv("CODEX_HOME", t.TempDir())
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("USERPROFILE", t.TempDir())
 	_, err := changePreferences(object{"values": object{"device-link": "on"}}, false)
 	if err != nil {
 		t.Fatal(err)
@@ -55,6 +59,11 @@ func TestGoDevicePairingRequiresApprovalAndForwardsPinnedRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 	local := &service{metadata: object{"instance": id()}}
+	defer local.codex.activity.close()
+	defer local.taskRecords.codex.close()
+	defer local.taskRecords.agent.close()
+	defer closeReceiptIndex(coreReceiptStore().base)
+	defer closeReceiptIndex(agentReceiptStore().base)
 	core := newInProcess(local)
 	listener, err := listenPrivate(ctx, "core", token, core, nil)
 	if err != nil {
@@ -207,6 +216,67 @@ wait:
 			t.Fatalf("upstream source visibility %v = %s", show, wire(controllerSnapshot))
 		}
 	}
+
+	ownedTask, localTask := id(), id()
+	for _, row := range []object{
+		{"threadId": ownedTask, "origin": ownerOrigin},
+		{"threadId": localTask, "origin": object{"authType": "local", "sourceId": "member-only"}},
+	} {
+		row["requestId"], row["backendSession"], row["state"], row["operation"] = id(), local.metadata["instance"], "completed", "send"
+		if err := coreReceiptStore().reserve(ctx, row); err != nil {
+			t.Fatal(err)
+		}
+	}
+	storedPeer, err := loadDeviceStored(controller.directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	peerRow := storedPeer.Members[member.identity.id]
+	remote := &deviceMember{peer: peerRow, ctx: ctx, identity: controller.identity, changed: make(chan struct{}), slots: make(chan struct{}, 8)}
+	defer remote.heartbeat.close()
+	defer remote.business.close()
+	records, err := openDeviceRecords(controller.directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	address := sockets[0]
+	bridgeController := &deviceController{ctx: ctx, directory: controller.directory, records: records,
+		members:    map[string]*deviceMember{member.identity.id: remote},
+		resolveLAN: func(context.Context, *deviceMember) ([]netip.AddrPort, error) { return []netip.AddrPort{address}, nil }}
+	readActivity := object{"device": member.identity.id, "op": "task_activity", "args": object{}}
+	bridgeController.heartbeat(ctx, remote, 0)
+	reply, err = bridgeController.forward(ctx, "query", readActivity, nil, origin)
+	value, decodeErr := egressToolValue(reply)
+	activity := decodedTaskList(field(value, "records"))
+	if err != nil || decodeErr != nil || field(reply, "isError") == true || len(activity) != 1 || field(activity[0], "threadId") != ownedTask ||
+		len(decodedTaskList(field(value, "availableAgents"))) == 0 || uintOr(field(value, "omittedRecords"), 1) != 0 {
+		t.Fatalf("member-local record escaped its inventory boundary: %s, %v, %v", wire(value), err, decodeErr)
+	}
+	if addressResult, err := controller.dispatch(ctx, "address", object{"device": member.identity.id, "address": address.String()}); err != nil ||
+		wire(field(addressResult, "address")) != wire(address.String()) {
+		t.Fatalf("controller address override readback = %s, %v", wire(addressResult), err)
+	}
+	remote.business.close()
+	remote.heartbeat.close()
+	address = closedPeerFixtureAddress(t)
+	bridgeController.heartbeat(ctx, remote, 0)
+	unsent := id()
+	if len(decodedTaskList(bridgeController.list(false)["devices"])) != 0 {
+		t.Fatal("offline member remained in the online inventory")
+	}
+	if _, err := bridgeController.forward(ctx, "act", object{"device": member.identity.id, "op": "notice_post", "args": object{}},
+		unsent, origin); err == nil || managementErrorCode(err.Error()) != "DEVICE_OFFLINE" {
+		t.Fatalf("offline write = %v", err)
+	}
+	if _, err := coreReceiptStore().read(unsent, text(local.metadata, "instance")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("offline write reached the member and created a receipt: %v", err)
+	}
+	address = sockets[0]
+	bridgeController.heartbeat(ctx, remote, 0)
+	if reply, err := bridgeController.forward(ctx, "query", readActivity, nil, origin); err != nil || reply["isError"] == true {
+		t.Fatalf("member did not return online with its original authority: %s, %v", wire(reply), err)
+	}
+
 	if _, err := member.dispatch(ctx, "revoke", object{"deviceId": controller.identity.id}); err != nil {
 		t.Fatal(err)
 	}

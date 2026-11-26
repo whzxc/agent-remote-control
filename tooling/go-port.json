@@ -827,10 +827,11 @@
       "segment": "E",
       "go": [
         "internal/core/device_link_controller_path.go",
+        "internal/core/device_link_controller_path_fixture_test.go",
         "internal/core/device_link_controller_dns.go",
         "internal/core/device_link_controller_dns_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/controller/transfer.rs": {
       "segment": "E",
@@ -854,7 +855,7 @@
         "internal/core/device_link_controller_test.go",
         "internal/core/device_link_pairing_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/device_link/events/tests.rs": {
       "segment": "E",

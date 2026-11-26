@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"maps"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"slices"
@@ -63,6 +64,7 @@ type deviceController struct {
 	transferJobs       sync.Map
 	recordsMu          sync.Mutex
 	records            deviceRecords
+	resolveLAN         func(context.Context, *deviceMember) ([]netip.AddrPort, error)
 }
 
 var deviceControllers sync.Map // *service -> *deviceController
