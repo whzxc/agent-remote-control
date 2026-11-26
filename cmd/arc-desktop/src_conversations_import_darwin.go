@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/pbkdf2"
 	"crypto/sha1"
 	"crypto/sha256"
 	"database/sql"
@@ -22,7 +23,6 @@ import (
 
 	"github.com/ebitengine/purego"
 	"github.com/google/uuid"
-	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/sys/unix"
 	_ "modernc.org/sqlite"
 )
@@ -383,8 +383,13 @@ func importChrome(ctx context.Context, profile string) ([]chromeCookie, error) {
 	if err != nil {
 		return nil, err
 	}
-	key := pbkdf2.Key(password, []byte("saltysalt"), 1003, 16, sha1.New)
+	// PBKDF2 reads the password synchronously. Borrow the buffer so its
+	// contents can be cleared without leaving a separate string allocation.
+	key, err := pbkdf2.Key(sha1.New, unsafe.String(unsafe.SliceData(password), len(password)), []byte("saltysalt"), 1003, 16)
 	clear(password)
+	if err != nil {
+		return nil, errors.New("cookie-decrypt-failed")
+	}
 	defer clear(key)
 	return decodeChromeRows(version, entries, key, time.Now().Unix())
 }
