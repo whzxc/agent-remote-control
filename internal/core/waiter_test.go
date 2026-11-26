@@ -180,6 +180,24 @@ func TestNativeWaitReadFailuresAndDeadline(t *testing.T) {
 		if value["state"] != "unconfirmed" || value["reason"] != "connection-closed" {
 			t.Fatal(wire(value))
 		}
+		value = runWaitTest(t, 3000, []nativeWaitTestRead{{err: errors.New("DESKTOP_SNAPSHOT_TIMEOUT")}, {value: running}})
+		if value["state"] != "timeout" || value["reason"] != "deadline" || uintOr(value["elapsedMs"], 0) != 3000 {
+			t.Fatal(wire(value))
+		}
+		value = runWaitTest(t, 15000, []nativeWaitTestRead{{value: running}, {delay: 11 * time.Second, value: final}})
+		if value["state"] != "unconfirmed" || value["reason"] != "native-read-timeout" || value["observedAt"] != "last-success" {
+			t.Fatal(wire(value))
+		}
+		value = runWaitTest(t, 1000, nil)
+		if value["state"] != "unconfirmed" || value["reason"] != "native-read-timeout" || value["observedAt"] != nil {
+			t.Fatal(wire(value))
+		}
+		for _, state := range []turnWaitState{waitFailed, waitCancelled, waitInteraction, waitUnconfirmed} {
+			value = runWaitTest(t, 90000, []nativeWaitTestRead{{value: object{"state": string(state)}}})
+			if value["state"] != string(state) || value["conditionMet"] != state.terminal() || uintOr(value["elapsedMs"], 0) >= 100 {
+				t.Fatal(wire(value))
+			}
+		}
 	})
 }
 

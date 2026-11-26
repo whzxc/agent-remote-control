@@ -1,5 +1,147 @@
 {
   "files": {
+    "native/src/agents/activity.rs": {
+      "codex_activity_ignores_terminal_questions_without_dropping_late_answers": ["internal/core/agents_activity_test.go#TestCodexActivityKeepsTerminalQuestionsAvailableForLateAnswers"],
+      "codex_list_recovers_the_exact_turn_context_beyond_the_tail": ["internal/core/agents_activity_test.go#TestCodexConversationFindsExactTurnSettingsBeyondTail"],
+      "codex_activity_keeps_its_sample_while_the_rollout_grows": ["internal/core/agents_activity_test.go#TestCodexActivitySampleSurvivesConcurrentRolloutGrowth"],
+      "activity_polls_preserve_unfinished_work_until_a_terminal_event": {"tests": ["internal/core/agents_activity_test.go#TestCodexActivitySamplesRetainSilentTurnsAndUpdateNativeTitles"], "remaining": "Activity-specific I/O bounds on unchanged polls and title refresh, plus reset to a new turn ID after atomic rollout replacement."}
+    },
+    "native/src/agents/antigravity.rs": {
+      "inherited_configuration_survives_policy_changes": ["internal/core/agents_antigravity_test.go#TestAntigravityConfigurationSurvivesPolicyChange"],
+      "launch_arguments_keep_bypass_explicit": ["internal/core/agents_antigravity_test.go#TestAntigravityLaunchKeepsApprovalExplicit"]
+    },
+    "native/src/agents/conversations/tests.rs": {
+      "sidechains_never_become_top_level_rows": ["internal/core/agents_conversations_test.go#TestNativeClaudeSidechainsStayOutOfTopLevelList"],
+      "unchanged_transcripts_reuse_metadata_and_changed_files_refresh": {"tests": ["internal/core/agents_conversations_test.go#TestNativeConversationMetadataRefreshesChangedFiles"], "remaining": "Verify unchanged native transcripts reuse parsed metadata. Go checks stable returned values, refresh, and deletion."},
+      "bounded_samples_keep_head_title_and_tail_preview_without_exact_counts": ["internal/core/agents_conversations_test.go#TestBoundedConversationSamplesKeepHeadAndTail"],
+      "pi_v3_metadata_and_branch_history_stay_read_only": ["internal/core/agents_conversations_test.go#TestNativePiHistoryUsesMostRecentLeafAncestry"],
+      "pi_history_retains_tool_positions_and_compaction_facts": {"tests": ["internal/core/agents_conversations_test.go#TestNativePiHistoryUsesMostRecentLeafAncestry"], "remaining": "Assert the projected edit body at edits[0].newText.text. Entry order, completed tool status, compaction tokens, and unknown overall status are covered."},
+      "claude_list_metadata_confirms_only_the_latest_explicit_outcome": ["internal/core/agents_conversations_test.go#TestNativeClaudeMetadataUsesOnlyLatestExplicitOutcome"],
+      "antigravity_projects_wal_summaries_and_transcript_turns": {"tests": ["internal/core/agents_conversations_test.go#TestAntigravityNativeConversationShowsWALSummaryAndTurnEvidence"], "remaining": "Assert workspace URI projection, agentName, exact model summaries, turn count, both per-turn durations, and final-answer text and order across both turns."},
+      "combined_page_keeps_unconsumed_codex_rows_across_cursors": ["internal/core/agents_conversations_test.go#TestConversationPageRetainsUnconsumedNativeRows"]
+    },
+    "native/src/agents/dispatch/catalogs.rs": {
+      "catalog_metadata_never_infers_from_ids_or_brands": ["internal/core/agents_dispatch_catalogs_test.go#TestAgentCatalogMetadataDoesNotInferFromIDsOrBrands"],
+      "catalog_metadata_review_preserves_nonempty_snapshot_on_empty_observation": ["internal/core/agents_dispatch_catalogs_test.go#TestAgentCatalogPreservesNonemptySnapshot"],
+      "catalog_metadata_review_ignores_observation_time_for_unchanged_snapshots": ["internal/core/agents_dispatch_catalogs_test.go#TestAgentCatalogIgnoresTimestampOnlyRewrites"]
+    },
+    "native/src/agents/process.rs": {
+      "diagnostics_are_bounded_redacted_and_attached_to_failures": ["internal/core/agents_process_test.go#TestAgentStdoutDiagnosticsKeepBoundedRedactedEvidence"],
+      "only_content_deltas_defer_persistence": {"tests": ["internal/core/agents_process_test.go#TestAgentContentDeltasKeepJournalProgressWithTheSavedSnapshot"], "remaining": "Extend coverage from one ACP text delta and one permission frame to the remaining ACP and Pi event classes. Check that output or timestamp changes alone leave configuration unchanged."},
+      "detached_journal_rebuilds_pending_and_settles_without_original_waiter": {"tests": ["internal/core/agents_process_test.go#TestDetachedAgentJournalRebuildsPermissionAndTerminalReceipt"], "remaining": "Observe the recovered task through notification delivery and assert a single delivered completion with the same event ID after repeated observation."},
+      "noisy_stdout_keeps_reading_and_survives_abnormal_exit": {"tests": ["internal/core/agents_process_test.go#TestAgentStdoutKeepsReadingPastNoiseAndRetainsAbnormalExit"], "remaining": "Drive the live stdout reader through a subprocess exit, assert the pre-exit running state, and verify the persisted timeline error entry."}
+    },
+    "native/src/agents/wait.rs": {
+      "only_completed_pi_messages_are_available_before_terminal_or_interaction": ["internal/core/agents_wait_test.go#TestNativeAgentWaitResponseNeedsTerminalOrCompletedMessage"]
+    },
+    "native/src/app_env.rs": {
+      "app_env_each_override_and_readback": ["internal/core/app_env_test.go#TestAppEnvironmentOverrideReadback"],
+      "app_env_clock_advance_speed_and_expiration": ["internal/core/app_env_test.go#TestAppEnvironmentClockAdvanceAndExpiry"],
+      "virtual_deadlines_map_to_the_first_reachable_real_millisecond": ["internal/core/app_env_test.go#TestAppEnvironmentVirtualDeadlineRounding"]
+    },
+    "native/src/archive_index.rs": {
+      "indexed_search_is_fast_fresh_and_paginates_without_duplicates": ["internal/core/archive_index_test.go#TestArchivedIndexFiltersAndPaginatesFreshNativeRows"]
+    },
+    "native/src/codex_progress.rs": {
+      "startup_and_midturn_silence_stall_after_three_minutes_without_token_samples": {"tests": ["internal/core/codex_progress_test.go#TestCodexProgressRecognizesMidTurnStalls"], "remaining": "Assert progressStalled and interrupt continuation on the public receipt."},
+      "changed_counters_and_live_deltas_reset_the_activity_clock": ["internal/core/codex_progress_test.go#TestCodexProgressRefreshesFromNativeDeltas"],
+      "unchanged_native_snapshots_preserve_the_clock_and_changed_items_reset_it": ["internal/core/codex_progress_test.go#TestCodexProgressRepeatedSnapshotsUseLastChange"],
+      "long_tools_suspend_stalls_and_completion_restarts_the_clock": ["internal/core/codex_progress_test.go#TestCodexProgressLongNativeToolSuppressesStallUntilCompletion"]
+    },
+    "native/src/desktop.rs": {
+      "cancelled_desktop_requests_release_pending_storage": ["internal/core/desktop_test.go#TestDesktopCancelledReadsReleasePendingRequests"],
+      "desktop_snapshots_are_bounded_and_expire_without_rereading_old_threads": {"tests": ["internal/core/desktop_test.go#TestDesktopSnapshotBudgetAndIdleExpiry"], "remaining": "Assert the fixed 32 MiB cap independently of the production constant."},
+      "only_definite_missing_owner_allows_loading_fallback": ["internal/core/desktop_test.go#TestDesktopOnlyDefiniteMissingOwnerAllowsLoadingFallback"]
+    },
+    "native/src/desktop/interactions.rs": {
+      "unanswered_async_questions_retain_terminal_evidence_until_the_owner_records_a_reply": {"tests": ["internal/core/desktop_interactions_test.go#TestDesktopAsyncQuestionRetainsTerminalTurnUntilNativeReply"], "remaining": "Add a competing running timeline for the same terminal turn."}
+    },
+    "native/src/desktop/settings.rs": {
+      "desktop_permission_selection_uses_only_current_owner_and_local_host": ["internal/core/desktop_settings_test.go#TestDesktopPermissionSelectionRequiresCurrentOwnerAndLocalAgreement"]
+    },
+    "native/src/dispatch_caller.rs": {
+      "cli_dispatch_captures_caller": {"tests": ["internal/core/dispatch_caller_test.go#TestLocalDispatchPreservesSingleCallingAgent"], "remaining": "Assert the explicit unconfirmed-Agent CLI error."},
+      "persisted_caller_projects_to_dispatch_summary": {"tests": ["internal/core/dispatch_caller_test.go#TestReceiptDispatchSummaryCarriesValidatedCaller"], "remaining": "Check both dispatch history owners, per-turn and activity projections, and denial of prior-turn or remote caller inheritance."}
+    },
+    "native/src/dispatch_queue.rs": {
+      "interrupted_predecessor_requires_explicit_queue_resume": ["internal/core/dispatch_queue_test.go#TestDispatchQueueRequiresExplicitResumeAfterInterruptedPredecessor"],
+      "queue_poll_reuses_history_and_reads_only_the_changed_message": ["internal/core/dispatch_queue_test.go#TestDispatchQueuePollReadsOnlyChangedMessage"],
+      "orphaned_panel_records_remain_cancellable_only_locally": ["internal/core/dispatch_queue_test.go#TestOrphanDispatchQueueRecordsRemainVisibleOnlyToLocalControl"]
+    },
+    "native/src/images.rs": {
+      "detects_magic_before_extension_and_rejects_invalid_images": ["internal/core/images_test.go#TestNativeImageDetectsContentBeforeExtension"],
+      "scales_and_limits_encoded_image_bytes": ["internal/core/images_test.go#TestNativeImageScalesAndBoundsOutput"],
+      "preserves_bounded_originals_and_avoids_small_resize_inflation": {"tests": ["internal/core/images_test.go#TestNativeImagePreservesBoundedOriginal"], "remaining": "Cover all four input formats and byte-bound reencoding below the edge limit."},
+      "thread_images_enforce_scope_and_default_is_unchanged": {"tests": ["internal/core/images_test.go#TestNativeThreadImagesRespectWorkspaceAndThreadScope"], "remaining": "Assert parent-path escape rejection and exact default public-wire preservation."}
+    },
+    "native/src/interaction_responses.rs": {
+      "answer_attribution_is_bounded_and_never_inferred_from_a_label": ["internal/core/interaction_responses_test.go#TestInteractionAnswerAttributionUsesExplicitOrigin"],
+      "timeline_read_keeps_the_answering_party": {"tests": ["internal/core/interaction_responses_test.go#TestProjectedInteractionAnswersKeepAttributionAndRefresh"], "remaining": "Read the final timeline response after restoring the persisted answer."},
+      "timeline_polls_reuse_answers_and_pick_up_a_new_response": {"tests": ["internal/core/interaction_responses_test.go#TestProjectedInteractionAnswersKeepAttributionAndRefresh"], "remaining": "Assert the warm-poll I/O bound before the next response."}
+    },
+    "native/src/pets.rs": {
+      "page_resolution_is_host_and_path_bounded": {"tests": ["internal/core/pets_test.go#TestNativePetPageLimitsHostsAndPaths"], "remaining": "Check download host and path negatives independently of the page URL."},
+      "atlas_dimensions_and_manifest_agree": {"tests": ["internal/core/pets_test.go#TestNativePetAtlasMustMatchDeclaredVersion"], "remaining": "Check a missing pet ID independently of atlas dimensions."},
+      "archives_cannot_escape_or_add_files": {"tests": ["internal/core/pets_test.go#TestNativePetArchiveRejectsTraversalDuplicatesAndSymlinks"], "remaining": "Use a valid atlas in negative archives so entry validation is the only rejection."}
+    },
+    "native/src/respond_tokens.rs": {
+      "tokens_survive_session_changes_but_reject_wrong_scope_expiry_and_reuse": ["internal/core/respond_tokens_test.go#TestRespondTokenSurvivesDesktopReattachment"]
+    },
+    "native/src/shell_command.rs": {
+      "private_host_unreachable_results_explain_macos_execution_attribution": ["internal/core/shell_command_test.go#TestNativeCommandDiagnosesPrivateHostUnreachable"]
+    },
+    "native/src/src_conversations/identity.rs": {
+      "imported_org_must_match_the_selected_source_account": ["internal/core/src_conversations_identity_test.go#TestSRCImportRequiresMatchingOrganization"],
+      "cached_org_is_read_only_from_the_profile_pinned_by_a_confirmed_handshake": ["internal/core/src_conversations_identity_test.go#TestSRCHandshakeUsesOnlyPinnedProfileIdentity"]
+    },
+    "native/src/src_conversations/import_state.rs": {
+      "ax_contracts_mismatch_recovery_stays_executable_for_the_calling_source": {"tests": ["internal/core/src_conversations_import_state_test.go#TestSRCMismatchRecoveryStaysWithinCallerScope"], "remaining": "Assert the executable stdin import command in the recovery hint."}
+    },
+    "native/src/src_conversations/mod.rs": {
+      "correlation_requires_open_fresh_chat_and_recent_activity": ["internal/core/src_conversations_mod_test.go#TestSourceConversationCorrelationRequiresFreshOpenChat"]
+    },
+    "native/src/src_conversations/refs.rs": {
+      "canonical_refs_remove_non_identity_url_data": ["internal/core/src_conversations_refs_test.go#TestSourceConversationReferencesCanonicalizeIdentity"]
+    },
+    "native/src/src_conversations/registry.rs": {
+      "single_active_chat_keeps_canonical_identity_and_accumulates_aliases": ["internal/core/src_conversations_registry_test.go#TestVerifiedSRCChatAccumulatesAccountScopedAliases"],
+      "zero_or_multiple_recent_chats_do_not_infer_an_alias": ["internal/core/src_conversations_registry_test.go#TestVerifiedSRCReferenceNeedsOneRecentSameAccountChat"],
+      "existing_cowork_merges_bindings_and_earliest_observation_only_for_this_session": ["internal/core/src_conversations_registry_test.go#TestVerifiedSRCAliasMergesOnlyItsOwnTaskBindings"]
+    },
+    "native/src/task_host.rs": {
+      "startup_command_preserves_string_arguments_and_environment": ["internal/core/task_host_test.go#TestTaskHostCommandSpecUsesOrdinaryStrings"],
+      "protocol_frames_and_version_handshake": ["internal/core/task_host_test.go#TestTaskHostProtocolRejectsUnknownVersions"],
+      "journal_replay_is_ordered_and_resumes_after_offset": ["internal/core/task_host_test.go#TestTaskHostJournalResumesAfterAcknowledgedOffset"],
+      "received_write_sequence_is_deduplicated": ["internal/core/task_host_test.go#TestTaskHostWriteAcknowledgesDuplicatesWithoutRepeatingInput"]
+    },
+    "native/src/task_overview.rs": {
+      "statuses_are_evidence_based_and_compact_does_not_copy_prompts": ["internal/core/task_overview_test.go#TestCodexTaskListStatusUsesNativeEvidence"]
+    },
+    "native/src/turn_lifecycle.rs": {
+      "native_terminal_dominates_loss_activity_and_stale_evidence_in_every_order": ["internal/core/turn_lifecycle_test.go#TestCodexTerminalDominatesEveryOrderOfWeakerEvidence"],
+      "protocol_terminal_adapters_share_the_monotonic_frontier": ["internal/core/turn_lifecycle_test.go#TestAgentTerminalAdaptersShareTheSameFrontier"],
+      "duplicate_evidence_is_idempotent": ["internal/core/turn_lifecycle_test.go#TestRepeatedTurnEvidenceIsIdempotent"],
+      "evidence_cannot_cross_agent_thread_or_turn_boundaries": ["internal/core/turn_lifecycle_test.go#TestTurnEvidenceRespectsNativeIdentity"],
+      "owner_loss_preserves_last_live_without_confirming_interruption": ["internal/core/turn_lifecycle_test.go#TestTurnOwnerLossPreservesLastLive"],
+      "contradictory_native_outcomes_require_ordering_or_remain_conflicted": ["internal/core/turn_lifecycle_test.go#TestNativeTerminalContradictionsNeedComparableSequence"],
+      "checkpoint_roundtrip_preserves_scoped_knowledge_and_conflicts": ["internal/core/turn_lifecycle_test.go#TestTurnCheckpointRoundTripPreservesTheFrontier"]
+    },
+    "native/src/waiter.rs": {
+      "native_wait_results_preserve_wire_states_and_reasons": ["internal/core/waiter_test.go#TestNativeWaitWireVerdicts"],
+      "conflicting_selected_records_do_not_choose_a_terminal_by_array_order": ["internal/core/waiter_test.go#TestNativeWaitConflictingRecordsStayUnconfirmed"],
+      "response_deduplication_preserves_metadata_and_terminal_bodies": {"tests": ["internal/core/waiter_test.go#TestNativeWaitResponseCompaction"], "remaining": "Assert no-hash and changed-text behavior as separate negative cases."},
+      "nonterminal_messages_require_completion_but_terminal_and_interaction_keep_body": ["internal/core/waiter_test.go#TestNativeWaitUsesCompletedMessagesUntilTheTurnSettles"],
+      "long_wait_retries_reads_past_ninety_seconds": {"tests": ["internal/core/waiter_test.go#TestNativeWaitReadFailuresAndDeadline"], "remaining": "Include a retryable native error after the ninety-second threshold as well as read deadlines."},
+      "wait_deadline_during_read_does_not_invent_read_failure": ["internal/core/waiter_test.go#TestNativeWaitReadFailuresAndDeadline"],
+      "old_turn_does_not_inherit_latest_interaction": ["internal/core/waiter_test.go#TestNativeWaitDoesNotMoveInteractionToOlderTurn"],
+      "read_timeouts_and_changed_content_wait_for_terminal": {"tests": ["internal/core/waiter_test.go#TestNativeWaitReadFailuresAndDeadline"], "remaining": "Include the combined sequence of a delayed observation, a second timeout, changed text, and the final result."},
+      "deadline_preserves_read_failure_and_last_observation": ["internal/core/waiter_test.go#TestNativeWaitReadFailuresAndDeadline"],
+      "recovered_running_read_reaches_normal_deadline": ["internal/core/waiter_test.go#TestNativeWaitReadFailuresAndDeadline"],
+      "failures_disconnect_and_interaction_still_return_immediately": {"tests": ["internal/core/waiter_test.go#TestNativeWaitReadFailuresAndDeadline"], "remaining": "Assert immediate return on explicit owner change and thread mismatch."}
+    },
+    "native/src/writer.rs": {
+      "held_writer_is_detected_without_waiting_or_modifying_it": ["internal/core/writer_test.go#TestNativeWriterProbeDetectsExternalLocks"]
+    },
     "native/src/accounts/codex.rs": {
       "inherited_managed_home_never_becomes_primary_configuration": ["internal/core/accounts_codex_test.go#TestPrimaryCodexHomeDoesNotInheritManagedProfiles"]
     },
@@ -573,6 +715,7 @@
     }
   },
   "added": {
+    "A": ["internal/core/agents_process_test.go#TestPiChoiceUsesNativeSubtypeAndKeepsInvalidChoicesPending", "internal/core/browser_test.go#TestBrowserFrontDoorWire", "internal/core/changes_test.go#TestNativeChangeSnapshotRemainsBoundToTerminalWorkspace"],
     "B": ["internal/core/coordination_ax_tests_test.go#TestAXShortReadIDsResolveUniqueAndRejectAmbiguousPrefixes", "internal/core/coordination_ax_tests_test.go#TestAXSchemaErrorsDiscloseTheRejectedFieldAndRecovery", "internal/core/coordination_bulletin_tests_test.go#TestBulletinStorageFailureRetainsLastPublishedNotice", "internal/core/coordination_bulletin_tests_test.go#TestBulletinLifecycleConflictsRequireVerifiedCommandOrigin", "internal/core/coordination_messages_tests_test.go#TestMalformedMessagesSnapshotRemainsIntact", "internal/core/coordination_messages_tests_test.go#TestMessagesUnresolvedLegacyHoldSurvivesNewPeersUntilMediation", "internal/core/coordination_tests_test.go#TestGitObserverRecoversRegistryAndPublishesOnlyObservedRefChanges", "internal/core/coordination_tests_test.go#TestCoordinationSuccessorEventsRetainOrderedTurnEvidence", "internal/core/coordination_bulletin_tests_test.go#TestBulletinKnownRunningLinkIsVisibleAtPost", "internal/core/coordination_bulletin_tests_test.go#TestBulletinUnattributedDispatchDoesNotClaimHostResources"],
     "C": ["internal/core/claude_notify_delivery_deadlines_test.go#TestInterruptedNotificationRetainsEventAndTokenCredit", "internal/core/dispatch_policy_quality_test.go#TestDispatchHistoryPollsOpenOnlyChangedTurns"],
     "E": ["internal/core/device_link_identity_test.go#TestDeviceLinkLoadsRustIdentityAndPairingsInPlace", "internal/core/device_link_controller_test.go#TestOfflineDeviceTransferRejectsBeforeSourceAccess", "internal/core/device_link_controller_test.go#TestDeviceGuideDisclosesFullScopeAndTransferRecovery", "internal/core/device_link_pairing_test.go#TestDevicePairingRejectsAThreeDeviceCycleBeforeApproval", "internal/core/device_link_controller_test.go#TestDeviceLANTLSErrorWinsOverLinkLocalTimeout", "internal/core/device_link_controller_test.go#TestDeviceCLIErrorsKeepStableCodesAndRecovery", "internal/core/relay_test.go#TestRelayCancellationRetainsDraftRecovery", "internal/core/relay_test.go#TestRelayManagementRequiresLocalAuthority", "internal/core/relay_transport_test.go#TestRelayWaitsForTheExpectedDeploymentVersion", "internal/core/relay_transport_test.go#TestRelayCancelClosesTheForwardedRequest", "internal/core/relay_transport_test.go#TestRelayWebsocketUsesHTTPProxy"],

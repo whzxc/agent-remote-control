@@ -71,7 +71,7 @@
         "internal/core/agents_activity.go",
         "internal/core/agents_activity_test.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/agents/adapter.rs": {
       "segment": "A",
@@ -157,7 +157,7 @@
         "internal/core/agents_navigation_windows.go",
         "internal/core/agents_navigation_other.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/agents/lifecycle.rs": {
       "segment": "A",
@@ -189,7 +189,7 @@
         "internal/core/agents_approval.go",
         "internal/core/agents_events.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/agents/process.rs": {
       "segment": "A",
@@ -197,7 +197,7 @@
         "internal/core/agents_process.go",
         "internal/core/agents_process_test.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/agents/resources.rs": {
       "segment": "A",
@@ -259,15 +259,7 @@
         "internal/core/claude_accounts.go",
         "internal/core/claude_accounts_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Supply Agent executable discovery, search paths and command proxy policy. Consume nativeClaudeTranscriptRoots without account attribution."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/claude_accounts/routing.rs": {
       "segment": "D",
@@ -297,15 +289,7 @@
       "go": [
         "internal/core/claude_notify_ax_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Run ordered-conflict and predecessor/successor scenarios using the ported native checkpoint and reader."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/claude_notify/continuation.rs": {
       "segment": "C",
@@ -397,32 +381,14 @@
         "internal/core/claude_notify_observer.go",
         "internal/core/claude_notify_observer_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Provide observeNotificationTurn without acquiring a writer and project scoped completion and interactions.",
-            "Provide notificationObservationEvidence for a canonical native history path and writer observation.",
-            "Supply notificationCompletionChanges and notificationIssueResponseToken from the scoped native changes and response owners."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/claude_notify/ownership.rs": {
       "segment": "C",
       "go": [
         "internal/core/claude_notify_ownership.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Call observeNotificationOwnership and bracket explicit writer acquisition with beginNotificationAcquisition and endNotificationAcquisition."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/claude_notify/reachability.rs": {
       "segment": "C",
@@ -430,16 +396,7 @@
         "internal/core/claude_notify_reachability.go",
         "internal/core/claude_accounts_routing.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Provide Antigravity session delivery and source-conversation projection.",
-            "Connect notificationNotifyConversation with the verified target and scoped tasks."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/claude_notify/retry.rs": {
       "segment": "C",
@@ -488,13 +445,6 @@
       ],
       "status": "ported",
       "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Call bindNotification, readNotification, notificationResumeContext and recordNotificationBindingFailure from accepted dispatch and native resume.",
-            "Wire notificationRetryPending, recoverableNotificationResponse, recordNotificationResume and source-conversation binding readers to the native owners."
-          ]
-        },
         {
           "owner": "F",
           "items": [
@@ -572,18 +522,7 @@
         "internal/core/rpc.go",
         "internal/core/kernel_receipts.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Codex app-server control and desktop transport.",
-            "Background create and resume.",
-            "Native request (request_native), launch and approval.",
-            "Task records and tool execution."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/control_metrics.rs": {
       "segment": "S0",
@@ -648,15 +587,7 @@
       "go": [
         "internal/core/coordination_bulletin_dispatch.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Pass the retained pre-submission Git baseline and apply coordinationDispatchAdvisory at admission."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/coordination/bulletin/mod.rs": {
       "segment": "B",
@@ -699,15 +630,7 @@
       "go": [
         "internal/core/coordination_git_watch.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Feed observeCoordinationBaseline and coordinationRetainedBaselines and provide native project discovery to the registered-project owner."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/coordination/journal.rs": {
       "segment": "B",
@@ -759,15 +682,7 @@
       "go": [
         "internal/core/coordination_observers.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Supply Agent session identity and live turns, Desktop turn decoding, and terminal change capture. Save Agent owner checkpoints through saveCoordinationOwner."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/coordination/recovery.rs": {
       "segment": "B",
@@ -830,7 +745,7 @@
         "internal/core/desktop_handback.go",
         "internal/core/desktop_handback_darwin.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/desktop/interactions.rs": {
       "segment": "A",
@@ -872,7 +787,7 @@
         "internal/core/control_desktop.go",
         "internal/core/desktop_test.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/device_link/addresses.rs": {
       "segment": "E",
@@ -930,15 +845,7 @@
         "internal/core/device_link_controller_test.go",
         "internal/core/device_link_pairing_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Provide Agent task handlers for the end-to-end peer controller operation cases."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/device_link/events/tests.rs": {
       "segment": "E",
@@ -1090,15 +997,7 @@
         "internal/core/device_link_visibility.go",
         "internal/core/device_link_visibility_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Register deviceCoreAgentAvailable and provide peer-scoped native task projections through deviceCoreTaskRead."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/diagnostics.rs": {
       "segment": "S0",
@@ -1144,13 +1043,6 @@
       "status": "ported",
       "remaining": [
         {
-          "owner": "A",
-          "items": [
-            "Provide dispatchAgentFacts, dispatchRegisteredAgent, nativeControlRequest, turn lifecycle and metadata hooks. Apply packs and resolve policy before native execution. Record dispatch before publishing a receipt.",
-            "Call reviewAgentDispatch with the authoritative Agent task snapshot and attach per-turn pack and usage to task reads."
-          ]
-        },
-        {
           "owner": "D",
           "items": [
             "Provide dispatchAccountsRefresh, dispatchSubscriptionSnapshot, dispatchGatewayQuota and dispatchGatewayTurnUsage."
@@ -1172,15 +1064,7 @@
         "internal/core/egress.go",
         "internal/core/egress_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Supply native task and interaction evidence."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/execution.rs": {
       "segment": "S0",
@@ -1607,15 +1491,7 @@
         "internal/core/projects.go",
         "internal/core/projects_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Supply nativeControlRequest and prepareProjectImage. Use dispatchProject and localProjectName for Codex create and task display."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/proxy.rs": {
       "segment": "A",
@@ -1655,15 +1531,7 @@
         "internal/core/relay_transport.go",
         "internal/core/relay_transport_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Supply the native system proxy resolver for relay, managed HTTPS and official Tunnel providers."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/resources.rs": {
       "segment": "S0",
@@ -1726,12 +1594,6 @@
       "status": "ported",
       "remaining": [
         {
-          "owner": "A",
-          "items": [
-            "Attribute native task and Agent read paths to their owner scopes."
-          ]
-        },
-        {
           "owner": "F",
           "items": [
             "Attribute the Desktop timeline and frame paths to their owner scopes."
@@ -1750,12 +1612,6 @@
       ],
       "status": "ported",
       "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Record task activity work and attach observation and lifecycle owners so notification observation passes can execute."
-          ]
-        },
         {
           "owner": "C",
           "items": [
@@ -2105,7 +1961,7 @@
         "internal/core/waiter_test.go",
         "internal/core/control_observation.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/writer.rs": {
       "segment": "A",
@@ -2212,15 +2068,7 @@
         "internal/core/fixture.go",
         "internal/core/kernel_derived_index_test.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Provide Agent, native task/writer, Desktop and source-container fixture support."
-          ]
-        }
-      ]
+      "status": "ported"
     }
   },
   "nativeTests": {
