@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -13,10 +14,13 @@ import (
 	"time"
 )
 
-func desktopFixture(t *testing.T, size int) *nativeDesktopIPC {
+func desktopFixture(t *testing.T, size int, wrap func(net.Conn) net.Conn) *nativeDesktopIPC {
 	t.Helper()
 	t.Setenv("ARC_STATE_DIR", t.TempDir())
 	client, server := net.Pipe()
+	if wrap != nil {
+		client = wrap(client)
+	}
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -70,10 +74,28 @@ func desktopFixture(t *testing.T, size int) *nativeDesktopIPC {
 	return d
 }
 
+type desktopFrameCancellation struct {
+	net.Conn
+	cancel context.CancelFunc
+}
+
+func (c desktopFrameCancellation) Write(data []byte) (int, error) {
+	n, err := c.Conn.Write(data)
+	if err == nil && n == len(data) && bytes.Contains(data, []byte(`"method":"fixture-cancel-after-write"`)) {
+		c.cancel()
+		synctest.Wait()
+	}
+	return n, err
+}
+
 func TestDesktopCancelledReadsReleasePendingRequests(t *testing.T) {
 	// Recurring bug class: lifecycle cancellation releases Desktop pending request storage and retains the connection.
 	synctest.Test(t, func(t *testing.T) {
-		d := desktopFixture(t, 0)
+		completedFrame, cancelFrame := context.WithCancel(t.Context())
+		defer cancelFrame()
+		d := desktopFixture(t, 0, func(conn net.Conn) net.Conn {
+			return desktopFrameCancellation{Conn: conn, cancel: cancelFrame}
+		})
 		for range 32 {
 			ctx, cancel := context.WithTimeout(t.Context(), 2*time.Millisecond)
 			_, err := d.request(ctx, "fixture-unanswered-read", object{}, "")
@@ -81,6 +103,9 @@ func TestDesktopCancelledReadsReleasePendingRequests(t *testing.T) {
 			if err == nil {
 				t.Fatal("fixture read unexpectedly received a response")
 			}
+		}
+		if _, err := d.request(completedFrame, "fixture-cancel-after-write", object{}, ""); err == nil {
+			t.Fatal("fixture read unexpectedly completed after cancellation")
 		}
 		if uintOr(d.diagnostics()["pendingRequests"], 99) != 0 {
 			t.Fatal(wire(d.diagnostics()))
@@ -94,7 +119,7 @@ func TestDesktopCancelledReadsReleasePendingRequests(t *testing.T) {
 func TestDesktopSnapshotBudgetAndIdleExpiry(t *testing.T) {
 	// Recurring bug class: lifecycle Desktop snapshots stay bounded and expire without rereading old threads.
 	synctest.Test(t, func(t *testing.T) {
-		d := desktopFixture(t, 512*1024)
+		d := desktopFixture(t, 512*1024, nil)
 		retained, err := d.read(t.Context(), "retained-reader", true)
 		if err != nil {
 			t.Fatal(err)

@@ -108,8 +108,17 @@ func (d *nativeDesktopIPC) write(ctx context.Context, value object) error {
 		deadline = time.Now().Add(30 * time.Second)
 	}
 	_ = d.stream.SetWriteDeadline(deadline)
-	stop := context.AfterFunc(ctx, func() { _ = d.stream.Close() })
-	defer stop()
+	interrupted := make(chan struct{})
+	stop := context.AfterFunc(ctx, func() {
+		_ = d.stream.SetWriteDeadline(time.Now())
+		close(interrupted)
+	})
+	defer func() {
+		if !stop() {
+			<-interrupted
+		}
+	}()
+	// Only a failed write can leave a partial frame on the shared connection.
 	var header [4]byte
 	binary.LittleEndian.PutUint32(header[:], uint32(len(data)))
 	if _, err := d.stream.Write(header[:]); err != nil {
