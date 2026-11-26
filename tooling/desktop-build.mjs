@@ -83,7 +83,7 @@ export async function buildDesktop({ target, output, development = false, releas
   try {
     await timed('MyGo package', async () => run(process.execPath, [path.join(root, 'node_modules/mygo-cli/bin/mygo.js'), 'build',
       '-platform', platform.name, '-o', work, '-skip-build-command', '-skip-dmg', '-skip-installer', '-skip-notarize', '-sign', '-',
-      ...(debug || development ? ['-debug'] : [])]));
+      ...(!updateFixture && (debug || development) ? ['-debug'] : [])]));
     const stage = path.join(work, name);
     if (platform.os === 'darwin') {
       const app = await finishMacosApp(stage, config, identity, env, path.join(input, 'icon/Icon.icns'));
