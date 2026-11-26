@@ -2081,7 +2081,9 @@
     "desktop/src/tray.rs": {
       "segment": "F",
       "go": [
-        "cmd/arc-desktop/tray.go"
+        "cmd/arc-desktop/tray.go",
+        "cmd/arc-desktop/tray_darwin.go",
+        "cmd/arc-desktop/tray_other.go"
       ],
       "status": "ported"
     },

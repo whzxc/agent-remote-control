@@ -79,12 +79,7 @@ func (s *DesktopService) setTrayVisible(visible bool) error {
 	if err != nil {
 		return err
 	}
-	tray.OnClick(func() { s.show(nil) })
-	if runtime.GOOS == "windows" {
-		tray.SetMenu(state.menu)
-	} else {
-		tray.OnRightClick(func() { state.menu.Popup(nil) })
-	}
+	bindTrayClicks(tray, state.menu, func() { s.show(nil) })
 	state.tray = tray
 	return nil
 }
