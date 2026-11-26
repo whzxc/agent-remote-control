@@ -151,6 +151,21 @@ func respondDesktopMutation(ctx context.Context, s *service, receipt, args, pend
 }
 
 func init() {
+	nativeEventObserved = append(nativeEventObserved, func(events *nativeEvents, _ string, method string, params any, _ string) {
+		if events.durable || method != "turn/completed" {
+			return
+		}
+		thread, turn := text(params, "threadId"), text(field(params, "turn"), "id")
+		if thread == "" || turn == "" || events.taskTimelines[thread] != nil {
+			return
+		}
+		for _, request := range events.pending {
+			if field(request["params"], "threadId") == thread && field(request["params"], "turnId") == turn {
+				events.taskTrackingTimeline(thread)
+				return
+			}
+		}
+	})
 	readThreadPending = func(ctx context.Context, s *service, thread string) error {
 		_, err := readCodexMetadata(ctx, s, thread)
 		return err

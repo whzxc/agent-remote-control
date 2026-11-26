@@ -39,8 +39,12 @@ var decorateControlSource func(context.Context, object)
 var controlPushAvailable func(any) bool
 var decorateControlResult []func(context.Context, operationRequest, object)
 var onAuthenticatedControl []func(context.Context, requestSource)
-var localControlCallerKey struct{}
-var peerControlKey struct{}
+
+type localControlCallerContextKey struct{}
+type peerControlContextKey struct{}
+
+var localControlCallerKey localControlCallerContextKey
+var peerControlKey peerControlContextKey
 var mcpIngressKey struct{}
 
 var controlSummaryRequested func(string, object) bool

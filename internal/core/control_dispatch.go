@@ -63,6 +63,9 @@ func codexMutationTask(operation string, args object) (object, error) {
 
 func prepareCodexMutation(ctx context.Context, r operationRequest, row object) error {
 	operation := text(row, "operation")
+	if operation == "native" {
+		return prepareNativeCodexReceipt(row)
+	}
 	if r.name != "codex_"+operation || !slices.Contains([]string{"create", "send", "resume", "interrupt"}, operation) {
 		return nil
 	}
@@ -122,7 +125,7 @@ func prepareCodexMutation(ctx context.Context, r operationRequest, row object) e
 	}
 	if operation == "create" {
 		row["executionOwner"] = "connector"
-		if settings["autoOpenCodex"] == true && (fixtureUsesDesktop == nil || fixtureUsesDesktop()) {
+		if settings["autoOpenCodex"] == true && operatingSystem != "linux" {
 			row["executionOwner"] = "desktop"
 		}
 	}
@@ -142,7 +145,7 @@ func prepareCodexMutation(ctx context.Context, r operationRequest, row object) e
 		approval["answeredBy"] = interactionAnsweredBy(currentOrigin(ctx))
 	}
 	row["approval"] = approval
-	if operation == "create" && row["executionOwner"] == "desktop" && row["state"] == "reserved" {
+	if operation == "create" && row["executionOwner"] == "desktop" && row["state"] == "reserved" && (fixtureUsesDesktop == nil || fixtureUsesDesktop()) {
 		prepareDesktopCodexCreate(ctx, r.service, row, settings)
 	}
 	return nil
@@ -157,8 +160,9 @@ func createBackgroundCodex(ctx context.Context, r operationRequest, row object) 
 	background := row["executionOwner"] == "connector"
 	recovery := obj(row["desktopRecovery"])
 	daemon := !background && recovery["transport"] == "local-daemon"
+	fixtureSeed := !background && fixtureUsesDesktop != nil && !fixtureUsesDesktop()
 	var desktop *nativeDesktopIPC
-	if !background && !daemon {
+	if !background && !daemon && !fixtureSeed {
 		var err error
 		desktop, err = r.service.nativeDesktop(ctx)
 		if err != nil {
@@ -216,7 +220,7 @@ func createBackgroundCodex(ctx context.Context, r operationRequest, row object) 
 	if !background && !daemon {
 		defer rpc.close()
 	}
-	if !background && operatingSystem == "darwin" && (!daemon || recovery["backend"] == "arc") {
+	if !background && !fixtureSeed && operatingSystem == "darwin" && (!daemon || recovery["backend"] == "arc") {
 		if err := applyNativeDesktopPermissions(ctx, rpc, args, seed); err != nil {
 			return nil, err
 		}
@@ -276,7 +280,7 @@ func createBackgroundCodex(ctx context.Context, r operationRequest, row object) 
 			return cleanup(err)
 		}
 	}
-	if !background {
+	if !background && !daemon {
 		reader, err := r.service.codexUtility(ctx)
 		if err != nil {
 			return cleanup(err)
@@ -308,6 +312,12 @@ func createBackgroundCodex(ctx context.Context, r operationRequest, row object) 
 		}
 		if err == nil {
 			result, err = rpc.call(ctx, "turn/start", params, codexMutationTimeout(args))
+		}
+	} else if fixtureSeed {
+		var reader *rpcConnection
+		reader, err = r.service.codexUtility(ctx)
+		if err == nil {
+			result, err = reader.call(ctx, "turn/start", params, codexMutationTimeout(args))
 		}
 	} else if err = revealNativeDesktopThread(ctx, desktop, thread); err == nil {
 		result, err = desktop.mutate(ctx, "turn/start", params)

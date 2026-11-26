@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -120,5 +121,41 @@ func TestCodexActivitySamplesRetainSilentTurnsAndUpdateNativeTitles(t *testing.T
 	writeActivityRollout(t, rollout, object{"type": "event_msg", "timestamp": at, "payload": object{"type": "task_complete", "turn_id": "first"}})
 	if rows := monitor.sample(ctx, home, nowAt.Add(12*time.Minute)); len(rows) != 0 {
 		t.Fatalf("terminal activity = %s", wire(rows))
+	}
+}
+
+func TestCodexConversationFindsExactTurnSettingsBeyondTail(t *testing.T) {
+	// Recurring bug class: persistence large native output can hide the selected turn's dispatch settings from a bounded list preview.
+	const at = "2026-01-01T00:00:00Z"
+	path := filepath.Join(t.TempDir(), "activity.jsonl")
+	writeActivityRollout(t, path,
+		object{"type": "turn_context", "timestamp": at, "payload": object{"turn_id": "sample", "model": "recorded-model", "effort": "high", "service_tier": "priority"}},
+		object{"type": "response_item", "timestamp": at, "payload": object{"type": "function_call_output", "output": strings.Repeat("x", 180<<10)}},
+		object{"type": "event_msg", "timestamp": at, "payload": object{"type": "task_complete", "turn_id": "sample", "duration_ms": 9000}})
+	read := func() object {
+		t.Helper()
+		reader, err := os.Open(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer reader.Close()
+		stat, err := reader.Stat()
+		if err != nil {
+			t.Fatal(err)
+		}
+		row, err := codexConversationClock(context.Background(), reader, stat.Size())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return row
+	}
+	row := read()
+	if row["turnId"] != "sample" || uintOr(row["turnDurationMs"], 0) != 9000 || row["turnCount"] != nil ||
+		wire(row["dispatchSummary"]) != wire(object{"model": "recorded-model", "effort": "high", "serviceTier": "priority"}) {
+		t.Fatal(wire(row))
+	}
+	writeActivityRollout(t, path, object{"type": "event_msg", "timestamp": at, "payload": object{"type": "task_started", "turn_id": "next"}})
+	if row := read(); row["turnId"] != "next" || row["dispatchSummary"] != nil {
+		t.Fatalf("older settings appeared on a different turn: %s", wire(row))
 	}
 }

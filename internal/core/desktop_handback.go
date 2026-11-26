@@ -6,14 +6,17 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/whzxc/agent-remote-control/internal/platform"
 )
 
 var nativeDesktopTargetExited func(any) bool
 var reopenNativeDesktopTask func(context.Context, *service, string, object) (bool, error)
 var nativeDesktopWriterEvidence func(context.Context, string, string) object
+var adoptLegacyNativeDesktop func(context.Context, any) (bool, error)
 
 func desktopHandbackObservation(thread string) (object, error) {
 	if uuid.Validate(thread) != nil {
@@ -40,6 +43,38 @@ func desktopHandbackObservation(thread string) (object, error) {
 		return current, nil
 	}
 	return previous, nil
+}
+
+func nativeDesktopIdentityRunning(target any) bool {
+	pid, start := uintOr(field(target, "pid"), 0), text(target, "start")
+	return pid != 0 && pid <= 1<<31-1 && start != "" && platform.ProcessStart(int(pid)) == start
+}
+
+func codexDesktopBinding(thread string) (object, error) {
+	binding, err := codexExecutionRecord(thread)
+	if err != nil {
+		return nil, err
+	}
+	if nativeDesktopTargetExited == nil || fixtureUsesDesktop != nil {
+		return binding, nil
+	}
+	status, err := desktopHandbackObservation(thread)
+	if err != nil {
+		return nil, err
+	}
+	if binding == nil && status["state"] != "continued" {
+		if parent := text(status, "rootThreadId"); parent != "" && parent != thread {
+			binding, err = codexExecutionRecord(parent)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	if binding["transport"] == "local-daemon" && status["instance"] != nil && status["state"] != "continued" {
+		binding = clone(binding)
+		binding["desktopTarget"] = status["instance"]
+	}
+	return binding, nil
 }
 
 func publishDesktopHandback(thread string, state object) error {
@@ -266,12 +301,12 @@ func desktopHandbackTargets(thread string, target any, edges [][2]string) (map[s
 	return targets, nil
 }
 
-func reconcileDesktopHandback(ctx context.Context, s *service, home, thread string, startup bool) (bool, error) {
+func reconcileDesktopHandback(ctx context.Context, s *service, home, thread string, startup bool) (bool, []string, error) {
 	unlock := lockReceipt("codex-thread:" + thread)
 	defer unlock()
 	binding, err := codexExecutionRecord(thread)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 	target, backend, proxy := binding["desktopInstance"], binding["backend"], binding["desktopProxy"]
 	previous := binding["pendingPreviousSubtree"] == true
@@ -279,14 +314,14 @@ func reconcileDesktopHandback(ctx context.Context, s *service, home, thread stri
 		target, backend, proxy = binding["continuedFrom"], binding["previousSubtreeBackend"], binding["previousSubtreeProxy"]
 	}
 	if target == nil {
-		return true, nil
+		return true, nil, nil
 	}
 	if !nativeDesktopTargetExited(target) {
-		return false, nil
+		return false, nil, nil
 	}
 	rpc, err := s.desktopBackendRPC(ctx, str(backend))
 	if err != nil && !nativeDesktopTargetExited(proxy) {
-		return false, err
+		return false, nil, err
 	}
 	reason := "instance-exit"
 	if startup {
@@ -297,15 +332,15 @@ func reconcileDesktopHandback(ctx context.Context, s *service, home, thread stri
 		parent = object{"rootThreadId": thread, "instance": target, "state": "unconfirmed", "reason": "activity-or-release-unconfirmed"}
 	}
 	if err := publishDesktopHandback(thread, parent); err != nil {
-		return false, err
+		return false, nil, err
 	}
 	edges, err := desktopHandbackDescendants(ctx, rpc, home, thread)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 	targets, err := desktopHandbackTargets(thread, parent["instance"], edges)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 	var ids []string
 	for child := range targets {
@@ -313,6 +348,15 @@ func reconcileDesktopHandback(ctx context.Context, s *service, home, thread stri
 	}
 	slices.Sort(ids)
 	blockers := []object{}
+	connection := field(proxy, "connection")
+	if rpc != nil {
+		connection = rpc.connection
+	}
+	allReleased := desktopHandbackReleased(parent, connection)
+	var held []string
+	if parent["state"] == "held" {
+		held = append(held, thread)
+	}
 	for _, child := range ids {
 		release := lockReceipt("codex-thread:" + child)
 		status, err := desktopHandbackMember(ctx, s, rpc, proxy, targets[child], home, child, thread, reason)
@@ -322,7 +366,11 @@ func reconcileDesktopHandback(ctx context.Context, s *service, home, thread stri
 		err = publishDesktopHandback(child, status)
 		release()
 		if err != nil {
-			return false, err
+			return false, nil, err
+		}
+		allReleased = allReleased && desktopHandbackReleased(status, connection)
+		if status["state"] == "held" {
+			held = append(held, child)
 		}
 		if status["state"] != "handed-back" && status["state"] != "continued" {
 			blockers = append(blockers, object{"threadId": child, "state": status["state"]})
@@ -336,17 +384,72 @@ func reconcileDesktopHandback(ctx context.Context, s *service, home, thread stri
 		parent["descendants"] = blockers
 	}
 	if err := publishDesktopHandback(thread, parent); err != nil {
-		return false, err
+		return false, nil, err
 	}
 	if previous && len(blockers) == 0 {
 		delete(binding, "pendingPreviousSubtree")
 		delete(binding, "previousSubtreeBackend")
 		delete(binding, "previousSubtreeProxy")
 		if err := save(filepath.Join(root(), "execution", thread+".json"), binding); err != nil {
-			return false, err
+			return false, nil, err
 		}
 	}
-	return len(blockers) == 0 && (parent["state"] == "handed-back" || parent["state"] == "continued"), nil
+	complete := len(blockers) == 0 && (parent["state"] == "handed-back" || parent["state"] == "continued")
+	if !allReleased {
+		held = nil
+	}
+	return complete, held, nil
+}
+
+func desktopHandbackReleased(status object, connection any) bool {
+	return status["state"] == "continued" ||
+		status["checkedConnection"] == connection && obj(status["ownHold"]) != nil && (status["state"] == "held" || status["state"] == "handed-back")
+}
+
+type desktopHandbackSample struct {
+	digest         string
+	next, since    time.Time
+	held           []string
+	busy, complete bool
+	lastError      string
+}
+
+func discoverLegacyDesktopHandbacks(ctx context.Context, s *service) error {
+	rows, err := s.readCodexTaskRecords(ctx)
+	if err != nil {
+		return err
+	}
+	for _, row := range rows {
+		recovery := obj(row["desktopRecovery"])
+		if row["backendSession"] == s.metadata["instance"] || row["operation"] != "create" ||
+			recovery["transport"] != "local-daemon" || recovery["independent"] == false {
+			continue
+		}
+		thread := receiptThread(row)
+		if uuid.Validate(thread) != nil {
+			continue
+		}
+		unlock := lockReceipt("codex-thread:" + thread)
+		binding, err := codexExecutionRecord(thread)
+		if err == nil && binding["transport"] == "local-daemon" && binding["continuedFrom"] == nil && binding["desktopInstance"] == nil &&
+			text(recovery["target"], "start") != "" {
+			target := recovery["target"]
+			adopt := nativeDesktopTargetExited(target)
+			if !adopt && adoptLegacyNativeDesktop != nil {
+				adopt, err = adoptLegacyNativeDesktop(ctx, target)
+			}
+			if adopt && err == nil {
+				binding = clone(binding)
+				binding["desktopInstance"] = target
+				err = save(filepath.Join(root(), "execution", thread+".json"), binding)
+			}
+		}
+		unlock()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func startNativeDesktopHandback(ctx context.Context, s *service) error {
@@ -359,17 +462,36 @@ func startNativeDesktopHandback(ctx context.Context, s *service) error {
 	s.cleanup = append(s.cleanup, func() { cancel(); <-done })
 	go func() {
 		defer close(done)
+		var workers sync.WaitGroup
+		defer workers.Wait()
 		ticker := time.NewTicker(2 * time.Second)
 		defer ticker.Stop()
-		startup := true
-		settled := map[string]string{}
-		for lifetime.Err() == nil {
-			entries, _ := os.ReadDir(dir)
-			for _, entry := range entries {
-				if lifetime.Err() != nil {
-					return
+		type result struct {
+			thread   string
+			complete bool
+			held     []string
+			err      error
+		}
+		results := make(chan result, 4)
+		samples := map[string]*desktopHandbackSample{}
+		startup, inFlight := true, 0
+		scan := func() {
+			if startup {
+				if err := discoverLegacyDesktopHandbacks(lifetime, s); err != nil {
+					recordLog("WARN", "Desktop handback discovery: "+err.Error(), nil)
 				}
-				thread := entry.Name()
+			}
+			entries, _ := cachedEntries(dir)
+			_, home, err := codexInputs()
+			if err != nil {
+				return
+			}
+			at := time.Now()
+			for _, entry := range entries {
+				if lifetime.Err() != nil || inFlight >= cap(results) {
+					break
+				}
+				thread := filepath.Base(entry.path)
 				if len(thread) != 41 || filepath.Ext(thread) != ".json" {
 					continue
 				}
@@ -379,21 +501,71 @@ func startNativeDesktopHandback(ctx context.Context, s *service) error {
 					continue
 				}
 				digest := wire(binding)
-				if settled[thread] == digest {
+				sample := samples[thread]
+				if sample != nil && sample.busy {
 					continue
 				}
-				_, home, err := codexInputs()
-				if err != nil {
+				if sample == nil || sample.digest != digest {
+					sample = &desktopHandbackSample{digest: digest}
+					samples[thread] = sample
+				}
+				if sample.complete || at.Before(sample.next) {
 					continue
 				}
-				if complete, err := reconcileDesktopHandback(lifetime, s, home, thread, startup); err == nil && complete {
-					settled[thread] = digest
+				if len(sample.held) > 0 && !slices.ContainsFunc(sample.held, func(member string) bool { return probeWriter(home, member)["state"] != "held" }) {
+					delay := 2 * time.Second
+					if at.Sub(sample.since) >= 30*time.Second {
+						delay = time.Minute
+					}
+					sample.next = at.Add(delay)
+					continue
 				}
+				target := binding["desktopInstance"]
+				if binding["pendingPreviousSubtree"] == true {
+					target = binding["continuedFrom"]
+				}
+				if !nativeDesktopTargetExited(target) {
+					sample.next = at.Add(10 * time.Second)
+					continue
+				}
+				sample.busy, inFlight = true, inFlight+1
+				initial := startup
+				workers.Go(func() {
+					complete, held, err := reconcileDesktopHandback(lifetime, s, home, thread, initial)
+					select {
+					case results <- result{thread, complete, held, err}:
+					case <-lifetime.Done():
+					}
+				})
 			}
 			startup = false
+		}
+		scan()
+		for lifetime.Err() == nil {
 			select {
 			case <-lifetime.Done():
+				return
 			case <-ticker.C:
+				scan()
+			case returned := <-results:
+				inFlight--
+				sample := samples[returned.thread]
+				sample.busy, sample.complete, sample.held = false, returned.complete, returned.held
+				at := time.Now()
+				if sample.since.IsZero() {
+					sample.since = at
+				}
+				delay := 2 * time.Second
+				if len(returned.held) == 0 && at.Sub(sample.since) >= 30*time.Second {
+					delay = 10 * time.Second
+				}
+				sample.next = at.Add(delay)
+				if returned.err == nil {
+					sample.lastError = ""
+				} else if returned.err.Error() != sample.lastError && lifetime.Err() == nil {
+					sample.lastError = returned.err.Error()
+					recordLog("WARN", "Desktop handback "+returned.thread+": "+sample.lastError, nil)
+				}
 			}
 		}
 	}()

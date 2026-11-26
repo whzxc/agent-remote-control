@@ -144,8 +144,16 @@ func shellLocalNetworkHint(value, args any) object {
 
 func init() {
 	registerOperation("command", func(ctx context.Context, request operationRequest) (any, error) {
+		if _, ok := request.args["cmd"].(string); !ok {
+			return controlNativeDomain(ctx, request)
+		}
 		return runControlMutation(ctx, request, "command", request.args, func(ctx context.Context, row object) (any, error) {
-			return runShellCommand(ctx, request.service, obj(row["arguments"]))
+			result, err := runShellCommand(ctx, request.service, obj(row["arguments"]))
+			if err != nil && !errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil &&
+				!strings.HasPrefix(err.Error(), "RPC_TIMEOUT:") && !strings.HasPrefix(err.Error(), "SUBMISSION_UNCONFIRMED") {
+				row["next"] = errorNext("command", controlFailure(err))
+			}
+			return result, err
 		})
 	}, nil)
 }

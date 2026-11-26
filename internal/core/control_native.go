@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"os"
 	"path/filepath"
@@ -160,14 +161,25 @@ func (s *service) nativeWriterOwnership(ctx context.Context, home, thread string
 	if result["state"] != "held" {
 		return result
 	}
-	if binding, _ := codexExecutionRecord(thread); binding["transport"] == "local-daemon" && nativeDesktopWriterEvidence != nil {
+	if binding, _ := codexDesktopBinding(thread); binding["transport"] == "local-daemon" && nativeDesktopWriterEvidence != nil && fixtureUsesDesktop == nil {
 		evidence := nativeDesktopWriterEvidence(ctx, home, thread)
 		expected := "shared-app-server"
 		if binding["backend"] == "arc" {
 			expected = "arc-app-server"
 		}
+		result["origin"], result["holder"] = evidence["origin"], evidence
+		result["dispatchBackend"] = object{"backend": binding["backend"], "reason": binding["backendReason"]}
 		if evidence["origin"] != expected {
-			result["owner"], result["holder"] = "external", evidence
+			result["owner"] = "external"
+			if evidence["origin"] == "main-desktop" {
+				result["owner"] = "desktop"
+			} else if evidence["origin"] == "shared-app-server" || evidence["origin"] == "arc-app-server" {
+				result["owner"] = evidence["origin"]
+			}
+			return result
+		}
+		if target := binding["desktopTarget"]; !nativeDesktopIdentityRunning(target) {
+			result["owner"] = expected
 			return result
 		}
 		wait, cancel := context.WithTimeout(ctx, 1500*time.Millisecond)
@@ -184,7 +196,6 @@ func (s *service) nativeWriterOwnership(ctx context.Context, home, thread string
 		if result["owner"] == nil {
 			result["owner"] = expected
 		}
-		result["holder"] = evidence
 		return result
 	}
 	if codexBackground(thread) {
@@ -293,7 +304,7 @@ func requestCodexNative(ctx context.Context, service *service, method string, ar
 		}
 	}
 	if thread != "" && (read || mutation) && !directFixture {
-		if binding, err := codexExecutionRecord(thread); err != nil {
+		if binding, err := codexDesktopBinding(thread); err != nil {
 			return nil, err
 		} else if binding["transport"] == "local-daemon" && (returned == nil || !mutation) {
 			if read && probeWriter(home, thread)["state"] == "held" && service.nativeWriterOwnership(ctx, home, thread)["owner"] == "external" {
@@ -309,7 +320,7 @@ func requestCodexNative(ctx context.Context, service *service, method string, ar
 			}
 			if mutation {
 				owner := service.nativeWriterOwnership(ctx, home, thread)
-				if owner["state"] != "unheld" && owner["owner"] != "desktop" {
+				if owner["state"] != "unheld" && (owner["owner"] != "desktop" || owner["runtimeStatus"] == nil) {
 					return nil, errors.New(wire(writerBusy(thread, owner)))
 				}
 			}
@@ -326,7 +337,7 @@ func requestCodexNative(ctx context.Context, service *service, method string, ar
 		owner := service.nativeWriterOwnership(ctx, home, thread)
 		externallyHeld = owner["owner"] == "external"
 		desktopHeld = owner["owner"] == "desktop"
-		if mutation && (externallyHeld || owner["owner"] == "shared-app-server") {
+		if mutation && (externallyHeld || owner["owner"] == "shared-app-server" || owner["owner"] == "arc-app-server") {
 			owner["processes"] = writerProcesses(ctx, home, thread)
 			return nil, errors.New(wire(writerBusy(thread, owner)))
 		}
@@ -376,7 +387,17 @@ func requestCodexNative(ctx context.Context, service *service, method string, ar
 			recordLog("WARN", endErr.Error(), nil)
 		}
 	}
-	if err != nil && thread != "" && strings.Contains(err.Error(), "already has an active writer") {
+	if thread != "" && nativeWriterRejected(err) {
+		if mutation && !directFixture && returned == nil && desktopNativeRequest != nil {
+			owner := service.nativeWriterOwnership(ctx, home, thread)
+			if owner["owner"] == "desktop" && owner["clientId"] != nil {
+				if _, issue := observeNotificationOwnership(thread, owner); issue != nil {
+					return nil, issue
+				}
+				// Codex explicitly rejected admission, so the original mutation can follow the confirmed owner once.
+				return desktopNativeRequest(ctx, service, method, args, timeout)
+			}
+		}
 		return nil, writerFailure(ctx, service, home, thread, err)
 	}
 	if err == nil && method == "thread/read" && useUtility && !directFixture && !externallyHeld {
@@ -449,6 +470,26 @@ func init() {
 		return findDesktopCodexBinary != nil && findDesktopCodexBinary() != ""
 	}
 	registerOperation("codex_owner", nativeCodexOwner, nil)
+	registerOperation("codex_capabilities", func(ctx context.Context, r operationRequest) (any, error) {
+		settings, err := notificationSettings()
+		if err != nil {
+			return nil, err
+		}
+		owner := "connector"
+		if settings["autoOpenCodex"] == true && operatingSystem != "linux" {
+			owner = "desktop"
+		}
+		models, err := requestCodexNative(ctx, r.service, "model/list", object{}, time.Minute)
+		if err != nil {
+			return nil, err
+		}
+		configuration, err := requestCodexNative(ctx, r.service, "config/read", object{}, time.Minute)
+		if err != nil {
+			return nil, err
+		}
+		return object{"version": buildVersion, "backendSession": r.service.metadata["instance"], "executionOwner": owner,
+			"models": models, "configuration": configuration}, nil
+	}, nil)
 	registerServiceStartup(func(ctx context.Context, service *service) error {
 		service.codex.shutdown = ctx
 		service.cleanup = append(service.cleanup, service.closeNativeCodex)
@@ -462,4 +503,248 @@ func init() {
 		}
 		return nil
 	})
+}
+
+func prepareNativeCodexReceipt(row object) error {
+	args := obj(row["arguments"])
+	method, params := text(args, "method"), args["params"]
+	var kind string
+	switch method {
+	case "thread/start":
+		kind = "create"
+	case "turn/start", "turn/steer", "thread/resume":
+		kind = "send"
+	case "turn/interrupt":
+		kind = "interrupt"
+	default:
+		return nil
+	}
+	settings, err := notificationSettings()
+	if err != nil {
+		return err
+	}
+	if method == "thread/start" {
+		row["executionOwner"] = "connector"
+		if settings["autoOpenCodex"] == true && operatingSystem != "linux" {
+			row["executionOwner"] = "desktop"
+		}
+	}
+	var prompts []string
+	for _, item := range arr(field(params, "input")) {
+		if text, ok := field(item, "text").(string); ok {
+			prompts = append(prompts, text)
+		}
+	}
+	prompt := strings.Join(prompts, "\n")
+	row["task"] = object{"kind": kind, "title": dispatchTitle(object{"title": args["title"], "prompt": prompt}), "prompt": prompt,
+		"input": field(params, "input"), "project": args["project"], "directory": field(params, "cwd"), "threadId": field(params, "threadId"),
+		"model": field(params, "model"), "effort": field(params, "effort"), "settings": object{"params": params}, "origin": row["origin"]}
+	approval := object{"decision": "automatic", "source": "cloud", "at": now()}
+	switch args["approval"] {
+	case "approved", "bypass":
+		approval["decision"], approval["answeredBy"] = args["approval"], interactionAnsweredBy(obj(row["origin"]))
+	default:
+		if settings["enabled"] == true {
+			approval["decision"] = "pending"
+			row["state"] = "awaiting-approval"
+			row["nextAction"] = "receipt: approve, bypass or reject; user intent overrides the default approval mode"
+		}
+	}
+	row["approval"] = approval
+	return nil
+}
+
+func executeNativeCodexReceipt(ctx context.Context, s *service, operation string, row object) (any, error) {
+	args := obj(row["arguments"])
+	duration := time.Duration(min(uintOr(args["timeoutMs"], 86400000), 86400000)) * time.Millisecond
+	method, params := text(args, "method"), args["params"]
+	if _, selected := args["project"].(string); selected && slices.Contains([]string{"command/exec", "process/spawn", "thread/fork"}, method) {
+		directory := maps.Clone(args)
+		input := clone(obj(params))
+		if input == nil {
+			input = object{}
+		}
+		if cwd, exists := input["cwd"]; exists {
+			directory["cwd"] = cwd
+		}
+		cwd, err := projectWorkingDirectory(ctx, s, directory)
+		if err != nil {
+			return nil, err
+		}
+		input["cwd"], params = cwd, input
+	}
+	result, err := performNativeCodexMutation(ctx, s, method, params, duration, row)
+	if err != nil && strings.HasPrefix(err.Error(), "RPC_REJECTED:") && !nativeWriterRejected(err) {
+		row["next"] = errorNext(operation, controlFailure(err))
+	}
+	return result, err
+}
+
+func openNativeCodexThread(ctx context.Context, s *service, params any, row object, timeout time.Duration) (any, error) {
+	background := row["executionOwner"] != "desktop"
+	var desktop *nativeDesktopIPC
+	if !background && (fixtureUsesDesktop == nil || fixtureUsesDesktop()) {
+		var err error
+		desktop, err = s.nativeDesktop(ctx)
+		if err != nil {
+			if desktopMissingEndpoint(err) {
+				background = true
+			} else {
+				return nil, err
+			}
+		}
+	}
+	input := clone(obj(params))
+	if input == nil {
+		input = object{}
+	}
+	if input["ephemeral"] == true {
+		if background {
+			return nil, errors.New("BACKGROUND_TASK_MUST_PERSIST")
+		}
+		return nil, errors.New("DESKTOP_TASK_MUST_PERSIST")
+	}
+	input["ephemeral"] = false
+	var rpc *rpcConnection
+	var err error
+	if background {
+		rpc, err = s.codexUtility(ctx)
+	} else {
+		binary, home, issue := codexInputs()
+		if issue != nil {
+			return nil, issue
+		}
+		err = s.codex.launches.run(func() error {
+			var issue error
+			rpc, issue = startRPC(ctx, binary, home, id(), rpcObserver{})
+			return issue
+		})
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !background {
+		defer rpc.close()
+	}
+	value, err := rpc.call(ctx, "thread/start", input, timeout)
+	if err != nil {
+		return nil, err
+	}
+	thread := text(field(value, "thread"), "id")
+	if uuid.Validate(thread) != nil {
+		return nil, errors.New("SUBMISSION_UNCONFIRMED: Codex returned no thread ID. Read the original receipt before retrying.")
+	}
+	row["threadId"] = thread
+	task := dispatchSetSection(row, "task")
+	task["directory"], task["threadId"] = field(field(value, "thread"), "cwd"), thread
+	if err := codexMutationCheckpoint(ctx, row, "thread-created"); err != nil {
+		return nil, err
+	}
+	cleanup := func(cause error) (any, error) {
+		if ctx.Err() == nil && !strings.HasPrefix(cause.Error(), "RPC_TIMEOUT:") {
+			_, issue := rpc.call(ctx, "thread/archive", object{"threadId": thread}, 10*time.Second)
+			status, cleanupErr := nativeCleanupResult(issue)
+			if cleanupErr != nil {
+				status = object{"archived": false, "error": cleanupErr.Error()}
+			}
+			row["cleanup"] = status
+		}
+		return nil, cause
+	}
+	title := text(task, "title")
+	if !background {
+		title = nonemptyTaskText(title, "ARC task")
+	}
+	if title != "" {
+		if _, err := rpc.call(ctx, "thread/name/set", object{"threadId": thread, "name": title}, time.Minute); err != nil {
+			return cleanup(err)
+		}
+	}
+	binding := object{"owner": "connector"}
+	if !background {
+		reader, err := s.codexUtility(ctx)
+		if err != nil {
+			return cleanup(err)
+		}
+		native, err := reader.call(ctx, "thread/read", object{"threadId": thread, "includeTurns": false}, time.Minute)
+		if err != nil {
+			return cleanup(err)
+		}
+		if _, err := rpc.call(ctx, "thread/unsubscribe", object{"threadId": thread}, time.Minute); err != nil {
+			return cleanup(err)
+		}
+		obj(value)["thread"] = field(native, "thread")
+		binding = object{"owner": "desktop", "transport": "ipc"}
+	}
+	if err := save(filepath.Join(root(), "execution", thread+".json"), binding); err != nil {
+		return nil, fmt.Errorf("SUBMISSION_UNCONFIRMED: thread accepted; execution record failed: %w", err)
+	}
+	if desktop != nil {
+		if err := revealNativeDesktopThread(ctx, desktop, thread); err != nil {
+			return nil, err
+		}
+	}
+	return value, nil
+}
+
+func performNativeCodexMutation(ctx context.Context, s *service, method string, params any, timeout time.Duration, row object) (any, error) {
+	thread := text(params, "threadId")
+	if thread != "" {
+		row["threadId"] = thread
+	}
+	if thread != "" && nativeThreadMutation(method) {
+		release := lockReceipt("codex-thread:" + thread)
+		defer release()
+		if method != "turn/interrupt" {
+			if previous, err := returnedDesktopInstance(thread); err != nil {
+				return nil, err
+			} else if previous != nil {
+				if _, err := prepareReturnedDesktopThread(ctx, s, thread, previous); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+	if method == "turn/start" {
+		cwd := text(params, "cwd")
+		if cwd == "" && thread != "" {
+			state, err := requestCodexNative(ctx, s, "thread/read", object{"threadId": thread, "includeTurns": false}, 10*time.Second)
+			if err != nil {
+				return nil, err
+			}
+			cwd = text(field(state, "thread"), "cwd")
+		}
+		baseline := captureNativeChangeBaseline(ctx, cwd)
+		row["turnBaseline"], row["dispatchMode"], row["coordination"] = baseline, "new-turn", coordinationDispatchAdvisory(ctx, obj(row["origin"]), baseline)
+	}
+	if err := codexMutationCheckpoint(ctx, row, method); err != nil {
+		return nil, err
+	}
+	if method == "thread/start" {
+		return openNativeCodexThread(ctx, s, params, row, timeout)
+	}
+	result, err := requestCodexNative(ctx, s, method, params, timeout)
+	if err != nil {
+		return nil, err
+	}
+	if method == "command/exec" && field(row["arguments"], "outputBudget") != nil && obj(result) != nil {
+		result, err = budgetShellOutput(obj(result), obj(row["arguments"]))
+		if err != nil {
+			return nil, err
+		}
+	}
+	if turn := text(field(result, "turn"), "id"); turn != "" {
+		row["turnId"] = turn
+		if baseline := obj(row["turnBaseline"]); baseline != nil {
+			if err := recordNativeChangeBaseline(thread, turn, baseline); err != nil {
+				recordLog("WARN", err.Error(), nil)
+			}
+		}
+	}
+	if thread == "" {
+		if returned := text(field(result, "thread"), "id"); returned != "" {
+			row["threadId"] = returned
+		}
+	}
+	return result, nil
 }

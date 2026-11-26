@@ -232,7 +232,24 @@ func prepareMacDesktopFollowup(ctx context.Context, s *service, home, rootThread
 		"backendReason": prior["backendReason"]}, nil
 }
 
+func adoptMacLegacyDesktop(ctx context.Context, target any) (bool, error) {
+	instances, err := nativeDesktopProcessSnapshot(ctx)
+	if err != nil {
+		return false, err
+	}
+	for _, instance := range instances {
+		if instance.profile == nativeIndependentDesktopProfile(false) && wire(instance.identity()) == wire(target) && instance.running() {
+			if instance.independent() {
+				return true, nil
+			}
+			return true, save(nativeDesktopLaunchRecord(instance.profile), object{"legacyInstance": instance.identity()})
+		}
+	}
+	return false, nil
+}
+
 func init() {
+	adoptLegacyNativeDesktop = adoptMacLegacyDesktop
 	nativeDesktopTargetExited = macDesktopTargetExited
 	nativeDesktopWriterEvidence = macDesktopWriterEvidence
 	reopenNativeDesktopTask = reopenMacDesktopTask

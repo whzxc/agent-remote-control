@@ -65,6 +65,7 @@ func decideCodexReceipt(ctx context.Context, r operationRequest, localDecision b
 		perform = resumeCodexMutation
 	case "interrupt":
 		perform = interruptCodexMutation
+	case "native":
 	default:
 		return nil, errors.New(PortPending)
 	}
@@ -89,7 +90,7 @@ func decideCodexReceipt(ctx context.Context, r operationRequest, localDecision b
 		return row, store.checkpoint(ctx, row)
 	}
 	row["state"] = "reserved"
-	if row["operation"] == "create" && row["executionOwner"] == "desktop" {
+	if row["operation"] == "create" && row["executionOwner"] == "desktop" && (fixtureUsesDesktop == nil || fixtureUsesDesktop()) {
 		settings, err := notificationSettings()
 		if err != nil {
 			return nil, err
@@ -111,6 +112,9 @@ func decideCodexReceipt(ctx context.Context, r operationRequest, localDecision b
 	unlock()
 	wait := min(uintOr(r.args["waitMs"], 25000), 120000)
 	return launchControlMutation(withOrigin(ctx, obj(row["origin"])), r.service, store, row, lifetime, wait, func(ctx context.Context, row object) (any, error) {
+		if perform == nil {
+			return executeNativeCodexReceipt(ctx, r.service, "codex_call", row)
+		}
 		return perform(ctx, r, row)
 	})
 }

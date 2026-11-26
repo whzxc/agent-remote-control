@@ -26,6 +26,8 @@ type codexActivityClock struct {
 	offset                    int64
 	running                   bool
 	started, turnStarted      any
+	turnEnded, turnDuration   any
+	turnStatus                string
 	project, parent, relation any
 	creator, turnTier         any
 	configurations            map[string]object
@@ -60,6 +62,7 @@ func (c *codexActivityClock) observe(record object) {
 	case "turn_context":
 		if turn := text(payload, "turn_id"); turn != "" {
 			c.selectTurn(turn)
+			c.startedTurns[turn] = true
 			c.configurations[turn] = object{"model": field(payload, "model"), "effort": field(payload, "effort"),
 				"serviceTier": field(payload, "service_tier"), "threadServiceTier": c.turnTier}
 		}
@@ -69,12 +72,19 @@ func (c *codexActivityClock) observe(record object) {
 		case "task_started":
 			if turn != "" {
 				c.selectTurn(turn)
-				c.turnStarted, c.running = at, true
+				c.turnStarted, c.running, c.turnStatus = at, true, "running"
 				c.startedTurns[turn] = true
 			}
 		case "task_complete", "turn_aborted":
+			if c.turn == "" && turn != "" {
+				c.selectTurn(turn)
+			}
 			if c.turn == turn {
-				c.running = false
+				c.running, c.turnEnded, c.turnDuration = false, at, field(payload, "duration_ms")
+				c.turnStatus = "completed"
+				if field(payload, "type") == "turn_aborted" {
+					c.turnStatus = "cancelled"
+				}
 			}
 		}
 	case "response_item":
@@ -96,6 +106,7 @@ func (c *codexActivityClock) selectTurn(turn string) {
 		c.configurations, c.startedTurns = map[string]object{}, map[string]bool{}
 	}
 	c.turn, c.turnStarted, c.turnTier, c.running = turn, nil, c.threadTier.Current, false
+	c.turnEnded, c.turnDuration, c.turnStatus = nil, nil, ""
 }
 
 type codexActivityFile struct {
@@ -250,6 +261,87 @@ func sampleCodexActivityFile(ctx context.Context, home, path string, stamp *file
 	}
 	old.row = row
 	return old, nil
+}
+
+func codexConversationClock(ctx context.Context, file *os.File, size int64) (object, error) {
+	start := max(0, size-(128<<10))
+	rows, err := nativeTranscriptRead(ctx, file, start, size-start, start != 0, true)
+	if err != nil {
+		return nil, err
+	}
+	var clock codexActivityClock
+	for _, row := range rows {
+		clock.observe(row)
+	}
+	var summary any
+	if config := clock.configurations[clock.turn]; config != nil {
+		if value := dispatchSummary(config); value != nil {
+			summary = value
+		}
+	}
+	if start != 0 && summary == nil && clock.turn != "" {
+		contextStart := max(0, size-(4<<20))
+		contextRecords, err := nativeTranscriptRead(ctx, file, contextStart, size-contextStart, contextStart != 0, true)
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range slices.Backward(contextRecords) {
+			if row["type"] == "turn_context" && field(row["payload"], "turn_id") == clock.turn {
+				var recorded codexActivityClock
+				recorded.observe(row)
+				if config := recorded.configurations[clock.turn]; config != nil {
+					if value := dispatchSummary(config); value != nil {
+						summary = value
+					}
+				}
+				break
+			}
+		}
+	}
+	var count any
+	if start == 0 {
+		count = len(clock.startedTurns)
+	}
+	return object{"parentSessionId": clock.parent, "relationKind": clock.relation, "dispatchSummary": summary,
+		"turnCount": count, "turnId": clock.turn, "turnStartedAt": clock.turnStarted, "turnEndedAt": clock.turnEnded, "turnDurationMs": clock.turnDuration,
+		"status": dispatchFirstString(clock.turnStatus), "metadataPartial": start != 0}, nil
+}
+
+func codexConversationClockForThread(ctx context.Context, home string, thread any) object {
+	path := text(thread, "path")
+	if path == "" {
+		return nil
+	}
+	file, err := openNativeHistory(home, obj(thread))
+	if err != nil {
+		return nil
+	}
+	defer file.Close()
+	stamp, err := readStamp(path)
+	if err != nil || stamp == nil {
+		return nil
+	}
+	key := [2]string{"codex", path}
+	nativeConversationMetadataCache.Lock()
+	cached := nativeConversationMetadataCache.rows[key]
+	nativeConversationMetadataCache.Unlock()
+	if stampSame(cached.stamp, stamp) {
+		return maps.Clone(cached.row)
+	}
+	row, err := codexConversationClock(ctx, file, int64(stamp.Length))
+	if err != nil {
+		return nil
+	}
+	if current, err := readStamp(path); err != nil || !stampSame(current, stamp) && !current.appendsTo(stamp) {
+		return nil
+	}
+	nativeConversationMetadataCache.Lock()
+	if nativeConversationMetadataCache.rows == nil || len(nativeConversationMetadataCache.rows) >= cacheFiles {
+		nativeConversationMetadataCache.rows = make(map[[2]string]nativeConversationMetadata)
+	}
+	nativeConversationMetadataCache.rows[key] = nativeConversationMetadata{stamp, maps.Clone(row)}
+	nativeConversationMetadataCache.Unlock()
+	return row
 }
 
 func (m *codexActivityMonitor) sample(ctx context.Context, home string, now time.Time) []object {

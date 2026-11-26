@@ -315,7 +315,7 @@ func nativeCodexWatchSource(ctx context.Context, s *service, thread string, sele
 	if err != nil {
 		return source, err
 	}
-	if binding, err := codexExecutionRecord(thread); err != nil {
+	if binding, err := codexDesktopBinding(thread); err != nil {
 		return source, err
 	} else if binding["transport"] == "local-daemon" {
 		rpc, err := s.desktopBackendRPC(ctx, text(binding, "backend"))
@@ -406,6 +406,11 @@ func nativeCodexWait(ctx context.Context, r operationRequest) (any, error) {
 		}
 		result := finishNativeWait(waitInitialResult(r.args), waitUnconfirmed, reason, started, nil)
 		nativeWaitCondition(result, r.args)
+		if wantsTaskSummary(r.name, r.args) {
+			if err := addCodexTaskSummaryEvidence(ctx, thread, result, nil); err != nil {
+				return nil, err
+			}
+		}
 		return result, nil
 	}
 	source.classify = func(value object, turn **string) object {
@@ -428,10 +433,9 @@ func nativeCodexWait(ctx context.Context, r operationRequest) (any, error) {
 	}
 	nativeWaitCondition(result, r.args)
 	if wantsTaskSummary(r.name, r.args) {
-		if turn := find(nativeTurns, "id", text(result, "turnId")); turn != nil {
-			if err := addCodexTaskSummaryEvidence(ctx, thread, result, turn); err != nil {
-				return nil, err
-			}
+		turn := find(nativeTurns, "id", text(result, "turnId"))
+		if err := addCodexTaskSummaryEvidence(ctx, thread, result, turn); err != nil {
+			return nil, err
 		}
 	}
 	return result, nil

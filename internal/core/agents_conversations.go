@@ -206,6 +206,7 @@ func readNativeCodexConversations(ctx context.Context, s *service, body object, 
 		return nil, nil, errors.New("NATIVE_CONVERSATIONS_MISSING")
 	}
 	rows := []object{}
+	_, home, _ := codexInputs()
 	for _, thread := range data {
 		nativeID := text(thread, "id")
 		if nativeID == "" || !nativeAgentReadAllowed(ctx, "codex", nativeID) {
@@ -220,6 +221,13 @@ func readNativeCodexConversations(ctx context.Context, s *service, body object, 
 			"runtimeStatus": dispatchFirstString(field(thread, "status"), field(field(thread, "status"), "type"))}
 		if parent := text(field(field(field(thread, "source"), "subAgent"), "thread_spawn"), "parent_thread_id"); parent != "" {
 			row["parentSessionId"], row["relationKind"] = parent, "subagent"
+		}
+		if home != "" {
+			for key, value := range codexConversationClockForThread(ctx, home, thread) {
+				if value != nil {
+					row[key] = value
+				}
+			}
 		}
 		rows = append(rows, row)
 	}
@@ -436,9 +444,11 @@ func nativeAgentContext(ctx context.Context, s *service, agent, taskID string) (
 	}
 	facts.Task = task
 	facts.RedactedOutput = redactTaskOutput(text(task, "output"))
-	tracking := obj(task["tracking"])
-	facts.Evidence, facts.ObservedEvents = decodedTaskList(tracking["entries"]), uintOr(tracking["observedEvents"], 0)
-	facts.Partial = tracking["partial"] == true
+	var timeline taskTimeline
+	if err := unmarshalJSON([]byte(wire(task["tracking"])), &timeline); err == nil {
+		facts.Evidence = timeline.evidence(optionalProjectString(task["turnId"]))
+		facts.ExecutionEvidence, facts.ObservedEvents, facts.Partial = timeline.executionEvidence(), timeline.ObservedEvents, timeline.Partial
+	}
 	return facts, nil
 }
 

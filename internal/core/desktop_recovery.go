@@ -108,7 +108,7 @@ func prepareNativeCodexSend(ctx context.Context, s *service, thread string) (str
 	} else if previous != nil {
 		return prepareReturnedDesktopThread(ctx, s, thread, previous)
 	}
-	if binding, err := codexExecutionRecord(thread); err != nil {
+	if binding, err := codexDesktopBinding(thread); err != nil {
 		return "", err
 	} else if binding["transport"] == "local-daemon" {
 		if _, err := s.desktopBackendRPC(ctx, text(binding, "backend")); err != nil {

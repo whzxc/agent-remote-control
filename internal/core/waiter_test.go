@@ -182,3 +182,46 @@ func TestNativeWaitReadFailuresAndDeadline(t *testing.T) {
 		}
 	})
 }
+
+func TestNativeWaitUsesCompletedMessagesUntilTheTurnSettles(t *testing.T) {
+	// Algorithmic core: native completion markers gate streaming text before a terminal or interaction verdict.
+	done := object{"id": "done", "type": "agentMessage", "status": "completed", "text": "complete"}
+	stream := object{"id": "stream", "type": "agentMessage", "status": "inProgress", "text": "half sentence"}
+	turn := object{"id": "turn", "status": "inProgress", "items": []any{done, stream}}
+	value := waitTestObservation("active", nil, turn)
+	read := func() object {
+		result, _ := classifyCodexObservation(value, new(new("turn")))
+		return result
+	}
+	initial := read()
+	if waitResponseText(initial) != "complete" {
+		t.Fatal(wire(initial))
+	}
+	stream["text"] = "more streaming"
+	if next := read(); waitSnapshotHash(initial) != waitSnapshotHash(next) {
+		t.Fatalf("unsettled text changed the public snapshot: %s", wire(next))
+	}
+	delete(done, "status")
+	if result := read(); result["finalResponse"] != nil {
+		t.Fatal(wire(result))
+	}
+	for field, evidence := range map[string]any{"completedItemIds": true, "agentMessageCompletedAtMsById": 1234} {
+		turn[field] = object{"done": evidence}
+		if result := read(); waitResponseText(result) != "complete" {
+			t.Fatal(wire(result))
+		}
+		delete(turn, field)
+	}
+	for _, state := range []string{"completed", "failed", "interrupted"} {
+		turn["status"] = state
+		value = waitTestObservation("idle", nil, turn)
+		if result := read(); waitResponseText(result) != stream["text"] {
+			t.Fatal(wire(result))
+		}
+	}
+	turn["status"] = "inProgress"
+	value = waitTestObservation("active", []any{"waitingOnApproval"}, turn)
+	if result := read(); waitResponseText(result) != stream["text"] {
+		t.Fatal(wire(result))
+	}
+}

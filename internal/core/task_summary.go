@@ -88,7 +88,10 @@ func summarizeTaskResult(name string, args, value object) object {
 
 func addCodexTaskSummaryEvidence(ctx context.Context, thread string, value object, turn any) error {
 	items := arr(field(turn, "items"))
-	value["files"] = nativeReviewFiles(items)
+	value["files"] = nil
+	if files := nativeReviewFiles(items); files != nil {
+		value["files"] = files
+	}
 	state, _ := parseTurnWaitState(text(value, "state"))
 	if current, resume := field(value["finalResponse"], "itemId").(string); state.terminal() || resume {
 		value["finalResponse"] = nil
@@ -101,7 +104,10 @@ func addCodexTaskSummaryEvidence(ctx context.Context, thread string, value objec
 			break
 		}
 	}
-	turnID := text(turn, "id")
+	turnID := str(dispatchFirstString(field(turn, "id"), value["turnId"]))
+	if turnID == "" {
+		return addTaskSummaryContinuation(value)
+	}
 	baseline, _ := load(nativeChangeBaselinePath(thread, turnID))
 	git := nativeChangeEvidence(ctx, thread, turnID, text(baseline, "cwd"), isNativeTerminal(turn))
 	if git["fallback"] == false {

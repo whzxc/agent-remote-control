@@ -94,7 +94,7 @@ func archiveCodexThread(ctx context.Context, s *service, args, receipt object) (
 	if err != nil {
 		return nil, err
 	}
-	binding, err := codexExecutionRecord(thread)
+	binding, err := codexDesktopBinding(thread)
 	if err != nil {
 		return nil, err
 	}

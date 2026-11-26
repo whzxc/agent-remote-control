@@ -75,3 +75,21 @@ func projectInteractionAnswers(thread string, apply func(request, response objec
 	}
 	return nil
 }
+
+func init() {
+	readTaskTrackingAnswers = func(_ context.Context, _ *service, thread string) ([]object, error) {
+		return readInteractionAnswers(interactionAnswersDirectory(thread))
+	}
+	decorateControlResult = append(decorateControlResult, func(_ context.Context, request operationRequest, result object) {
+		if request.name != "task_timeline" {
+			return
+		}
+		for _, entry := range arr(result["entries"]) {
+			response := obj(field(entry, "response"))
+			if origin := obj(response["origin"]); field(response["answeredBy"], "kind") == "local-ui" &&
+				origin["ingressId"] == "local-ui" && origin["controlSource"] == "ARC" {
+				origin["sourceLabel"] = "ARC"
+			}
+		}
+	})
+}

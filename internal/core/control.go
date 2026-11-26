@@ -78,6 +78,11 @@ func controlJobCount(s *service) int {
 }
 
 func runControlMutation(ctx context.Context, request operationRequest, name string, args object, execute func(context.Context, object) (any, error)) (object, error) {
+	if waitFixtureTaskIndex != nil {
+		if err := waitFixtureTaskIndex(ctx, request.service); err != nil {
+			return nil, err
+		}
+	}
 	// The digest covers caller-provided arguments before policy and runtime state are resolved.
 	args = maps.Clone(args)
 	if args["requestId"] == nil {
@@ -173,7 +178,11 @@ func launchControlMutation(ctx context.Context, service *service, store receiptS
 			if row["failureStage"] == nil && row["submissionStage"] != nil {
 				row["failureStage"] = row["submissionStage"]
 			}
-			row["state"], row["error"] = state, transportError(err)
+			failure := transportError(err)
+			if row["operation"] == "command" || strings.HasPrefix(err.Error(), "RPC_REJECTED:") {
+				failure = controlFailure(err)
+			}
+			row["state"], row["error"] = state, failure
 		}
 		if err := store.checkpoint(context.WithoutCancel(job), row); err != nil {
 			result <- receiptExecutionResult{err: receiptPersistenceError(row, err)}
@@ -226,26 +235,12 @@ func controlNativeWrite(ctx context.Context, request operationRequest, args obje
 	if nativeControlRequest == nil {
 		return nil, errors.New(PortPending)
 	}
+	args = maps.Clone(args)
+	if _, supplied := args["timeoutMs"]; !supplied {
+		args["timeoutMs"] = 86400000
+	}
 	return runControlMutation(ctx, request, "native", args, func(ctx context.Context, row object) (any, error) {
-		args := obj(row["arguments"])
-		duration := time.Duration(min(uintOr(args["timeoutMs"], 86400000), 86400000)) * time.Millisecond
-		method, params := text(args, "method"), args["params"]
-		if _, selected := args["project"].(string); selected && slices.Contains([]string{"command/exec", "process/spawn", "thread/fork"}, method) {
-			directory := maps.Clone(args)
-			input := clone(obj(params))
-			if input == nil {
-				input = object{}
-			}
-			if cwd, exists := input["cwd"]; exists {
-				directory["cwd"] = cwd
-			}
-			cwd, err := projectWorkingDirectory(ctx, request.service, directory)
-			if err != nil {
-				return nil, err
-			}
-			input["cwd"], params = cwd, input
-		}
-		return nativeControlRequest(ctx, request.service, method, params, duration)
+		return executeNativeCodexReceipt(ctx, request.service, request.name, row)
 	})
 }
 
