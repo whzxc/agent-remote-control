@@ -1,0 +1,32 @@
+[
+  {
+    "section": "improvements",
+    "en": "ARC's Core, CLI and desktop app are rebuilt on Go and MyGo. Settings, accounts, tasks, notification bindings and device pairings carry over in place without migration.",
+    "zh-CN": "ARC 的 Core、CLI 和桌面应用改用 Go 与 MyGo 重建。设置、账号、任务、通知绑定和设备配对原地保留，无需迁移。"
+  },
+  {
+    "section": "improvements",
+    "en": "On macOS, Core watches files with far fewer open handles, and the task index becomes ready sooner after startup.",
+    "zh-CN": "macOS 上 Core 监听文件占用的句柄大幅减少，启动后任务索引更快就绪。"
+  },
+  {
+    "section": "fixes",
+    "en": "On Windows, quitting after an update no longer leaves Core running or makes the next launch fail. Connections retry while the local Core pipe is busy, and native connection errors are reported clearly.",
+    "zh-CN": "Windows 上更新后退出不再残留 Core，也不会导致下次启动失败。本地 Core 管道繁忙时会自动重试连接，原生连接错误也能清楚提示。"
+  },
+  {
+    "section": "fixes",
+    "en": "Quitting ARC no longer waits for open reads. After Core restarts, ARC re-adopts running Codex Desktop instances instead of reporting their profile as in use.",
+    "zh-CN": "退出 ARC 时不再被未完成的读取拖慢。Core 重启后，ARC 会重新接管正在运行的 Codex Desktop 实例，不再提示配置被占用。"
+  },
+  {
+    "section": "fixes",
+    "en": "Coordination notices keep posting when retained history is full; the oldest finished entries are reclaimed first.",
+    "zh-CN": "协调公告在保留历史已满时仍可发布，会优先回收最早结束的记录。"
+  },
+  {
+    "section": "actions",
+    "en": "macOS 13.0 or later is now required. Install this update through the existing updater; later updates use the new updater automatically.",
+    "zh-CN": "现在需要 macOS 13.0 或更高版本。请通过现有的更新程序安装本次更新；之后的更新会自动使用新的更新程序。"
+  }
+]
