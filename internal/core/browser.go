@@ -43,7 +43,7 @@ func browserAccess(ctx context.Context, s *service, rotate bool) (object, error)
 		}
 	}
 	ingresses, err := s.ingressStatuses(ctx)
-	if errors.Is(err, fs.ErrNotExist) {
+	if errors.Is(err, fs.ErrNotExist) || missingPrivateEndpoint(err) {
 		// There is no front-door owner yet. Configured URLs can still be linked.
 		entries, readErr := cachedEntries(filepath.Join(root(), "ingresses"))
 		if readErr != nil {
