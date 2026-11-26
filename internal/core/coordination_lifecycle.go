@@ -174,9 +174,6 @@ func reportCoordinationLifecycle(ctx context.Context, s *service, body object) (
 }
 
 func verifyCoordinationLifecycle(ctx context.Context, service *service, report coordinationLifecycleReport) ([]string, error) {
-	if coordinationProjectCatalog == nil {
-		return nil, errors.New(PortPending)
-	}
 	projects, err := coordinationProjectCatalog(ctx, service)
 	if err != nil {
 		return nil, err
@@ -221,9 +218,6 @@ func verifyCoordinationLifecycle(ctx context.Context, service *service, report c
 			return nil, err
 		}
 		resources = append(resources, lane)
-		if coordinationLocalGit == nil {
-			return nil, errors.New(PortPending)
-		}
 		branch := "refs/heads/wt/" + *report.Lane
 		worktrees, err := coordinationLocalGit(ctx, report.Repository, "worktree", "list", "--porcelain")
 		if err != nil {

@@ -92,7 +92,7 @@ func executeOperation(ctx context.Context, request operationRequest) (any, error
 		handler = fallbackOperations[request.name]
 	}
 	if handler == nil {
-		return nil, errors.New(PortPending)
+		return nil, errors.New(wire(unknownOp(request.name, request.source.enabledOps())))
 	}
 	ctx = runtimeOperationCost(ctx, request.name)
 	var projections []operationProjection

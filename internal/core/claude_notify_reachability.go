@@ -167,10 +167,6 @@ func notificationAccountRoute(ctx context.Context, source, target, channel strin
 	}
 	profile := text(t, "accountId")
 	if accountID, specified := r.args["accountId"].(string); specified {
-		if notificationClaudeProfile == nil {
-			notificationEventOperation.Unlock()
-			return nil, errors.New(PortPending)
-		}
 		selected, err := notificationClaudeProfile(accountID)
 		if err != nil {
 			notificationEventOperation.Unlock()
@@ -194,9 +190,6 @@ func notificationAccountRoute(ctx context.Context, source, target, channel strin
 	notificationEventOperation.Unlock()
 	if err != nil {
 		return nil, err
-	}
-	if notificationClaudePublicAccount == nil || notificationClaudeProfiles == nil || notificationClaudeCandidates == nil {
-		return nil, errors.New(PortPending)
 	}
 	if account := notificationClaudePublicAccount(profile); action == "route" || account["id"] != nil {
 		profiles, err := notificationClaudeProfiles()
@@ -300,9 +293,6 @@ func verifyNotificationTarget(ctx context.Context, source, target, channel strin
 		}
 		if settings["notificationsEnabled"] == false {
 			return errors.New("NOTIFICATIONS_DISABLED")
-		}
-		if notificationSessionSend == nil || channel == "claude-session" && (notificationClaudeIdentity == nil || notificationClaudeRun == nil) || channel == "antigravity-session" && notificationAntigravitySend == nil {
-			return errors.New(PortPending)
 		}
 		now := notificationClock().Unix()
 		t = notificationTarget(state, settings, source, channel, target, now)
@@ -416,9 +406,6 @@ func acknowledgeNotificationChallenge(state object, source string, args object) 
 	}
 	resolution := object{"state": "unresolved", "reason": "No provider identity was available for the sending profile. Verify again after signing in."}
 	if evidence := clone(obj(reach["identityEvidence"])); evidence != nil {
-		if notificationConfirmIdentity == nil {
-			return nil, errors.New(PortPending)
-		}
 		evidence["sourceId"], evidence["target"], evidence["confirmedAt"] = source, target, now()
 		resolution, err = notificationConfirmIdentity(source, evidence)
 		if err != nil {

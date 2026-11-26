@@ -549,7 +549,7 @@ func nativeAgentPrompt(ctx context.Context, r operationRequest, process *nativeA
 		recordLog("WARN", "Agent dispatch: "+err.Error(), nil)
 	}
 	observation := agentTurnObservation(task)
-	if err := handleNotificationObservation(ctx, r.service, taskID, turn, observation); err != nil && err.Error() != PortPending {
+	if err := handleNotificationObservation(ctx, r.service, taskID, turn, observation); err != nil {
 		recordLog("WARN", "Agent notification: "+err.Error(), nil)
 	}
 	return object{"taskId": taskID, "turnId": turn, "sessionId": task["sessionId"], "status": task["status"], "dispatch": dispatch,

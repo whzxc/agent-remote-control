@@ -428,8 +428,8 @@ func (p *inProcess) dispatch(ctx context.Context, request frontDoorRequest) (any
 	case "PeerControl":
 		if peer := obj(field(authority, "Peer")); peer != nil {
 			service, ok := p.target.(*service)
-			if !ok || peerControlRequest == nil {
-				return nil, errors.New(PortPending)
+			if !ok {
+				return nil, errors.New(contextMismatch)
 			}
 			return peerControlRequest(context.WithValue(ctx, &peerControlKey, true), service, text(peer, "device_id"), body)
 		}
@@ -438,9 +438,6 @@ func (p *inProcess) dispatch(ctx context.Context, request frontDoorRequest) (any
 			service, ok := p.target.(*service)
 			if !ok {
 				return nil, errors.New(contextMismatch)
-			}
-			if resolveAuthenticatedMCP == nil {
-				return nil, errors.New(PortPending)
 			}
 			configured, err := resolveAuthenticatedMCP(ctx, service, text(source, "ingress_id"), text(source, "source_id"))
 			if err != nil {

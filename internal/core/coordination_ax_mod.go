@@ -238,7 +238,7 @@ func axRequireMaintainer(op string, actor object) error {
 func axCall(ctx context.Context, request operationRequest) (any, error) {
 	request.args = clone(request.args)
 	result, err := axExecute(ctx, request)
-	if err == nil || err.Error() == PortPending {
+	if err == nil {
 		return result, err
 	}
 	return axFailure(err, request.name, request.args), nil

@@ -490,9 +490,6 @@ func listSRCConversations(ctx context.Context, args object) (any, error) {
 
 func bindSRCTask(args, account object) (object, error) {
 	task, agent, id := text(args, "taskId"), text(args, "agent"), text(account, "id")
-	if readNativeDispatchHistory == nil {
-		return nil, errors.New(PortPending)
-	}
 	records, err := readNativeDispatchHistory(task)
 	if err != nil {
 		return nil, err

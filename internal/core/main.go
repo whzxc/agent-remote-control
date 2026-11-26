@@ -12,7 +12,6 @@ import (
 	"syscall"
 )
 
-const PortPending = "GO_PORT_PENDING"
 const operatingSystem = runtime.GOOS
 
 const topLevelHelp = "arc start | stop | status | daemon | systemd install | stdio | cli <command>\nConfigure MCP with cli ingress add --stdin; see cli help. daemon runs in the foreground; start detaches."

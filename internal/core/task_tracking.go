@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
 	"regexp"
@@ -1269,9 +1268,6 @@ var taskTrackingNavigation func(string) any
 var resolveTrackedConversation func(context.Context, *service, object) (object, error)
 
 func readTaskTrackingTimeline(ctx context.Context, request operationRequest) (any, error) {
-	if resolveTrackedConversation == nil {
-		return nil, errors.New(PortPending)
-	}
 	result, err := resolveTrackedConversation(ctx, request.service, request.args)
 	if err != nil {
 		return nil, err
@@ -1863,9 +1859,6 @@ func projectTaskContextTracking(facts contextTaskEvidence) contextTaskEvidence {
 var readTaskTrackingAnswers func(context.Context, *service, string) ([]object, error)
 
 func projectTrackedInteractions(ctx context.Context, s *service, thread string) ([]any, error) {
-	if readTaskTrackingAnswers == nil {
-		return nil, errors.New(PortPending)
-	}
 	answers, err := readTaskTrackingAnswers(ctx, s, thread)
 	if err != nil {
 		return nil, err

@@ -85,9 +85,6 @@ func dispatchDeviceControl(ctx context.Context, s *service, id string, body obje
 		}
 		return egressTool(reply, false), nil
 	case "codex_tasks", "agent_tasks", "task_activity":
-		if deviceCoreTaskRead == nil {
-			return nil, errors.New(PortPending)
-		}
 		result, err := deviceCoreTaskRead(ctx, s, source, op, args)
 		if err != nil {
 			return egressTool(object{"error": controlFailure(err)}, true), nil

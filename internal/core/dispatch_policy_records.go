@@ -126,13 +126,7 @@ func dispatchRecords(thread string) ([]object, error) {
 }
 
 func saveDispatchRecord(path string, row object) error {
-	if dispatchSaveOwner != nil {
-		return dispatchSaveOwner(path, row)
-	}
-	if obj(row["coordination"]) != nil {
-		return errors.New(PortPending)
-	}
-	return save(path, row)
+	return dispatchSaveOwner(path, row)
 }
 
 func recordDispatch(receipt object) error {

@@ -38,42 +38,17 @@ var dispatchPackName = regexp.MustCompile(`^[a-z0-9-]{1,40}$`)
 var dispatchRegisteredAgent func(*service, string) bool
 var dispatchAgentFacts func(context.Context, *service, object) ([]object, error)
 
-// The tagged fixture runs only the specified read-only provider methods.
-var dispatchFixtureRegistered func(*service, string) (bool, bool)
-var dispatchFixtureFacts func(context.Context, *service, object) ([]object, error)
-var dispatchFixtureRPC func(context.Context, *service, string, any, time.Duration) (any, error)
-
 func policyAgentRegistered(s *service, agent string) (bool, error) {
 	if agent == "codex" {
 		return true, nil
 	}
-	if dispatchRegisteredAgent != nil {
-		return dispatchRegisteredAgent(s, agent), nil
-	}
-	if dispatchFixtureRegistered != nil {
-		if registered, fixture := dispatchFixtureRegistered(s, agent); fixture {
-			return registered, nil
-		}
-	}
-	return false, errors.New(PortPending)
+	return dispatchRegisteredAgent(s, agent), nil
 }
 func policyAgentFacts(ctx context.Context, s *service, args object) ([]object, error) {
-	if dispatchAgentFacts != nil {
-		return dispatchAgentFacts(ctx, s, args)
-	}
-	if dispatchFixtureFacts != nil {
-		return dispatchFixtureFacts(ctx, s, args)
-	}
-	return nil, errors.New(PortPending)
+	return dispatchAgentFacts(ctx, s, args)
 }
 func policyNativeRequest(ctx context.Context, s *service, method string, args any, timeout time.Duration) (any, error) {
-	if nativeControlRequest != nil {
-		return nativeControlRequest(ctx, s, method, args, timeout)
-	}
-	if dispatchFixtureRPC != nil {
-		return dispatchFixtureRPC(ctx, s, method, args, timeout)
-	}
-	return nil, errors.New(PortPending)
+	return nativeControlRequest(ctx, s, method, args, timeout)
 }
 
 func dispatchPolicyPath() string { return filepath.Join(root(), "dispatch-policy.json") }

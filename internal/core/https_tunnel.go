@@ -83,7 +83,7 @@ func installManagedTunnel(ctx context.Context, provider string, proxy networkPro
 		}
 	}
 	if runtimeFixture {
-		return "", errors.New(PortPending)
+		return "", errFixtureProviderUnavailable
 	}
 	client := networkHTTPClient(proxy)
 	client.CheckRedirect = nil
@@ -303,7 +303,7 @@ func prepareManagedTunnel(ctx context.Context, i *networkIngress, settings objec
 		conf := object{}
 		if tunnel.named && settings["cloudflareAuth"] == "login" {
 			if runtimeFixture {
-				return nil, errors.New(PortPending)
+				return nil, errFixtureProviderUnavailable
 			}
 			id := text(settings, "cloudflareTunnelId")
 			parsed, err := url.Parse(tunnel.selected)

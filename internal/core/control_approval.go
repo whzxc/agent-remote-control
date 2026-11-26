@@ -67,7 +67,7 @@ func decideCodexReceipt(ctx context.Context, r operationRequest, localDecision b
 		perform = interruptCodexMutation
 	case "native":
 	default:
-		return nil, errors.New(PortPending)
+		return nil, errors.New("UNSUPPORTED_OPERATION: Read the original receipt before deciding the operation.")
 	}
 	if !recoveryPending {
 		source := "cloud"

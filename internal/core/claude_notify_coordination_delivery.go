@@ -28,9 +28,6 @@ func notificationCoordinationRouteID(source, target string) string {
 }
 
 func notificationCoordinationAuthority(ctx context.Context, source string) (object, error) {
-	if notificationSourceAuthority == nil {
-		return nil, errors.New(PortPending)
-	}
 	a, err := notificationSourceAuthority(ctx, source)
 	if err != nil {
 		return nil, err
@@ -167,13 +164,7 @@ func deliverNotificationCoordination(ctx context.Context, route notificationCoor
 	source := route.SourceID
 	a, err := notificationCoordinationAuthority(ctx, source)
 	if err != nil {
-		if err.Error() == PortPending {
-			return notificationCoordinationOutcome{}, err
-		}
 		return notificationCoordinationOutcome{State: "cancelled"}, nil
-	}
-	if notificationSessionSend == nil {
-		return notificationCoordinationOutcome{}, errors.New(PortPending)
 	}
 	at := notificationClock().Unix()
 	var target, profile string

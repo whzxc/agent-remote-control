@@ -860,13 +860,7 @@ func deliverNotificationSession(ctx context.Context, channel, profile, target, b
 		return errors.New("NOTIFICATIONS_DISABLED")
 	}
 	if channel == "antigravity-session" {
-		if notificationAntigravitySend == nil {
-			return errors.New(PortPending)
-		}
 		return notificationAntigravitySend(ctx, target, body)
-	}
-	if notificationClaudeRun == nil {
-		return errors.New(PortPending)
 	}
 	output, err := notificationClaudeRun(ctx, profile, notificationClaudeArguments(target, body))
 	if err != nil {
@@ -904,9 +898,6 @@ func deliverAccountNotification(ctx context.Context, args object) (object, error
 	accountID, body := text(args, "accountId"), text(args, "message")
 	if strings.TrimSpace(body) == "" || utf8.RuneCountInString(body) > 8000 {
 		return nil, errors.New("INVALID_NOTIFICATION_MESSAGE: Supply 1 to 8000 characters")
-	}
-	if notificationAccountBind == nil {
-		return nil, errors.New(PortPending)
 	}
 	if err := notificationAccountBind(ctx, target, accountID); err != nil {
 		return nil, err
@@ -1181,7 +1172,7 @@ func projectNotificationControlResult(ctx context.Context, r operationRequest, v
 					if observed["title"] == nil {
 						observed["title"] = value["title"]
 					}
-					if err := handleNotificationObservation(ctx, r.service, task, id, observed); err != nil && err.Error() != PortPending {
+					if err := handleNotificationObservation(ctx, r.service, task, id, observed); err != nil {
 						recordLog("WARN", "Inbox read tracking failed: "+err.Error(), nil)
 					}
 				}

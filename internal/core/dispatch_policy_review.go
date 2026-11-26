@@ -311,9 +311,6 @@ func saveDispatchReview(ctx context.Context, thread, turn string, args, external
 }
 
 func dispatchCodexReview(ctx context.Context, r operationRequest) (any, error) {
-	if nativeControlRequest == nil || dispatchNativeTurnOutcome == nil {
-		return nil, errors.New(PortPending)
-	}
 	return runControlMutation(ctx, r, "review", r.args, func(ctx context.Context, receipt object) (any, error) {
 		args := obj(receipt["arguments"])
 		thread := text(args, "threadId")
@@ -403,9 +400,6 @@ func init() {
 
 func reviewAgentDispatch(ctx context.Context, args, snapshot object) (object, error) {
 	task, agent := text(args, "taskId"), text(args, "agent")
-	if mergeDispatchLifecycle == nil {
-		return nil, errors.New(PortPending)
-	}
 	dispatchRecordsMu.Lock()
 	owned, external, err := dispatchRowsForReview(task)
 	dispatchRecordsMu.Unlock()

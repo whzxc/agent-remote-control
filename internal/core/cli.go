@@ -714,7 +714,7 @@ func externalCLI(ctx context.Context, args []string, body object, stdin io.Reade
 	if run := cliExtensions[args[0]]; run != nil {
 		return run(ctx, args, body, stdin)
 	}
-	return nil, errors.New(PortPending)
+	return nil, errors.New("Unknown command")
 }
 
 func executeCLIRoute(ctx context.Context, args []string, body object, setupLocale string, stdin io.Reader) (any, error) {
@@ -1001,9 +1001,6 @@ func validateCLIIngress(body object, patch bool) error {
 		case "config":
 			if err := expectCLIType(key, value, "object"); err != nil {
 				return err
-			}
-			if ingressConfigDefaults == nil {
-				return errors.New(PortPending)
 			}
 			defaults := ingressConfigDefaults()
 			if err := knownCLIFields(obj(value), keys(defaults), "config."); err != nil {

@@ -170,7 +170,7 @@ func installOfficialTunnel(ctx context.Context, config object) (string, error) {
 	openAITunnelInstallLock.Lock()
 	defer openAITunnelInstallLock.Unlock()
 	if runtimeFixture {
-		return "", errors.New(PortPending)
+		return "", errFixtureProviderUnavailable
 	}
 	parent := filepath.Join(root(), "dependencies/tunnel")
 	binaryName, cloudflaredName := openAITunnelNames()
@@ -309,7 +309,7 @@ func startOpenAITunnel(ctx context.Context, i *networkIngress, config object) er
 		if fixtures == "" || err != nil || physicalErr != nil || rootErr != nil || physicalRelErr != nil ||
 			!filepath.IsAbs(configured) || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) ||
 			physicalRelative == ".." || strings.HasPrefix(physicalRelative, ".."+string(filepath.Separator)) {
-			return errors.New(PortPending)
+			return errFixtureProviderUnavailable
 		}
 	}
 	binary, err := i.prepareOfficialTunnel(ctx, config, false)

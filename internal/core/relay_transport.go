@@ -498,7 +498,7 @@ func relayConnect(ctx context.Context, ingress *networkIngress, config object, l
 
 func startRelayIngress(ingress *networkIngress, config object) error {
 	if runtimeFixture {
-		return errors.New(PortPending)
+		return errFixtureProviderUnavailable
 	}
 	address, err := listenHTTPSIngress(ingress, object{"httpsProvider": "relay"})
 	if err != nil {

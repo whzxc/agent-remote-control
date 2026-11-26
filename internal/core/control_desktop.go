@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"maps"
+	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -273,7 +275,54 @@ func desktopCodexBinary() string {
 	return ""
 }
 
+func installedCodexCLI() string {
+	if runtimeFixture && fixtureNativeCodexInputs != nil {
+		binary, _, _ := fixtureNativeCodexInputs()
+		return binary
+	}
+	if operatingSystem == "linux" {
+		return discoverAgentExecutable("codex")
+	}
+	return desktopCodexBinary()
+}
+
+func codexLoginStatus(ctx context.Context, binary string) (object, error) {
+	if binary == "" {
+		if operatingSystem == "linux" {
+			return nil, errors.New("CODEX_NOT_FOUND: install Codex CLI and run codex login in your terminal.")
+		}
+		return nil, errors.New("Install Codex Desktop first")
+	}
+	if _, err := nativeCommand(ctx, binary, "login", "status").Output(); err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		var exited *exec.ExitError
+		if !errors.As(err, &exited) {
+			return nil, err
+		}
+		return object{"state": "unauthenticated"}, nil
+	}
+	return object{"state": "authenticated"}, nil
+}
+
 func init() {
+	registerRoute(http.MethodGet, "codex/login", func(ctx context.Context, _ *service, _ object, _ []string) (any, error) {
+		return codexLoginStatus(ctx, installedCodexCLI())
+	})
+	registerRoute(http.MethodPost, "codex/login", func(ctx context.Context, _ *service, _ object, _ []string) (any, error) {
+		if operatingSystem == "linux" && !runtimeFixture {
+			return nil, errors.New("DESKTOP_UNSUPPORTED: headless Linux has no Codex Desktop.")
+		}
+		url := ""
+		if operatingSystem == "windows" || runtimeFixture {
+			url = "codex://"
+		}
+		if err := openNativeDesktopURL(ctx, url); err != nil {
+			return nil, err
+		}
+		return object{"state": "unauthenticated", "message": "Complete login in Codex Desktop"}, nil
+	})
 	runtimeDesktopDiagnostics = func(s *service) object {
 		s.codex.desktopMu.Lock()
 		d := s.codex.desktop

@@ -955,9 +955,6 @@ func gatewaySourceManagement(ctx context.Context, g *gatewayOwner, method, id, a
 		}
 		switch field(source["credential"], "type") {
 		case "oauth-grant":
-			if manageSourceOAuth == nil {
-				return nil, errors.New(PortPending)
-			}
 			if _, err := manageSourceOAuth(ctx, g, text(source, "ingressId"), "revoke", object{"grantId": field(source["credential"], "grantId")}); err != nil {
 				return nil, err
 			}
@@ -977,18 +974,12 @@ func gatewaySourceManagement(ctx context.Context, g *gatewayOwner, method, id, a
 		if !ok {
 			return nil, errors.New("sourceId must be new or an existing source ID")
 		}
-		if manageSourceOAuth == nil {
-			return nil, errors.New(PortPending)
-		}
 		_, err := manageSourceOAuth(ctx, g, text(source, "ingressId"), "decision", object{"requestId": field(source["credential"], "grantId"), "approved": true, "sourceId": target})
 		return object{"approved": true, "sourceId": target}, err
 	case "switch":
 		if method == http.MethodDelete {
 			pending := source["pendingSwitch"]
 			if request, ok := field(pending, "requestId").(string); ok {
-				if manageSourceOAuth == nil {
-					return nil, errors.New(PortPending)
-				}
 				if _, err := manageSourceOAuth(ctx, g, text(pending, "ingressId"), "revoke", object{"grantId": request}); err != nil {
 					return nil, err
 				}

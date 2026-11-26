@@ -199,9 +199,6 @@ func listCodexTasks(ctx context.Context, request operationRequest) (any, error) 
 		return nil, errors.New("NATIVE_TASKS_MISSING")
 	}
 	if ctx.Value(&peerControlKey) != nil {
-		if peerCanReadTask == nil {
-			return nil, errors.New(PortPending)
-		}
 		rows = slices.DeleteFunc(slices.Clone(rows), func(row any) bool { return !peerCanReadTask(ctx, "codex", text(row, "id")) })
 	}
 	recordRuntimeWork(ctx, runtimeWorkCost{Owner: "task-list", Reason: "poll", ScanSet: len(rows), Rows: len(rows)})

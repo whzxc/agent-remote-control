@@ -132,9 +132,6 @@ func coordinationMessageFailure(err error, op string) object {
 }
 
 func authorizeCoordinationRecipient(ctx context.Context, source string) error {
-	if readCoordinationSource == nil {
-		return errors.New(PortPending)
-	}
 	value, err := readCoordinationSource(ctx, object{"sourceId": source})
 	if err != nil {
 		return err
@@ -272,7 +269,7 @@ func refreshCoordinationRecovery(ctx context.Context) error {
 func callCoordinationMessage(ctx context.Context, request operationRequest) (any, error) {
 	request.args = clone(request.args)
 	value, err := executeCoordinationMessage(ctx, request)
-	if err == nil || err.Error() == PortPending {
+	if err == nil {
 		return value, err
 	}
 	return coordinationMessageFailure(err, request.name), nil
@@ -330,9 +327,6 @@ func executeCoordinationMessage(ctx context.Context, request operationRequest) (
 	if op == "message_route" {
 		var route *coordinationRoute
 		if target, ok := args["target"].(string); ok {
-			if coordinationVerifiedTarget == nil {
-				return nil, errors.New(PortPending)
-			}
 			result, err := coordinationVerifiedTarget(ctx, actor, target)
 			if err != nil {
 				return nil, err
@@ -571,9 +565,6 @@ func flushCoordinationMessages(ctx context.Context) error {
 				return err
 			}
 			continue
-		}
-		if deliverCoordinationBatch == nil {
-			return errors.New(PortPending)
 		}
 		if err := refreshCoordinationRecovery(ctx); err != nil {
 			return err

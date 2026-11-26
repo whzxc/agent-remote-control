@@ -1047,7 +1047,6 @@
         "internal/core/dispatch_policy_records.go",
         "internal/core/dispatch_policy_review.go",
         "internal/core/dispatch_policy_test.go",
-        "internal/core/dispatch_policy_fixture.go",
         "internal/core/dispatch_policy_quality_test.go"
       ],
       "status": "verified"
@@ -1105,6 +1104,7 @@
         "internal/core/front_door_process.go",
         "internal/core/front_door_supervision.go",
         "internal/core/front_door_process_test.go",
+        "internal/core/front_door_process_windows_test.go",
         "internal/platform/ipc_windows_test.go"
       ],
       "status": "ported",

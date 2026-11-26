@@ -70,9 +70,6 @@ func coordinationReadAuthority(ctx context.Context, local bool) (coordinationRea
 	if local && readCoordinationSource == nil && (origin["ingressId"] == "local-cli" || origin["sourceId"] == "local-cli") {
 		return coordinationReader{coordinationPrincipal{Type: "local-authority"}, hash([]byte(wire([]any{1, "local-cli", "local-cli", nil})))}, nil
 	}
-	if readCoordinationSource == nil {
-		return coordinationReader{}, errors.New(PortPending)
-	}
 	source, err := readCoordinationSource(ctx, origin)
 	if err != nil {
 		return coordinationReader{}, err
@@ -118,9 +115,6 @@ func coordinationEventQuery(ctx context.Context, request operationRequest) (any,
 			obj(result["coverage"])["observers"] = []any{}
 		}
 		return result, nil
-	}
-	if err.Error() == PortPending {
-		return nil, err
 	}
 	code, _, _ := strings.Cut(err.Error(), ":")
 	next := object{"op": nil, "hint": "Use local ARC management to restore source authorization or journal disk capacity; preserve coordination/events for recovery"}
@@ -211,7 +205,7 @@ func observeAuthenticatedCoordination(ctx context.Context, source requestSource)
 	if err == nil {
 		err = bulletinAuthenticatedActivity(ctx, reader)
 	}
-	if err != nil && err.Error() != PortPending {
+	if err != nil {
 		coordinationGap("bulletin-activity", "activity-unavailable")
 	}
 }

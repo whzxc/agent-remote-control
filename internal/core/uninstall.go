@@ -229,10 +229,6 @@ func runUninstall(ctx context.Context, purge bool) (object, error) {
 		paths = append(paths, filepath.Join(home, agent, "skills/arc-setup"))
 	}
 	// Keep state and the installed artifacts intact until each process owner confirms shutdown.
-	if uninstallStopCodexHosts == nil && uninstallExists(filepath.Join(root(), "codex-app-server")) ||
-		uninstallStopTaskHosts == nil && uninstallExists(filepath.Join(root(), "task-host/instances")) {
-		return nil, errors.New(PortPending)
-	}
 	autostart, err := stopUninstallAutostart(ctx, home)
 	if err != nil {
 		return nil, err

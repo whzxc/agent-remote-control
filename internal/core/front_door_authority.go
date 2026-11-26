@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"errors"
-	"slices"
 )
 
 const contextMismatch = "FRONT_DOOR_CONTEXT_MISMATCH"
@@ -30,11 +29,6 @@ func handleSourceAuthority(ctx context.Context, op string, body object) (any, er
 	if handler := sourceAuthorityHandlers[op]; handler != nil {
 		return handler(ctx, body)
 	}
-	if slices.Contains([]string{"peer_connect", "peer_revoke", "active_grants", "ingress_retired", "begin_switch", "cancel_switch",
-		"candidates", "connect", "connection_state", "control_sources", "disconnect", "ensure_ingress", "for_grant", "get",
-		"grant_active", "pending", "remove_connection", "revoke_grants", "update", "validate_claim"}, op) {
-		return nil, errors.New(PortPending)
-	}
 	return nil, errors.New("FRONT_DOOR_AUTHORITY_OPERATION: Use a matching front-door protocol.")
 }
 
@@ -59,17 +53,11 @@ func validatePrivateAuthority(ctx context.Context, value any) error {
 		if unmarshalJSON([]byte(wire(values["Peer"])), &peer) != nil || peer.DeviceID == "" {
 			return errors.New(contextMismatch)
 		}
-		if authorizePeerDevice == nil {
-			return errors.New(PortPending)
-		}
 		return authorizePeerDevice(ctx, peer.DeviceID)
 	case values["Browser"] != nil:
 		var browser privateBrowserAuthority
 		if unmarshalJSON([]byte(wire(values["Browser"])), &browser) != nil || browser.IngressID == "" || browser.KeyDigest == "" {
 			return errors.New(contextMismatch)
-		}
-		if currentBrowserKeyDigest == nil {
-			return errors.New(PortPending)
 		}
 		expected, err := currentBrowserKeyDigest(ctx)
 		if err != nil {
@@ -87,9 +75,6 @@ func validatePrivateAuthority(ctx context.Context, value any) error {
 		if unmarshalJSON([]byte(wire(values["Mcp"])), &authority) != nil || authority.IngressID == "" ||
 			authority.SourceID == "" || !credential || !origin {
 			return errors.New(contextMismatch)
-		}
-		if validateMCPCredential == nil {
-			return errors.New(PortPending)
 		}
 		return validateMCPCredential(ctx, authority.IngressID, authority.SourceID, authority.Credential)
 	}
@@ -130,16 +115,7 @@ func privateIngressSource(ctx context.Context, target *service, authority object
 	if target.fixtureIngress != nil && principal["type"] == "ingress" && ingressFixtureSourceTransport != nil {
 		return ingressFixtureSourceTransport(ctx, target, ingress, principal, header)
 	}
-	if authenticateIngressPrincipal != nil {
-		return authenticateIngressPrincipal(ctx, target, ingress, principal, header)
-	}
-	if ingress != "default" {
-		return requestSource{}, errors.New(PortPending)
-	}
-	if text(principal, "type") != "ingress" || text(principal, "ingressId") != ingress || header != nil {
-		return requestSource{}, errors.New(contextMismatch)
-	}
-	return target.source, nil
+	return authenticateIngressPrincipal(ctx, target, ingress, principal, header)
 }
 
 func init() {

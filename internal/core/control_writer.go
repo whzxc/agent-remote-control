@@ -117,9 +117,6 @@ func archiveCodexThread(ctx context.Context, s *service, args, receipt object) (
 			"message": "The thread is active or has a pending interaction. Finish it, or explicitly interrupt it, before archiving.",
 			"next":    object{"via": "query", "op": "codex_read", "args": object{"threadId": thread, "statusOnly": true}}}))
 	}
-	if endCodexOwnershipScope == nil {
-		return nil, errors.New(PortPending)
-	}
 	if args["release"] == true {
 		owner := s.nativeWriterOwnership(ctx, home, thread)
 		if owner["state"] != "unheld" && (owner["owner"] != "connector" || runtime != "idle") {

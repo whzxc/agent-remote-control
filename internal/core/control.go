@@ -195,9 +195,6 @@ func launchControlMutation(ctx context.Context, service *service, store receiptS
 }
 
 func controlNativeDomain(ctx context.Context, request operationRequest) (any, error) {
-	if nativeControlRequest == nil {
-		return nil, errors.New(PortPending)
-	}
 	args, spec := request.args, operation(request.name)
 	for name, fieldSchema := range obj(field(spec["inputSchema"], "properties")) {
 		if value, exists := obj(fieldSchema)["default"]; exists {
@@ -233,9 +230,6 @@ func controlNativeDomain(ctx context.Context, request operationRequest) (any, er
 }
 
 func controlNativeWrite(ctx context.Context, request operationRequest, args object) (any, error) {
-	if nativeControlRequest == nil {
-		return nil, errors.New(PortPending)
-	}
 	args = maps.Clone(args)
 	if _, supplied := args["timeoutMs"]; !supplied {
 		args["timeoutMs"] = 86400000
@@ -333,18 +327,12 @@ func init() {
 		registerOperationFallback(name, controlNativeDomain)
 	}
 	registerOperation("codex_query", func(ctx context.Context, r operationRequest) (any, error) {
-		if nativeControlRequest == nil {
-			return nil, errors.New(PortPending)
-		}
 		return nativeControlRequest(ctx, r.service, text(r.args, "method"), r.args["params"], time.Minute)
 	}, nil)
 	registerOperation("codex_call", func(ctx context.Context, r operationRequest) (any, error) {
 		return controlNativeWrite(ctx, r, r.args)
 	}, nil)
 	registerOperation("file_search", func(ctx context.Context, r operationRequest) (any, error) {
-		if nativeControlRequest == nil {
-			return nil, errors.New(PortPending)
-		}
 		return nativeControlRequest(ctx, r.service, "fuzzyFileSearch", r.args, time.Minute)
 	}, nil)
 }
@@ -449,9 +437,6 @@ var authorizeNativeInteraction func(context.Context, object) error
 func pendingControlInteractions(ctx context.Context, r operationRequest) (any, error) {
 	thread := text(r.args, "threadId")
 	if thread != "" {
-		if readThreadPending == nil {
-			return nil, errors.New(PortPending)
-		}
 		if err := readThreadPending(ctx, r.service, thread); err != nil {
 			return nil, err
 		}
@@ -463,9 +448,6 @@ func pendingControlInteractions(ctx context.Context, r operationRequest) (any, e
 		}
 		if row["responseId"] == nil {
 			row["responseId"] = wire(row["id"])
-		}
-		if authorizeNativeInteraction == nil {
-			return nil, errors.New(PortPending)
 		}
 		if err := authorizeNativeInteraction(ctx, row); err != nil {
 			return nil, err

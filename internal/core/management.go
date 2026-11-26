@@ -39,31 +39,6 @@ func managementCatalog() object {
 }
 
 var routeID = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
-var routeParam = regexp.MustCompile(`\{(?:id|requestId)\}`)
-
-var managementRoutes = sync.OnceValue(func() map[string][]*regexp.Regexp {
-	methods := make(map[string][]*regexp.Regexp)
-	for _, value := range arr(baseManagementCatalog()["operations"]) {
-		route := text(value, "route")
-		segments := routeParam.Split(route, -1)
-		for index, segment := range segments {
-			segments[index] = regexp.QuoteMeta(segment)
-		}
-		pattern := regexp.MustCompile("^" + strings.Join(segments, "[^/]+") + "$")
-		method := text(value, "method")
-		methods[method] = append(methods[method], pattern)
-	}
-	return methods
-})
-
-func knownManagementRoute(method, route string) bool {
-	for _, pattern := range managementRoutes()[method] {
-		if pattern.MatchString(route) {
-			return true
-		}
-	}
-	return false
-}
 
 func desktopRoute(route string) bool {
 	switch route {
@@ -185,7 +160,7 @@ func managementErrorCode(message string) string {
 			parsed = nil
 		}
 	}
-	for _, code := range []string{PortPending, "CORE_BUILD_MISMATCH", "DEVICE_OFFLINE", "DEVICE_UNKNOWN", "DEVICE_PAIRING_CYCLE", "DEVICE_TOPOLOGY_UNAVAILABLE",
+	for _, code := range []string{"CORE_BUILD_MISMATCH", "DEVICE_OFFLINE", "DEVICE_UNKNOWN", "DEVICE_PAIRING_CYCLE", "DEVICE_TOPOLOGY_UNAVAILABLE",
 		"DEVICE_AGENT_UNAVAILABLE", "DEVICE_TASK_NOT_VISIBLE", "DEVICE_CONNECTION_REFUSED", "DEVICE_RESPONSE_LOST", "DEVICE_OUTCOME_UNCERTAIN",
 		"DEVICE_BUSY", "OP_UNAVAILABLE", "DEVICE_PROTOCOL_MISMATCH", "DEVICE_PAIRING_INVALID", "DEVICE_TLS_FAILED", "DEVICE_LAN_UNAVAILABLE",
 		"DEVICE_TUNNEL_AUTH", "DEVICE_TUNNEL_UNAVAILABLE", "DEVICE_TUNNEL_LIMIT", "DEVICE_LISTEN_FAILED", "DEVICE_CONTROLLER_EXISTS",

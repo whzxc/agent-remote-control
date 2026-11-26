@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net/url"
 	"os"
@@ -736,8 +735,5 @@ func logoutClaudeAccount(ctx context.Context, config string) error {
 var sendAccountNotification func(context.Context, object) (object, error)
 
 func sendAccountNotificationThroughOwner(ctx context.Context, body object) (object, error) {
-	if sendAccountNotification == nil {
-		return nil, fmt.Errorf("%s", PortPending)
-	}
 	return sendAccountNotification(ctx, body)
 }

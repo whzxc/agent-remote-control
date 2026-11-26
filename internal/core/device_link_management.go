@@ -73,9 +73,6 @@ func init() {
 		if !deviceEnabled() {
 			return nil, errors.New(deviceUnavailableMessage)
 		}
-		if deviceControllerTasks == nil {
-			return nil, errors.New(PortPending)
-		}
 		return deviceControllerTasks(ctx, s, body)
 	})
 	registerPreferenceChange(func(ctx context.Context, before, after object) error {

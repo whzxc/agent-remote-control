@@ -601,9 +601,6 @@ func accountsNotifications(ctx context.Context) ([]any, error) {
 		return accountNotificationSessions(ctx)
 	}
 	_, err := os.Stat(filepath.Join(root(), "notifications/subscriptions/state.json"))
-	if err == nil {
-		return nil, errors.New(PortPending)
-	}
 	if !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
@@ -846,9 +843,6 @@ func accountSourceWhoami(ctx context.Context, manager *accountManager, source ob
 	if err != nil {
 		return nil, err
 	}
-	if accountCoordinationDelivery == nil {
-		return nil, errors.New(PortPending)
-	}
 	coordination, err := accountCoordinationDelivery(str(id))
 	if err != nil {
 		return nil, err
@@ -873,9 +867,6 @@ func (manager *accountManager) operation(ctx context.Context, s *service, name s
 		}
 		if liveAccount(row) {
 			if provider, ok := row["quotaProviderId"].(string); ok {
-				if accountSubscriptionSnapshot == nil || forceQuota && refreshAccountSubscription == nil {
-					return nil, errors.New(PortPending)
-				}
 				if forceQuota {
 					if err := refreshAccountSubscription(ctx, s, provider); err != nil {
 						return nil, err
@@ -922,15 +913,9 @@ func (manager *accountManager) operation(ctx context.Context, s *service, name s
 		}
 		return manager.query(ctx, object{"id": id})
 	case "account_merge":
-		var snapshot any
-		if accountSubscriptionSnapshot != nil {
-			var err error
-			snapshot, err = accountSubscriptionSnapshot(s)
-			if err != nil {
-				return nil, err
-			}
-		} else if _, ok := args["quotaProviderId"].(string); ok {
-			return nil, errors.New(PortPending)
+		snapshot, err := accountSubscriptionSnapshot(s)
+		if err != nil {
+			return nil, err
 		}
 		account, err := changeAccounts(func(rows *[]any) (object, error) { return mergeProviderAccounts(*rows, args, snapshot, now()) })
 		if err != nil {

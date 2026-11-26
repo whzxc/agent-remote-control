@@ -184,8 +184,6 @@ func serveHTTPSIngress(w http.ResponseWriter, r *http.Request, i *networkIngress
 	if oauth && discovery {
 		if !running {
 			httpsIngressError(w, http.StatusServiceUnavailable, "connector stopped")
-		} else if ingressOAuthHTTP == nil {
-			httpsIngressError(w, http.StatusServiceUnavailable, PortPending)
 		} else {
 			ingressOAuthHTTP(w, r, i, resource, trace)
 		}

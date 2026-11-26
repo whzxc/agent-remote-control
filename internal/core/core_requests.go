@@ -179,9 +179,6 @@ func callToolInner(ctx context.Context, service *service, source requestSource, 
 		if !operationAvailable(source, "device") {
 			return egressFailure(name, opUnavailable("device"))
 		}
-		if remoteDeviceControl == nil {
-			return egressFailure(name, controlFailure(errors.New(PortPending)))
-		}
 		forward := args
 		if name != "device" {
 			payload := maps.Clone(args)
@@ -431,8 +428,6 @@ func dispatchMCP(ctx context.Context, service *service, source requestSource, re
 			if err != nil {
 				failure = mcpMethodFailure(err)
 			}
-		} else if slices.Contains([]string{"events/list", "events/subscribe", "events/unsubscribe"}, method) {
-			failure = mcpMethodFailure(errors.New(PortPending))
 		} else {
 			failure = object{"code": -32601, "message": "method not found", "data": object{"arcVersion": arcVersion()}}
 		}
@@ -461,11 +456,7 @@ func mcpMethodFailure(err error) object {
 			return failure
 		}
 	}
-	data := object{"arcVersion": arcVersion()}
-	if err.Error() == PortPending {
-		data["code"] = PortPending
-	}
-	return object{"code": -32603, "message": err.Error(), "data": data}
+	return object{"code": -32603, "message": err.Error(), "data": object{"arcVersion": arcVersion()}}
 }
 
 func cancelledControlWait(payload any, elapsed time.Duration) object {
@@ -495,12 +486,6 @@ func init() {
 			source.origin["controlTransport"] = "cli"
 		}
 		return localControl(ctx, s, source, body), nil
-	})
-	registerOperationFallback("connector_verify", func(ctx context.Context, request operationRequest) (any, error) {
-		if !request.source.local {
-			return nil, errors.New(PortPending)
-		}
-		return object{"received": true, "code": request.args["code"], "origin": currentOrigin(ctx)}, nil
 	})
 }
 

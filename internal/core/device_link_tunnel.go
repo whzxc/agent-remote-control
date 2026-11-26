@@ -205,9 +205,6 @@ func (m *deviceManager) serveTunnel(w http.ResponseWriter, r *http.Request) (any
 	case deviceReadPath + "hello":
 		result, err = m.hello()
 	case deviceReadPath + "transfer/control":
-		if deviceTunnelTransfer == nil {
-			return nil, errors.New(PortPending)
-		}
 		result, err = deviceTunnelTransfer(child, m, device, body)
 	case deviceReadPath + "request":
 		if err := deviceValidateTunnelWait(body); err != nil {

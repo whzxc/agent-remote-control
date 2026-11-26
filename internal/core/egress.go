@@ -827,7 +827,7 @@ func controlFailure(err error) object {
 	if parsed {
 		code := text(value, "code")
 		if strings.HasPrefix(code, "DEVICE_") || slices.Contains([]string{
-			PortPending, "REQUEST_ID_CONFLICT", "PERMISSION_REQUIRED", "SUBMISSION_UNCONFIRMED", "PROJECT_NOT_FOUND",
+			"REQUEST_ID_CONFLICT", "PERMISSION_REQUIRED", "SUBMISSION_UNCONFIRMED", "PROJECT_NOT_FOUND",
 			"PROJECT_AMBIGUOUS", "INVALID_ARGUMENTS", "INVALID_OUTPUT_OFFSET", "DIGEST_CURSOR_EXPIRED", "DIGEST_SCOPE_CHANGED",
 			"OUTPUT_EXPIRED", "DISPATCH_POLICY_CONFLICT", "UNKNOWN_OP", "OP_UNAVAILABLE", "WRONG_TOOL",
 			"NOTIFICATION_TARGET_NOT_BOUND_TO_SOURCE", "INVALID_CLAUDE_SESSION", "ACCOUNT_SELECTION_REQUIRED", "ACCOUNT_ROUTE_CHANGED",
@@ -857,7 +857,7 @@ func controlFailure(err error) object {
 	if code == "OP_UNAVAILABLE" || strings.HasPrefix(code, "DEVICE_") {
 		return object{"code": code, "message": message, "next": object{"via": "query", "op": "guide", "args": object{}}}
 	}
-	for _, nativeCode := range []string{PortPending, "REQUEST_ID_CONFLICT", "INVALID_REQUEST_ID", "SUBMISSION_UNCONFIRMED", "INDEX_NOT_READY"} {
+	for _, nativeCode := range []string{"REQUEST_ID_CONFLICT", "INVALID_REQUEST_ID", "SUBMISSION_UNCONFIRMED", "INDEX_NOT_READY"} {
 		if message == nativeCode || strings.HasPrefix(message, nativeCode+":") {
 			return object{"code": nativeCode, "message": message}
 		}
@@ -1038,9 +1038,6 @@ func interactionPreview(request object) object {
 var readRecordedInteractions func(context.Context, *service, string) ([]any, error)
 
 func controlInteractionHistory(ctx context.Context, request operationRequest) (any, error) {
-	if readRecordedInteractions == nil {
-		return nil, errors.New(PortPending)
-	}
 	thread := text(request.args, "threadId")
 	entries, err := readRecordedInteractions(ctx, request.service, thread)
 	if err != nil {

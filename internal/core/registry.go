@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"regexp"
-	"strings"
 )
 
 type managementHandler func(context.Context, *service, object, []string) (any, error)
@@ -58,8 +57,4 @@ func registerManagementCatalog(contribute func(object)) {
 
 func registerServiceStartup(start func(context.Context, *service) error) {
 	serviceStartup = append(serviceStartup, start)
-}
-
-func scopedManagementRoute(route string) bool {
-	return strings.HasPrefix(route, "runtime/")
 }

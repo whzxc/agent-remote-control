@@ -179,9 +179,6 @@ func permissionItems(ctx context.Context, s *service) []object {
 }
 
 func permissions(ctx context.Context, s *service, passive bool) (any, error) {
-	if !passive && (permissionAccountRead == nil || readIngressStatuses == nil || operatingSystem == "darwin" && permissionCommand == nil) {
-		return nil, errors.New(PortPending)
-	}
 	items := permissionItems(ctx, s)
 	if passive {
 		for _, id := range []string{"codex-login", "command-full-disk-access"} {

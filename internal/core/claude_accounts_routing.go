@@ -74,9 +74,6 @@ func legacyClaudeNotificationAccount(target string) (string, error) {
 }
 
 func bindClaudeNotificationRoute(target, account string, replace bool) (object, error) {
-	if normalizeClaudeNotificationTarget == nil {
-		return nil, errors.New(PortPending)
-	}
 	target, err := normalizeClaudeNotificationTarget(target)
 	if err != nil {
 		return nil, err

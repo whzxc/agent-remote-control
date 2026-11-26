@@ -351,9 +351,6 @@ func setupLoopEvidence(observed, notification any, needsNotification bool) objec
 }
 
 func setupLoopStatus(ctx context.Context, s *service, state, ingress object) (object, error) {
-	if setupTaskRecords == nil || setupObserveCodex == nil {
-		return nil, errors.New(PortPending)
-	}
 	records, err := setupTaskRecords(ctx, s)
 	if err != nil {
 		return nil, err
@@ -375,9 +372,6 @@ func setupLoopStatus(ctx context.Context, s *service, state, ingress object) (ob
 		}
 		var notification any
 		if needsNotification {
-			if setupReadNotification == nil {
-				return nil, errors.New(PortPending)
-			}
 			notification, err = setupReadNotification(thread, turn)
 			if err != nil {
 				return nil, err
@@ -569,9 +563,6 @@ func applySetup(ctx context.Context, s *service, body object) (object, error) {
 			return nil, err
 		}
 		if !setupGranted(field(ready, "items"), "claude-code") && findAccountAgent("claude") != "" {
-			if setupOpenClaudeLogin == nil {
-				return nil, errors.New(PortPending)
-			}
 			if err := setupOpenClaudeLogin(ctx, s); err != nil {
 				return nil, err
 			}
@@ -610,16 +601,10 @@ func applySetup(ctx context.Context, s *service, body object) (object, error) {
 			return nil, err
 		}
 		if step == "cloudflare-login" {
-			if setupCloudflareLogin == nil {
-				return nil, errors.New(PortPending)
-			}
 			if err := setupCloudflareLogin(ctx, obj(i["config"])); err != nil {
 				return nil, err
 			}
 		} else {
-			if setupCloudflareProvision == nil {
-				return nil, errors.New(PortPending)
-			}
 			config, err := setupCloudflareProvision(ctx, obj(i["config"]))
 			if err != nil {
 				return nil, err
@@ -764,9 +749,6 @@ func dispatchSetup(ctx context.Context, s *service, body object) (object, error)
 	if request, ok := dispatch["requestId"].(string); ok {
 		receipt, err = readControlReceipt(ctx, operationRequest{service: s, args: object{"requestId": request}})
 	} else {
-		if setupCreateCodex == nil {
-			return nil, errors.New(PortPending)
-		}
 		request := id()
 		err = func() error {
 			setupApplyMu.Lock()

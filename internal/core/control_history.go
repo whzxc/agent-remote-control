@@ -51,9 +51,6 @@ func desktopControlThread(snapshot object, complete bool) (object, error) {
 		thread["modelProvider"] = provider
 	}
 	if complete {
-		if controlDesktopTurns == nil {
-			return nil, errors.New(PortPending)
-		}
 		turns, err := controlDesktopTurns(snapshot)
 		if err != nil {
 			return nil, err
@@ -259,9 +256,6 @@ func visitNativeRollout(input io.Reader, session string, visit func(object) erro
 var nativeSchemaBinary func(context.Context, *service) (string, error)
 
 func nativeControlSchema(ctx context.Context, request operationRequest) (any, error) {
-	if nativeSchemaBinary == nil {
-		return nil, errors.New(PortPending)
-	}
 	request.service.schemas.Lock()
 	defer request.service.schemas.Unlock()
 	if request.service.schemas.value == nil {

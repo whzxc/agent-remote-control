@@ -43,9 +43,6 @@ func contextOperation(parent context.Context, request operationRequest) (any, er
 	args, s, policy := request.args, request.service, request.source.policy
 	needTask := policyAllows(policy, "agent_read")
 	needWorkspace := policyAllows(policy, "git")
-	if needTask && readContextTask == nil || needWorkspace && (resolveContextProject == nil || readContextWorkspace == nil) {
-		return nil, errors.New(PortPending)
-	}
 	ctx, cancel := context.WithTimeout(parent, 12*time.Second)
 	defer cancel()
 	agent, task, view := text(args, "agent"), text(args, "taskId"), text(args, "view")
@@ -69,9 +66,6 @@ func contextOperation(parent context.Context, request operationRequest) (any, er
 		case ctx.Err() != nil:
 			missing = append(missing, "TASK_TIMEOUT")
 		case err != nil:
-			if err.Error() == PortPending {
-				return nil, err
-			}
 			missing = append(missing, "TASK_UNAVAILABLE")
 		default:
 			if contextTrackingProjection != nil {
@@ -109,7 +103,7 @@ func contextOperation(parent context.Context, request operationRequest) (any, er
 		case ctx.Err() != nil:
 			missing = append(missing, "WORKSPACE_TIMEOUT")
 		case err != nil:
-			if err.Error() == "TASK_WORKSPACE_MISMATCH" || err.Error() == PortPending {
+			if err.Error() == "TASK_WORKSPACE_MISMATCH" {
 				return nil, err
 			}
 			missing = append(missing, "WORKSPACE_UNAVAILABLE")

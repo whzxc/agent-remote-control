@@ -147,7 +147,7 @@ func cloudflareLogin(ctx context.Context, settings object) error {
 		return nil
 	}
 	if runtimeFixture {
-		return errors.New(PortPending)
+		return errFixtureProviderUnavailable
 	}
 	cloudflareLoginMu.Lock()
 	if currentCloudflareLogin != nil {
@@ -228,7 +228,7 @@ func cloudflareAPI(ctx context.Context, settings, cert object, path string) (any
 
 func cloudflareRun(ctx context.Context, settings object, args ...string) ([]byte, error) {
 	if runtimeFixture {
-		return nil, errors.New(PortPending)
+		return nil, errFixtureProviderUnavailable
 	}
 	wait, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()

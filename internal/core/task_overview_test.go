@@ -4,6 +4,7 @@ import "testing"
 
 func TestControlCatalogOperationsResolveToRegisteredHandlers(t *testing.T) {
 	// Contract: every published control operation is implemented in the dispatcher, including inline guide discovery.
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
 	for _, spec := range guideSpecs() {
 		name := text(spec, "name")
 		if name == "guide" {
@@ -15,6 +16,11 @@ func TestControlCatalogOperationsResolveToRegisteredHandlers(t *testing.T) {
 		}
 		if registeredOperations[name].handle == nil && fallbackOperations[name] == nil {
 			t.Errorf("catalog operation %s has no handler", name)
+		}
+	}
+	for _, method := range []string{"events/list", "events/subscribe", "events/unsubscribe"} {
+		if registeredMCPMethods[method] == nil {
+			t.Errorf("advertised MCP event method %s has no handler", method)
 		}
 	}
 }

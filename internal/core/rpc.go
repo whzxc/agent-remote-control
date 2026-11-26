@@ -194,9 +194,6 @@ func attachRPC(ctx context.Context, binary, home, session string, launches *laun
 }
 
 func rpcConnectHost(ctx context.Context, binary, home, session string, launches *launches, role rpcRole, observer rpcObserver) (*rpcConnection, error) {
-	if rpcDetachedHost == nil {
-		return nil, errors.New(PortPending)
-	}
 	for {
 		host, err := rpcDetachedHost(ctx, binary, launches)
 		if err != nil {

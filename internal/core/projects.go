@@ -35,10 +35,7 @@ type projectProvider func(context.Context, string, any, time.Duration) (any, err
 
 func projectClient(s *service) projectProvider {
 	return func(ctx context.Context, method string, args any, timeout time.Duration) (any, error) {
-		if nativeControlRequest != nil {
-			return nativeControlRequest(ctx, s, method, args, timeout)
-		}
-		return nil, errors.New(PortPending)
+		return nativeControlRequest(ctx, s, method, args, timeout)
 	}
 }
 
@@ -1060,9 +1057,6 @@ func projectRead(ctx context.Context, root, file string, args object) (object, [
 		return nil, nil, err
 	}
 	if recognizableProjectImage(data, file) {
-		if prepareProjectImage == nil {
-			return nil, nil, errors.New(PortPending)
-		}
 		return prepareProjectImage(data, file, args)
 	}
 	content, err := projectText(data, file)

@@ -215,6 +215,7 @@ func (i *networkIngress) summary(ctx context.Context) (object, error) {
 
 // Provider implementations are owned by their transport module.
 var startManagedIngress func(context.Context, *networkIngress, object) error
+var errFixtureProviderUnavailable = errors.New("External provider setup is disabled in the contract fixture.")
 
 func (i *networkIngress) start(ctx context.Context) (err error) {
 	i.mu.Lock()
@@ -233,7 +234,7 @@ func (i *networkIngress) start(ctx context.Context) (err error) {
 	defer func() {
 		if err != nil {
 			i.stop()
-			if err.Error() == PortPending {
+			if errors.Is(err, errFixtureProviderUnavailable) {
 				return
 			}
 			i.mu.Lock()
@@ -260,9 +261,6 @@ func (i *networkIngress) start(ctx context.Context) (err error) {
 		i.markRunning(text(config, "httpsUrl"))
 		recordLog("INFO", "Local MCP listener started; verify public inbound access from the control source", &i.id)
 	default:
-		if startManagedIngress == nil {
-			return errors.New(PortPending)
-		}
 		return startManagedIngress(ctx, i, config)
 	}
 	return nil

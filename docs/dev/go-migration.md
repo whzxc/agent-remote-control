@@ -30,8 +30,8 @@ The port follows Rust at the main commit from which the `go-core` lane was creat
 
 ## Porting conventions
 
-- Register control operations, catalog contributions and management routes in their owning Go files. Use `init()` with the Core registries. Replace the pending registration for your segment when implementing a handler.
-- Return errors through the normal dispatcher. Preserve the Rust code, message and recovery data. Operations without a handler return `GO_PORT_PENDING`.
+- Register control operations, catalog contributions and management routes in their owning Go files. Use `init()` with the Core registries.
+- Return errors through the normal dispatcher. Preserve the Rust code, message and recovery data.
 - Use `internal/canonjson` for wire and persisted JSON and for JSON-derived hashes, IDs, cursors and digests.
 - Place ported Rust unit cases in the corresponding `_test.go` file. Keep synthetic hooks and their tests under the `arcfixture` tag.
 
@@ -76,7 +76,7 @@ The port follows Rust at the main commit from which the `go-core` lane was creat
 - Port each module's Rust unit tests with the module as Go `_test.go` cases. They follow [Testing](testing.md): Contract, Regression or Property, with one reason tag per case. `check:tests` governs Go tests.
 - `npm run test:go` runs `go vet` and `go test` on repository packages with and without the `arcfixture` tag. `test:extended` includes it. Daily `npm test` keeps its 30-second budget.
 - Every Go commit cross-compiles with `CGO_ENABLED=0` for darwin/arm64, windows/amd64, linux/amd64 and linux/arm64.
-- Unported operations return the single error code `GO_PORT_PENDING`. A check fails if the code remains at cutover.
+- Every catalog operation resolves to an implementation. The cutover check rejects the retired `GO_PORT_PENDING` code.
 
 ## Ledger
 

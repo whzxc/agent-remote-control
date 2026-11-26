@@ -90,9 +90,6 @@ func handleNotificationRetry(ctx context.Context, s *service, b, observed object
 			retry["status"], retry["reason"] = "skipped", "model-not-confirmed"
 			return false, updateNotificationRetry(b, retry, false)
 		}
-		if nativeControlRequest == nil || submitNotificationRetry == nil {
-			return false, errors.New(PortPending)
-		}
 		page, err := nativeControlRequest(ctx, s, "thread/turns/list", object{"threadId": b["threadId"], "limit": 1, "sortDirection": "desc", "itemsView": "full"}, 10*time.Second)
 		if err != nil {
 			return false, err
@@ -116,9 +113,6 @@ func handleNotificationRetry(ctx context.Context, s *service, b, observed object
 	}
 	if uintOr(retry["notBefore"], 1<<63-1) > uint64(notificationClock().Unix()) {
 		return true, nil
-	}
-	if submitNotificationRetry == nil {
-		return true, errors.New(PortPending)
 	}
 	retry["status"] = "submitting"
 	if err := updateNotificationRetry(b, retry, false); err != nil {

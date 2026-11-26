@@ -547,9 +547,6 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
-		if panelControlSource == nil {
-			return nil, errors.New(PortPending)
-		}
 		source, err := panelControlSource(ctx)
 		if err != nil {
 			return nil, err

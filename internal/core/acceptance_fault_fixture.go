@@ -36,9 +36,6 @@ func fixtureInjectAcceptanceFault(ctx context.Context, args object) (any, error)
 		return nil, acceptanceFaultUnavailable()
 	}
 	thread := text(args, "threadId")
-	if readNativeDispatchHistory == nil {
-		return nil, errors.New(PortPending)
-	}
 	rows, err := readNativeDispatchHistory(thread)
 	if err != nil {
 		return nil, err

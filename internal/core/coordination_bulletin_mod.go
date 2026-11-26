@@ -255,9 +255,6 @@ func bulletinVerifyFix(ctx context.Context, args object) error {
 		return errors.New("COORDINATION_FIX_UNVERIFIED: registered repository unavailable")
 	}
 	for _, root := range roots[:min(8, len(roots))] {
-		if coordinationLocalGit == nil {
-			return errors.New(PortPending)
-		}
 		bounded, cancel := context.WithTimeout(ctx, 2*time.Second)
 		value, err := coordinationLocalGit(bounded, text(root, "path"), "cat-file", "-t", oid)
 		cancel()
@@ -271,7 +268,7 @@ func bulletinVerifyFix(ctx context.Context, args object) error {
 func bulletinCall(ctx context.Context, request operationRequest) (any, error) {
 	request.args = clone(request.args)
 	result, err := executeBulletin(ctx, request)
-	if err == nil || err.Error() == PortPending {
+	if err == nil {
 		return result, err
 	}
 	return bulletinFailure(err, request.name), nil
@@ -318,9 +315,6 @@ func executeBulletin(ctx context.Context, request operationRequest) (object, err
 		source := reader.principal.SourceID
 		if source == "" {
 			return nil, errors.New("SOURCE_REQUIRED: a notification target requires a control source")
-		}
-		if coordinationVerifiedTarget == nil {
-			return nil, errors.New(PortPending)
 		}
 		resolved, err := coordinationVerifiedTarget(ctx, source, target)
 		if err != nil {
@@ -675,9 +669,6 @@ func init() {
 }
 
 func linkedCoordinationThreads(ctx context.Context, service *service, args object, actor coordinationPrincipal) ([]bulletinLink, error) {
-	if taskTrackingDispatchRecords == nil {
-		return nil, errors.New(PortPending)
-	}
 	threads := axStrings(args["threadIds"])
 	live := taskTimelineLiveTurns(ctx, service, threads)
 	clock := currentBulletinClock()

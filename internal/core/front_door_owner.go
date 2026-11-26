@@ -80,9 +80,6 @@ func (g *gatewayOwner) management(ctx context.Context, route, method string, bod
 			return registered.handle(ctx, g, body, matches[1:])
 		}
 	}
-	if knownManagementRoute(method, route) || strings.HasPrefix(route, "_") {
-		return nil, errors.New(PortPending)
-	}
 	return nil, errors.New("UNKNOWN_ROUTE")
 }
 
@@ -180,9 +177,6 @@ func expectedRemote() ([]object, error) {
 }
 
 func saveIngressEntry(entry object) error {
-	if ingressConfigSecrets == nil {
-		return errors.New(PortPending)
-	}
 	name := text(entry, "id")
 	if err := validateIngressID(name); err != nil {
 		return err
@@ -212,9 +206,6 @@ func saveIngressEntry(entry object) error {
 func loadIngressEntry(id string) (object, error) {
 	if err := validateIngressID(id); err != nil {
 		return nil, err
-	}
-	if ingressConfigSecrets == nil {
-		return nil, errors.New(PortPending)
 	}
 	dir := filepath.Join(root(), "ingresses", id)
 	row, err := load(filepath.Join(dir, "config.json"))
@@ -299,9 +290,6 @@ func normalizeIngressEntry(ctx context.Context, gateway *gatewayBridge, entry ob
 	raw := obj(entry["config"])
 	if raw == nil {
 		return nil, errors.New("config must be an object")
-	}
-	if ingressConfigDefaults == nil || validateIngressConfig == nil {
-		return nil, errors.New(PortPending)
 	}
 	config := ingressConfigDefaults()
 	if value, err := load(filepath.Join(root(), "app/preferences.json")); err == nil {

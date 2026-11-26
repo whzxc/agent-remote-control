@@ -108,10 +108,7 @@ func (s *service) managementRequest(ctx context.Context, route, method string, b
 			return s.runtime.desktopRequest(ctx, route, method, body)
 		}
 	}
-	if !knownManagementRoute(method, route) && !scopedManagementRoute(route) {
-		return nil, errors.New("UNKNOWN_ROUTE")
-	}
-	return nil, errors.New(PortPending)
+	return nil, errors.New("UNKNOWN_ROUTE")
 }
 
 func panelTaskOperation(ctx context.Context, service *service, body object, schema string) (any, error) {
@@ -124,9 +121,6 @@ func panelTaskOperation(ctx context.Context, service *service, body object, sche
 		args = object{}
 	}
 	if name == "codex_send" && args["purpose"] == nil {
-		if applyPriorDispatchPurpose == nil {
-			return nil, errors.New(PortPending)
-		}
 		if err := applyPriorDispatchPurpose(text(args, "threadId"), args); err != nil {
 			return nil, err
 		}
@@ -135,9 +129,6 @@ func panelTaskOperation(ctx context.Context, service *service, body object, sche
 		if _, exists := args["notify"]; !exists {
 			args["notify"] = nil
 		}
-	}
-	if panelControlSource == nil {
-		return nil, errors.New(PortPending)
 	}
 	source, err := panelControlSource(ctx)
 	if err != nil {
@@ -169,7 +160,7 @@ func (s *service) mcp(ctx context.Context, ingress string, request object) (obje
 			return nil, err
 		}
 	} else if ingress != "" && ingress != "default" {
-		return nil, errors.New(PortPending)
+		return nil, errors.New(contextMismatch)
 	}
 	return dispatchMCP(withMCPIngress(ctx, ingress), s, source, request)
 }
@@ -216,9 +207,6 @@ func init() {
 		address, addressOK := body["proxyUrl"].(string)
 		if !addressOK {
 			return nil, errors.New("invalid proxy URL")
-		}
-		if validateNetworkPreferences == nil {
-			return nil, errors.New(PortPending)
 		}
 		if err := validateNetworkPreferences(mode, address); err != nil {
 			return nil, err
@@ -333,11 +321,7 @@ func (s *service) status(ctx context.Context) (object, error) {
 		}
 	}
 	diagnostics := statusDiagnostics(result, items)
-	var records []object
-	err = errors.New(PortPending)
-	if readStatusTaskRecords != nil {
-		records, err = readStatusTaskRecords(ctx, s)
-	}
+	records, err := readStatusTaskRecords(ctx, s)
 	receiptDiagnostics(diagnostics, records, err)
 	result["diagnostics"] = diagnostics
 	return result, nil

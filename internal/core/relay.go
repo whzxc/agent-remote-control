@@ -282,7 +282,7 @@ func (m *relayManager) join(ctx context.Context, client *http.Client, body objec
 
 func (m *relayManager) execute(ctx context.Context, action string, body object, job *relayJob) (any, error) {
 	if runtimeFixture {
-		return nil, errors.New(PortPending)
+		return nil, errFixtureProviderUnavailable
 	}
 	client, err := configuredRelayHTTP(ctx)
 	if err != nil {
@@ -498,7 +498,7 @@ func (m *relayManager) single(ctx context.Context, action string, body object) (
 	dir, _ := relayDirectory(text(info, "id"))
 	address := text(info, "url")
 	if runtimeFixture && action != "share" && (fixtureRelayWorker == nil || !fixtureRelayWorker(address)) {
-		return nil, errors.New(PortPending)
+		return nil, errFixtureProviderUnavailable
 	}
 	client, err := configuredRelayHTTP(ctx)
 	if err != nil {

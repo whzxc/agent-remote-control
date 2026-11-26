@@ -346,9 +346,6 @@ func requestCodexNative(ctx context.Context, service *service, method string, ar
 	useUtility := directFixture || read && externallyHeld || codexBackground(thread) && !desktopHeld
 	switch {
 	case !useUtility && (read || mutation || method == "thread/start" || method == "thread/resume"):
-		if desktopNativeRequest == nil {
-			return nil, errors.New(PortPending)
-		}
 		return desktopNativeRequest(ctx, service, method, args, timeout)
 	case !useUtility && (strings.HasPrefix(method, "thread/") || strings.HasPrefix(method, "turn/")) &&
 		method != "thread/list" && method != "thread/loaded/list":

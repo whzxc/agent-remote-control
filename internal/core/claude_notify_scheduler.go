@@ -363,9 +363,6 @@ func notificationWebhookOutcome(ctx context.Context, s *service, batch notificat
 	if sub == nil {
 		return notificationDeliveryOutcome{status: "failed", reason: "subscription-ended"}
 	}
-	if notificationEventAuthorize == nil {
-		return notificationDeliveryOutcome{status: "failed", reason: PortPending, retry: true}
-	}
 	principal := text(sub["webhook"], "principal")
 	source := requestSource{origin: object{"sourceId": batch.source, "eventPrincipal": principal}}
 	current, authorized := notificationEventAuthorize(ctx, s, source, principal)
@@ -538,8 +535,6 @@ func sendNotificationBatch(ctx context.Context, s *service, batch notificationDe
 	if notificationSourceActive(ctx, batch.source) {
 		if batch.channel == "mcp-events" {
 			outcome = notificationWebhookOutcome(ctx, s, batch, sub, batch.items[0])
-		} else if notificationSessionSend == nil {
-			outcome = notificationDeliveryOutcome{status: "failed", reason: PortPending, retry: true}
 		} else if err := notificationSessionSend(ctx, batch.channel, profile, batch.target, notificationBatchMessage(batch.items)); err != nil {
 			outcome = notificationDeliveryOutcome{status: "failed", reason: "delivery-failed-or-unconfirmed", retry: true}
 		} else {

@@ -6,6 +6,7 @@ import (
 	"maps"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -330,27 +331,44 @@ func (g *ingressGateway) manage(ctx context.Context, method, route string, body 
 			return i.observe(field, value, false)
 		})
 	case "POST install":
-		if body["component"] != "tunnel" {
-			return nil, errors.New("Install the official Codex Desktop")
-		}
-		i.lifecycle.Lock()
-		defer i.lifecycle.Unlock()
-		i.mu.RLock()
-		config, running := obj(i.entry["config"]), i.running || i.providerStop != nil
-		i.mu.RUnlock()
-		i.stop()
-		if _, err := i.prepareOfficialTunnel(ctx, config, true); err != nil {
-			return nil, err
-		}
-		if running {
-			if err := i.start(ctx); err != nil {
-				return nil, err
-			}
-		}
-		return object{"ok": true}, nil
+		return i.installTunnel(ctx, body)
 	default:
 		return nil, errors.New("UNKNOWN_ROUTE")
 	}
+}
+
+func (i *networkIngress) installTunnel(ctx context.Context, body object) (object, error) {
+	if body["component"] != "tunnel" {
+		return nil, errors.New("Install the official Codex Desktop")
+	}
+	i.lifecycle.Lock()
+	defer i.lifecycle.Unlock()
+	i.mu.RLock()
+	config, running := obj(i.entry["config"]), i.running || i.providerStop != nil
+	i.mu.RUnlock()
+	i.stop()
+	if _, err := i.prepareOfficialTunnel(ctx, config, true); err != nil {
+		return nil, err
+	}
+	if running {
+		if err := i.start(ctx); err != nil {
+			return nil, err
+		}
+	}
+	return object{"ok": true}, nil
+}
+
+func describeIngressDependency(ctx context.Context, binary string) object {
+	if binary == "" {
+		return object{"source": "missing", "path": nil, "version": "unknown"}
+	}
+	source := "external"
+	if relative, err := filepath.Rel(root(), binary); err == nil &&
+		relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+		source = "managed"
+	}
+	version, _ := commandOutput(ctx, binary, "--version")
+	return object{"source": source, "path": binary, "version": strings.TrimSpace(version)}
 }
 
 func (i *networkIngress) changeNetworkPreferences(body object) error {
@@ -396,8 +414,17 @@ func (i *networkIngress) manageLegacy(ctx context.Context, method, action string
 		return i.resetVerificationResult()
 	case "POST start", "POST stop":
 		return object{"ok": true}, i.setConnection(ctx, action == "start")
+	case "GET dependencies":
+		i.mu.RLock()
+		configured := text(i.entry["config"], "tunnelBinary")
+		i.mu.RUnlock()
+		tunnel, _ := exec.LookPath(configured)
+		return object{"codex": describeIngressDependency(ctx, installedCodexCLI()),
+			"tunnel": describeIngressDependency(ctx, tunnel), "observedAt": now()}, nil
+	case "POST install":
+		return i.installTunnel(ctx, body)
 	default:
-		return nil, errors.New(PortPending)
+		return nil, errors.New("UNKNOWN_ROUTE")
 	}
 }
 
@@ -497,14 +524,10 @@ func gatewayIngressRoutes() {
 
 func init() {
 	gatewayIngressRoutes()
-	for method, route := range map[string]string{
-		http.MethodGet: "config/credentials", http.MethodPut: "config", http.MethodPatch: "config/tunnel",
-		http.MethodPost: "(start|stop|verification/reset)",
+	for method, pattern := range map[string]string{
+		http.MethodGet: "(config/credentials|dependencies)", http.MethodPut: "(config)", http.MethodPatch: "(config/tunnel)",
+		http.MethodPost: "(start|stop|verification/reset|install)",
 	} {
-		pattern := route
-		if method != http.MethodPost {
-			pattern = "(" + route + ")"
-		}
 		registerGatewayRoute(method, "_primary_request/"+pattern, func(ctx context.Context, owner *gatewayOwner, body object, params []string) (any, error) {
 			state, ok := networkGateways.Load(owner)
 			if !ok {

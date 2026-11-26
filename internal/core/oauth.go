@@ -1275,9 +1275,6 @@ func (oauth *ingressOAuth) httpReadRoute(ctx context.Context, path string, q map
 var gatewayOAuthIngress func(context.Context, *gatewayOwner, string) (*ingressOAuth, string, func(), error)
 
 func gatewayOAuthManagement(ctx context.Context, owner *gatewayOwner, id, action, method string, body object) (any, error) {
-	if gatewayOAuthIngress == nil {
-		return nil, errors.New(PortPending)
-	}
 	oauth, resource, release, err := gatewayOAuthIngress(ctx, owner, id)
 	if err != nil {
 		return nil, err

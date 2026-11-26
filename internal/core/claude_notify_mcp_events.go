@@ -249,9 +249,6 @@ func notificationEventsRequest(ctx context.Context, s *service, source requestSo
 	if principal == "" || sourceID == "" {
 		return nil, notificationRPCError(-32001, "authenticated_principal_required")
 	}
-	if notificationEventAuthorize == nil {
-		return nil, errors.New(PortPending)
-	}
 	current, allowed := notificationEventAuthorize(ctx, s, source, principal)
 	if !allowed {
 		return nil, notificationRPCError(-32001, "access_revoked")
