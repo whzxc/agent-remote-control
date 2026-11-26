@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/whzxc/agent-remote-control/internal/canonjson"
@@ -271,16 +272,39 @@ func servePrivate(parent context.Context, core *inProcess, token string, conn ne
 	_ = writeFrame(conn, frontDoorResponse{Generation: core.generation, RequestID: request.ID, Body: body})
 }
 
+type privateOpenError struct {
+	owner string
+	cause error
+}
+
+func (e *privateOpenError) Error() string {
+	code := "FRONT_DOOR_UNAVAILABLE"
+	if e.owner == "core" {
+		code = "FRONT_DOOR_CORE_UNAVAILABLE"
+	}
+	if platform.IPCBusy(e.cause) {
+		return fmt.Sprintf("%s: The local %s named pipe is busy. Retry the connection. (%s)", code, e.owner, e.cause)
+	}
+	return fmt.Sprintf("%s: %s. Continuity is reduced; Core-bound fallback transports disconnect during Core replacement.", code, e.cause)
+}
+
+func missingPrivateEndpoint(err error) bool {
+	var open *privateOpenError
+	return errors.As(err, &open) && (errors.Is(open.cause, os.ErrNotExist) ||
+		errors.Is(open.cause, syscall.ECONNREFUSED))
+}
+
 func attachPrivate(ctx context.Context, endpoint string) (net.Conn, frontDoorHello, error) {
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	var hello frontDoorHello
-	token, err := frontDoorSecret()
-	if err != nil {
-		return nil, hello, err
-	}
 	conn, err := platform.DialIPC(ctx, ipcEndpoint(endpoint))
 	if err != nil {
+		return nil, hello, &privateOpenError{owner: endpoint, cause: err}
+	}
+	token, err := frontDoorSecret()
+	if err != nil {
+		conn.Close()
 		return nil, hello, err
 	}
 	if err := privateHello(ctx, conn, token, &hello); err != nil {
@@ -985,35 +1009,40 @@ func stageFrontDoorAt(images, source, build string) (string, error) {
 var fixtureIncompatibleFrontDoor func() bool
 var privateFixtureResponse func(context.Context, string) error
 
-func readFrontDoorInfo(ctx context.Context) (object, frontDoorHello, error) {
+type frontDoorAttachment struct {
+	info  object
+	hello frontDoorHello
+}
+
+func readFrontDoorInfo(ctx context.Context) (frontDoorAttachment, error) {
 	conn, hello, err := attachPrivate(ctx, "front-door")
 	if err != nil {
-		return nil, hello, err
+		return frontDoorAttachment{}, err
 	}
 	_ = conn.Close()
 	value, err := load(frontDoorInfoPath())
 	if err != nil {
-		return nil, hello, err
+		return frontDoorAttachment{}, err
 	}
 	info := obj(value)
 	port := uintOr(info["port"], 0)
 	if port == 0 || port > 65535 || uintOr(info["pid"], 0) == 0 || uintOr(info["protocol"], 0) != frontDoorVersion {
-		return nil, hello, errors.New("FRONT_DOOR_PORT_MISSING")
+		return frontDoorAttachment{}, errors.New("FRONT_DOOR_PORT_MISSING")
 	}
-	return info, hello, nil
+	return frontDoorAttachment{info, hello}, nil
 }
 
-func ensureFrontDoor(ctx context.Context, build string) (object, error) {
-	if info, _, err := readFrontDoorInfo(ctx); err == nil || incompatibleFrontDoor(err) {
-		return info, err
+func ensureFrontDoor(ctx context.Context, build string) (frontDoorAttachment, error) {
+	if attachment, err := readFrontDoorInfo(ctx); !missingPrivateEndpoint(err) {
+		return attachment, err
 	}
 	source, err := runtimeBinary()
 	if err != nil {
-		return nil, err
+		return frontDoorAttachment{}, err
 	}
 	image, err := stageFrontDoor(source, build)
 	if err != nil {
-		return nil, err
+		return frontDoorAttachment{}, err
 	}
 	if operatingSystem == "darwin" {
 		update, _ := load(filepath.Join(root(), "app/front-door-update.json"))
@@ -1021,7 +1050,7 @@ func ensureFrontDoor(ctx context.Context, build string) (object, error) {
 			uintOr(field(update, "retryAt"), 0) > uint64(time.Now().UnixMilli()) {
 			current := text(update, "currentBuild")
 			if !validBuildHash(current) {
-				return nil, errors.New("FRONT_DOOR_START_FAILED: The current image build is unavailable.")
+				return frontDoorAttachment{}, errors.New("FRONT_DOOR_START_FAILED: The current image build is unavailable.")
 			}
 			image = frontDoorImage(current)
 		}
@@ -1029,22 +1058,22 @@ func ensureFrontDoor(ctx context.Context, build string) (object, error) {
 	return launchFrontDoor(ctx, image)
 }
 
-func launchFrontDoor(ctx context.Context, image string) (object, error) {
+func launchFrontDoor(ctx context.Context, image string) (frontDoorAttachment, error) {
 	guard, err := frontDoorLock("front-door.lock", false)
 	if err != nil {
-		return nil, err
+		return frontDoorAttachment{}, err
 	}
 	if guard == nil {
-		return nil, errors.New("FRONT_DOOR_UNAVAILABLE: The front door still owns its lock. Inspect front-door.log; continuity is reduced until its endpoint recovers.")
+		return frontDoorAttachment{}, errors.New("FRONT_DOOR_UNAVAILABLE: The front door still owns its lock. Inspect front-door.log; continuity is reduced until its endpoint recovers.")
 	}
 	defer guard.Close()
 	build, err := buildID(image)
 	if err != nil {
-		return nil, err
+		return frontDoorAttachment{}, err
 	}
 	log, err := os.OpenFile(filepath.Join(root(), "front-door.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
-		return nil, err
+		return frontDoorAttachment{}, err
 	}
 	defer log.Close()
 	command := exec.Command(image, "front-door")
@@ -1053,7 +1082,7 @@ func launchFrontDoor(ctx context.Context, image string) (object, error) {
 	platform.Detach(command)
 	_ = guard.Close()
 	if err := command.Start(); err != nil {
-		return nil, err
+		return frontDoorAttachment{}, err
 	}
 	finished := make(chan error, 1)
 	go func() { finished <- command.Wait() }()
@@ -1063,23 +1092,23 @@ func launchFrontDoor(ctx context.Context, image string) (object, error) {
 	tick := time.NewTicker(50 * time.Millisecond)
 	defer tick.Stop()
 	for {
-		info, _, readyErr := readFrontDoorInfo(wait)
+		attachment, readyErr := readFrontDoorInfo(wait)
 		if readyErr == nil {
-			if uintOr(info["pid"], 0) == uint64(command.Process.Pid) && text(info, "build") == build {
-				return info, nil
+			if uintOr(attachment.info["pid"], 0) == uint64(command.Process.Pid) && text(attachment.info, "build") == build {
+				return attachment, nil
 			}
 			_ = command.Process.Kill()
 			<-finished
-			return nil, errors.New("FRONT_DOOR_START_FAILED: The ready peer does not match the staged image.")
+			return frontDoorAttachment{}, errors.New("FRONT_DOOR_START_FAILED: The ready peer does not match the staged image.")
 		}
 		select {
 		case err := <-finished:
-			return nil, fmt.Errorf("FRONT_DOOR_START_FAILED: %v; inspect front-door.log", err)
+			return frontDoorAttachment{}, fmt.Errorf("FRONT_DOOR_START_FAILED: %v; inspect front-door.log", err)
 		case <-wait.Done():
 			_ = command.Process.Kill()
 			<-finished
 			recordLog("WARN", fmt.Sprintf("Front door readiness: %v", readyErr), nil)
-			return nil, errors.New("FRONT_DOOR_START_TIMEOUT: Inspect front-door.log.")
+			return frontDoorAttachment{}, errors.New("FRONT_DOOR_START_TIMEOUT: Inspect front-door.log.")
 		case <-tick.C:
 		}
 	}
@@ -1199,7 +1228,7 @@ func prepareFrontDoorInstall(ctx context.Context) (*os.File, error) {
 	if !unlocked {
 		return failure(errors.New("CORE_UNAVAILABLE: Stop Desktop and Core before preparing front-door replacement."))
 	}
-	if _, _, err := readFrontDoorInfo(ctx); err != nil {
+	if _, err := readFrontDoorInfo(ctx); err != nil {
 		if incompatibleFrontDoor(err) {
 			if err := stopFrontDoor(ctx); err != nil {
 				return failure(err)

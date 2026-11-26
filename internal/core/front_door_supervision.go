@@ -21,40 +21,30 @@ func superviseFrontDoor(ctx context.Context, service *service, endpoint *inProce
 	delay := 250 * time.Millisecond
 	for ctx.Err() == nil {
 		err := func() error {
-			info, hello, err := readFrontDoorInfo(ctx)
+			attachment, err := readFrontDoorInfo(ctx)
+			if missingPrivateEndpoint(err) {
+				guard, lockErr := frontDoorStartupGuard()
+				if lockErr != nil {
+					return lockErr
+				}
+				attachment, err = ensureFrontDoor(ctx, text(published, "build"))
+				_ = guard.Close()
+			}
 			if err != nil {
-				guard, err := frontDoorStartupGuard()
-				if err != nil {
-					return err
-				}
-				defer guard.Close()
-				info, err = ensureFrontDoor(ctx, text(published, "build"))
-				if err != nil {
-					return err
-				}
-				_, hello, err = readFrontDoorInfo(ctx)
-				if err != nil {
-					return err
-				}
+				return err
 			}
 			if operatingSystem == "darwin" {
-				next, replaceGuard, err := update.refresh(ctx, endpoint, info)
+				next, replaceGuard, err := update.refresh(ctx, endpoint, attachment)
 				if replaceGuard != nil {
 					defer replaceGuard.Close()
 				}
 				if err != nil {
 					return err
 				}
-				if next["pid"] != info["pid"] {
-					_, hello, err = readFrontDoorInfo(ctx)
-					if err != nil {
-						return err
-					}
-				}
-				info = next
+				attachment = next
 			}
-			if attached != hello.Generation {
-				published["port"], published["token"] = info["port"], info["token"]
+			if attached != attachment.hello.Generation {
+				published["port"], published["token"] = attachment.info["port"], attachment.info["token"]
 				if err := save(path, published); err != nil {
 					return err
 				}
@@ -63,7 +53,7 @@ func superviseFrontDoor(ctx context.Context, service *service, endpoint *inProce
 						return err
 					}
 				}
-				attached = hello.Generation
+				attached = attachment.hello.Generation
 			}
 			return nil
 		}()
@@ -91,10 +81,10 @@ type frontDoorUpdater struct {
 	attempts  map[string]time.Time
 }
 
-func (u *frontDoorUpdater) refresh(ctx context.Context, endpoint *inProcess, info object) (object, *os.File, error) {
+func (u *frontDoorUpdater) refresh(ctx context.Context, endpoint *inProcess, attachment frontDoorAttachment) (frontDoorAttachment, *os.File, error) {
 	guard, err := frontDoorLock("front-door-install.lock", false)
 	if err != nil || guard == nil {
-		return info, nil, err
+		return attachment, nil, err
 	}
 	retained := false
 	defer func() {
@@ -104,34 +94,34 @@ func (u *frontDoorUpdater) refresh(ctx context.Context, endpoint *inProcess, inf
 	}()
 	source, err := runtimeBinary()
 	if err != nil {
-		return nil, nil, err
+		return frontDoorAttachment{}, nil, err
 	}
 	stamp, err := readStamp(source)
 	if err != nil || stamp == nil {
-		return nil, nil, errors.New("FRONT_DOOR_BUILD_CHANGED: installed image is unavailable")
+		return frontDoorAttachment{}, nil, errors.New("FRONT_DOOR_BUILD_CHANGED: installed image is unavailable")
 	}
 	if !stampSame(stamp, u.stamp) {
 		build, err := buildID(source)
 		if err != nil {
-			return nil, nil, err
+			return frontDoorAttachment{}, nil, err
 		}
 		u.stamp, u.installed = stamp, build
 	}
 	path := filepath.Join(root(), "app/front-door-update.json")
 	value, _ := load(path)
 	observed := obj(value)
-	target, previous := u.installed, text(info, "build")
+	target, previous := u.installed, text(attachment.info, "build")
 	if target == previous {
 		if observed != nil && (observed["targetBuild"] != target || observed["state"] != "idle") {
 			observed["targetBuild"], observed["currentBuild"], observed["state"], observed["lastOutcome"], observed["rollback"] = target, previous, "idle", "updated", false
 			if err := save(path, observed); err != nil {
-				return nil, nil, err
+				return frontDoorAttachment{}, nil, err
 			}
 			if err := pruneFrontDoorImages(target); err != nil {
-				return nil, nil, err
+				return frontDoorAttachment{}, nil, err
 			}
 		}
-		return info, nil, nil
+		return attachment, nil, nil
 	}
 	if u.attempts == nil {
 		u.attempts = make(map[string]time.Time)
@@ -139,22 +129,22 @@ func (u *frontDoorUpdater) refresh(ctx context.Context, endpoint *inProcess, inf
 	maps.DeleteFunc(u.attempts, func(_ string, at time.Time) bool { return time.Since(at) >= frontDoorUpdateBackoff })
 	if _, attempted := u.attempts[target]; attempted ||
 		observed["targetBuild"] == target && uintOr(observed["retryAt"], 0) > uint64(time.Now().UnixMilli()) {
-		return info, nil, nil
+		return attachment, nil, nil
 	}
 	if !validBuildHash(previous) {
-		return nil, nil, errors.New("FRONT_DOOR_START_FAILED: The current image build is unavailable.")
+		return frontDoorAttachment{}, nil, errors.New("FRONT_DOOR_START_FAILED: The current image build is unavailable.")
 	}
 	u.attempts[target] = time.Now()
 	state := object{"state": "staging", "currentBuild": previous, "targetBuild": target,
 		"lastOutcome": observed["lastOutcome"], "rollback": false, "endedReads": 0, "outstandingWrites": 0,
 		"retryAt": time.Now().Add(frontDoorUpdateBackoff).UnixMilli()}
 	if err := save(path, state); err != nil {
-		return nil, nil, err
+		return frontDoorAttachment{}, nil, err
 	}
 	next, err := replaceFrontDoor(ctx, endpoint, source, previous, target, path, state)
 	state["state"] = "idle"
 	if err == nil {
-		state["currentBuild"] = next["build"]
+		state["currentBuild"] = next.info["build"]
 	} else {
 		if state["rollback"] != true {
 			state["lastOutcome"] = "failed"
@@ -162,52 +152,52 @@ func (u *frontDoorUpdater) refresh(ctx context.Context, endpoint *inProcess, inf
 		state["lastError"] = err.Error()
 	}
 	if writeErr := save(path, state); writeErr != nil {
-		return nil, nil, errors.Join(err, writeErr)
+		return frontDoorAttachment{}, nil, errors.Join(err, writeErr)
 	}
 	if err != nil {
-		return nil, nil, err
+		return frontDoorAttachment{}, nil, err
 	}
 	if state["lastOutcome"] == "updated" {
 		if err := pruneFrontDoorImages(target); err != nil {
-			return nil, nil, err
+			return frontDoorAttachment{}, nil, err
 		}
 	}
 	retained = true
 	return next, guard, nil
 }
 
-func replaceFrontDoor(ctx context.Context, endpoint *inProcess, source, previous, target, path string, state object) (object, error) {
+func replaceFrontDoor(ctx context.Context, endpoint *inProcess, source, previous, target, path string, state object) (frontDoorAttachment, error) {
 	rollback := frontDoorImage(previous)
 	if build, err := buildID(rollback); err != nil || build != previous {
-		return nil, errors.New("FRONT_DOOR_START_FAILED: The rollback image is unavailable.")
+		return frontDoorAttachment{}, errors.New("FRONT_DOOR_START_FAILED: The rollback image is unavailable.")
 	}
 	image, err := stageFrontDoor(source, target)
 	if err != nil {
-		return nil, err
+		return frontDoorAttachment{}, err
 	}
 	maintenance, err := endpoint.enterMaintenance()
 	if err != nil {
-		return nil, err
+		return frontDoorAttachment{}, err
 	}
 	defer maintenance.close()
 	state["state"], state["endedReads"], state["outstandingWrites"] = "draining", maintenance.endedReads, maintenance.outstandingWrites()
 	if err := save(path, state); err != nil {
-		return nil, err
+		return frontDoorAttachment{}, err
 	}
 	_, drained := maintenance.drain(ctx)
 	state["outstandingWrites"] = maintenance.outstandingWrites()
 	if err := save(path, state); err != nil {
-		return nil, err
+		return frontDoorAttachment{}, err
 	}
 	if drained != nil {
-		return nil, drained
+		return frontDoorAttachment{}, drained
 	}
 	state["state"] = "starting"
 	if err := save(path, state); err != nil {
-		return nil, err
+		return frontDoorAttachment{}, err
 	}
 	if err := stopFrontDoor(ctx); err != nil {
-		return nil, err
+		return frontDoorAttachment{}, err
 	}
 	next, err := launchFrontDoor(ctx, image)
 	if err == nil {
@@ -223,7 +213,7 @@ func replaceFrontDoor(ctx context.Context, endpoint *inProcess, source, previous
 	previousInfo, restore := launchFrontDoor(context.WithoutCancel(ctx), rollback)
 	if restore != nil {
 		state["lastOutcome"] = "rollback_failed"
-		return nil, restore
+		return frontDoorAttachment{}, restore
 	}
 	state["lastOutcome"] = "rolled_back"
 	return previousInfo, nil

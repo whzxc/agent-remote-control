@@ -52,3 +52,5 @@ func ListenIPC(path string) (net.Listener, error) {
 func DialIPC(ctx context.Context, path string) (net.Conn, error) {
 	return (&net.Dialer{}).DialContext(ctx, "unix", path)
 }
+
+func IPCBusy(error) bool { return false }

@@ -270,12 +270,12 @@ func serveRuntime(parent context.Context, daemon bool) error {
 		return err
 	}
 	defer ipc.Close()
-	info, err := ensureFrontDoor(ctx, build)
+	attachment, err := ensureFrontDoor(ctx, build)
 	if err != nil {
 		return err
 	}
 	published := maps.Clone(metadata)
-	published["port"], published["token"] = info["port"], info["token"]
+	published["port"], published["token"] = attachment.info["port"], attachment.info["token"]
 	path := filepath.Join(root(), "app/native.json")
 	if err := save(path, published); err != nil {
 		return err
