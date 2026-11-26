@@ -116,7 +116,10 @@ export async function buildDesktop({ target, output, development = false, releas
         ? path.join(process.env['ProgramFiles(x86)'], 'NSIS/makensis.exe') : '';
       const makensis = env.ARC_MAKENSIS || (installedNSIS && existsSync(installedNSIS) ? installedNSIS : 'makensis');
       await timed('Windows NSIS installer', async () => run(makensis, [
-        `-DARC_VERSION=${version}`, `-DARC_PAYLOAD=${stage}`, `-DARC_UNINSTALL_FILES=${uninstall}`,
+        '-INPUTCHARSET', 'UTF8',
+        `-DARC_VERSION=${version}`, `-DARC_PAYLOAD_FILES=${path.join(stage, '*')}`, `-DARC_UNINSTALL_FILES=${uninstall}`,
+        `-DARC_ICON=${path.join(root, 'desktop/icons/icon.ico')}`,
+        `-DARC_PAGES=${path.join(root, 'desktop/installer/pages.nsh')}`,
         `-DARC_OUTPUT=${path.join(work, `agent-remote-control_${version}_x64-setup.exe`)}`,
         path.join(root, 'tooling/windows-installer/installer.nsi'),
       ]));

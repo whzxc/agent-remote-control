@@ -24,8 +24,8 @@ Name "${PRODUCT}"
 BrandingText "${PRODUCT}"
 OutFile "${ARC_OUTPUT}"
 InstallDir "$LOCALAPPDATA\${PRODUCT}"
-Icon "../../desktop/icons/icon.ico"
-UninstallIcon "../../desktop/icons/icon.ico"
+Icon "${ARC_ICON}"
+UninstallIcon "${ARC_ICON}"
 VIProductVersion "${VERSION}.0"
 VIAddVersionKey "ProductName" "${PRODUCT}"
 VIAddVersionKey "LegalCopyright" "whzxc"
@@ -39,7 +39,7 @@ Var NoShortcutMode
 
 !define MUI_BGCOLOR "FFFFFF"
 !define MUI_TEXTCOLOR "203D35"
-!include "../../desktop/installer/pages.nsh"
+!include "${ARC_PAGES}"
 Page custom ConnectorWelcome ConnectorWelcomeLeave
 !insertmacro MUI_PAGE_INSTFILES
 Page custom ConnectorFinish ConnectorFinishLeave
@@ -176,7 +176,7 @@ Section "Install"
 install_ready:
   ClearErrors
   SetOutPath "$INSTDIR"
-  File /r "${ARC_PAYLOAD}/*"
+  File /r "${ARC_PAYLOAD_FILES}"
   ${If} ${Errors}
     Abort "无法写入安装文件：$INSTDIR"
   ${EndIf}
