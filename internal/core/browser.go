@@ -133,8 +133,8 @@ func compactBrowserStatus(ctx context.Context, s *service) (object, error) {
 		status["ingresses"] = clean
 	}
 	status["sources"] = []any{}
-	if value, err := s.managementRequest(ctx, "source", http.MethodGet, object{}); err == nil && field(value, "sources") != nil {
-		status["sources"] = field(value, "sources")
+	if sources, err := listControlSources(); err == nil {
+		status["sources"] = sources
 	}
 	return status, nil
 }

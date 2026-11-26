@@ -185,9 +185,10 @@
     "native/src/archive_index.rs": {
       "segment": "A",
       "go": [
-        "internal/core/archive_index.go"
+        "internal/core/archive_index.go",
+        "internal/core/archive_index_test.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/browser.rs": {
       "segment": "A",
@@ -1176,8 +1177,7 @@
         {
           "owner": "A",
           "items": [
-            "Supply native task and interaction evidence.",
-            "Register source-conversation error classification."
+            "Supply native task and interaction evidence."
           ]
         }
       ]
@@ -1529,12 +1529,6 @@
           "items": [
             "Register the packaged Desktop launch callback."
           ]
-        },
-        {
-          "owner": "A",
-          "items": [
-            "Register source-conversation error classification."
-          ]
         }
       ]
     },
@@ -1845,8 +1839,11 @@
     },
     "native/src/shell_command.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/shell_command.go",
+        "internal/core/shell_command_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/skills.rs": {
       "segment": "D",
@@ -1875,28 +1872,45 @@
     },
     "native/src/src_conversations/identity.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/src_conversations_identity.go",
+        "internal/core/src_conversations_identity_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/src_conversations/import_state.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/src_conversations_import_state.go",
+        "internal/core/src_conversations_import_state_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/src_conversations/mod.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/src_conversations_mod.go",
+        "internal/core/src_conversations_mod_test.go",
+        "internal/core/src_conversations_darwin.go",
+        "internal/core/src_conversations_other.go"
+      ],
+      "status": "ported"
     },
     "native/src/src_conversations/refs.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/src_conversations_refs.go",
+        "internal/core/src_conversations_refs_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/src_conversations/registry.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/src_conversations_registry.go",
+        "internal/core/src_conversations_registry_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/subscriptions/cache.rs": {
       "segment": "D",
@@ -2057,13 +2071,17 @@
     },
     "native/src/text_files/binary.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/text_files_binary.go"
+      ],
+      "status": "ported"
     },
     "native/src/text_files.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/text_files.go"
+      ],
+      "status": "ported"
     },
     "native/src/transport.rs": {
       "segment": "S0",

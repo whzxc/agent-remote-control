@@ -28,12 +28,13 @@ var fixtureUsesDesktop func() bool
 var desktopNativeRequest func(context.Context, *service, string, any, time.Duration) (any, error)
 var desktopWriterOwner func(context.Context, *service, string) (string, error)
 var observeNativeCodexOwnership func(context.Context, string, object) (object, error)
+var nativeCommandEnvironment func(context.Context, object)
 
 func codexInputs() (binary, home string, err error) {
 	if fixtureNativeCodexInputs != nil {
 		return fixtureNativeCodexInputs()
 	}
-	home, err = codexPrimaryHome()
+	home, err = nativeCodexHome()
 	if err != nil {
 		return "", "", err
 	}
@@ -204,7 +205,25 @@ func writerFailure(ctx context.Context, s *service, home, thread string, err err
 	return errors.New(wire(writerBusy(thread, ownership)))
 }
 
+func nativeTransferOptions(args object) bool {
+	for _, key := range []string{"expectedSha256", "append", "offset"} {
+		if _, present := args[key]; present {
+			return true
+		}
+	}
+	return false
+}
+
 func requestCodexNative(ctx context.Context, service *service, method string, args any, timeout time.Duration) (any, error) {
+	if method == "fs/fetchFile" || method == "fs/writeFile" && nativeTransferOptions(obj(args)) {
+		return transferBinaryFile(ctx, method, obj(args))
+	}
+	if method == "command/exec" && nativeCommandEnvironment != nil {
+		params := maps.Clone(obj(args))
+		nativeCommandEnvironment(ctx, params)
+		args = params
+	}
+
 	_, home, err := codexInputs()
 	if err != nil {
 		return nil, err
@@ -261,6 +280,12 @@ func requestCodexNative(ctx context.Context, service *service, method string, ar
 			state["runtimeSource"] = string(connection.role)
 		}
 	}
+	if err == nil && method == "command/exec" && operatingSystem == "darwin" {
+		if hint := shellLocalNetworkHint(value, args); hint != nil {
+			obj(value)["networkHint"] = hint
+		}
+	}
+
 	return value, err
 }
 
@@ -296,6 +321,23 @@ func discoverAgentExecutable(name string) string {
 
 func init() {
 	nativeControlRequest = requestCodexNative
+	permissionAccountRead = func(ctx context.Context, s *service) (object, error) {
+		value, err := requestCodexNative(ctx, s, "account/read", object{"refreshToken": false}, 5*time.Second)
+		return obj(value), err
+	}
+	permissionCommand = func(ctx context.Context, s *service, args object) (object, error) {
+		value, err := requestCodexNative(ctx, s, "command/exec", args, 5*time.Second)
+		return obj(value), err
+	}
+	permissionCodexInstalled = func() bool {
+		if fixtureNativeCodexInputs != nil {
+			return false
+		}
+		if operatingSystem == "linux" {
+			return discoverAgentExecutable("codex") != ""
+		}
+		return findDesktopCodexBinary != nil && findDesktopCodexBinary() != ""
+	}
 	registerOperation("codex_owner", nativeCodexOwner, nil)
 	registerServiceStartup(func(_ context.Context, service *service) error {
 		service.cleanup = append(service.cleanup, service.closeNativeCodex)

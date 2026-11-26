@@ -22,16 +22,7 @@ const primaryCodexProfile = "codex-home"
 
 var codexHostProfile = regexp.MustCompile(`^[A-Za-z0-9-]{1,64}$`)
 
-// The account lane supplies the single native primary home resolver.
-var resolveNativeCodexHome func() (string, error)
 var codexDesktopAttached func(context.Context) bool
-
-func codexPrimaryHome() (string, error) {
-	if resolveNativeCodexHome == nil {
-		return "", errors.New(PortPending)
-	}
-	return resolveNativeCodexHome()
-}
 
 func codexHostLocation(profile, suffix string) (string, error) {
 	if !codexHostProfile.MatchString(profile) {
@@ -397,7 +388,7 @@ func runCodexHost(stdin io.Reader, stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	home, err := codexPrimaryHome()
+	home, err := nativeCodexHome()
 	if err != nil {
 		return err
 	}

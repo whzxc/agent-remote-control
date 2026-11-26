@@ -13,9 +13,6 @@ import (
 )
 
 var taskRecordNavigation func(agent, task string) object
-var taskFeedLabelInputs func() (sourceLabels, accountLabels any)
-var decorateTaskFeedLabels func([]object, any, any)
-var resolveTaskListProject func(context.Context, *service, string) (object, error)
 var peerCanReadTask func(context.Context, string, string) bool
 var taskListRetryStatus func(thread, turn string) object
 var taskListQueueCounts func() (map[string]object, error)
@@ -55,7 +52,7 @@ func listTaskRecords(codex, agents []object) []object {
 type taskFeed struct {
 	codex, agents []object
 	sources       string
-	accounts      string
+	accounts      []any
 	desktop       bool
 	revision      string
 	records       []object
@@ -63,19 +60,19 @@ type taskFeed struct {
 	delta         object
 }
 
-func sameDisplayRows(a, b []object) bool {
+func sameDisplayRows[T any](a, b []T) bool {
 	return len(a) == len(b) && (len(a) == 0 || &a[0] == &b[0])
 }
 
-func (f *taskFeed) read(ctx context.Context, codex, agents []object, sourceLabels, accountLabels any, desktop bool, revision string) object {
+func (f *taskFeed) read(ctx context.Context, codex, agents []object, sourceLabels, accountLabels []any, desktop bool, revision string) object {
 	cost := runtimeWorkCost{Owner: "task-feed", Reason: "poll", ScanSet: len(codex) + len(agents)}
 	if f.records == nil || !sameDisplayRows(f.codex, codex) || !sameDisplayRows(f.agents, agents) ||
-		f.sources != wire(sourceLabels) || f.accounts != wire(accountLabels) || f.desktop != desktop {
+		f.sources != wire(sourceLabels) || !sameDisplayRows(f.accounts, accountLabels) || f.desktop != desktop {
 		cost.Rows = len(codex) + len(agents)
 		next := listTaskRecords(codex, agents)
-		if decorateTaskFeedLabels != nil {
-			decorateTaskFeedLabels(next, sourceLabels, accountLabels)
-		}
+		labelRows := decodedTaskList(next)
+		decorateSourceLabels(labelRows, sourceLabels)
+		decorateAccountLabels(labelRows, accountLabels)
 		if wire(next) != wire(f.records) {
 			old := make(map[string]object, len(f.records))
 			for _, row := range f.records {
@@ -97,7 +94,7 @@ func (f *taskFeed) read(ctx context.Context, codex, agents []object, sourceLabel
 			}
 		}
 		f.codex, f.agents, f.desktop = codex, agents, desktop
-		f.sources, f.accounts = wire(sourceLabels), wire(accountLabels)
+		f.sources, f.accounts = wire(sourceLabels), accountLabels
 	}
 	recordRuntimeWork(ctx, cost)
 	if revision == f.revision {
@@ -170,10 +167,7 @@ func listCodexTasks(ctx context.Context, request operationRequest) (any, error) 
 		params["limit"] = 20
 	}
 	if project, supplied := args["project"].(string); supplied {
-		if resolveTaskListProject == nil {
-			return nil, errors.New(PortPending)
-		}
-		resolved, err := resolveTaskListProject(ctx, service, project)
+		resolved, err := resolveProjectRoot(ctx, service, project, nil, false, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -429,10 +423,12 @@ func init() {
 		if err != nil {
 			return nil, err
 		}
-		var sources, accounts any
-		if taskFeedLabelInputs != nil {
-			sources, accounts = taskFeedLabelInputs()
+		authority, _ := listSourceAuthority()
+		sources := make([]any, 0, len(authority))
+		for _, row := range authority {
+			sources = append(sources, selectFields(row, "id", "label", "platform"))
 		}
+		accounts, _ := readAccounts()
 		desktop := fixtureNativeCodexInputs == nil && findDesktopCodexBinary != nil && findDesktopCodexBinary() != ""
 		s.taskRecords.mu.Lock()
 		defer s.taskRecords.mu.Unlock()
