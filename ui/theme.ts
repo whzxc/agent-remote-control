@@ -49,7 +49,7 @@ function applyTheme() {
     document.documentElement.style.setProperty("--theme-source", resolved ? color.sourceDark : color.sourceLight);
   else document.documentElement.style.removeProperty("--theme-source");
   if (isDesktop && navigator.platform.toLowerCase().includes("win"))
-    void import("@tauri-apps/api/core")
+    void import("./nativeBridge")
       .then(({ invoke }) =>
         invoke("set_windows_appearance", { dark: resolved }),
       )
@@ -70,7 +70,7 @@ export function observeNativeTheme() {
   let stopped = false;
   let off: (() => void) | undefined;
   if (isDesktop)
-    void import("@tauri-apps/api/window")
+    void import("./nativeBridge")
       .then(async ({ getCurrentWindow }) => {
         const win = getCurrentWindow();
         const current = await win.theme();

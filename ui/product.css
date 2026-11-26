@@ -83,6 +83,7 @@
 .app-scene.desktop { --homepage-bar-top: 40px; }
 
 .window-drag-strip {
+  --app-region: drag;
   position: absolute;
   inset: 0 0 auto;
   height: 38px;

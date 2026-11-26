@@ -70,6 +70,7 @@
     "happy-dom": ">=21.0.4 <22",
     "lucide-react": ">=1.48.0 <2",
     "motion": ">=13.4.4 <14",
+    "mygo-cli": "0.10.0",
     "pixelmatch": ">=8.0.0 <9",
     "playwright": ">=1.64.1 <2",
     "pngjs": ">=7.0.0 <8",
@@ -99,5 +100,8 @@
     "agent",
     "remote-control"
   ],
-  "private": true
+  "private": true,
+  "dependencies": {
+    "mygo-runtime": "0.10.0"
+  }
 }

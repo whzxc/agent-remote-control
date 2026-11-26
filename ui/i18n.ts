@@ -1,3 +1,4 @@
+import { isDesktop } from "./nativeBridge";
 import { appEnvironment, envOverrides } from "./state/appEnvironment";
 import { createStore, preference } from "./state/store";
 import en from "./locales/en.json";
@@ -44,8 +45,8 @@ function updateLocale() {
   const next = envOverrides().locale ?? resolvedLocale;
   locale.set(next);
   document.documentElement.lang = next;
-  if ("__TAURI_INTERNALS__" in window)
-    void import("@tauri-apps/api/core")
+  if (isDesktop)
+    void import("./nativeBridge")
       .then(({ invoke }) => invoke("set_ui_locale", { locale: next, resolvedLocale }))
       .catch(console.error);
 }

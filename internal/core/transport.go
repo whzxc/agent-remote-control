@@ -568,8 +568,9 @@ func listenDesktop(owner func(context.Context, string, string, object) (any, err
 		ReadTimeout:       5 * time.Second,
 		MaxHeaderBytes:    16 << 10,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, hasOrigin := r.Header["Origin"]
 			if (r.Host != "127.0.0.1:"+address && !strings.EqualFold(r.Host, "localhost:"+address)) ||
-				!secureToken(r.Header.Get("Authorization"), "Bearer "+token) || r.Header.Get("Origin") != "" {
+				!secureToken(r.Header.Get("Authorization"), "Bearer "+token) || hasOrigin {
 				httpReply(w, http.StatusBadRequest, object{"error": "unauthorized"})
 				return
 			}

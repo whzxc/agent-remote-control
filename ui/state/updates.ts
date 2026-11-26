@@ -1,6 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
-import { Update } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
+import { checkNativeUpdate, type DesktopUpdate } from "../nativeBridge";
 import { createStore, preference, preparePreferences } from "./store";
 import { t } from "../i18n";
 import { isDesktop } from "../platform";
@@ -28,7 +26,7 @@ const patch = (next: Partial<UpdateView>) => updates.set(old => ({ ...old, ...ne
 export const available = () => !!updates.get().version && updates.get().version !== skipped.get();
 export const updateActive = () => updates.get().phase !== 'idle';
 export const updateVisible = () => available() || updateActive();
-let pending: Update | undefined;
+let pending: DesktopUpdate | undefined;
 let operation: Promise<void> | undefined;
 let history: { expires: number; releases: PublishedRelease[] } | undefined;
 let historyRequest: Promise<PublishedRelease[]> | undefined;
@@ -68,8 +66,7 @@ export function checkUpdate(manual = true) {
     pending = undefined;
     patch({ version: undefined, notes: undefined, notesZh: undefined, ready: false, downloaded: 0, total: undefined });
     try {
-      const metadata = await invoke<ConstructorParameters<typeof Update>[0] | null>('check_update');
-      const found = metadata ? new Update(metadata) : undefined;
+      const found = await checkNativeUpdate();
       if (found && old?.version === found.version && ready) {
         await found.close(); pending = old;
         patch({ ready: true });
@@ -94,9 +91,7 @@ export function installUpdate(version = updates.get().version) {
   if (!update || update.version !== version || !updates.get().ready) return Promise.resolve();
   return perform(async () => {
     patch({ phase: 'installing' });
-    await invoke('prepare_update');
-    try { await update.install(); await relaunch(); }
-    catch (error) { await invoke('resume_after_update_failure'); throw error; }
+    await update.install();
   });
 }
 export function skipUpdate() {

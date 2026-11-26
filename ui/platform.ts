@@ -1,10 +1,10 @@
-export const isDesktop = "__TAURI_INTERNALS__" in window;
+import { invoke, isDesktop, openExternal, writeText } from "./nativeBridge";
+export { isDesktop };
 export async function desktopRequest<T>(
   path: string,
   method: string,
   body?: unknown,
 ): Promise<T> {
-  const { invoke } = await import("@tauri-apps/api/core");
   return invoke<T>("service_request", {
     route: path,
     method,
@@ -20,8 +20,7 @@ export async function openUrl(url: string) {
     window.open(url, "_blank", "noopener,noreferrer");
     return;
   }
-  const { openUrl } = await import("@tauri-apps/plugin-opener");
-  await openUrl(url);
+  await openExternal(url);
 }
 export async function notifyNative(title: string, body: string) {
   if (!isDesktop || localStorage.getItem("notifications") === "off") return;
@@ -30,7 +29,6 @@ export async function notifyNative(title: string, body: string) {
 
 export async function copyText(value: string) {
   if (isDesktop) {
-    const { writeText } = await import("@tauri-apps/plugin-clipboard-manager");
     await writeText(value);
   } else await navigator.clipboard.writeText(value);
 }

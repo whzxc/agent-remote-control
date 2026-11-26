@@ -96,7 +96,7 @@ export default function App() {
     // Keep drafts and active dialogs alive; only retire an idle hidden surface.
     const timer = setInterval(() => {
       if (connector.get().feedback.some(item => item.errorSource) || document.querySelector('[role="dialog"], form') || updates.get().phase !== "idle" || updates.get().panelOpen || updateVisible()) return;
-      void import("@tauri-apps/api/core").then(({ invoke }) => invoke("release_main_window")).catch(() => {});
+      void import("./nativeBridge").then(({ invoke }) => invoke("release_main_window")).catch(() => {});
     }, 30000);
     return () => clearInterval(timer);
   }, []);
@@ -127,7 +127,7 @@ export default function App() {
     if (!isDesktop) return;
     let stopped = false;
     const stops: (() => void)[] = [];
-    void import("@tauri-apps/api/event").then(async ({ listen }) => {
+    void import("./nativeBridge").then(async ({ listen }) => {
       const external = <T,>(title: string, action: (event: { payload: T }) => void) => (event: { payload: T }) => requestExternalNavigation(title, () => action(event));
       const listeners = await Promise.all([
         listen<{ id: string; panel?: PanelRequest }>("acceptance:snapshot", e => { void captureRequest(e.payload, () => navigate("overview")); }),
@@ -157,7 +157,7 @@ export default function App() {
       if (stopped) listeners.forEach((stop) => stop());
       else {
         stops.push(...listeners);
-        const { invoke } = await import("@tauri-apps/api/core");
+        const { invoke } = await import("./nativeBridge");
         await invoke("main_window_ready");
       }
     });

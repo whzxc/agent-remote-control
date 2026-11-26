@@ -99,11 +99,11 @@ export function StudioControls({ available }: { available: boolean }) {
       wasFullscreen.current = value;
     };
     const read = () => {
-      if (isDesktop) void import('@tauri-apps/api/window').then(({ getCurrentWindow }) => getCurrentWindow().isFullscreen()).then(accept).catch(() => {});
+      if (isDesktop) void import('../nativeBridge').then(({ getCurrentWindow }) => getCurrentWindow().isFullscreen()).then(accept).catch(() => {});
       else accept(!!document.fullscreenElement);
     };
     read();
-    if (isDesktop) void import('@tauri-apps/api/window').then(async ({ getCurrentWindow }) => {
+    if (isDesktop) void import('../nativeBridge').then(async ({ getCurrentWindow }) => {
       const stop = await getCurrentWindow().onResized(read);
       if (disposed) stop(); else unlisten = stop;
       read();
@@ -116,7 +116,7 @@ export function StudioControls({ available }: { available: boolean }) {
     pendingFullscreen.current = true; setBusy(true);
     try {
       if (isDesktop) {
-        const { getCurrentWindow } = await import('@tauri-apps/api/window');
+        const { getCurrentWindow } = await import('../nativeBridge');
         const window = getCurrentWindow(); await window.setFullscreen(value);
         const actual = await window.isFullscreen(); setFullscreen(actual); wasFullscreen.current = actual;
         if (!value && !actual) restoreFocus();

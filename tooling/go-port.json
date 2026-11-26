@@ -1973,93 +1973,140 @@
     },
     "desktop/src/app_env.rs": {
       "segment": "F",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "cmd/arc-desktop/app_env.go"
+      ],
+      "status": "ported"
     },
     "desktop/src/appearance.rs": {
       "segment": "F",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "cmd/arc-desktop/appearance.go"
+      ],
+      "status": "ported"
     },
     "desktop/src/autostart.rs": {
       "segment": "F",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "cmd/arc-desktop/autostart_darwin.go",
+        "cmd/arc-desktop/autostart_windows.go",
+        "cmd/arc-desktop/autostart_other.go"
+      ],
+      "status": "ported"
     },
     "desktop/src/desktop_access.rs": {
       "segment": "F",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "cmd/arc-desktop/desktop_access.go",
+        "cmd/arc-desktop/renderer.go",
+        "internal/core/desktop_client.go"
+      ],
+      "status": "ported"
     },
     "desktop/src/i18n.rs": {
       "segment": "F",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "cmd/arc-desktop/i18n.go"
+      ],
+      "status": "ported"
     },
     "desktop/src/main.rs": {
       "segment": "F",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "cmd/arc-desktop/main.go",
+        "cmd/arc-desktop/renderer.go"
+      ],
+      "status": "ported"
     },
     "desktop/src/oauth_links.rs": {
       "segment": "F",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "cmd/arc-desktop/oauth_links.go"
+      ],
+      "status": "ported"
     },
     "desktop/src/permissions.rs": {
       "segment": "F",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "cmd/arc-desktop/permissions.go",
+        "cmd/arc-desktop/permissions_darwin.go",
+        "cmd/arc-desktop/permissions_other.go"
+      ],
+      "status": "ported"
     },
     "desktop/src/snapshot/macos.rs": {
       "segment": "F",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "cmd/arc-desktop/snapshot_darwin.go"
+      ],
+      "status": "ported"
     },
     "desktop/src/snapshot.rs": {
       "segment": "F",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "cmd/arc-desktop/snapshot.go",
+        "cmd/arc-desktop/snapshot_other.go"
+      ],
+      "status": "ported"
     },
     "desktop/src/src_conversations/import.rs": {
       "segment": "F",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "cmd/arc-desktop/src_conversations_import_darwin.go"
+      ],
+      "status": "ported"
     },
     "desktop/src/src_conversations/jobs.rs": {
       "segment": "F",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "cmd/arc-desktop/src_conversations_jobs_darwin.go"
+      ],
+      "status": "ported"
     },
     "desktop/src/src_conversations/mod.rs": {
       "segment": "F",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "cmd/arc-desktop/src_conversations_darwin.go",
+        "cmd/arc-desktop/src_conversations_other.go"
+      ],
+      "status": "ported"
     },
     "desktop/src/src_conversations/native.rs": {
       "segment": "F",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "cmd/arc-desktop/src_conversations_native_darwin.go"
+      ],
+      "status": "ported"
     },
     "desktop/src/tray.rs": {
       "segment": "F",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "cmd/arc-desktop/tray.go"
+      ],
+      "status": "ported"
     },
     "desktop/src/updates.rs": {
       "segment": "F",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "cmd/arc-desktop/updates.go"
+      ],
+      "status": "ported"
     },
     "desktop/src/windows.rs": {
       "segment": "F",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "cmd/arc-desktop/windows.go",
+        "cmd/arc-desktop/window_state.go"
+      ],
+      "status": "ported"
     },
     "desktop/src/windows_frame.rs": {
       "segment": "F",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "cmd/arc-desktop/windows_frame_windows.go",
+        "cmd/arc-desktop/windows_frame_other.go"
+      ],
+      "status": "ported"
     },
     "tests/fixture/src/main.rs": {
       "segment": "S0",

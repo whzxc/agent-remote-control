@@ -9,14 +9,14 @@ export function usePetMotion() {
     async function update() {
       const windowVisible = document.visibilityState === 'visible';
       if (!windowVisible || !isDesktop) { if (!disposed) setVisible(windowVisible); return; }
-      const { getCurrentWindow } = await import('@tauri-apps/api/window');
+      const { getCurrentWindow } = await import('../nativeBridge');
       const win = getCurrentWindow();
       const shown = await win.isVisible(), minimized = await win.isMinimized();
       if (!disposed) setVisible(shown && !minimized && document.visibilityState === 'visible');
     }
     const change = () => { void update().catch(() => { if (!disposed) setVisible(false); }); };
     document.addEventListener('visibilitychange', change);
-    if (isDesktop) void import('@tauri-apps/api/window').then(async ({ getCurrentWindow }) => {
+    if (isDesktop) void import('../nativeBridge').then(async ({ getCurrentWindow }) => {
       const win = getCurrentWindow();
       for (const unlisten of await Promise.all([win.onResized(change), win.onFocusChanged(() => {
         change(); clearTimeout(settling); settling = setTimeout(change, 150);

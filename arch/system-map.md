@@ -10,6 +10,9 @@ owners:
   - native/src/rpc.rs
   - native/src/task_host.rs
   - desktop/src/**
+  - cmd/arc-desktop/**
+  - internal/core/desktop_client.go
+  - ui/nativeBridge.ts
 status: Approved
 ---
 The MCP hub is experimental. It is off by default and enabled from Experimental settings.

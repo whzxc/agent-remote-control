@@ -87,7 +87,7 @@ export async function settledViewModel() {
 }
 export async function captureRequest(request: { id: string; panel?: PanelRequest; taskPanel?: TaskPanelRequest; taskBubble?: ActivityBubbleRequest }, navigate: () => void) {
   protectSnapshot();
-  const { invoke } = await import('@tauri-apps/api/core');
+  const { invoke } = await import('./nativeBridge');
   try {
     await refreshAppEnvironment();
     await Promise.all([refreshConnector(), refreshAgents(), refreshTasks(), api<AgentActivitySnapshot>('agents/activity').then(acceptActivity)]);

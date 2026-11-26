@@ -70,7 +70,7 @@ export function startSubscriptions() {
     off: (() => void) | undefined,
     stream: EventSource | undefined;
   if (isDesktop)
-    void import("@tauri-apps/api/event")
+    void import("../nativeBridge")
       .then(async ({ listen }) => {
         const dispose = await listen<Snapshot>("subscriptions:changed", (e) =>
           acceptSubscriptions(e.payload),

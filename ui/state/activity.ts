@@ -71,7 +71,7 @@ export function startAgentActivity() {
     } finally { reading = false; }
   }
   if (isDesktop) {
-    void import("@tauri-apps/api/event").then(async ({ listen }) => {
+    void import("../nativeBridge").then(async ({ listen }) => {
       const dispose = await listen<AgentActivitySnapshot>("agents:activity", event => accept(event.payload));
       if (stopped) dispose();
       else { off = dispose; connected = true; void read(); }

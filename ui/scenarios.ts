@@ -15,7 +15,7 @@ import { accountScenario } from "./scenarioAccounts";
 import { beginScenario, finishScenario, missingScenarioRoute, scenarioReadiness } from "./state/scenarioReadiness";
 import { updates, checkUpdate, type UpdateView } from './state/updates';
 import releaseHistory from '../tooling/acceptance/fixtures/release-history.json';
-import { mockIPC } from '@tauri-apps/api/mocks';
+import { mockIPC } from './nativeBridge';
 import { onboarding, connectionSetup, type SourceSetup, type ConnectionSetup } from './state/onboarding';
 import { navigation, type Page } from './state/navigation';
 import type { RelayProgress } from './state/relay';

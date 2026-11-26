@@ -48,7 +48,7 @@ export function startPermissions() {
   window.addEventListener("focus", refresh);
   let dispose: (() => void) | undefined;
   let closed = false;
-  if (isDesktop) void import("@tauri-apps/api/window").then(async ({ getCurrentWindow }) => {
+  if (isDesktop) void import("../nativeBridge").then(async ({ getCurrentWindow }) => {
     const off = await getCurrentWindow().onFocusChanged(({ payload }) => { if (payload) refresh(); });
     if (closed) off(); else dispose = off;
   }).catch(() => {});

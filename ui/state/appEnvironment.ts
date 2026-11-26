@@ -62,7 +62,7 @@ export function refreshAppEnvironment() {
     const width = overrides.windowWidth ?? null, height = overrides.windowHeight ?? null;
     const size = JSON.stringify([width, height]);
     if (isDesktop && (size !== appliedSize || width !== null && Math.abs(innerWidth - width) > 1 || height !== null && Math.abs(innerHeight - height) > 1)) {
-      const { invoke } = await import("@tauri-apps/api/core");
+      const { invoke } = await import("../nativeBridge");
       await invoke("apply_env_window", { width, height });
       appliedSize = size;
     }

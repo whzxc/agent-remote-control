@@ -4,7 +4,9 @@ flowchart TB
   src["Control sources<br/>ChatGPT · Claude · other MCP clients"]
   net["Connections<br/>OpenAI Secure Tunnel · dedicated tunnel · relay"]
   subgraph HOST["ARC on this computer"]
-    local["Desktop app · arc CLI<br/>Desktop: manual persisted Topology / Tasks mode"]
+    webview["React in the system WebView<br/>Desktop renderer bridge"]
+    desktop["ARC Desktop owner<br/>Tauri or MyGo · native windows and tray"]
+    cli["arc CLI"]
     fd["Front door<br/>listeners · auth · tunnels<br/>queue during Core swap"]
     state[("State directory<br/>sources · receipts · bindings")]
     hub["MCP hub<br/>downstream MCP servers"]
@@ -27,7 +29,10 @@ flowchart TB
   end
   src -->|"MCP guide / query / act · structures frozen<br/>ops gain device target argument"| net
   net -->|"HTTPS"| fd
-  local -->|"local HTTP"| fd
+  webview -->|"Desktop IPC"| desktop
+  desktop -->|"authenticated local HTTP · Desktop lease"| fd
+  cli -->|"authenticated local HTTP"| fd
+  core -->|"authenticated callback · Desktop routes"| desktop
   fd -->|"private IPC"| core
   state --- core
   hub --- core
