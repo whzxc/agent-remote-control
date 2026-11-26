@@ -1,7 +1,7 @@
 import { enterHeavyBuild } from './heavy-build.mjs';
 import { existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { cp, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
@@ -12,9 +12,26 @@ import { stageTimer } from './release-support.mjs';
 import { buildNative } from './build-native.mjs';
 import { prepareDesktop } from './prepare-desktop.mjs';
 import { finishMacosApp } from './macos-dev-app.mjs';
-import { desktopIdentifier, desktopName, desktopScheme, developmentConfig, developmentEnvironment } from './dev-identity.mjs';
+import { desktopExecutable, desktopIdentifier, desktopName, desktopScheme, developmentConfig, developmentEnvironment } from './dev-identity.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
+
+async function uninstallFiles(directory, prefix = '') {
+  const commands = [];
+  const entries = await readdir(directory, { withFileTypes: true });
+  for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name, 'en'))) {
+    if (/["$\r\n]/.test(entry.name)) throw new Error('NSIS resource paths must not contain installer syntax.');
+    const relative = prefix + entry.name;
+    const destination = `"$INSTDIR\\${relative}"`;
+    if (entry.isDirectory()) {
+      commands.push(...await uninstallFiles(path.join(directory, entry.name), relative + '\\'));
+      commands.push(`RMDir ${destination}`);
+    } else if (entry.isFile() && relative !== desktopExecutable + '.exe') {
+      commands.push(`Delete ${destination}`);
+    }
+  }
+  return commands;
+}
 
 export async function buildDesktop({ target, output, development = false, release = false, noImage = false, debug = false, adhoc = false, updateFixture } = {}) {
   const platform = goTarget(target);
@@ -92,11 +109,13 @@ export async function buildDesktop({ target, output, development = false, releas
       if (!noImage) await timed('macOS DMG', async () => run('uv', ['run', '--script', path.join(root, 'tooling/build-dmg.py'), app,
         path.join(stage, `agent-remote-control_${version}_aarch64.dmg`)]));
     } else if (!noImage) {
+      const uninstall = path.join(work, 'uninstall-files.nsh');
+      await writeFile(uninstall, (await uninstallFiles(stage)).join('\n') + '\n');
       const installedNSIS = process.platform === 'win32' && process.env['ProgramFiles(x86)']
         ? path.join(process.env['ProgramFiles(x86)'], 'NSIS/makensis.exe') : '';
       const makensis = env.ARC_MAKENSIS || (installedNSIS && existsSync(installedNSIS) ? installedNSIS : 'makensis');
       await timed('Windows NSIS installer', async () => run(makensis, [
-        `-DARC_VERSION=${version}`, `-DARC_PAYLOAD=${stage}`,
+        `-DARC_VERSION=${version}`, `-DARC_PAYLOAD=${stage}`, `-DARC_UNINSTALL_FILES=${uninstall}`,
         `-DARC_OUTPUT=${path.join(work, `agent-remote-control_${version}_x64-setup.exe`)}`,
         path.join(root, 'tooling/windows-installer/installer.nsi'),
       ]));
