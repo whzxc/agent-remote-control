@@ -63,9 +63,16 @@ async function main() {
     Object.assign(env, await buildGoTestBinaries(run, env));
     const files = extended ? await testFiles(true) : selected;
     // Run the startup benchmark without other process fixtures competing for CPU.
-    if (files.includes(startupBenchmark)) await run(process.execPath, ['--test', startupBenchmark]);
+    const groups = [];
+    if (files.includes(startupBenchmark)) groups.push(['--test', startupBenchmark]);
     const others = files.filter(file => file !== startupBenchmark);
-    if (others.length) await run(process.execPath, ['--test', '--test-concurrency=4', ...others]);
+    if (others.length) groups.push(['--test', '--test-concurrency=4', ...others]);
+    const failures = [];
+    for (const group of groups) {
+      try { await run(process.execPath, group); }
+      catch (error) { failures.push(error.message); }
+    }
+    if (failures.length) throw new Error(failures.join('\n'));
   } else {
     await run(process.execPath, ['--test', '--test-concurrency=4', ...await testFiles()]);
   }

@@ -2,6 +2,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -58,14 +59,14 @@ func run(files []string) error {
 	mutantPath, overlayPath := filepath.Join(dir, "mutant.go"), filepath.Join(dir, "overlay.json")
 	defer os.Remove(mutantPath)
 	defer os.Remove(overlayPath)
-	survived, total := 0, 0
+	survived, invalid, total := 0, 0, 0
 	for _, file := range files {
 		raw, locations, err := mutations(file)
 		if err != nil {
 			return err
 		}
 		pkg := "./" + filepath.ToSlash(filepath.Dir(file))
-		if err := goTest(pkg); err != nil {
+		if _, err := goTest(pkg); err != nil {
 			return fmt.Errorf("baseline failed for %s: %w", pkg, err)
 		}
 		absolute, err := filepath.Abs(file)
@@ -88,10 +89,15 @@ func run(files []string) error {
 			if err := os.WriteFile(mutantPath, []byte(mutant), 0600); err != nil {
 				return err
 			}
-			outcome := "killed"
-			if err := goTest(pkg, "-overlay", overlayPath); err == nil {
+			outcome, err := goTest(pkg, "-overlay", overlayPath)
+			switch outcome {
+			case "survived":
 				survived++
-				outcome = "survived"
+			case "invalid":
+				invalid++
+			case "killed":
+			default:
+				return err
 			}
 			fmt.Printf("%s:%d %s %s\n", file, 1+strings.Count(string(raw[:item.start]), "\n"), item.replacement, outcome)
 			if outcome == "survived" {
@@ -101,21 +107,40 @@ func run(files []string) error {
 			}
 		}
 	}
-	fmt.Printf("%d of %d mutants survived (%s)\n", survived, total, dir)
-	if survived > 0 || total == 0 {
-		return errors.New("mutation audit found surviving mutants or no applicable operators")
+	fmt.Printf("%d of %d mutants survived, %d did not compile (%s)\n", survived, total, invalid, dir)
+	if survived > 0 || total == 0 || invalid == total {
+		return errors.New("mutation audit found survivors or no testable mutants")
 	}
 	return nil
 }
 
-func goTest(pkg string, flags ...string) error {
-	args := append([]string{"test", "-count=1", "-timeout=2m", "-tags", "arcfixture"}, flags...)
+func goTest(pkg string, flags ...string) (string, error) {
+	args := append([]string{"test", "-json", "-count=1", "-timeout=2m", "-tags", "arcfixture"}, flags...)
 	cmd := exec.Command("go", append(args, pkg)...)
 	output, err := cmd.CombinedOutput()
-	if err != nil {
+	if err == nil {
+		return "survived", nil
+	}
+	outcome := ""
+	for line := range bytes.SplitSeq(output, []byte("\n")) {
+		var event struct{ Action, Package, FailedBuild, Output string }
+		if json.Unmarshal(line, &event) != nil {
+			continue
+		}
+		if event.Action == "build-fail" || event.FailedBuild != "" {
+			return "invalid", err
+		}
+		if strings.Contains(event.Output, "panic: test timed out") {
+			return "", fmt.Errorf("mutation test timed out for %s", pkg)
+		}
+		if event.Action == "fail" && event.Package != "" {
+			outcome = "killed"
+		}
+	}
+	if len(flags) == 0 || outcome == "" {
 		fmt.Fprint(os.Stderr, string(output))
 	}
-	return err
+	return outcome, err
 }
 
 func mutations(file string) ([]byte, []mutation, error) {
