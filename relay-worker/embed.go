@@ -1,4 +1,4 @@
-// Package relayworker embeds the deployment assets shared with the Rust Core.
+// Package relayworker embeds the deployment assets shipped with Core.
 package relayworker
 
 import _ "embed"

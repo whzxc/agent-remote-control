@@ -26,7 +26,7 @@ export async function buildNative({
   if (pack && platform.os === 'darwin') {
     if (process.platform !== 'darwin') throw new Error('The macOS screen helper must be built on macOS.');
     const arch = platform.arch === 'amd64' ? 'x86_64' : platform.arch;
-    run('xcrun', ['swiftc', '-O', '-target', `${arch}-apple-macos11.0`, path.join(root, 'native/screen/main.swift'), '-o', helper]);
+    run('xcrun', ['swiftc', '-O', '-target', `${arch}-apple-macos11.0`, path.join(root, 'cmd/arc-screen/main.swift'), '-o', helper]);
     run('codesign', [...macosSigningArgs(identity, `${identifier}.core`), binary]);
     run('codesign', [...macosSigningArgs(identity, `${identifier}.screen`), helper]);
   }

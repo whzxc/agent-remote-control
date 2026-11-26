@@ -10,6 +10,7 @@ import { inputKey, dependenciesMatch } from '../tooling/build-cache.mjs';
 import { testEnvironment } from '../tooling/test-environment.mjs';
 import { validateLinuxElf, validateLinuxReceipt } from '../tooling/linux-release.mjs';
 import { renderReleaseNotes } from '../tooling/release-notes.mjs';
+import { checkLegacyUpdatePublicKey } from '../tooling/release-signing.mjs';
 
 test('release notes generate both languages from the same version entries', () => {
   // Recurring bug class: updater notes exposed commit subjects and repeated an obsolete migration notice.
@@ -19,6 +20,13 @@ test('release notes generate both languages from the same version entries', () =
   assert.equal(notes.en, '## Improvements\n\n- Show update history.\n\n## Fixes\n\n- Restore the task bubble.');
   assert.deepEqual(notes.zh.match(/^- .*$/gm), [`- ${improvement['zh-CN']}`, `- ${fix['zh-CN']}`]);
   assert.equal(notes.body, `${notes.en}\n\n<!-- lang:zh-CN -->\n\n${notes.zh}\n`);
+});
+
+test('desktop release preflight rejects a replacement legacy updater key', () => {
+  // Contract: Installed legacy clients accept signatures only from their shipped Minisign key.
+  for (const env of [{}, { ARC_TAURI_UPDATE_PUBLIC_KEY: 'replacement-key' }]) {
+    assert.throws(() => checkLegacyUpdatePublicKey(env), /ARC_TAURI_UPDATE_PUBLIC_KEY/);
+  }
 });
 
 test('ordinary releases select desktops and Linux requires an explicit selection', () => {
@@ -53,15 +61,15 @@ test('Linux receipts bind source version architecture bytes and native runtime c
 
 test('test execution has the same version-independent environment inside and outside release', () => {
   // Algorithmic core: packaging overrides cannot contaminate the source-tree test cache or mutate its caller.
-  const env = { ARC_BUILD_VERSION: '1.2.3', TAURI_CONFIG: '{}', ARC_RELEASE_TIMINGS_FILE: 'timings', ARC_RELEASE_PLATFORM: 'mac', RUSTFLAGS: '-C opt-level=1', PATH: '/tools' };
+  const env = { ARC_BUILD_VERSION: '1.2.3', ARC_MYGO_DEVELOPMENT: '1', GOFLAGS: '-tags=arcfixture', ARC_RELEASE_TIMINGS_FILE: 'timings', ARC_RELEASE_PLATFORM: 'mac', PATH: '/tools' };
   const result = testEnvironment(env);
   assert.equal(result.ARC_BUILD_VERSION, '0.0.0');
-  assert.equal(result.RUSTFLAGS, env.RUSTFLAGS);
   assert.equal(result.PATH, env.PATH);
-  for (const key of ['TAURI_CONFIG', 'ARC_RELEASE_TIMINGS_FILE', 'ARC_RELEASE_PLATFORM']) assert.equal(result[key], undefined);
+  for (const key of ['ARC_MYGO_DEVELOPMENT', 'GOFLAGS', 'ARC_RELEASE_TIMINGS_FILE', 'ARC_RELEASE_PLATFORM']) assert.equal(result[key], undefined);
   assert.ok(path.isAbsolute(result.TMPDIR));
   for (const key of ['TMP', 'TEMP', 'GIT_CEILING_DIRECTORIES']) assert.equal(result[key], result.TMPDIR);
   assert.equal(env.ARC_BUILD_VERSION, '1.2.3');
+  assert.equal(env.GOFLAGS, '-tags=arcfixture');
 });
 
 test('dependency passes invalidate on lock manifest runtime or platform changes', () => {

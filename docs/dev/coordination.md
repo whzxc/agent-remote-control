@@ -12,13 +12,13 @@ push are not implemented. AX and the bulletin own their separate records and pro
 
 ## Producer interface
 
-Call `crate::coordination::emit(EventInput)` from an internal owner. Construct
-`EventInput::new(transition_id, EventKind, resources)` and set only typed metadata.
+Call `emitCoordinationEvent` from an internal owner. Create the input with
+`newCoordinationEvent(transitionID, kind, resources)` and set only typed metadata.
 The return is `{eventId, sequence, duplicate}` after a synced append. The input
 has no free-form summary, title, prompt, output or error fields. Summaries come
-from fixed templates. `Principal::from_origin` accepts server-captured origin;
+from fixed templates. `coordinationPrincipalFromOrigin` accepts server-captured origin;
 null stays unknown and explicit local origin maps to built-in local authority.
-Use `Principal::Arc` for evidenced internal ARC activity. Do not infer a source
+Use the ARC principal for evidenced internal ARC activity. Do not infer a source
 from an account, label or current task. Account IDs are attribution only.
 
 The owner MUST durably persist its transition and pending descriptor first.
@@ -34,10 +34,10 @@ of transitions already evicted from the feed. A failed observation never changes
 a successful dispatch or Git result. Retain it for bounded reconciliation.
 
 `Resources` projects registered project IDs and associated lanes without storing
-a second registry. Add registered projects before lanes. `ResourceKey::lane`
-returns the qualified key, so later duplicate names cannot change historical
-identity. Resolve shorthand through `Resources::resolve` against a current
-registered projection; query shorthand resolves against retained event resources.
+a second registry. Add registered projects before lanes. Record qualified lane
+keys so later duplicate names cannot change historical identity. Resolve producer
+shorthand against the current registered projection. Resolve query shorthand
+against retained event resources.
 No key contains a path, account name or actual hostname. `host:<id>` receives an
 opaque instance-local ID supplied by its owning observer, never device_name().
 
@@ -92,7 +92,7 @@ GitHub issue and the optional local `ax_issue_draft`. ON guides include reportin
 candidate review, triage cadence and release gating. Coordination guidance remains
 available in both modes. The full index and explicit op schemas still expose AX.
 
-`coordination::ax` owns report/list/candidate/triage and explicit local import/export.
+The AX store owns report/list/candidate/triage and explicit local import/export.
 AX data belongs only to this instance; it is never sent to the project maintainer.
 Triage requires Maintainer mode or authenticated local authority, in addition to
 existing entry ownership checks. Import is reachable only through local authority.
@@ -116,7 +116,7 @@ preserve readable state. Closed/merged rows expire after 180 days only after an
 explicit export of their current revision and completed projection. External
 archives are never automatically pruned. Open entries remain retained.
 
-Owners call `ax::observe(Friction, observation_id, principal, evidence_refs)` after
+Owners call `observeAXFriction(kind, observation, source, refs)` after
 releasing their locks, retaining stable observation IDs. Receipt-stalled and
 delivery-failed journal events feed it at emit; owner-discovery timeout results
 feed it at control dispatch. AX events cannot recursively generate candidates. Receipt observers only persist
@@ -136,7 +136,7 @@ Retire a queue only after import readback.
 
 ## Observers and owner boundaries
 
-`observers::save_owner` adds typed `coordinationPending` descriptors to the owner
+`saveCoordinationOwner` adds typed `coordinationPending` descriptors to the owner
 record and syncs one atomic replacement for an unprojected transition. Ordinary
 text/progress writes with no pending projection retain their existing save behavior.
 Dispatch history owns submitted dispatches; Agent dispatch becomes observable after
@@ -230,7 +230,7 @@ observed. Observers add no resource subscription or message. Bulletin claims are
 
 ## Bulletin and resource blockers
 
-`coordination::bulletin` owns `coordination/state.json`. The source-facing ops are
+The bulletin store owns `coordination/state.json`. The source-facing ops are
 `board`, `coordination_session`, `notice_post`, `notice_update`, `notice_close`,
 `blocker_open` and `blocker_clear`. These are catalog operations behind the existing
 frozen tools, not new MCP tools or guide topics. Existing explicit op allowlists
@@ -319,7 +319,7 @@ Acquire and release the source authorization snapshot before the bulletin lock.
 Acquire request-ID locks before mutation. Thread-origin and fixing-commit evidence
 reads run outside the bulletin lock. Mutations atomically persist the owner record,
 request digest/result and pending descriptors, release the lock, call
-`crate::coordination::emit`, then checkpoint projection. Event parts contain at
+`emitCoordinationEvent`, then checkpoint projection. Event parts contain at
 most four resources to fit the existing 2 KiB journal budget. `notice.changed` and
 `blocker.changed` expose typed state and opaque owner-record references, not intent
 or blocker free text. Pending projection is retried in bounded batches on reads

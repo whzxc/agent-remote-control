@@ -2,11 +2,11 @@
 
 **English** | [简体中文](zh-CN/installation.md)
 
-Choose the newest release containing your platform’s installer and download it with `SHA256SUMS.txt` from [Releases](https://github.com/whzxc/agent-remote-control/releases). ARC runs without Node, npm, or Rust. Install and sign in to the Agent you want to use.
+Choose the newest release containing your platform’s installer and download it with `SHA256SUMS.txt` from [Releases](https://github.com/whzxc/agent-remote-control/releases). The installer includes the ARC runtime. Install and sign in to the Agent you want to use.
 
 | Platform | Package |
 | --- | --- |
-| macOS Apple Silicon | `agent-remote-control_<version>_aarch64.dmg` |
+| Apple Silicon, macOS 13.0 or later | `agent-remote-control_<version>_aarch64.dmg` |
 | Windows x64 | NSIS `…-setup.exe` |
 | Linux x86_64 / aarch64 | Headless Core tarball; [Linux reference](reference/linux.md) |
 
@@ -74,4 +74,4 @@ Manual App removal leaves ARC state in `~/.agent-remote-control` on macOS and `%
 
 ## Limits
 
-macOS packages target Apple Silicon. Unsigned or unnotarized packages can trigger OS warnings; organization policy may require administrator action. Linux has no desktop UI. A renamed bundle identity can require new macOS screen-recording, accessibility, automation, and login-item permissions.
+Unsigned or unnotarized packages can trigger OS warnings; organization policy may require administrator action. Linux has no desktop UI. A renamed bundle identity can require new macOS screen-recording, accessibility, automation, and login-item permissions.

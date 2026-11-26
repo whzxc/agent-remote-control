@@ -47,17 +47,9 @@
     "check:go-format": "node tooling/go-format.mjs"
   },
   "devDependencies": {
-    "@ast-grep/lang-rust": ">=0.0.7 <1",
-    "@ast-grep/napi": ">=0.51.0 <1",
     "@modelcontextprotocol/sdk": ">=1.30.0 <2",
     "@stryker-mutator/core": ">=10.0.0 <11",
     "@tailwindcss/vite": ">=4.3.3 <5",
-    "@tauri-apps/api": ">=2.12.2 <3",
-    "@tauri-apps/cli": ">=2.11.4 <3",
-    "@tauri-apps/plugin-clipboard-manager": ">=2.3.3 <3",
-    "@tauri-apps/plugin-opener": ">=2.5.5 <3",
-    "@tauri-apps/plugin-process": "^2.4.0",
-    "@tauri-apps/plugin-updater": "^2.14.1",
     "@testing-library/dom": ">=10.4.2 <11",
     "@types/node": ">=26.1.1 <27",
     "@types/react": ">=19.3.0 <20",
@@ -105,7 +97,6 @@
     "mygo-runtime": "0.10.0"
   },
   "allowScripts": {
-    "fsevents": true,
-    "@ast-grep/lang-rust": false
+    "fsevents": true
   }
 }

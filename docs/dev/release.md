@@ -8,15 +8,15 @@ Public source and artifacts live in whzxc/agent-remote-control. Formal Git tags 
 
 The default release selects macOS ARM64 on the Apple Silicon Mac coordinator and Windows x64 on the exclusive on-demand worker. An unqualified release request uses only these desktop platforms. Include Linux only when the user explicitly requests all platforms or Linux. Default desktop releases do not check, prepare, build, or validate Linux. The coordinator requires Node.js 24.12+, Go from go.mod, full Xcode 26+, npm dependencies, and authenticated gh for formal publication. Explicit Linux builds also require gh access to dispatch and download Actions artifacts; Linux-only builds do not require signing keys.
 
-The desktop transition publishes both updater formats. The existing Tauri client reads `latest.json`. Its macOS app archive and raw Windows NSIS EXE have Base64-wrapped Minisign sidecars. The same macOS app and the Windows installed-file archive have separate MyGo signatures and platform feeds named `update-darwin-arm64.json` and `update-windows-amd64.json`. Feed URLs for payloads are version-pinned.
+Desktop releases publish signed MyGo feeds named `update-darwin-arm64.json` and `update-windows-amd64.json` for the macOS app archive and Windows installed-file archive. They also publish `latest.json` for installed ARC 0.9.53 and 0.9.54 Tauri clients. That feed points to the macOS app archive and raw Windows NSIS EXE with Base64-wrapped Minisign sidecars. All feed payload URLs are version-pinned.
 
-The control source supplies the approved key inputs on the Mac release coordinator:
+The Mac release coordinator uses the following signing inputs.
 
-- `ARC_TAURI_UPDATE_PUBLIC_KEY` contains the public value already embedded in the shipped Tauri configuration. `TAURI_SIGNING_PRIVATE_KEY_FILE` points to its matching external Minisign secret. Set `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` for an encrypted key.
+- Release preflight compares `ARC_TAURI_UPDATE_PUBLIC_KEY` with the shipped legacy public key pinned in `tooling/release-signing.mjs`. `TAURI_SIGNING_PRIVATE_KEY_FILE` points to its matching external Minisign secret. Set `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` for an encrypted key.
 - `ARC_MYGO_UPDATE_PUBLIC_KEY` contains the MyGo Ed25519 public key in Base64. The build embeds the same key in MyGo and ARC's download check. `ARC_MYGO_UPDATE_PRIVATE_KEY_FILE` points to its matching external Base64 Ed25519 secret. An authorized key owner can provision the pair with `mygo keygen`.
 - Windows receives only the MyGo public key. It returns the unsigned NSIS EXE and the archive of installed files, each bound to its digest in the build receipt. The coordinator signs and verifies both formats.
 
-Before publishing the bridge, approve its key inputs, the rollout from the last Tauri release through the first and subsequent MyGo releases, and how long legacy clients can reach the transition feed at the existing latest-release URL. Approve installed acceptance and publication separately.
+The Go verifier checks the corresponding key pairs, signs payloads, and verifies both feeds before publication. Keep the legacy feed available at the existing latest-release URL.
 
 Packaged macOS builds use the fixed self-signed identity from tooling/macos-signing.mjs. APPLE_SIGNING_IDENTITY may select only that identity or its fingerprint. Missing certificate/private key, ad-hoc selection, or another identity fails without selecting a company Team. Package checks validate Desktop/Core/screen-helper certificates and identifiers. Keep the original certificate and private key in the Mac keychain; do not regenerate a same-name certificate or export it to workers or GitHub Secrets. Hardened runtime is enabled; Apple notarization and timestamping are not used. First-launch Gatekeeper restrictions are described in Installation.
 
@@ -74,7 +74,7 @@ Windows connection/SCNet checkout declarations come from the installed @whzxc/wo
 
 Transfer a Git bundle into the dedicated clean ordinary Windows checkout, detach at the exact SHA, and preserve the Go compiler and module caches. npm ci is skipped only with a successful installation receipt matching package-lock, package.json, Node/npm versions, platform, and architecture, plus installed lock metadata. Failed installs invalidate the receipt. macOS uses the same dependency receipt rule. Windows returns EXE, version/SHA/architecture/SHA-256 receipt, and stage timings. The Mac validates the downloaded digest before signing. Once artifacts are collected, shutdown starts asynchronously; verification and formal uploads may proceed while it shuts down. The coordinator waits for cleanup and reports its result at the end, including failures. Shutdown is excluded from the artifact critical path.
 
-The desktop packager stages the corresponding Go Core and resources, then uses MyGo for the Desktop executable and frontend. macOS keeps the legacy app name, bundle identifier, scheme, executable, native icon and Core/helper paths. Windows NSIS retains current-user installation and the legacy registry and install directory. The current macOS Go toolchain targets macOS 13.0 on ARM64.
+The desktop packager stages the corresponding Go Core and resources, then uses MyGo for the Desktop executable and frontend. macOS keeps the legacy app name, bundle identifier, scheme, executable, native icon and Core/helper paths. Windows NSIS retains current-user installation and the legacy registry and install directory. The macOS package requires macOS 13.0 or later on Apple Silicon.
 
 latest.json contains only the selected desktop platforms from this build. Linux archives and install script are separate assets. Missing updater platforms stay on their prior releases. --platforms accepts a nonduplicated subset of mac,windows,linux; partial publication requires its own new version. Never append to or overwrite a public version, substitute old platform bytes, or publish an incomplete selection. The default selection is mac,windows. Linux Actions runs only for an explicit Linux selection; formal publication remains on the coordinator.
 
@@ -86,7 +86,7 @@ Initial exact-tag discovery recovers drafts via bounded filtered pages when GitH
 
 The checkpoint saves draft ID and publish intent before publishing. A lost publish response permits read-only recovery only for that original public release. Resume verifies its inventory and public updater feed bytes without mutating public history. Other public versions are rejected. Artifacts and timings survive failures.
 
-## Local transition rehearsal
+## Local release rehearsal
 
 Use a new private evidence directory outside the checkout. The local path runs both desktop builds and the same signing, finalization and verifier as the release path. It uses ad hoc macOS code signing, local NSIS cross-packaging, and the four throwaway updater files. It does not call GitHub or start the release worker.
 

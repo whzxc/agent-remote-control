@@ -169,7 +169,7 @@ try {
       if (!file || !file.toString().includes('browser_dist')) schedule();
     }));
   }
-  const files = ['go.mod', 'go.sum', 'mygo.config.ts', 'native/screen/main.swift', 'docs/reference/cli.md'];
+  const files = ['go.mod', 'go.sum', 'mygo.config.ts', 'cmd/arc-screen/main.swift', 'docs/reference/cli.md'];
   for (const directory of new Set(files.map(file => path.dirname(file)))) {
     watchers.push(watch(path.join(root, directory), (_, file) => {
       if (!file || files.includes(path.posix.join(directory, file.toString()))) schedule();

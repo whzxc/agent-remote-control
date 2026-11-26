@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileDigest, dependencyEnv } from './release-support.mjs';
 import { installDependencies } from './build-cache.mjs';
 import { archiveName, buildOnlyEnv, archiveReceipt } from './release-signing.mjs';
-import { collectDesktop, signTransition } from './release-desktop.mjs';
+import { collectDesktop, signLegacyPayload } from './release-desktop.mjs';
 import { resolveMygoUpdatePublicKey } from './mygo-update-public-key.mjs';
 
 export function runCommand(file, args, options = {}) {
@@ -137,7 +137,7 @@ node tooling/windows-build.mjs; checked`);
       const copied = await archiveReceipt(path.join(output, archive));
       if (receipt.archive?.name !== copied.name || receipt.archive?.sha256 !== copied.sha256) throw new Error('Windows MyGo archive receipt mismatch');
       onCollected();
-      await signTransition({ target: 'windows-amd64', version, output,
+      await signLegacyPayload({ target: 'windows-amd64', version, output,
         base: `https://github.com/whzxc/agent-remote-control/releases/download/v${version}`, env });
     });
   } finally {
@@ -167,7 +167,7 @@ export async function buildMac({ sourceSha, output, env, timer }) {
   await timer.run('macOS staging verification', async () => {
     const version = env.ARC_BUILD_VERSION, target = 'darwin-arm64';
     await collectDesktop({ target, version, input: path.join(parent, target), output });
-    await signTransition({ target, version, output, base: `https://github.com/whzxc/agent-remote-control/releases/download/v${version}`, env });
+    await signLegacyPayload({ target, version, output, base: `https://github.com/whzxc/agent-remote-control/releases/download/v${version}`, env });
     if (capture('git', ['-C', source, 'status', '--porcelain']) || capture('git', ['-C', source, 'rev-parse', 'HEAD']) !== sourceSha) throw new Error('macOS build changed source');
     await writeFile(path.join(output, 'macos-receipt.json'), JSON.stringify({ version, sourceSha, arch: 'aarch64' }) + '\n');
   });

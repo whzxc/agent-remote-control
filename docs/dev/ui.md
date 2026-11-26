@@ -4,7 +4,7 @@
 
 [Design sources](design.md) own visual appearance. This document owns behavior, data projection and layout logic.
 
-React renders. Tauri/Rust owns configuration, connections, tasks, authentication, native windows, and updates. The main window shares semantic tokens, preferences, and controls.
+React renders. Go Core owns configuration, connections, tasks, and authentication. MyGo Desktop owns native windows and updates. The main window shares semantic tokens, preferences, and controls.
 
 Activity model badges retain their intrinsic width. Codex project labels use the native project catalog, shared with project resolution through a 30-second cache. Explicit project IDs take precedence; directory matching requires an unambiguous deepest root. The filesystem directory remains separate from its display name. Task details show the controller route and workspace in the header, with duration and model in the metadata row. Task surfaces show running, waiting for input, completed, failed and interrupted. Inactive records without an explicit exception appear completed. This fallback does not establish a native terminal event. Historical dispatches use their bound turn, never a later turn in the same conversation. Model and effort share one pill.
 

@@ -77,7 +77,7 @@ turnStartedAt is dispatch time for ARC Agents and observed turn-start time for C
 
 Interaction projections retain native method, question IDs/options, command/diff preview, cwd, and reason when supplied. The detail dock responds with the existing callback arguments and a stable request ID. Synchronous Codex questions submit one answers map; asynchronous questions submit answer text. Unsupported native forms remain actionable in their owner. ARC dispatch receipts use approve/bypass/reject; native permissions retain their own allow/deny semantics and do not offer an invented bypass. Resolved requests without responder provenance are labeled as resolved elsewhere.
 
-Pending interactions, including waiting-permission, remain active and separately marked. timeline:true permits a request but does not guarantee complete coverage. fallbackHeadline uses latest readable text/thinking/command/file, then title/latest user message. recentContent provides three readable summaries. Neither changes phase/headline semantics. open is present only for verified navigation. Activity pushes throttle around one second through Tauri/SSE. The visible renderer refreshes via GET after ten seconds without a snapshot, including when the push subscription is still connected.
+Pending interactions, including waiting-permission, remain active and separately marked. timeline:true permits a request but does not guarantee complete coverage. fallbackHeadline uses latest readable text/thinking/command/file, then title/latest user message. recentContent provides three readable summaries. Neither changes phase/headline semantics. open is present only for verified navigation. Activity pushes throttle around one second through the MyGo bridge or browser SSE. The visible renderer refreshes via GET after ten seconds without a snapshot, including when the push subscription is still connected.
 
 ### Timeline API
 
@@ -86,7 +86,7 @@ Pending interactions, including waiting-permission, remain active and separately
 | Activity snapshot | GET /api/agents/activity; CLI agents.activity. |
 | Respond locally | POST /api/agents/respond with snapshot `{op,args}` plus answer and stable requestId. CLI agents.respond uses `{"body":{"op":"agent_respond","args":{}}}`. |
 | Web stream | GET /api/agents/activity/events, SSE event:snapshot. |
-| Desktop stream | Tauri agents:activity with GET-equivalent payload. |
+| Desktop stream | The MyGo bridge carries `agents:activity` with a GET-equivalent payload. |
 | Timeline | GET /api/agents/timeline/{id}?after={cursor}; CLI agents.timeline with `{"id":"...","body":{"after":12}}`. |
 | Open in agent | POST /api/tasks/open with `{"agent":"codex","taskId":"<thread-id>"}`; CLI tasks.open. |
 

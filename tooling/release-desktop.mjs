@@ -11,7 +11,7 @@ const updaterKeys = {
 export const fragmentName = target => updaterKeys[target][0] + '.json';
 export const installerName = (target, version) => target === 'darwin-arm64'
   ? `agent-remote-control_${version}_aarch64.dmg` : `agent-remote-control_${version}_x64-setup.exe`;
-export const tauriPayloadName = (target, version) => target === 'darwin-arm64'
+export const legacyPayloadName = (target, version) => target === 'darwin-arm64'
   ? `agent-remote-control_${version}_aarch64.app.tar.gz` : installerName(target, version);
 
 function archive(output, directory, entries) {
@@ -27,7 +27,7 @@ export async function collectDesktop({ target, version, input, output }) {
   if (target === 'darwin-arm64') {
     archive(mygoArchive, input, [`${desktopName}.app`]);
     // Both formats install the same signed and versioned macOS bundle.
-    await copyFile(mygoArchive, path.join(output, tauriPayloadName(target, version)));
+    await copyFile(mygoArchive, path.join(output, legacyPayloadName(target, version)));
   } else if (target === 'windows-amd64') {
     const list = (await readFile(path.join(input, '.mygo-files'), 'utf8')).trim().split(/\r?\n/);
     const expected = [desktopExecutable + '.exe', 'bin', 'licenses', 'menubar-18Template@2x.png', 'skills', 'tray-logo.png'];
@@ -37,8 +37,8 @@ export async function collectDesktop({ target, version, input, output }) {
   return mygoArchive;
 }
 
-export async function signTransition({ target, version, output, base, env }) {
-  const name = tauriPayloadName(target, version);
+export async function signLegacyPayload({ target, version, output, base, env }) {
+  const name = legacyPayloadName(target, version);
   const file = path.join(output, name);
   console.log(verifier('sign-tauri', version, [file], { env }));
   const value = { url: `${base}/${name}`, signature: (await readFile(file + '.sig', 'utf8')).trim() };

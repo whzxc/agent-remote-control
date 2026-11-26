@@ -1,9 +1,0 @@
-{
-  "bundle": {
-    "icon": [
-      "icons/icon.png",
-      "icons/macos/Icon.icns",
-      "icons/AgentRemoteControl.icon"
-    ]
-  }
-}

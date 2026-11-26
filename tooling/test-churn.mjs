@@ -17,28 +17,10 @@ function read(revision, file) {
   return cache.get(key);
 }
 const rows = new Map();
-for (const file of testFiles()) for (const c of parseTests(file, readFileSync(file, 'utf8')).cases)
+for (const file of testFiles().filter(file => !file.endsWith('.go'))) for (const c of parseTests(file, readFileSync(file, 'utf8')).cases)
   rows.set(`${file}\0${c.name}`, { file, test: c.name, edits: 0, fixes: 0, alignments: [], commits: [] });
-function productText(file, source) {
-  if (!file.endsWith('.rs')) return source;
-  const parsed = parseTests(file, source);
-  const ranges = parsed.cases.map(c => [c.start, c.end]);
-  for (const node of [...parsed.root.findAll({ rule: { kind: 'mod_item' } }), ...parsed.root.findAll({ rule: { kind: 'function_item' } })]) {
-    const attributes = [];
-    for (let n = node.prev(); n && /comment|attribute_item/.test(n.kind()); n = n.prev()) attributes.push(n.text());
-    if (attributes.some(text => /cfg\((?:test|feature\s*=\s*"test-fixture")\)/.test(text)))
-      ranges.push([node.range().start.index, node.range().end.index]);
-  }
-  const merged = [];
-  for (const [start, end] of ranges.sort((a, b) => a[0] - b[0])) {
-    const last = merged.at(-1);
-    if (last && start <= last[1]) last[1] = Math.max(last[1], end);
-    else merged.push([start, end]);
-  }
-  for (const [start, end] of merged.reverse()) source = source.slice(0, start) + source.slice(end);
-  return source.replace(/^\s*(?:\/\/[^\n]*|#\[(?:test|tokio::test|cfg\(test\))[^\n]*)$/gm, '').replace(/\s+/g, ' ').trim();
-}
-const isProduct = file => /^(?:ui\/.*\.[jt]sx?|native\/src\/.*\.rs|desktop\/src\/.*\.rs|relay-worker\/src\/.*\.[jt]s)$/.test(file);
+const isProduct = file => /^(?:ui\/.*\.[jt]sx?|relay-worker\/src\/.*\.[jt]s)$/.test(file)
+  || (/^(?:cmd|internal|shared)\/.*\.go$/.test(file) && !file.endsWith('_test.go'));
 const assertions = assertionSignature;
 function matching(name, candidates, key) {
   const exact = candidates.find(c => key(c) === name); if (exact) return exact;
@@ -57,7 +39,7 @@ for (const entry of history) {
   const files = git('diff-tree', '--no-commit-id', '--name-only', '-r', sha).trim().split('\n');
   const affected = files.filter(file => [...rows.values()].some(row => row.file === file));
   if (!affected.length) continue;
-  const productChanged = files.filter(isProduct).some(file => productText(file, read(parent, file)) !== productText(file, read(sha, file)));
+  const productChanged = files.filter(isProduct).some(file => read(parent, file) !== read(sha, file));
   const fix = /^fix(?:\([^)]*\))?:/.test(subject) && productChanged;
   const alignment = /^test(?:\([^)]*\))?:/.test(subject) && !productChanged;
   for (const file of affected) {

@@ -1,13 +1,10 @@
 import ts from 'typescript';
-import { parse, registerDynamicLanguage } from '@ast-grep/napi';
-import rust from '@ast-grep/lang-rust';
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-registerDynamicLanguage({ rust });
 
-export function testFiles({ go = false } = {}) {
+export function testFiles() {
   return execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], { encoding: 'utf8' })
-    .split('\0').filter(file => (/\.(?:test\.[cm]?[jt]sx?|rs)$/.test(file) || (go && /_test\.go$/.test(file)) || /^tests\/.*\.[cm]?[jt]sx?$/.test(file)) && existsSync(file));
+    .split('\0').filter(file => (/\.test\.[cm]?[jt]sx?$/.test(file) || /_test\.go$/.test(file) || /^tests\/.*\.[cm]?[jt]sx?$/.test(file)) && existsSync(file));
 }
 export function walk(node, visit) {
   visit(node);
@@ -16,20 +13,6 @@ export function walk(node, visit) {
 export { ts };
 export function parseTests(file, source) {
   const cases = [];
-  if (file.endsWith('.rs')) {
-    const root = parse('rust', source).root();
-    for (const node of root.findAll({ rule: { kind: 'function_item' } })) {
-      const preceding = [];
-      for (let previous = node.prev(); previous && /comment|attribute_item/.test(previous.kind()); previous = previous.prev()) preceding.unshift(previous.text());
-      if (!preceding.some(text => /#\[(?:\w+::)*test(?:\([^]*\))?\]/.test(text))) continue;
-      const body = node.field('body');
-      cases.push({ name: node.field('name').text(), start: node.range().start.index, end: node.range().end.index,
-        line: node.range().start.line + 1, bodyStart: body.range().start.index, node,
-        comments: [...preceding.filter(s => s.startsWith('//')), ...body.findAll({ rule: { kind: 'line_comment' } }).map(n => n.text())],
-        assertions: node.findAll({ rule: { kind: 'macro_invocation' } }).filter(n => /^(?:assert|debug_assert)(?:_\w+)?!/.test(n.text())).map(n => ({ text: n.text(), start: n.range().start.index, end: n.range().end.index, node: n })) });
-    }
-    return { cases, root };
-  }
   const root = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   walk(root, node => {
     if (!ts.isCallExpression(node) || !/^(?:(?:\w+\.)?(?:test|it))(?:\.(?:skip|only|todo))?$/.test(node.expression.getText(root))) return;
@@ -54,11 +37,6 @@ export function parseTests(file, source) {
 // Compare syntax tokens so reformatting an assertion does not count as churn.
 export function assertionSignature(testCase) {
   function tokens(node) {
-    if (typeof node.kind === 'function') {
-      if (/comment/.test(node.kind())) return [];
-      const children = node.children();
-      return children.length ? children.flatMap(tokens) : [node.text()];
-    }
     if (ts.isStringLiteralLike(node)) return [JSON.stringify(node.text)];
     const children = node.getChildren();
     return children.length ? children.flatMap(tokens) : [node.getText()];

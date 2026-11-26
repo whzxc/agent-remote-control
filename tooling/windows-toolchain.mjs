@@ -45,7 +45,7 @@ export async function configureWindowsToolchain(env = process.env) {
   if (!env.ARC_MAKENSIS && spawnSync('where.exe', ['makensis.exe']).status !== 0) {
     const installed = path.join(env['ProgramFiles(x86)'] || '', 'NSIS', 'makensis.exe');
     const cached = path.join(env.LOCALAPPDATA || '', 'tauri', 'NSIS', 'makensis.exe');
-    // The release worker already caches this tool for the legacy NSIS builds.
+    // Reuse the standalone NSIS executable already cached on the shared worker.
     if (!existsSync(installed) && existsSync(cached)) env.ARC_MAKENSIS = cached;
   }
 }

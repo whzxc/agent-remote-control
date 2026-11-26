@@ -15,7 +15,6 @@ import { accountScenario } from "./scenarioAccounts";
 import { beginScenario, finishScenario, missingScenarioRoute, scenarioReadiness } from "./state/scenarioReadiness";
 import { updates, checkUpdate, type UpdateView } from './state/updates';
 import releaseHistory from '../tooling/acceptance/fixtures/release-history.json';
-import { mockIPC } from './nativeBridge';
 import { onboarding, connectionSetup, type SourceSetup, type ConnectionSetup } from './state/onboarding';
 import { navigation, type Page } from './state/navigation';
 import type { RelayProgress } from './state/relay';
@@ -527,12 +526,21 @@ export async function installScenario(name: string) {
     if (fixture.update) {
       const update = fixture.update;
       if (name === 'updates-history') responses['updates/history'] = releaseHistory.slice(0, 2);
-      mockIPC(command => {
-        if (command === 'check_update') return update.version ? {
-          rid: 1, currentVersion: update.currentVersion ?? '0.0.0',
-          version: update.version, body: update.notes, rawJson: { notes_zh_cn: update.notesZh },
-        } : null;
-        if (command === 'plugin:updater|download') return 2;
+      Object.defineProperty(window, 'mygo', {
+        configurable: true,
+        value: {
+          async callWith(method: string, [command]: unknown[]) {
+            if (method === 'DesktopService.Command') {
+              if (command === 'check_update') return update.version ? {
+                rid: 1, currentVersion: update.currentVersion ?? '0.0.0',
+                version: update.version, body: update.notes, rawJson: { notes_zh_cn: update.notesZh },
+              } : null;
+              if (command === 'download_update' || command === 'close_update' || command === 'install_update') return;
+            }
+            throw new Error(`Unexpected update fixture call: ${method} ${command}`);
+          },
+          on() { return () => {}; },
+        },
       });
       if (update.version) await checkUpdate();
       updates.set(old => ({ ...old, ...update, checked: true, panelOpen: fixture.updatePanel !== false }));

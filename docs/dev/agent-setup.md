@@ -153,7 +153,7 @@ Runtime API keys use restricted Tunnels Read + Use. Creating a Tunnel needs orga
 
 ## Desktop deep links
 
-Tauri plugin event dispatch holds the plugin-list lock. Deep-link callbacks MUST NOT synchronously recreate a released WebView, which reacquires that lock. Queue a blocking worker so Apple Event returns before window work. run_on_main_thread may execute inline and is not a replacement.
+MyGo delivers the registered URL to Desktop. Desktop resolves the setup route, shows or recreates the main window, and delivers the action to the renderer. Core applies setup steps through its management routes.
 
 An isolated reproduction closes setup and the main window, waits over 30 seconds for WebView release, then sends agent-remote-control://ingress?id=setup-chatgpt-chat&field=apiKey to that isolated App. Verify recreation and responsive editing, plus the route with an existing window. Do not use active production state.
 

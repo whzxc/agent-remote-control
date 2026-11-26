@@ -10,7 +10,7 @@ The client starts authorization at the public HTTPS origin. The page shows the c
 
 The deep link carries only the request ID. The app resolves details from its own Core; a browser on another device cannot approve the remote instance via that device's local app. Closing the dialog postpones the decision. Public endpoints read status and deliver callbacks; approval is available only through local authenticated management.
 
-Tauri registers the scheme in an installed/bundled app. A browser-only development preview does not register it. Client display names are self-reported. Grants authorize the ingress's tool policy and shared task namespace.
+The installed MyGo app registers the scheme. A browser-only development preview does not register it. Client display names are self-reported. Grants authorize the ingress's tool policy and shared task namespace.
 
 ## Protocol
 

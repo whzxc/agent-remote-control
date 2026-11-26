@@ -15,15 +15,23 @@ HTTPS / OAuth / relay ─┘                             ├─ listeners       
 Detached Codex app-servers and task-hosts ────────────────────────────────────────┘
 ```
 
-React renders in the system WebView. The MyGo Desktop connects through the renderer bridge and generated bindings. The prior release uses Tauri IPC during the installer handoff. Desktop owns the main window, tray, native panels, permissions, and updates. Desktop-only routes reach the owner through its authenticated callback endpoint. arc-core provides shared business and runtime capabilities. runtime maintains one file-locked Core per state directory. Local entry points such as Desktop and CLI hold leases. A live Desktop lease keeps Core resident even if its heartbeat is delayed. Different builds cannot share an active owner. Core exits when the final owner releases its lease or is gone. Daemon mode can remain resident independently.
+React renders in the system WebView. The MyGo Desktop connects through the renderer bridge and generated bindings. Desktop owns the main window, tray, native panels, permissions, and updates. Desktop-only routes reach the owner through its authenticated callback endpoint. `internal/core` provides shared business and runtime capabilities. It maintains one file-locked Core per state directory. Local entry points such as Desktop and CLI hold leases. A live Desktop lease keeps Core resident even if its heartbeat is delayed. Different builds cannot share an active owner. Core exits when the final owner releases its lease or is gone. Daemon mode can remain resident independently.
 
 The main renderer schedules checks after Core attaches and serializes checks, downloads and install requests. Desktop reads effective network settings through Core's network operation. The updater downloads and verifies an offered archive while Core is running. The installer drains Core and the front door before replacing app files. A failed installation releases the replacement lock and resumes the Desktop lease. The updater checks production-identity builds. An idle hidden main WebView can retire, and Desktop recreates it for scheduled checks and native actions.
 
-service::Service owns one Control, AgentHost and execution::Execution. Its ingress handles are derived dispatch projections. front_door::owner::Gateway owns the live ingress collection and configuration. Execution composes business capabilities. kernel stores provider-independent origin, tool policy, receipts, results, and events. Transports package requests and results. egress projects errors and output consistently.
+Core owns dispatch, the Agent registry, and operation execution. Its ingress handles are derived dispatch projections. The front door owns live ingresses and configuration. The kernel stores provider-independent origin, tool policy, receipts, results, and events. Transports package requests and results. egress projects errors and output consistently.
+
+### Compatibility
+
+Keep existing state readable and writable in place. Preserve state directory resolution, file names, JSON and TOML formats, SQLite schemas and pragmas, Unix directory and secret modes (0700 and 0600), and Windows ACLs. Preserve OAuth tokens, device identities and pairings, and dispatch policy. Upgrading to the Go runtime uses the existing state.
+
+Preserve the control-source MCP and event envelopes, CLI commands and results, management HTTP routes, OAuth endpoints and pages, device-link ALPN and routes, relay protocol, Codex App Server JSON-RPC usage, Claude Code hook and notification formats, and Tunnel Client management. Keep established timestamp, UUID, duration, and pattern-matching semantics on these surfaces. Keep the private IPC endpoint names and let detached Codex App Servers and task hosts survive Core replacement.
+
+Use `internal/canonjson` for wire and persisted JSON and all JSON-derived hashes, IDs, cursors, and digests. Preserve byte-sorted map keys, ordered fields where the protocol defines them, and the established escaping and float formats captured in `internal/canonjson/testdata`. Keep `<`, `>`, `&`, U+2028, and U+2029 unescaped. Preserve integer precision above 2^53 and integral float forms such as `1.0`.
 
 ### Device identity and peer listeners
 
-The front door owns `device_link::Manager`, its LAN HTTPS listeners, DNS-SD
+The front door owns the device-link manager, its LAN HTTPS listeners, DNS-SD
 advertisement, device identity, one-time pairing offers, local approval waits and
 pairing records. Core owns peer source authority and all business execution.
 The `device-link` preference is off by default. Enabling creates a single P-256
@@ -172,7 +180,7 @@ the existing `receipt` op, including while a transfer is executing.
 
 ### Device link controller Core
 
-`Execution` owns one `device_link::controller::Controller`. It reads pairings from
+Core owns one device-link controller. It reads pairings from
 the front door's device state directory and owns one monitor per paired member.
 Each monitor sends a heartbeat every ten seconds. Each probe has a ten-second
 overall budget and a three-second LAN bound. Tunnel hello, challenge and session
@@ -228,7 +236,7 @@ Requests are plain HTTP request/response, bounded to 1 MiB input, 4 MiB output a
 auth bodies have a five-second total read deadline. Business bodies have a
 five-second idle read timeout within the original 25-second request deadline.
 Relay uploads use one 32 KiB chunk per credit round trip. The controller exposes
-`Controller::send(device, tool, body, deadline)` for path-independent bounded
+the device-link controller's send operation for path-independent bounded
 member calls. Forwarding captures a prepared path before recording transmission;
 it does not replay on a new channel or path. On tunnel, the monitor probes LAN
 every heartbeat and switches back whenever LAN succeeds.
@@ -257,9 +265,9 @@ include only online members by default; `all:true` includes offline members.
 The default guide stays compact; Device link appears in the full index and per-op
 schemas. Ingress policy allowlists continue to apply.
 
-`device_link::controller::events` owns one ordinary-request event long poll per
+The device-link controller owns one ordinary-request event long poll per
 online member, with a 15-second maximum member wait and a 23-second request bound.
-Its small send adapter uses the path-agnostic `Controller::send` entry. Batches
+Its small send adapter uses the same path-agnostic send operation. Batches
 reserve response-envelope space below the 4 MiB HTTPS response cap. Member Core
 observes peer-origin tasks through the existing notification observer. It queues events for the paired
 controller source instead of routing them to member notification targets.
@@ -271,7 +279,7 @@ the current head without replay.
 
 Forward records retain the minimal normalized binding inputs so an event that
 beats a dispatch response, an uncertain response, or a later receipt read can
-establish the binding for the original source. `claude_notify::device` qualifies
+establish the binding for the original source. Device notification routing qualifies
 binding keys by device ID and retains native IDs as device metadata. The existing
 binding index maintains open bindings per device. Events hydrate only their
 associated binding; unchanged bindings are not rewritten. Remote bindings do not
@@ -383,7 +391,7 @@ request ID and generation. Stream frames add an ordered sequence number. Core
 revalidates current source authority at admission and delivery. A completed response
 is checked against the latest attached Core generation before public delivery.
 
-`front_door::InProcess` is Core's bounded request executor behind the IPC server.
+`inProcess` is Core's bounded request executor behind the IPC server.
 It admits at most 128 business calls. Snapshot streams have a separate 128-slot
 budget and do not delay business drain; the private listener caps total concurrent
 connections at 128. Encoded requests are capped at 36 MiB and responses at 64 MiB.
@@ -420,7 +428,7 @@ connection; a cancellation notification is never queued for a new Core generatio
 Authentication stays in the existing modules: `oauth`, `browser`, local Host,
 loopback-peer, Bearer and Origin checks, and the official OpenAI Tunnel upstream
 identity. Headers cannot manufacture an ingress or source identity. The front door
-owns grant and ingress mutations. `front_door::authority` forwards source-store
+owns grant and ingress mutations. The front door forwards source-store
 operations to Core, which remains the single revocation owner. It keeps no source
 authority cache in the front door. During a swap, authenticated MCP principals wait
 in the bounded queue before Core resolves current source authority and admits the
@@ -718,7 +726,7 @@ it does not retain per-request samples. See [Runtime diagnostics](../reference/c
 
 Agent runtimes own canonical conversation data. Codex, Claude Code, Pi and other Agents write sessions, transcripts and native history indexes into their native stores. ARC owns credentials, task/account bindings, dispatch receipts, approvals and bounded derived observations used to coordinate work. These scheduling records do not replace native transcripts. Account creation and runtime startup never migrate or delete existing session data.
 
-`agents::capabilities` declares native history, activity, quota, metadata, timelines, subagents, navigation, dispatch defaults, and caller attribution. Agent inventory exposes the capability flags. The registry owns the default quota associations and the native session environment variables used for dispatch attribution.
+The Agent registry declares native history, activity, quota, metadata, timelines, subagents, navigation, dispatch defaults, and caller attribution. Agent inventory exposes the capability flags. The registry owns the default quota associations and the native session environment variables used for dispatch attribution.
 
 Codex execution processes share the resolved primary `CODEX_HOME`. The Desktop login is the primary account. Secondary accounts use separate App Server processes with process-local external-token authentication, while sessions, SQLite indexes, locks and configuration remain shared. Secondary tasks cannot be dispatched, opened or handed off to Desktop. A dispatch default is independent of this primary/secondary distinction.
 
@@ -827,7 +835,7 @@ In-memory state, Timeline updates and live events remain immediate. Pure ACP mes
 
 ## Conversation projection
 
-`task_tracking::Timeline` owns conversation entries and activity presentation. Live ACP/Pi events, native Claude transcripts, Codex app-server items/history and Codex rollout framing converge on its text/tool/notice converters. `agents/activity` caches bounded transcript projections and discovers external sessions; it does not maintain a second phase/headline parser. The metadata clock streams every complete transcript line from offset zero on its first scan, then reads only appended bytes. It feeds one record at a time through the same converters and retains metadata rather than transcript contents. Truncation resets the clock. Native Pi history selects one parent-linked branch before conversion. Claude sidechains are omitted with an explicit coverage count.
+Task tracking owns conversation entries and activity presentation. Live ACP/Pi events, native Claude transcripts, Codex app-server items/history and Codex rollout framing converge on its text/tool/notice converters. `agents/activity` caches bounded transcript projections and discovers external sessions; it does not maintain a second phase/headline parser. The metadata clock streams every complete transcript line from offset zero on its first scan, then reads only appended bytes. It feeds one record at a time through the same converters and retains metadata rather than transcript contents. Truncation resets the clock. Native Pi history selects one parent-linked branch before conversion. Claude sidechains are omitted with an explicit coverage count.
 
 Tool input normalization supplies common command, paths and edit excerpts without removing native evidence. Non-terminal notices retain retry/compaction/warning facts without changing turn status. Pi attempt errors settle only when the native agent_settled event establishes the outcome. The frozen MCP tools and notification envelope do not change; the existing timeline/activity operation outputs carry these fields. See [Task tracking](task-tracking.md#lifecycle-notices-and-tool-inputs) for fields and bounded coverage.
 
@@ -859,7 +867,7 @@ claude_notify persists per-thread/turn bindings, actual dispatch origin, and del
 
 Projects come from native project/list. ID/name resolution caches for 30 seconds. Workspace and filesystem rules resolve paths. Review views enforce resource boundaries. Git baselines capture pre-submission HEAD and dirty status. Turn comparisons describe the current workspace, including pre-existing changes.
 
-kernel::results stores immutable large-result snapshots with UTF-16 pagination. Pi/ACP native events use an active JSONL tail and verified gzip segments. Codex owns its native history. User logs and event archives are separate. [Tools](../reference/tools.md#output-events-and-logs) owns budgets and retention periods.
+The kernel's result store holds immutable large-result snapshots with UTF-16 pagination. Pi/ACP native events use an active JSONL tail and verified gzip segments. Codex owns its native history. User logs and event archives are separate. [Tools](../reference/tools.md#output-events-and-logs) owns budgets and retention periods.
 
 ## Desktop lifecycle
 
@@ -898,7 +906,7 @@ Desktop interactions reuse thread IPC snapshots and change broadcasts with a two
 
 ### Request routing presence
 
-`claude_notify::routing` owns per-request notification routing, separate from native
+The notification router owns per-request notification routing, separate from native
 response ownership. Request ingestion records presence once before exposing pending
 state. The desktop detail reports focused/visible presence every two seconds through
 `tasks.presence`; a six-second lease prevents stale window state after a crash.

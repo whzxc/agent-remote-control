@@ -1,18 +1,14 @@
 import { isMyGo } from "mygo-runtime";
-import * as tauri from "../desktop/renderer-tauri";
 import { DesktopService, events } from "./mygo.generated";
 
-const isTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
-export const isDesktop = isTauri() || isMyGo();
+export const isDesktop = isMyGo();
 
 export async function invoke<T = unknown>(command: string, args: Record<string, unknown> = {}): Promise<T> {
-  if (isTauri() || !isMyGo()) return tauri.invoke<T>(command, args);
   return DesktopService.command(command, args) as Promise<T>;
 }
 
 type Listener<T> = (event: { payload: T }) => void;
 export async function listen<T = unknown>(name: string, handle: Listener<T>): Promise<() => void> {
-  if (isTauri()) return tauri.listen<T>(name, handle);
   return events.arcDesktop.on(event => {
     if (event.name === name) handle({ payload: event.payload as T });
   });
@@ -30,7 +26,6 @@ type WindowBridge = {
 };
 
 export function getCurrentWindow(): WindowBridge {
-  if (isTauri()) return tauri.getCurrentWindow();
   return {
     isFullscreen: () => invoke("window_fullscreen"),
     isMinimized: () => invoke("window_minimized"),
@@ -43,31 +38,30 @@ export function getCurrentWindow(): WindowBridge {
   };
 }
 
-export const openExternal = (url: string) => isTauri() ? tauri.openUrl(url) : invoke<void>("open_external", { url });
-export const writeText = (text: string) => isTauri() ? tauri.writeText(text) : invoke<void>("clipboard_write", { text });
-export const mockIPC = tauri.mockIPC;
+export const openExternal = (url: string) => invoke<void>("open_external", { url });
+export const writeText = (text: string) => invoke<void>("clipboard_write", { text });
 
-type UpdateMetadata = ConstructorParameters<typeof tauri.Update>[0];
-export type DesktopUpdate = Pick<tauri.Update, "version" | "currentVersion" | "body" | "rawJson" | "download" | "close"> & {
+type UpdateMetadata = {
+  rid: number;
+  version: string;
+  currentVersion: string;
+  body?: string | null;
+  rawJson?: Record<string, unknown>;
+};
+
+type UpdateDownloadEvent =
+  | { event: "Started"; data: { contentLength?: number } }
+  | { event: "Progress"; data: { chunkLength: number } };
+
+export type DesktopUpdate = Omit<UpdateMetadata, "rid"> & {
+  download(onEvent?: (event: UpdateDownloadEvent) => void): Promise<void>;
+  close(): Promise<void>;
   install(): Promise<void>;
 };
 
 export async function checkNativeUpdate(): Promise<DesktopUpdate | undefined> {
   const metadata = await invoke<UpdateMetadata | null>("check_update");
   if (!metadata) return;
-  if (isTauri() || !isMyGo()) {
-    const update = new tauri.Update(metadata);
-    return {
-      version: update.version, currentVersion: update.currentVersion, body: update.body, rawJson: update.rawJson,
-      download: onEvent => update.download(onEvent),
-      close: () => update.close(),
-      async install() {
-        await invoke("prepare_update");
-        try { await update.install(); await tauri.relaunch(); }
-        catch (error) { await invoke("resume_after_update_failure"); throw error; }
-      },
-    };
-  }
   const { rid } = metadata;
   return {
     version: metadata.version, currentVersion: metadata.currentVersion, body: metadata.body, rawJson: metadata.rawJson,

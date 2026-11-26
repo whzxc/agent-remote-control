@@ -1,6 +1,0 @@
-[build]
-target-dir = "target"
-
-# Match Tauri's macOS deployment target for native C build scripts as well.
-[env]
-MACOSX_DEPLOYMENT_TARGET = "10.13"

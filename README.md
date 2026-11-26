@@ -31,7 +31,7 @@ GPT-6 Astra Pro is available in ChatGPT Chat mode, but not in Codex. ARC connect
 
 ## Get started
 
-[Install ARC](docs/installation.md), open it, sign in to Codex, and choose where to use it.
+[Install ARC](docs/installation.md) on Apple Silicon with macOS 13.0 or later, or on Windows x64. Open it, sign in to Codex, and choose where to use it.
 
 - **Local mode:** choose **On this computer**. ARC adds an installed Claude Code automatically. For Claude Desktop, click **Install extension**, then restart Claude.
 - **Create a relay:** choose **On your phone and the web → Create my relay**, sign in to a free Cloudflare account, and wait for the remote link.

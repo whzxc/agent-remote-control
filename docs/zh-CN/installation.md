@@ -2,11 +2,11 @@
 
 [English](../installation.md) | **简体中文**
 
-从 [Releases](https://github.com/whzxc/agent-remote-control/releases) 选择包含当前平台安装包的最新版本，下载安装包和 `SHA256SUMS.txt`。运行 ARC 不需要 Node、npm 或 Rust。安装并登录要使用的 Agent。
+从 [Releases](https://github.com/whzxc/agent-remote-control/releases) 选择包含当前平台安装包的最新版本，下载安装包和 `SHA256SUMS.txt`。安装包包含 ARC 运行时。安装并登录要使用的 Agent。
 
 | 平台 | 产物 |
 | --- | --- |
-| macOS Apple Silicon | `agent-remote-control_<version>_aarch64.dmg` |
+| Apple Silicon，macOS 13.0 或更新版本 | `agent-remote-control_<version>_aarch64.dmg` |
 | Windows x64 | NSIS `…-setup.exe` |
 | Linux x86_64 / aarch64 | 无界面 Core 压缩包；见 [Linux 参考](../reference/linux.md) |
 
@@ -73,4 +73,4 @@ brew upgrade --cask --greedy local/agent-remote-control/agent-remote-control
 
 ## 限制
 
-macOS 安装包面向 Apple Silicon。未签名或未公证的产物可能触发系统提示，组织策略可能需要管理员处理。Linux 没有桌面 UI。Bundle identity 变化后，可能需要重新授予 macOS 屏幕录制、辅助功能、自动化和登录项权限。
+未签名或未公证的产物可能触发系统提示，组织策略可能需要管理员处理。Linux 没有桌面 UI。Bundle identity 变化后，可能需要重新授予 macOS 屏幕录制、辅助功能、自动化和登录项权限。

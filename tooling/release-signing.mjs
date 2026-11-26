@@ -9,10 +9,18 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 export const updateTargets = { mac: 'darwin-arm64', windows: 'windows-amd64' };
 export const archiveName = (target, version) => `agent-remote-control-${version}-${target}.tar.gz`;
 export const feedName = target => `update-${target}.json`;
+// The public key embedded in the 0.9.53 and 0.9.54 desktop releases.
+const legacyUpdatePublicKey = 'dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDk5MzA3RThFNUU5RjA1MjIKUldRaUJaOWVqbjR3bVdBS2FRT1d5VW02NGtyVUV1M1Q2aTFIV1N3RHA2WUljdzY0d3Rrd2JHc0MK';
 const tauriPublic = 'ARC_TAURI_UPDATE_PUBLIC_KEY';
 const mygoPublic = 'ARC_MYGO_UPDATE_PUBLIC_KEY';
 const tauriPrivate = 'TAURI_SIGNING_PRIVATE_KEY_FILE';
 const mygoPrivate = 'ARC_MYGO_UPDATE_PRIVATE_KEY_FILE';
+
+export function checkLegacyUpdatePublicKey(env = process.env) {
+  if (env[tauriPublic]?.trim() !== legacyUpdatePublicKey) {
+    throw new Error(`${tauriPublic} must match the legacy key embedded in ARC 0.9.53 and 0.9.54.`);
+  }
+}
 
 export function verifier(operation, version, files = [], { publicOnly = false, env = process.env } = {}) {
   const signing = { PATH: env.PATH, SystemRoot: env.SystemRoot, HOME: env.HOME, USERPROFILE: env.USERPROFILE };

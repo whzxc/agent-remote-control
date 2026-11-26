@@ -274,6 +274,7 @@ func serveRuntime(parent context.Context, daemon bool) error {
 	defer stop()
 	ipcContext, endIPC := context.WithCancel(context.WithoutCancel(parent))
 	defer endIPC()
+	// Preserve the legacy runtime marker in Core discovery metadata.
 	metadata := object{"pid": os.Getpid(), "processStart": platform.ProcessStart(os.Getpid()), "instance": id(),
 		"runtime": "rust", "version": buildVersion, "owner": "core", "daemon": daemon, "build": build}
 	s := &service{metadata: metadata, runtime: &runtimeState{leases: make(map[string]lease), stop: stop},

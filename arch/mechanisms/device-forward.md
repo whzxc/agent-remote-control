@@ -1,6 +1,6 @@
 ---
 owners:
-  - native/src/device_link/**
+  - internal/core/device_link*.go
   - ui/topology/**
   - ui/devices/**
 status: Approved

@@ -9,8 +9,8 @@ import { buildLinux, preflightLinux } from './linux-release.mjs';
 import { testEnvironment } from './test-environment.mjs';
 import { buildVersion, stableVersion } from './version.mjs';
 import { readReleaseNotes, rehearsalReleaseNotes } from './release-notes.mjs';
-import { buildOnlyEnv, feedName, rehearsalSigning, signMygoFeed, updateTargets, verifier, verifyMygoFeed } from './release-signing.mjs';
-import { collectDesktop, fragmentName, installerName, requireEmptyStage, signTransition, tauriPayloadName } from './release-desktop.mjs';
+import { buildOnlyEnv, checkLegacyUpdatePublicKey, feedName, rehearsalSigning, signMygoFeed, updateTargets, verifier, verifyMygoFeed } from './release-signing.mjs';
+import { collectDesktop, fragmentName, installerName, requireEmptyStage, signLegacyPayload, legacyPayloadName } from './release-desktop.mjs';
 import { retainBuildArtifacts } from './retain-build-artifacts.mjs';
 import { macosSigningIdentity } from './macos-signing.mjs';
 import { gh, ghTransfer, releaseByTag, releaseById, requireDraftRelease, uploadReleaseAsset, publishedTags, fileDigest, publicationStages,
@@ -34,7 +34,7 @@ async function validateManifest(manifest, dir) {
     if (!value.url.startsWith(base + '/')) throw new Error('Unexpected updater download origin/version');
     const name = value.url.slice(base.length + 1);
     const target = key === 'darwin-aarch64' ? updateTargets.mac : updateTargets.windows;
-    if (name !== tauriPayloadName(target, version)) throw new Error('Invalid updater asset name');
+    if (name !== legacyPayloadName(target, version)) throw new Error('Invalid updater asset name');
     if ((await readFile(path.join(dir,name+'.sig'),'utf8')).trim() !== value.signature) throw new Error('Manifest signature mismatch');
     await readFile(path.join(dir,name));
   }
@@ -127,7 +127,7 @@ async function localRehearsal(output, keyDirectory, selected) {
     await runCommand(process.execPath, ['tooling/desktop-build.mjs', '--target', target.replace('-', '/'), '--output', parent, '--adhoc'],
       { env: buildOnlyEnv(env) });
     await collectDesktop({ target, version, input: path.join(parent, target), output });
-    await signTransition({ target, version, output, base, env });
+    await signLegacyPayload({ target, version, output, base, env });
   }
   const manifest = await finalize(output, selected, rehearsalReleaseNotes, env);
   const assets = await releaseInventory(output, selected, manifest);
@@ -182,6 +182,7 @@ async function coordinateRelease(options, { resume, dryRun }) {
     await timer.run('checks', async () => {
       if (!resume && (mac || windows) && (process.platform !== 'darwin' || process.arch !== 'arm64')) throw new Error('macOS releases require a local build and signing on an Apple Silicon Mac');
       env = { ...process.env };
+      if (mac || windows) checkLegacyUpdatePublicKey(env);
       if (!resume && (mac || windows)) verifier('check-keys', requested || version, [], { env });
       env.ARC_RELEASE_TIMINGS_FILE = timingFile;
       if (!resume && mac) macosSigningIdentity(env, { release: true });
@@ -366,10 +367,11 @@ if (mode === 'release') {
   const [legacyTarget, input, output] = args;
   const target = { 'darwin-aarch64': 'darwin-arm64', 'windows-x86_64': 'windows-amd64' }[legacyTarget] || legacyTarget;
   if (!Object.values(updateTargets).includes(target) || !input || !output || args.length !== 3) throw new Error('stage <darwin-arm64|windows-amd64> <platform-dir> <output-dir>');
+  checkLegacyUpdatePublicKey();
   if (target === 'darwin-arm64') executePackageCheck(input);
   await requireEmptyStage(output);
   await collectDesktop({ target, version, input: path.resolve(input), output: path.resolve(output) });
-  await signTransition({ target, version, output, base });
+  await signLegacyPayload({ target, version, output, base });
   console.log(`Staged ${target} artifacts for metadata generation.`);
 } else if (mode === 'finalize') {
   const [output] = args;
@@ -378,6 +380,7 @@ if (mode === 'release') {
   const selected = Object.entries(updateTargets).filter(([, target]) => entries.includes(fragmentName(target))).map(([platform]) => platform);
   if (entries.includes(`agent-remote-control-v${version}-linux-x86_64.tar.gz`)) selected.push('linux');
   if (!selected.length) throw new Error('No platform artifacts');
+  if (selected.some(platform => updateTargets[platform])) checkLegacyUpdatePublicKey();
   const manifest = await finalize(output, selected, await readReleaseNotes(version));
   await releaseInventory(output, selected, manifest);
   console.log('Release metadata generated for staged platforms.');

@@ -1,11 +1,11 @@
 ---
 owners:
-  - native/src/core_requests.rs
-  - native/src/control.rs
-  - native/src/desktop/daemon.rs
-  - native/src/desktop/recovery.rs
-  - native/src/execution.rs
-  - native/src/claude_notify*
+  - internal/core/core_requests.go
+  - internal/core/control.go
+  - internal/core/desktop_daemon_darwin.go
+  - internal/core/desktop_recovery*.go
+  - internal/core/execution.go
+  - internal/core/claude_notify*.go
 status: Reviewed
 ---
 One Codex dispatch from codex_create to codex_review. Push delivery details are in the notification flow and delivery diagrams.

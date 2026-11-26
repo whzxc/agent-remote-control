@@ -28,7 +28,7 @@ Approved responses form a separately versioned baseline for later structured dif
 ## Commands
 
 Run from the repository root with installed development dependencies, Node and
-the Rust toolchain:
+the Go toolchain:
 
 ```sh
 npm run agent-scenarios:capture
@@ -38,10 +38,8 @@ npm run agent-scenarios:approve -- first-contact dispatch
 ```
 
 The equivalent general entry point is `npm run agent-scenarios -- <mode> [ids...]`.
-`capture` and `check` build `contract-fixture` with `cargo build --locked --quiet`
-and use `prepareCoreBinary()` from the existing test helpers to build and stage
-`arc`. They honor `CARGO_TARGET_DIR`, use the shared heavy-build lock, and prune
-the compilation cache after the builds. Each scenario starts its own temporary
+`capture` and `check` build `cmd/arc` and the tagged `cmd/contract-fixture`
+through the Go test builder under the shared heavy-build lock. Each scenario starts its own temporary
 home, ARC state and App Server through the real MCP SDK stdio client. The ingress
 and connection configuration follow `control-mcp.test.ts`. Fixture task settings
 disable automatic Desktop opening. Closing a scenario stops its processes and
@@ -61,7 +59,7 @@ The captured call is made once. Setup failures abort capture.
 assignments, missing captures, missing approvals, removed approved scenarios or
 changed approved calls/results. Changed JSON paths use JSON Pointer notation;
 embedded MCP JSON text is decoded so paths identify the changed response field.
-Uncovered operations are reported without making this first segment fail.
+Uncovered operations are reported without failing the coverage check.
 
 The runner is acceptance tooling. It is absent from `npm test` and
 `npm run test:extended`. Pure-function unit cases run with daily tests.

@@ -1,5 +1,5 @@
 !define ARC_PEER_FIREWALL_SCRIPT "${__FILEDIR__}\peer-firewall.ps1"
-; Native installer pages. Included by installer.nsi after Tauri bundle defines.
+; Native installer pages. Included by the Windows NSIS installer.
 Var ConnectorDialog
 Var ConnectorTitleFont
 Var ConnectorIcon

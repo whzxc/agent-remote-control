@@ -16,6 +16,14 @@ npm run dev:ui
 
 `dev:ui` starts DEV WEB only. It connects to a running Core from the state selected by `ARC_STATE_DIR`, or the installed default. `ARC_DEV_PORT` defaults to 5187. The Vite proxy accepts requests from the exact configured loopback host and origin and checks the registered Core's identity with a bounded health probe.
 
+## Source layout
+
+- `cmd/arc` builds Core, the front door, and the CLI. It MUST build with `CGO_ENABLED=0` and MUST NOT import MyGo.
+- `cmd/arc-desktop` builds the MyGo Desktop. `cmd/arc-screen` contains the macOS screen and accessibility helper.
+- `cmd/contract-fixture` and synthetic runtime hooks require the `arcfixture` build tag.
+- `internal/core` owns business logic. Register control operations, catalog contributions, and management routes with the Core registries in their owning files. Return structured errors through the dispatcher with stable codes, messages, and recovery data.
+- Extract small independent packages for leaf code such as `internal/canonjson` and `internal/platform`. Keep one copy of bundled descriptors and runtime assets under `shared/core`. Embed them from that package and import them directly from the renderer when needed.
+
 ## Build and checks
 
 ```sh

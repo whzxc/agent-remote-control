@@ -1,15 +1,14 @@
 ---
 owners:
-  - native/src/front_door*
-  - native/src/service.rs
-  - native/src/ingress*
-  - native/src/relay/**
-  - native/src/codex_host.rs
-  - native/src/control.rs
-  - native/src/desktop.rs
-  - native/src/rpc.rs
-  - native/src/task_host.rs
-  - desktop/src/**
+  - internal/core/front_door*.go
+  - internal/core/service.go
+  - internal/core/ingress*.go
+  - internal/core/relay*.go
+  - internal/core/codex_host*.go
+  - internal/core/control.go
+  - internal/core/desktop*.go
+  - internal/core/rpc.go
+  - internal/core/task_host*.go
   - cmd/arc-desktop/**
   - internal/core/desktop_client.go
   - ui/nativeBridge.ts

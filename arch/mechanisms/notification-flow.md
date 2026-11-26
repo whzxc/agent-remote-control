@@ -1,9 +1,9 @@
 ---
 owners:
-  - native/src/claude_notify.rs
-  - native/src/claude_notify/observer.rs
-  - native/src/claude_notify/scheduler.rs
-  - native/src/claude_notify/mcp_events.rs
+  - internal/core/claude_notify.go
+  - internal/core/claude_notify_observer.go
+  - internal/core/claude_notify_scheduler.go
+  - internal/core/claude_notify_mcp_events.go
 status: Reviewed
 ---
 Known gap on Observer: merging observations orders them by arrival instead of by evidence time, so a stale read can overwrite newer state. The notification delivery diagram shows the effect.

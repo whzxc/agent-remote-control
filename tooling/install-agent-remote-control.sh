@@ -127,7 +127,7 @@ trap 'rm -rf "$stage"' EXIT HUP INT TERM
 asset=agent-remote-control-$version-linux-$arch.tar.gz
 url=$repo/releases/download/$version
 curl --proto '=https' --proto-redir '=https' -fsSL "$url/$asset" -o "$stage/$asset" || {
-  echo "Release $version has no downloadable $asset; choose a release containing Linux tarballs or build native/Cargo.toml from source." >&2
+  echo "Release $version has no downloadable $asset; choose a release containing Linux tarballs or build cmd/arc from source." >&2
   exit 1
 }
 curl --proto '=https' --proto-redir '=https' -fsSL "$url/SHA256SUMS.txt" -o "$stage/SHA256SUMS.txt"

@@ -31,7 +31,7 @@ GPT-6 Astra Pro 在 ChatGPT Chat 模式里可用，Codex 里没有。ARC 把两�
 
 ## 开始使用
 
-[安装 ARC](docs/zh-CN/installation.md)，打开应用并登录 Codex，然后选择在哪里使用。
+在 macOS 13.0 或更新版本的 Apple Silicon Mac 或 Windows x64 上[安装 ARC](docs/zh-CN/installation.md)。打开应用并登录 Codex，然后选择在哪里使用。
 
 - **本机模式：**选择「在这台电脑上」。ARC 自动添加已安装的 Claude Code；Claude 桌面版点击「安装扩展」，完成后重启 Claude。
 - **创建中继：**选择「在手机和网页上 → 创建我的中继」，登录免费的 Cloudflare 账号，等待远程链接就绪。

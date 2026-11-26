@@ -12,7 +12,7 @@ Ambient light uses small CSS transform and opacity changes over the artwork. Day
 
 `useStudioMotion` reuses the pet visibility policy, including native minimization and application reduced-motion overrides. Hidden windows, reduced motion and non-homepage views remove ambient animation. Open panels, pointer hover over controls and keyboard interaction pause it and lower its opacity; ambient motion resumes after 2.4 seconds without attention on a control. This policy does not change the task timeline or user preferences. The clock also stops scheduling updates while the native window is not visible and refreshes when it returns.
 
-The full-screen control uses the browser Fullscreen API or the existing Tauri window API. Native Escape exits full screen only when no dialog or popup owns Escape. Closing full screen restores focus to the display control. Browser Escape follows the browser's native behavior. The full-screen state is not persisted or entered automatically.
+The full-screen control uses the browser Fullscreen API or the MyGo Desktop bridge. Native Escape exits full screen only when no dialog or popup owns Escape. Closing full screen restores focus to the display control. Browser Escape follows the browser's native behavior. The full-screen state is not persisted or entered automatically.
 
 Development fixtures may set `studio` to a lighting value. The development-only `studio` query parameter also supports `day`, `night`, or `auto` without persisting those preview settings. Release builds do not read that parameter.
 

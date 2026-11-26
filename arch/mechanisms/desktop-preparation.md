@@ -1,9 +1,9 @@
 ---
 owners:
-  - native/src/desktop/recovery.rs
-  - native/src/desktop/daemon.rs
-  - native/src/desktop/handback.rs
-  - native/src/control.rs
+  - internal/core/desktop_recovery*.go
+  - internal/core/desktop_daemon_darwin.go
+  - internal/core/desktop_handback*.go
+  - internal/core/control.go
   - ui/components/DesktopRecoveryNotice.tsx
 status: Approved
 ---

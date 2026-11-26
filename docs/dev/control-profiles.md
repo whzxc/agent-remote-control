@@ -80,7 +80,7 @@ Controllers SHOULD retain `criteriaHash` on the first session read and pass `kno
 
 ## Guide layers
 
-Layer 1 is `guide()` or `query({op:"guide",args:{}})`. Its complete serialized MCP response MUST stay within 4,000 bytes for every profile, including framing, JSON escaping, metadata, CLI path, hashes and enabled-feature pointers. The Contract test `egress::tests::ax_guide_common_signatures` checks all three profiles across every combination of maintainer mode, context provider and MCP hub. Default guides contain shared orientation rules, core op names and `via`, topic descriptions, and one-line profile or feature pointers.
+Layer 1 is `guide()` or `query({op:"guide",args:{}})`. Its complete serialized MCP response MUST stay within 4,000 bytes for every profile, including framing, JSON escaping, metadata, CLI path, hashes and enabled-feature pointers. The Contract test `TestDefaultGuideBudgetAndProgressiveSignatures` checks all three profiles across every combination of maintainer mode, context provider and MCP hub. Default guides contain shared orientation rules, core op names and `via`, topic descriptions, and one-line profile or feature pointers.
 
 New guidance MUST go to a topic or operation guide. Maintainers MUST preserve the default byte budget when changing guide content. Default guides omit inbox attachments. Layer 2 is `guide({op})` or `query({op:"guide",args:{op}})` with the complete operation signature, schema and retry contract. Layer 3 is `query({op:"guide",args:{view:"full"}})` with every enabled operation and its full signature.
 

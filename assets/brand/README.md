@@ -27,7 +27,7 @@ Both sets use orange for the upper arc and left dot. The lower arc and right dot
 
 The mark's visible width is 80% of the icon background width, excluding SVG padding. Static icons use an 824-wide background. Icon Composer uses the native 1024-wide background. Both center the mark.
 
-Tauri projects can run `npx tauri icon` with `png/app-icon-1024.png` to generate all platform icons.
+Run `npm run brand -- primary` from the repository root to generate the app icons and branding assets.
 
 ## Colors
 

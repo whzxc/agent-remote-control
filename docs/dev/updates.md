@@ -28,9 +28,9 @@ The update panel and Settings › About › Update history load the latest 50 pu
 
 Run `npm test` for the direct install-button regression and frozen tool schemas. Use `npm run accept:ui` with the `updates-*` fixtures for layout and states. `npm run accept:updates` builds two isolated MyGo versions with a hidden local fixture WebView and a loopback feed. The fixture uses throwaway keys and a tagged development build. It imports the production frontend controller and exercises MyGo, retryable errors, cached installation with the feed offline, Core shutdown and matching Desktop/Core fingerprints after restart. A synthetic ACP task holds a tool call across installation; the runner checks the same host PID, process creation token and Agent PID after restart, then releases the fixture and requires completion. It never replaces the installed production app.
 
-## Tauri handoff
+## Installed updater compatibility
 
-The first Go release ships both the legacy Tauri and the MyGo metadata and signature formats. Older installed clients verify the Minisign payload. The replacement has the same production identifier and learns the MyGo feed and public key at build time. [Release maintenance](release.md) owns signing inputs, versioned URLs, and publication.
+Desktop releases publish MyGo feeds and keep `latest.json` for installed 0.9.53 and 0.9.54 clients. Those clients verify the Minisign sidecars and install the signed macOS app archive or Windows NSIS EXE. The production app retains the bundle identifier, product name, executable name, and URL scheme. The installed Desktop uses the platform MyGo feed and public key supplied at build time. [Release maintenance](release.md) owns signing inputs, versioned URLs, and publication.
 
 ## Local installation backups
 

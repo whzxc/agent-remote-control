@@ -23,7 +23,3 @@ export async function testFiles(extended = false) {
     .filter(name => /\.test\.[cm]?[jt]sx?$/.test(name) && !browser.has(name) && (extended || !integration.has(name)))
     .sort().map(name => `tests/${name}`);
 }
-
-export function nativeTestFiles() {
-  return [...integration].sort().map(name => `tests/${name}`);
-}

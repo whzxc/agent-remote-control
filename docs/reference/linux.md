@@ -2,7 +2,7 @@
 
 [Installation](../installation.md) · [CLI](cli.md)
 
-Linux x86_64 and aarch64 run the Rust Core without Tauri or a display server. Install and log in to Codex CLI as the service user. Codex tasks execute through its App Server; other Agents keep their own runtime/login requirements.
+Linux x86_64 and aarch64 run the standalone Go Core without a display server. Install and log in to Codex CLI as the service user. Codex tasks execute through its App Server; other Agents keep their own runtime/login requirements.
 
 ## Install
 
@@ -12,22 +12,20 @@ export PATH="$HOME/.local/bin:$PATH"
 arc --version
 ```
 
-The installer needs curl, tar, sha256sum, awk, install, and mktemp. Automatic version selection also needs jq and searches release pages for the newest non-draft, non-prerelease version containing the current architecture’s Linux tarball. Releases for other platforms are skipped. It verifies the release checksum and binary version. Set ARC_VERSION to a v-prefixed tag and ARC_INSTALL_DIR to an absolute destination on the sh process when needed. CI tarballs use Ubuntu 24.04; older glibc systems need a source build. Tunnel downloads also need unzip/tar.
+The installer needs curl, tar, sha256sum, awk, install, and mktemp. Automatic version selection also needs jq and searches release pages for the newest non-draft, non-prerelease version containing the current architecture’s Linux tarball. Releases for other platforms are skipped. It verifies the release checksum and binary version. Set ARC_VERSION to a v-prefixed tag and ARC_INSTALL_DIR to an absolute destination on the sh process when needed. GitHub Actions builds static archives without a glibc dependency. Tunnel downloads also need unzip/tar.
 
 To build on the matching architecture:
 
 ```sh
 npm ci
-npx vite build --config vite.config.ts
-cargo build --locked --manifest-path native/Cargo.toml --release --bin arc --target x86_64-unknown-linux-gnu
-npm run cache:prune
-install -Dm755 target/x86_64-unknown-linux-gnu/release/arc "$HOME/.local/bin/arc"
+npm run build -- --release
+install -Dm755 dist/native/arc "$HOME/.local/bin/arc"
 mkdir -p "$HOME/.local/bin/skills"
 rm -rf "$HOME/.local/bin/skills/arc-setup"
 cp -R skills/arc-setup "$HOME/.local/bin/skills/arc-setup"
 ```
 
-Use aarch64-unknown-linux-gnu on an ARM64 host. Build tools require Rust, a C compiler/linker, Git, and Node for the repository cache helper. Running the installed Core does not need Node/npm. Cross-compilation also needs a target sysroot/linker.
+Use Git, Node.js 24.12+, and the Go version pinned in `go.mod`. Pass `--target=linux/amd64` or `--target=linux/arm64` to cross-compile. The build disables CGO.
 
 ## Start and configure
 

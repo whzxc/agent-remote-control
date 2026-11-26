@@ -206,7 +206,7 @@ export default function App() {
     >
       <HomepageDisplay headerVisible={page === "overview" && !welcome && !modalOpen} />
       {isDesktop && (
-        <div className="window-drag-strip" data-tauri-drag-region />
+        <div className="window-drag-strip" />
       )}
       <main tabIndex={-1}
         className="home-workspace"

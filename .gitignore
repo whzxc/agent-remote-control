@@ -5,8 +5,6 @@ dist/
 *.tgz
 .env
 target
-desktop/runtime/
-desktop/gen/
 
 # Release outputs and signing secrets
 release-artifacts/
