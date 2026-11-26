@@ -1,45 +1,11 @@
-# OpenAI Tunnel credentials
+# OpenAI Tunnel Credentials
 
-Use [Platform Tunnels](https://platform.openai.com/settings/organization/tunnels)
-to reuse or create a tunnel associated with the intended Platform organization
-and ChatGPT workspace. **In the create-tunnel dialog, select the intended ChatGPT
-workspace as well as the Platform organization.** When reusing a tunnel, check
-its associations and add the target workspace there if missing. A Platform
-organization association alone does not make the tunnel visible in ChatGPT.
-Apply its non-secret ID with `{"tunnelId":"tunnel_..."}`.
-Use [Runtime API keys](https://platform.openai.com/settings/organization/api-keys)
-to create a **restricted runtime API key**, with **Tunnels Read + Use** for the
-target tunnel. Name every key created for ARC `arc-<tunnel-id>-runtime-<timestamp>`.
-Record only its name (never its value), including the exact old ARC-created key name
-when replacing one. Tunnel creation needs **Read + Manage** on the organization;
-ChatGPT custom-MCP access is separate. Do not use an Admin API key, Tunnel ID,
-ChatGPT session token, or locally stored Codex credentials as the runtime key.
+1. **Tunnel**: on [Platform Tunnels](https://platform.openai.com/settings/organization/tunnels), reuse or create a tunnel linked to **both** the Platform organization and the target ChatGPT workspace (org-only association hides the tunnel in ChatGPT), then apply `{"tunnelId":"tunnel_..."}`.
+2. **Restricted runtime key**: on [Runtime API keys](https://platform.openai.com/settings/organization/api-keys), create a key with **Tunnels Read + Use** for that tunnel (requires org **Read + Manage** to create tunnels). Name it `arc-<tunnel-id>-runtime-<timestamp>` and record only the key name, never its value (do not use Admin keys, Tunnel IDs, ChatGPT tokens, or local Codex credentials).
+   - **Browser / screen**: click the key's official **Copy** button while hidden, then apply `tunnel-credentials` with `{"source":"clipboard"}` (if no Copy control exists, ask the user to copy manually or use `secretUrl`).
+3. **Verify & revoke old key**:
+   - Read `setup next` / `cli ingress doctor <ingressId>` and run any Tunnel Client upgrade `nextAction` first. Execute `create-ingress` when returned, then `cli setup wait`.
+   - On confirmed runtime 401/403, replace the runtime key or report `runtime-key-rejected` via `chatgpt-fallback`; on explicit Platform denial, report `platform-denied`.
+   - Once `controlPlane.state: authenticated` is reported, revoke **only** the exact previously replaced ARC-created key name on Platform API keys if known from this setup's history; leave uncertain keys untouched and note them.
 
-- **Browser tools (Claude in Chrome / Codex browser / IAB):** In the signed-in
-  pages, create/reuse the tunnel and create the restricted key. Click the key's
-  official **Copy** button, then apply `tunnel-credentials` with
-  `{"source":"clipboard"}`. Follow the protocol's safety-policy exceptions.
-- **Computer use / ARC screen:** Navigate to the same controls while credentials
-  are hidden; use Copy and the same apply action without capturing the key.
-- **Neither:** Give the Runtime API keys link: “Copy the runtime key with Tunnels
-  Read + Use.” Apply clipboard after copying. Also use manual copying if no
-  Copy control exists; `secretUrl` opens ARC's fallback form.
-
-ARC checks the key's minimum shape, saves it, and only then clears the clipboard.
-A rejected copy leaves the clipboard untouched. Read `setup next` or
-`cli ingress doctor <ingressId>` first: resolve Tunnel Client version/upgrade
-findings with their executable next action. For a confirmed runtime 401/403 on a
-supported client, replace the runtime key or report `runtime-key-rejected` via
-`chatgpt-fallback`; on a Platform access
-block report `platform-denied`. Do not ask about permissions before trying.
-Re-read `setup next` and execute `create-ingress` when returned; then use
-`cli setup wait`. A saved key alone does not prove control-plane authentication.
-After the replacement reports `controlPlane.state: authenticated`, return to
-Platform API keys and revoke only the replaced key whose exact name identifies it
-as ARC-created for this tunnel. Keep the new key. Do not revoke unrelated keys,
-keys merely resembling ARC names, or any key whose ownership is uncertain. Older
-ARC-created names may be used only when this setup's history identifies the exact
-key; otherwise leave it and report that cleanup could not be established.
-
-[Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
-· [Official onboarding / key sources](https://github.com/openai/tunnel-client/blob/master/docs/onboarding.md)
+[Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels) · [Official onboarding / key sources](https://github.com/openai/tunnel-client/blob/master/docs/onboarding.md)

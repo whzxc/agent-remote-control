@@ -1,65 +1,23 @@
-# Advanced setup protocol
+# Advanced Setup Protocol
 
-Use this sequence only for the explicitly selected Agent wizard under Settings → Remote link → Advanced. Local mode and shared relays use the main skill’s local-access / relay operations; ChatGPT uses a remote link by default.
+Use this sequence only for the explicitly selected wizard under **Settings → Remote link → Advanced** (local mode and shared relays use `arc-setup`; ChatGPT uses a remote link by default).
 
-Reply in the language of the user’s request. Pass `--locale zh-CN` for Chinese or `--locale en` for English on every `cli setup next`, `apply`, and `wait` call.
+Reply in the user's language and pass `--locale zh-CN` or `--locale en` to every `cli setup next`, `apply`, and `wait` call.
 
-Run `cli setup next` and follow its current step until `complete` is true.
-`next --goal <goal>` previews without saving; submit choices through
-`cli setup apply <stepId> --stdin` with `{"option":"<option-id>"}`.
-For auto steps read the playbook, run `installCommand` if supplied, then send `{}`
-unless the step requests input. Re-read next after apply.
-
-Repeat decide explanations and option labels verbatim and identify the recommended
-option. Never choose or skip on the user's behalf. Install missing prerequisites
-using the playbook; skip only when the user explicitly chooses it.
-
-For authorize, secret, and remote-ui, read the matching playbook. Use browser
-tools first, computer-use/ARC screen second. All playbooks follow this rule:
-
-After goal selection, explain the scope and obtain one confirmation, unless the
-user already explicitly confirmed it. For chatgpt-chat this covers tunnel creation,
-a restricted runtime API key, the target ChatGPT workspace association, and plugin
-access to this machine's enabled tools. For claude-loop this covers Cloudflare
-tunnel/DNS (DNS for fixed addresses), the Claude connector, ARC OAuth consent and
-Claude Code installation/sign-in. Reuse that confirmation throughout the selected
-scope; ask again only for a changed scope or the exceptions below.
-
-Within the confirmed scope, on already signed-in pages perform setup operations,
-including creating tunnels/API keys, risk acknowledgments, creation, authorization,
-and consent. Pause only for missing login, CAPTCHA/challenges, passwords/2FA,
-payment, or a confirmation/refusal required by your own safety policy. Never bypass
-those policies. If no usable UI tool is available, give a link and one instruction.
-
-Never read or output secret values. Click the official Copy button and immediately
-apply `{"source":"clipboard"}`; never read the clipboard yourself. If no Copy
-button exists, ask the user to copy manually; ARC's form remains a fallback.
-
-Run `cli setup wait --timeout 60` after external actions. Timeouts return the
-current step successfully: continue waiting, do not infer completion from the UI.
-Use fresh next output when the step changes. Surface returned findings and execute
-their `nextAction.command`; next also supplies an executable `nextAction.command`
-for the current step. Read `cli schema <operation>` for full inputs.
-ARC ensures Tunnel Client >= 0.0.16 before starting an OpenAI ingress, including
-stopping and restarting it when needed. A version/upgrade finding takes precedence
-over replacing a key. Use the diagnostic summary; no ARC UI inspection is needed.
-For tunnel credentials, apply also accepts the non-secret `{"tunnelId":"..."}`.
-Secret clipboard apply returns saved flags only; re-read next afterward.
-For Cloudflare login and Claude Code readiness, apply `{}` to start the action
-described by the playbook. Missing Claude Code returns installation guidance.
-
-The setup agent runs locally. Remote verification and the loop test use the
-selected remote connector; a locally created task cannot prove that path.
-For the loop test, prepare and send the prompt in the remote session using the
-available UI tools, or ask the user to paste it there if none are available; then wait. Follow the loop-test playbook for the goal-specific session and prompt.
-
-Assume ChatGPT access and try the actual setup pages; never inspect local
-Codex/ChatGPT credentials or call internal APIs to preflight permissions.
-On a visible Platform denial/403 or missing custom-MCP/developer access, apply
-`chatgpt-fallback` with `{"reason":"platform-denied"}` or
-`{"reason":"chatgpt-denied"}`. This exposes a decide step; relay its explanation
-and options. Apply `{"option":"https-oauth"}` or `{"option":"retry"}` as chosen.
-A rejected runtime key returns to `tunnel-credentials`; replace it via clipboard,
-or report `{"reason":"runtime-key-rejected"}` to offer the same decide step.
-The `fallback` object in next also describes this alternative. HTTPS avoids
-Platform Tunnel permissions, but cannot bypass ChatGPT workspace restrictions.
+1. Loop `cli setup next` until `complete` is `true` (`next --goal <goal>` previews without saving):
+   - **Choice (`decide`)**: repeat the explanation and option labels verbatim, highlight the recommended option, and submit `cli setup apply <stepId> --stdin` with `{"option":"<option-id>"}`.
+   - **Auto steps**: run `installCommand` if supplied, then apply `{}` unless input is requested, and re-read `next`.
+   - **`authorize` / `secret` / `remote-ui`**: read only the current step's playbook (browser tools first, computer-use/ARC screen second).
+2. **Scope confirmation**: after goal selection, explain the scope and get one confirmation (unless already given) and reuse it across the flow:
+   - `chatgpt-chat`: tunnel creation, restricted runtime API key, target ChatGPT workspace association, and plugin access to enabled tools.
+   - `claude-loop`: Cloudflare tunnel/DNS (for fixed addresses), Claude connector, ARC OAuth consent, and Claude Code installation/sign-in.
+3. **Browser & secret hygiene**:
+   - On already signed-in pages within confirmed scope, complete tunnel/API-key/connector creation, risk acknowledgments, and OAuth consent. Pause on missing login, CAPTCHA/challenges, passwords/2FA, payment, or safety-policy confirmations.
+   - Never read or print secrets (click the official **Copy** button and apply `{"source":"clipboard"}`; use manual copy only if no Copy control exists).
+4. **Waiting & findings**:
+   - Run `cli setup wait --timeout 60` after external actions; timeouts return successfully—keep waiting rather than inferring completion from UI state.
+   - Re-read `next` on step changes and run any returned `nextAction.command` (ARC ensures Tunnel Client >= 0.0.16 before OpenAI ingress; version findings take precedence over key replacement).
+   - `tunnel-credentials` also accepts non-secret `{"tunnelId":"..."}`; `cloudflare-login` and `claude-code-ready` apply `{}` to start.
+5. **Remote verification & ChatGPT fallback**:
+   - Send the loop-test prompt in the remote session (a local task does not test remote delivery).
+   - Never preflight ChatGPT permissions via local tokens or private APIs. On an explicit Platform 403/denial or missing ChatGPT custom-MCP/developer access, apply `chatgpt-fallback` with `{"reason":"platform-denied"}` or `{"reason":"chatgpt-denied"}` (or `{"reason":"runtime-key-rejected"}` on rejected runtime keys) and relay the returned options (`{"option":"https-oauth"}` or `{"option":"retry"}`).
