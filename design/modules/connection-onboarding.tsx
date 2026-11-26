@@ -81,7 +81,7 @@ export function ConnectionOnboarding({ step }: { step: OnboardingStep }) {
                   }
                 />
                 <div class="flex flex-col gap-[10px]">
-                  <h3 class="text-body leading-[14px] font-[650]">{label}</h3>
+                  <h3 class="text-body leading-5 font-[650]">{label}</h3>
                   {((step.body === "login" && i < 2) ||
                     (step.body === "relay" && i === 1)) && (
                     <p class="text-meta leading-[14px] text-text-secondary">

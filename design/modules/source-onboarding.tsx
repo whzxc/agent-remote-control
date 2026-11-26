@@ -74,7 +74,7 @@ export function SourceOnboarding({ step }: { step: OnboardingStep }) {
     case "connection":
       return (
         <div class="flex flex-col gap-4">
-          <p class="text-body leading-4 text-text-secondary mb-1">{sourceCopy.connectionQuestion}</p>
+          <p class="text-body leading-5 text-text-secondary mb-1">{sourceCopy.connectionQuestion}</p>
           <SingleChoice
             label="连接"
             value="relay"
@@ -91,7 +91,7 @@ export function SourceOnboarding({ step }: { step: OnboardingStep }) {
     case "empty":
       return (
         <div class="flex flex-col gap-3">
-          <h3 class="text-body leading-4 font-[650]">{sourceCopy.noConnections}</h3>
+          <h3 class="text-body leading-5 font-[650]">{sourceCopy.noConnections}</h3>
           <p class="text-body leading-4 text-text-secondary">{sourceCopy.connectionQuestion}</p>
           <div class="grid grid-cols-3 gap-[10px] mt-2">
             {methods.map((method, i) => (
@@ -165,7 +165,7 @@ export function SourceOnboarding({ step }: { step: OnboardingStep }) {
           <div class="flex items-center gap-4">
             <Tile icon="check" tone="success" />
             <div class="flex flex-col gap-[10px]">
-              <h3 class="text-title leading-5 font-[650]">{sourceCopy.connected}</h3>
+              <h3 class="text-title leading-6 font-[650]">{sourceCopy.connected}</h3>
               <p class="text-meta leading-4 text-text-secondary">{sourceCopy.relay}</p>
             </div>
           </div>

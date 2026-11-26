@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {act,createElement as h,useState} from 'react';
-import {within,fireEvent} from '@testing-library/dom';
+import {within,fireEvent,waitFor} from '@testing-library/dom';
 import {assertNodeIdentity} from './helpers/dom-assert.ts';
 import {withDialog} from './helpers/layers-ui.ts';
 import {consumeOutsidePointer,createLayerStore} from '../ui/state/layers.ts';
@@ -197,7 +197,7 @@ test('workspaces replace on open and capsule switching preserves dirty drafts un
     await act(async () => fireEvent.click(page.getByRole('button', { name: t('layers.discardAction') }))); await settle();
     assert.ok(page.getByRole('dialog', { name: 'Relay' }));
     await act(async () => fireEvent.keyDown(page.getByRole('dialog', { name: 'Relay' }), { key: 'Escape' })); await settle();
-    assertNodeIdentity(focused(), relayTrigger);
+    await waitFor(() => assertNodeIdentity(focused(), relayTrigger), { container: document.body });
     await act(async () => fireEvent.click(relayTrigger)); await settle();
     await act(async () => fireEvent.click(page.getByRole('button', { name: 'Start work' })));
     await act(async () => fireEvent.click(page.getByRole('button', { name: 'Open Settings' }))); await settle();

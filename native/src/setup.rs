@@ -579,8 +579,8 @@ fn presentation(mut next: Value, state: &Value) -> Result<Value> {
     Ok(next)
 }
 fn agent_prompt(goal: &str, cli: &Path, locale: &str) -> String {
-    serde_json::from_str::<Value>(include_str!("../../shared/core/model-prompts.json")).expect("model prompts")
-        ["setup"]
+    serde_json::from_str::<Value>(include_str!("../../shared/core/model-prompts.json"))
+        .expect("model prompts")["setup"]
         .as_str()
         .expect("setup prompt")
         .replace("{locale}", locale)

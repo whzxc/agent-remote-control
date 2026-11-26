@@ -14,7 +14,8 @@ import { tokenPaint } from './ui-paint.mjs';
 
 export async function inspectStyles(base = root) {
   const declarations = [];
-  for (const file of (await readdir(path.join(base, 'ui'), { recursive: true })).sort()) {
+  const files = await readdir(path.join(base, 'ui'), { recursive: true });
+  for (const file of files.map(file => file.split(path.sep).join('/')).sort()) {
     if (!file.endsWith('.css') || file.startsWith('components/ui/') || file === 'tokens.css') continue;
     const relative = `ui/${file}`;
     postcss.parse(await readFile(path.join(base, relative), 'utf8'), { from: relative }).walkDecls(declaration => {

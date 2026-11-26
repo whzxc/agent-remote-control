@@ -56,7 +56,7 @@ export function InlineRequest({ class: extra = "" }: { class?: string }) {
   return (
     <section class={`flex flex-col gap-4 ${extra}`}>
       <div class="flex flex-col gap-[6px]">
-        <h3 class="text-body leading-4 font-semibold">{requestCopy.title}</h3>
+        <h3 class="text-body leading-5 font-semibold">{requestCopy.title}</h3>
         <p class="text-meta leading-4 text-text-tertiary">{requestCopy.status}</p>
       </div>
       <PermissionCard />

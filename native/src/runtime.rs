@@ -24,7 +24,11 @@ pub fn app_relaunch() -> Result<std::process::Command> {
         .ok_or("APP_RESTART_UNAVAILABLE: Restart requires an application bundle. Quit and start the development entry point again.")?;
     let mut command = std::process::Command::new("/bin/sh");
     command
-        .args(["-c", include_str!("../../shared/core/relaunch-macos.sh"), "arc-app-relaunch"])
+        .args([
+            "-c",
+            include_str!("../../shared/core/relaunch-macos.sh"),
+            "arc-app-relaunch",
+        ])
         .arg(std::process::id().to_string())
         .args(["/usr/bin/open", "-a"])
         .arg(bundle)

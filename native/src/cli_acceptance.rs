@@ -3,7 +3,8 @@ use crate::*;
 use std::time::{Duration, Instant};
 
 pub(crate) fn schemas() -> Value {
-    serde_json::from_str(include_str!("../../shared/core/cli_acceptance.json")).expect("CLI schemas")
+    serde_json::from_str(include_str!("../../shared/core/cli_acceptance.json"))
+        .expect("CLI schemas")
 }
 pub(crate) fn usage(args: &[&str]) -> Option<Result<String>> {
     let relevant = args.first() == Some(&"wait") || args.starts_with(&["app", "snapshot"]);

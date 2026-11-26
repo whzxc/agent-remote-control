@@ -16,7 +16,8 @@ export function featureOwner(file) {
 
 export function inspectConsumers(base = root) {
   const files = readdirSync(path.join(base, 'ui'), { recursive: true })
-    .filter(file => /\.tsx?$/.test(file) && !file.endsWith('.d.ts')).map(file => `ui/${file}`);
+    .filter(file => /\.tsx?$/.test(file) && !file.endsWith('.d.ts'))
+    .map(file => `ui/${file.split(path.sep).join('/')}`);
   const modules = new Map();
   function resolve(file, specifier) {
     if (!specifier.startsWith('.')) return;

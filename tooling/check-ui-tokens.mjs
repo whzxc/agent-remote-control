@@ -13,7 +13,8 @@ const references = value => [...value.matchAll(/var\(\s*(--[\w-]+)/g)].map(match
 
 export function inspectTokens(base = root, parts = inspectConsumers(base)) {
   const files = readdirSync(path.join(base, 'ui'), { recursive: true })
-    .filter(file => /\.(?:css|tsx?|svg)$/.test(file)).map(file => `ui/${file}`);
+    .filter(file => /\.(?:css|tsx?|svg)$/.test(file))
+    .map(file => `ui/${file.split(path.sep).join('/')}`);
   const declarationUses = new Map(), sharedPaint = [], definitions = new Map(), usages = new Map(), localAliases = new Map(), paintTokens = new Set();
   for (const file of ['design/tokens.css', 'ui/tokens.css']) {
     if (!existsSync(path.join(base, file))) continue;
