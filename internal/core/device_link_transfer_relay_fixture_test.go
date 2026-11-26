@@ -51,7 +51,10 @@ func loopbackRelaySocket(t *testing.T, ctx context.Context, local string) *webso
 func TestRelayPeerTransferSurvivesSlowContinuousCredit(t *testing.T) {
 	// Recurring bug class: lifecycle active multipart relay transfers retain their peer body and response deadlines while credits arrive.
 	directory := t.TempDir()
-	ctx, _, _, link := openDeviceTunnelFixture(t, directory)
+	parent, _, _, link := openDeviceTunnelFixture(t, directory)
+	// The raw WebSocket reads and writes in this fixture need a caller deadline.
+	ctx, cancel := context.WithTimeout(parent, 25*time.Second)
+	t.Cleanup(cancel)
 	local, _ := strings.CutSuffix(link.path.tunnelURL, "/arc-peer/3")
 	peer := loopbackRelaySocket(t, ctx, local)
 	data := bytes.Repeat([]byte{0x2a}, deviceTransferTunnelRange)
