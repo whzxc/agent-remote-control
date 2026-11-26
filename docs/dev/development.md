@@ -4,54 +4,34 @@
 
 ## Local development
 
-Use Node.js 24.12+ and Rust. Install dependencies with npm ci.
+Use Node.js 24.12+ and the Go version in `go.mod`. Install dependencies with `npm ci`. macOS packaging requires full Xcode 26+ and `uv`. Windows installer packaging requires NSIS 3 with `makensis` on PATH or `ARC_MAKENSIS` set to its executable.
 
 ```sh
 npm run dev
-```
-
-Development uses the installed data directory. The launcher builds Core and Desktop before quitting the installed Desktop through its authenticated management API. It waits for Core to exit and release its state lock before starting the development build. Configuration, source identities, history, and connection state stay in place. Development writes affect installed data.
-
-The supervisor watches native and desktop sources, embedded native resources, Cargo manifests, and desktop configuration. A successful build restarts development Desktop and Core together. Compile failures leave the current build running. Vite stays available across Core restarts, and DEV WEB reconnects to the new owner automatically. Saving another source change retries a failed build. Core persists explicit connection intent before starting or stopping an ingress. Interrupted and failed startup attempts remain scheduled for restoration on the next launch. Quitting development Desktop or pressing Ctrl+C stops development and restores the installed Desktop if it was running before takeover.
-
-```sh
+ARC_DEV_PORT=5190 npm run dev:isolated
 npm run dev:ui
 ```
 
-This starts only DEV WEB at `http://127.0.0.1:5187/`. It uses installed data and connects to the running Core. It never starts, stops, or builds Core. Start the installed App first. An existing DEV WEB from the same checkout and state directory can remain open when `npm run dev` takes over.
+`dev` builds and starts the MyGo development Desktop and Core inside `tmp/arc-godev-home`. It watches Go and native resource inputs and starts a new generation after a successful build. Vite stays up and reconnects to the replacement Core. Ctrl+C stops the development Desktop and releases its Core. `dev:isolated` creates a fresh development home, state directory, bundle identifier and test URL scheme. Use the emitted state path and bundle ID to address the running instance. Use `--directory /absolute/evidence` to retain an isolated run under an existing evidence directory.
 
-Concurrent DEV WEB requests share an in-flight health probe for the same Core owner. A probe waits up to two seconds and reports missing ownership, timeout, identity change, or HTTP failure separately. Desktop checks the Core state lock before attempting recovery after a failed probe. A slow Core is not treated as permission to launch another owner. Development has the same control-source support as installed builds. Grok and Grok Bot share their configured ingress.
+`dev:ui` starts DEV WEB only. It connects to a running Core from the state selected by `ARC_STATE_DIR`, or the installed default. `ARC_DEV_PORT` defaults to 5187. The Vite proxy accepts requests from the exact configured loopback host and origin and checks the registered Core's identity with a bounded health probe.
 
-Both commands honor an explicit ARC_STATE_DIR for temporary acceptance instances. There is no separate default development data directory. Do not manually launch a development binary against an active installed instance. The supervisor preserves the single-Core lock and build-identity checks. Other local CLI/MCP clients must release Core before takeover or restart; the launcher reports an actionable error instead of terminating those clients. Core restarts temporarily interrupt connections and ARC-owned execution processes.
-
-Set `ARC_DEV_PORT` to an unused integer from 1 to 65535 to keep an existing DEV WEB running while using a separate development instance. The default is 5187. The native development URL, its content security policy, and Vite use the selected port together. DEV WEB accepts API requests only for that exact loopback host and origin.
-
-```sh
-ARC_DEV_PORT=5190 npm run dev:isolated
-```
-
-`dev:isolated` allocates a new temporary state directory and unique development app identity. Use the emitted `stateDirectory` and `bundleId` to address its CLI and native window. It does not replace the installed app or reuse installed state. See [Acceptance](acceptance.md) for native acceptance and cleanup.
-
-## Existing checks
+## Build and checks
 
 ```sh
 npm run check
-npm run check:format
-npm run check:tests
+npm run check:go-format
+npm run check:native
 npm test
+npm run test:extended
 npm run build
-npm run desktop:check
 ```
 
-check validates React/TypeScript. check:format validates Rust formatting. test enforces test policy and runs low-cost Node checks within a 30-second wall-clock budget. test:extended explicitly adds Rust and native integration tests with isolated temporary state. build compiles the frontend, Core, and applicable screen helper. desktop:check checks the desktop crate. Tests must be tagged Contract, Algorithmic core or Recurring bug class and assert public behavior. Rewrite or delete change detectors instead of updating implementation snapshots. The control source owns contract tests and policy exceptions. See [Testing](testing.md) for suite selection and value rules. Visual and layout checks belong to accept:ui scenarios. See [Acceptance](acceptance.md) for scenarios, cross-device checks, and artifact inspection.
+`build` compiles Vite and embeds its browser entry point and assets in the CGO-free Go Core. The standalone executable is `dist/native/arc` or `dist/native/arc.exe`. Use `-- --target=GOOS/GOARCH` for a cross build. `desktop:prepare` stages the Vite output in `dist/ui` and prepares the Go embed inputs. `check:native` and `desktop:check` run Go formatting and vet across the platform-selected packages with the default and `arcfixture` tag sets.
 
-After direct Cargo builds or tests:
+`check` validates React and TypeScript. `npm test` runs the daily Node tests and policy checks within 30 seconds. `test:extended` adds both Go tag sets and native integration tests against standalone Core and the tagged contract fixture. See [Testing](testing.md) for a targeted native test command and [Acceptance](acceptance.md) for fixture coverage.
 
-```sh
-npm run cache:prune
-```
-
-The workspace shares root Cargo.lock and target. The compilation-cache budget is 30 GiB. Pruning removes inactive profile groups while retaining running/protected artifacts and unique data. Preview with npm run cache:prune -- --dry-run. The budget is not a total-size cap for target.
+Go uses its shared compiler and module caches. `npm run cache:prune` reports the effective build-cache path and its size against the 30 GiB budget. Run it with `-- --apply` while other Go builds are idle to clear an over-budget build and test cache using `go clean`. Module downloads and packaged artifacts have their own lifecycles.
 
 ## Design sources
 
@@ -72,25 +52,17 @@ npm run desktop:build
 npm run check:package
 ```
 
-Build recompiles the frontend and creates native packages without installing or replacing the local App. macOS artifacts live under target/aarch64-apple-darwin/release/bundle. Windows uses x64 NSIS. check:package validates versions, native signatures, and icon assets, rejecting legacy Node/npm runtime resources. See [Release](release.md) for signing and publication.
-
-Packages contain Desktop, standalone Core, static frontend, icons, and licenses. Tunnel Client is prepared on demand from official sources. External Agents use native installations. The Claude ACP adapter is prepared separately after explicit enablement. Build scripts remap Rust source paths to avoid embedding maintainer paths.
-
-Packaged production-identity builds support Release updates even when built with the debug profile. The separate development bundle identity does not install production updates.
-
-For a local macOS refresh, the control source runs `npm run desktop:build -- --debug` from Terminal as described in Home [ARC local install refresh](https://github.com/whzxc/home/blob/main/knowledge/playbooks/arc-local-install-refresh.md). Packaged debug candidates use optimization level 1 with debug assertions disabled for all Rust crates and retain incremental compilation. Existing per-dependency optimization overrides still apply. These overrides apply only to this packaging command; ordinary development builds and the release profile keep their existing settings.
-
-Desktop, Core, and the screen helper use the required packaging certificate regardless of the Rust profile. The build signs a temporary executable with the configured identity before compilation to check private key access. Check the bundle under `target/aarch64-apple-darwin/debug/bundle/macos/Agent Remote Control.app`.
+MyGo embeds the desktop frontend and packages the platform's signed bundle or Windows payload. Core, the macOS screen helper and source metadata are staged through `dist/mygo-input/bin`. Desktop packages live under `dist/desktop/<version>/<target>` for `darwin-arm64` and `windows-amd64`. Use `--output /absolute/directory` to choose another parent. The macOS directory contains `Agent Remote Control.app` and the DMG. The Windows directory contains the files installed by the NSIS EXE. `--development --no-image` builds an isolated identity for development. Production macOS packages use the configured code-signing certificate. `--adhoc` makes a local rehearsal package.
 
 Install an authorized local build from an independent terminal:
 
 ```sh
-npm run desktop:install -- "target/aarch64-apple-darwin/debug/bundle/macos/Agent Remote Control.app"
+npm run desktop:install -- "dist/desktop/X.Y.Z/darwin-arm64/Agent Remote Control.app"
 ```
 
-The macOS script checks the signed candidate, archives the installed app, stops the installed Desktop and Core, replaces the bundle, and launches it. It does not schedule work or resume tasks. Run it outside ARC-owned commands because replacing ARC stops those commands too. User state is preserved. Keep the printed backup path for manual recovery. Do not start it with `launchctl submit`, because launchd keeps submitted jobs alive and reruns the installer after every exit, replacing ARC in a loop.
+The macOS installer validates the app, backs up the installed bundle, stops its Desktop and Core, replaces the bundle, and checks restarted Core readiness. `--test-destination /absolute/arc-godev-home/Name.app` exercises the same replacement and backup with a development bundle in a temporary home. It leaves the temporary app stopped for inspection.
 
-Version precedence is ARC_BUILD_VERSION, nearest reachable v-tag, then 0.0.0. package.json, Cargo, and Tauri use 0.0.0 as an internal placeholder. Formal artifacts inject versions into existing feature commits without version-bump commits.
+Version precedence is `ARC_BUILD_VERSION`, nearest reachable v-tag, then 0.0.0. Go linker flags inject the version into Core and Desktop. Vite, MyGo metadata, and NSIS receive the same version.
 
 ## Native icons and branding
 

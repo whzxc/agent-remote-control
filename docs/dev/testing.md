@@ -13,7 +13,7 @@ npm run accept:ui -- --task-dock
 
 Daily coverage includes the frozen MCP catalog envelopes and operation schemas, pure task/timeline/state logic, release logic, and bounded DOM interaction fixtures. It requires installed npm dependencies and the Go toolchain for Go test policy. It runs without a Rust build cache, Core, installed application, credentials, network service or browser installation. New Node test files join this path by default and must fit the shared budget.
 
-`npm run test:extended` explicitly adds Rust library and Desktop tests plus native MCP, CLI, OAuth, dispatch, notification and lifecycle integration fixtures. It compiles current source and uses isolated temporary state. Native files are selected in `tooling/test-suites.mjs`. Use affected native cases when a change needs runtime evidence; use the extended entry point when broader coverage is requested. Normal releases do not invoke it. During the [Go port](go-migration.md), the extended check also runs Go vet and unit tests. Use `ARC_IMPL=go npm run test:extended` to build the standalone Go Core and tagged contract fixture and run the same TypeScript tests with those binaries. Use `npm run test:go` for the Go-only checks.
+`npm run test:extended` runs Go vet and tests with the default and `arcfixture` tags, then native MCP, CLI, OAuth, browser, dispatch, notification, and lifecycle fixtures. It builds the browser assets, standalone Go Core and tagged contract fixture. Native files are selected in `tooling/test-suites.mjs`. Run a focused process case with `node tooling/test.mjs --native tests/browser-native.test.ts`. Use `npm run test:go` for the Go-only checks.
 
 Browser layout checks remain in `npm run accept:ui`. `--task-dock` selects the request-dock layout fixture; the other acceptance scenarios use `--scenario=<name>`. Browser fixtures are excluded from both automatic test suites.
 
@@ -51,17 +51,13 @@ npm run mutation:ui -- --mutate ui/state/timelineModel.ts
 npm run test:churn -- --since='90 days ago' --limit=20
 ```
 
-[Stryker](https://stryker-mutator.io/docs/stryker-js/configuration/) runs the existing pure UI suites with one worker, incremental results and a command runner. The configured scope includes pure topology, activity and timeline modules; DOM rendering is excluded. A bounded wiring smoke run can target `ui/topology/parameters.ts:5:0-8:0`. Reports stay in ignored `output/mutation/`; sandboxes use the existing `target` cache volume. Remove the incremental file or pass `--force` when a fresh full run is needed.
+[Stryker](https://stryker-mutator.io/docs/stryker-js/configuration/) runs the existing pure UI suites with one worker, incremental results and a command runner. The configured scope includes pure topology, activity and timeline modules; DOM rendering is excluded. A bounded wiring smoke run can target `ui/topology/parameters.ts:5:0-8:0`. Reports stay in ignored `output/mutation/`; sandboxes stay under `output/mutation`. Remove the incremental file or pass `--force` when a fresh full run is needed.
 
-For native core modules, install [cargo-mutants](https://mutants.rs/controlling.html) with `cargo install --locked cargo-mutants` when the disk budget permits, then select modules explicitly:
+The native audit uses an in-repository Go AST runner and Go build overlays. It mutates comparisons and boolean operators one at a time against the existing `arcfixture` unit suite. The overlay keeps working files untouched and uses the shared toolchain cache. Select implementation files explicitly. The default cap is 25 mutants for the invocation. Use `ARC_MUTATION_LIMIT` to bound a smoke run. Surviving inputs stay in `output/mutation/go-*`.
 
 ```sh
-npm run mutation:native -- waiter
-npm run mutation:native -- wait_transport control_sources
-npm run mutation:native -- claude_notify dispatch_policy
+ARC_MUTATION_LIMIT=1 npm run mutation:native -- internal/canonjson/canonjson.go
 ```
-
-The wrapper uses one worker and puts temporary copies and reports under the resolved `target/mutation-native` directory, respecting an existing external-volume symlink. It runs cache pruning afterward. Without cargo-mutants, skip the native smoke run and report that gap; do not install it automatically on a constrained machine. Mutation runs can be expensive even for one module.
 
 Churn compares parsed assertions across non-merge Git commits. It counts edits to existing named cases, then counts the subset in `fix` commits that also changed product code. Rust test-only edits do not qualify as product changes. Test-only `test:` alignment commits add a strong deletion-candidate signal. Initial creation and formatting-only changes are excluded; unambiguous similar names retain history across renames; substantially renamed cases start a new identity. The default window is 90 days; use `--since=1970-01-01` for complete history and `--json` for machine-readable results. Reports are transient and are not committed.
 

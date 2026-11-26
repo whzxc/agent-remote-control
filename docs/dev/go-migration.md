@@ -8,7 +8,7 @@ This document governs the port of ARC's native runtime from Rust and Tauri to Go
 
 The port replaces the Rust Core (`native/`, binaries `arc` and `contract-fixture`), the Tauri desktop (`desktop/`) and `tooling/verifier`. `ui/`, `relay-worker/`, `design/`, `skills/`, documentation and the Node test and tooling layer remain.
 
-Rust and Tauri remain the shipped product until cutover. Releases, installs and acceptance continue from Rust until then.
+Rust and Tauri remain installed on the legacy release until cutover. Build and release tooling prepares Go and MyGo packages. Segment H owns installed acceptance and the first public release.
 
 The port changes no features, contracts or observable behavior. A Go behavior that differs from Rust is a defect unless this document lists it as an accepted difference.
 
@@ -71,7 +71,7 @@ The port follows Rust at the main commit from which the `go-core` lane was creat
 
 ## Verification
 
-- The native TS suites selected in `tooling/test-suites.mjs` are the parity oracle. `ARC_IMPL=go` makes `npm run test:extended` build `cmd/arc` and `cmd/contract-fixture` instead of Cargo and run the same files through `ARC_TEST_BINARY` and `ARC_TEST_FIXTURE_BINARY`.
+- The native TS suites selected in `tooling/test-suites.mjs` are the parity oracle. `npm run test:extended` builds `cmd/arc` and `cmd/contract-fixture` and runs the same files through `ARC_TEST_BINARY` and `ARC_TEST_FIXTURE_BINARY`.
 - Do not edit test assertions, `tests/contract/` or `tooling/test-policy-allowlist.json`. Report a case that depends on a Rust-only artifact to the control source.
 - Port each module's Rust unit tests with the module as Go `_test.go` cases. They follow [Testing](testing.md): Contract, Regression or Property, with one reason tag per case. `check:tests` governs Go tests.
 - `npm run test:go` runs `go vet` and `go test` on repository packages with and without the `arcfixture` tag. `test:extended` includes it. Daily `npm test` keeps its 30-second budget.

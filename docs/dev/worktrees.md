@@ -11,15 +11,12 @@ From the main checkout, run `npm run wt -- create <name>`. This creates `wt/<nam
 from main HEAD at `<repository-parent>/<repository-name>.wt/<name>`.
 `ARC_WORKTREE_ROOT` overrides the parent directory and must stay outside the repository.
 The command clones matching Node dependencies with copy-on-write or runs `npm ci`,
-allocates a private Rust target, and builds the frontend resources needed by Tauri.
-It prepares both root and relay-worker dependencies. Never symlink node_modules.
+then stages the frontend in the lane. It prepares root and relay-worker dependencies.
+Each lane writes its own build artifacts. Go uses the shared `GOCACHE` and `GOMODCACHE`
+configured by the toolchain. Never symlink node_modules.
 
-If main's target is a symlink, the lane target is a sibling of its resolved destination,
-named `<target-name>-wt-<name>`. Otherwise it lives in the lane. Copy-on-write seeding
-is optional; unsupported filesystems start cold. Create lanes while main's build is
-idle so the seed is stable. Each target has its own Cargo locks and cache budget.
-`wt list` reports JSON with ahead/behind main, dirty state and combined dependency/target
-disk bytes. Filesystem accounting can count shared copy-on-write blocks for each lane.
+`wt list` reports JSON with ahead/behind main, dirty state and combined dependency
+and output disk bytes. Filesystem accounting can count copy-on-write blocks in each lane.
 
 The control source creates the lane before dispatching. Pass its absolute path as
 `codex_create.project`, then assign the module, lane path and allowed checks in the
@@ -39,22 +36,18 @@ changes to Git's merge checks. Landing rebases the lane on main, then merges wit
 resolve the listed files in the lane and run `git rebase --continue`, or abort with
 `git rebase --abort`. Retry landing after resolving. Land one lane at a time.
 
-Run the app, `dev`, `dev:isolated`, installs, desktop packaging, releases and all
-acceptance serially in main after landing. The shared tooling guard makes npm dev,
-packaging, release, acceptance and Vite dev entry points refuse in a lane and name
-main. Installed products and the published installer contain no lane guard.
-The marker belongs only to the lane checkout; keep it until the lane is removed.
+Run installed apps, development and formal releases serially in main after landing.
+Lane packaging can produce local artifacts. An explicitly addressed, isolated
+development or installer rehearsal uses its own home, state and test scheme.
 
-`check:native`, `desktop:check`, `test` and `desktop:build` share one machine-wide
-queue across main and all lanes. The full native-check lifecycle holds the lock.
-A waiter reports the holder's checkout and command once before waiting. The lock
-lives in the repository's common Git directory under `build-tools/` and uses Rust's native file locking; process exit releases
-it, so leftover lock files do not block later commands. Nested build steps share the
-same lock. Light checks (`check`, `check:format`, `check:tests`) run without it.
+Builds and extended native test runs share a queue across main and lanes. The
+lock lives in the common Git directory under `build-tools/` and uses the OS file
+lock via Go, so process exit releases it. Nested build steps reuse the lock.
+Daily tests, TypeScript, formatting and policy checks run independently.
 
 After a successful land, retain required evidence outside the lane and run
 `npm run wt -- remove <name>` from main in the same task to delete the worktree,
-its private target and branch. Verify no active users remain; continue acceptance
+its local artifacts and branch. Verify no active users remain; continue acceptance
 and any follow-up work through the integration workflow. Unmerged branches and dirty worktrees are retained
 unless `--force` is supplied. A failed create leaves its lane registered for repair
 or removal with the same command. Do not manually delete the worktree or its target.

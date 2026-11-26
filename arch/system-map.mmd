@@ -5,7 +5,7 @@ flowchart TB
   net["Connections<br/>OpenAI Secure Tunnel · dedicated tunnel · relay"]
   subgraph HOST["ARC on this computer"]
     webview["React in the system WebView<br/>Desktop renderer bridge"]
-    desktop["ARC Desktop owner<br/>Tauri or MyGo · native windows and tray"]
+    desktop["ARC Desktop owner<br/>MyGo · native windows and tray"]
     cli["arc CLI"]
     fd["Front door<br/>listeners · auth · tunnels<br/>queue during Core swap"]
     state[("State directory<br/>sources · receipts · bindings")]
