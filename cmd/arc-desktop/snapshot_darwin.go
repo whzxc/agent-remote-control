@@ -7,6 +7,7 @@ import (
 	"time"
 	"unsafe"
 
+	"github.com/ebitengine/purego"
 	"github.com/ebitengine/purego/objc"
 	"github.com/egoist/mygo"
 )
@@ -47,6 +48,45 @@ func findWebView(view objc.ID) objc.ID {
 	return 0
 }
 
+var pendingPNGBlocks sync.Map
+var pngLifetimeKey byte
+var pngBlockLifetime = sync.OnceValues(func() (func(objc.ID, unsafe.Pointer, objc.ID, uintptr), error) {
+	library, err := purego.Dlopen("/usr/lib/libobjc.A.dylib", purego.RTLD_NOW|purego.RTLD_LOCAL)
+	if err != nil {
+		return nil, err
+	}
+	var associate func(objc.ID, unsafe.Pointer, objc.ID, uintptr)
+	purego.RegisterLibFunc(&associate, library, "objc_setAssociatedObject")
+	_, err = objc.RegisterClass("ARCPNGCaptureLifetime", objc.GetClass("NSObject"), nil, nil, []objc.MethodDef{{
+		Cmd: objc.RegisterName("dealloc"),
+		Fn: func(self objc.ID, selector objc.SEL) {
+			if release, ok := pendingPNGBlocks.LoadAndDelete(self); ok {
+				release.(func())()
+			}
+			self.SendSuper(selector)
+		},
+	}})
+	return associate, err
+})
+
+func pngCallback(release func(), complete func(objc.ID, objc.ID)) (objc.Block, error) {
+	associate, err := pngBlockLifetime()
+	if err != nil {
+		return 0, err
+	}
+	block := objc.NewBlock(func(_ objc.Block, image, nativeError objc.ID) {
+		defer release()
+		complete(image, nativeError)
+	})
+	// The final native release of the heap block also releases its lifetime
+	// object. A canceled caller or a closed window may leave the block live.
+	token := cocoaClass("ARCPNGCaptureLifetime").Send(objc.RegisterName("new"))
+	pendingPNGBlocks.Store(token, release)
+	associate(objc.ID(block), unsafe.Pointer(&pngLifetimeKey), token, 1) // OBJC_ASSOCIATION_RETAIN_NONATOMIC
+	token.Send(objc.RegisterName("release"))
+	return block, nil
+}
+
 func capturePNG(ctx context.Context, window *mygo.Window) ([]byte, error) {
 	release, err := beginPNG()
 	if err != nil {
@@ -56,32 +96,44 @@ func capturePNG(ctx context.Context, window *mygo.Window) ([]byte, error) {
 	// Once queued, native completion owns the permit, including after timeout.
 	wait, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	go mygo.RunOnMain(func() {
-		if wait.Err() != nil {
-			release()
-			return
-		}
-		defer cocoaPool()()
-		view := findWebView(objc.ID(window.NativeHandle()).Send(objc.RegisterName("contentView")))
-		if view == 0 {
-			release()
-			result <- pngResult{err: errors.New("main WebView unavailable")}
-			return
-		}
-		off := window.OnClosed(release)
-		callback := objc.NewBlock(func(_ objc.Block, image, nativeError objc.ID) {
-			defer release()
-			defer off()
-			if image == 0 || nativeError != 0 {
-				result <- pngResult{err: errors.New("WKWebView takeSnapshot failed")}
+	go func() {
+		ran := false
+		mygo.RunOnMain(func() {
+			ran = true
+			if wait.Err() != nil {
+				release()
 				return
 			}
-			data, err := encodePNG(image)
-			result <- pngResult{data, err}
+			defer cocoaPool()()
+			view := findWebView(objc.ID(window.NativeHandle()).Send(objc.RegisterName("contentView")))
+			if view == 0 {
+				release()
+				result <- pngResult{err: errors.New("main WebView unavailable")}
+				return
+			}
+			callback, err := pngCallback(release, func(image, nativeError objc.ID) {
+				if wait.Err() != nil {
+					return
+				}
+				if image == 0 || nativeError != 0 {
+					result <- pngResult{err: errors.New("WKWebView takeSnapshot failed")}
+					return
+				}
+				data, err := encodePNG(image)
+				result <- pngResult{data, err}
+			})
+			if err != nil {
+				release()
+				result <- pngResult{err: err}
+				return
+			}
+			defer callback.Release()
+			view.Send(objc.RegisterName("takeSnapshotWithConfiguration:completionHandler:"), objc.ID(0), callback)
 		})
-		defer callback.Release()
-		view.Send(objc.RegisterName("takeSnapshotWithConfiguration:completionHandler:"), objc.ID(0), callback)
-	})
+		if !ran {
+			release()
+		}
+	}()
 	select {
 	case r := <-result:
 		return r.data, r.err

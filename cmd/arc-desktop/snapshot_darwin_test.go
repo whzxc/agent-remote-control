@@ -62,21 +62,35 @@ func TestAbandonedCaptureHoldsCapacityUntilNativeCompletion(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer complete()
+	callback, err := pngCallback(complete, func(_, _ objc.ID) {})
+	if err != nil {
+		t.Fatal(err)
+	}
 	for i := 0; i < 120; i++ {
 		if release, err := beginPNG(); err == nil {
 			release()
 			t.Fatal("native capture capacity was released before callback completion")
 		}
 	}
-	complete()
+	callback.Invoke(objc.ID(0), objc.ID(0))
 	later, err := beginPNG()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer later()
-	complete()
+	callback.Release()
 	if release, err := beginPNG(); err == nil {
 		release()
 		t.Fatal("a retained callback released a newer capture")
 	}
+	discarded, err := pngCallback(later, func(_, _ objc.ID) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	discarded.Release()
+	release, err := beginPNG()
+	if err != nil {
+		t.Fatal("disposing an uninvoked native block must free capacity:", err)
+	}
+	release()
 }

@@ -2,7 +2,7 @@
   "files": {
     "desktop/src/snapshot/macos.rs": {
       "png_encoding_releases_appkit_buffers_before_returning": {"tests": ["cmd/arc-desktop/snapshot_darwin_test.go#TestPNGEncodingReleasesAppKitBuffersBeforeReturning"], "remaining": "Observe native scratch-object deallocation through weak references. Go exercises repeated buffer ownership, PNG decoding and continued use of the input NSImage."},
-      "abandoned_capture_holds_capacity_until_native_completion": {"tests": ["cmd/arc-desktop/snapshot_darwin_test.go#TestAbandonedCaptureHoldsCapacityUntilNativeCompletion"], "remaining": "Observe uninvoked WebKit callback disposal. Go exercises the native admission permit and the once-only release used by callback completion and window close."}
+      "abandoned_capture_holds_capacity_until_native_completion": ["cmd/arc-desktop/snapshot_darwin_test.go#TestAbandonedCaptureHoldsCapacityUntilNativeCompletion"]
     },
     "desktop/src/src_conversations/import.rs": {
       "encrypted_database_versions_and_host_integrity": ["cmd/arc-desktop/src_conversations_import_darwin_test.go#TestEncryptedDatabaseVersionsAndHostIntegrity"]
