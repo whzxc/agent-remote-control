@@ -277,10 +277,14 @@ wait:
 		t.Fatalf("member did not return online with its original authority: %s, %v", wire(reply), err)
 	}
 
+	active := remote.business.cached()
+	if active == nil {
+		t.Fatal("recovered member did not retain a live peer channel")
+	}
 	if _, err := member.dispatch(ctx, "revoke", object{"deviceId": controller.identity.id}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := channel.request(ctx, deviceReadPath+"request", object{"version": deviceProtocolVersion,
+	if _, err := active.request(ctx, deviceReadPath+"request", object{"version": deviceProtocolVersion,
 		"tool": "query", "body": object{"op": "guide", "args": object{}}, "origin": object{}}, time.Second); err == nil {
 		t.Fatal("revoked controller kept its live peer channel")
 	}
