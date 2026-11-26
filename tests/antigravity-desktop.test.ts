@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { nativeControl } from './helpers/native-control.ts';
+import { nativeControl, prepareCoreBinary, testCoreBinary } from './helpers/native-control.ts';
 
 const id = '11111111-1111-4111-8111-111111111111';
 const missing = '22222222-2222-4222-8222-222222222222';
@@ -99,7 +99,8 @@ test('Antigravity local access accepts an empty configuration and preserves othe
     assert.equal(ingress.running, true);
     const guide = await f.sourceCall('local-antigravity', 'guide', {}, 'query');
     assert.equal(guide.profile.waitMode, 'push', JSON.stringify(guide));
-    const { stdout } = await promisify(execFile)((process.env.ARC_TEST_BINARY || path.resolve(process.env.CARGO_TARGET_DIR || 'target', 'debug/arc')), ['cli', 'skill', 'install', '--target', 'antigravity'], {
+    if (!process.env.ARC_TEST_BINARY) await prepareCoreBinary(path.resolve('dist/native-tests'));
+    const { stdout } = await promisify(execFile)(testCoreBinary(), ['cli', 'skill', 'install', '--target', 'antigravity'], {
       env: { ...process.env, HOME: f.home, USERPROFILE: f.home },
     });
     assert.ok(stdout.includes('antigravity'));

@@ -1,9 +1,10 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { laneMarker } from './coding-lane.mjs';
 import { beginLifecycle } from './coordination-report.mjs';
+import { dependencyEnv } from './release-support.mjs';
 
 const checkout = fileURLToPath(new URL('../', import.meta.url));
 const git = (cwd, args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trimEnd();
@@ -34,7 +35,7 @@ function mainOnMain() {
   if (git(main, ['branch', '--show-current']) !== 'main') throw new Error(`Check out main in ${main} first.`);
 }
 
-// Never fall back to a full target copy or shared node_modules. Failed clones start cold.
+// Node dependencies are cloned or installed independently per checkout.
 function clone(source, destination) {
   const args = process.platform === 'darwin' ? ['-c', '-R', source, destination]
     : process.platform === 'linux' ? ['--reflink=always', '-R', source, destination] : null;
@@ -52,7 +53,8 @@ function dependencies(directory, relative = '') {
     console.log(`Cloned ${relative || '.'}/node_modules (copy-on-write).`);
     return;
   }
-  run(destination, process.platform === 'win32' ? 'cmd.exe' : 'npm', process.platform === 'win32' ? ['/d', '/s', '/c', 'npm ci'] : ['ci']);
+  execFileSync(process.platform === 'win32' ? 'cmd.exe' : 'npm', process.platform === 'win32' ? ['/d', '/s', '/c', 'npm ci'] : ['ci'],
+    { cwd: destination, env: dependencyEnv(process.env), stdio: 'inherit' });
 }
 function create(name) {
   mainOnMain();
@@ -60,25 +62,15 @@ function create(name) {
   const directory = path.join(base, name);
   const relative = path.relative(main, directory);
   if (!relative || (!relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))) throw new Error('ARC_WORKTREE_ROOT must be outside the repository.');
-  const sourceTarget = path.join(main, 'target');
-  const external = existsSync(sourceTarget) && lstatSync(sourceTarget).isSymbolicLink();
-  const resolved = external ? realpathSync(sourceTarget) : sourceTarget;
-  const target = external ? path.join(path.dirname(resolved), `${path.basename(resolved)}-wt-${name}`) : path.join(directory, 'target');
-  if (existsSync(target)) throw new Error(`Target already exists: ${target}`);
   mkdirSync(base, { recursive: true });
   run(main, 'git', ['worktree', 'add', '-b', branch(name), directory, 'main']);
-  writeFileSync(metadataPath(directory), JSON.stringify({ name, main, target }) + '\n');
+  writeFileSync(metadataPath(directory), JSON.stringify({ name, main }) + '\n');
   const message = `Coding lanes support editing, building, type-checking and committing only. Run apps, installs and acceptance serially in the main checkout: ${main}\n`;
   writeFileSync(path.join(directory, laneMarker), message);
   try {
-    if (!existsSync(sourceTarget) || !clone(realpathSync(sourceTarget), target)) {
-      mkdirSync(target, { recursive: true });
-      console.log('Rust target starts cold (no copy-on-write clone available).');
-    }
-    if (external) symlinkSync(target, path.join(directory, 'target'), process.platform === 'win32' ? 'junction' : 'dir');
     dependencies(directory);
     dependencies(directory, 'relay-worker');
-    // Tauri's check/build macros need frontendDist even on a fresh checkout.
+    // Go shares GOCACHE and GOMODCACHE across checkouts, with lane-local artifacts.
     run(directory, process.execPath, ['tooling/prepare-desktop.mjs']);
     console.log(`Lane ready: ${directory}\nRun npm run check and npm run check:native there.`);
   } catch (error) {
@@ -110,7 +102,7 @@ function size(directory) {
 function list() {
   const rows = worktrees().filter(row => row.branch?.startsWith('wt/') && existsSync(metadataPath(row.directory))).map(row => {
     const [behind, ahead] = git(row.directory, ['rev-list', '--left-right', '--count', `main...${row.branch}`]).split(/\s+/).map(Number);
-    const bytes = ['node_modules', 'relay-worker/node_modules', 'target'].reduce((sum, relative) => sum + size(path.join(row.directory, relative)), 0);
+    const bytes = ['node_modules', 'relay-worker/node_modules', 'dist'].reduce((sum, relative) => sum + size(path.join(row.directory, relative)), 0);
     return { branch: row.branch, ahead, behind, dirty: dirty(row.directory), diskBytes: bytes, path: row.directory };
   });
   console.log(JSON.stringify(rows, null, 2));
@@ -146,7 +138,8 @@ function remove(name, force) {
   }
   if (path.resolve(process.cwd()) === directory || path.resolve(process.cwd()).startsWith(directory + path.sep)) throw new Error(`Run removal from ${main}.`);
   run(main, 'git', ['worktree', 'remove', ...(force ? ['--force'] : []), directory]);
-  rmSync(target, { recursive: true, force: true });
+  // Older lanes own a private cache target recorded at creation.
+  if (target) rmSync(target, { recursive: true, force: true });
   run(main, 'git', ['branch', force ? '-D' : '-d', branch(name)]);
 }
 

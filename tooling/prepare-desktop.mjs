@@ -3,6 +3,7 @@ import { copyFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { syncDirectory } from './build-cache.mjs';
+import { enterHeavyBuild } from './heavy-build.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 
@@ -23,4 +24,7 @@ export async function prepareDesktop() {
   await stageBrowserBundle();
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) await prepareDesktop();
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  enterHeavyBuild();
+  await prepareDesktop();
+}

@@ -11,38 +11,53 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [macos-latest, windows-latest, ubuntu-24.04]
     runs-on: ${{ matrix.os }}
+    env:
+      CGO_ENABLED: '0'
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
-          registry-url: https://registry.npmjs.org
           cache: npm
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-go@v6
         with:
-          components: rustfmt
-      - name: Format | Rust
-        run: npm run check:format
-      - name: Cache | Rust dependencies
-        id: rust-cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: checks
-          workspaces: |
-            . -> target
-          cache-bin: false
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-      - name: Cache | Rust hit=${{ steps.rust-cache.outputs.cache-hit }}
-        run: echo "Rust cache lookup complete"
-      - name: Dependencies | npm ci
+          go-version-file: go.mod
+      - name: Dependencies
         run: npm ci
-      - name: Validation | Types
-        run: npm run check
-      - name: Daily tests | 30s budget
+      - name: TypeScript and Go formatting
+        run: |
+          npm run check
+          npm run check:go-format
+      - name: Daily tests
         run: npm test
-      - name: Frontend | Build
-        run: npm run build
-      - name: Native check | Desktop
-        run: cargo check --manifest-path desktop/Cargo.toml
+      - name: Go vet and tests, default and arcfixture
+        run: npm run test:go
+      - name: Windows named-pipe contracts
+        if: runner.os == 'Windows'
+        run: go test -count=1 -v ./internal/platform
+      - name: Browser ingress
+        run: node tooling/test.mjs --native tests/browser-native.test.ts
+      - name: MyGo desktop bundle
+        if: runner.os != 'Linux'
+        run: npm run desktop:build -- --development --no-image
+  cross-build:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [darwin/arm64, windows/amd64, linux/amd64, linux/arm64]
+    env:
+      CGO_ENABLED: '0'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - run: npm ci
+      - run: npm run build -- --release --target=${{ matrix.target }}

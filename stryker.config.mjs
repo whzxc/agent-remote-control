@@ -8,7 +8,7 @@ export default {
   incrementalFile: 'output/mutation/ui-incremental.json',
   reporters: ['clear-text', 'json'],
   jsonReporter: { fileName: 'output/mutation/ui-report.json' },
-  tempDirName: 'target/stryker',
+  tempDirName: 'output/mutation/stryker',
   ignorePatterns: ['**', '!ui/**/*.ts', '!tests/topology.test.ts', '!tests/activity-ui.test.ts', '!package.json'],
   timeoutMS: 5000,
   thresholds: { break: 0 },

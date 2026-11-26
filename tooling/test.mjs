@@ -56,9 +56,9 @@ async function main() {
   const run = (file, argv) => runTestCommand(file, argv, { env, timeoutMs: deadline === undefined ? undefined : deadline - performance.now() });
   await run(process.execPath, ['tooling/check-tests.mjs']);
   await run(process.execPath, ['tooling/check-ui-styles.mjs']);
+  if (native) env.CGO_ENABLED = '0';
   if (extended) await testGo(run);
   if (native) {
-    env.CGO_ENABLED = '0';
     env.ARC_TEST_TARGET_DIR = path.resolve('dist/native-tests');
     Object.assign(env, await buildGoTestBinaries(run, env));
     const files = extended ? await testFiles(true) : selected;

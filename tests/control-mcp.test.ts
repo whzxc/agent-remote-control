@@ -79,7 +79,7 @@ for await (const line of createInterface({input:process.stdin})) {
     await mkdir(path.join(directory, name), { recursive: true });
     await symlink(path.join(directory, name), path.join(stateDir, name), process.platform === 'win32' ? 'junction' : 'dir');
   }
-  const target = process.env.CARGO_TARGET_DIR || fileURLToPath(new URL('../target', import.meta.url));
+  const target = process.env.ARC_TEST_TARGET_DIR || fileURLToPath(new URL('../dist/native-tests', import.meta.url));
   fixtureCommand = prepareFixtureBinary(target);
   await prepareCoreBinary(target);
   fixtureEnv={ ...process.env, HOME: home, USERPROFILE: home, XDG_CONFIG_HOME: home, ARC_STATE_DIR: stateDir, ARC_FIXTURE_DATA: directory, ARC_FIXTURE_SCRIPT: fixture, ARC_FIXTURE_BINARY: process.execPath } as Record<string,string>;

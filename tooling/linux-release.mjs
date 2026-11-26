@@ -68,6 +68,7 @@ export async function buildLinux({ sourceSha, version, output, timer, platforms 
       const receipt = JSON.parse(await readFile(path.join(directory, 'receipt.json'), 'utf8'));
       const digest = await fileDigest(path.join(directory, file));
       validateLinuxReceipt(receipt, { sourceSha, version, arch, digest });
+      if (receipt.linkage !== 'static') throw new Error(`Linux ${arch} receipt must prove static linkage`);
       if ((await readdir(directory)).sort().join(',') !== [file, 'receipt.json'].sort().join(',')) throw new Error(`Unexpected Linux ${arch} artifact inventory`);
       receipts.push(receipt);
     }

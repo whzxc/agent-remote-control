@@ -3,7 +3,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stableVersion } from './version.mjs';
-import { coreFlags } from './build-env.mjs';
+import { buildEnv, coreFlags } from './build-env.mjs';
 import { prepareDesktop } from './prepare-desktop.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -30,7 +30,7 @@ export async function testGo(run, { vetOnly = false } = {}) {
     // Go decides which repository directories are packages for this platform and tag set.
     const format = '{{if or .GoFiles .CgoFiles .TestGoFiles .XTestGoFiles .InvalidGoFiles}}{{.ImportPath}}{{end}}';
     const packages = execFileSync('go', ['list', '-e', '-f', format, ...tags, ...directories], {
-      cwd: root, encoding: 'utf8',
+      cwd: root, env: buildEnv(), encoding: 'utf8',
     }).trim().split('\n').filter(Boolean);
     if (!packages.length) throw new Error('No repository Go packages found.');
     await run('go', ['vet', ...tags, ...packages]);
@@ -56,7 +56,7 @@ export async function buildGoTestBinaries(run, env) {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
-    const run = (command, args) => execFileSync(command, args, { cwd: root, stdio: 'inherit' });
+    const run = (command, args) => execFileSync(command, args, { cwd: root, env: buildEnv(), stdio: 'inherit' });
     run(process.execPath, ['tooling/check-tests.mjs']);
     await testGo(run, { vetOnly: process.argv.includes('--vet-only') });
   } catch (error) {

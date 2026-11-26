@@ -8,20 +8,22 @@ export async function retainBuildArtifacts(root, apply = false) {
     if (error.code === 'ENOENT') return [];
     throw error;
   });
-  for (const profile of ['debug', 'release']) {
-    const directory = path.join(root, 'target/aarch64-apple-darwin', profile, 'bundle/dmg');
-    const files = [];
-    for (const entry of await list(directory)) {
-      if (entry.isFile() && /^(agent-remote-control_|Local Connector_).+_aarch64(?:_debug)?\.dmg$/.test(entry.name)) {
-        const file = path.join(directory, entry.name);
-        files.push({ file, modified: (await stat(file)).mtimeMs });
-      }
+  const desktop = path.join(root, 'dist/desktop');
+  for (const platform of ['darwin-arm64', 'windows-amd64']) {
+    const packages = [];
+    for (const entry of await list(desktop)) {
+      if (!entry.isDirectory() || !/^\d+\.\d+\.\d+$/.test(entry.name)) continue;
+      const directory = path.join(desktop, entry.name, platform);
+      const image = await list(directory);
+      if (!image.some(file => file.isFile() && /\.(dmg|exe)$/.test(file.name) &&
+        (file.name.endsWith('.dmg') || file.name.endsWith('-setup.exe')))) continue;
+      packages.push({ directory, modified: (await stat(directory)).mtimeMs });
     }
-    files.sort((a, b) => b.modified - a.modified);
-    report.retained.push(...files.slice(0, 2).map(value => value.file));
-    for (const { file } of files.slice(2)) {
-      if (apply) await rm(file);
-      report.removed.push(file);
+    packages.sort((a, b) => b.modified - a.modified);
+    report.retained.push(...packages.slice(0, 2).map(value => value.directory));
+    for (const { directory } of packages.slice(2)) {
+      if (apply) await rm(directory, { recursive: true });
+      report.removed.push(directory);
     }
   }
   const directory = path.join(root, 'release-artifacts');

@@ -37,7 +37,6 @@ export const checks = [{ stage: 'verify', order: 18, visual: true, async run(con
     const strip = document.createElement('div');
     if (!desktop) {
       strip.className = 'window-drag-strip';
-      strip.setAttribute('data-tauri-drag-region', '');
       scene.classList.add('desktop');
       scene.append(strip);
     }

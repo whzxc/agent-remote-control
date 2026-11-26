@@ -1,11 +1,10 @@
-import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { prepareCoreBinary } from '../tests/helpers/native-control.ts';
+import { prepareCoreBinary, prepareFixtureBinary } from '../tests/helpers/native-control.ts';
 import { toolResult } from './mcp-result.mjs';
 import { createNormalizer, coverage, diffJSON, expandJSON, receiptRead } from './agent-scenarios-lib.mjs';
 import { gallery } from './agent-scenarios-gallery.mjs';
@@ -13,8 +12,8 @@ import { gallery } from './agent-scenarios-gallery.mjs';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const source = path.join(root, 'arch/agent-scenarios');
 const output = path.join(root, 'output/agent-scenarios');
-const target = path.resolve(root, process.env.CARGO_TARGET_DIR || 'target');
-const executable = name => path.join(target, 'debug', name + (process.platform === 'win32' ? '.exe' : ''));
+const target = path.resolve(root, process.env.ARC_TEST_TARGET_DIR || 'dist/native-tests');
+let fixtureBinary;
 const readJSON = async file => JSON.parse(await readFile(file, 'utf8'));
 const writeJSON = async (file, value) => writeFile(file, JSON.stringify(value, null, 2) + '\n');
 
@@ -42,7 +41,7 @@ async function captureScenario(scenario, catalog) {
   const directory = await mkdtemp(path.join(root, 'tmp', 'arc-agent-scenarios-'));
   const stateDir = path.join(directory, 'arc-state'), home = path.join(directory, 'home');
   const client = new Client({ name: 'agent-remote-control-test', version: '1' });
-  const transport = new StdioClientTransport({ command: executable('contract-fixture'), env: {
+  const transport = new StdioClientTransport({ command: fixtureBinary, env: {
     ...process.env, HOME: home, USERPROFILE: home, XDG_CONFIG_HOME: home,
     ARC_STATE_DIR: stateDir, ARC_FIXTURE_DATA: directory,
     ARC_FIXTURE_SCRIPT: path.join(root, 'tests/fixtures/codex-app-server.mjs'), ARC_FIXTURE_BINARY: process.execPath,
@@ -89,7 +88,7 @@ async function captureScenario(scenario, catalog) {
     }
     const call = resolveValues(scenario.call, bindings);
     const response = await client.callTool(call);
-    const normalize = createNormalizer({ directory, cliPath: executable('contract-fixture') });
+    const normalize = createNormalizer({ directory, cliPath: fixtureBinary });
     const capture = normalize({ id: scenario.id, call, response });
     const text = response.content.find(block => block.type === 'text')?.text ?? '';
     await writeJSON(path.join(output, 'raw', `${scenario.id}.json`), { id: scenario.id, call, response });
@@ -124,12 +123,8 @@ async function main() {
     // Use the same locked fixture/Core builds and Core CLI staging as control-mcp.test.ts.
     const { enterHeavyBuild } = await import('./heavy-build.mjs');
     enterHeavyBuild();
-    try {
-      execFileSync('cargo', ['build', '--locked', '--quiet', '-p', 'contract-fixture', '--target-dir', target], { cwd: root, stdio: 'inherit' });
-      await prepareCoreBinary(target);
-    } finally {
-      execFileSync(process.execPath, [path.join(root, 'tooling/prune-build-cache.mjs')], { cwd: root, stdio: 'inherit' });
-    }
+    fixtureBinary = prepareFixtureBinary(target);
+    await prepareCoreBinary(target);
     // Remove stale captures so a failed run cannot present old responses as current.
     for (const dir of ['current', 'raw']) {
       await rm(path.join(output, dir), { recursive: true, force: true });

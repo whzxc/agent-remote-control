@@ -3,7 +3,8 @@ import { fileURLToPath } from 'node:url';
 
 export function testEnvironment(env = process.env) {
   const result = { ...env };
-  for (const key of ['ARC_BUILD_VERSION', 'ARC_RELEASE_TIMINGS_FILE', 'ARC_RELEASE_PLATFORM', 'TAURI_CONFIG']) delete result[key];
+  for (const key of ['ARC_BUILD_VERSION', 'ARC_RELEASE_TIMINGS_FILE', 'ARC_RELEASE_PLATFORM', 'TAURI_CONFIG',
+    'ARC_MYGO_DEVELOPMENT', 'ARC_MYGO_UPDATE_BASE', 'ARC_MYGO_UPDATE_PUBLIC_KEY', 'MYGO_LDFLAGS', 'GOOS', 'GOARCH', 'GOFLAGS']) delete result[key];
   result.ARC_BUILD_VERSION = '0.0.0';
   const temporaryRoot = fileURLToPath(new URL('../tmp/tests/', import.meta.url));
   mkdirSync(temporaryRoot, { recursive: true });

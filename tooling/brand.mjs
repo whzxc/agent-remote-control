@@ -15,16 +15,13 @@ const copy = (from, to) => {
   mkdirSync(path.dirname(destination), { recursive: true });
   cpSync(path.join(source, from), destination);
 };
-execFileSync(process.execPath, [path.join(root, 'node_modules/@tauri-apps/cli/tauri.js'),
-  'icon', path.join(source, 'png/app-icon-1024.png'), '--output', icons], { stdio: 'inherit' });
-// Keep the existing desktop-only layout; mobile targets are not shipped.
-rmSync(path.join(icons, 'android'), { recursive: true, force: true });
-rmSync(path.join(icons, 'ios'), { recursive: true, force: true });
+execFileSync('go', ['run', './tooling/brand-icons', path.join(source, 'png/app-icon-1024.png'), icons], {
+  cwd: root, env: { ...process.env, CGO_ENABLED: '0' }, stdio: 'inherit',
+});
 copy('icons/AppIcon.icns', 'desktop/icons/macos/Icon.icns');
 copy('icons/app.ico', 'desktop/icons/icon.ico');
 copy('png/app-icon-32.png', 'desktop/icons/32x32.png');
 copy('png/app-icon-30.png', 'desktop/icons/Square30x30Logo.png');
-rmSync(path.join(icons, 'icon.icns'));
 copy('png/app-icon-1024.png', 'desktop/icons/dev/icon.png');
 copy('png/app-icon-32.png', 'desktop/icons/tray-logo.png');
 for (const suffix of ['', '@2x']) copy(`png/menubar-18Template${suffix}.png`, `desktop/icons/menubar-18Template${suffix}.png`);

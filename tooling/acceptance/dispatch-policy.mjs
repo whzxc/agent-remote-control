@@ -7,7 +7,7 @@ import {mkdtemp,mkdir,writeFile,readFile,rm} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {randomUUID} from 'node:crypto';
-import {execFileSync} from 'node:child_process';
+import { prepareCoreBinary, prepareFixtureBinary } from '../../tests/helpers/native-control.ts';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport} from '@modelcontextprotocol/sdk/client/stdio.js';
 const repo=fileURLToPath(new URL('../../',import.meta.url));
@@ -40,9 +40,11 @@ try{
  await record('self-test-only',100,'pass','self-test');
  const script=path.join(dir,'native.mjs');
  await writeFile(script,`import {createInterface} from 'node:readline';for await(const l of createInterface({input:process.stdin})){const {id,method}=JSON.parse(l);if(id===undefined)continue;let result={};if(method==='initialize')result={userAgent:'self-test'};if(method==='model/list')result={data:[{model:'sample-model',supportedReasoningEfforts:['low','medium','high','xhigh','max','ultra'].map(reasoningEffort=>({reasoningEffort})),serviceTiers:[{id:'priority',name:'Fast'}]},{model:'sparse-model',supportedReasoningEfforts:['low','high'].map(reasoningEffort=>({reasoningEffort}))}],nextCursor:null};if(method==='account/rateLimits/read')result={rateLimits:{limitId:'sample',primary:{usedPercent:22,windowDurationMins:10080}}};console.log(JSON.stringify({id,result}));}`);
- execFileSync('cargo',['build','--locked','--quiet','-p','contract-fixture'],{cwd:repo,stdio:'inherit'});
+ const target = path.join(repo, 'dist/native-tests');
+ const nativeFixture = prepareFixtureBinary(target);
+ await prepareCoreBinary(target);
  client=new Client({name:'dispatch-policy-self-test',version:'1'});
- await client.connect(new StdioClientTransport({command:path.join(repo,'target/debug/contract-fixture'),env:{...process.env,HOME:path.join(dir,'home'),USERPROFILE:path.join(dir,'home'),XDG_CONFIG_HOME:path.join(dir,'home'),ARC_STATE_DIR:dir,ARC_FIXTURE_BINARY:process.execPath,ARC_FIXTURE_SCRIPT:script},stderr:'pipe'}));
+ await client.connect(new StdioClientTransport({command:nativeFixture,env:{...process.env,HOME:path.join(dir,'home'),USERPROFILE:path.join(dir,'home'),XDG_CONFIG_HOME:path.join(dir,'home'),ARC_STATE_DIR:dir,ARC_FIXTURE_BINARY:process.execPath,ARC_FIXTURE_SCRIPT:script},stderr:'pipe'}));
  const decision=await call('dispatch_policy',{all:true}),full=await call('dispatch_policy',{all:true,view:'full'});
  await save('decision',decision);await save('full',full);
  const c=decision.agents.find(a=>a.agent==='codex'),f=full.agents.find(a=>a.agent==='codex');
@@ -78,4 +80,4 @@ try{
  check('empty and unknown values omitted',omitted(decision)&&omitted(full));
  await save('report',report);console.log(JSON.stringify(report,null,2));
 }catch(error){report.defects.push(error.message);await save('report',report);throw error;}
-finally{await client?.close();await rm(dir,{recursive:true,force:true});execFileSync(process.execPath,['tooling/prune-build-cache.mjs'],{cwd:repo,stdio:'inherit'});}
+finally{await client?.close();await rm(dir,{recursive:true,force:true});}

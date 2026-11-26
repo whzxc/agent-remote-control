@@ -7,7 +7,7 @@ import {mkdtemp, mkdir, writeFile, readFile, chmod, rm} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {randomUUID} from 'node:crypto';
-import {execFileSync} from 'node:child_process';
+import { prepareCoreBinary, prepareFixtureBinary } from '../../tests/helpers/native-control.ts';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport} from '@modelcontextprotocol/sdk/client/stdio.js';
 const repo=fileURLToPath(new URL('../../',import.meta.url));
@@ -21,7 +21,7 @@ const put=async(name,value)=>{const file=path.join(dir,name);await mkdir(path.di
 const read=async name=>JSON.parse(await readFile(path.join(dir,name),'utf8'));
 const check=(name,value)=>{assert.ok(value,name);report.checks.push(name);};
 const catalog=JSON.parse(await readFile(path.join(repo,'shared/core/catalog.json'),'utf8'));
-const fixture=path.join(repo,'target/debug/contract-fixture');
+let fixture;
 const env={...process.env,HOME:path.join(dir,'home'),USERPROFILE:path.join(dir,'home'),XDG_CONFIG_HOME:path.join(dir,'home'),PATH:path.join(dir,'bin')+path.delimiter+process.env.PATH,ARC_STATE_DIR:dir,ARC_FIXTURE_BINARY:process.execPath,ARC_FIXTURE_SCRIPT:path.join(dir,'codex.mjs')};
 async function connect(){client=new Client({name:'notification-self-test',version:'1'});await client.connect(new StdioClientTransport({command:fixture,env,stderr:'pipe'}));}
 async function call(op,args={},expectError=false){
@@ -71,7 +71,10 @@ for await(const line of createInterface({input:process.stdin})){
  // Historical samples are synthetic records, not dispatched self-test work.
  const historyThread=randomUUID();
  for(const duration of [60000,180000,240000]){const id=randomUUID();await put(`dispatches/${historyThread}/${id}.json`,{requestId:id,threadId:historyThread,turnId:randomUUID(),agent:'codex',purpose:'task',dispatchMode:'new-turn',submittedAt:new Date().toISOString(),model:'fixture-notify',effort:'high',options:{},terminal:{state:'completed',observedDurationMs:duration}});}
- execFileSync('cargo',['build','--locked','--quiet','-p','contract-fixture'],{cwd:repo,stdio:'inherit'});
+ const target = path.join(repo, 'dist/native-tests');
+ const nativeFixture = prepareFixtureBinary(target);
+ await prepareCoreBinary(target);
+ fixture = nativeFixture;
  await connect();
  const g=await call('guide');await save('claude-guide',g);
  check('Claude loop omits foreign source text and limits',!JSON.stringify(g).match(/ChatGPT|Work|540000|1800000|600 seconds|180 seconds/));
@@ -122,4 +125,4 @@ for await(const line of createInterface({input:process.stdin})){
  report.guideContentCharacters=g.content.length;
  await save('report',report);console.log(JSON.stringify(report,null,2));
 }catch(e){report.defects.push(e.message);await save('report',report);throw e;}
-finally{await client?.close();await rm(dir,{recursive:true,force:true});execFileSync(process.execPath,['tooling/prune-build-cache.mjs'],{cwd:repo,stdio:'inherit'});}
+finally{await client?.close();await rm(dir,{recursive:true,force:true});}

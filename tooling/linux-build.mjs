@@ -2,6 +2,8 @@ import { execFileSync } from 'node:child_process';
 import { readFile, writeFile, mkdir, copyFile, cp, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { buildEnv } from './build-env.mjs';
+import { buildNative } from './build-native.mjs';
+import { prepareDesktop } from './prepare-desktop.mjs';
 import { stableVersion } from './version.mjs';
 import { validateLinuxElf } from './linux-release.mjs';
 import { fileDigest } from './release-support.mjs';
@@ -18,35 +20,32 @@ const assertSource = () => {
   if (capture('git', ['rev-parse', 'HEAD']) !== sourceSha || capture('git', ['status', '--porcelain'])) throw new Error('Linux build requires clean source at the requested full SHA');
 };
 assertSource();
-const output = path.resolve(directory), target = `${arch}-unknown-linux-gnu`;
-const env = { ...buildEnv(true), ARC_BUILD_VERSION: version };
+const output = path.resolve(directory);
+const target = `linux/${arch === 'aarch64' ? 'arm64' : 'amd64'}`;
+process.env.ARC_BUILD_VERSION = version;
+await runCommand('go', ['vet', './cmd/arc', './internal/core'], { env: buildEnv() });
+await prepareDesktop();
+const stage = path.join(output, '.package');
+await mkdir(stage, { recursive: true });
 try {
-  await runCommand(process.execPath, ['node_modules/vite/bin/vite.js', 'build', '--config', 'vite.config.ts'], { env });
-  await runCommand('cargo-zigbuild', ['clippy', '--locked', '--manifest-path', 'native/Cargo.toml', '--target', `${target}.2.28`], { env });
-  await runCommand('cargo', ['zigbuild', '--locked', '--release', '--manifest-path', 'native/Cargo.toml', '--bin', 'arc', '--target', `${target}.2.28`], { env });
-  const binary = path.join(env.CARGO_TARGET_DIR, target, 'release/arc');
+  const binary = await buildNative({ target, release: true, directory: stage });
   validateLinuxElf(await readFile(binary), arch);
   const actual = capture(binary, ['--version']);
   if (actual !== version) throw new Error(`Linux ${arch} embedded version mismatch: ${actual}`);
-  const help = capture(binary, ['cli', '--help']);
-  if (!help) throw new Error('Linux CLI help returned no output');
-  const symbols = capture('readelf', ['--version-info', binary]);
-  const versions = [...symbols.matchAll(/GLIBC_(\d+)\.(\d+)/g)].map(match => [Number(match[1]), Number(match[2])]);
-  if (!versions.length || versions.some(([major, minor]) => major > 2 || (major === 2 && minor > 28))) throw new Error('Linux build exceeds the GLIBC 2.28 compatibility baseline');
-  const stage = path.join(output, '.package');
-  await mkdir(stage, { recursive: true });
-  try {
-    await copyFile(binary, path.join(stage, 'arc'));
-    await copyFile('LICENSE', path.join(stage, 'LICENSE'));
-    await cp('skills', path.join(stage, 'skills'), { recursive: true });
-    await cp('licenses', path.join(stage, 'licenses'), { recursive: true });
-    const file = `agent-remote-control-v${version}-linux-${arch}.tar.gz`;
-    await runCommand('tar', ['-czf', path.join(output, file), '-C', stage, 'arc', 'LICENSE', 'skills', 'licenses']);
-    assertSource();
-    await writeFile(path.join(output, 'receipt.json'), JSON.stringify({ version, sourceSha, arch, file,
-      sha256: (await fileDigest(path.join(output, file))).slice(7), glibcBaseline: '2.28', runtimeVersion: actual, runtimeHelp: true }, null, 2) + '\n');
-    console.log(`Verified ${file}: native ${arch}, version ${actual}, CLI help, ELF64, GLIBC <= 2.28`);
-  } finally { await rm(stage, { recursive: true, force: true }); }
-} finally {
-  await runCommand(process.execPath, ['tooling/prune-build-cache.mjs']);
-}
+  if (!capture(binary, ['cli', '--help'])) throw new Error('Linux CLI help returned no output');
+  if (/INTERP\s/.test(capture('readelf', ['-l', binary])) ||
+      /\(NEEDED\)/.test(capture('readelf', ['-d', binary])) ||
+      /GLIBC_/.test(capture('readelf', ['--version-info', binary]))) {
+    throw new Error('Linux Core must be independent of the system libc and dynamic loader.');
+  }
+  await copyFile('LICENSE', path.join(stage, 'LICENSE'));
+  await cp('skills', path.join(stage, 'skills'), { recursive: true });
+  await cp('licenses', path.join(stage, 'licenses'), { recursive: true });
+  const file = `agent-remote-control-v${version}-linux-${arch}.tar.gz`;
+  await runCommand('tar', ['-czf', path.join(output, file), '-C', stage, 'arc', 'LICENSE', 'skills', 'licenses']);
+  assertSource();
+  await writeFile(path.join(output, 'receipt.json'), JSON.stringify({ version, sourceSha, arch, file,
+    sha256: (await fileDigest(path.join(output, file))).slice(7), glibcBaseline: '2.28', linkage: 'static',
+    runtimeVersion: actual, runtimeHelp: true }, null, 2) + '\n');
+  console.log(`Verified ${file}: native ${arch}, version ${actual}, CLI help, static ELF64`);
+} finally { await rm(stage, { recursive: true, force: true }); }

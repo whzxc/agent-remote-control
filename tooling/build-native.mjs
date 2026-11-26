@@ -5,6 +5,7 @@ import path from 'node:path';
 import { buildEnv, coreFlags, goTarget } from './build-env.mjs';
 import { macosSigningArgs } from './macos-signing.mjs';
 import { prepareDesktop } from './prepare-desktop.mjs';
+import { enterHeavyBuild } from './heavy-build.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 
@@ -39,6 +40,7 @@ export async function buildNative({
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  enterHeavyBuild();
   const args = process.argv.slice(2);
   const targetFlag = args.find(arg => arg.startsWith('--target='));
   const target = targetFlag?.slice(9);

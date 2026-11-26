@@ -1,6 +1,7 @@
 import {toolResult} from '../../tooling/mcp-result.mjs';
 import {assertNextCalls} from './continuations.ts';
 import {promisify} from 'node:util';
+import { existsSync } from 'node:fs';
 import { execFile, execFileSync, spawn } from 'node:child_process';
 import { copyFile, mkdtemp, mkdir, rename, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
@@ -9,9 +10,18 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+const project = fileURLToPath(new URL('../../', import.meta.url));
+
+export function testCoreBinary(target = process.env.ARC_TEST_TARGET_DIR || path.resolve(project, 'dist/native-tests')) {
+  return process.env.ARC_TEST_BINARY || path.join(target, process.platform === 'win32' ? 'arc.exe' : 'arc');
+}
+
 function buildTestBinary(output: string, entry: string, tags: string[] = []) {
-  execFileSync('go', ['build', ...tags, '-o', output, entry], {
-    cwd: fileURLToPath(new URL('../../', import.meta.url)),
+  if (!existsSync(path.join(project, 'internal/core/browser_dist/browser.html'))) {
+    execFileSync(process.execPath, ['tooling/prepare-desktop.mjs'], { cwd: project, stdio: 'inherit' });
+  }
+  execFileSync('go', ['build', '-tags', ['arcbrowser', ...tags].join(','), '-o', output, entry], {
+    cwd: project,
     env: { ...process.env, CGO_ENABLED: '0' }, stdio: 'inherit',
   });
 }
@@ -19,13 +29,13 @@ function buildTestBinary(output: string, entry: string, tags: string[] = []) {
 export function prepareFixtureBinary(target: string) {
   if (process.env.ARC_TEST_FIXTURE_BINARY) return process.env.ARC_TEST_FIXTURE_BINARY;
   const destination = path.join(target, process.platform === 'win32' ? 'contract-fixture.exe' : 'contract-fixture');
-  buildTestBinary(destination, './cmd/contract-fixture', ['-tags', 'arcfixture']);
+  buildTestBinary(destination, './cmd/contract-fixture', ['arcfixture']);
   return destination;
 }
 
 export async function prepareCoreBinary(target: string) {
   const executable = `arc${process.platform === 'win32' ? '.exe' : ''}`;
-  const source = process.env.ARC_TEST_BINARY || path.join(target, executable);
+  const source = testCoreBinary(target);
   if (!process.env.ARC_TEST_BINARY) {
     buildTestBinary(source, './cmd/arc');
   }

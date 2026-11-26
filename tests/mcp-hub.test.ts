@@ -6,7 +6,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { nativeControl, prepareCoreBinary } from './helpers/native-control.ts';
+import { nativeControl, prepareCoreBinary, testCoreBinary } from './helpers/native-control.ts';
 
 // Minimal newline-delimited MCP server: two tools/list pages, an echo tool and a tool that
 // announces a new tool through notifications/tools/list_changed.
@@ -97,11 +97,11 @@ test('MCP hub exposes downstream tools to control sources through query and act'
 
 test('Core restores enabled MCP hub services on restart without a discovery request', async () => {
   // Recurring bug class: restarting ARC left saved, enabled MCP servers unchecked until a manual reconnect.
-  const target = process.env.CARGO_TARGET_DIR || path.resolve('target');
+  const target = process.env.ARC_TEST_TARGET_DIR || path.resolve('dist/native-tests');
   await prepareCoreBinary(target);
   const work = await mkdtemp(path.join(tmpdir(), 'arc-mcp-restart-'));
   const script = path.join(work, 'server.mjs');
-  const binary = (process.env.ARC_TEST_BINARY || path.join(target, 'debug', process.platform === 'win32' ? 'arc.exe' : 'arc'));
+  const binary = testCoreBinary(target);
   const stateDirectory = path.join(work, 'state');
   const env = { ...process.env, ARC_STATE_DIR: stateDirectory, CODEX_HOME: path.join(work, 'codex') };
   const run = (args: string[], input?: unknown) => JSON.parse(execFileSync(binary, args, {
