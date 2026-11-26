@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 	"regexp"
@@ -499,10 +498,7 @@ func queryDispatchPolicy(ctx context.Context, r operationRequest) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	if dispatchAgentFacts == nil {
-		return nil, errors.New(PortPending)
-	}
-	agents, err := dispatchAgentFacts(ctx, r.service, r.args)
+	agents, err := policyAgentFacts(ctx, r.service, r.args)
 	if err != nil {
 		return nil, err
 	}
@@ -545,9 +541,7 @@ func queryDispatchPolicy(ctx context.Context, r operationRequest) (any, error) {
 				row["models"] = object{"unavailable": err.Error()}
 			}
 			if quota == nil {
-				if nativeControlRequest == nil {
-					quota = object{"unavailable": PortPending}
-				} else if native, err := nativeControlRequest(ctx, r.service, "account/rateLimits/read", object{}, 15*time.Second); err == nil {
+				if native, err := policyNativeRequest(ctx, r.service, "account/rateLimits/read", object{}, 15*time.Second); err == nil {
 					quota = dispatchCodexQuota(native)
 				} else {
 					quota = object{"unavailable": err.Error()}

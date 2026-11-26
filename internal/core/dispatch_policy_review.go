@@ -401,3 +401,82 @@ func init() {
 		})
 	}
 }
+
+func reviewAgentDispatch(ctx context.Context, args, snapshot object) (object, error) {
+	task, agent := text(args, "taskId"), text(args, "agent")
+	if mergeDispatchLifecycle == nil {
+		return nil, errors.New(PortPending)
+	}
+	dispatchRecordsMu.Lock()
+	owned, external, err := dispatchRowsForReview(task)
+	dispatchRecordsMu.Unlock()
+	if err != nil {
+		return nil, err
+	}
+	rows := append(owned, external...)
+	latest := text(snapshot, "turnId")
+	byTurn := map[string]bool{}
+	for _, row := range rows {
+		byTurn[text(row, "turnId")] = true
+	}
+	newRow := func(turn string, metadata ...object) object {
+		conf := dispatchReviewConfiguration(metadata...)
+		conf["agent"], conf["taskId"], conf["threadId"], conf["turnId"] = snapshot["agent"], task, task, turn
+		conf["dispatchOrigin"], conf["options"] = "external", object{}
+		return conf
+	}
+	if latest != "" && !byTurn[latest] {
+		row := newRow(latest, obj(snapshot["turnEvidence"]), snapshot, obj(snapshot["options"]), obj(snapshot["metadata"]))
+		if options, exists := snapshot["options"]; exists {
+			row["options"] = options
+		}
+		row["observedAt"], row["_turnLifecycle"], row["terminal"] = snapshot["updatedAt"], snapshot["_turnLifecycle"], nil
+		rows = append(rows, row)
+	}
+	tracking := obj(snapshot["tracking"])
+	for _, turn := range keys(obj(tracking["turnStatuses"])) {
+		if byTurn[turn] || turn == latest {
+			continue
+		}
+		row := newRow(turn, obj(field(tracking["turnDispatchSummaries"], turn)))
+		row["observedAt"] = field(field(tracking["turnTimings"], turn), "endedAt")
+		row["_turnLifecycle"] = field(tracking["turnLifecycles"], turn)
+		row["terminal"] = object{"state": field(tracking["turnStatuses"], turn)}
+		rows = append(rows, row)
+	}
+	requested, supplied := args["turnId"].(string)
+	var best object
+	var rank string
+	for _, row := range rows {
+		turn := text(row, "turnId")
+		status := field(tracking["turnStatuses"], turn)
+		checkpoint := field(tracking["turnLifecycles"], turn)
+		if turn == latest {
+			status, checkpoint = snapshot["status"], snapshot["_turnLifecycle"]
+		}
+		incoming := object{"agent": agent, "taskId": task, "turnId": turn, "state": status, "_turnLifecycle": checkpoint}
+		recordDispatchOutcome(row, incoming, nil, "", true)
+		if row["agent"] != agent || supplied && turn != requested || !supplied && !notificationTerminal(dispatchOutcome(row)) {
+			continue
+		}
+		nextRank := str(dispatchFirstString(row["submittedAt"], row["observedAt"]))
+		if turn == latest {
+			nextRank = "~"
+		}
+		if best == nil || nextRank >= rank {
+			best, rank = row, nextRank
+		}
+	}
+	if best == nil {
+		return nil, errors.New("REVIEW_TERMINAL_TURN_NOT_FOUND")
+	}
+	if !notificationTerminal(dispatchOutcome(best)) {
+		return nil, errors.New("REVIEW_REQUIRES_TERMINAL_TURN")
+	}
+	result, err := saveDispatchReview(ctx, task, text(best, "turnId"), args, best)
+	if err == nil {
+		delete(result, "threadId")
+		result["agent"], result["taskId"] = agent, task
+	}
+	return result, err
+}

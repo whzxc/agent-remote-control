@@ -279,6 +279,9 @@ func init() {
 		return notificationRoutingControl(ctx, body, true)
 	})
 	registerRoute(http.MethodPost, "tasks/presence", func(_ context.Context, _ *service, body object, _ []string) (any, error) {
+		if _, _, _, err := managementResolve("tasks.presence", object{"body": body}); err != nil {
+			return nil, err
+		}
 		agent, task := text(body, "agent"), text(body, "taskId")
 		if agent == "" || task == "" {
 			return nil, errors.New("agent and taskId required")

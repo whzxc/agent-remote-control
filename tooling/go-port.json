@@ -256,44 +256,101 @@
     },
     "native/src/claude_notify/ax_tests.rs": {
       "segment": "C",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_notify_ax_test.go"
+      ],
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "C",
+          "items": [
+            "Carry over the unported terminal conflict, scoped handoff and selected-read scenarios."
+          ]
+        }
+      ]
     },
     "native/src/claude_notify/continuation.rs": {
       "segment": "C",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_notify_continuation.go",
+        "internal/core/claude_notify_continuation_test.go"
+      ],
+      "status": "ported",
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Provide exact native persisted rollout text and native lifecycle requirement to notificationContinuationEvidence."
+          ]
+        }
+      ]
     },
     "native/src/claude_notify/coordination_delivery.rs": {
       "segment": "C",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_notify_coordination_delivery.go",
+        "internal/core/claude_notify_coordination_delivery_test.go"
+      ],
+      "status": "ported",
+      "remaining": [
+        {
+          "owner": "B",
+          "items": [
+            "Use the notificationCoordinationRoute and effective, verification and delivery adapters in message and bulletin delivery."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Provide notificationSourceAuthority for coordination and task delivery."
+          ]
+        }
+      ]
     },
     "native/src/claude_notify/device/tests.rs": {
       "segment": "C",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_notify_device_test.go"
+      ],
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "C",
+          "items": [
+            "Port bounded work and all event-kind cases."
+          ]
+        }
+      ]
     },
     "native/src/claude_notify/device.rs": {
       "segment": "C",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_notify_device.go"
+      ],
+      "status": "ported",
+      "remaining": [
+        {
+          "owner": "E",
+          "items": [
+            "Call bindNotificationDevice, receiveNotificationDeviceEvent, reconcileNotificationDevice, markNotificationDeviceUnavailable and acknowledgeNotificationDeviceRead from the controller."
+          ]
+        }
+      ]
     },
     "native/src/claude_notify/diagnostics.rs": {
       "segment": "C",
       "go": [
         "internal/core/claude_notify_diagnostics.go"
       ],
-      "status": "pending",
-      "remaining": "Turn diagnosis is mapped. Ownership and restart projections remain."
+      "status": "ported"
     },
     "native/src/claude_notify/governance.rs": {
       "segment": "C",
       "go": [
-        "internal/core/claude_notify_governance.go"
+        "internal/core/claude_notify_governance.go",
+        "internal/core/claude_notify_governance_test.go"
       ],
-      "status": "pending",
-      "remaining": "Scope, controls and target buckets are mapped. Cached status, escalation and unit coverage remain."
+      "status": "ported"
     },
     "native/src/claude_notify/index.rs": {
       "segment": "C",
@@ -301,42 +358,106 @@
         "internal/core/claude_notify_index.go"
       ],
       "status": "pending",
-      "remaining": "Canonical binding paths and persistence are mapped. Resident partitions, bounded repair and delivery deadlines remain."
+      "remaining": [
+        {
+          "owner": "C",
+          "items": [
+            "Verify retained-history costs, dormant evidence activation after restart, and interrupted-index repair against the native suite."
+          ]
+        },
+        {
+          "owner": "B",
+          "items": [
+            "Consume the file and runtime work observer streams for notification metrics."
+          ]
+        }
+      ]
     },
     "native/src/claude_notify/index_tests.rs": {
       "segment": "C",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_notify_index_test.go"
+      ],
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "C",
+          "items": [
+            "Carry over targeted repair, owner readiness and retained-history cost cases."
+          ]
+        }
+      ]
     },
     "native/src/claude_notify/lifecycle.rs": {
       "segment": "C",
       "go": [
         "internal/core/claude_notify_lifecycle.go"
       ],
-      "status": "pending",
-      "remaining": "Scoped lifecycle admission is mapped. A supplies the exact-turn checkpoint merge and projection."
+      "status": "ported",
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Provide mergeNotificationLifecycle, validate exact checkpoint identity and project the canonical lifecycle verdict."
+          ]
+        }
+      ]
     },
     "native/src/claude_notify/mcp_events.rs": {
       "segment": "C",
       "go": [
         "internal/core/claude_notify_mcp_events.go",
-        "internal/core/claude_notify_mcp_events_fixture.go"
+        "internal/core/claude_notify_mcp_events_fixture.go",
+        "internal/core/claude_notify_scheduler.go",
+        "internal/core/claude_notify_mcp_events_fixture_test.go"
       ],
-      "status": "pending",
-      "remaining": "Registered event methods, callback verification and signing are mapped. E supplies current ingress and principal authority. Outbound settlement remains."
+      "status": "ported",
+      "remaining": [
+        {
+          "owner": "E",
+          "items": [
+            "Provide notificationEventAuthorize and set eventPrincipal from authenticated ingress. Revalidate the principal at subscribe, unsubscribe and send."
+          ]
+        }
+      ]
     },
     "native/src/claude_notify/observer.rs": {
       "segment": "C",
       "go": [
-        "internal/core/claude_notify_observer.go"
+        "internal/core/claude_notify_observer.go",
+        "internal/core/claude_notify_observer_test.go"
       ],
       "status": "pending",
-      "remaining": "Observation projection and durable inbox enqueue are mapped. Dormant native evidence watches and bounded restart recovery remain. A supplies exact-turn observations."
+      "remaining": [
+        {
+          "owner": "C",
+          "items": [
+            "Finish restart hydration and dormant watch unit coverage."
+          ]
+        },
+        {
+          "owner": "A",
+          "items": [
+            "Provide observeNotificationTurn without acquiring a writer and project scoped completion and interactions.",
+            "Provide notificationObservationEvidence for a canonical native history path and writer observation."
+          ]
+        }
+      ]
     },
     "native/src/claude_notify/ownership.rs": {
       "segment": "C",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_notify_ownership.go"
+      ],
+      "status": "ported",
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Call observeNotificationOwnership and bracket explicit writer acquisition with beginNotificationAcquisition and endNotificationAcquisition."
+          ]
+        }
+      ]
     },
     "native/src/claude_notify/reachability.rs": {
       "segment": "C",
@@ -344,28 +465,62 @@
         "internal/core/claude_notify_reachability.go"
       ],
       "status": "ported",
-      "note": "D supplies native Claude profile, route, visibility and identity functions. A supplies Antigravity session delivery and source-conversation projection."
+      "remaining": [
+        {
+          "owner": "D",
+          "items": [
+            "Provide profile identifiers, safe account metadata, visibility and identity confirmation.",
+            "Provide notificationClaudeIdentityStatus and notificationSourceRows for safe account and source identity projection."
+          ]
+        },
+        {
+          "owner": "A",
+          "items": [
+            "Provide Antigravity session delivery and source-conversation projection.",
+            "Connect notificationNotifyConversation with the verified target and scoped tasks."
+          ]
+        }
+      ]
     },
     "native/src/claude_notify/retry.rs": {
       "segment": "C",
       "go": [
-        "internal/core/claude_notify_retry.go"
+        "internal/core/claude_notify_retry.go",
+        "internal/core/claude_notify_retry_test.go"
       ],
-      "status": "pending",
-      "remaining": "Capacity-only retry, receipt intent and backoff are mapped. A connects the native receipt mutation seam. Unit coverage remains."
+      "status": "ported",
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Provide submitNotificationRetry through the ordinary durable Codex mutation path."
+          ]
+        }
+      ]
     },
     "native/src/claude_notify/routing.rs": {
       "segment": "C",
       "go": [
-        "internal/core/claude_notify_routing.go"
+        "internal/core/claude_notify_routing.go",
+        "internal/core/claude_notify_routing_test.go"
       ],
-      "status": "pending",
-      "remaining": "Request cooldown and management routes are mapped. Observer deadlines and unit coverage remain. A supplies app_env time and presence."
+      "status": "ported",
+      "remaining": [
+        {
+          "owner": "A",
+          "items": [
+            "Provide app_env clock and presence via notificationRoutingEnvironment."
+          ]
+        }
+      ]
     },
     "native/src/claude_notify/scheduler.rs": {
       "segment": "C",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_notify_scheduler.go",
+        "internal/core/claude_notify_scheduler_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/claude_notify/subscriptions.rs": {
       "segment": "C",
@@ -376,17 +531,53 @@
     },
     "native/src/claude_notify/tests/delivery_deadlines.rs": {
       "segment": "C",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/claude_notify_delivery_deadlines_test.go"
+      ],
+      "status": "pending",
+      "remaining": [
+        {
+          "owner": "C",
+          "items": [
+            "Port the parked and independently awakened delivery cases."
+          ]
+        }
+      ]
     },
     "native/src/claude_notify.rs": {
       "segment": "C",
       "go": [
         "internal/core/claude_notify.go",
+        "internal/core/claude_notify_migration.go",
         "internal/core/claude_notify_test.go"
       ],
       "status": "pending",
-      "remaining": "Task settings, source-scoped inbox, binding and acknowledgement are implemented. Delivery, restart and native unit coverage remain."
+      "remaining": [
+        {
+          "owner": "C",
+          "items": [
+            "Finish parity coverage of account/session projection, delivery batching, recovery alerts and retained-inbox behavior."
+          ]
+        },
+        {
+          "owner": "A",
+          "items": [
+            "Call bindNotification, readNotification, notificationResumeContext and recordNotificationBindingFailure from accepted dispatch and native resume."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Provide Claude profile runner, account route binding and legacy verified account resolution."
+          ]
+        },
+        {
+          "owner": "F",
+          "items": [
+            "Provide the Desktop notification escalation destination."
+          ]
+        }
+      ]
     },
     "native/src/cli.rs": {
       "segment": "S0",
@@ -497,12 +688,6 @@
           "owner": "B",
           "items": [
             "Observation and task tracking."
-          ]
-        },
-        {
-          "owner": "C",
-          "items": [
-            "Dispatch policy and notification integration."
           ]
         }
       ]
@@ -660,13 +845,6 @@
       ],
       "status": "ported",
       "remaining": [
-        {
-          "owner": "C",
-          "items": [
-            "Register notification event methods.",
-            "Supply notification retry and inbox projection, push availability, and observed turns."
-          ]
-        },
         {
           "owner": "E",
           "items": [
@@ -875,20 +1053,47 @@
     "native/src/dispatch_policy/quality.rs": {
       "segment": "C",
       "go": [
-        "internal/core/dispatch_policy_quality.go"
+        "internal/core/dispatch_policy_quality.go",
+        "internal/core/dispatch_policy_quality_test.go"
       ],
-      "status": "pending",
-      "remaining": "Defect validation, review normalization and quality summary are mapped. Unit coverage remains."
+      "status": "ported"
     },
     "native/src/dispatch_policy.rs": {
       "segment": "C",
       "go": [
         "internal/core/dispatch_policy.go",
         "internal/core/dispatch_policy_records.go",
-        "internal/core/dispatch_policy_test.go"
+        "internal/core/dispatch_policy_review.go",
+        "internal/core/dispatch_policy_test.go",
+        "internal/core/dispatch_policy_fixture.go"
       ],
       "status": "pending",
-      "remaining": "Policy, packs, defaults, history and dispatch persistence are mapped. Terminal completion, review and remaining unit cases are open. A supplies registered Agents and lifecycle evidence. B supplies atomic owner writes and later-fix correlation. D supplies account refresh and gateway quota."
+      "remaining": [
+        {
+          "owner": "C",
+          "items": [
+            "Complete native outcome and persisted dispatch history unit coverage."
+          ]
+        },
+        {
+          "owner": "A",
+          "items": [
+            "Provide dispatchAgentFacts, dispatchRegisteredAgent, nativeControlRequest, turn lifecycle and metadata hooks. Apply packs and resolve policy before native execution. Record dispatch before publishing a receipt."
+          ]
+        },
+        {
+          "owner": "B",
+          "items": [
+            "Provide dispatchSaveOwner and dispatchFixCorrelation."
+          ]
+        },
+        {
+          "owner": "D",
+          "items": [
+            "Provide dispatchAccountsRefresh, dispatchSubscriptionSnapshot, dispatchGatewayQuota and dispatchGatewayTurnUsage."
+          ]
+        }
+      ]
     },
     "native/src/dispatch_queue.rs": {
       "segment": "A",
@@ -914,12 +1119,6 @@
           "owner": "B",
           "items": [
             "Supply task tracking evidence."
-          ]
-        },
-        {
-          "owner": "C",
-          "items": [
-            "Supply notification evidence."
           ]
         },
         {
@@ -950,12 +1149,6 @@
           "owner": "B",
           "items": [
             "Register coordination operations and observation."
-          ]
-        },
-        {
-          "owner": "C",
-          "items": [
-            "Register notification and policy operations."
           ]
         },
         {
@@ -1142,12 +1335,6 @@
           "items": [
             "Consume index and file cost events in public runtime_metrics."
           ]
-        },
-        {
-          "owner": "C",
-          "items": [
-            "Register notification-state migration, the notifications/tasks index and post-publication rescheduling."
-          ]
         }
       ]
     },
@@ -1295,12 +1482,6 @@
           "owner": "B",
           "items": [
             "Register tracking event consumers and public cost metrics."
-          ]
-        },
-        {
-          "owner": "C",
-          "items": [
-            "Register notification event consumers."
           ]
         }
       ]
@@ -1575,12 +1756,6 @@
           ]
         },
         {
-          "owner": "C",
-          "items": [
-            "Start notification and policy workers after owner publication."
-          ]
-        },
-        {
           "owner": "E",
           "items": [
             "Supply ingress callback restoration, daemon autostart and remote fault status."
@@ -1618,12 +1793,6 @@
           "items": [
             "Supply task and Agent records.",
             "Validate effective network proxy settings."
-          ]
-        },
-        {
-          "owner": "C",
-          "items": [
-            "Supply policy and task settings."
           ]
         },
         {
@@ -2063,12 +2232,6 @@
           "owner": "A",
           "items": [
             "Provide Agent, native task/writer, Desktop and source-container fixture support."
-          ]
-        },
-        {
-          "owner": "C",
-          "items": [
-            "Provide notification fixture data and gates."
           ]
         },
         {

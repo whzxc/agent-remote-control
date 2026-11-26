@@ -110,7 +110,11 @@ func updateNotificationSettings(body object) (object, error) {
 			settings[item.key] = n
 		}
 	}
-	return settings, save(filepath.Join(root(), "task-settings.json"), settings)
+	if err := save(filepath.Join(root(), "task-settings.json"), settings); err != nil {
+		return nil, err
+	}
+	wakeNotificationScheduler()
+	return settings, nil
 }
 
 func init() {
@@ -129,6 +133,7 @@ var notificationChanged = make(chan struct{})
 func notificationSignal() {
 	close(notificationChanged)
 	notificationChanged = make(chan struct{})
+	wakeNotificationScheduler()
 }
 
 func notificationSessionID(raw string) (string, error) {
@@ -426,6 +431,15 @@ func notificationDoorbell(glyphs []string) string {
 	return notificationReceiptHeader + "\n" + strings.Join(labels, " · ")
 }
 
+func notificationTaskTitle(bind object) string {
+	for _, key := range []string{"threadTitle", "title", "project"} {
+		if title := strings.TrimSpace(text(bind, key)); title != "" {
+			return title
+		}
+	}
+	return ""
+}
+
 func notificationEvent(bind, d object) object {
 	kind := notificationKind(d)
 	agent, thread := text(bind, "agent"), text(bind, "threadId")
@@ -469,12 +483,7 @@ func notificationEvent(bind, d object) object {
 	} else {
 		failure = d["taskError"]
 	}
-	title := ""
-	for _, key := range []string{"threadTitle", "title", "project"} {
-		if title = strings.TrimSpace(text(bind, key)); title != "" {
-			break
-		}
-	}
+	title := notificationTaskTitle(bind)
 	event := object{"eventId": d["eventId"], "kind": kind, "project": bind["project"], "threadId": threadID, "taskId": taskID, "agent": agent,
 		"turnId": bind["turnId"], "title": title, "channel": d["channel"], "target": target, "causedBy": bind["causedBy"], "summary": notificationGlyph(d),
 		"progress": d["progress"], "interaction": d["interaction"], "questionSummary": notificationQuestionPreview(obj(d["interaction"])), "routing": field(d["interaction"], "routing"),
@@ -828,6 +837,13 @@ func notificationSessionNotFound(message string) bool {
 }
 
 func deliverNotificationSession(ctx context.Context, channel, profile, target, body string) error {
+	settings, err := notificationSettings()
+	if err != nil {
+		return err
+	}
+	if settings["notificationsEnabled"] == false {
+		return errors.New("NOTIFICATIONS_DISABLED")
+	}
 	if channel == "antigravity-session" {
 		if notificationAntigravitySend == nil {
 			return errors.New(PortPending)
@@ -1179,4 +1195,193 @@ func projectNotificationControlResult(ctx context.Context, r operationRequest, v
 func init() {
 	notificationSessionSend = deliverNotificationSession
 	decorateControlResult = append(decorateControlResult, projectNotificationControlResult)
+}
+
+func notificationRetryStatus(thread, turn string) (object, error) {
+	b, err := readNotificationBinding(thread, turn)
+	if err != nil || b == nil {
+		return nil, err
+	}
+	r := obj(b["retry"])
+	if r["status"] == nil && uintOr(r["attempts"], 0) == 0 {
+		return nil, nil
+	}
+	return object{"status": r["status"], "attempts": r["attempts"], "nextAttempt": r["nextAttempt"],
+		"notBefore": r["notBefore"], "reason": r["reason"], "successorTurnId": r["successorTurnId"]}, nil
+}
+
+func notificationRetryPending(thread, turn string) (bool, error) {
+	r, err := notificationRetryStatus(thread, turn)
+	return r["status"] == "scheduled" || r["status"] == "submitting", err
+}
+
+func recoverableNotificationResponse(ctx context.Context, key, backendSession string) (bool, error) {
+	source := text(currentOrigin(ctx), "sourceId")
+	if source == "" {
+		return false, nil
+	}
+	rows, err := selectNotificationBindings(func(b object) bool { return b["sourceId"] == source })
+	if err != nil {
+		return false, err
+	}
+	for _, b := range rows {
+		for _, d := range arr(b["deliveries"]) {
+			interaction := obj(field(d, "interaction"))
+			if interaction["owner"] == "desktop" && interaction["id"] == key && interaction["backendSession"] == backendSession {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+func verifiedNotificationConversationTargets(sources []string) ([]string, error) {
+	state, err := readNotificationState()
+	if err != nil {
+		return nil, err
+	}
+	now := notificationClock().Unix()
+	targets := []string{}
+	for _, row := range arr(state["targets"]) {
+		t := obj(row)
+		r := notificationReachability(t)
+		expireNotificationReachability(r, now)
+		if t["channel"] == "claude-session" && r["state"] == "verified" && slices.Contains(sources, text(t, "sourceId")) {
+			targets = append(targets, text(t, "target"))
+		}
+	}
+	return targets, nil
+}
+
+func notificationConversationTargetForSend(source, task string) (any, error) {
+	rows, err := selectNotificationBindings(func(b object) bool {
+		return b["sourceId"] == source && b["threadId"] == task && b["scopeEnd"] == nil && b["continuationBound"] != true &&
+			notificationAgent(b) == "codex" && b["channel"] != "mcp-events"
+	})
+	if err != nil {
+		return nil, err
+	}
+	var recent object
+	for _, b := range rows {
+		if recent == nil || uintOr(b["createdAt"], 0) >= uintOr(recent["createdAt"], 0) {
+			recent = b
+		}
+	}
+	return recent["target"], nil
+}
+
+func notificationCoordinationAttention() (object, error) {
+	notificationEventOperation.Lock()
+	defer notificationEventOperation.Unlock()
+	state, err := readNotificationState()
+	if err != nil {
+		return nil, err
+	}
+	bindings, err := notificationBindings()
+	if err != nil {
+		return nil, err
+	}
+	rows := arr(state["targets"])
+	now := notificationClock().Unix()
+	for _, row := range rows {
+		expireNotificationReachability(notificationReachability(obj(row)), now)
+	}
+	problems := []any{}
+	for _, row := range rows {
+		t := obj(row)
+		r := notificationReachability(t)
+		if r["state"] != "failed" || supersedingNotificationTarget(t, rows) != nil {
+			continue
+		}
+		threads := map[string]bool{}
+		for _, b := range bindings {
+			if b["sourceId"] == t["sourceId"] && (b["channel"] == t["channel"] && b["target"] == t["target"] ||
+				slices.ContainsFunc(arr(b["deliveries"]), func(d any) bool {
+					return field(d, "channel") == t["channel"] && field(d, "target") == t["target"]
+				})) {
+				threads[text(b, "threadId")] = true
+			}
+		}
+		args := object{"target": t["target"], "all": false}
+		if len(threads) == 1 {
+			for id := range threads {
+				args["threadId"] = id
+			}
+		}
+		problems = append(problems, object{"id": hash([]byte(wire([]any{t["sourceId"], t["channel"], t["target"]}))),
+			"sourceId": t["sourceId"], "channel": t["channel"], "target": t["target"], "threadId": args["threadId"],
+			"threadCount": len(threads), "reason": r["reason"], "next": object{"via": "query", "op": "notify_status", "args": args}})
+	}
+	coverage := "observed"
+	if len(problems) > 100 {
+		coverage = "partial"
+	}
+	return object{"problems": problems[:min(len(problems), 100)], "coverage": coverage}, nil
+}
+
+func recordNotificationResume(ctx context.Context, s *service, thread, previous, next string, configuration, observation object) error {
+	if b, err := readNotificationBinding(thread, previous); err != nil {
+		return err
+	} else if b == nil {
+		return errors.New("RESUME_BINDING_MISSING")
+	}
+	observed := clone(observation)
+	if observed == nil {
+		observed = object{}
+	}
+	observed["nextTurnId"] = next
+	observed["nativeContinuation"] = object{"retry": object{"turnId": next, "trigger": "resume_interrupted_task",
+		"startedAt": notificationClock().Unix(), "configuration": configuration}}
+	return handleNotificationObservation(ctx, s, thread, previous, observed)
+}
+
+func notificationDiagnostics() object {
+	notificationIndexes.Lock()
+	defer notificationIndexes.Unlock()
+	result := object{"rows": 0, "pending": 0, "observing": 0, "dormant": 0}
+	if index := notificationIndexes.owners[physicalPath(notificationOwnerPath())]; index != nil {
+		result["rows"], result["pending"], result["observing"], result["dormant"] =
+			len(index.projections), len(index.pending), len(index.active), len(index.projections)-len(index.active)
+	}
+	return object{"activityIndex": result}
+}
+
+func syncNotificationConversation(source, target string, handshake bool) error {
+	if notificationSourceRows == nil || notificationNotifyConversation == nil {
+		return nil
+	}
+	state, err := readNotificationState()
+	if err != nil {
+		return err
+	}
+	bound := findNotificationTarget(state, source, "claude-session", target)
+	reach := obj(bound["reachability"])
+	if reach["state"] != "verified" {
+		return nil
+	}
+	accounts, err := notificationSourceRows()
+	if err != nil {
+		return err
+	}
+	account := slices.IndexFunc(accounts, func(row any) bool {
+		return field(row, "provider") == "anthropic" && slices.Contains(arr(field(row, "sources")), any(source))
+	})
+	if account < 0 {
+		return nil
+	}
+	var confirmed string
+	if at, ok := uintValue(reach["verifiedAt"]); handshake && ok {
+		confirmed = time.UnixMilli(int64(at)).UTC().Format("2006-01-02T15:04:05.000Z")
+	}
+	bindings, err := selectNotificationBindings(func(b object) bool {
+		return b["sourceId"] == source && b["channel"] != "mcp-events" && b["target"] == target && b["scopeEnd"] == nil && b["continuationBound"] != true
+	})
+	if err != nil {
+		return err
+	}
+	tasks := make([][2]string, 0, len(bindings))
+	for _, b := range bindings {
+		tasks = append(tasks, [2]string{notificationAgent(b), text(b, "threadId")})
+	}
+	return notificationNotifyConversation(text(accounts[account], "id"), target, confirmed, tasks)
 }

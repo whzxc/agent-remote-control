@@ -67,3 +67,34 @@ func TestDispatchCodexCatalogUsesNativeMetadata(t *testing.T) {
 		t.Fatalf("metadata inferred from model ID = %v", absent)
 	}
 }
+
+func TestDispatchLocalReviewUndoRequiresExactPass(t *testing.T) {
+	// Contract: local review undo requires the persisted ARC pass receipt.
+	local := object{"review": object{"requestId": "request", "verdict": "pass", "reviewer": object{"controlSource": "ARC"}}}
+	if !dispatchLocalReviewMatches([]object{local}, "request") || dispatchLocalReviewMatches(nil, "request") ||
+		dispatchLocalReviewMatches([]object{local}, "different") {
+		t.Fatal("local review identity did not constrain undo")
+	}
+	other := clone(local)
+	obj(field(other["review"], "reviewer"))["controlSource"] = "external"
+	if dispatchLocalReviewMatches([]object{local, other}, "request") {
+		t.Fatal("external verdict was eligible for undo")
+	}
+	obj(local["review"])["verdict"] = "rework"
+	if dispatchLocalReviewMatches([]object{local}, "request") {
+		t.Fatal("rework verdict was eligible for undo")
+	}
+}
+
+func TestDispatchReviewConfigurationUsesNativeEvidenceInOrder(t *testing.T) {
+	// Algorithmic core: turn-level metadata supplies each known field independently.
+	config := dispatchReviewConfiguration(object{"model": "turn-model", "effort": "high", "serviceTier": "unknown"},
+		object{"model": "thread-model", "effort": "low", "serviceTier": "priority"})
+	if config["model"] != "turn-model" || config["effort"] != "high" || config["serviceTier"] != "priority" {
+		t.Fatalf("configuration = %v", config)
+	}
+	config = dispatchReviewConfiguration(object{})
+	if config["model"] != nil || config["effort"] != nil || config["serviceTier"] != nil {
+		t.Fatalf("missing configuration = %v", config)
+	}
+}

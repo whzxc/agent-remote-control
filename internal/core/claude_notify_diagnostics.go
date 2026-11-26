@@ -6,6 +6,10 @@ func notificationTurnDiagnosis(bind object) object {
 	observed := obj(bind["observation"])
 	reasons := []any{}
 	state := text(observed, "state")
+	owner := notificationOwnershipForStatus(text(bind, "threadId"))
+	if obj(observed["conflict"]) != nil {
+		reasons = append(reasons, "terminal-conflict")
+	}
 	terminal := slices.Contains([]string{"completed", "failed", "cancelled", "interrupted"}, state)
 	if reason, ok := bind["scopeEnd"].(string); ok {
 		reasons = append(reasons, reason)
@@ -17,8 +21,13 @@ func notificationTurnDiagnosis(bind object) object {
 		}
 		reasons = append(reasons, reason)
 	}
+	if owner["currentOwner"] == "desktop" {
+		reasons = append(reasons, "ownership-moved-to-desktop")
+	}
 	if observed["reconciliation"] == "pending-after-restart" {
 		reasons = append(reasons, "pending-after-restart")
+	} else if observed["reconciliation"] == "unavailable-after-restart" {
+		reasons = append(reasons, "unavailable-after-restart")
 	} else if !terminal && observed == nil {
 		reasons = append(reasons, "pending-observation")
 	}
@@ -44,9 +53,26 @@ func notificationTurnDiagnosis(bind object) object {
 		}
 	}
 	retry := obj(bind["retry"])
+	next := object{"via": "query", "op": "codex_read", "args": object{"threadId": bind["threadId"], "statusOnly": true}, "hint": "Read the current native turn. Unknown history remains pending; a new unrelated turn does not inherit this binding."}
+	if bind["device"] != nil {
+		req := readNotificationDeviceRequest(bind)
+		next = object{"via": "query", "op": "device", "args": object{"device": field(bind["device"], "id"), "op": req["op"], "args": req["args"]}}
+	} else if obj(observed["conflict"]) != nil || observed["reconciliation"] == "unavailable-after-restart" {
+		hint := "Reconcile the conflicting native records for this turn. New pushes remain held until authoritative ordering resolves the conflict."
+		if observed["reconciliation"] == "unavailable-after-restart" && observed["conflict"] == nil {
+			hint = "Automatic reconciliation exhausted its bounded attempts. Read this task to retry. Native history, execution configuration, writer or thread-event changes also reactivate observation."
+		}
+		op, args := "codex_read", object{"threadId": bind["threadId"], "turnId": bind["turnId"]}
+		if agent := notificationAgent(bind); agent != "codex" {
+			op, args = "agent_read", object{"agent": agent, "taskId": bind["threadId"]}
+		}
+		next = object{"via": "query", "op": op, "args": args, "hint": hint}
+	} else if owner["currentOwner"] == "desktop" {
+		next = object{"via": "query", "op": "codex_owner", "args": object{"threadId": bind["threadId"]},
+			"hint": "Inspect the current Desktop owner and handoff history. The notification scope remains bound across a proven resume."}
+	}
 	return object{"reasons": reasons, "terminal": terminal, "scope": object{"threadId": bind["threadId"], "sourceId": bind["sourceId"],
 		"active": bind["scopeEnd"] == nil, "endedBy": bind["scopeEnd"]}, "successor": bind["successor"], "observation": bind["observation"],
 		"retry": object{"status": retry["status"], "reason": retry["reason"], "notBefore": retry["notBefore"], "successorTurnId": retry["successorTurnId"]},
-		"next": object{"via": "query", "op": "codex_read", "args": object{"threadId": bind["threadId"], "statusOnly": true},
-			"hint": "Read the current native turn. Unknown history remains pending; a new unrelated turn does not inherit this binding."}}
+		"next":  next}
 }

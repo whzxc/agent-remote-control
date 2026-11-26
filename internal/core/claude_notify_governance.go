@@ -3,9 +3,11 @@ package core
 import (
 	"context"
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -60,7 +62,7 @@ func notificationUntil(args object, now int64) (any, error) {
 }
 
 func notificationCapacity(settings object) uint64 {
-	return min(max(uintOr(settings["notificationBucketCapacity"], 10), 1), 1000)
+	return max(uintOr(settings["notificationBucketCapacity"], 10), 1)
 }
 
 func notificationRefillSeconds(settings object) uint64 {
@@ -74,7 +76,7 @@ func notificationRefill(target, settings object, now int64) {
 	refilledAt := uintOr(target["refilledAt"], uint64(now))
 	if tokens < capacity && uint64(now) >= refilledAt {
 		ticks := (uint64(now) - refilledAt) / interval
-		tokens = min(tokens+ticks, capacity)
+		tokens += min(ticks, capacity-tokens)
 		refilledAt += ticks * interval
 		if tokens == capacity {
 			refilledAt = uint64(now)
@@ -82,7 +84,11 @@ func notificationRefill(target, settings object, now int64) {
 	}
 	target["tokens"], target["refilledAt"] = tokens, refilledAt
 	rows := arr(target["batches"])
-	target["batches"] = slices.DeleteFunc(rows, func(row any) bool { return uintOr(field(row, "at"), 0)+3600 <= uint64(now) })
+	rows = slices.DeleteFunc(rows, func(row any) bool { return uintOr(field(row, "at"), 0)+3600 <= uint64(now) })
+	if rows == nil {
+		rows = []any{}
+	}
+	target["batches"] = rows
 }
 
 func notificationCharge(target, settings object, now int64) {
@@ -152,21 +158,49 @@ func notificationStatus(_ context.Context, r operationRequest) (any, error) {
 	}
 	notificationEventOperation.Lock()
 	defer notificationEventOperation.Unlock()
+	now := notificationClock().Unix()
+	index, err := notificationStatusIndex()
+	if err != nil {
+		return nil, err
+	}
+	cacheKey := wire([]any{source, r.args, settings})
+	controls, err := readStamp(notificationStatePath())
+	if err != nil {
+		return nil, err
+	}
+	if index != nil {
+		notificationIndexes.Lock()
+		view, ok := index.statusViews[cacheKey]
+		notificationIndexes.Unlock()
+		if ok && stampSame(controls, view.controls) && now >= view.at && (view.until == 0 || now < view.until) {
+			result := clone(view.result)
+			result["at"] = now
+			return result, nil
+		}
+	}
 	state, err := readNotificationState()
 	if err != nil {
 		return nil, err
 	}
-	bindings, err := notificationBindings()
-	if err != nil {
-		return nil, err
+	var bindings []object
+	if index == nil {
+		bindings, err = notificationBindings()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		notificationIndexes.Lock()
+		for _, key := range slices.Sorted(maps.Keys(index.projections)) {
+			bindings = append(bindings, index.projections[key])
+		}
+		notificationIndexes.Unlock()
 	}
-	now := notificationClock().Unix()
 	targetFilter := text(r.args, "target")
 	if target, err := notificationSessionID(targetFilter); err == nil {
 		targetFilter = target
 	}
 	threadFilter := text(r.args, "threadId")
-	compact := r.args["all"] == false || (r.args["all"] != true && targetFilter == "" && threadFilter == "")
+	compact := r.args["all"] == false || r.args["all"] != true && targetFilter == "" && threadFilter == ""
 	syncNotificationSubscriptions(state, bindings)
 	bound := make(map[string][]object)
 	var matched []object
@@ -200,9 +234,7 @@ func notificationStatus(_ context.Context, r operationRequest) (any, error) {
 		}
 		totalSubscriptions++
 		ensure(text(sub, "channel"), text(sub, "target"))
-		if !compact || notificationSubscriptionMuted(sub, now) || (sub["channel"] == "mcp-events" && notificationSubscriptionActive(sub, now*1000)) {
-			subscriptions = append(subscriptions, notificationSubscriptionPublic(sub, now))
-		}
+		subscriptions = append(subscriptions, sub)
 	}
 	pending := make(map[[2]string][]any)
 	for _, thread := range keysOfNotificationThreads(bound) {
@@ -215,6 +247,7 @@ func notificationStatus(_ context.Context, r operationRequest) (any, error) {
 		}
 		rule := notificationThread(state, source, thread, now, false)
 		mode := notificationThreadMode(rule, now)
+		lastDelivered := uintOr(rule["lastDeliveredAt"], 0)
 		showThread := !compact || targetFilter != "" || threadFilter != "" || mode != "normal"
 		turns := []any{}
 		for _, b := range rows {
@@ -229,6 +262,9 @@ func notificationStatus(_ context.Context, r operationRequest) (any, error) {
 					continue
 				}
 				totalDeliveries++
+				if slices.Contains([]string{"delivered", "digested", "callback-accepted"}, text(d, "status")) {
+					lastDelivered = max(lastDelivered, uintOr(field(d["timing"], "finishedAt"), 0)/1000)
+				}
 				channel, target := text(d, "channel"), text(d, "target")
 				ensure(channel, target)
 				if compact && d["taskState"] == "recovered" {
@@ -236,7 +272,7 @@ func notificationStatus(_ context.Context, r operationRequest) (any, error) {
 					continue
 				}
 				isPending := d["status"] == "pending" || d["status"] == "sending"
-				recent := uintOr(d["createdAt"], 0)+3600 > uint64(now) || uintOr(d["attemptedAt"], 0)+3600 > uint64(now)
+				recent := notificationDeliveryRecent(d, now)
 				if compact && !isPending && (!recent || b["turnId"] != latest["turnId"]) {
 					continue
 				}
@@ -272,16 +308,18 @@ func notificationStatus(_ context.Context, r operationRequest) (any, error) {
 		}
 		if showThread {
 			shownBindings += len(turns)
-			title := str(dispatchFirstString(latest["threadTitle"], latest["title"]))
-			if title == "" {
-				title = text(latest, "project")
+			title := notificationTaskTitle(latest)
+			var last any = rule["lastDeliveredAt"]
+			if lastDelivered != 0 {
+				last = lastDelivered
 			}
 			threads = append(threads, object{"threadId": thread, "device": latest["device"], "nativeThreadId": field(latest["device"], "taskId"),
-				"title": title, "ownership": nil, "diagnosis": notificationTurnDiagnosis(latest), "channel": latest["channel"],
-				"target": latest["target"], "mode": mode, "until": rule["until"], "lastDeliveredAt": rule["lastDeliveredAt"], "lastAckAt": rule["lastAckAt"], "turns": turns})
+				"title": title, "ownership": notificationOwnershipForStatus(thread), "diagnosis": notificationTurnDiagnosis(latest), "channel": latest["channel"],
+				"target": latest["target"], "mode": mode, "until": rule["until"], "lastDeliveredAt": last, "lastAckAt": rule["lastAckAt"], "turns": turns})
 		}
 	}
 	totalTargets := 0
+	ranks := map[string]int{}
 	for _, item := range arr(state["targets"]) {
 		t := obj(item)
 		if t["sourceId"] != source || targetFilter != "" && t["target"] != targetFilter {
@@ -302,24 +340,148 @@ func notificationStatus(_ context.Context, r operationRequest) (any, error) {
 		if batches == nil {
 			batches = []any{}
 		}
-		if compact && targetFilter == "" && reach["state"] == "verified" && len(rows) == 0 && len(batches) == 0 &&
-			t["breaker"] != true && t["emptySince"] == nil && t["escalated"] != true {
+		if targetKeys[key] {
+			filtered := []any{}
+			for _, raw := range batches {
+				b := clone(obj(raw))
+				list := slices.DeleteFunc(arr(b["threads"]), func(v any) bool { return len(bound[str(v)]) == 0 })
+				if len(list) == 0 {
+					continue
+				}
+				b["threads"] = list
+				filtered = append(filtered, b)
+				if b["status"] != "cancelled" {
+					for _, id := range list {
+						ranks[str(id)]++
+					}
+				}
+			}
+			batches = filtered
+		}
+		superseded := supersedingNotificationTarget(t, arr(state["targets"]))
+		if compact && targetFilter == "" && (reach["state"] == "verified" || superseded != nil) && len(rows) == 0 && len(batches) == 0 &&
+			t["breaker"] != true && t["emptySince"] == nil && t["escalated"] != true &&
+			!slices.ContainsFunc(deliveries, func(d any) bool { return field(d, "target") == key[1] && field(d, "channel") == key[0] }) &&
+			!slices.ContainsFunc(threads, func(r any) bool { return field(r, "target") == key[1] && field(r, "mode") != "normal" }) {
 			continue
+		}
+		var nextToken any
+		if uintOr(t["tokens"], 0) < notificationCapacity(settings) {
+			nextToken = uintOr(t["refilledAt"], 0) + notificationRefillSeconds(settings)
 		}
 		targets = append(targets, object{"channel": key[0], "target": key[1], "registered": t["registered"], "reachability": reach["state"],
 			"reason": reach["reason"], "verificationAttempts": reach["attempts"], "verifiedAt": reach["verifiedAt"],
 			"lastVerificationDelivery": reach["deliveryStatus"], "lastVerificationError": reach["lastError"], "tokens": t["tokens"],
-			"capacity": notificationCapacity(settings), "refillSeconds": notificationRefillSeconds(settings),
+			"capacity": notificationCapacity(settings), "refillSeconds": notificationRefillSeconds(settings), "nextTokenAt": nextToken,
 			"breaker": t["breaker"], "pending": rows, "recentBatches": batches, "emptySince": t["emptySince"], "escalated": t["escalated"],
-			"escalationError": t["escalationError"], "supersededBy": nil})
+			"escalationError": t["escalationError"], "supersededBy": superseded})
 	}
+	shownSubscriptions := []any{}
+	for _, raw := range subscriptions {
+		sub := obj(raw)
+		if !compact || notificationSubscriptionMuted(sub, now) || sub["channel"] == "mcp-events" && notificationSubscriptionActive(sub, now*1000) ||
+			slices.ContainsFunc(deliveries, func(d any) bool { return field(d, "subscriptionId") == sub["id"] }) ||
+			slices.ContainsFunc(threads, func(t any) bool {
+				for _, b := range bound[text(t, "threadId")] {
+					if notificationSubscriptionMatches(sub, b) {
+						return true
+					}
+				}
+				return false
+			}) {
+			shownSubscriptions = append(shownSubscriptions, notificationSubscriptionPublic(sub, now))
+		}
+	}
+	ranking := []any{}
+	for _, thread := range slices.Sorted(maps.Keys(ranks)) {
+		ranking = append(ranking, object{"threadId": thread, "wakes": ranks[thread]})
+	}
+	slices.SortStableFunc(ranking, func(a, b any) int { return int(uintOr(field(b, "wakes"), 0)) - int(uintOr(field(a, "wakes"), 0)) })
 	result := object{"at": now, "notificationsEnabled": settings["notificationsEnabled"] != false, "recentWindowSeconds": 3600,
-		"subscriptions": subscriptions, "deliveries": deliveries, "targets": targets, "threads": threads, "unboundPending": unbound, "mostWokenThreads": []any{},
+		"subscriptions": shownSubscriptions, "deliveries": deliveries, "targets": targets, "threads": threads, "unboundPending": unbound, "mostWokenThreads": ranking,
 		"summary": object{"totalTargets": totalTargets, "totalThreads": len(bound), "totalBindings": len(matched), "totalDeliveries": totalDeliveries, "totalSubscriptions": totalSubscriptions,
 			"hidden": object{"targets": totalTargets - len(targets), "threads": len(bound) - len(threads), "bindings": len(matched) - shownBindings,
-				"deliveries": totalDeliveries - len(deliveries), "subscriptions": totalSubscriptions - len(subscriptions), "recoveredDeliveries": hiddenRecovered}}}
+				"deliveries": totalDeliveries - len(deliveries), "subscriptions": totalSubscriptions - len(shownSubscriptions), "recoveredDeliveries": hiddenRecovered}}}
+	result = clone(result)
 	stripNotificationInternal(result)
-	return result, saveNotificationState(state)
+	if err := saveNotificationState(state); err != nil {
+		return nil, err
+	}
+	if index != nil {
+		controls, err := readStamp(notificationStatePath())
+		if err != nil {
+			return nil, err
+		}
+		until := notificationStatusDeadline(state, bindings, settings, now)
+		notificationIndexes.Lock()
+		if len(index.statusViews) >= 32 {
+			clear(index.statusViews)
+		}
+		index.statusViews[cacheKey] = notificationStatusView{at: now, until: until, controls: controls, result: clone(result)}
+		notificationIndexes.Unlock()
+	}
+	return result, nil
+}
+
+func notificationDeliveryRecent(d object, now int64) bool {
+	for _, key := range []string{"createdAt", "attemptedAt"} {
+		if int64(uintOr(d[key], 0)) > now-3600 {
+			return true
+		}
+	}
+	for _, key := range []string{"queuedAt", "startedAt", "finishedAt"} {
+		if int64(uintOr(field(d["timing"], key), 0)/1000) > now-3600 {
+			return true
+		}
+	}
+	return false
+}
+
+type notificationStatusView struct {
+	at, until int64
+	controls  *fileStamp
+	result    object
+}
+
+func notificationStatusDeadline(state object, bindings []object, settings object, now int64) int64 {
+	var deadline int64
+	due := func(at uint64) {
+		t := int64(at)
+		if t > now && (deadline == 0 || t < deadline) {
+			deadline = t
+		}
+	}
+	for _, b := range bindings {
+		for _, raw := range arr(b["deliveries"]) {
+			d := obj(raw)
+			for _, key := range []string{"createdAt", "attemptedAt"} {
+				due(uintOr(d[key], 0) + 3600)
+			}
+			for _, key := range []string{"queuedAt", "startedAt", "finishedAt"} {
+				due(uintOr(field(d["timing"], key), 0)/1000 + 3600)
+			}
+		}
+	}
+	for _, raw := range arr(state["targets"]) {
+		t := obj(raw)
+		if uintOr(t["tokens"], 0) < notificationCapacity(settings) {
+			due(uintOr(t["refilledAt"], 0) + notificationRefillSeconds(settings))
+		}
+		if text(t["reachability"], "challengeHash") != "" {
+			due(uintOr(field(t["reachability"], "expiresAt"), 0))
+		}
+		for _, batch := range arr(t["batches"]) {
+			due(uintOr(field(batch, "at"), 0) + 3600)
+		}
+	}
+	for _, raw := range arr(state["subscriptions"]) {
+		due((uintOr(field(raw, "expiresAt"), 0) + 999) / 1000)
+		due(uintOr(field(raw, "until"), 0))
+	}
+	for _, raw := range arr(state["threads"]) {
+		due(uintOr(field(raw, "until"), 0))
+	}
+	return deadline
 }
 
 func keysOfNotificationThreads(values map[string][]object) []string {
@@ -355,7 +517,21 @@ func notificationControl(ctx context.Context, r operationRequest) (any, error) {
 		return nil, err
 	}
 	notificationSignal()
-	return result, saveNotificationState(state)
+	if err := saveNotificationState(state); err != nil {
+		return nil, err
+	}
+	if action == "rebind" {
+		if raw, ok := r.args["target"].(string); ok {
+			target, err := notificationSessionID(raw)
+			if err != nil {
+				return nil, err
+			}
+			if err := syncNotificationConversation(source, target, false); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return result, nil
 }
 
 func controlNotificationState(state, settings object, source string, args object, now int64) (object, error) {
@@ -459,4 +635,51 @@ func controlNotificationState(state, settings object, source string, args object
 func init() {
 	registerOperation("notify_status", notificationStatus, nil)
 	registerOperation("notify_control", notificationControl, nil)
+}
+
+func init() {
+	registerOwnedErrorClassifier(func(message string) string {
+		if !strings.HasPrefix(message, "{") {
+			return ""
+		}
+		var parsed object
+		if err := decodeObject([]byte(message), &parsed); err != nil {
+			return ""
+		}
+		code := text(parsed, "code")
+		switch code {
+		case "DISPATCH_POLICY_CONFLICT", "INVALID_CLAUDE_SESSION", "NOTIFICATION_TARGET_NOT_BOUND_TO_SOURCE",
+			"ACCOUNT_SELECTION_REQUIRED", "ACCOUNT_ROUTE_CHANGED", "HANDSHAKE_INVALID_OR_EXPIRED", "RESUME_SOURCE_MISMATCH", "RESUME_BINDING_MISSING":
+			return code
+		default:
+			return ""
+		}
+	}, func(_ string, _ string, parsed object) object { return parsed })
+}
+
+func notificationOwnershipForStatus(thread string) object {
+	owner, _ := readNotificationOwnership(thread)
+	return owner
+}
+
+func supersedingNotificationTarget(current object, all []any) any {
+	reach := obj(current["reachability"])
+	if reach["state"] != "failed" {
+		return nil
+	}
+	failedAt := max(uintOr(reach["failedAt"], 0), uintOr(reach["verifiedAt"], 0))
+	for _, batch := range arr(current["batches"]) {
+		failedAt = max(failedAt, uintOr(field(batch, "at"), 0)*1000)
+	}
+	var target any
+	for _, item := range all {
+		t := obj(item)
+		if t["sourceId"] != current["sourceId"] || t["channel"] != current["channel"] || t["target"] == current["target"] || field(t["reachability"], "state") != "verified" {
+			continue
+		}
+		if at := uintOr(field(t["reachability"], "verifiedAt"), 0); at > failedAt {
+			failedAt, target = at, t["target"]
+		}
+	}
+	return target
 }

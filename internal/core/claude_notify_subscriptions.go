@@ -11,14 +11,14 @@ func validateNotificationSubscription(args any) (object, error) {
 		return nil, dispatchObjectError(object{"code": -32602, "message": "Invalid notification subscription",
 			"data": object{"reason": reason, "guide": object{"tool": "guide", "arguments": object{"topic": "notify"}}, "contract": guide}})
 	}
-	if checkSchema("event", notificationEventName, "", guide["inputSchema"], args) != nil {
+	if checkSchema("event", notificationEventName, "", clone(obj(guide["inputSchema"])), args) != nil {
 		return invalid("invalid_arguments")
 	}
 	if field(args, "op") != "task_status" {
 		return invalid("unknown_op")
 	}
 	filters := field(args, "args")
-	if checkSchema("event-op", "task_status", "", field(guide["ops"].([]object)[0], "inputSchema"), filters) != nil {
+	if checkSchema("event-op", "task_status", "", clone(obj(field(guide["ops"].([]object)[0], "inputSchema"))), filters) != nil {
 		return invalid("invalid_op_arguments")
 	}
 	return object{"op": "task_status", "args": filters}, nil

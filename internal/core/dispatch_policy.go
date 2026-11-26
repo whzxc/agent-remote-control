@@ -36,10 +36,49 @@ var dispatchPackName = regexp.MustCompile(`^[a-z0-9-]{1,40}$`)
 
 // Agent discovery belongs to A. Account refresh, the subscription snapshot and
 // the optional gateway quota belong to D.
+var dispatchRegisteredAgent func(*service, string) bool
 var dispatchAgentFacts func(context.Context, *service, object) ([]object, error)
 var dispatchAccountsRefresh func(context.Context, *service) error
 var dispatchSubscriptionSnapshot func(*service) object
 var dispatchGatewayQuota func(context.Context) object
+
+// The tagged fixture runs only the specified read-only provider methods.
+var dispatchFixtureRegistered func(*service, string) (bool, bool)
+var dispatchFixtureFacts func(context.Context, *service, object) ([]object, error)
+var dispatchFixtureRPC func(context.Context, *service, string, any, time.Duration) (any, error)
+
+func policyAgentRegistered(s *service, agent string) (bool, error) {
+	if agent == "codex" {
+		return true, nil
+	}
+	if dispatchRegisteredAgent != nil {
+		return dispatchRegisteredAgent(s, agent), nil
+	}
+	if dispatchFixtureRegistered != nil {
+		if registered, fixture := dispatchFixtureRegistered(s, agent); fixture {
+			return registered, nil
+		}
+	}
+	return false, errors.New(PortPending)
+}
+func policyAgentFacts(ctx context.Context, s *service, args object) ([]object, error) {
+	if dispatchAgentFacts != nil {
+		return dispatchAgentFacts(ctx, s, args)
+	}
+	if dispatchFixtureFacts != nil {
+		return dispatchFixtureFacts(ctx, s, args)
+	}
+	return nil, errors.New(PortPending)
+}
+func policyNativeRequest(ctx context.Context, s *service, method string, args any, timeout time.Duration) (any, error) {
+	if nativeControlRequest != nil {
+		return nativeControlRequest(ctx, s, method, args, timeout)
+	}
+	if dispatchFixtureRPC != nil {
+		return dispatchFixtureRPC(ctx, s, method, args, timeout)
+	}
+	return nil, errors.New(PortPending)
+}
 
 func dispatchPolicyPath() string { return filepath.Join(root(), "dispatch-policy.json") }
 
@@ -104,6 +143,69 @@ func validateDispatchPack(name string, p dispatchPack) error {
 	return nil
 }
 
+func invalidDispatchPolicyType(value any, expected string) error {
+	var actual string
+	switch value := value.(type) {
+	case nil:
+		actual = "null"
+	case bool:
+		actual = fmt.Sprintf("boolean `%t`", value)
+	case string:
+		actual = "string " + wire(value)
+	case []any:
+		actual = "sequence"
+	case object:
+		actual = "map"
+	default:
+		actual = "number"
+	}
+	return fmt.Errorf("INVALID_DISPATCH_POLICY: dispatch-policy.json: invalid type: %s, expected %s", actual, expected)
+}
+
+func validateDispatchPolicySection(section, prototype object) error {
+	checkList := func(value any) error {
+		rows, ok := value.([]any)
+		if !ok {
+			return invalidDispatchPolicyType(value, "a sequence")
+		}
+		for _, row := range rows {
+			if _, ok := row.(string); !ok {
+				return invalidDispatchPolicyType(row, "a string")
+			}
+		}
+		return nil
+	}
+	for _, key := range keys(section) {
+		value := section[key]
+		switch prototype[key].(type) {
+		case []string:
+			if err := checkList(value); err != nil {
+				return err
+			}
+		case object:
+			rows, ok := value.(object)
+			if !ok {
+				return invalidDispatchPolicyType(value, "a map")
+			}
+			for _, entry := range keys(rows) {
+				member := rows[entry]
+				if key == "allowOptions" || key == "denyOptions" {
+					if err := checkList(member); err != nil {
+						return err
+					}
+				} else if _, ok := member.(string); !ok {
+					return invalidDispatchPolicyType(member, "a string")
+				}
+			}
+		default:
+			if _, ok := value.(string); !ok && (value != nil || prototype[key] != nil) {
+				return invalidDispatchPolicyType(value, "a string")
+			}
+		}
+	}
+	return nil
+}
+
 func readDispatchPolicyLocked() (object, map[string]dispatchPack, error) {
 	path := dispatchPolicyPath()
 	raw, err := load(path)
@@ -126,6 +228,11 @@ func readDispatchPolicyLocked() (object, map[string]dispatchPack, error) {
 		return nil, nil, errors.New("INVALID_DISPATCH_POLICY: dispatch-policy.json: expected object")
 	}
 	migrated := false
+	if value, exists := policy["criteria"]; exists {
+		if _, ok := value.(string); !ok {
+			return nil, nil, invalidDispatchPolicyType(value, "a string")
+		}
+	}
 	for _, agent := range keys(policy) {
 		if agent == "criteria" || agent == "packs" {
 			continue
@@ -144,6 +251,9 @@ func readDispatchPolicyLocked() (object, map[string]dispatchPack, error) {
 				return nil, nil, fmt.Errorf("INVALID_DISPATCH_POLICY: dispatch-policy.json: unknown field `%s`", field)
 			}
 		}
+		if err := validateDispatchPolicySection(section, known); err != nil {
+			return nil, nil, err
+		}
 		for _, field := range []string{"model", "effort"} {
 			if value, ok := section[field].(string); ok && strings.TrimSpace(value) == "" {
 				return nil, nil, errors.New("INVALID_DISPATCH_POLICY: model and effort must be nonempty or null")
@@ -152,6 +262,9 @@ func readDispatchPolicyLocked() (object, map[string]dispatchPack, error) {
 	}
 	packs := make(map[string]dispatchPack)
 	rawPacks := obj(policy["packs"])
+	if value, exists := policy["packs"]; exists && rawPacks == nil {
+		return nil, nil, invalidDispatchPolicyType(value, "a map")
+	}
 	if len(rawPacks) > 16 {
 		return nil, nil, errors.New("INVALID_DISPATCH_POLICY: at most 16 packs are allowed")
 	}
@@ -623,13 +736,10 @@ func dispatchCodexModel(model any) object {
 }
 
 func dispatchCodexModels(ctx context.Context, s *service) ([]any, error) {
-	if nativeControlRequest == nil {
-		return nil, errors.New(PortPending)
-	}
 	models := []any{}
 	var cursor any
 	for {
-		page, err := nativeControlRequest(ctx, s, "model/list", object{"cursor": cursor}, 15*time.Second)
+		page, err := policyNativeRequest(ctx, s, "model/list", object{"cursor": cursor}, 15*time.Second)
 		if err != nil {
 			return nil, err
 		}
@@ -649,9 +759,28 @@ func dispatchCodexModels(ctx context.Context, s *service) ([]any, error) {
 
 func init() {
 	registerOperation("dispatch_policy_update", func(_ context.Context, r operationRequest) (any, error) {
+		scope := text(r.args, "scope")
+		if scope != "global" && scope != "codex" {
+			registered, err := policyAgentRegistered(r.service, scope)
+			if err != nil {
+				return nil, err
+			}
+			if !registered {
+				return nil, dispatchObjectError(invalidArguments("dispatch_policy_update", "/scope", "Use global or a registered Agent ID from dispatch_policy with all:true."))
+			}
+		}
 		return dispatchPolicyUpdate(r.args)
 	}, nil)
 	registerOperation("dispatch_pack_update", func(_ context.Context, r operationRequest) (any, error) {
+		if agent, present := field(r.args["pack"], "agent").(string); present && agent != "codex" {
+			registered, err := policyAgentRegistered(r.service, agent)
+			if err != nil {
+				return nil, err
+			}
+			if !registered {
+				return nil, dispatchObjectError(invalidArguments("dispatch_pack_update", "/pack/agent", "Use codex or a registered Agent ID from dispatch_policy with all:true."))
+			}
+		}
 		return dispatchPackUpdate(r.args)
 	}, nil)
 	for _, spec := range []struct {
@@ -663,9 +792,18 @@ func init() {
 		{"tasks.dispatch_defaults.read", "tasks/dispatch-defaults/read", false, true},
 		{"tasks.dispatch_defaults.update", "tasks/dispatch-defaults", true, true},
 	} {
-		registerRoute(http.MethodPost, spec.route, func(_ context.Context, _ *service, body object, _ []string) (any, error) {
+		registerRoute(http.MethodPost, spec.route, func(_ context.Context, s *service, body object, _ []string) (any, error) {
 			if _, _, _, err := managementResolve(spec.name, object{"body": body}); err != nil {
 				return nil, err
+			}
+			if agent := text(body, "agent"); !spec.task && agent != "codex" {
+				registered, err := policyAgentRegistered(s, agent)
+				if err != nil {
+					return nil, err
+				}
+				if !registered {
+					return nil, errors.New("UNKNOWN_AGENT")
+				}
 			}
 			return dispatchDefaults(body, spec.update, spec.task)
 		})
@@ -678,11 +816,8 @@ func init() {
 			models, err := dispatchCodexModels(ctx, s)
 			return object{"source": "codex-model-list", "authoritative": true, "models": models}, err
 		}
-		if dispatchAgentFacts == nil {
-			return nil, errors.New(PortPending)
-		}
 		body["all"] = true
-		rows, err := dispatchAgentFacts(ctx, s, body)
+		rows, err := policyAgentFacts(ctx, s, body)
 		if len(rows) != 0 {
 			return rows[0]["capabilities"], err
 		}

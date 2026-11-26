@@ -19,7 +19,9 @@ var notificationClaudeLegacyRoute func(string) (string, error)
 var notificationClaudeIdentity func(context.Context, string) (object, error)
 var notificationConfirmIdentity func(string, object) (object, error)
 var notificationSessionSend func(context.Context, string, string, string, string) error
-var notificationSyncConversation func(string, string, bool) error
+var notificationSourceRows func() ([]any, error)
+var notificationNotifyConversation func(account, target, confirmedAt string, tasks [][2]string) error
+var notificationClaudeIdentityStatus func(context.Context, string) (object, error)
 
 func newNotificationReachability() object {
 	return object{"state": "unverified", "reason": "handshake-required", "attempts": 0, "deliveryStatus": "not-attempted",
@@ -78,10 +80,8 @@ func notificationReachabilityControl(ctx context.Context, r operationRequest, so
 	}
 	if result != nil {
 		result["accountRoute"] = route
-		if notificationSyncConversation != nil {
-			if err := notificationSyncConversation(source, target, false); err != nil {
-				return nil, err
-			}
+		if err := syncNotificationConversation(source, target, false); err != nil {
+			return nil, err
 		}
 		if r.args["verify"] == false {
 			return result, nil
@@ -266,6 +266,17 @@ func verifyNotificationTarget(ctx context.Context, source, target, channel strin
 	code := id()
 	digest := hash([]byte(code))
 	var profile string
+	var evidence object
+	if channel == "claude-session" && notificationClaudeIdentity != nil && notificationClaudeRun != nil {
+		selected, err := notificationSourceAccount(source, target)
+		if err == nil {
+			profile = selected
+			evidence, err = notificationClaudeIdentity(ctx, profile)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
 	err := func() error {
 		notificationEventOperation.Lock()
 		defer notificationEventOperation.Unlock()
@@ -295,14 +306,12 @@ func verifyNotificationTarget(ctx context.Context, source, target, channel strin
 		}
 		now := notificationClock().Unix()
 		t = notificationTarget(state, settings, source, channel, target, now)
-		profile = text(t, "accountId")
-		var evidence object
+		currentProfile := text(t, "accountId")
 		if channel == "claude-session" {
-			evidence, err = notificationClaudeIdentity(ctx, profile)
-			if err != nil {
-				return err
+			if currentProfile == "" {
+				return errors.New("ACCOUNT_SELECTION_REQUIRED: Bind this target with notify_control and an accountId")
 			}
-			if selected, ok := evidence["profileId"].(string); ok && selected != profile {
+			if currentProfile != profile || evidence["profileId"] != nil && evidence["profileId"] != profile {
 				return dispatchObjectError(object{"code": "ACCOUNT_ROUTE_CHANGED", "message": "The route changed before verification. Retry for the current route.", "next": notificationRouteNext("verify", target)})
 			}
 		}
@@ -334,6 +343,11 @@ func verifyNotificationTarget(ctx context.Context, source, target, channel strin
 		body += "\nCall notification_ack with target " + target + " and code " + code + "."
 	}
 	delivery := notificationSessionSend(ctx, channel, profile, target, body)
+	missing := delivery != nil && notificationSessionNotFound(delivery.Error())
+	var account object
+	if missing && channel == "claude-session" {
+		account = notificationSafeLocalAccount(ctx, profile)
+	}
 	notificationEventOperation.Lock()
 	defer notificationEventOperation.Unlock()
 	state, err := readNotificationState()
@@ -347,7 +361,6 @@ func verifyNotificationTarget(ctx context.Context, source, target, channel strin
 		sent = "failed"
 	}
 	ownsAttempt := reach["challengeHash"] == digest || (reach["state"] == "verified" && t["accountId"] == profile)
-	missing := delivery != nil && notificationSessionNotFound(delivery.Error())
 	if ownsAttempt {
 		reach["deliveryStatus"] = sent
 		if delivery != nil {
@@ -370,10 +383,6 @@ func verifyNotificationTarget(ctx context.Context, source, target, channel strin
 		if missing && channel == "claude-session" {
 			next = notificationRouteNext("route", target)
 			next["hint"] = "Inspect this source-owned target's accountId and available profiles. Set its route with notify_control action:route and accountId, then retry action:verify. Correct the session ID if necessary. ARC never logs in or switches Claude accounts automatically."
-			var account object
-			if notificationClaudePublicAccount != nil {
-				account = notificationClaudePublicAccount(profile)
-			}
 			problem = object{"code": "CLAUDE_SESSION_NOT_FOUND", "message": "Claude CLI reported Session not found. Likely causes are a different local Claude account or an incorrect cloud-session ID; account mismatch is not confirmed.", "localAccount": account}
 		} else if missing {
 			next = notificationRouteNext("verify", target)
@@ -421,10 +430,31 @@ func acknowledgeNotificationChallenge(state object, source string, args object) 
 	if err := saveNotificationState(state); err != nil {
 		return nil, err
 	}
-	if notificationSyncConversation != nil {
-		if err := notificationSyncConversation(source, target, true); err != nil {
-			return nil, err
-		}
+	if err := syncNotificationConversation(source, target, true); err != nil {
+		return nil, err
 	}
 	return object{"target": target, "reachability": "verified", "reason": "handshake-confirmed", "identityResolution": resolution}, nil
+}
+
+func notificationSafeLocalAccount(ctx context.Context, profile string) object {
+	row := object{"available": false, "reason": "auth-status-unavailable"}
+	if notificationClaudeIdentityStatus != nil {
+		facts, err := notificationClaudeIdentityStatus(ctx, profile)
+		if err != nil {
+			row["reason"] = err.Error()
+		} else {
+			delete(row, "reason")
+			if logged, ok := facts["loggedIn"].(bool); ok {
+				row["loggedIn"], row["available"] = logged, true
+			}
+			for _, key := range []string{"email", "authMethod"} {
+				if v, ok := facts[key].(string); ok {
+					r := []rune(v)
+					row[key], row["available"] = string(r[:min(len(r), 320)]), true
+				}
+			}
+		}
+	}
+	row["accountId"], row["observedAt"] = profile, now()
+	return row
 }

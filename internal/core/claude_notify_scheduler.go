@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -16,6 +17,14 @@ var notificationSourceAuthority func(context.Context, string) (object, error)
 var notificationEscalate func(context.Context, *service, string) error
 
 var notificationTransportMu sync.Mutex
+var notificationSchedulerWake = make(chan struct{}, 1)
+
+func wakeNotificationScheduler() {
+	select {
+	case notificationSchedulerWake <- struct{}{}:
+	default:
+	}
+}
 
 func notificationSourceActive(ctx context.Context, source string) bool {
 	if source == "" || notificationSourceAuthority == nil {
@@ -69,6 +78,10 @@ func notificationNextDelivery(state object, bindings []object, settings object, 
 	return next
 }
 
+func notificationDeliveryBackoff(failures uint64) int64 {
+	return int64(min(10<<min(max(failures, 1)-1, 5), 300))
+}
+
 func notifyQueue(d object, reason string) {
 	dispatchSetSection(d, "timing")["queueReason"] = reason
 }
@@ -80,19 +93,25 @@ type notificationDeliveryBatch struct {
 	items                       []notificationDeliveryItem
 }
 
+type notificationDeliveryAlert struct {
+	source, channel, target, body string
+}
+
 type notificationDeliveryOutcome struct {
 	status, reason string
 	retry, remove  bool
 }
 
-func prepareNotificationDeliveries(ctx context.Context, settings object, now int64) ([]notificationDeliveryBatch, []string, error) {
+func prepareNotificationDeliveries(ctx context.Context, settings object, now int64) ([]notificationDeliveryBatch, []notificationDeliveryAlert, error) {
 	notificationEventOperation.Lock()
 	defer notificationEventOperation.Unlock()
 	state, err := readNotificationState()
 	if err != nil {
 		return nil, nil, err
 	}
-	rows, err := pendingNotificationBindings()
+	rows, err := notificationIndexedBindings("delivery-due", func(b object) bool {
+		return find(b["deliveries"], "status", "pending") != nil || find(b["deliveries"], "status", "sending") != nil
+	})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -104,6 +123,13 @@ func prepareNotificationDeliveries(ctx context.Context, settings object, now int
 		}
 	}
 	syncNotificationSubscriptions(state, rows)
+	state["subscriptions"] = slices.DeleteFunc(arr(state["subscriptions"]), func(row any) bool {
+		sub := obj(row)
+		if w := obj(sub["webhook"]); w != nil && uintOr(w["rotateUntil"], 0) <= uint64(now) {
+			w["previousSecret"] = nil
+		}
+		return !notificationSubscriptionActive(sub, now*1000)
+	})
 	current := make(map[[3]string][]notificationDeliveryItem)
 	keys := [][3]string{}
 	for _, b := range rows {
@@ -182,7 +208,8 @@ func prepareNotificationDeliveries(ctx context.Context, settings object, now int
 		}
 	}
 	var batches []notificationDeliveryBatch
-	var alerts []string
+	var alerts []notificationDeliveryAlert
+	waiting := map[[3]string]bool{}
 	for _, key := range keys {
 		source, channel, target := key[0], key[1], key[2]
 		t := notificationTarget(state, settings, source, channel, target, now)
@@ -197,7 +224,7 @@ func prepareNotificationDeliveries(ctx context.Context, settings object, now int
 			launch = launch || d["tokenCharged"] == true || d["taskState"] == "interaction-required" ||
 				text(d["timing"], "queueReason") == "token-wait" || notificationThreadMode(rule, now) == "digest"
 		}
-		batchAt := min(last+2, first+10)
+		batchAt := min(last+2, first+30)
 		launch = launch || now >= batchAt
 		tokens := uintOr(t["tokens"], 0)
 		starved := false
@@ -216,18 +243,7 @@ func prepareNotificationDeliveries(ctx context.Context, settings object, now int
 				batch.items = append(batch.items, item)
 			}
 		}
-		if starved {
-			if t["emptySince"] == nil {
-				t["emptySince"] = now
-			}
-			escalateAfter := min(max(uintOr(settings["notificationEscalationSeconds"], 900), 1), 86400)
-			if t["escalated"] != true && uintOr(t["emptySince"], 0)+escalateAfter <= uint64(now) && notificationEscalate != nil {
-				t["escalated"] = true
-				alerts = append(alerts, fmt.Sprintf("ARC notification target %s. Reason: token-wait. Pending deliveries: %d. Read ARC notify_status.", target, len(eligible)))
-			}
-		} else {
-			t["emptySince"], t["escalated"], t["escalationError"] = nil, false, nil
-		}
+		waiting[key] = starved
 		if len(batch.items) == 0 {
 			continue
 		}
@@ -259,6 +275,51 @@ func prepareNotificationDeliveries(ctx context.Context, settings object, now int
 		slices.Sort(threads)
 		t["batches"] = append(arr(t["batches"]), object{"id": batch.id, "at": now, "kinds": kinds, "threads": threads, "status": "sending", "charged": charged})
 		batches = append(batches, batch)
+	}
+	for _, raw := range arr(state["targets"]) {
+		t := obj(raw)
+		source, channel, target := text(t, "sourceId"), text(t, "channel"), text(t, "target")
+		active, known := recheck[source]
+		if !known {
+			active = notificationSourceActive(ctx, source)
+			recheck[source] = active
+		}
+		if !active {
+			continue
+		}
+		notificationRefill(t, settings, now)
+		expireNotificationReachability(notificationReachability(t), now)
+		if settings["notificationsEnabled"] == false {
+			continue
+		}
+		if _, scanned := waiting[[3]string{source, channel, target}]; !scanned && t["emptySince"] != nil && uintOr(t["tokens"], 0) == 0 {
+			waiting[[3]string{source, channel, target}] = hasNotificationPendingTarget(source, channel, target)
+		}
+		reason := notificationTargetAnomaly(t, settings, now, waiting[[3]string{source, channel, target}])
+		if reason != "" && notificationEscalate != nil {
+			threads := map[string]bool{}
+			count := 0
+			for _, b := range rows {
+				if b["sourceId"] != source {
+					continue
+				}
+				if b["channel"] == channel && b["target"] == target {
+					threads[text(b, "threadId")] = true
+				}
+				for _, d := range arr(b["deliveries"]) {
+					if field(d, "channel") == channel && field(d, "target") == target && field(d, "status") == "pending" {
+						count++
+					}
+				}
+			}
+			names := make([]string, 0, len(threads))
+			for thread := range threads {
+				names = append(names, thread)
+			}
+			slices.Sort(names)
+			alerts = append(alerts, notificationDeliveryAlert{source, channel, target,
+				fmt.Sprintf("ARC notification target %s. Reason: %s. Pending deliveries: %d. Threads: %s. Read ARC notify_status.", target, reason, count, strings.Join(names, ", "))})
+		}
 	}
 	if err := saveNotificationState(state); err != nil {
 		return nil, nil, err
@@ -358,7 +419,7 @@ func settleNotificationBatch(batch notificationDeliveryBatch, outcome notificati
 				failures := uintOr(d["failures"], 0) + 1
 				d["failures"], d["status"], d["error"], d["nextAttemptAt"] = failures, "failed", outcome.reason, 0
 				if outcome.retry && failures < 6 {
-					d["status"], d["nextAttemptAt"] = "pending", now.Unix()+int64(min(10<<min(failures-1, 5), 300))
+					d["status"], d["nextAttemptAt"] = "pending", now.Unix()+notificationDeliveryBackoff(failures)
 					notifyQueue(d, "retry-backoff")
 				}
 				timing["finishedAt"], timing["sendMs"] = now.UnixMilli(), max(now.Sub(start).Milliseconds(), 0)
@@ -409,10 +470,17 @@ func sendNotificationBatch(ctx context.Context, s *service, batch notificationDe
 			if err != nil {
 				return err
 			}
-			d := obj(item.delivery)
+			var d object
+			for _, raw := range arr(b["deliveries"]) {
+				row := obj(raw)
+				if row["batch"] == batch.id && row["status"] == "sending" && row["eventId"] == item.delivery["eventId"] && row["subscription"] == item.delivery["subscription"] {
+					d = row
+					break
+				}
+			}
 			sub = find(state["subscriptions"], "id", text(d, "subscription"))
 			mode := notificationThreadMode(notificationThread(state, batch.source, text(b, "threadId"), start.Unix(), false), start.Unix())
-			if b == nil || !notificationAdmits(b, d) || sub == nil || !notificationSubscriptionActive(sub, start.UnixMilli()) || notificationSubscriptionMuted(sub, start.Unix()) ||
+			if b == nil || d == nil || !notificationAdmits(b, d) || sub == nil || !notificationSubscriptionActive(sub, start.UnixMilli()) || notificationSubscriptionMuted(sub, start.Unix()) ||
 				mode == "mute" || mode == "digest" && d["digest"] != true || batch.channel != "mcp-events" && (b["target"] != batch.target || b["channel"] != batch.channel) {
 				reason = "control-changed"
 				return nil
@@ -474,8 +542,20 @@ func flushNotifications(ctx context.Context, s *service) error {
 		return err
 	}
 	for _, alert := range alerts {
-		if err := notificationEscalate(ctx, s, alert); err != nil {
+		if err := notificationEscalate(ctx, s, alert.body); err != nil {
 			recordLog("WARN", "Notification escalation failed: "+err.Error(), nil)
+			notificationEventOperation.Lock()
+			state, readErr := readNotificationState()
+			if readErr == nil {
+				if target := findNotificationTarget(state, alert.source, alert.channel, alert.target); target != nil {
+					target["escalationError"] = err.Error()
+					readErr = saveNotificationState(state)
+				}
+			}
+			notificationEventOperation.Unlock()
+			if readErr != nil {
+				return readErr
+			}
 		}
 	}
 	for _, batch := range batches {
@@ -489,21 +569,203 @@ func flushNotifications(ctx context.Context, s *service) error {
 	return nil
 }
 
-func runNotificationScheduler(ctx context.Context, s *service) {
-	tick := time.NewTicker(time.Second)
-	defer tick.Stop()
-	for {
-		notificationEventOperation.Lock()
-		changed := notificationChanged
-		notificationEventOperation.Unlock()
-		select {
-		case <-ctx.Done():
-			return
-		case <-changed:
-		case <-tick.C:
-		}
-		if err := flushNotifications(ctx, s); err != nil && !errors.Is(err, context.Canceled) {
-			recordLog("WARN", "Notification delivery: "+err.Error(), nil)
+func nextNotificationSchedulerWake(ctx context.Context) (int64, error) {
+	notificationEventOperation.Lock()
+	defer notificationEventOperation.Unlock()
+	rows, err := pendingNotificationBindings()
+	if err != nil {
+		return 0, err
+	}
+	state, err := readNotificationState()
+	if err != nil {
+		return 0, err
+	}
+	settings, err := notificationSettings()
+	if err != nil {
+		return 0, err
+	}
+	now := notificationClock().Unix()
+	var routingAt int64
+	for _, b := range rows {
+		for _, item := range arr(b["deliveries"]) {
+			routing := field(field(item, "interaction"), "routing")
+			if text(routing, "state") != "deferred" {
+				continue
+			}
+			requestAt := int64((uintOr(field(routing, "deferUntil"), 0) + 999) / 1000)
+			if notificationPresent.agent == notificationAgent(b) && notificationPresent.task == b["threadId"] {
+				at := (notificationPresent.at + 6000 + 999) / 1000
+				if requestAt == 0 || at < requestAt {
+					requestAt = at
+				}
+			}
+			if requestAt != 0 && (routingAt == 0 || requestAt < routingAt) {
+				routingAt = requestAt
+			}
 		}
 	}
+	seen := map[string]bool{}
+	valid := map[string]bool{}
+	var earliest int64
+	for _, b := range rows {
+		at := notificationNextDelivery(state, []object{b}, settings, now, routingAt, func(source string) bool {
+			if !seen[source] {
+				valid[source] = notificationSourceActive(ctx, source)
+				seen[source] = true
+			}
+			return valid[source]
+		})
+		if err := persistNotificationSchedule(ctx, b, at); err != nil {
+			return 0, err
+		}
+		if at != 0 && (earliest == 0 || at < earliest) {
+			earliest = at
+		}
+	}
+	if maintenance := notificationMaintenanceDeadline(ctx, state, settings, now); maintenance != 0 && (earliest == 0 || maintenance < earliest) {
+		earliest = maintenance
+	}
+	return earliest, nil
+}
+
+func runNotificationScheduler(ctx context.Context, s *service) {
+	watch := newFileChanges()
+	defer watch.close()
+	for _, relative := range []string{"task-settings.json", "app-env.json", "sources.json", "accounts/index.json", "notifications/subscriptions/state.json", "notifications/tasks/.index-watch", "notifications/request-routing/.index-watch"} {
+		watch.add(filepath.Join(root(), relative))
+	}
+	for ctx.Err() == nil {
+		_, _ = watch.drain()
+		var delay time.Duration
+		if err := flushNotifications(ctx, s); err != nil {
+			if errors.Is(err, context.Canceled) {
+				return
+			}
+			recordLog("WARN", "Notification delivery: "+err.Error(), nil)
+			delay = time.Second
+		} else if next, err := nextNotificationSchedulerWake(ctx); err != nil {
+			recordLog("WARN", "Notification deadline: "+err.Error(), nil)
+			delay = time.Second
+		} else if next != 0 {
+			delay = max(time.Until(time.Unix(next, 0)), time.Millisecond)
+		}
+		var timer *time.Timer
+		var deadline <-chan time.Time
+		if delay != 0 {
+			timer = time.NewTimer(delay)
+			deadline = timer.C
+		}
+		select {
+		case <-ctx.Done():
+		case <-notificationSchedulerWake:
+			invalidateNotificationScheduling()
+		case <-watch.wake:
+			paths, failed := watch.drain()
+			if len(paths) != 0 || failed {
+				invalidateNotificationScheduling()
+			}
+		case <-deadline:
+		}
+		if timer != nil {
+			timer.Stop()
+		}
+	}
+}
+
+func hasNotificationPendingTarget(source, channel, target string) bool {
+	notificationIndexes.Lock()
+	defer notificationIndexes.Unlock()
+	index := notificationIndexes.owners[physicalPath(notificationOwnerPath())]
+	if index == nil {
+		return false
+	}
+	for path := range index.pending {
+		row := index.projections[path]
+		if row["sourceId"] != source {
+			continue
+		}
+		if slices.ContainsFunc(arr(row["deliveries"]), func(d any) bool {
+			status := field(d, "status")
+			return field(d, "channel") == channel && field(d, "target") == target && (status == "pending" || status == "sending")
+		}) {
+			return true
+		}
+	}
+	return false
+}
+
+func notificationTargetAnomaly(target, settings object, now int64, waiting bool) string {
+	if uintOr(target["tokens"], 0) == 0 && waiting {
+		if target["emptySince"] == nil {
+			target["emptySince"] = now
+		}
+	} else {
+		target["emptySince"] = nil
+	}
+	if target["breaker"] != true && target["emptySince"] == nil {
+		target["escalated"], target["escalationError"] = false, nil
+	}
+	if target["escalated"] == true {
+		return ""
+	}
+	reason := ""
+	if target["breaker"] == true {
+		reason = "breaker"
+	} else if empty, ok := uintValue(target["emptySince"]); ok && empty+notificationEscalationSeconds(settings) <= uint64(now) {
+		reason = "token-wait"
+	}
+	if reason != "" {
+		target["escalated"] = true
+	}
+	return reason
+}
+
+func notificationEscalationSeconds(settings object) uint64 {
+	return min(max(uintOr(settings["notificationEscalationSeconds"], 900), 1), 86400)
+}
+
+func notificationMaintenanceDeadline(ctx context.Context, state, settings object, now int64) int64 {
+	var deadline int64
+	due := func(at uint64) {
+		if at == 0 {
+			return
+		}
+		t := max(int64(at), now+1)
+		if deadline == 0 || t < deadline {
+			deadline = t
+		}
+	}
+	for _, raw := range arr(state["subscriptions"]) {
+		sub := obj(raw)
+		due((uintOr(sub["expiresAt"], 0) + 999) / 1000)
+		if w := obj(sub["webhook"]); w["previousSecret"] != nil {
+			due(uintOr(w["rotateUntil"], 0))
+		}
+	}
+	active := map[string]bool{}
+	seen := map[string]bool{}
+	for _, item := range arr(state["targets"]) {
+		t := obj(item)
+		source := text(t, "sourceId")
+		if !seen[source] {
+			active[source] = notificationSourceActive(ctx, source)
+			seen[source] = true
+		}
+		if !active[source] {
+			continue
+		}
+		if empty, ok := uintValue(t["emptySince"]); ok && settings["notificationsEnabled"] != false && t["escalated"] != true {
+			due(empty + notificationEscalationSeconds(settings))
+		}
+		if uintOr(t["tokens"], 0) < notificationCapacity(settings) {
+			due(uintOr(t["refilledAt"], 0) + notificationRefillSeconds(settings))
+		}
+		for _, batch := range arr(t["batches"]) {
+			due(uintOr(field(batch, "at"), 0) + 3600)
+		}
+		if text(t["reachability"], "challengeHash") != "" {
+			due(uintOr(field(t["reachability"], "expiresAt"), 0))
+		}
+	}
+	return deadline
 }

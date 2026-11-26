@@ -1,8 +1,10 @@
 package core
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -12,6 +14,10 @@ import (
 // reconciliation evidence without starting or resuming a writer.
 var observeNotificationTurn func(context.Context, *service, object) (object, error)
 var notificationObservePeer func(string, object)
+
+// A locates the canonical read-only native history and reports the writer
+// observation without acquiring it.
+var notificationObservationEvidence func(context.Context, *service, object) (historyPath, writer string)
 
 func notificationObservationReusable(b object) bool {
 	observed := obj(b["observation"])
@@ -38,8 +44,13 @@ func handleNotificationObservation(ctx context.Context, s *service, thread, turn
 		notificationEventOperation.Unlock()
 		return err
 	}
-	checkpoint, state, reason, conflict := mergeNotificationLifecycle(notificationAgent(b), thread, turn, b["lifecycle"], observation)
-	observation = clone(observation)
+	incoming := clone(observation)
+	if incoming == nil {
+		incoming = object{}
+	}
+	_, nativeState, _, _ := mergeNotificationLifecycle(notificationAgent(b), thread, turn, nil, incoming)
+	checkpoint, state, reason, conflict := mergeNotificationLifecycle(notificationAgent(b), thread, turn, b["lifecycle"], incoming)
+	observation = clone(incoming)
 	observation["state"], observation["reason"], observation["conflict"] = state, reason, conflict
 	if checkpoint != nil {
 		b["lifecycle"] = checkpoint
@@ -52,21 +63,31 @@ func handleNotificationObservation(ctx context.Context, s *service, thread, turn
 			return err
 		}
 	}
+	if s != nil && notificationAgent(b) == "codex" && notificationTerminal(nativeState) && b["device"] == nil &&
+		!notificationTerminal(text(b["observation"], "state")) && mergeDispatchLifecycle != nil {
+		at := text(b["observation"], "observedAt")
+		reconciled := text(b["observation"], "reconciliation") == "pending-after-restart" || text(b["observation"], "reconciliation") == "unavailable-after-restart"
+		if rows, err := completeDispatch(ctx, s, thread, turn, checkpoint, at, reconciled); err == nil && len(rows) != 0 {
+			incoming["dispatches"] = rows
+		}
+	}
 	notificationEventOperation.Lock()
 	defer notificationEventOperation.Unlock()
 	b, err = readNotificationBinding(thread, turn)
 	if err != nil || b == nil {
 		return err
 	}
-	checkpoint, state, reason, conflict = mergeNotificationLifecycle(notificationAgent(b), thread, turn, b["lifecycle"], observation)
+	checkpoint, state, reason, conflict = mergeNotificationLifecycle(notificationAgent(b), thread, turn, b["lifecycle"], incoming)
+	observation = clone(incoming)
 	observation["state"], observation["reason"], observation["conflict"] = state, reason, conflict
 	if checkpoint != nil {
 		b["lifecycle"] = checkpoint
 	}
-	return projectNotificationObservation(b, observation)
+	nativeTerminal := notificationTerminal(nativeState) && notificationContinuationState(nativeState) == notificationContinuationState(state)
+	return projectNotificationObservation(b, observation, nativeTerminal)
 }
 
-func projectNotificationObservation(b, observed object) error {
+func projectNotificationObservation(b, observed object, nativeTerminal bool) error {
 	old := obj(b["observation"])
 	state := text(observed, "state")
 	diag := object{"state": state, "reason": observed["reason"], "runtimeSource": observed["runtimeSource"], "runtimeStatus": observed["runtimeStatus"],
@@ -105,14 +126,7 @@ func projectNotificationObservation(b, observed object) error {
 		diag["observedAt"] = old["observedAt"]
 	}
 	interaction := arr(observed["interaction"])
-	waiting := []any{}
-	for _, item := range interaction {
-		if field(item, "resolved") != true && field(item, "id") != nil {
-			waiting = append(waiting, wire(field(item, "id")))
-		}
-	}
 	if state != "unconfirmed" {
-		b["waiting"] = waiting
 		for _, item := range deliveries {
 			d := obj(item)
 			if prior := obj(d["interaction"]); prior != nil && prior["resolved"] != true {
@@ -137,41 +151,13 @@ func projectNotificationObservation(b, observed object) error {
 			}
 		}
 	}
-	type transition struct {
-		key, label, taskState string
-		interaction           object
-	}
-	var events []transition
-	if observed["conflict"] == nil {
-		if notificationTerminal(state) {
-			label := state
-			if state == "cancelled" {
-				label = "interrupted"
+	events := notificationTransitions(b, observed, nativeTerminal)
+	if notificationTerminal(state) && nativeTerminal {
+		if d := find(deliveries, "key", "terminal"); d != nil && (d["status"] == "pending" || d["status"] == "sending") {
+			d["state"], d["taskState"] = notificationContinuationState(state), state
+			if state == "completed" && observed["finalResponse"] != nil {
+				d["finalResponse"] = observed["finalResponse"]
 			}
-			prior := find(deliveries, "key", "terminal")
-			if prior == nil && b["scopeEnd"] == nil && !notificationEmptyCompletion(b, observed) {
-				events = append(events, transition{"terminal", label, state, nil})
-			} else if prior != nil && (prior["status"] == "pending" || prior["status"] == "sending") {
-				prior["state"], prior["taskState"] = label, state
-				if state == "completed" && observed["finalResponse"] != nil {
-					prior["finalResponse"] = observed["finalResponse"]
-				}
-			}
-		} else if state == "interaction-required" {
-			for _, item := range interaction {
-				if row := obj(item); row != nil && row["resolved"] != true && row["id"] != nil {
-					label := "waiting for input"
-					if strings.Contains(text(row, "method"), "Approval") {
-						label = "waiting for approval"
-					}
-					events = append(events, transition{"request:" + wire(row["id"]), label, state, row})
-				}
-			}
-			if len(events) == 0 {
-				events = append(events, transition{"request:unidentified", "waiting for input", state, nil})
-			}
-		} else if state == "running" && observed["progressStalled"] == true && b["scopeEnd"] == nil {
-			events = append(events, transition{"progress-stalled:" + text(field(observed["progress"], "evidence"), "lastActivityAt"), "stalled", state, nil})
 		}
 	}
 	start := len(deliveries)
@@ -246,6 +232,71 @@ func projectNotificationObservation(b, observed object) error {
 	return nil
 }
 
+type notificationTransition struct {
+	key, label, taskState string
+	interaction           object
+}
+
+func notificationTransitions(b, observed object, nativeTerminal bool) []notificationTransition {
+	state := text(observed, "state")
+	if observed["conflict"] != nil {
+		return nil
+	}
+	deliveries := arr(b["deliveries"])
+	if notificationTerminal(state) {
+		b["waiting"] = []any{}
+		if !nativeTerminal || find(deliveries, "key", "terminal") != nil || notificationEmptyCompletion(b, observed) {
+			return nil
+		}
+		return []notificationTransition{{"terminal", notificationContinuationState(state), state, nil}}
+	}
+	if state == "running" {
+		b["waiting"] = []any{}
+		if observed["progressStalled"] == true {
+			key := "progress-stalled:" + text(field(observed["progress"], "evidence"), "lastActivityAt")
+			if find(deliveries, "key", key) == nil {
+				return []notificationTransition{{key, "stalled", state, nil}}
+			}
+		}
+	}
+	if state != "interaction-required" {
+		return nil
+	}
+	previous := arr(b["waiting"])
+	waiting := []any{}
+	events := []notificationTransition{}
+	add := func(label string, interaction object) {
+		waiting = append(waiting, label)
+		if id := interaction["id"]; id != nil {
+			events = append(events, notificationTransition{"request:" + wire(id), label, state, interaction})
+		} else if !slices.Contains(previous, any(label)) {
+			events = append(events, notificationTransition{fmt.Sprintf("entry:%d:%s", len(deliveries), label), label, state, nil})
+		}
+	}
+	for _, item := range arr(observed["interaction"]) {
+		r := obj(item)
+		if r == nil || r["resolved"] == true {
+			continue
+		}
+		method := text(r, "method")
+		label := "waiting for input"
+		if !strings.Contains(method, "requestUserInput") && method != "request_user_input_async" && !strings.Contains(method, "elicitation") && strings.Contains(strings.ToLower(method), "approval") {
+			label = "waiting for approval"
+		}
+		add(label, r)
+	}
+	for _, item := range [][2]string{{"waitingOnApproval", "waiting for approval"}, {"waitingOnUserInput", "waiting for input"}} {
+		if slices.Contains(arr(observed["activeFlags"]), any(item[0])) && !slices.Contains(waiting, any(item[1])) {
+			add(item[1], nil)
+		}
+	}
+	b["waiting"] = waiting
+	slices.SortStableFunc(events, func(a, b notificationTransition) int {
+		return cmp.Or(strings.Compare(a.key, b.key), strings.Compare(a.label, b.label))
+	})
+	return slices.CompactFunc(events, func(a, b notificationTransition) bool { return a.key == b.key && a.label == b.label })
+}
+
 func refreshNotificationInbox(source string, bind object) error {
 	if source == "" {
 		return nil
@@ -305,18 +356,117 @@ func recoverNotificationObservations(ctx context.Context, s *service) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		if notificationObservationReusable(b) || b["scopeEnd"] != nil || b["device"] != nil {
+		if b["scopeEnd"] != nil || b["device"] != nil {
 			continue
 		}
 		observing, cancel := context.WithTimeout(ctx, 10*time.Second)
+		watch := captureNotificationEvidence(observing, s, b)
 		observation, err := observeNotificationTurn(observing, s, b)
 		cancel()
 		if err != nil {
 			observation = object{"state": "unconfirmed", "reason": err.Error()}
 		}
-		if err := handleNotificationObservation(ctx, s, text(b, "threadId"), text(b, "turnId"), observation); err != nil && err.Error() != PortPending {
-			recordLog("WARN", fmt.Sprintf("Notification observer: %s", err), nil)
+		if err := handleNotificationObservation(ctx, s, text(b, "threadId"), text(b, "turnId"), observation); err != nil {
+			if err.Error() != PortPending {
+				recordLog("WARN", fmt.Sprintf("Notification observer: %s", err), nil)
+			}
+			continue
 		}
+		finishNotificationEvidence(ctx, s, b, watch)
 	}
 	return nil
+}
+
+type notificationEvidenceWatch struct {
+	paths  map[string]*fileStamp
+	writer string
+}
+
+func captureNotificationEvidence(ctx context.Context, s *service, b object) notificationEvidenceWatch {
+	watch := notificationEvidenceWatch{paths: map[string]*fileStamp{}}
+	thread := text(b, "threadId")
+	add := func(path string) {
+		path = physicalPath(path)
+		stamp, err := readStamp(path)
+		if err == nil {
+			watch.paths[path] = stamp
+		}
+	}
+	if notificationAgent(b) == "codex" && routeID.MatchString(thread) && thread != "." && thread != ".." {
+		add(filepath.Join(root(), "execution", thread+".json"))
+	}
+	if notificationObservationEvidence != nil {
+		path, writer := notificationObservationEvidence(ctx, s, b)
+		watch.writer = writer
+		if path != "" {
+			add(path)
+		}
+	}
+	return watch
+}
+
+func finishNotificationEvidence(ctx context.Context, s *service, b object, watch notificationEvidenceWatch) {
+	thread, turn := text(b, "threadId"), text(b, "turnId")
+	current, err := readNotificationBinding(thread, turn)
+	if err != nil || current == nil {
+		return
+	}
+	dir := physicalPath(notificationOwnerPath())
+	key := filepath.Join(dir, filepath.Base(notificationBindingPath(thread, turn)))
+	notificationIndexes.Lock()
+	index := notificationIndexes.owners[dir]
+	if index == nil {
+		notificationIndexes.Unlock()
+		return
+	}
+	index.removeEvidence(key)
+	for path := range watch.paths {
+		keys := index.evidence[path]
+		if keys == nil {
+			keys = map[string]bool{}
+			index.evidence[path] = keys
+			index.nativeEvidence.add(path)
+		}
+		keys[key] = true
+	}
+	index.evidenceByBinding[key] = watch
+	if notificationObservationReusable(current) {
+		delete(index.active, key)
+	}
+	notificationIndexes.Unlock()
+	for path, previous := range watch.paths {
+		next, err := readStamp(path)
+		if err != nil || !stampSame(next, previous) {
+			wakeNotificationEvidence(path)
+		}
+	}
+	if notificationObservationEvidence != nil && watch.writer != "" && ctx.Err() == nil {
+		_, writer := notificationObservationEvidence(ctx, s, current)
+		if writer != watch.writer {
+			wakeNotificationThread(thread)
+		}
+	}
+}
+
+func wakeNotificationEvidence(path string) {
+	notificationIndexes.Lock()
+	defer notificationIndexes.Unlock()
+	for _, index := range notificationIndexes.owners {
+		for key := range index.evidence[path] {
+			index.active[key] = true
+		}
+	}
+}
+
+func (i *notificationIndex) removeEvidence(key string) {
+	watch := i.evidenceByBinding[key]
+	for path := range watch.paths {
+		keys := i.evidence[path]
+		delete(keys, key)
+		if len(keys) == 0 {
+			delete(i.evidence, path)
+			i.nativeEvidence.remove(path)
+		}
+	}
+	delete(i.evidenceByBinding, key)
 }
