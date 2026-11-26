@@ -314,7 +314,7 @@
         "internal/core/claude_notify_coordination_delivery.go",
         "internal/core/claude_notify_coordination_delivery_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_notify/device/tests.rs": {
       "segment": "C",
@@ -413,7 +413,7 @@
         "internal/core/claude_notify_routing.go",
         "internal/core/claude_notify_routing_test.go"
       ],
-      "status": "ported"
+      "status": "verified"
     },
     "native/src/claude_notify/scheduler.rs": {
       "segment": "C",

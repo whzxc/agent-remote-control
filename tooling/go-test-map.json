@@ -248,11 +248,11 @@
       "new_input_unknown_provenance_and_malformed_history_do_not_inherit": ["internal/core/claude_notify_continuation_test.go#TestNativeContinuationRequiresCompleteProvenance"]
     },
     "native/src/claude_notify/coordination_delivery.rs": {
-      "coordination_delivery_route_changes": {"tests": ["internal/core/claude_notify_coordination_delivery_test.go#TestNotificationCoordinationKeepsVerifiedRouteAndSharedBudget"], "remaining": "Exercise credential revision, revocation, and loss of verification through the send path."},
-      "coordination_delivery_governance": {"tests": ["internal/core/claude_notify_coordination_delivery_test.go#TestNotificationCoordinationKeepsVerifiedRouteAndSharedBudget"], "remaining": "Exercise disabled delivery and muted subscription admission."},
+      "coordination_delivery_route_changes": ["internal/core/claude_notify_coordination_delivery_test.go#TestNotificationCoordinationKeepsVerifiedRouteAndSharedBudget", "internal/core/claude_notify_coordination_delivery_test.go#TestCoordinationDeliveryRevalidatesBeforeTransport"],
+      "coordination_delivery_governance": ["internal/core/claude_notify_coordination_delivery_test.go#TestNotificationCoordinationKeepsVerifiedRouteAndSharedBudget", "internal/core/claude_notify_coordination_delivery_test.go#TestCoordinationDeliveryRevalidatesBeforeTransport"],
       "coordination_fallback_ranks_verification_and_refuses_ties": ["internal/core/claude_notify_coordination_delivery_test.go#TestNotificationCoordinationKeepsVerifiedRouteAndSharedBudget"],
-      "registration_target_requires_source_ownership_and_current_verification": {"tests": ["internal/core/claude_notify_coordination_delivery_test.go#TestNotificationCoordinationKeepsVerifiedRouteAndSharedBudget", "internal/core/claude_notify_test.go#TestNotificationVerificationRequiresOneTimeReceivedCode"], "remaining": "Test foreign-source registration against a currently verified destination."},
-      "effective_route_revalidates_and_unbinding_restores_only_unique_fallback": {"tests": ["internal/core/claude_notify_coordination_delivery_test.go#TestNotificationCoordinationKeepsVerifiedRouteAndSharedBudget"], "remaining": "Unbind a stale explicit route and restore only the unique fallback."}
+      "registration_target_requires_source_ownership_and_current_verification": ["internal/core/claude_notify_coordination_delivery_test.go#TestNotificationCoordinationKeepsVerifiedRouteAndSharedBudget", "internal/core/claude_notify_test.go#TestNotificationVerificationRequiresOneTimeReceivedCode", "internal/core/claude_notify_coordination_delivery_test.go#TestCoordinationRegistrationAndFallbackRespectCurrentVerifiedOwner"],
+      "effective_route_revalidates_and_unbinding_restores_only_unique_fallback": ["internal/core/claude_notify_coordination_delivery_test.go#TestNotificationCoordinationKeepsVerifiedRouteAndSharedBudget", "internal/core/claude_notify_coordination_delivery_test.go#TestCoordinationRegistrationAndFallbackRespectCurrentVerifiedOwner"]
     },
     "native/src/claude_notify/device/tests.rs": {
       "device_event_work_is_independent_of_retained_binding_count": {"tests": ["internal/core/claude_notify_device_test.go#TestMemberNotificationProjectionHasDeviceQualifiedAuthority"], "remaining": "Measure read cost with a realistic retained binding population."},
@@ -286,10 +286,10 @@
       "routing_app_env_freezes_advances_and_resets_without_focus": ["internal/core/claude_notify_routing_test.go#TestNotificationRoutingUsesControlledApplicationClock"],
       "routing_presence_only_delays_new_routable_requests": ["internal/core/claude_notify_routing_test.go#TestNotificationRoutingOnlyNewRequestsReceivePresenceDelay"],
       "routing_presence_never_retroactively_delays": ["internal/core/claude_notify_routing_test.go#TestNotificationRoutingOnlyNewRequestsReceivePresenceDelay"],
-      "routing_pause_preserves_remaining_time_and_actor": {"tests": ["internal/core/claude_notify_routing_test.go#TestNotificationRoutingPreservesPauseAndHandsOffOnce"], "remaining": "Advance the controlled clock through the persisted pause and resumed deadline."},
+      "routing_pause_preserves_remaining_time_and_actor": ["internal/core/claude_notify_routing_test.go#TestNotificationRoutingPreservesPauseAndHandsOffOnce"],
       "routing_handoff_is_immediate_and_idempotent": ["internal/core/claude_notify_routing_test.go#TestNotificationRoutingPreservesPauseAndHandsOffOnce"],
-      "routing_restart_and_absence_remove_defer": {"tests": ["internal/core/claude_notify_routing_test.go#TestNotificationRoutingOnlyNewRequestsReceivePresenceDelay"], "remaining": "Replay a persisted routing delay after a native restart and absence."},
-      "routing_resolved_requests_cannot_be_handed_off": {"tests": ["internal/core/claude_notify_routing_test.go#TestNotificationRoutingPreservesPauseAndHandsOffOnce"], "remaining": "Check pause and resume rejection after a resolved request."}
+      "routing_restart_and_absence_remove_defer": ["internal/core/claude_notify_routing_test.go#TestNotificationRoutingOnlyNewRequestsReceivePresenceDelay"],
+      "routing_resolved_requests_cannot_be_handed_off": ["internal/core/claude_notify_routing_test.go#TestNotificationRoutingPreservesPauseAndHandsOffOnce"]
     },
     "native/src/claude_notify/scheduler.rs": {
       "unattributed_pending_and_paused_routes_have_no_retry_clock": ["internal/core/claude_notify_scheduler_test.go#TestNotificationSchedulerParksUnattributedAndHeldRows"],

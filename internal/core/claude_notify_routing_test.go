@@ -1,6 +1,9 @@
 package core
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestNotificationRoutingUsesControlledApplicationClock(t *testing.T) {
 	// Algorithmic core: the application clock controls countdowns and clearing overrides releases paused routing.
@@ -58,14 +61,32 @@ func TestNotificationRoutingPreservesPauseAndHandsOffOnce(t *testing.T) {
 	if field(entry["routing"], "pausedBy") != "user" {
 		t.Fatalf("paused routing = %v", entry["routing"])
 	}
-	if err := changeNotificationRouting(entry, "resume", "user", 10000); err != nil {
+	var recovered object
+	if err := unmarshalJSON([]byte(wire(entry)), &recovered); err != nil {
 		t.Fatal(err)
 	}
-	if got := field(entry["routing"], "deferUntil"); got != int64(22000) {
+	entry = recovered
+	advanceNotificationRouting(entry, "session", "system", true, true, 20000)
+	if field(entry["routing"], "state") != "paused" || field(entry["routing"], "pausedBy") != "user" {
+		t.Fatalf("elapsed time changed the paused request: %v", entry)
+	}
+	if err := changeNotificationRouting(entry, "resume", "source-a", 21000); err != nil {
+		t.Fatal(err)
+	}
+	if got := field(entry["routing"], "deferUntil"); got != int64(33000) {
 		t.Fatalf("resumed deadline = %v", got)
 	}
+	advanceNotificationRouting(entry, "session", "system", true, true, 32999)
+	if field(entry["routing"], "state") != "deferred" {
+		t.Fatalf("resumed request routed too soon: %v", entry)
+	}
+	advanceNotificationRouting(entry, "session", "system", true, true, 33000)
+	if field(entry["routing"], "reason") != "countdown-elapsed" {
+		t.Fatalf("resumed request missed its deadline: %v", entry)
+	}
+	entry["routing"] = initialNotificationRouting(true, true, 34000, 15)
 	for range 2 {
-		if err := changeNotificationRouting(entry, "handoff", "user", 12000); err != nil {
+		if err := changeNotificationRouting(entry, "handoff", "user", 35000); err != nil {
 			t.Fatal(err)
 		}
 		if field(entry["routing"], "reason") != "handoff-now" {
@@ -73,8 +94,10 @@ func TestNotificationRoutingPreservesPauseAndHandsOffOnce(t *testing.T) {
 		}
 	}
 	entry["resolved"] = true
-	if err := changeNotificationRouting(entry, "handoff", "user", 13000); err == nil {
-		t.Fatal("resolved request was handed off")
+	for _, action := range []string{"pause", "resume", "handoff"} {
+		if err := changeNotificationRouting(entry, action, "source-a", 36000); err == nil || !strings.HasPrefix(err.Error(), "REQUEST_RESOLVED:") {
+			t.Fatalf("%s on resolved request = %v", action, err)
+		}
 	}
 }
 
@@ -90,14 +113,26 @@ func TestNotificationRoutingOnlyNewRequestsReceivePresenceDelay(t *testing.T) {
 	if field(entry["routing"], "reason") != "environment-reset" {
 		t.Fatalf("reset route = %v", entry["routing"])
 	}
-	entry["routing"] = initialNotificationRouting(true, true, 2000, 15)
-	advanceNotificationRouting(entry, "new-session", "new-clock", true, true, 3000)
-	if field(entry["routing"], "reason") != "restart-recovery" {
-		t.Fatalf("restarted route = %v", entry["routing"])
+	for _, paused := range []bool{false, true} {
+		row := object{"session": "first", "clockId": "system", "routing": initialNotificationRouting(true, true, 1000, 15)}
+		if paused {
+			if err := changeNotificationRouting(row, "pause", "user", 2000); err != nil {
+				t.Fatal(err)
+			}
+		}
+		var recovered object
+		if err := unmarshalJSON([]byte(wire(row)), &recovered); err != nil {
+			t.Fatal(err)
+		}
+		advanceNotificationRouting(recovered, "second", "system", true, true, 3000)
+		if field(recovered["routing"], "state") != "routed" || field(recovered["routing"], "reason") != "restart-recovery" ||
+			field(recovered["routing"], "deferUntil") != nil {
+			t.Fatalf("restarted route = %v", recovered)
+		}
 	}
-	entry["routing"] = initialNotificationRouting(true, true, 2000, 15)
-	advanceNotificationRouting(entry, "new-session", "new-clock", false, true, 3000)
-	if field(entry["routing"], "reason") != "user-absent" {
+	entry = object{"session": "session", "clockId": "system", "routing": initialNotificationRouting(true, true, 1000, 15)}
+	advanceNotificationRouting(entry, "session", "system", false, true, 2000)
+	if field(entry["routing"], "reason") != "user-absent" || field(entry["routing"], "deferUntil") != nil {
 		t.Fatalf("absent route = %v", entry["routing"])
 	}
 }
