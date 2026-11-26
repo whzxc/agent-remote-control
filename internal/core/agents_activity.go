@@ -9,6 +9,7 @@ import (
 	"io"
 	"maps"
 	"net/http"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -113,6 +114,8 @@ type codexActivityMonitor struct {
 	active              []object
 	known               map[string]string
 	knownIDs            []string
+	titleStamp          *fileStamp
+	titles              map[string]string
 }
 
 func (m *codexActivityMonitor) close() {
@@ -259,6 +262,7 @@ func (m *codexActivityMonitor) sample(ctx context.Context, home string, now time
 		}
 		m.root, m.watch, m.sampled, m.discovered = dir, nil, time.Time{}, time.Time{}
 		m.files, m.known, m.knownIDs, m.active = map[string]codexActivityFile{}, map[string]string{}, nil, nil
+		m.titleStamp, m.titles = nil, nil
 		m.watch, _ = watchDiscovery([]string{dir, filepath.Join(home, "session_index.jsonl")}, nil)
 	}
 	if now.Sub(m.sampled) < 2*time.Second {
@@ -314,34 +318,72 @@ func (m *codexActivityMonitor) sample(ctx context.Context, home string, now time
 			next[path] = old
 		}
 	}
+	if len(active) > 0 {
+		m.loadTitles(ctx, home)
+		for _, row := range active {
+			thread := text(row, "id")
+			if path := m.known[thread]; next[path].clock.name == "" && m.titles[thread] != "" {
+				row["title"] = m.titles[thread]
+			}
+		}
+	}
 	m.files, m.active = next, active
 	return slices.Clone(active)
 }
 
+func (m *codexActivityMonitor) loadTitles(ctx context.Context, home string) {
+	path := filepath.Join(home, "session_index.jsonl")
+	stamp, err := readStamp(path)
+	if err != nil || stampSame(stamp, m.titleStamp) {
+		return
+	}
+	if stamp == nil {
+		m.titles, m.titleStamp = nil, nil
+		return
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+	titles := map[string]string{}
+	if _, err := decodeCodexActivityRecords(ctx, io.LimitReader(file, int64(stamp.Length)), func(row object) {
+		if id, title := text(row, "id"), text(row, "thread_name"); id != "" && title != "" {
+			titles[id] = title
+		}
+	}); err == nil {
+		m.titles, m.titleStamp = titles, stamp
+	}
+}
+
 func readNativeAgentActivity(ctx context.Context, s *service) (object, error) {
 	defer beginRuntimeWork("activity")()
+	ctx = withRuntimeCost(ctx, "activity", "poll")
+	disabled, err := disabledNativeAgents()
+	if err != nil {
+		return nil, err
+	}
+	nowAt := time.Now()
 	var rows []object
-	if _, home, err := codexInputs(); err == nil {
-		rows = s.codex.activity.sample(ctx, home, time.Now())
+	if !slices.Contains(disabled, any("codex")) {
+		if _, home, err := codexInputs(); err == nil {
+			rows = s.codex.activity.sample(ctx, home, nowAt)
+		}
 	}
 	byID := make(map[string]object, len(rows))
 	for _, row := range rows {
 		byID[text(row, "id")] = clone(row)
 	}
-	s.events.Lock()
-	for thread, timeline := range s.events.taskTimelines {
-		if timeline.Status != "running" && timeline.Status != "waiting-permission" {
-			continue
-		}
-		row := timeline.session(thread, timeline.Info, "codex-thread", nil)
-		for _, key := range []string{"title", "project", "startedAt", "dispatchSummary", "parentSessionId", "relationKind"} {
-			if row[key] == nil || row[key] == "" {
-				row[key] = byID[thread][key]
+	if !slices.Contains(disabled, any("codex")) {
+		for thread, row := range nativeCodexLiveActivity(&s.events) {
+			for _, key := range []string{"title", "project", "startedAt", "dispatchSummary", "parentSessionId", "relationKind"} {
+				if row[key] == nil || row[key] == "" {
+					row[key] = byID[thread][key]
+				}
 			}
+			byID[thread] = row
 		}
-		byID[thread] = row
 	}
-	s.events.Unlock()
 	agents := object{}
 	ids := []string{}
 	if len(byID) > 0 {
@@ -351,15 +393,44 @@ func readNativeAgentActivity(ctx context.Context, s *service) (object, error) {
 		agents["codex"] = object{"sessions": nativeActivitySessions(sessions)}
 	}
 	byAgent := map[string][]object{}
+	ownedClaude := map[string]bool{}
 	for _, process := range s.agents.processes() {
 		task := process.snapshot()
 		agent, taskID := text(task, "agent"), text(task, "taskId")
-		if task["archived"] == true || !agentTurnActive(task) || !nativeAgentReadAllowed(ctx, agent, taskID) {
+		if task["archived"] == true || slices.Contains(disabled, any(agent)) || !nativeAgentReadAllowed(ctx, agent, taskID) {
 			continue
 		}
-		row := selectFields(task, "agent", "taskId", "turnId", "sessionId", "title", "createdAt", "updatedAt", "status")
-		row["id"], row["project"], row["source"], row["runtimeStatus"] = taskID, task["cwd"], "arc-task", agentTurnRuntime(task)
+		select {
+		case <-process.done:
+			continue
+		default:
+		}
+		if !agentTurnActive(task) && len(arr(task["pendingInteractions"])) == 0 {
+			continue
+		}
+		var timeline taskTimeline
+		_ = unmarshalJSON([]byte(wire(task["tracking"])), &timeline)
+		info := object{"id": taskID, "taskId": taskID, "agent": agent, "title": task["title"], "project": task["cwd"], "startedAt": task["createdAt"]}
+		row := timeline.session(taskID, info, "arc-task", nil)
+		row["nativeSessionId"], row["agentAccountId"], row["origin"] = task["sessionId"], task["agentAccountId"], task["origin"]
+		if agent == "claude" {
+			ownedClaude[text(task, "sessionId")] = true
+		}
 		byAgent[agent] = append(byAgent[agent], row)
+	}
+	if ctx.Value(&peerControlKey) == nil && !slices.Contains(disabled, any("claude")) {
+		if states, err := listNativeAgentStates("claude", true); err == nil {
+			for _, task := range states {
+				if task["archived"] == true {
+					ownedClaude[text(task, "sessionId")] = true
+				}
+			}
+		}
+		for _, row := range s.agents.claudeActivity.sample(ctx, nowAt) {
+			if !ownedClaude[text(row, "id")] {
+				byAgent["claude"] = append(byAgent["claude"], clone(row))
+			}
+		}
 	}
 	for agent, sessions := range byAgent {
 		ids = append(ids, agent)
@@ -368,6 +439,111 @@ func readNativeAgentActivity(ctx context.Context, s *service) (object, error) {
 	}
 	slices.Sort(ids)
 	return object{"agents": agents, "activeAgents": ids, "observedAt": now(), "scope": "selected-local-transcripts-and-connector-live-sessions"}, nil
+}
+
+func nativeCodexLiveActivity(events *nativeEvents) map[string]object {
+	pending := map[string]bool{}
+	for _, request := range events.pendingInteractions() {
+		if request["stale"] != true {
+			pending[text(request["params"], "threadId")] = true
+		}
+	}
+	events.Lock()
+	defer events.Unlock()
+	result := map[string]object{}
+	for thread, timeline := range events.taskTimelines {
+		if timeline.Status == "running" || timeline.Status == "inProgress" || pending[thread] {
+			result[thread] = timeline.session(thread, timeline.Info, "codex-thread", nil)
+		}
+	}
+	return result
+}
+
+type claudeActivityMonitor struct {
+	sync.Mutex
+	sampled time.Time
+	files   map[string]nativeConversationMetadata
+	active  []object
+}
+
+func (m *claudeActivityMonitor) sample(ctx context.Context, nowAt time.Time) []object {
+	m.Lock()
+	defer m.Unlock()
+	if nowAt.Sub(m.sampled) < 2*time.Second {
+		return slices.Clone(m.active)
+	}
+	m.sampled = nowAt
+	paths := map[string]bool{}
+	for _, dir := range nativeAgentTranscriptRoots("claude") {
+		discoverCodexActivityPaths(dir, paths)
+	}
+	next, active := map[string]nativeConversationMetadata{}, []object{}
+	seen := map[string]bool{}
+	for _, path := range slices.Sorted(maps.Keys(paths)) {
+		if ctx.Err() != nil {
+			return slices.Clone(m.active)
+		}
+		if nativeTranscriptSidechain(path, nil) {
+			continue
+		}
+		stamp, err := readStamp(path)
+		if err != nil || stamp == nil || stamp.Modified == nil {
+			continue
+		}
+		previous := m.files[path]
+		if previous.row == nil && nowAt.Sub(time.Unix(stamp.Modified.Seconds, int64(stamp.Modified.Nanos))) > 5*time.Minute {
+			continue
+		}
+		entry := previous
+		if !stampSame(previous.stamp, stamp) {
+			entry = nativeConversationMetadata{stamp, sampleClaudeActivityFile(ctx, path, stamp)}
+		}
+		if entry.row != nil {
+			id := text(entry.row, "id")
+			if !seen[id] {
+				active, seen[id] = append(active, entry.row), true
+			}
+		}
+		if len(next) < 128 || entry.row != nil {
+			next[path] = entry
+		}
+	}
+	m.files, m.active = next, active
+	return slices.Clone(active)
+}
+
+func sampleClaudeActivityFile(ctx context.Context, path string, stamp *fileStamp) object {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil
+	}
+	defer file.Close()
+	start := max(0, int64(stamp.Length)-agentNativeTail)
+	records, err := nativeTranscriptRead(ctx, file, start, int64(stamp.Length)-start, start != 0, true)
+	if err != nil {
+		return nil
+	}
+	rows := make([]any, len(records))
+	for i, record := range records {
+		rows[i] = record
+	}
+	timeline := taskTimeline{Partial: start != 0}
+	timeline.backfillClaude(rows)
+	if !timeline.transcriptActive() {
+		return nil
+	}
+	if current, err := readStamp(path); err != nil || !stampSame(stamp, current) && !current.appendsTo(stamp) {
+		return nil
+	}
+	id := nonemptyTaskText(text(timeline.Info, "id"), strings.TrimSuffix(filepath.Base(path), ".jsonl"))
+	if uuid.Validate(id) != nil {
+		return nil
+	}
+	row := timeline.transcriptSession(id, "claude")
+	if metadata := scanNativeAgentConversation(ctx, "claude", path); metadata != nil {
+		row["title"], row["startedAt"] = metadata["title"], metadata["createdAt"]
+	}
+	return row
 }
 
 func nativeActivitySessions(sessions []object) []any {

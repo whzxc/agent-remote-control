@@ -9,13 +9,20 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
+	"time"
 )
 
 type nativeAgentHost struct {
 	sync.Mutex
-	running  map[string]*nativeAgentProcess
-	launches launches
+	running        map[string]*nativeAgentProcess
+	claudeActivity claudeActivityMonitor
+	launches       launches
+	adapterMu      sync.Mutex
+	adapterCancel  context.CancelFunc
+	adapterDone    chan struct{}
+	adapterFailure string
 }
 
 func (host *nativeAgentHost) process(task string) *nativeAgentProcess {
@@ -44,6 +51,7 @@ func (host *nativeAgentHost) processes() []*nativeAgentProcess {
 }
 
 func (host *nativeAgentHost) close() {
+	host.stopClaudeAdapterPreparation()
 	host.launches.close()
 	var retained []object
 	for _, process := range host.processes() {
@@ -109,6 +117,7 @@ func reloadNativeAgentHosts(ctx context.Context, s *service) error {
 		task["taskHost"] = merged
 		p := newNativeAgentProcess(driver, task)
 		p.host = newTaskHostClient(merged)
+		p.attachmentSession = text(s.metadata, "instance")
 		p.activePrompt = text(merged, "promptId")
 		for _, interaction := range arr(task["pendingInteractions"]) {
 			p.pending[wire(field(interaction, "id"))] = obj(interaction)
@@ -116,10 +125,50 @@ func reloadNativeAgentHosts(ctx context.Context, s *service) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+		replay, stop := context.WithTimeout(ctx, 10*time.Second)
+		status, issue := p.host.status(replay)
+		if issue != nil {
+			status = p.host.exit()
+		}
+		if status == nil {
+			stop()
+			if issue == nil {
+				issue = errors.New("TASK_HOST_STATUS_INVALID")
+			}
+			recordLog("WARN", "Task "+taskID+" could not reattach: "+issue.Error(), nil)
+			continue
+		}
+		merged["receivedSequence"] = status["receivedSequence"]
+		merged["drainOnly"] = uintOr(merged["hostProtocol"], 0) != taskHostProtocol
+		p.task["taskHost"] = merged
+		p.task["processState"] = "recovering"
+		last := max(1, uintOr(status["nextOffset"], 1)) - 1
 		run, cancel := context.WithCancel(context.Background())
 		p.cancel = cancel
-		s.agents.publish(taskID, p)
 		go p.runHosted(run)
+		for replay.Err() == nil {
+			changed := p.signal()
+			if uintOr(field(p.snapshot()["taskHost"], "ackedOffset"), 0) >= last {
+				break
+			}
+			select {
+			case <-changed:
+			case <-p.done:
+				p.recoverHostedReceipt(replay)
+				stop()
+			case <-replay.Done():
+			}
+		}
+		if replay.Err() != nil && uintOr(field(p.snapshot()["taskHost"], "ackedOffset"), 0) < last {
+			cancel()
+			stop()
+			<-p.done
+			recordLog("WARN", "Task "+taskID+" could not reattach: TASK_HOST_REPLAY_TIMEOUT", nil)
+			continue
+		}
+		stop()
+		p.recoverHostedReceipt(ctx)
+		s.agents.publish(taskID, p)
 	}
 	return nil
 }
@@ -170,7 +219,10 @@ func nativeAgentEnabled(agent string) (bool, error) {
 func ensureNativeAgentEnabled(agent string) error {
 	enabled, err := nativeAgentEnabled(agent)
 	if err == nil && !enabled {
-		err = errors.New("AGENT_DISABLED")
+		return errors.New("AGENT_DISABLED")
+	}
+	if err == nil && agent == "claude" && !nativeClaudeAdapterReady() {
+		return errors.New("CLAUDE_ADAPTER_NOT_READY")
 	}
 	return err
 }
@@ -205,9 +257,13 @@ func nativeAgentInventory(ctx context.Context, s *service, optionsOnly bool) (ob
 	if err != nil {
 		return nil, err
 	}
-	rows := make([]object, len(nativeAgentDrivers))
+	drivers, err := agentRegistry()
+	if err != nil {
+		return nil, err
+	}
+	rows := make([]object, len(drivers))
 	var ready sync.WaitGroup
-	for i, driver := range nativeAgentDrivers {
+	for i, driver := range drivers {
 		ready.Go(func() {
 			found := nativeAgentDiscovery{}
 			if driver.id == "codex" {
@@ -225,9 +281,27 @@ func nativeAgentInventory(ctx context.Context, s *service, optionsOnly bool) (ob
 			}
 			enabled := !slices.Contains(disabled, any(driver.id))
 			installed := found.binary != ""
+			descriptor, integration := driver.descriptor(), "native"
+			if driver.manifest != nil {
+				integration = driver.manifest.Integration
+			}
+			if driver.id == "claude" {
+				enabled = enabled && nativeClaudeAdapterReady()
+				integration = "adapter"
+			}
 			row := object{"agent": driver.id, "id": driver.id, "name": driver.name, "displayName": driver.name, "protocol": protocol,
-				"installed": installed, "enabled": enabled, "available": installed && enabled && found.err == nil,
-				"version": dispatchFirstString(found.version), "capabilities": capabilitiesForAgent(driver.id)}
+				"installed": installed, "enabled": enabled, "available": installed && enabled && found.err == nil, "discoveryError": nil,
+				"version": dispatchFirstString(found.version), "path": dispatchFirstString(found.binary), "capabilities": capabilitiesForAgent(driver.id),
+				"configuration": "inherited", "descriptor": descriptor, "integration": integration,
+				"readiness": "ready means a live initialized session, not provider authentication"}
+			if driver.id == "claude" && s != nil {
+				s.agents.adapterMu.Lock()
+				row["preparing"] = s.agents.adapterDone != nil
+				if err := s.agents.adapterFailure; err != "" {
+					row["preparationError"] = err
+				}
+				s.agents.adapterMu.Unlock()
+			}
 			if found.err != nil {
 				row["discoveryError"] = found.err.Error()
 			}
@@ -235,37 +309,8 @@ func nativeAgentInventory(ctx context.Context, s *service, optionsOnly bool) (ob
 		})
 	}
 	ready.Wait()
-	return object{"agents": rows, "observedAt": now()}, nil
-}
-
-func nativeAgentPolicyFacts(ctx context.Context, s *service, args object) ([]object, error) {
-	stock, err := nativeAgentInventory(ctx, s, false)
-	if err != nil {
-		return nil, err
-	}
-	var task object
-	if id := text(args, "taskId"); id != "" {
-		task, err = s.nativeAgentTask(text(args, "agent"), id)
-		if err != nil {
-			return nil, err
-		}
-	}
-	result := []object{}
-	for _, availability := range stock["agents"].([]object) {
-		agent := text(availability, "agent")
-		if selected := text(args, "agent"); selected != "" && agent != selected {
-			continue
-		}
-		if args["all"] != true && args["agent"] == nil && availability["available"] != true {
-			continue
-		}
-		row := object{"agent": agent, "availability": availability, "capabilities": object{}}
-		if agent == "antigravity" {
-			row["capabilities"] = nativeAntigravityFacts(task, "launch-flags")
-		}
-		result = append(result, row)
-	}
-	return result, nil
+	slices.SortFunc(rows, func(a, b object) int { return strings.Compare(text(a, "agent"), text(b, "agent")) })
+	return object{"agents": rows, "defaultAgent": "codex", "observedAt": now()}, nil
 }
 
 func runAgentMutation(ctx context.Context, r operationRequest, perform func(context.Context, operationRequest, object) (any, error)) (any, error) {
@@ -300,10 +345,30 @@ func runAgentMutation(ctx context.Context, r operationRequest, perform func(cont
 	origin, at := currentOrigin(ctx), now()
 	row := object{"origin": origin, "requestId": request, "backendSession": session, "digest": digest, "operation": r.name,
 		"agent": args["agent"], "arguments": args, "state": "reserved", "createdAt": at, "updatedAt": at}
-	if args["taskId"] != nil {
+	if r.name == "agent_create" {
+		row["taskId"] = id()
+	} else {
 		row["taskId"] = args["taskId"]
+		if task, err := r.service.nativeAgentTask(text(args, "agent"), text(args, "taskId")); err == nil {
+			row["previousTurnId"] = task["turnId"]
+		}
 	}
 	attachDispatchCaller(ctx, row)
+	if slices.Contains([]string{"agent_create", "agent_send", "agent_interrupt"}, r.name) {
+		settings, err := notificationSettings()
+		if err != nil {
+			return nil, err
+		}
+		switch args["approval"] {
+		case "approved", "bypass":
+			row["answeredBy"] = interactionAnsweredBy(origin)
+		default:
+			if settings["enabled"] == true {
+				row["state"], row["nextAction"] = "awaiting-approval", "receipt"
+				return row, store.reserve(ctx, row)
+			}
+		}
+	}
 	lifetime := r.service.jobs.begin()
 	if lifetime == nil {
 		return nil, errors.New("CORE_SHUTTING_DOWN: retry after Core restarts")
@@ -364,7 +429,27 @@ func nativeAgentPrompt(ctx context.Context, r operationRequest, process *nativeA
 		sourceRef = src
 	}
 	args["srcConversation"] = sourceRef
-	dispatch := object{"reason": args["reason"], "model": configured["model"], "options": configured["options"], "submittedAt": now()}
+	var dispatch object
+	if process.driver.id == "antigravity" {
+		dispatch = object{"reason": args["reason"], "model": configured["model"], "options": configured["options"], "submittedAt": now(),
+			"sessionConfirmation": object{"model": configured["model"], "options": configured["options"], "evidence": "requested-not-executed"},
+			"submission":          "pending", "turnEvidence": nil}
+	} else {
+		var err error
+		dispatch, err = configureNativeAgentDispatch(ctx, process, task, args)
+		if err != nil {
+			state := "rejected"
+			if strings.HasPrefix(err.Error(), "AGENT_REQUEST_TIMEOUT:") || errors.Is(err, context.DeadlineExceeded) {
+				state = "unconfirmed"
+				closeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
+				defer cancel()
+				_ = process.close(closeCtx)
+				_ = process.checkpoint(observeAgentLoss)
+			}
+			row["result"] = object{"promptSubmitted": false, "configurationError": err.Error(), "configurationState": state}
+			return nil, err
+		}
+	}
 	if r.name == "agent_send" {
 		dispatch["trigger"] = dispatchSendTrigger(args)
 	}
@@ -382,6 +467,9 @@ func nativeAgentPrompt(ctx context.Context, r operationRequest, process *nativeA
 	process.task["turnId"], process.task["output"], process.task["outputTruncated"], process.task["error"] = turn, "", false, nil
 	process.task["deniedActions"], process.task["toolErrors"] = []any{}, []any{}
 	process.task["origin"], process.task["dispatch"], process.task["coordination"] = currentOrigin(ctx), dispatch, admission
+	if process.driver.id != "antigravity" {
+		process.task["configured"] = dispatch["sessionConfirmation"]
+	}
 	delete(process.task, "_turnLifecycle")
 	process.task["status"] = "running"
 	delete(process.task, "lastMessage")
@@ -444,36 +532,14 @@ func nativeAgentPrompt(ctx context.Context, r operationRequest, process *nativeA
 }
 
 func agentDispatchConfiguration(agent string, args, inherited object) (object, error) {
+	if agent != "antigravity" {
+		return nil, nil
+	}
 	policy, err := dispatchAgentPolicy(agent)
 	if err != nil {
 		return nil, err
 	}
-	withPack := maps.Clone(args)
-	defaults := field(args["pack"], "defaults")
-	if withPack["model"] == nil && field(defaults, "model") != nil {
-		withPack["model"] = field(defaults, "model")
-	}
-	if options := obj(field(defaults, "options")); options != nil {
-		options = maps.Clone(options)
-		maps.Copy(options, obj(withPack["options"]))
-		withPack["options"] = options
-	}
-	if agent == "antigravity" {
-		return nativeAntigravityConfiguration(withPack, policy, inherited)
-	}
-	model := dispatchFirstString(withPack["model"], inherited["model"], policy["model"])
-	options := maps.Clone(obj(policy["options"]))
-	if inherited != nil {
-		options = maps.Clone(obj(inherited["options"]))
-	}
-	if options == nil {
-		options = object{}
-	}
-	maps.Copy(options, obj(withPack["options"]))
-	if err := checkDispatchAgentPolicy(policy, options, model); err != nil {
-		return nil, err
-	}
-	return object{"model": model, "options": options}, nil
+	return nativeAntigravityConfiguration(args, policy, inherited)
 }
 
 func createNativeAgentTask(ctx context.Context, r operationRequest, row object) (any, error) {
@@ -494,8 +560,7 @@ func createNativeAgentTask(ctx context.Context, r operationRequest, row object) 
 	if err != nil {
 		return nil, err
 	}
-	taskID := id()
-	row["taskId"] = taskID
+	taskID := text(row, "taskId")
 	if err := agentReceiptCheckpoint(ctx, row, "launching"); err != nil {
 		return nil, err
 	}
@@ -514,7 +579,8 @@ func createNativeAgentTask(ctx context.Context, r operationRequest, row object) 
 	}
 	if text(args, "prompt") == "" {
 		state := p.snapshot()
-		return object{"taskId": taskID, "sessionId": state["sessionId"], "submitted": false, "status": state["status"]}, nil
+		state["submitted"] = false
+		return state, nil
 	}
 	return nativeAgentPrompt(ctx, r, p, row, configured)
 }
@@ -681,16 +747,24 @@ func respondNativeAgentTask(ctx context.Context, r operationRequest, row object)
 	return object{"taskId": taskID, "turnId": item["turnId"], "responseSent": true}, nil
 }
 
+var nativeAgentMutationHandlers = map[string]func(context.Context, operationRequest, object) (any, error){
+	"agent_create": createNativeAgentTask, "agent_send": sendNativeAgentTask, "agent_interrupt": interruptNativeAgentTask,
+	"agent_respond": respondNativeAgentTask, "agent_archive": archiveNativeAgentTask, "agent_review": reviewNativeAgentTask,
+}
+
 func init() {
 	registerServiceStartup(func(_ context.Context, s *service) error {
+		if _, err := agentRegistry(); err != nil {
+			return err
+		}
+		if err := pruneNativeClaudeAdapters(); err != nil {
+			recordLog("WARN", "Cannot prune unused Agent components: "+err.Error(), nil)
+		}
 		s.cleanup = append(s.cleanup, s.agents.close)
 		return nil
 	})
 	registerAfterIndexStartup(15, reloadNativeAgentHosts)
-	for name, perform := range map[string]func(context.Context, operationRequest, object) (any, error){
-		"agent_create": createNativeAgentTask, "agent_send": sendNativeAgentTask, "agent_interrupt": interruptNativeAgentTask,
-		"agent_respond": respondNativeAgentTask, "agent_archive": archiveNativeAgentTask, "agent_review": reviewNativeAgentTask,
-	} {
+	for name, perform := range nativeAgentMutationHandlers {
 		registerOperation(name, func(ctx context.Context, r operationRequest) (any, error) {
 			return runAgentMutation(ctx, r, perform)
 		}, nil)
@@ -702,8 +776,11 @@ func init() {
 	registerRoute(http.MethodGet, "agents", func(ctx context.Context, s *service, _ object, _ []string) (any, error) {
 		return nativeAgentInventory(ctx, s, false)
 	})
-	registerRoute(http.MethodPut, "agents", func(_ context.Context, _ *service, body object, _ []string) (any, error) {
-		return updateNativeAgentEnabled(body)
+	registerRoute(http.MethodPost, "agents", func(ctx context.Context, s *service, _ object, _ []string) (any, error) {
+		return nativeAgentInventory(ctx, s, false)
+	})
+	registerRoute(http.MethodPut, "agents", func(ctx context.Context, s *service, body object, _ []string) (any, error) {
+		return s.agents.setEnabled(ctx, body)
 	})
 	dispatchRegisteredAgent = func(_ *service, agent string) bool {
 		_, ok := nativeAgentDriverByID(agent)

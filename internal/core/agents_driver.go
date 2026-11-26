@@ -123,19 +123,21 @@ func init() {
 type nativeAgentDriver struct {
 	id, name, protocol string
 	commands, args     []string
+	manifest           *nativeACPManifest
 }
 
 var nativeAgentDrivers = []nativeAgentDriver{
-	{"antigravity", "Antigravity", "antigravity-stream-json", []string{"agy", "antigravity"}, nil},
-	{"opencode", "OpenCode", "acp-v1", []string{"opencode"}, []string{"acp"}},
-	{"gemini", "Gemini CLI", "acp-v1", []string{"gemini"}, []string{"--acp"}},
-	{"cursor", "Cursor Agent", "acp-v1", []string{"agent", "cursor-agent"}, []string{"acp"}},
-	{"pi", "Pi", "pi-rpc", []string{"pi"}, []string{"--mode", "rpc"}},
-	{"codex", "Codex", "codex-native", []string{"codex"}, nil},
+	{"antigravity", "Antigravity", "antigravity-stream-json", []string{"agy", "antigravity"}, nil, nil},
+	{"pi", "Pi", "pi-rpc", []string{"pi"}, []string{"--mode", "rpc"}, nil},
+	{"codex", "Codex", "codex-native", []string{"codex"}, nil, nil},
 }
 
 func nativeAgentDriverByID(id string) (nativeAgentDriver, bool) {
-	for _, driver := range nativeAgentDrivers {
+	drivers, err := agentRegistry()
+	if err != nil {
+		return nativeAgentDriver{}, false
+	}
+	for _, driver := range drivers {
 		if driver.id == id {
 			return driver, true
 		}
@@ -167,6 +169,20 @@ func (driver nativeAgentDriver) discover(ctx context.Context) nativeAgentDiscove
 	checked := map[string]bool{}
 	var binaries []string
 	paths := nativeAgentSearchPaths()
+	versionArgs := []string{"--version"}
+	if meta := driver.manifest; meta != nil {
+		versionArgs = meta.VersionArgs
+		home, _ := os.UserHomeDir()
+		for _, path := range meta.SearchDirs {
+			if relative, ok := strings.CutPrefix(path, "~/"); ok {
+				if home != "" {
+					paths = append(paths, filepath.Join(home, relative))
+				}
+			} else {
+				paths = append(paths, path)
+			}
+		}
+	}
 	for _, name := range commands {
 		binaries = append(binaries, discoverAgentExecutables(name, paths)...)
 	}
@@ -182,8 +198,8 @@ func (driver nativeAgentDriver) discover(ctx context.Context) nativeAgentDiscove
 		if err != nil || stamp == nil {
 			continue
 		}
-		key := driver.id + "\x00" + binary
-		if cached, ok := nativeAgentProbes.Load(key); ok && stampSame(cached.(nativeAgentProbe).stamp, stamp) {
+		key := driver.id + "\x00" + binary + "\x00" + wire(driver.manifest)
+		if cached, ok := nativeAgentProbes.Load(key); driver.id != "claude" && ok && stampSame(cached.(nativeAgentProbe).stamp, stamp) {
 			result := cached.(nativeAgentProbe).result
 			if result.err == nil {
 				return result
@@ -193,23 +209,77 @@ func (driver nativeAgentDriver) discover(ctx context.Context) nativeAgentDiscove
 			}
 			continue
 		}
-		probe, cancel := context.WithTimeout(ctx, 5*time.Second)
-		data, issue := nativeCommand(probe, binary, "--version").Output()
-		version := strings.TrimSpace(decodeCommandOutput(data))
-		if issue == nil && (driver.id == "antigravity" || driver.id == "gemini") {
-			help, err := nativeCommand(probe, binary, "--help").Output()
-			required := strings.Contains(string(help), "--acp")
-			if driver.id == "antigravity" {
-				required = strings.Contains(string(help), "stream-json") && strings.Contains(string(help), "--conversation")
+		probe, cancel := context.WithTimeout(ctx, 8*time.Second)
+		var version string
+		var issue error
+		probeOutput := func(arguments ...string) (string, error) {
+			command := nativeCommand(probe, binary, arguments...)
+			command.Env = append(command.Environ(), "PATH="+strings.Join(paths, string(os.PathListSeparator)))
+			if driver.id == "cursor" && operatingSystem == "darwin" {
+				command.Env = append(command.Env, "AGENT_CLI_CREDENTIAL_STORE=memory")
 			}
+			var stderr strings.Builder
+			command.Stderr = &stderr
+			data, err := command.Output()
 			if err != nil {
-				issue = err
-			} else if !required {
+				return "", errors.New("AGENT_PROBE_FAILED")
+			}
+			result := strings.TrimSpace(decodeCommandOutput(data))
+			if result == "" {
+				result = strings.TrimSpace(stderr.String())
+			}
+			if result == "" {
+				return "", errors.New("AGENT_PROBE_EMPTY")
+			}
+			return result, nil
+		}
+		if len(versionArgs) != 0 {
+			version, issue = probeOutput(versionArgs...)
+		}
+		if issue == nil && driver.id == "claude" {
+			if !strings.Contains(version, "Claude Code") {
 				issue = errors.New("AGENT_IDENTITY_MISMATCH")
+			} else if !nativeClaudeAdapterReady() {
+				issue = errors.New("CLAUDE_ADAPTER_NOT_READY")
 			}
 		}
-		if version == "" && issue == nil {
-			issue = errors.New("AGENT_IDENTITY_MISMATCH")
+		if issue == nil {
+			var helpArgs, required, identity []string
+			if driver.manifest != nil {
+				compatibility := driver.manifest.Compatibility
+				helpArgs, required, identity = compatibility.HelpArgs, compatibility.HelpContains, compatibility.IdentityContains
+			}
+			switch driver.id {
+			case "antigravity":
+				helpArgs, required = []string{"--help"}, []string{"stream-json", "--conversation"}
+			case "gemini":
+				if driver.manifest == nil {
+					helpArgs, required = []string{"--help"}, []string{"--acp"}
+				}
+			case "cursor":
+				if driver.manifest == nil {
+					helpArgs, required, identity = []string{"acp", "--help"}, []string{"acp"}, []string{"Cursor"}
+				}
+			}
+			if len(helpArgs) != 0 {
+				help, err := probeOutput(helpArgs...)
+				switch {
+				case err != nil:
+					issue = err
+				case slices.ContainsFunc(identity, func(token string) bool { return !strings.Contains(help, token) }):
+					if first.binary == "" {
+						first.err = errors.New("AGENT_IDENTITY_MISMATCH")
+					}
+					cancel()
+					continue
+				case slices.ContainsFunc(required, func(token string) bool { return !strings.Contains(help, token) }):
+					if driver.id == "antigravity" {
+						issue = errors.New("AGENT_IDENTITY_MISMATCH")
+					} else {
+						issue = errors.New("ACP_ENTRY_OR_IDENTITY_UNSUPPORTED")
+					}
+				}
+			}
 		}
 		result := nativeAgentDiscovery{binary, version, issue}
 		if probe.Err() == nil {
@@ -227,6 +297,9 @@ func (driver nativeAgentDriver) discover(ctx context.Context) nativeAgentDiscove
 		if binary := antigravityAgentAPIBinary(); binary != "" {
 			return nativeAgentDiscovery{binary: binary}
 		}
+	}
+	if first.binary == "" && first.err == nil {
+		first.err = errors.New("AGENT_NOT_INSTALLED")
 	}
 	return first
 }
@@ -336,8 +409,32 @@ func nativeAgentLaunchCommand(ctx context.Context, spec nativeAgentDriver, task 
 	if err != nil {
 		return nil, err
 	}
-	command := exec.Command(hardware.binary, args...)
+	binary := hardware.binary
+	var extraEnvironment []string
+	if spec.id == "claude" {
+		if !nativeClaudeAdapterReady() {
+			return nil, errors.New("CLAUDE_ADAPTER_NOT_READY")
+		}
+		manifest, _, err := nativeClaudeAdapterManifest()
+		if err != nil {
+			return nil, err
+		}
+		var entry string
+		binary, entry = nativeClaudeAdapterExecutables(nativeClaudeAdapterPath(text(manifest, "version")))
+		args = []string{entry}
+		extraEnvironment = append(extraEnvironment, "CLAUDE_CODE_EXECUTABLE="+hardware.binary)
+	}
+	command, err := nativeAgentCommand(binary, args)
+	if err != nil {
+		return nil, err
+	}
 	command.Dir = text(task, "cwd")
+	paths := append(nativeAgentSearchPaths(), filepath.Dir(binary))
+	environment := append(command.Environ(), "PATH="+strings.Join(paths, string(os.PathListSeparator)))
+	if spec.id == "claude" {
+		environment = safeClaudeAdapterEnvironment(environment)
+	}
+	command.Env = append(environment, extraEnvironment...)
 	proxy, err := savedNetworkProxy(ctx)
 	if err != nil {
 		return nil, err
@@ -363,4 +460,20 @@ func resolveNativeAgentCWD(ctx context.Context, s *service, args object) (string
 		return "", errors.New("INVALID_CWD")
 	}
 	return canonical, nil
+}
+
+func nativeAgentCommand(binary string, args []string) (*exec.Cmd, error) {
+	ext := strings.ToLower(filepath.Ext(binary))
+	if operatingSystem != "windows" || ext != ".cmd" && ext != ".bat" {
+		return exec.Command(binary, args...), nil
+	}
+	words := make([]string, 0, len(args)+1)
+	for _, value := range append([]string{binary}, args...) {
+		if strings.ContainsAny(value, "\"%!\r\n&|<>^") {
+			return nil, errors.New("UNSAFE_WINDOWS_LAUNCH_ARGUMENT")
+		}
+		words = append(words, "\""+value+"\"")
+	}
+	return exec.Command(nonemptyTaskText(os.Getenv("ComSpec"), "cmd.exe"), "/d", "/s", "/c",
+		"\""+strings.Join(words, " ")+"\""), nil
 }

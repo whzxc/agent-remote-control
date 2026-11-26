@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 func listNativeAgentStates(agent string, includeArchived bool) ([]object, error) {
@@ -48,6 +50,7 @@ func nativeAgentReadAllowed(ctx context.Context, agent, task string) bool {
 }
 
 func readNativeAgentOperation(ctx context.Context, r operationRequest) (any, error) {
+	ctx = withRuntimeCost(ctx, "taskRead", "poll")
 	agent, taskID := text(r.args, "agent"), text(r.args, "taskId")
 	if !nativeAgentReadAllowed(ctx, agent, taskID) {
 		return nil, errors.New("TASK_NOT_FOUND")
@@ -95,7 +98,11 @@ func listNativeAgentOperation(ctx context.Context, r operationRequest) (any, err
 }
 
 func nativeAgentTimeline(ctx context.Context, s *service, args object) (object, error) {
+	ctx = withRuntimeCost(ctx, "taskRead", "poll")
 	taskID := str(dispatchFirstString(args["id"], args["taskId"]))
+	if uuid.Validate(taskID) != nil {
+		return nil, errors.New("INVALID_SESSION_ID")
+	}
 	agent := text(args, "agent")
 	if !nativeAgentReadAllowed(ctx, agent, taskID) {
 		return nil, errors.New("TASK_NOT_FOUND")
@@ -115,6 +122,13 @@ func nativeAgentTimeline(ctx context.Context, s *service, args object) (object, 
 		}
 	}
 	if err != nil {
+		if err.Error() == "TASK_NOT_FOUND" && ctx.Value(&peerControlKey) == nil {
+			for _, external := range nativeAgentConversationFiles(ctx, agent) {
+				if external.row["id"] == taskID {
+					return nativeAgentTranscriptTimeline(ctx, external)
+				}
+			}
+		}
 		return nil, err
 	}
 	var timeline taskTimeline
@@ -213,6 +227,7 @@ func readNativeCodexConversations(ctx context.Context, s *service, body object, 
 }
 
 func listNativeConversations(ctx context.Context, s *service, body object) (object, error) {
+	ctx = withRuntimeCost(ctx, "agentTaskRecords", "poll")
 	agent := text(body, "agent")
 	if _, known := nativeAgentDriverByID(agent); agent != "" && !known {
 		return nil, errors.New("UNKNOWN_AGENT: read agents.list for registered IDs")
@@ -234,8 +249,12 @@ func listNativeConversations(ctx context.Context, s *service, body object) (obje
 		return nil, err
 	}
 	selected := arr(body["agents"])
+	drivers, err := agentRegistry()
+	if err != nil {
+		return nil, err
+	}
 	included := map[string]bool{}
-	for _, driver := range nativeAgentDrivers {
+	for _, driver := range drivers {
 		id := driver.id
 		enabled := !slices.Contains(disabled, any(id))
 		included[id] = selected != nil && enabled && slices.Contains(selected, any(id)) ||
@@ -276,9 +295,46 @@ func listNativeConversations(ctx context.Context, s *service, body object) (obje
 		row["id"], row["taskId"], row["source"], row["project"] = taskID, taskID, "arc-task", task["cwd"]
 		rows = append(rows, row)
 	}
-	if included["antigravity"] && ctx.Value(&peerControlKey) == nil {
-		for _, row := range listNativeAntigravity(ctx) {
-			if !nativeSessions["antigravity\x00"+text(row, "id")] {
+	if ctx.Value(&peerControlKey) == nil {
+		var native []object
+		if included["antigravity"] {
+			native = listNativeAntigravity(ctx)
+		}
+		for _, agent := range []string{"claude", "pi"} {
+			if !included[agent] {
+				continue
+			}
+			for _, file := range nativeAgentConversationFiles(ctx, agent) {
+				native = append(native, file.row)
+			}
+		}
+		local := map[string]object{}
+		for _, row := range rows {
+			if session := text(row, "sessionId"); session != "" {
+				key := text(row, "agent") + "\x00" + session
+				row["nativeSessionId"] = session
+				if local[key] == nil {
+					local[key] = row
+				}
+			}
+		}
+		for _, row := range native {
+			agent := text(row, "agent")
+			key := agent + "\x00" + text(row, "id")
+			if task := local[key]; task != nil {
+				for _, field := range []string{"updatedAt", "preview", "messageCount", "metadataPartial", "relationKind", "parentSessionId"} {
+					if value, found := row[field]; found {
+						task[field] = value
+					}
+				}
+				if agent == "antigravity" {
+					for _, field := range []string{"title", "project", "turnCount", "turnStartedAt", "turnEndedAt", "turnDurationMs", "agentName", "nativeStatus", "dispatchSummary"} {
+						if value := row[field]; value != nil && value != "" {
+							task[field] = value
+						}
+					}
+				}
+			} else if !nativeSessions[key] {
 				rows = append(rows, row)
 			}
 		}
@@ -309,6 +365,26 @@ func listNativeConversations(ctx context.Context, s *service, body object) (obje
 		})
 		upstream = upstream[min(len(upstream), cursor.Codex.Consumed):]
 	}
+	page, next := mergeNativeConversationPage(rows, upstream, upstreamNext, &cursor, limit, fieldName)
+	for _, row := range page {
+		if row["agent"] != "codex" {
+			row["projectName"] = localProjectName(projects, text(row, "project"), "")
+		}
+	}
+	scope := "arc-tasks"
+	if agent == "" {
+		scope = "native-and-arc-tasks"
+	} else {
+		for id, enabled := range included {
+			if enabled && capabilitiesForAgent(id).NativeConversations {
+				scope = "native-and-arc-tasks"
+			}
+		}
+	}
+	return object{"data": page, "nextCursor": next, "scope": scope}, nil
+}
+
+func mergeNativeConversationPage(rows, upstream []object, upstreamNext *string, cursor *nativeConversationCursor, limit uint64, fieldName string) ([]object, any) {
 	page := make([]object, 0, limit)
 	for uint64(len(page)) < limit {
 		switch {
@@ -317,7 +393,6 @@ func listNativeConversations(ctx context.Context, s *service, body object) (obje
 			cursor.Codex.Consumed++
 		case len(rows) != 0 && (len(upstream) != 0 || upstreamNext == nil):
 			row := rows[0]
-			row["projectName"] = localProjectName(projects, text(row, "project"), "")
 			page, rows = append(page, row), rows[1:]
 			cursor.Local = nativeConversationKey(row, fieldName)
 		default:
@@ -331,21 +406,10 @@ finished:
 			cursor.Codex = &nativeCodexConversationCursor{Cursor: upstreamNext}
 		}
 	}
-	scope := "arc-tasks"
-	if agent == "" {
-		scope = "native-and-arc-tasks"
-	} else {
-		for id, enabled := range included {
-			if enabled && capabilitiesForAgent(id).NativeConversations {
-				scope = "native-and-arc-tasks"
-			}
-		}
-	}
-	var next any
 	if cursor.Codex != nil || len(rows) > 0 {
-		next = wire(cursor)
+		return page, wire(*cursor)
 	}
-	return object{"data": page, "nextCursor": next, "scope": scope}, nil
+	return page, nil
 }
 
 func nativeAgentContext(ctx context.Context, s *service, agent, taskID string) (contextTaskEvidence, error) {

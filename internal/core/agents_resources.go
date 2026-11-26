@@ -38,7 +38,25 @@ func nativeAgentResource(ctx context.Context, s *service, body object) (any, err
 		}
 		cwd = text(field(metadata, "thread"), "cwd")
 	default:
-		return nil, errors.New("TASK_NOT_FOUND")
+		for _, external := range nativeAgentConversationFiles(ctx, agent) {
+			if external.row["id"] == id {
+				cwd = text(external.row, "project")
+				err = nil
+				break
+			}
+		}
+		if err != nil && agent == "antigravity" {
+			for _, external := range listNativeAntigravity(ctx) {
+				if external["id"] == id {
+					cwd = text(external, "project")
+					err = nil
+					break
+				}
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 	if cwd == "" {
 		return nil, errors.New("TASK_PROJECT_UNAVAILABLE")

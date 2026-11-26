@@ -1,12 +1,14 @@
 package core
 
 import (
+	"context"
 	"database/sql"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestAntigravityNativeConversationShowsWALSummaryAndTurnEvidence(t *testing.T) {
@@ -79,5 +81,172 @@ func TestAntigravityNativeConversationShowsWALSummaryAndTurnEvidence(t *testing.
 		wire(history["dispatchSummary"]) != wire(row["dispatchSummary"]) ||
 		field(field(history["turnDispatchSummaries"], "0"), "effort") != "xhigh" {
 		t.Fatalf("native timeline = %s", wire(history))
+	}
+}
+
+func TestNativePiHistoryUsesMostRecentLeafAncestry(t *testing.T) {
+	// Algorithmic core: replay only the latest Pi v3 branch while retaining tool and compaction evidence.
+	const session = "11111111-1111-4111-8111-111111111111"
+	records := []object{
+		{"type": "session", "id": session, "version": 3, "cwd": "/fixture", "timestamp": "2026-01-01T00:00:00Z"},
+		{"type": "message", "id": "user", "timestamp": "2026-01-01T00:00:01Z", "message": object{"role": "user", "content": "Question"}},
+		{"type": "message", "id": "old", "parentId": "user", "timestamp": "2026-01-01T00:00:02Z",
+			"message": object{"role": "assistant", "content": []any{object{"type": "text", "text": "Abandoned branch"}}}},
+		{"type": "message", "id": "new", "parentId": "user", "timestamp": "2026-01-01T00:00:03Z",
+			"message": object{"role": "assistant", "content": []any{
+				object{"type": "text", "text": "Selected branch"},
+				object{"type": "toolCall", "id": "edit", "name": "edit", "arguments": object{"path": "config.json", "oldText": "false", "newText": "true"}},
+				object{"type": "text", "text": "Checking"},
+			}}},
+		{"type": "message", "id": "result", "parentId": "new", "timestamp": "2026-01-01T00:00:04Z",
+			"message": object{"role": "toolResult", "toolCallId": "edit", "toolName": "edit", "content": []any{object{"type": "text", "text": "Updated"}}}},
+		{"type": "compaction", "id": "compact", "parentId": "result", "timestamp": "2026-01-01T00:00:05Z", "tokensBefore": 10000},
+		{"type": "session_info", "id": "name", "parentId": "compact", "name": "Native Pi title"},
+	}
+	row := deriveNativeAgentConversation("pi", "session.jsonl", records, nil, true, time.Unix(0, 0))
+	if row["id"] != session || row["title"] != "Native Pi title" || row["messageCount"] != 4 {
+		t.Fatalf("Pi conversation = %s", wire(row))
+	}
+	history := nativePiTimeline(session, records, false)
+	if history["readOnly"] != true || history["status"] != nil || history["path"] != nil {
+		t.Fatalf("Pi history asserted live ownership: %s", wire(history))
+	}
+	entries := decodedTaskList(history["entries"])
+	var types []string
+	for _, entry := range entries {
+		types = append(types, text(entry, "type"))
+	}
+	if !reflect.DeepEqual(types, []string{"user", "text", "file", "text", "notice"}) ||
+		text(entries[1], "text") != "Selected branch" || field(entries[2], "status") != "completed" ||
+		uintOr(field(field(entries[4], "notice"), "tokensBefore"), 0) != 10000 {
+		t.Fatalf("Pi branch = %s", wire(entries))
+	}
+}
+
+func TestNativeClaudeMetadataUsesOnlyLatestExplicitOutcome(t *testing.T) {
+	// Recurring bug class: lifecycle an old completion cannot settle a newer Claude turn.
+	const session = "11111111-1111-4111-8111-111111111111"
+	newUser := object{"type": "user", "timestamp": "2026-01-01T00:00:00Z", "message": object{"role": "user", "content": "Review project"}}
+	completed := object{"type": "assistant", "uuid": "reply", "timestamp": "2026-01-01T00:00:01Z",
+		"message": object{"role": "assistant", "stop_reason": "end_turn", "content": []any{object{"type": "text", "text": "Done"}}}}
+	updated := time.Unix(0, 0)
+	if row := deriveNativeAgentConversation("claude", session+".jsonl", []object{newUser, completed}, nil, true, updated); row["status"] != "completed" {
+		t.Fatalf("completion missing from list row: %s", wire(row))
+	}
+	if row := deriveNativeAgentConversation("claude", session+".jsonl", []object{completed}, []object{newUser}, false, updated); row["status"] != nil {
+		t.Fatalf("old completion settled a new prompt: %s", wire(row))
+	}
+	pending := clone(completed)
+	obj(pending["message"])["stop_reason"] = "tool_use"
+	if row := deriveNativeAgentConversation("claude", session+".jsonl", []object{newUser, pending}, nil, true, updated); row["status"] != nil {
+		t.Fatalf("native tool work appeared completed: %s", wire(row))
+	}
+}
+
+func TestNativeClaudeSidechainsStayOutOfTopLevelList(t *testing.T) {
+	// Contract: Claude JSONL sidechain session schema.
+	const session = "11111111-1111-4111-8111-111111111111"
+	main := object{"type": "user", "message": object{"role": "user", "content": "Top level"}}
+	side := object{"isSidechain": true, "message": object{"role": "user", "content": "Child task"}}
+	at := time.Unix(0, 0)
+	for _, fixture := range []struct {
+		name       string
+		head, tail []object
+	}{
+		{"agent-" + session + ".jsonl", []object{main}, nil},
+		{filepath.Join("subagents", session+".jsonl"), []object{main}, nil},
+		{session + ".jsonl", []object{side}, nil},
+		{session + ".jsonl", nil, []object{side}},
+	} {
+		if row := deriveNativeAgentConversation("claude", fixture.name, fixture.head, fixture.tail, false, at); row != nil {
+			t.Fatalf("sidechain appeared as %s", wire(row))
+		}
+	}
+	row := deriveNativeAgentConversation("claude", session+".jsonl", []object{main}, []object{side}, false, at)
+	if row["id"] != session || row["title"] != "Top level" {
+		t.Fatalf("sidechain displaced main metadata: %s", wire(row))
+	}
+}
+
+func TestNativeConversationMetadataRefreshesChangedFiles(t *testing.T) {
+	// Recurring bug class: persistence native transcript metadata follows replacement and deletion.
+	const session = "11111111-1111-4111-8111-111111111111"
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), session+".jsonl")
+	write := func(title string) {
+		t.Helper()
+		record := object{"type": "user", "message": object{"role": "user", "content": title}}
+		if err := os.WriteFile(path, []byte(wire(record)+"\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("Before")
+	for range 2 {
+		if row := scanNativeAgentConversation(ctx, "claude", path); row["title"] != "Before" {
+			t.Fatalf("initial metadata = %s", wire(row))
+		}
+	}
+	write("After a longer edit")
+	if row := scanNativeAgentConversation(ctx, "claude", path); row["title"] != "After a longer edit" {
+		t.Fatalf("stale metadata = %s", wire(row))
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if row := scanNativeAgentConversation(ctx, "claude", path); row != nil {
+		t.Fatalf("removed transcript returned %s", wire(row))
+	}
+}
+
+func TestBoundedConversationSamplesKeepHeadAndTail(t *testing.T) {
+	// Algorithmic core: bounded native transcript parser.
+	const session = "11111111-1111-4111-8111-111111111111"
+	path := filepath.Join(t.TempDir(), session+".jsonl")
+	records := []object{
+		{"type": "user", "message": object{"role": "user", "content": "First prompt"}},
+		{"padding": strings.Repeat("x", 300<<10)},
+		{"message": object{"role": "assistant", "content": "Last reply"}},
+	}
+	var payload strings.Builder
+	for _, record := range records {
+		payload.WriteString(wire(record))
+		payload.WriteByte('\n')
+	}
+	if err := os.WriteFile(path, []byte(payload.String()), 0600); err != nil {
+		t.Fatal(err)
+	}
+	row := scanNativeAgentConversation(context.Background(), "claude", path)
+	if row["title"] != "First prompt" || row["preview"] != "Last reply" || row["metadataPartial"] != true || row["messageCount"] != nil || row["path"] != nil {
+		t.Fatalf("bounded projection = %s", wire(row))
+	}
+}
+
+func TestConversationPageRetainsUnconsumedNativeRows(t *testing.T) {
+	// Contract: merged conversation pagination with native and local cursors.
+	newer := object{"agent": "codex", "id": "newer", "updatedAt": "2026-01-03T00:00:00Z"}
+	older := object{"agent": "codex", "id": "older", "updatedAt": "2026-01-01T00:00:00Z"}
+	middle := object{"agent": "antigravity", "id": "middle", "updatedAt": "2026-01-02T00:00:00+00:00"}
+	upstreamNext := "older-codex"
+	cursor := nativeConversationCursor{Codex: &nativeCodexConversationCursor{}}
+	advance := func(page []object, next any, want string) {
+		t.Helper()
+		if len(page) != 1 || page[0]["id"] != want || next == nil {
+			t.Fatalf("page=%s next=%v, wanted %s and a cursor", wire(page), next, want)
+		}
+		cursor = nativeConversationCursor{}
+		if err := unmarshalJSON([]byte(str(next)), &cursor); err != nil {
+			t.Fatal(err)
+		}
+	}
+	page, next := mergeNativeConversationPage([]object{middle}, []object{newer}, &upstreamNext, &cursor, 2, "updatedAt")
+	advance(page, next, "newer")
+	if cursor.Codex == nil || cursor.Codex.Cursor == nil || *cursor.Codex.Cursor != upstreamNext {
+		t.Fatalf("lost upstream cursor: %s", next)
+	}
+	page, next = mergeNativeConversationPage([]object{middle}, []object{older}, nil, &cursor, 1, "updatedAt")
+	advance(page, next, "middle")
+	page, next = mergeNativeConversationPage(nil, []object{older}, nil, &cursor, 1, "updatedAt")
+	if len(page) != 1 || page[0]["id"] != "older" || next != nil {
+		t.Fatalf("final page=%s next=%v", wire(page), next)
 	}
 }

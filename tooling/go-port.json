@@ -68,14 +68,17 @@
     "native/src/agents/activity.rs": {
       "segment": "A",
       "go": [
-        "internal/core/agents_activity.go"
+        "internal/core/agents_activity.go",
+        "internal/core/agents_activity_test.go"
       ],
       "status": "pending"
     },
     "native/src/agents/adapter.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/agents_adapter.go"
+      ],
+      "status": "ported"
     },
     "native/src/agents/antigravity.rs": {
       "segment": "A",
@@ -106,37 +109,45 @@
         "internal/core/agents_conversations_native_antigravity.go",
         "internal/core/agents_conversations_test.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/agents/conversations/native.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/agents_conversations_native.go"
+      ],
+      "status": "ported"
     },
     "native/src/agents/conversations/tests.rs": {
       "segment": "A",
       "go": [
         "internal/core/agents_conversations_test.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/agents/conversations.rs": {
       "segment": "A",
       "go": [
         "internal/core/agents_conversations_codex.go",
-        "internal/core/agents_conversations.go"
+        "internal/core/agents_conversations.go",
+        "internal/core/agents_conversations_native.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/agents/dispatch/catalogs.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/agents_dispatch_catalogs.go",
+        "internal/core/agents_dispatch_catalogs_test.go"
+      ],
+      "status": "ported"
     },
     "native/src/agents/dispatch.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/agents_dispatch.go"
+      ],
+      "status": "ported"
     },
     "native/src/agents/driver.rs": {
       "segment": "A",
@@ -157,8 +168,11 @@
     },
     "native/src/agents/manifest.rs": {
       "segment": "A",
-      "go": [],
-      "status": "pending"
+      "go": [
+        "internal/core/agents_manifest.go",
+        "native/src/agents/manifest_embed.go"
+      ],
+      "status": "ported"
     },
     "native/src/agents/mcp.rs": {
       "segment": "A",
@@ -171,7 +185,9 @@
       "segment": "A",
       "go": [
         "internal/core/agents_mod.go",
-        "internal/core/agents_peer.go"
+        "internal/core/agents_peer.go",
+        "internal/core/agents_approval.go",
+        "internal/core/agents_events.go"
       ],
       "status": "pending"
     },
@@ -188,7 +204,7 @@
       "go": [
         "internal/core/agents_resources.go"
       ],
-      "status": "pending"
+      "status": "ported"
     },
     "native/src/agents/wait.rs": {
       "segment": "A",
@@ -1174,15 +1190,7 @@
         "internal/core/control.go",
         "internal/core/core_requests.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Register agent and task operation owners."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/external_inputs.rs": {
       "segment": "A",
@@ -1451,15 +1459,7 @@
         "internal/core/egress.go",
         "internal/core/transport.go"
       ],
-      "status": "ported",
-      "remaining": [
-        {
-          "owner": "A",
-          "items": [
-            "Register agent event consumers."
-          ]
-        }
-      ]
+      "status": "ported"
     },
     "native/src/local_access.rs": {
       "segment": "S0",
@@ -1713,12 +1713,6 @@
           "owner": "F",
           "items": [
             "Connect installed Desktop lifecycle."
-          ]
-        },
-        {
-          "owner": "A",
-          "items": [
-            "Resolve saved network settings and attach native task and Agent owners during startup."
           ]
         }
       ]

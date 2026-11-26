@@ -32,6 +32,7 @@ type nativeAgentProcess struct {
 	calls                 map[string]chan rpcResult
 	pending               map[string]object
 	activePrompt          string
+	attachmentSession     string
 	settled               chan struct{}
 }
 
@@ -114,7 +115,14 @@ func (p *nativeAgentProcess) persistLocked() error {
 	p.events.Unlock()
 	close(p.changed)
 	p.changed = make(chan struct{})
-	return saveNativeAgentTask(p.task)
+	if err := saveNativeAgentTask(p.task); err != nil {
+		return err
+	}
+	status := text(p.task, "status")
+	if status == "waiting-permission" || status == "unknown" || notificationTerminal(status) {
+		wakeNotificationThread(text(p.task, "taskId"))
+	}
+	return nil
 }
 
 func (p *nativeAgentProcess) checkpoint(edit func(object)) error {
@@ -224,6 +232,11 @@ func (p *nativeAgentProcess) consumeLocked(frame object) {
 		return
 	}
 	task := p.task
+	if id != nil && id == p.activePrompt && (method == "" || frame["type"] == "response") {
+		if p.host != nil {
+			dispatchSetSection(task, "taskHost")["promptResponded"] = true
+		}
+	}
 	taskID := text(task, "taskId")
 	key := agentTurnKey(task)
 	terminal := turnEvidence{}
@@ -266,7 +279,30 @@ func (p *nativeAgentProcess) consumeLocked(frame object) {
 		if field(update, "sessionUpdate") == "agent_message_chunk" && field(field(update, "content"), "type") == "text" {
 			p.appendOutput(text(field(update, "content"), "text"), false)
 		}
+		if field(frame["params"], "sessionId") == task["sessionId"] {
+			switch field(update, "sessionUpdate") {
+			case "config_option_update":
+				if _, ok := field(update, "configOptions").([]any); ok {
+					dispatchSetSection(task, "metadata")["configOptions"] = field(update, "configOptions")
+					task["configurationObservedAt"] = now()
+				}
+			case "current_mode_update":
+				if mode := field(update, "currentModeId"); mode != nil {
+					dispatchSetSection(dispatchSetSection(task, "metadata"), "modes")["currentModeId"] = mode
+					task["configurationObservedAt"] = now()
+				}
+			case "usage_update":
+				task["contextUsage"] = object{"kind": "context-occupancy", "source": "acp-usage-update", "used": field(update, "used"), "size": field(update, "size"), "observedAt": now()}
+			}
+		}
 	case method == "session/request_permission" || method == "extension_ui_request":
+		if method == "session/request_permission" {
+			p.events.Lock()
+			if timeline := p.events.taskTimelines[taskID]; timeline != nil {
+				timeline.enrichPermission(frame)
+			}
+			p.events.Unlock()
+		}
 		if id != nil && !agentTurnTerminal(task) {
 			request := clone(frame)
 			request["turnId"] = task["turnId"]
@@ -381,6 +417,7 @@ func (p *nativeAgentProcess) runHosted(ctx context.Context) {
 			}
 			return
 		}
+		recoverReceipt := false
 		for _, row := range rows {
 			after = uintOr(row["offset"], after)
 			if err := p.checkpoint(func(task object) {
@@ -389,12 +426,22 @@ func (p *nativeAgentProcess) runHosted(ctx context.Context) {
 				switch row["kind"] {
 				case "stdout":
 					p.consumeStdoutLocked([]byte(text(row, "frame")))
+					recoverReceipt = recoverReceipt || state["promptResponded"] == true || agentTurnTerminal(task)
 				case "write":
-					if field(state["unconfirmedWrite"], "sequence") == field(row["frame"], "sequence") {
+					sequence := field(row["frame"], "sequence")
+					state["receivedSequence"] = max(uintOr(state["receivedSequence"], 0), uintOr(sequence, 0))
+					if field(state["unconfirmedWrite"], "sequence") == sequence {
 						delete(state, "unconfirmedWrite")
 					}
 					value := field(row["frame"], "value")
-					if requestID := field(value, "id"); requestID != nil && field(value, "method") == nil {
+					if field(value, "method") == "session/prompt" || field(value, "type") == "prompt" {
+						if valueID := text(value, "id"); valueID != "" {
+							state["promptId"], state["promptSequence"], state["promptResponded"] = valueID, sequence, false
+							p.activePrompt = valueID
+						}
+						dispatchSetSection(task, "dispatch")["submission"] = "accepted"
+					}
+					if requestID := field(value, "id"); requestID != nil && (field(value, "result") != nil || field(value, "error") != nil || field(value, "type") == "extension_ui_response") {
 						delete(p.pending, wire(requestID))
 						if len(p.pending) == 0 && task["status"] == "waiting-permission" {
 							observeAgentOwner(task, "running")
@@ -405,6 +452,9 @@ func (p *nativeAgentProcess) runHosted(ctx context.Context) {
 				recordLog("WARN", "Agent journal checkpoint: "+err.Error(), nil)
 				return
 			}
+		}
+		if recoverReceipt && p.attachmentSession != "" {
+			p.recoverHostedReceipt(ctx)
 		}
 		if !active {
 			var issue error
@@ -424,6 +474,40 @@ func (p *nativeAgentProcess) runHosted(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-tick.C:
+		}
+	}
+}
+
+func (p *nativeAgentProcess) recoverHostedReceipt(ctx context.Context) {
+	task := p.snapshot()
+	host := obj(task["taskHost"])
+	request := text(host, "requestId")
+	prompt, known := uintValue(host["promptSequence"])
+	if request == "" || !known || prompt == 0 || prompt > uintOr(host["receivedSequence"], 0) ||
+		!agentTurnTerminal(task) && (p.driver.id != "pi" || host["promptResponded"] != true) {
+		return
+	}
+	store := agentReceiptStore()
+	path, err := store.path(request)
+	if err != nil {
+		return
+	}
+	unlock := lockReceipt(request)
+	defer unlock()
+	value, err := cachedLoadInContext(ctx, path)
+	if err != nil {
+		return
+	}
+	row := obj(value)
+	if row["backendSession"] == p.attachmentSession || row["taskId"] != task["taskId"] ||
+		row["agent"] != task["agent"] || row["turnId"] != task["turnId"] {
+		return
+	}
+	switch row["state"] {
+	case "reserved", "executing", "unconfirmed":
+		row["state"], row["result"], row["error"] = "completed", task, nil
+		if err := store.checkpoint(ctx, row); err != nil {
+			recordLog("WARN", "Agent receipt recovery: "+err.Error(), nil)
 		}
 	}
 }
@@ -519,6 +603,11 @@ func (p *nativeAgentProcess) initialize(ctx context.Context, resume bool) error 
 			return errors.New("ACP_VERSION_UNSUPPORTED")
 		}
 		capabilities = init
+		if p.driver.id == "cursor" && find(arr(init["authMethods"]), "id", "cursor_login") != nil {
+			if _, err := p.request(ctx, "authenticate", object{"methodId": "cursor_login"}, 15*time.Second); err != nil {
+				return err
+			}
+		}
 		servers, err := nativeACPServers(p.driver.id)
 		if err != nil {
 			return err
@@ -540,11 +629,12 @@ func (p *nativeAgentProcess) initialize(ctx context.Context, resume bool) error 
 		if err != nil {
 			return err
 		}
+		init["session"] = metadata
 		if !resume && text(metadata, "sessionId") == "" {
 			return errors.New("MISSING_SESSION_ID")
 		}
 	}
-	return p.checkpoint(func(task object) {
+	if err := p.checkpoint(func(task object) {
 		task["metadata"], task["capabilities"], task["configurationObservedAt"] = metadata, capabilities, now()
 		if session := text(metadata, "sessionId"); session != "" {
 			task["sessionId"] = session
@@ -556,7 +646,16 @@ func (p *nativeAgentProcess) initialize(ctx context.Context, resume bool) error 
 			task["status"] = "idle"
 		}
 		task["processState"] = "running"
-	})
+	}); err != nil {
+		return err
+	}
+	state := p.snapshot()
+	if p.driver.id != "pi" {
+		if _, err := nativeAgentSessionFacts(ctx, state, p); err != nil {
+			recordLog("WARN", "Agent catalog: "+err.Error(), nil)
+		}
+	}
+	return nil
 }
 
 func (p *nativeAgentProcess) close(ctx context.Context) error {
