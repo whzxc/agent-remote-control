@@ -39,8 +39,18 @@ type runtimeClient struct {
 	active                  bool
 	access                  sync.RWMutex
 	startup                 sync.Mutex
+	leaseMu                 sync.Mutex
+	leasedAt                time.Time
+	leasedInfo              object
 	heartbeat               context.CancelFunc
 	done                    chan struct{}
+}
+
+func (c *runtimeClient) clearCachedLease() {
+	c.leaseMu.Lock()
+	c.leasedAt = time.Time{}
+	c.leasedInfo = nil
+	c.leaseMu.Unlock()
 }
 
 func newRuntimeClient(binary, kind string, desktop object) (*runtimeClient, error) {
@@ -250,14 +260,20 @@ func (c *runtimeClient) ensureCore(ctx context.Context) error {
 	}
 	_, err = forwardToCore(ctx, info, "runtime/lease", http.MethodPost, c.lease())
 	if err != nil {
+		c.clearCachedLease()
 		if _, ownershipErr := runtimeOwner(ctx, c.build); ownershipErr != nil {
 			return ownershipErr
 		}
 		if now, _ := runtimeOwner(ctx, c.build); now == nil {
 			return errors.New("core shutting down")
 		}
+		return err
 	}
-	return err
+	c.leaseMu.Lock()
+	c.leasedAt = time.Now()
+	c.leasedInfo = info
+	c.leaseMu.Unlock()
+	return nil
 }
 
 func (c *runtimeClient) request(ctx context.Context, route, method string, body object) (any, error) {
@@ -265,6 +281,19 @@ func (c *runtimeClient) request(ctx context.Context, route, method string, body 
 	defer c.access.RUnlock()
 	if !c.active {
 		return nil, errors.New("Core is paused for shutdown or update installation.")
+	}
+	c.leaseMu.Lock()
+	cached, fresh := c.leasedInfo, !c.leasedAt.IsZero() && time.Since(c.leasedAt) < 1500*time.Millisecond
+	c.leaseMu.Unlock()
+	if fresh && cached != nil && !coreStopped() {
+		result, err := forwardToCore(ctx, cached, route, method, body)
+		if err == nil {
+			return result, nil
+		}
+		c.clearCachedLease()
+		if owner, ownerErr := runtimeOwner(ctx, c.build); ownerErr != nil || owner != nil {
+			return nil, err
+		}
 	}
 	if err := c.ensureCore(ctx); err != nil {
 		return nil, err
@@ -283,6 +312,7 @@ func (c *runtimeClient) close(ctx context.Context) {
 	c.access.Lock()
 	defer c.access.Unlock()
 	c.active = false
+	c.clearCachedLease()
 	c.stopHeartbeat()
 	if info, err := runtimeOwner(ctx, c.build); err == nil && info != nil {
 		_, _ = forwardToCore(ctx, info, "runtime/release", http.MethodPost, object{"id": c.id})

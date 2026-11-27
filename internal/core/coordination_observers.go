@@ -104,6 +104,23 @@ var coordinationStorage struct {
 	full  bool
 }
 
+var errCoordinationCapacity = errors.New("COORDINATION_CAPACITY: preserve producer checkpoints for local archive/recovery")
+
+func coordinationStorageFull(path string) bool {
+	base := filepath.Join(root(), "coordination")
+	if !belowPath(path, base) || belowPath(path, filepath.Join(base, "events")) {
+		return false
+	}
+	store := &coordinationStorage
+	store.Lock()
+	defer store.Unlock()
+	if store.root != base {
+		return false
+	}
+	_, known := store.files[path]
+	return store.full || !known && len(store.files) >= 8192
+}
+
 func coordinationDurable(path string, value any) error {
 	data := []byte(wire(value))
 	base := filepath.Join(root(), "coordination")
@@ -145,7 +162,7 @@ func coordinationDurable(path string, value any) error {
 	_, known := store.files[path]
 	if store.full || !known && len(store.files) >= 8192 || total > 16*1024*1024 || len(data) > 128*1024 {
 		coordinationGap("storage", "observer-capacity")
-		return errors.New("COORDINATION_CAPACITY: preserve producer checkpoints for local archive/recovery")
+		return errCoordinationCapacity
 	}
 	if err := coordinationAtomicBytes(path, data); err != nil {
 		return err
@@ -429,6 +446,10 @@ func coordinationProjectAt(ctx context.Context, path, checkpoint string, row obj
 		if input.Kind == "turn.terminal" && obj(row["_turnLifecycle"]) != nil &&
 			coordinationTerminalStatus(row["_turnLifecycle"], "") != strPtr(input.Status) {
 			continue
+		}
+		if coordinationStorageFull(checkpoint) {
+			coordinationGap("storage", "observer-capacity")
+			return errCoordinationCapacity
 		}
 		var result any
 		if (input.Kind == "turn.terminal" || input.Kind == "receipt.unconfirmed") && filepath.Dir(path) != filepath.Join(root(), "coordination/observations") {
@@ -784,7 +805,8 @@ func runCoordinationObservers(ctx context.Context, service *service) {
 		batch := slices.Sorted(maps.Keys(pending))
 		clear(pending)
 		cost.scanSet.Store(uint64(len(batch)))
-		for _, path := range batch {
+		capacityBlocked := false
+		for index, path := range batch {
 			if ctx.Err() != nil {
 				return
 			}
@@ -807,9 +829,21 @@ func runCoordinationObservers(ctx context.Context, service *service) {
 					continue
 				}
 			}
-			if err := coordinationProject(pass, path, obj(row)); err != nil && len(pending) < maxCoordinationPending {
-				pending[path] = true
-				coordinationGap("projection", "pending-retry")
+			if err := coordinationProject(pass, path, obj(row)); err != nil {
+				if len(pending) < maxCoordinationPending {
+					pending[path] = true
+					coordinationGap("projection", "pending-retry")
+				}
+				if errors.Is(err, errCoordinationCapacity) {
+					for _, rest := range batch[index+1:] {
+						if len(pending) >= maxCoordinationPending {
+							break
+						}
+						pending[rest] = true
+					}
+					capacityBlocked = true
+					break
+				}
 			}
 		}
 		observer.report()
@@ -821,7 +855,11 @@ func runCoordinationObservers(ctx context.Context, service *service) {
 			_ = coordinationGitPoll(withRuntimeCost(pass, "coordinationGit", "timer"))
 			gitAt = time.Now()
 		}
-		timer := time.NewTimer(5 * time.Second)
+		wait := 5 * time.Second
+		if capacityBlocked {
+			wait = 60 * time.Second
+		}
+		timer := time.NewTimer(wait)
 		select {
 		case <-ctx.Done():
 		case <-timer.C:

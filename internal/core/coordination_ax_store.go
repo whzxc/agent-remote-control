@@ -264,17 +264,21 @@ func (store *axStore) save() error {
 	return coordinationAtomicBytes(filepath.Join(store.dir, "state.json"), bytes)
 }
 
-func (store *axStore) prune(ms int64) {
+func (store *axStore) prune(ms int64) bool {
+	pruned := false
 	for key, e := range store.data.Entries {
 		if (e.Status == "closed" || e.Status == "merged") && ms-e.UpdatedMS > 180*86400*1000 && e.ExportedRevision != nil && *e.ExportedRevision == e.Revision && len(e.Pending) == 0 {
 			delete(store.data.Entries, key)
+			pruned = true
 		}
 	}
 	for key, bucket := range store.data.ReportBuckets {
 		if ms-bucket[0] >= 60000 {
 			delete(store.data.ReportBuckets, key)
+			pruned = true
 		}
 	}
+	return pruned
 }
 
 func (store *axStore) resolve(prefix string) (string, error) {
@@ -764,13 +768,16 @@ func (store *axStore) candidate(friction, observation string, principal *coordin
 		source = axActor(coordinationReader{principal: *principal})
 	}
 	signature := hash([]byte(friction))
-	store.prune(ms)
+	pruned := store.prune(ms)
 	keys := slices.Sorted(maps.Keys(store.data.Entries))
 	var entry *axEntry
 	for _, key := range keys {
 		row := store.data.Entries[key]
 		if strPtr(row.CandidateSignature) == signature && strPtr(row.CandidateBuild) == build && strPtr(row.CandidateState) == "rejected" && ms-row.UpdatedMS < 86400000 {
-			return object{"suppressed": true, "reason": "recent-rejection", "id": row.ID}, store.save()
+			if pruned {
+				return object{"suppressed": true, "reason": "recent-rejection", "id": row.ID}, store.save()
+			}
+			return object{"suppressed": true, "reason": "recent-rejection", "id": row.ID}, nil
 		}
 		if strPtr(row.CandidateState) == "rejected" || row.Status == "merged" {
 			continue
@@ -784,7 +791,10 @@ func (store *axStore) candidate(friction, observation string, principal *coordin
 	}
 	observation = hash([]byte(observation))
 	if entry != nil && slices.Contains(entry.Occurrences, observation) {
-		return object{"coalesced": true, "id": entry.ID, "candidate": entry.Status == "candidate"}, store.save()
+		if pruned {
+			return object{"coalesced": true, "id": entry.ID, "candidate": entry.Status == "candidate"}, store.save()
+		}
+		return object{"coalesced": true, "id": entry.ID, "candidate": entry.Status == "candidate"}, nil
 	}
 	if ms-store.data.CandidateBucket[0] >= 3600000 {
 		store.data.CandidateBucket = [2]int64{ms, 0}
