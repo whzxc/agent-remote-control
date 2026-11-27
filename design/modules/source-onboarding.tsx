@@ -1,20 +1,41 @@
-import type { ReactNode } from "react";
 import { Frame, Icon } from "adg";
-import { Button } from "../components/button";
-import { SingleChoice } from "../components/single-choice";
-import { SetupChoice } from "../components/setup-choice";
-import { CopyField } from "../components/copy-field";
-import { Tile } from "../components/tile";
-import { type Brand } from "../components/brand-mark";
-import { OnboardingField, type OnboardingStep } from '../components/onboarding-fields';
-import { productRows, localProductRows, sourceCopy } from "../fixtures/source-onboarding";
-import { onboardingFrames, methods, maskedAddress } from "../fixtures/onboarding";
+import { Cloud, Link, Plug, Plus, type LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
+import { OAuthApprovalView } from "@/components/connectivity/OAuthApprovalView";
+import {
+  SetupActionCard,
+  SourceAddressStepView,
+  SourceConnectionStepView,
+  SourceProductPickerView,
+  SourceSuccessStepView,
+} from "@/components/connectivity/SourceOnboardingView";
+import { PrivacyProvider } from "@/components/kit";
+import { LocaleProvider } from "@/i18n/react";
 import Gemini from "../art/gemini.svg";
+import GithubCopilot from "../art/github-copilot.svg";
+import grokBot from "../art/grok-bot.png";
 import Grok from "../art/grok.svg";
 import Copilot from "../art/microsoft-copilot.svg";
-import GithubCopilot from "../art/github-copilot.svg";
 import Qwen from "../art/qwen-code.svg";
-import grokBot from "../art/grok-bot.png";
+import { BrandMark, type Brand } from "../components/brand-mark";
+import type { OnboardingStep } from "../components/onboarding-fields";
+import {
+  maskedAddress,
+  methods,
+  onboardingFrames,
+} from "../fixtures/onboarding";
+import {
+  localProductRows,
+  productRows,
+  sourceCopy,
+} from "../fixtures/source-onboarding";
+
+const actionIcons: Record<string, LucideIcon> = {
+  cloud: Cloud,
+  link: Link,
+  plug: Plug,
+  plus: Plus,
+};
 
 const productArt: Record<string, ReactNode> = {
   Gemini: <Gemini data-brand width={24} height={24} />,
@@ -22,172 +43,184 @@ const productArt: Record<string, ReactNode> = {
   Copilot: <Copilot data-brand width={24} height={24} />,
   "GitHub Copilot": <GithubCopilot data-brand width={24} height={24} />,
   "Qwen Code": <Qwen data-brand width={24} height={24} />,
-  "Grok Bot": <img src={grokBot} width={24} height={24} />,
+  "Grok Bot": <img src={grokBot} width={24} height={24} alt="" />,
 };
-const products = productRows.map(([label, brand]) => ({
+
+const remoteProducts = productRows.map(([label, brand]) => ({
   value: label,
   label,
-  brand: brand as Brand,
-  graphic: productArt[label],
+  icon: productArt[label] ?? <BrandMark brand={brand as Brand} size={24} />,
   disabled: label === "Qwen Code",
-  ...(label === "Qwen Code" ? { description: sourceCopy.unsupported } : {}),
+  description: label === "Qwen Code" ? sourceCopy.unsupported : undefined,
 }));
-const localProducts = localProductRows.map(({ icon, ...option }) => ({
-  ...option, brand: option.brand as Brand,
-  graphic: icon ? <Icon name={icon} size={24} /> : undefined,
+
+const localProducts = localProductRows.map(({ icon, brand, ...option }) => ({
+  value: option.value,
+  label: option.label,
+  disabled: option.disabled,
+  description: option.description,
+  icon: icon ? (
+    <Icon name={icon} size={24} />
+  ) : (
+    <BrandMark brand={brand as Brand} size={24} />
+  ),
 }));
-export function SetupAction(props: {
+
+export function SetupAction({
+  icon,
+  label,
+  description,
+  badge,
+}: {
   icon: string;
   label: string;
   description?: string;
   badge?: string;
   catalog?: boolean;
 }) {
-  return <SetupChoice {...props} />;
+  return (
+    <SetupActionCard
+      icon={actionIcons[icon] ?? Plus}
+      label={label}
+      description={description}
+      badge={badge}
+    />
+  );
 }
+
 export function SourceOnboarding({ step }: { step: OnboardingStep }) {
-  switch (step.body) {
-    case "products":
-      return (
-        <div className="flex flex-col gap-[10px]">
-          <h3 className="text-meta leading-4 text-text-tertiary">{sourceCopy.remote}</h3>
-          <div className="pt-[2px]">
-            <SingleChoice
-              label={sourceCopy.remote}
-              value={sourceCopy.client}
-              options={products}
-              form="setup-product"
-              catalog
-            />
-          </div>
-          <h3 className="text-meta leading-4 text-text-tertiary">{sourceCopy.local}</h3>
-          <div className="pt-[2px]">
-            <SingleChoice
-              label={sourceCopy.local}
-              value=""
-              options={localProducts}
-              form="setup-product"
-              catalog
-            />
-          </div>
-        </div>
-      );
-    case "connection":
-      return (
-        <div className="flex flex-col gap-4">
-          <p className="text-body leading-5 text-text-secondary mb-1">{sourceCopy.connectionQuestion}</p>
-          <SingleChoice
-            label="连接"
-            value="relay"
-            form="setup-row"
-            options={sourceCopy.connectionOptions}
+  return (
+    <LocaleProvider locale="zh-CN">
+      <PrivacyProvider hidden>
+        {step.body === "products" ? (
+          <SourceProductPickerView
+            value={sourceCopy.client}
+            groups={[
+              {
+                id: "remote",
+                label: sourceCopy.remote,
+                options: remoteProducts,
+              },
+              {
+                id: "local",
+                label: sourceCopy.local,
+                options: localProducts,
+              },
+            ]}
           />
-          <SetupAction
-            icon="plus"
-            label={sourceCopy.addConnection}
-            description={sourceCopy.addDescription}
+        ) : step.body === "connection" ? (
+          <SourceConnectionStepView
+            prompt={sourceCopy.connectionQuestion}
+            connectionsLabel="连接"
+            selectedConnection="relay"
+            hasSelectableConnection
+            connections={sourceCopy.connectionOptions}
+            emptyTitle={sourceCopy.noConnections}
+            emptyPrompt={sourceCopy.connectionQuestion}
+            emptyActions={null}
+            addConnectionAction={
+              <SetupAction
+                icon="plus"
+                label={sourceCopy.addConnection}
+                description={sourceCopy.addDescription}
+              />
+            }
           />
-        </div>
-      );
-    case "empty":
-      return (
-        <div className="flex flex-col gap-3">
-          <h3 className="text-body leading-5 font-[650]">{sourceCopy.noConnections}</h3>
-          <p className="text-body leading-4 text-text-secondary">{sourceCopy.connectionQuestion}</p>
-          <div className="grid grid-cols-3 gap-[10px] mt-2">
-            {methods.map((method, i) => (
-              <div>
-                <SetupAction
-                  catalog
-                  icon={sourceCopy.methodIcons[i]}
-                  label={method.label}
-                  badge={i === 0 ? sourceCopy.recommended : undefined}
-                />
+        ) : step.body === "empty" ? (
+          <SourceConnectionStepView
+            connectionsLabel="连接"
+            selectedConnection=""
+            hasSelectableConnection={false}
+            connections={[]}
+            emptyTitle={sourceCopy.noConnections}
+            emptyPrompt={sourceCopy.connectionQuestion}
+            emptyActions={
+              <div className="grid grid-cols-3 gap-2.5">
+                {methods.map((method, i) => (
+                  <SetupAction
+                    key={method.value}
+                    catalog
+                    icon={sourceCopy.methodIcons[i]}
+                    label={method.label}
+                    badge={i === 0 ? sourceCopy.recommended : undefined}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      );
-    case "source-local":
-      return <p className="text-body leading-6">{sourceCopy.localRestart}</p>;
-    case "address":
-      return (
-        <div className="flex flex-col gap-7">
-          {sourceCopy.addressSteps.map(
-            (title, i) => (
-              <section className="flex gap-[14px]">
-                <span className="grid size-6 shrink-0 place-items-center rounded-control bg-surface-sunken text-meta font-semibold">
-                  {i + 1}
-                </span>
-                <div
-                  className={`flex flex-1 flex-col ${i === 0 ? "gap-3" : "gap-[6px]"}`}
-                >
-                  <h3 className="text-body leading-6 font-[650]">{title}</h3>
-                  {i === 0 ? (
-                    <div>
-                      <CopyField value={maskedAddress} masked />
-                    </div>
-                  ) : i === 1 ? (
-                    <div className="flex items-center gap-4">
-                      <p className="text-small text-text-secondary">{sourceCopy.settingsPath}</p>
-                      <Button icon="external-link">{sourceCopy.openSettings}</Button>
-                    </div>
-                  ) : (
-                    <p className="text-small leading-4 text-text-secondary">{sourceCopy.codeNotice}</p>
-                  )}
-                </div>
-              </section>
-            ),
-          )}
-        </div>
-      );
-    case "approval":
-      return (
-        <div className="flex flex-col gap-6">
-          <div className="flex flex-col gap-6 rounded-card bg-surface-subtle px-5 py-[18px]">
-            <div className="flex items-center gap-6">
-              <strong className="font-mono text-[28px] leading-5">{sourceCopy.code}</strong>
-              <p className="text-small">{sourceCopy.confirmCode}</p>
-            </div>
-            <p className="text-small leading-4 text-text-secondary">{sourceCopy.scope}</p>
-          </div>
-          <SingleChoice
-            label={sourceCopy.account}
-            value="new"
-            fill
-            options={sourceCopy.accountOptions}
+            }
           />
-          <OnboardingField label={sourceCopy.accountName} value={sourceCopy.client} />
-        </div>
-      );
-    case "success":
-      return (
-        <div className="flex flex-col gap-6">
-          <div className="flex items-center gap-4">
-            <Tile icon="check" tone="success" />
-            <div className="flex flex-col gap-[10px]">
-              <h3 className="text-title leading-6 font-[650]">{sourceCopy.connected}</h3>
-              <p className="text-meta leading-4 text-text-secondary">{sourceCopy.relay}</p>
-            </div>
-          </div>
-          <div className="flex flex-col gap-6">
-            <p className="text-small leading-4 font-semibold">{sourceCopy.tryPrompt}</p>
-            <CopyField value={sourceCopy.prompt} masked />
-          </div>
-        </div>
-      );
-    default: return null;
-  }
+        ) : step.body === "source-local" ? (
+          <SourceAddressStepView
+            isLocal
+            localRestartText={sourceCopy.localRestart}
+            copyStepTitle=""
+            address=""
+            copyAddressLabel=""
+            configureStepTitle=""
+            configurePath=""
+            connectStepTitle=""
+            connectStepNote=""
+          />
+        ) : step.body === "address" ? (
+          <SourceAddressStepView
+            copyStepTitle={sourceCopy.addressSteps[0]}
+            address={maskedAddress}
+            copyAddressLabel={sourceCopy.addressSteps[0]}
+            configureStepTitle={sourceCopy.addressSteps[1]}
+            configurePath={sourceCopy.settingsPath}
+            openSettingsLabel={sourceCopy.openSettings}
+            connectStepTitle={sourceCopy.addressSteps[2]}
+            connectStepNote={sourceCopy.codeNotice}
+          />
+        ) : step.body === "approval" ? (
+          <OAuthApprovalView
+            pending
+            inline
+            pairingCode={sourceCopy.code}
+            compareCodeLabel={sourceCopy.confirmCode}
+            clientText={sourceCopy.scope.split(" · ")[0] ?? sourceCopy.scope}
+            scopeText={sourceCopy.scope.split(" · ")[1] ?? ""}
+            authorizationLabel={sourceCopy.account}
+            authorizationValue="new"
+            authorizationOptions={sourceCopy.accountOptions}
+            showAccountName
+            accountNameLabel={sourceCopy.accountName}
+            accountName={sourceCopy.client}
+          />
+        ) : step.body === "success" ? (
+          <SourceSuccessStepView
+            title={sourceCopy.connected}
+            subtitle={sourceCopy.relay}
+            promptLabel={sourceCopy.tryPrompt}
+            promptValue={sourceCopy.prompt}
+            copyLabel={sourceCopy.tryPrompt}
+          />
+        ) : null}
+      </PrivacyProvider>
+    </LocaleProvider>
+  );
 }
+
 export default () => [
-  ...onboardingFrames.filter(step => step.name.startsWith("source-")).map(step => (
-    <Frame name={`source-onboarding-${step.body === "source-local" ? "local" : step.body}`} width={632}>
-      <div className="w-full bg-surface-raised"><SourceOnboarding step={step} /></div>
-    </Frame>
-  )),
-  <Frame name="setup-action" width={632}>
+  ...onboardingFrames
+    .filter((step) => step.name.startsWith("source-"))
+    .map((step) => (
+      <Frame
+        key={step.name}
+        name={`source-onboarding-${step.body === "source-local" ? "local" : step.body}`}
+        width={632}
+      >
+        <div className="w-full bg-surface-raised">
+          <SourceOnboarding step={step} />
+        </div>
+      </Frame>
+    )),
+  <Frame key="setup-action" name="setup-action" width={632}>
     <div className="w-full bg-surface-raised">
-      <SetupAction icon="plus" label={sourceCopy.addConnection} description={sourceCopy.addDescription} />
+      <SetupAction
+        icon="plus"
+        label={sourceCopy.addConnection}
+        description={sourceCopy.addDescription}
+      />
     </div>
   </Frame>,
 ];

@@ -1,16 +1,50 @@
 import { useState } from "react";
 import { controlSource, controlSources } from "../controlSources";
 import { t } from "../i18n";
-import { SingleChoice } from "./ui";
+import { SourceProductChoiceView } from "./connectivity/SourceProductChoiceView";
+
 const common = ["claude", "chatgpt", "gemini", "grok"];
-export default function SourceProductChoice({ value, onChange, disabled }: { value: string; onChange: (value: string) => void; disabled?: boolean }) {
+
+export default function SourceProductChoice({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
   const [more, setMore] = useState(false);
   const overflow = more || !common.includes(value);
-  return <div className="source-product-choice">
-    <SingleChoice label={t("source.product")} value={overflow ? "more" : value} disabled={disabled} onChange={next => {
-      setMore(next === "more"); if (next !== "more") onChange(next);
-    }} options={[...common.map(id => ({ value: id, label: controlSource(id)!.shortName })), { value: "more", label: t("source.moreProducts") }]} />
-    {overflow && <SingleChoice label={t("source.moreProducts")} value={value} disabled={disabled} onChange={onChange}
-      options={[...controlSources.filter(source => source.id !== "local-cli"), ...(!controlSource(value) ? [{ id: value, shortName: value }] : [])].map(s => ({ value: s.id, label: s.id === "custom" ? t("connect.other") : s.shortName }))} />}
-  </div>;
+  const overflowSources = [
+    ...controlSources.filter((source) => source.id !== "local-cli"),
+    ...(!controlSource(value) ? [{ id: value, shortName: value }] : []),
+  ];
+
+  return (
+    <SourceProductChoiceView
+      label={t("source.product")}
+      moreLabel={t("source.moreProducts")}
+      primaryValue={overflow ? "more" : value}
+      primaryOptions={[
+        ...common.map((id) => ({
+          value: id,
+          label: controlSource(id)!.shortName,
+        })),
+        { value: "more", label: t("source.moreProducts") },
+      ]}
+      onPrimaryChange={(next) => {
+        setMore(next === "more");
+        if (next !== "more") onChange(next);
+      }}
+      showOverflow={overflow}
+      overflowValue={value}
+      overflowOptions={overflowSources.map((source) => ({
+        value: source.id,
+        label: source.id === "custom" ? t("connect.other") : source.shortName,
+      }))}
+      onOverflowChange={onChange}
+      disabled={disabled}
+    />
+  );
 }

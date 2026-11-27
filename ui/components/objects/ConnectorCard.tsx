@@ -1,84 +1,224 @@
-import { useSubmittedDirty } from "../ui/useSubmittedDirty";
-import { usePanelState } from "../ui/Panel";
-import { useDialogCompletion } from "../ui/Dialog";
+import { Check, X } from "lucide-react";
+import { useId, useRef, useState } from "react";
+import { api } from "../../api";
 import { readOnlyBrowser } from "../../browserMode";
-import { useId, useRef, useState } from 'react';
-import { Check, Pencil, Trash2, X } from 'lucide-react';
-import { api } from '../../api';
-import { locale, t } from '../../i18n';
-import { controlSource } from '../../controlSources';
-import { connector, refreshConnector } from '../../state/connector';
-import { sourceDate } from '../../sourcePresentation';
-import type { ControlSource } from '../../state/types';
-import { ConfirmDialog, IconButton, Input, Notice } from '../ui';
-import { Card, CardContent, CardHeader } from '../ui/card';
-import { Sensitive } from '../Sensitive';
-import SourceIcon from '../SourceIcon';
+import { controlSource } from "../../controlSources";
+import { locale, t } from "../../i18n";
+import { sourceDate } from "../../sourcePresentation";
+import { connector, refreshConnector } from "../../state/connector";
+import type { ControlSource } from "../../state/types";
+import { IconButton } from "../kit/button";
+import { Input } from "../kit/input";
+import { Sensitive } from "../Sensitive";
+import SourceIcon from "../SourceIcon";
+import { ConfirmDialog, Notice } from "../ui";
+import { useDialogCompletion } from "../ui/Dialog";
+import { usePanelState } from "../ui/Panel";
+import { useSubmittedDirty } from "../ui/useSubmittedDirty";
+import { ConnectorCardView, type ConnectorFactItem } from "./ConnectorCardView";
 
 export default function ConnectorCard({ source }: { source: ControlSource }) {
   const { status } = connector.use();
-  const ingress = status?.ingresses.find(item => item.id === source.ingressId);
-  const grant = ingress?.oauth?.grants.find(item => item.id === source.credential.grantId);
+  const ingress = status?.ingresses.find((item) => item.id === source.ingressId);
+  const grant = ingress?.oauth?.grants.find(
+    (item) => item.id === source.credential.grantId,
+  );
   const product = controlSource(source.product);
   const [removing, setRemoving] = useState(false);
-  const [editing, setEditing] = useState(false), [label, setLabel] = useState(source.label);
-  const [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [label, setLabel] = useState(source.label);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const draft = useSubmittedDirty(label, label !== source.label);
   usePanelState({ dirty: editing && draft.dirty, busy });
-  const labelId = useId(), nameInput = useRef<HTMLInputElement>(null), editTrigger = useRef<HTMLButtonElement>(null);
+  const labelId = useId();
+  const nameInput = useRef<HTMLInputElement>(null);
+  const editTrigger = useRef<HTMLButtonElement>(null);
+
   function finishEditing() {
-    setEditing(false); setError('');
+    setEditing(false);
+    setError("");
     requestAnimationFrame(() => editTrigger.current?.focus());
   }
+
   async function save() {
     if (busy) return;
-    if (!label.trim()) { setError(t('fieldRequired')); nameInput.current?.focus(); return; }
-    if (label.trim() === source.label) { finishEditing(); return; }
-    draft.submit(); setBusy(true); setError('');
-    try { await api(`source/${source.id}`, 'PUT', { label: label.trim() }); await refreshConnector(); finishEditing(); }
-    catch (e) { setError(String(e)); nameInput.current?.focus(); }
-    finally { setBusy(false); }
+    if (!label.trim()) {
+      setError(t("fieldRequired"));
+      nameInput.current?.focus();
+      return;
+    }
+    if (label.trim() === source.label) {
+      finishEditing();
+      return;
+    }
+    draft.submit();
+    setBusy(true);
+    setError("");
+    try {
+      await api(`source/${source.id}`, "PUT", { label: label.trim() });
+      await refreshConnector();
+      finishEditing();
+    } catch (e) {
+      setError(String(e));
+      nameInput.current?.focus();
+    } finally {
+      setBusy(false);
+    }
   }
+
   const completion = useDialogCompletion(() => setRemoving(false));
   async function remove() {
-    setBusy(true); setError('');
-    try { await api(`source/${source.id}/disconnect`, 'POST'); await refreshConnector(); await completion.finish(); }
-    catch (e) { setError(String(e)); }
-    finally { setBusy(false); }
+    setBusy(true);
+    setError("");
+    try {
+      await api(`source/${source.id}/disconnect`, "POST");
+      await refreshConnector();
+      await completion.finish();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
   }
-  const identity = [
-    [t('platforms.product'), product?.displayName],
-    [t('platforms.client'), grant?.clientName !== product?.displayName ? grant?.clientName : undefined],
-    [t('platforms.email'), source.authorizationFacts?.email],
-    [t('platforms.organization'), source.authorizationFacts?.orgName],
-    [t('platforms.accountId'), source.authorizationFacts?.accountId],
-  ].filter((row): row is [string, string] => !!row[1]);
-  const connection = [
-    [t('platforms.connection'), ingress?.name ?? source.connectionName],
-    [t('platforms.added'), source.createdAt ? new Date(source.createdAt).toLocaleString(locale.get(), { hour12: false }) : undefined],
-  ].filter((row): row is [string, string] => !!row[1]);
-  const activity = [
-    [t('source.authorizedAt'), grant?.connectedAt || source.connectedAt ? sourceDate(grant?.connectedAt || source.connectedAt) : undefined],
-    [t('source.lastSeen'), source.lastSeenAt ? sourceDate(source.lastSeenAt) : undefined],
-  ].filter((row): row is [string, string] => !!row[1]);
-  const facts = identity.length <= 1 ? [[...identity, ...connection], activity] : [identity, connection, activity];
-  return <Card asChild className="gap-3"><section className="connector-card" aria-label={source.label}>
-    <CardHeader className="flex flex-col"><div className="connector-card-heading"><SourceIcon platform={source.product} />
-      {editing ? <form className="min-w-0 flex-1" onSubmit={event => { event.preventDefault(); void save(); }}>
-        <div className="flex items-center gap-2"><Input ref={nameInput} id={labelId} aria-label={t('platforms.name')} aria-invalid={!!error} aria-describedby={error ? `${labelId}-error` : undefined} autoFocus required value={label} maxLength={120} readOnly={busy} onChange={event => setLabel(event.target.value)} />
-          <IconButton icon={Check} label={t('save')} type="submit" busy={busy} />
-          <IconButton icon={X} label={t('cancel')} disabled={busy} onClick={finishEditing} />
-        </div>{error && <p id={`${labelId}-error`} className="field-error" role="alert">{error}</p>}
-      </form> : <div className="connector-name"><h3>{source.label}</h3><span className="connector-state" data-connected={source.state === 'connected' || undefined}>· {t(`source.state.${source.state}`)}</span></div>}
-      {editing && <span className="connector-state" data-connected={source.state === 'connected' || undefined}>{t(`source.state.${source.state}`)}</span>}
-      <div className="connector-actions">
-      {!editing && <IconButton compact ref={editTrigger} disabled={readOnlyBrowser || busy} icon={Pencil} label={t('platforms.rename', { name: source.label })} onClick={() => { setLabel(source.label); setError(''); setEditing(true); }} />}
-      <IconButton compact icon={Trash2} disabled={readOnlyBrowser || editing || busy} label={t('platforms.remove', { name: source.label })} onClick={() => { setError(''); setRemoving(true); }} />
+
+  const toFacts = (rows: readonly (readonly [string, string | undefined])[]) =>
+    rows
+      .filter((row): row is readonly [string, string] => Boolean(row[1]))
+      .map<ConnectorFactItem>(([factLabel, value]) => ({
+        label: factLabel,
+        value,
+        renderedValue: <Sensitive>{value}</Sensitive>,
+      }));
+
+  const identity = toFacts([
+    [t("platforms.product"), product?.displayName],
+    [
+      t("platforms.client"),
+      grant?.clientName !== product?.displayName ? grant?.clientName : undefined,
+    ],
+    [t("platforms.email"), source.authorizationFacts?.email],
+    [t("platforms.organization"), source.authorizationFacts?.orgName],
+    [t("platforms.accountId"), source.authorizationFacts?.accountId],
+  ]);
+
+  const connection = toFacts([
+    [t("platforms.connection"), ingress?.name ?? source.connectionName],
+    [
+      t("platforms.added"),
+      source.createdAt
+        ? new Date(source.createdAt).toLocaleString(locale.get(), {
+            hour12: false,
+          })
+        : undefined,
+    ],
+  ]);
+
+  const activity = toFacts([
+    [
+      t("source.authorizedAt"),
+      grant?.connectedAt || source.connectedAt
+        ? sourceDate(grant?.connectedAt || source.connectedAt)
+        : undefined,
+    ],
+    [
+      t("source.lastSeen"),
+      source.lastSeenAt ? sourceDate(source.lastSeenAt) : undefined,
+    ],
+  ]);
+
+  const facts =
+    identity.length <= 1
+      ? [[...identity, ...connection], activity]
+      : [identity, connection, activity];
+
+  const editForm = (
+    <form
+      className="min-w-0 flex-1"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void save();
+      }}
+    >
+      <div className="flex items-center gap-1.5">
+        <Input
+          ref={nameInput}
+          id={labelId}
+          size="sm"
+          aria-label={t("platforms.name")}
+          aria-invalid={!!error || undefined}
+          aria-describedby={error ? `${labelId}-error` : undefined}
+          autoFocus
+          required
+          value={label}
+          maxLength={120}
+          readOnly={busy}
+          onChange={(event) => setLabel(event.target.value)}
+        />
+        <IconButton
+          compact
+          icon={Check}
+          label={t("save")}
+          type="submit"
+          busy={busy}
+        />
+        <IconButton
+          compact
+          icon={X}
+          label={t("cancel")}
+          disabled={busy}
+          onClick={finishEditing}
+        />
       </div>
-    </div></CardHeader>
-    <CardContent><dl className="connector-facts">{facts.filter(group => group.length).map((group, index) => <div className="connector-fact-group" key={index}>{group.map(([name, value]) => <div className="connector-fact" key={name}><dt>{name}</dt><dd><Sensitive>{value}</Sensitive></dd></div>)}</div>)}</dl></CardContent>
-    {removing && <ConfirmDialog layerId={completion.layerId} title={t('platforms.remove', { name: source.label })} busy={busy} onClose={() => setRemoving(false)} confirmLabel={t('remove')} onConfirm={remove}>
-      <p>{t('platforms.removeConfirm')}</p>{error && <Notice>{error}</Notice>}
-    </ConfirmDialog>}
-  </section></Card>;
+      {error && (
+        <p
+          id={`${labelId}-error`}
+          className="mt-1 text-meta leading-4 text-destructive"
+          role="alert"
+        >
+          {error}
+        </p>
+      )}
+    </form>
+  );
+
+  return (
+    <>
+      <ConnectorCardView
+        title={source.label}
+        statusLabel={t(`source.state.${source.state}`)}
+        connected={source.state === "connected"}
+        icon={<SourceIcon platform={source.product} />}
+        facts={facts}
+        editing={editing}
+        editForm={editForm}
+        renameLabel={t("platforms.rename", { name: source.label })}
+        removeLabel={t("platforms.remove", { name: source.label })}
+        actionsDisabled={readOnlyBrowser || busy}
+        renameButtonRef={editTrigger}
+        onRename={() => {
+          setLabel(source.label);
+          setError("");
+          setEditing(true);
+        }}
+        onRemove={() => {
+          setError("");
+          setRemoving(true);
+        }}
+      />
+      {removing && (
+        <ConfirmDialog
+          layerId={completion.layerId}
+          title={t("platforms.remove", { name: source.label })}
+          busy={busy}
+          onClose={() => setRemoving(false)}
+          confirmLabel={t("remove")}
+          onConfirm={remove}
+        >
+          <p>{t("platforms.removeConfirm")}</p>
+          {error && <Notice>{error}</Notice>}
+        </ConfirmDialog>
+      )}
+    </>
+  );
 }

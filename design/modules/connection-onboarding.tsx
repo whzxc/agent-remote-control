@@ -1,191 +1,241 @@
 import { Frame } from "adg";
-import { Button } from "../components/button";
-import { SingleChoice } from "../components/single-choice";
-import { CopyField } from "../components/copy-field";
-import { Tile } from "../components/tile";
-import { OnboardingField, OnboardingChoiceField, type OnboardingStep } from '../components/onboarding-fields';
+import {
+  ConnectionJoinStepView,
+  ConnectionLocalStepView,
+  ConnectionMethodStepView,
+  ConnectionReadyStepView,
+} from "@/components/connectivity/ConnectionOnboardingView";
+import { IngressFormView } from "@/components/connectivity/IngressFormView";
+import {
+  RelayProgressView,
+  type RelayProgressStep,
+} from "@/components/connectivity/RelayProgressView";
+import { ToolPolicyView } from "@/components/connectivity/ToolPolicyView";
+import { Button, Field, Input, PrivacyProvider } from "@/components/kit";
+import { LocaleProvider } from "@/i18n/react";
+import type { OnboardingStep } from "../components/onboarding-fields";
 import { connectionCopy } from "../fixtures/connection-onboarding";
-import { onboardingFrames, methods, maskedAddress } from "../fixtures/onboarding";
+import {
+  maskedAddress,
+  methods,
+  onboardingFrames,
+} from "../fixtures/onboarding";
+
+function StaticField({
+  label,
+  value,
+  action,
+}: {
+  label: string;
+  value: string;
+  action?: string;
+}) {
+  return (
+    <Field
+      label={label}
+      helpPlacement="label"
+      help={
+        action ? (
+          <Button variant="ghost" size="xs">
+            {action}
+          </Button>
+        ) : undefined
+      }
+    >
+      <Input value={value} readOnly />
+    </Field>
+  );
+}
 
 export function ConnectionOperations() {
   return (
-    <div className="flex flex-col gap-[7px]">
-      <OnboardingChoiceField
+    <LocaleProvider locale="zh-CN">
+      <ToolPolicyView
         label={connectionCopy.operationLabel}
-        options={connectionCopy.operationOptions}
         value={connectionCopy.operationValue}
+        options={connectionCopy.operationOptions.map((label) => ({
+          value: label,
+          label,
+        }))}
+        summary={connectionCopy.operationSummary}
+        viewAllLabel={connectionCopy.viewOperations}
       />
-      <div className="flex items-center gap-2">
-        <p className="text-meta text-text-secondary">{connectionCopy.operationSummary}</p>
-        <Button variant="ghost">{connectionCopy.viewOperations}</Button>
-      </div>
-    </div>
+    </LocaleProvider>
   );
 }
+
 export function ConnectionOnboarding({ step }: { step: OnboardingStep }) {
   const nested = step.name.startsWith("stacked-");
-  switch (step.body) {
-    case "local":
-      return (
-        <p className="text-body leading-6">{connectionCopy.localInstall}</p>
-      );
-    case "method":
-      return (
-        <div className="flex flex-col gap-[38px]">
-          <SingleChoice
+
+  const relaySteps: RelayProgressStep[] = connectionCopy.relaySteps.map(
+    (label, index) => ({
+      id: label,
+      label,
+      state:
+        index === 0
+          ? step.body === "login"
+            ? "running"
+            : "complete"
+          : index === 1 && step.body === "relay"
+            ? "running"
+            : "waiting",
+      detail:
+        (step.body === "login" && index < 2) ||
+        (step.body === "relay" && index === 1)
+          ? index === 0
+            ? connectionCopy.authorize
+            : step.body === "login"
+              ? connectionCopy.estimate
+              : connectionCopy.runningEstimate
+          : undefined,
+    }),
+  );
+
+  const methodOptions = nested
+    ? methods
+    : [
+        ...methods,
+        ...connectionCopy.extraMethods.map((label) => ({
+          value: label,
+          label,
+        })),
+      ];
+
+  const [readyStatus, readyCount] = connectionCopy.online.split(" · ");
+
+  return (
+    <LocaleProvider locale="zh-CN">
+      <PrivacyProvider hidden>
+        {step.body === "local" ? (
+          <ConnectionLocalStepView description={connectionCopy.localInstall} />
+        ) : step.body === "method" ? (
+          <ConnectionMethodStepView
             label={connectionCopy.method}
             value="relay"
-            options={methods}
-            form="setup-row"
+            options={methodOptions}
+            secondaryFrom={nested ? undefined : 3}
           />
-          {!nested && (
-            <div className="grid grid-cols-[224px_186px_1fr] gap-4">
-              {connectionCopy.extraMethods.map(
-                (label, i) => (
-                  <SingleChoice
-                    label={label}
-                    value=""
-                    form="setup-row"
-                    catalog
-                    options={[{ value: label, label }]}
-                  />
-                ),
-              )}
-            </div>
-          )}
-        </div>
-      );
-    case "relay":
-    case "login":
-      return (
-        <div className="flex flex-col gap-6">
-          <div className="flex flex-col gap-6">
-            {connectionCopy.relaySteps.map((label, i) => (
-              <div className="flex items-center gap-4">
-                <Tile
-                  icon={
-                    i === 0
-                      ? step.body === "login"
-                        ? "loader-circle"
-                        : "check"
-                      : i === 1 && step.body === "relay"
-                        ? "loader-circle"
-                        : "circle"
-                  }
-                  tone={
-                    i === 0 && step.body === "relay"
-                      ? "success"
-                      : i === 0 || (i === 1 && step.body === "relay")
-                        ? "accent"
-                        : "neutral"
-                  }
-                />
-                <div className="flex flex-col gap-[10px]">
-                  <h3 className="text-body leading-5 font-[650]">{label}</h3>
-                  {((step.body === "login" && i < 2) ||
-                    (step.body === "relay" && i === 1)) && (
-                    <p className="text-meta leading-[14px] text-text-secondary">
-                      {i === 0
-                        ? "请在浏览器中完成授权"
-                        : step.body === "login"
-                          ? "大约 20 秒"
-                          : "进行中 · 大约 20 秒"}
-                    </p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-          {step.body === "login" && (
-            <Button variant="ghost">{connectionCopy.copyLogin}</Button>
-          )}
-        </div>
-      );
-    case "join":
-      return (
-        <div className="flex flex-col gap-6">
-          <OnboardingField label={connectionCopy.sharedLink} value="" />
-          <div className="flex flex-col gap-[6px]">
-            <OnboardingField label={connectionCopy.machineLabel} value={connectionCopy.machineName} />
-            <p className="text-meta leading-4 text-text-secondary">{connectionCopy.visibility}</p>
-          </div>
-        </div>
-      );
-    case "own":
-      return (
-        <div className="flex flex-col">
-          <OnboardingChoiceField
-            label={connectionCopy.https}
-            options={connectionCopy.providers}
-            value={connectionCopy.provider}
-            className="mb-[14px]"
+        ) : step.body === "relay" || step.body === "login" ? (
+          <RelayProgressView
+            steps={relaySteps}
+            copyLoginLabel={
+              step.body === "login" ? connectionCopy.copyLogin : undefined
+            }
           />
-          <OnboardingChoiceField
-            label={connectionCopy.domainMode}
-            options={connectionCopy.domainModes}
-            value={connectionCopy.fixedDomain}
-            className="mb-[22px]"
+        ) : step.body === "join" ? (
+          <ConnectionJoinStepView
+            linkLabel={connectionCopy.sharedLink}
+            linkValue=""
+            deviceLabel={connectionCopy.machineLabel}
+            deviceValue={connectionCopy.machineName}
+            visibilityHint={connectionCopy.visibility}
           />
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <OnboardingField label={connectionCopy.domainLabel} value={connectionCopy.domain} />
-            <OnboardingField label={connectionCopy.connectionLabel} value={connectionCopy.connectionName} />
-          </div>
-          <OnboardingField
-            label={connectionCopy.tokenLabel}
-            value={connectionCopy.tokenPlaceholder}
-            action={connectionCopy.credentialsAction}
+        ) : step.body === "own" ? (
+          <IngressFormView
+            setupLayout
+            https
+            httpsProvider={{
+              label: connectionCopy.https,
+              value: connectionCopy.provider,
+              options: connectionCopy.providers.map((label) => ({
+                value: label,
+                label,
+              })),
+            }}
+            domainMode={{
+              label: connectionCopy.domainMode,
+              value: connectionCopy.fixedDomain,
+              options: connectionCopy.domainModes.map((label) => ({
+                value: label,
+                label,
+              })),
+            }}
+            domainField={
+              <StaticField
+                label={connectionCopy.domainLabel}
+                value={connectionCopy.domain}
+              />
+            }
+            setupNameField={
+              <StaticField
+                label={connectionCopy.connectionLabel}
+                value={connectionCopy.connectionName}
+              />
+            }
+            credentialField={
+              <StaticField
+                label={connectionCopy.tokenLabel}
+                value={connectionCopy.tokenPlaceholder}
+                action={connectionCopy.credentialsAction}
+              />
+            }
+            authentication={{
+              label: connectionCopy.identity,
+              value: connectionCopy.auth,
+              options: connectionCopy.authOptions.map((label) => ({
+                value: label,
+                label,
+              })),
+            }}
+            toolPolicyField={<ConnectionOperations />}
           />
-          <OnboardingChoiceField
-            className="mt-4"
-            label={connectionCopy.identity}
-            options={connectionCopy.authOptions}
-            value={connectionCopy.auth}
+        ) : step.body === "secure" ? (
+          <IngressFormView
+            setupLayout
+            https={false}
+            tunnelFields={
+              <>
+                {connectionCopy.credentials.slice(0, 2).map((field) => (
+                  <StaticField key={field.label} {...field} />
+                ))}
+              </>
+            }
+            setupNameField={
+              <StaticField {...connectionCopy.credentials[2]} />
+            }
+            toolPolicyField={<ConnectionOperations />}
           />
-          <div className="mt-[26px]">
-            <ConnectionOperations />
-          </div>
-        </div>
-      );
-    case "secure":
-      return (
-        <div className="flex flex-col gap-6">
-          {connectionCopy.credentials.map((field) => (
-            <OnboardingField {...field} />
-          ))}
-          <div>
-            <ConnectionOperations />
-          </div>
-        </div>
-      );
-    case "ready":
-      return (
-        <div className="flex flex-col gap-6">
-          <div className="flex items-center gap-4">
-            <Tile icon="check" tone="success" />
-            <h3 className="text-title leading-6 font-[650]">{connectionCopy.ready}</h3>
-          </div>
-          <div className="flex flex-col rounded-card bg-surface-subtle p-5">
-            <h3 className="text-body leading-4 font-[650]">{connectionCopy.relay}</h3>
-            <p className="mt-[10px] flex items-center gap-2 text-meta leading-4 text-text-secondary">
-              <span className="size-[6px] rounded-full bg-success" />{connectionCopy.online}</p>
-            <p className="mt-[18px] text-small leading-4 text-text-secondary">{connectionCopy.relayLink}</p>
-            <div className="mt-2">
-              <CopyField value={maskedAddress} masked />
-            </div>
-          </div>
-        </div>
-      );
-    default: return null;
-  }
+        ) : step.body === "ready" ? (
+          <ConnectionReadyStepView
+            heading={connectionCopy.ready}
+            connection={{
+              name: connectionCopy.relay,
+              online: true,
+              statusLabel: readyStatus ?? connectionCopy.online,
+              sourceCountLabel: readyCount ?? "",
+              kindLabel: connectionCopy.relayLink,
+              address: maskedAddress,
+              copyAddressLabel: connectionCopy.relayLink,
+            }}
+          />
+        ) : null}
+      </PrivacyProvider>
+    </LocaleProvider>
+  );
 }
+
 export default () => [
-  ...onboardingFrames.filter(step => !step.name.startsWith("source-") && step.body !== "welcome"
-    && step.name !== "stacked-ready").map(step => (
-    <Frame name={`connection-onboarding-${step.name === "stacked-method" ? "nested-method" : step.body}`} width={632}>
-      <div className="w-full bg-surface-raised"><ConnectionOnboarding step={step} /></div>
-    </Frame>
-  )),
-  <Frame name="connection-operations" width={632}>
-    <div className="w-full bg-surface-raised"><ConnectionOperations /></div>
+  ...onboardingFrames
+    .filter(
+      (step) =>
+        !step.name.startsWith("source-") &&
+        step.body !== "welcome" &&
+        step.name !== "stacked-ready",
+    )
+    .map((step) => (
+      <Frame
+        key={step.name}
+        name={`connection-onboarding-${step.name === "stacked-method" ? "nested-method" : step.body}`}
+        width={632}
+      >
+        <div className="w-full bg-surface-raised">
+          <ConnectionOnboarding step={step} />
+        </div>
+      </Frame>
+    )),
+  <Frame key="connection-operations" name="connection-operations" width={632}>
+    <div className="w-full bg-surface-raised">
+      <ConnectionOperations />
+    </div>
   </Frame>,
 ];

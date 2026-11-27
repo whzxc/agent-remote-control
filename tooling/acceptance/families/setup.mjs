@@ -10,7 +10,7 @@ export const checks = [
                         return dialogs.filter(dialog => dialog.querySelector('.setup-steps')).map(dialog => {
                             const rect = dialog.getBoundingClientRect(), body = dialog.querySelector('.dialog-body');
                             const viewportMargin = Number.parseFloat(getComputedStyle(dialog).getPropertyValue('--layer-side-margin'));
-                            const tiles = [...dialog.querySelectorAll('.choice-tiles .choice-radio')].map(grid => [...grid.children].map(tile => {
+                            const tiles = [...dialog.querySelectorAll('.choice-tiles .choice-radio, [data-setup-product-grid]')].map(grid => [...grid.children].map(tile => {
                                 const r = tile.getBoundingClientRect();
                                 return { width: r.width, top: r.top };
                             }));
