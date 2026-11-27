@@ -24,6 +24,13 @@ func antigravityAgentAPIBinary() string {
 			return path
 		}
 	}
+	if operatingSystem == "windows" {
+		if local := os.Getenv("LOCALAPPDATA"); local != "" {
+			if path := discoverAgentExecutable(filepath.Join(local, "Programs", "antigravity", "resources", "bin", "language_server.exe")); path != "" {
+				return path
+			}
+		}
+	}
 	if path := discoverAgentExecutable("/Applications/Antigravity.app/Contents/Resources/bin/language_server"); path != "" {
 		return path
 	}

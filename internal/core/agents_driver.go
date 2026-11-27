@@ -74,6 +74,13 @@ func discoverAgentExecutables(name string, paths []string) []string {
 		if executable(name) {
 			return []string{name}
 		}
+		if operatingSystem == "windows" && filepath.Ext(name) == "" {
+			for _, suffix := range []string{".exe", ".cmd", ".bat"} {
+				if path := name + suffix; executable(path) {
+					return []string{path}
+				}
+			}
+		}
 		return nil
 	}
 	if strings.ContainsAny(name, `/\`) {
