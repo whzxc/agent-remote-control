@@ -4,7 +4,7 @@ import { api } from "../api";
 import { isLocalSource } from "../sourcePresentation";
 import { t } from "../i18n";
 import { isDesktop, notifyNative } from "../platform";
-import type { ControlSource, HubHealth, Ingress, Status } from "./types";
+import type { ControlSource, HubHealth, Status } from "./types";
 type GlobalFeedback = { text: string; errorSource?: string; copy?: string };
 
 export const connector = createStore<{
