@@ -157,10 +157,4 @@ export function startConnector() {
   };
 }
 
-export function ingressState(entry: Ingress) {
-  if (!entry.enabled) return "disabled";
-  if (["starting", "stopping"].includes(entry.state)) return "connectingLabel";
-  if (entry.error || ["error", "degraded"].includes(entry.state))
-    return "connectionError";
-  return entry.state === "ready" ? "connected" : "disconnected";
-}
+export { ingressState } from "../topology/connectionState";

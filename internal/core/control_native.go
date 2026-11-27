@@ -45,18 +45,15 @@ func codexInputs() (binary, home string, err error) {
 	if err != nil {
 		return "", "", err
 	}
-	// The Desktop installation resolver supplies the bundled binary on supported desktops.
-	binary = "codex"
+	// Prefer Codex Desktop's bundled binary on desktop platforms, then fall back to an installed Codex CLI.
 	if findDesktopCodexBinary != nil && operatingSystem != "linux" {
-		if installed := findDesktopCodexBinary(); installed != "" {
-			binary = installed
-		}
+		binary = findDesktopCodexBinary()
 	}
-	if operatingSystem == "linux" {
+	if binary == "" {
 		binary = discoverAgentExecutable("codex")
-		if binary == "" {
-			return "", "", errors.New("CODEX_NOT_FOUND: install Codex CLI and log in as this user; searched PATH, ~/.local/bin, /usr/local/bin, npm global prefixes, nvm, bun and Volta directories.")
-		}
+	}
+	if binary == "" {
+		return "", "", errors.New("CODEX_NOT_FOUND: install Codex Desktop or Codex CLI and log in as this user; searched PATH, ~/.local/bin, /usr/local/bin, npm global prefixes, nvm, bun and Volta directories.")
 	}
 	return binary, home, nil
 }

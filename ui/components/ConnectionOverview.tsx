@@ -30,14 +30,14 @@ import { AgentQuotaIcon } from "../subscriptions/AgentQuotaIcon";
 import { resolveAgentQuota, resolveSourceQuota } from "../state/quota";
 import { useEffect, useCallback, useState, useRef } from "react";
 import { t } from "../i18n";
-import { ingressState, connector, notify, refreshConnector, refreshHubHealth, orderedSources, reorderSources } from "../state/connector";
-import { agents as agentStore, orderedAgents, moveAgent, reorderAgents, name, type Agent } from "../state/agents";
+import { connector, notify, refreshConnector, refreshHubHealth, orderedSources, reorderSources } from "../state/connector";
+import { agents as agentStore, orderedAgents, moveAgent, reorderAgents, name } from "../state/agents";
 import type { Ingress } from "../state/types";
 import SourceIcon from "./SourceIcon";
 import { isPendingSource } from "../sourcePresentation";
 import {GraphNode} from './ui/GraphNode';
 import Topology, { type NodeView, type TopologyHandle } from "../topology/Topology";
-import type { WireState } from "../topology/render";
+import { agentConnectionState, sourceConnectionState, wireState } from "../topology/connectionState";
 import { onboarding, openOnboarding, connectionSetup, connectionSwitch, addedSource } from "../state/onboarding";
 import IngressPanel from "./IngressPanel";
 import AgentsSettings from "./AgentsSettings";
@@ -48,12 +48,6 @@ import ChangeConnection from "./ChangeConnection";
 import { ConnectionsPanel } from "./ConnectionsContent";
 import Hub from "../topology/Hub";
 import HubRecovery, { controlHubCore } from "./HubRecovery";
-function wireState(state: string): WireState {
-  if (["connected", "agentAvailable"].includes(state)) return "normal";
-  if (["connectingLabel", "preparing"].includes(state)) return "connecting";
-  if (["connectionError", "unknown"].includes(state)) return "error";
-  return "inactive";
-}
 export default function ConnectionOverview({ visible = true }: { visible?: boolean }) {
   const core = useRef<HTMLDivElement>(null), topology = useRef<TopologyHandle>(null);
   const panelFrame = useCallback((rect: LayerRect | null) => topology.current?.panelFrame(rect), []);
@@ -131,32 +125,6 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     selectAgentPanel({ type: "agent", agent: agent.agent });
     navigation.set((old) => ({ ...old, providerId: undefined }));
   }, [nav.providerId, snapshot, inventory.items]);
-  function agentState(a: Agent) {
-    {
-      if (a.adapter?.state === "preparing") return "preparing";
-      if (a.adapter?.state === "failed") return "connectionError";
-      if (!a.installed || !a.enabled) return "disabled";
-    }
-    if (a.agent === "codex") {
-      const state =
-        status?.autoOpenCodex === false
-          ? status?.core.appServer.state
-          : status?.core.desktop?.state;
-      if (state === "ready") return "connected";
-      if (state === "error") return "connectionError";
-      if (state === "connecting") return "preparing";
-      return "disconnected";
-    }
-    return a.status === "ready"
-      ? "connected"
-      : a.installed && a.available
-        ? "agentAvailable"
-        : "connectionError";
-  }
-  function sourceState(i: Ingress) {
-    if (!i.enabled) return "disabled";
-    return error ? "unknown" : ingressState(i);
-  }
   useEffect(() => { if (status?.core.backendSession) resetActivityCore(status.core.backendSession); }, [status?.core.backendSession]);
   const selectedAgent = selection && (orderedAgents().find(a => a.agent === selection.agent) ?? { agent: selection.agent });
   function moveSource(id: string, by: number) {
@@ -176,7 +144,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   const sourceViews: NodeView[] = controlSources.flatMap(source => {
     const ingress = sources.find(i => i.id === source.ingressId);
     if (!ingress) return [];
-    const state = source.state === "disconnected" ? "disconnected" : sourceState(ingress);
+    const state = sourceConnectionState(source, ingress);
     const selected = !!sourceSelection && !sourceSelection.closing && "ingress" in sourceSelection && sourceSelection.client?.id === source.id;
     const platform = controlSourcePlatform(source.product), platformLabel = platform.displayName;
     const nodeLabel = source.label;
@@ -197,6 +165,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     }];
   });
   const agentViews: NodeView[] = agents.map(agent => {
+    const state = agentConnectionState(agent);
     const selected = !selection?.closing && selection?.agent === agent.agent;
     const provider = resolveAgentQuota(agent.agent, snapshot, accounts);
     const icon = <AgentQuotaIcon agent={agent.agent} provider={provider} summary={agent.agent !== "claude"} />;
@@ -205,8 +174,8 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
       : { type: 'toggle' as const, agent: agent.agent };
     return {
       id: agent.agent, platform: agent.agent, platformLabel: name(agent), label: name(agent), icon, quota: provider,
-      state: wireState(agentState(agent)), attention: false, selected, reorderable: !readOnlyBrowser && !panelOpen,
-      content: <GraphNode label={`${name(agent)}: ${t(agentState(agent))}`} state={wireState(agentState(agent))}
+      state: wireState(state), attention: false, selected, reorderable: !readOnlyBrowser && !panelOpen,
+      content: <GraphNode label={`${name(agent)}: ${t(state)}`} state={wireState(state)}
         onMove={!readOnlyBrowser && agent.enabled && !panelOpen ? by => moveVisibleAgent(agent.agent, by) : undefined}
         highlighted={selected} hideLabel={false} panelExpanded={selected} caption={<span className="graph-node-name">{name(agent)}</span>}
         onOpen={() => selectAgentPanel(open)}>{icon}</GraphNode>,

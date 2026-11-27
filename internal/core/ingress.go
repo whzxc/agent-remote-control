@@ -130,7 +130,7 @@ func (i *networkIngress) status() object {
 	if health != nil && health["state"] == "degraded" {
 		state, failure = "degraded", text(health, "error")
 	} else if running {
-		state = "ready"
+		state, failure = "ready", ""
 	} else if provider["state"] == "rejected" {
 		state, failure = "error", localized(locale(), "setup.runtime-key-rejected")
 	} else if official || active && health == nil {
@@ -192,7 +192,7 @@ func (i *networkIngress) summary(ctx context.Context) (object, error) {
 		}
 	}
 	if !draft && sourceAuthorityHandlers["connection_state"] != nil {
-		if _, err := requestSourceAuthority(ctx, i.owner.bridge, "connection_state", object{"ingress": i.id, "connected": result["running"]}); err != nil {
+		if _, err := requestSourceAuthority(ctx, i.owner.bridge, "connection_state", object{"ingress": i.id, "connected": result["state"] == "ready"}); err != nil {
 			return nil, err
 		}
 	}
