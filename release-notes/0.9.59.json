@@ -1,0 +1,32 @@
+[
+  {
+    "section": "improvements",
+    "en": "Refreshed controls, dialogs, simplified workspace and inspector shells, and management views (Settings, Permissions, Platforms, Connections, Relay Hosting, MCP Hub, Updates, Coordination Board, Device Link, Accounts, and Setup) with Precision Neutral styling and Base UI primitives while keeping the homepage topology, task cards, quota displays, and execution timeline unchanged.",
+    "zh-CN": "采用 Precision Neutral 视觉与 Base UI 组件重构按钮、表单、弹窗、简化浮层及设置、权限、平台、连接、中继托管、MCP Hub、更新、协作看板、设备联动、账号与配置向导等管理界面，同时保持主页拓扑、任务卡片、配额展示与执行时间线不变。"
+  },
+  {
+    "section": "improvements",
+    "en": "Removed Desktop Pets and Studio Lighting backdrops, simplified overlay layering, shortened the Archive retention hint in Storage settings, and removed the hover background box on the homepage Board clock trigger.",
+    "zh-CN": "移除桌面宠物与 Studio 光照背景、精简浮层层级，缩短存储设置中“归档保留”的说明文案，并移除主页顶部 Board 时钟入口的悬停背景块。"
+  },
+  {
+    "section": "improvements",
+    "en": "Added a loading skeleton for large task cards while conversation previews are fetching.",
+    "zh-CN": "为大任务卡片在读取对话预览期间增加骨架屏加载效果。"
+  },
+  {
+    "section": "fixes",
+    "en": "Fixed Antigravity task card preview parsing so tool calls without explicit IDs and PascalCase args payloads are preserved, filling card previews without bottom gaps.",
+    "zh-CN": "修复 Antigravity 任务卡片预览解析，保留缺少 `id` 且使用 `args` 的工具调用记录，消除任务卡片预览底部空白。"
+  },
+  {
+    "section": "fixes",
+    "en": "Cleared the persistent `+` indicator on the left topology earcup when an upstream paired controller device is connected.",
+    "zh-CN": "修复左侧已连接上级控制设备时，拓扑左侧耳罩仍持续显示 `+` 号的问题。"
+  },
+  {
+    "section": "fixes",
+    "en": "Fixed WebKit native border leaks on number inputs, platform tabs, and overlay controls, along with dialog clipping, headerless panel padding, setup step spacing, and inline two-option OAuth approval selection.",
+    "zh-CN": "修复 WebKit 原生边框样式泄漏到数字输入框与平台列表的问题，并修复弹窗裁切、无顶栏面板内边距、配置向导步骤间距及 OAuth 审批二选一分段切换。"
+  }
+]
