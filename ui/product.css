@@ -12,7 +12,6 @@
 @import "./components/ui/product-TaskPresentation.css";
 @import "./components/ui/product-HoverScope.css";
 @import "./components/ui/product-Settings.css";
-@import "./components/ui/product-Dialog.css";
 @import "./components/ui/product-controls.css";
 .connection-core {
   --graph-bg: var(--canvas);
@@ -352,6 +351,18 @@ button.timeline-summary { appearance: none; cursor: pointer; }
 .agent-panel-layer > .task-timeline { flex: 1; height: auto; padding: 0; }
 .agent-panel-layer > .dialog-footer { max-height: 50%; }
 .agent-panel-heading { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.node-panel .layer-custom-header > .dialog-header { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: var(--stroke-thin) solid var(--border); }
+.node-panel .layer-custom-header h2 { margin: 0; min-width: 0; font-size: var(--text-title); font-weight: var(--weight-title); line-height: var(--line-title); font-family: var(--font-ui); }
+.node-panel .layer-custom-header .actions { display: flex; flex: none; gap: var(--control-gap); margin: 0; }
+.node-panel .layer-custom-header .agent-panel-header { align-items: center; }
+.node-panel:has(.agent-platform-view) .agent-quota-icon { --agent-quota-size: 36px; --agent-icon-art-size: calc(48px * 32 / 38); margin: 0; }
+.node-panel .source-account-brand .source-icon { display: flex; }
+.node-panel .source-account-brand, .node-panel .source-account-brand .source-icon, .node-panel .source-account-brand .source-icon > span, .node-panel .source-account-brand svg { width: 36px; height: 36px; }
+.node-panel .agent-panel-title-row { height: 24px; gap: 8px; }
+.node-panel .agent-panel-title-row > .icon-button { --icon-button-size: 24px; }
+.node-panel .agent-panel-heading { gap: 4px; }
+.layer-panel.task-family-panel { background: transparent; backdrop-filter: blur(24px); }
+.side-panel-scroll h3 { font-size: var(--text-small); }
 
 .agent-panel-title-row > .activity-panel-title { flex: 0 1 auto; min-width: 0; width: auto; overflow: hidden; }
 

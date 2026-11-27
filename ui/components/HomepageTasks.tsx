@@ -1,6 +1,6 @@
 import { TaskFilter, TaskFeedSection } from './timeline/TimelineSurface';
 import { taskSnapshotElement } from './timeline/taskSnapshotElement';
-import { layers, captureLayerTrigger } from '../state/layers';
+import { layers } from '../state/layers';
 import { deviceTasks } from '../devices/tasks';
 import { locale, t } from '../i18n';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -14,7 +14,6 @@ import { activeHomepageTask, homepageTaskFamilies, localTaskDay, type TaskFamily
 import { useAppNow } from '../state/appEnvironment';
 import { icons } from '../state/agents';
 import { taskException } from '../state/taskProjection';
-import { PanelRoute } from './ui/Panel';
 import './HomepageTasks.css';
 
 function TaskDayGrid({ items, preview, now, open, openChildren }: {
@@ -129,7 +128,6 @@ export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
   const family = dates.flatMap(([, items]) => items).find(item => item.parent.key === familyKey);
   function open(task: HomepageTask, from?: TaskFamily) {
     void layers.switchPanel(() => {
-      captureLayerTrigger(taskSnapshotElement(from?.parent.key ?? task.key)?.querySelector(from ? '[data-children]' : '[data-task-open]') ?? null);
       const back = from ? () => { setReturnChild(task.key); setFamilyKey(from.parent.key); } : undefined;
       if (from) setFamilyKey(undefined);
       if (back && !task.deviceId) panelBack.set({ label: t('homepage.subagents'), open: back });
@@ -139,7 +137,7 @@ export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
     });
   }
   function openChildren(key: string, trigger: HTMLButtonElement) {
-    captureLayerTrigger(trigger);
+    trigger.focus({ preventScroll: true });
     setReturnChild(undefined);
     void layers.switchPanel(() => setFamilyKey(key));
   }
@@ -157,7 +155,7 @@ export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
           <TaskDayGrid items={items} preview={day === today} now={now} open={open} openChildren={openChildren} />
         </TaskFeedSection>;
       })}
-    <PanelRoute value={family} identity={item => item.parent.key}>{family => <Panel size="m" className="task-family-panel" title={taskTitle(family.parent)}
+    {family && <Panel key={family.parent.key} size="m" className="task-family-panel" title={taskTitle(family.parent)}
       returnFocus={`[data-task-snapshot="${CSS.escape(family.parent.key)}"] [data-children]`}
       initialFocus={returnChild ? `subagent-${returnChild}` : undefined}
       onClose={() => setFamilyKey(undefined)}>
@@ -168,7 +166,7 @@ export default function HomepageTasks({ tasks }: { tasks: HomepageTask[] }) {
         return <TaskCard form="summary" task={task} now={now} key={child.key}
           trigger={{ id: `subagent-${child.key}` }} onOpen={() => open(child, family)} />;
       })}</div>
-    </Panel>}</PanelRoute>
+    </Panel>}
     {omitted > 0 && <p className="homepage-task-omitted" role="status" aria-label={t('homepage.partial')}>{t('homepage.omitted', { count: omitted })}</p>}
   </main>;
 }

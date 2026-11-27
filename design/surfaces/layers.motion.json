@@ -145,36 +145,17 @@
       "focus": "restore-trigger"
     },
     {
-      "id": "crossfade-to-settings",
-      "rememberTrigger": "replace",
-      "label": "Switch to Settings",
-      "from": {"source": "design/surfaces/layers.tsx", "frame": "workspace-fit"},
+      "id": "open-settings",
+      "label": "Open Settings",
+      "rememberTrigger": true,
+      "from": {"source": "design/surfaces/layers.tsx", "frame": "hosting-home"},
       "to": {"source": "design/surfaces/layers.tsx", "frame": "workspace-cap"},
       "trigger": {"on": "click", "target": {"anchor": "nav-settings"}},
-      "duration": "--motion-base",
+      "duration": "--motion-panel",
       "easing": "--ease-enter",
       "phases": [[
-        {"targets": [{"part": "design/components/panel.tsx#Panel", "key": "center"}], "properties": ["height", "y"], "mode": "match"},
-        {"targets": [{"anchor": "center-header"}, {"anchor": "center-body"}], "properties": ["y"], "mode": "match"},
-        {"targets": [{"anchor": "center-header"}, {"anchor": "center-body"}], "properties": ["opacity"], "mode": "crossfade", "duration": "--motion-fast"}
-      ]],
-      "interrupt": "finish",
-      "reduced": "instant",
-      "focus": {"target": {"anchor": "center"}}
-    },
-    {
-      "id": "preview-two-sided-replacement",
-      "rememberTrigger": "replace",
-      "label": "Switch to Relay hosting",
-      "from": {"source": "design/surfaces/layers.tsx", "frame": "workspace-cap"},
-      "to": {"source": "design/surfaces/layers.tsx", "frame": "workspace-fit"},
-      "trigger": {"on": "click", "target": {"anchor": "nav-relay-hosting"}},
-      "duration": "--motion-base",
-      "easing": "--ease-enter",
-      "phases": [[
-        {"targets": [{"part": "design/components/panel.tsx#Panel", "key": "center"}], "properties": ["height", "y"], "mode": "match"},
-        {"targets": [{"anchor": "center-header"}, {"anchor": "center-body"}], "properties": ["y"], "mode": "match"},
-        {"targets": [{"anchor": "center-header"}, {"anchor": "center-body"}], "properties": ["opacity"], "mode": "crossfade", "duration": "--motion-fast"}
+        {"targets": [{"part": "design/modules/homepage-scene/navigation.tsx#HomepageBar"}], "properties": ["opacity"], "mode": "exit", "duration": "--motion-instant"},
+        {"targets": [{"anchor": "center"}], "properties": ["opacity"], "mode": "enter"}
       ]],
       "interrupt": "finish",
       "reduced": "instant",

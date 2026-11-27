@@ -6,7 +6,7 @@ import {
   useState,
   type ReactElement,
 } from "react";
-import { useI18n } from "@/i18n/react";
+import { useI18n } from "../../i18n/react";
 import { Button } from "./button";
 import { cn } from "./utils";
 

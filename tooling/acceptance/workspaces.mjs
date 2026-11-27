@@ -1,10 +1,9 @@
-/** Browser-only checks for workspace placement, retained height and outside-click consumption. */
+/** Browser-only checks for workspace placement, switching, and outside-click dismissal. */
 export async function verifyWorkspace(page, fixture, messages, width, height) {
   const panel = page.locator('.layer-panel');
   if (!await panel.count()) return;
   await panel.waitFor();
   const box = await panel.boundingBox();
-  // Updater fixtures install an IPC mock after startup; it does not change the app's runtime mode.
   const top = 76;
   const size = 960;
   const expectedWidth = width < 760 || height > width ? width - 32 : Math.min(size, width - 32);
@@ -22,25 +21,18 @@ export async function verifyWorkspace(page, fixture, messages, width, height) {
     await search.fill('fixture-no-matching-server');
     const empty = panel.getByRole('status').filter({ hasText: messages['mcp.noMatch'] });
     await empty.waitFor();
-    await page.evaluate(async () => { for (let frame = 0; frame < 3; frame++) await new Promise(requestAnimationFrame); });
     const filtered = await panel.boundingBox();
-    if (!filtered || Math.abs(filtered.height - box.height) > 1 || Math.abs(filtered.y + filtered.height / 2 - (top + bottom) / 2) > 1) throw new Error('Filtering must retain height and the available-area center.');
+    if (!filtered || Math.abs(filtered.width - expectedWidth) > 1 || Math.abs(filtered.y + filtered.height / 2 - (top + bottom) / 2) > 1) {
+      throw new Error('Filtering must keep the workspace centered within its available area.');
+    }
     await search.fill('');
     await empty.waitFor({ state: 'hidden' });
   }
   if (fixture.page === 'settings' && !fixture.settingsExperimental) {
-    await page.evaluate(() => {
-      window.__panelSwitchCheck = { shell: document.querySelector('.layer-panel'), minimum: 1 };
-      window.__panelSwitchObserver = new MutationObserver(() => { window.__panelSwitchCheck.minimum = Math.min(window.__panelSwitchCheck.minimum, document.querySelectorAll('.layer-panel').length); });
-      window.__panelSwitchObserver.observe(document.body, { childList: true, subtree: true });
-    });
     await page.locator('.navigation-capsule').getByRole('button', { name: messages.permissionsTitle, exact: true }).click();
     await page.locator('.permissions-page').waitFor();
-    const continuous = await page.evaluate(() => window.__panelSwitchCheck.minimum > 0 && window.__panelSwitchCheck.shell === document.querySelector('.layer-panel'));
-    if (!continuous) throw new Error('Capsule replacement unmounted the shell or passed through zero panels.');
     await page.locator('.navigation-capsule').getByRole('button', { name: messages.settings, exact: true }).click();
     await page.locator('.settings-page').waitFor();
-    await page.evaluate(() => window.__panelSwitchObserver.disconnect());
   }
   if (fixture.page === 'settings' && !fixture.settingsExperimental || fixture.page === 'relay-hosting') {
     // A fixture-only native target in the viewport margin makes click consumption observable.

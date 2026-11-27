@@ -7,18 +7,6 @@
       "reason": "Previews the standalone promotional video on its authored timeline outside the product UI."
     },
     {
-      "file": "tooling/acceptance/families/layers.mjs",
-      "match": "web:requestAnimationFrame",
-      "within": "sample",
-      "reason": "Reads panel geometry and entry state on successive frames for acceptance."
-    },
-    {
-      "file": "tooling/acceptance/families/layers.mjs",
-      "match": "web:requestAnimationFrame",
-      "within": "run",
-      "reason": "Starts the acceptance sampler for panel entry geometry."
-    },
-    {
       "file": "tooling/acceptance/families/timeline.mjs",
       "match": "web:requestAnimationFrame",
       "within": "sample",
@@ -288,31 +276,24 @@
         }
       ]
     },
-    "center-panel-crossfade": {
-      "extends": "crossfade-replace",
-      "parameters": {
-        "duration": "--motion-fast"
-      },
-      "frames": [
-        {
-          "source": "design/surfaces/layers.tsx",
-          "frame": "workspace-fit"
-        },
-        {
-          "source": "design/surfaces/layers.tsx",
-          "frame": "workspace-cap"
-        }
-      ],
-      "consumers": [
-        {
-          "file": "ui/components/ui/PanelCrossfade.tsx",
-          "match": "web:animate",
-          "within": "PanelPaint"
-        }
-      ]
-    },
     "layer-fade": {
-      "extends": "fade",
+      "kind": "transition",
+      "action": "enter",
+      "effect": "fade",
+      "properties": [
+        "opacity",
+        "scale"
+      ],
+      "parameters": {
+        "duration": "--motion-base",
+        "easing": "--ease-enter"
+      },
+      "exit": {
+        "duration": "--motion-fast",
+        "easing": "--ease-exit"
+      },
+      "interrupt": "finish",
+      "reduced": "instant",
       "frames": [
         {
           "source": "design/surfaces/layers.tsx",
@@ -322,47 +303,13 @@
       "consumers": [
         {
           "file": "ui/components/ui/Dialog.tsx",
-          "match": "motion:animate",
-          "within": "fade"
+          "match": "tailwind:transition-[opacity,scale]",
+          "within": "Dialog"
         },
         {
-          "file": "ui/components/ui/Dialog.tsx",
-          "match": "motion:animate",
-          "within": "onExit"
-        }
-      ]
-    },
-    "layer-size": {
-      "extends": "size-transition",
-      "frames": [
-        {
-          "source": "design/surfaces/layers.tsx",
-          "frame": "workspace-fit"
-        },
-        {
-          "source": "design/surfaces/layers.tsx",
-          "frame": "workspace-cap"
-        }
-      ],
-      "consumers": [
-        {
-          "file": "ui/components/ui/Dialog.tsx",
-          "match": "motion:animate",
-          "within": "geometry"
-        }
-      ]
-    },
-    "dialog-content-fade": {
-      "extends": "fade",
-      "parameters": {
-        "duration": "--motion-fast",
-        "fromOpacity": 0.25
-      },
-      "consumers": [
-        {
-          "file": "ui/components/ui/Dialog.tsx",
-          "match": "motion:animate",
-          "within": "LayerShell"
+          "file": "ui/components/ui/ConfirmDialog.tsx",
+          "match": "tailwind:transition-[opacity,scale]",
+          "within": "ConfirmDialog"
         }
       ]
     },

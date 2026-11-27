@@ -1,70 +1,97 @@
 import { useSyncExternalStore } from 'react';
-import type { LayerKind } from '../components/ui/layerFrame';
 
+export type LayerKind = 'panel' | 'dialog';
+export type LayerSize = 'm' | 'xl';
+export type LayerRect = { x: number; y: number; width: number; height: number };
 export type Dismissal = 'none' | 'discard' | 'running';
+
 type Layer = {
   id: string;
   kind: LayerKind;
-  node: HTMLElement | null;
-  ready: boolean;
-  trigger: HTMLElement | null;
-  returnFocus?: string;
   dirty?: boolean;
   busy?: boolean;
   onClose: () => void | Promise<void>;
-  onExit?: () => Promise<void>;
   onCancel?: () => void | boolean | Promise<void | boolean>;
   dismissal: Dismissal;
   keepAfterWork: boolean;
 };
-const switcherSelector = '[data-workspace-switcher], [data-layer-switcher]';
-type LayerInput = Omit<Layer, 'dismissal' | 'keepAfterWork' | 'ready'>;
 
-/** The registry owns dismissal and focus across portaled dialogs and retained panels. */
+type LayerInput = Omit<Layer, 'dismissal' | 'keepAfterWork'>;
+
+const transientSelector = [
+  '[role="listbox"]',
+  '[role="menu"]',
+  '[data-radix-popper-content-wrapper]',
+  '[data-radix-select-viewport]',
+  '[data-slot="popover-popup"]',
+  '[data-slot="select-popup"]',
+  '[data-slot="menu-popup"]',
+].join(', ');
+
+export function isTransientTarget(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest(transientSelector));
+}
+
+export function hasOpenTransient(): boolean {
+  if (typeof document === 'undefined') return false;
+  for (const node of document.querySelectorAll(transientSelector)) {
+    if (
+      node.closest('[hidden]') ||
+      node.hasAttribute('data-closed') ||
+      node.getAttribute('data-state') === 'closed'
+    ) {
+      continue;
+    }
+    return true;
+  }
+  return false;
+}
+
+export function isFocusableTarget(target: HTMLElement | null | undefined): target is HTMLElement {
+  if (!target?.isConnected || target === document.body) return false;
+  if (target.closest('[inert], [hidden]') || target.matches(':disabled') || target.getAttribute('aria-disabled') === 'true') {
+    return false;
+  }
+  const style = getComputedStyle(target);
+  return style.display !== 'none' && style.visibility !== 'hidden';
+}
+
+export function resolveReturnFocus(
+  trigger: HTMLElement | null | undefined,
+  returnFocus?: string,
+  fallback?: HTMLElement | null,
+): HTMLElement | null {
+  if (typeof document === 'undefined') return null;
+  const selectorTargets = returnFocus ? Array.from(document.querySelectorAll<HTMLElement>(returnFocus)) : [];
+  const mainTargets = Array.from(document.querySelectorAll<HTMLElement>('main[tabindex="-1"]'));
+  for (const candidate of [trigger, ...selectorTargets, fallback, ...mainTargets]) {
+    if (isFocusableTarget(candidate)) return candidate;
+  }
+  return null;
+}
+
+/** Minimal active-layer coordinator for workspace switching, dirty/busy dismissal, and 2-dialog stack cap. */
 export function createLayerStore() {
   let current: Layer[] = [];
   const subscribers = new Set<() => void>();
-  const publish = (next: Layer[]) => { current = next; subscribers.forEach(listener => listener()); };
+  const publish = (next: Layer[]) => {
+    current = next;
+    subscribers.forEach(listener => listener());
+  };
   const get = () => current;
-  const subscribe = (listener: () => void) => { subscribers.add(listener); return () => { subscribers.delete(listener); }; };
+  const subscribe = (listener: () => void) => {
+    subscribers.add(listener);
+    return () => { subscribers.delete(listener); };
+  };
   const top = () => current.at(-1);
-  const contains = (id: string, target: EventTarget | null) => target instanceof Element
-    && (current.find(layer => layer.id === id)?.node?.contains(target)
-      || target.closest<HTMLElement>('[data-layer-owner]')?.dataset.layerOwner === id);
-  let pendingRestore: number | undefined;
-  const restoreFocus = (layer: Pick<Layer, 'trigger' | 'returnFocus'>) => {
-    if (pendingRestore !== undefined) cancelAnimationFrame(pendingRestore);
-    pendingRestore = requestAnimationFrame(() => {
-      pendingRestore = undefined;
-      const activeLayer = top();
-      const active = document.activeElement;
-      if (activeLayer && active instanceof Element && activeLayer.node?.contains(active) && active !== activeLayer.node) return;
-      // A subsequent user action may already have focused its trigger before this deferred restore.
-      if (active instanceof HTMLElement && active !== document.body && active.isConnected) return;
-      // A handoff may focus a Radix transient outside the layer registry.
-      const owner = active?.closest('[role="dialog"]');
-      if (owner && active !== owner && owner.isConnected) return;
-      const fallbacks = layer.returnFocus ? Array.from(document.querySelectorAll<HTMLElement>(layer.returnFocus)) : [];
-      for (const target of [layer.trigger, activeLayer?.node, ...fallbacks, ...document.querySelectorAll<HTMLElement>('main[tabindex="-1"]')]) {
-        if (!target?.isConnected || target === document.body || target.closest('[inert], [hidden]') || target.matches(':disabled')) continue;
-        const style = getComputedStyle(target);
-        if (style.display === 'none' || style.visibility === 'hidden') continue;
-        target.focus({ preventScroll: true });
-        if (document.activeElement === target) break;
-      }
-    });
-  };
-  const remove = (id: string) => {
-    const removed = current.find(layer => layer.id === id);
-    if (!removed) return;
-    publish(current.filter(layer => layer.id !== id));
-    // If an inner layer's deferred focus restore is still pending while its parent unmounts, hand off to the outer layer.
-    if (pendingRestore !== undefined) restoreFocus({ trigger: removed.trigger, returnFocus: removed.returnFocus });
-  };
   const closing = new Set<string>();
   let pendingSwitch: { id: string; open: () => void; toggle: boolean; trigger: HTMLElement | null } | undefined;
   let switchTrigger: HTMLElement | null | undefined;
-  const transients = new Map<HTMLElement, { owner: string; dismiss: () => void; isAnchor: (target: Element) => boolean }>();
+
+  const setDismissal = (id: string, dismissal: Dismissal) => {
+    publish(current.map(layer => layer.id === id ? { ...layer, dismissal } : layer));
+  };
+
   const finishClose = async (id: string, complete?: () => void | Promise<void>) => {
     const layer = current.find(item => item.id === id);
     if (!layer || closing.has(id)) return;
@@ -77,25 +104,38 @@ export function createLayerStore() {
         pending.open();
         return;
       }
-      await layer.onExit?.();
       await (complete ?? layer.onClose)();
+    } finally {
+      closing.delete(id);
     }
-    finally { closing.delete(id); }
   };
-  const setDismissal = (id: string, dismissal: Dismissal) => {
-    publish(current.map(layer => layer.id === id ? { ...layer, dismissal } : layer));
-  };
+
   const close = (id: string) => {
-    if (current.find(layer => layer.id === id)?.busy) { setDismissal(id, 'running'); return Promise.resolve(); }
+    if (current.find(layer => layer.id === id)?.busy) {
+      setDismissal(id, 'running');
+      return Promise.resolve();
+    }
     return finishClose(id);
   };
+
+  const confirmDiscard = (id: string) => finishClose(id);
+
   const canOpen = (kind: LayerKind, id: string) => {
-    if (kind !== 'dialog' || current.some(layer => layer.id === id) || current.filter(layer => layer.kind === 'dialog').length < 2) return true;
-    const error = new Error(`Cannot open dialog ${id}: at most two dialogs may be stacked. Use an in-dialog view for nested content.`);
+    if (
+      kind !== 'dialog' ||
+      current.some(layer => layer.id === id) ||
+      current.filter(layer => layer.kind === 'dialog').length < 2
+    ) {
+      return true;
+    }
+    const error = new Error(
+      `Cannot open dialog ${id}: at most two dialogs may be stacked. Use an in-dialog view for nested content.`,
+    );
     if (!import.meta.env?.PROD) throw error;
     console.error(error);
     return false;
   };
+
   const dismiss = (id: string) => {
     const layer = top();
     if (layer?.id !== id) return;
@@ -103,39 +143,25 @@ export function createLayerStore() {
     else if (layer.dirty) setDismissal(id, 'discard');
     else void close(id);
   };
+
   return {
-    get, subscribe, top, remove, close, dismiss, contains,
+    get,
+    subscribe,
+    top,
+    close,
+    confirmDiscard,
+    dismiss,
+    canOpen,
+    use: () => useSyncExternalStore(subscribe, get, get),
     stack(id?: string) {
       const depth = current.filter(layer => layer.kind === 'dialog').findIndex(layer => layer.id === id);
-      const scrim = 201 + Math.max(0, depth) * 10;
-      return { panel: 101, switcher: 100, scrim, dialog: scrim + 1, transient: depth < 0 ? 120 : scrim + 2 };
+      const scrim = 50 + Math.max(0, depth) * 4;
+      return { panel: 40, switcher: 45, scrim, dialog: scrim + 1, transient: 65 };
     },
-    ownTransient(node: HTMLElement, owner: string, dismiss: () => void, isAnchor: (target: Element) => boolean) {
-      transients.set(node, { owner, dismiss, isAnchor });
-      return () => { transients.delete(node); };
-    },
-    observeOutsidePointer(id: string) {
-      const handle = (event: PointerEvent) => {
-        const layer = top(), target = event.target;
-        if (layer?.id !== id || !layer.node || event.button !== 0 || !(target instanceof Element)) return;
-        const transient = Array.from(transients).reverse().find(([node, entry]) => entry.owner === id && node.isConnected);
-        if (transient) {
-          const [node, entry] = transient;
-          if (node.contains(target) || entry.isAnchor(target)) return;
-          // Radix links interactive triggers to their content and tooltip triggers to a labelled descendant.
-          const control = target.closest('[aria-controls], [aria-describedby]');
-          const linked = [control?.getAttribute('aria-controls'), control?.getAttribute('aria-describedby')].join(' ').split(/\s+/);
-          if (linked.some(key => key && node.contains(document.getElementById(key)))) return;
-          consumeOutsidePointer(event);
-          entry.dismiss();
-          return;
-        }
-        if (contains(id, target) || layer.kind === 'panel' && (target.closest(switcherSelector) || target.closest('[data-global-feedback]'))) return;
-        consumeOutsidePointer(event);
-        dismiss(id);
-      };
-      document.addEventListener('pointerdown', handle, true);
-      return () => document.removeEventListener('pointerdown', handle, true);
+    consumeSwitchTrigger() {
+      const target = switchTrigger;
+      switchTrigger = undefined;
+      return target;
     },
     async complete(id: string, onComplete: () => void | Promise<void>) {
       const layer = current.find(item => item.id === id);
@@ -143,19 +169,23 @@ export function createLayerStore() {
       if (layer) await finishClose(id, onComplete);
       else await onComplete();
     },
-    use: () => useSyncExternalStore(subscribe, get, get),
-    canOpen,
     switchPanel(open: () => void, toggle = false) {
       if (top()?.kind === 'dialog') return;
       switchTrigger = undefined;
       const panel = current.find(layer => layer.kind === 'panel');
-      if (!panel) { open(); return; }
+      if (!panel) {
+        open();
+        return;
+      }
       if (panel.busy || panel.dirty) {
-        const trigger = layerTrigger() ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+        const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         pendingSwitch = { id: panel.id, open, toggle, trigger };
         dismiss(panel.id);
+      } else if (toggle) {
+        void close(panel.id);
+      } else {
+        open();
       }
-      else if (toggle) void close(panel.id); else open();
     },
     open(layer: LayerInput) {
       if (current.some(item => item.id === layer.id)) return;
@@ -163,88 +193,64 @@ export function createLayerStore() {
       if (layer.kind === 'panel') {
         const previous = current.filter(item => item.kind === 'panel');
         pendingSwitch = undefined;
-        publish([{ ...layer, dismissal: 'none', keepAfterWork: false, ready: !!layer.node }, ...current.filter(item => item.kind !== 'panel')]);
-        previous.forEach(item => { void (async () => { await item.onExit?.(); await item.onClose(); })(); });
-      } else publish([...current, { ...layer, dismissal: 'none', keepAfterWork: false, ready: !!layer.node }]);
-    },
-    retarget(id: string, trigger: HTMLElement | null, returnFocus?: string) {
-      const layer = current.find(item => item.id === id);
-      if (layer?.kind === 'panel' && switchTrigger !== undefined) {
-        trigger = switchTrigger;
-        switchTrigger = undefined;
+        publish([
+          { ...layer, dismissal: 'none', keepAfterWork: false },
+          ...current.filter(item => item.kind !== 'panel'),
+        ]);
+        previous.forEach(item => { void item.onClose(); });
+      } else {
+        publish([...current, { ...layer, dismissal: 'none', keepAfterWork: false }]);
       }
-      if (layer) { layer.trigger = trigger; layer.returnFocus = returnFocus; }
-      return trigger;
     },
-    ready(id: string, node: HTMLElement) {
-      const layer = current.find(item => item.id === id);
-      if (!layer || layer.ready && layer.node === node) return;
-      publish(current.map(item => item.id === id ? { ...item, node, ready: true } : item));
+    remove(id: string) {
+      if (!current.some(layer => layer.id === id)) return;
+      if (pendingSwitch?.id === id) pendingSwitch = undefined;
+      publish(current.filter(layer => layer.id !== id));
     },
-    update(id: string, next: Pick<Layer, 'dirty' | 'busy' | 'onClose' | 'onCancel' | 'onExit'>) {
+    update(id: string, next: Pick<Layer, 'dirty' | 'busy' | 'onClose' | 'onCancel'>) {
       const previous = current.find(layer => layer.id === id);
       if (!previous) return;
       previous.onClose = next.onClose;
       previous.onCancel = next.onCancel;
-      previous.onExit = next.onExit;
       if (previous.dirty === next.dirty && previous.busy === next.busy) return;
       const finished = previous.busy && !next.busy && previous.dismissal === 'running';
       const dismissal = previous.dismissal === 'discard' && !next.dirty ? 'none' : previous.dismissal;
-      publish(current.map(layer => layer.id === id ? { ...layer, ...next, dismissal, keepAfterWork: !previous.busy && next.busy ? false : layer.keepAfterWork } : layer));
-      if (finished) { setDismissal(id, 'none'); void finishClose(id); }
+      publish(
+        current.map(layer =>
+          layer.id === id
+            ? {
+                ...layer,
+                ...next,
+                dismissal,
+                keepAfterWork: !previous.busy && next.busy ? false : layer.keepAfterWork,
+              }
+            : layer,
+        ),
+      );
+      if (finished) {
+        setDismissal(id, 'none');
+        void finishClose(id);
+      }
     },
     keepOpen(id: string) {
       if (top()?.id !== id) return;
       if (pendingSwitch?.id === id) pendingSwitch = undefined;
-      publish(current.map(layer => layer.id === id ? { ...layer, dismissal: 'none', keepAfterWork: layer.dismissal === 'running' } : layer));
+      publish(
+        current.map(layer =>
+          layer.id === id
+            ? { ...layer, dismissal: 'none', keepAfterWork: layer.dismissal === 'running' }
+            : layer,
+        ),
+      );
     },
     async stopAndClose(id: string) {
       const layer = top();
       if (layer?.id !== id || !layer.onCancel) return;
       setDismissal(id, 'none');
-      if (await layer.onCancel() === false) return;
+      if ((await layer.onCancel()) === false) return;
       await finishClose(id);
     },
-    restoreFocus,
   };
 }
+
 export const layers = createLayerStore();
-
-let clickTrigger: HTMLElement | undefined;
-let triggerTimer: ReturnType<typeof setTimeout> | undefined;
-export function captureLayerTrigger(target: EventTarget | null) {
-  clearTimeout(triggerTimer);
-  const element = target instanceof Element ? target.closest<HTMLElement>('button, a, [role="button"], [data-panel-anchor]') : null;
-  clickTrigger = element ?? undefined;
-  triggerTimer = setTimeout(() => { clickTrigger = undefined; }, 200);
-}
-export function layerTrigger() { return clickTrigger; }
-
-/** Consume the release and click even when a clean layer unmounts on pointer down. */
-export function consumeOutsidePointer(event: PointerEvent) {
-  event.preventDefault();
-  event.stopPropagation();
-  const pointer = event.pointerId;
-  const controller = new AbortController();
-  const options = { capture: true, signal: controller.signal };
-  let expiry: ReturnType<typeof setTimeout>;
-  const cleanup = () => { clearTimeout(expiry); controller.abort(); };
-  const click = (input: MouseEvent) => {
-    if ('pointerId' in input && input.pointerId !== pointer) return;
-    input.preventDefault();
-    input.stopImmediatePropagation();
-    cleanup();
-  };
-  const release = (input: PointerEvent) => {
-    if (input.pointerId !== pointer) return;
-    input.preventDefault();
-    input.stopImmediatePropagation();
-    document.addEventListener('click', click, options);
-    // WebKit may send a MouseEvent click without a pointer ID, or no click at all.
-    expiry = setTimeout(cleanup, 1000);
-  };
-  document.addEventListener('pointerup', release, options);
-  document.addEventListener('pointercancel', next => { if (next.pointerId === pointer) cleanup(); }, options);
-  document.addEventListener('pointerdown', next => { if (next.isPrimary || next.pointerId === pointer) cleanup(); }, options);
-  window.addEventListener('blur', cleanup, { signal: controller.signal });
-}

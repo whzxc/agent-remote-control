@@ -1,7 +1,6 @@
 import { ActivityHeading } from './timeline/TimelineSurface';
 import { taskSnapshotElement } from './timeline/taskSnapshotElement';
 import { Tooltip as HoverHelp } from "./ui/index";
-import { layerTrigger } from "../state/layers";
 import Panel, { PanelHeader, usePanelState } from "./ui/Panel";
 import { readOnlyBrowser } from "../browserMode";
 import { agentPanel, panelBack, selectAgentPanel, agentPanelId, managesAgentAccounts } from "../state/overviewPanels";
@@ -23,7 +22,7 @@ import AgentPlatformView from "./AgentPlatformView";
 import AgentConversations, { readConversationPage, type InitialAgentHistory } from "./AgentConversations";
 import { useDockOpening } from "./useDockOpening";
 import ActivityTimeline from "./ActivityTimeline";
-import type { LayerRect } from "./ui/layerFrame";
+import type { LayerRect } from "../state/layers";
 
 function AgentView({ agent, onSettings, expanded, onToggleWidth, active, platformAvailable, resizable = true, initial }: {
   agent: Agent; active: boolean; platformAvailable: boolean; resizable?: boolean;
@@ -89,7 +88,6 @@ export default function AgentPanel({ selection: selected, active, agent, onSetti
   expanded: boolean; onToggleWidth: () => void;
 }) {
   const back = panelBack.use();
-  const focusTrigger = useRef(layerTrigger());
   const { error } = agentActivity.use();
   const accountState = useAccounts();
   const linkedAccounts = accountState.items.filter(account => account.agentProfiles.some(profile => profile.agent === agent.agent));
@@ -134,7 +132,7 @@ export default function AgentPanel({ selection: selected, active, agent, onSetti
     return () => { current = false; };
   }, [agent.agent, panelId, shouldReadHistory]);
   if (!ready) return null;
-  return <Panel focusTrigger={focusTrigger.current} size="m" className="activity-panel" expanded={expanded} headerless title={name(agent)} labelledBy={session ? taskTitleId : undefined}
+  return <Panel size="m" className="activity-panel" expanded={expanded} headerless title={name(agent)} labelledBy={session ? taskTitleId : undefined}
     viewKey={`${panelId}:${session?.id ?? "overview"}`}
     onClose={() => { panelBack.set(undefined); agentPanel.set(undefined); }}
     returnFocus={session && taskSnapshotElement(JSON.stringify([agent.agent, session.id])) ? `[data-task-snapshot="${CSS.escape(JSON.stringify([agent.agent, session.id]))}"] [data-task-open]` : selected.platform ? `[data-agent-platform="${CSS.escape(agent.agent)}"] button` : `[data-agent-node="${CSS.escape(agent.agent)}"] button`} onPanelFrame={onPanelFrame}>

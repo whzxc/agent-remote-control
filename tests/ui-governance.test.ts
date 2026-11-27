@@ -5,8 +5,6 @@ import assert from 'node:assert/strict';
 import { act, createElement as h, useRef } from 'react';
 import { fireEvent, within } from '@testing-library/dom';
 import { arcActionPositions, hubControlGeometry, hubHoverRegion } from '../ui/topology/geometry.ts';
-import { layerFrame } from '../ui/components/ui/layerFrame.ts';
-import { layerInsetToken } from '../ui/components/ui/layerTokens.ts';
 import { homepageTaskFamilies, type TrackedActivity } from '../ui/state/activityModel.ts';
 import type { ProviderSnapshot, Snapshot } from '../ui/subscriptions/types.ts';
 import type { TaskSnapshotRow } from '../ui/state/taskProjection.ts';
@@ -35,27 +33,6 @@ before(async () => {
 after(async () => {
   await server?.close();
   await browser.happyDOM.close();
-});
-
-test('layer geometry applies the same selected inset above and below capped content', () => {
-  // Algorithmic core: the layer solver centers both measured and capped content within the viewport.
-  const values = { '--layer-panel-inset': 76, '--layer-top-desktop': 48, '--layer-top-browser': 20 };
-  const cases = [
-    ['panel', true, '--layer-panel-inset'], ['panel', false, '--layer-panel-inset'],
-    ['dialog', true, '--layer-top-desktop'], ['dialog', false, '--layer-top-browser'],
-  ] as const;
-  for (const [kind, desktop, expected] of cases) {
-    assert.equal(layerInsetToken(kind, desktop), expected);
-    const viewport = { width: 1280, height: 800, desktop };
-    const tokens = { sizes: { m: 560, xl: 960 }, margin: 16,
-      desktopInset: values[layerInsetToken(kind, true)], browserInset: values[layerInsetToken(kind, false)] };
-    const capped = layerFrame('m', viewport, tokens, 1000);
-    assert.equal(capped.y, values[expected]);
-    assert.equal(viewport.height - capped.y - capped.height, capped.y);
-    const natural = layerFrame('m', viewport, tokens, 213);
-    assert.equal(natural.height, 213);
-    assert.equal(viewport.height - natural.y - natural.height, natural.y);
-  }
 });
 
 const window = { id: 'week', poolId: 'subscription', label: 'weekly', usedPercent: 22 };

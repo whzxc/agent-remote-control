@@ -252,7 +252,8 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/LayerDismissalFooter.tsx"
+        "file": "ui/components/kit/dismissal.tsx",
+        "symbol": "DismissalFooter"
       },
       "design": [
         {
@@ -530,13 +531,25 @@
         {
           "source": "design/components/panel.tsx",
           "part": "Dialog"
+        },
+        {
+          "source": "design/surfaces/layers.tsx",
+          "transition": "open-deployment"
+        },
+        {
+          "source": "design/surfaces/layers.tsx",
+          "transition": "close-deployment"
+        },
+        {
+          "source": "design/surfaces/layers.tsx",
+          "transition": "escape-deployment"
         }
       ]
     },
     {
       "implementation": {
-        "file": "ui/components/ui/Dialog.tsx",
-        "symbol": "LayerShell"
+        "file": "ui/components/ui/Panel.tsx",
+        "symbol": "Panel"
       },
       "design": [
         {
@@ -550,18 +563,6 @@
         {
           "source": "design/surfaces/layers.tsx",
           "transition": "open-hosting"
-        },
-        {
-          "source": "design/surfaces/layers.tsx",
-          "transition": "open-deployment"
-        },
-        {
-          "source": "design/surfaces/layers.tsx",
-          "transition": "close-deployment"
-        },
-        {
-          "source": "design/surfaces/layers.tsx",
-          "transition": "escape-deployment"
         },
         {
           "source": "design/surfaces/layers.tsx",
@@ -581,27 +582,7 @@
         },
         {
           "source": "design/surfaces/layers.tsx",
-          "transition": "crossfade-to-settings"
-        },
-        {
-          "source": "design/surfaces/layers.tsx",
-          "transition": "preview-two-sided-replacement"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/ui/PanelCrossfade.tsx",
-        "symbol": "PanelPaint"
-      },
-      "design": [
-        {
-          "source": "design/surfaces/layers.tsx",
-          "transition": "crossfade-to-settings"
-        },
-        {
-          "source": "design/surfaces/layers.tsx",
-          "transition": "preview-two-sided-replacement"
+          "transition": "open-settings"
         }
       ]
     },
@@ -1712,17 +1693,6 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/layerFrame.ts"
-      },
-      "design": [
-        {
-          "source": "design/components/panel.tsx",
-          "part": "Panel"
-        }
-      ]
-    },
-    {
-      "implementation": {
         "file": "ui/components/AgentPanel.tsx"
       },
       "design": [
@@ -1777,29 +1747,6 @@
         {
           "source": "design/modules/model-configuration.tsx",
           "part": "ModelEffort"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/ui/Dialog.css"
-      },
-      "design": [
-        {
-          "source": "design/components/panel.tsx",
-          "part": "Panel"
-        },
-        {
-          "source": "design/components/panel.tsx",
-          "part": "Dialog"
-        },
-        {
-          "source": "design/components/panel.tsx",
-          "part": "PanelShell"
-        },
-        {
-          "source": "design/components/panel.tsx",
-          "part": "PanelHeader"
         }
       ]
     },
@@ -2175,16 +2122,6 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/style-Dialog.css"
-      },
-      "design": [
-        {
-          "source": "design/components/panel.tsx"
-        }
-      ]
-    },
-    {
-      "implementation": {
         "file": "ui/components/ui/style-HoverScope.css"
       },
       "design": [
@@ -2247,31 +2184,11 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/product-Dialog.css"
-      },
-      "design": [
-        {
-          "source": "design/components/panel.tsx"
-        }
-      ]
-    },
-    {
-      "implementation": {
         "file": "ui/components/ui/product-Settings.css"
       },
       "design": [
         {
           "source": "design/components/settings-row.tsx"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/ui/TaskDetail-Dialog.css"
-      },
-      "design": [
-        {
-          "source": "design/components/panel.tsx"
         }
       ]
     },
@@ -2320,7 +2237,7 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/layerFrame.ts"
+        "file": "ui/components/ui/Panel.tsx"
       },
       "design": [
         {
@@ -3250,16 +3167,6 @@
     },
     {
       "implementation": {
-        "file": "ui/components/providers/PanelProvider.tsx"
-      },
-      "design": [
-        {
-          "source": "design/surfaces/layers.tsx"
-        }
-      ]
-    },
-    {
-      "implementation": {
         "file": "ui/components/hosting/useDialogClose.ts"
       },
       "design": [
@@ -3270,7 +3177,8 @@
     },
     {
       "implementation": {
-        "file": "ui/components/permissions/DialogView.tsx"
+        "file": "ui/components/kit/dialog.tsx",
+        "symbol": "DialogSubview"
       },
       "design": [
         {

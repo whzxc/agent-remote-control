@@ -6,7 +6,6 @@
 @import "./components/ui/EntityInventory.css";
 @import "./components/ui/style-HoverScope.css";
 @import "./components/ui/style-Settings.css";
-@import "./components/ui/style-Dialog.css";
 @import "./components/ui/style-controls.css";
 @import "./components/ui/controls.css";
 @import "./tokens.css";
@@ -114,17 +113,6 @@ pre {
   .row-control:has(form) {
     flex: 1 1 100%;
     justify-content: flex-start;
-  }
-  .dialog {
-    width: calc(100vw - 16px);
-    max-height: calc(100dvh - 16px);
-  }
-  .dialog-body {
-    padding: 16px;
-  }
-  .dialog-header,
-  .dialog-footer {
-    padding: 12px 16px;
   }
   .choice-option {
     min-height: 34px;

@@ -1,4 +1,3 @@
-import { layerTrigger } from "../state/layers";
 import Panel from "./ui/Panel";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Maximize2, Minimize2 } from "lucide-react";
@@ -7,7 +6,7 @@ import { api } from "../api";
 import { connector, refreshConnector } from "../state/connector";
 import { tasks } from "../state/tasks";
 import { ingressPanel, selectIngressPanel, sourcePanelId } from "../state/overviewPanels";
-import type { LayerRect } from "./ui/layerFrame";
+import type { LayerRect } from "../state/layers";
 import IngressDialog from "./IngressDialog";
 import SourcePanel from "./SourcePanel";
 import SourcePlatformView from "./SourcePlatformView";
@@ -18,7 +17,6 @@ import { useDockOpening } from "./useDockOpening";
 export default function IngressPanel({ selection: selected, onPanelFrame, expanded, onToggleWidth }: {
   selection: NonNullable<ReturnType<typeof ingressPanel.get>>; onPanelFrame?: (rect: LayerRect | null) => void; expanded: boolean; onToggleWidth: () => void;
 }) {
-  const focusTrigger = useRef(layerTrigger());
   const { status, sources, sourcesLoaded, error: connectorError } = connector.use();
   const tasksLoading = useSyncExternalStore(tasks.subscribe, () => tasks.get().loading);
   const connection = 'ingress' in selected ? selected : undefined;
@@ -59,7 +57,7 @@ export default function IngressPanel({ selection: selected, onPanelFrame, expand
   }, [panelId]);
   const ready = useDockOpening(panelId, pending, selected.closing, cancelOpening);
   if (!ready) return null;
-  return <Panel focusTrigger={focusTrigger.current} size="m" className="activity-panel" expanded={expanded} headerless title={title} busy={busy}
+  return <Panel size="m" className="activity-panel" expanded={expanded} headerless title={title} busy={busy}
     viewKey={`${panelId}:${connection?.editing ? "edit" : "view"}`}
     onClose={() => ingressPanel.set(undefined)}
     returnFocus={platform ? `[data-source-platform="${CSS.escape(platform)}"] button` : `[data-source-node="${CSS.escape(client?.id ?? entry?.id ?? panelId)}"] button`} onPanelFrame={onPanelFrame}>

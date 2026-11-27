@@ -1,7 +1,6 @@
 import { RecordSurface } from '../components/ui/RecordDetail';
 import { RecordDetail, RecordEmpty } from '../components/ui/RecordDetail';
 import { RecordListRow } from "./RecordParts";
-import { useLayerNaturalContent } from '../components/ui/LayerPortals';
 import { useCopyState } from "../components/ui/useCopyState";
 import { Tooltip as HoverHelp } from "../components/ui/index";
 import { PanelFooter } from "../components/ui/Panel";
@@ -40,8 +39,6 @@ export default function AXPanel() {
   const connection = connector.use(), language = locale.use(), now = useAppNow(30_000);
   const [pagination, setPagination] = useState({ view, count: view.closed ? 4 : 5 });
   const limit = pagination.view === view ? pagination.count : view.closed ? 4 : 5;
-  const natural = useRef<HTMLDivElement>(null);
-  useLayerNaturalContent(natural, !!data.observedAt, { version: `${view.closed}:${limit}:${selectedId}` });
   const list = useRef<HTMLDivElement>(null), scroll = useRef(0), trigger = useRef('');
   const heading = useRef<HTMLHeadingElement>(null), previousSelection = useRef(selectedId);
   const core = connection.status?.core.backendSession;
@@ -95,7 +92,7 @@ export default function AXPanel() {
   }
   function detail(entry: AXEntry) {
     const decision = axDecision(entry), result = decision?.detail;
-    return <RecordDetail variant="issue" className="ax-detail" aria-label={t('center.recordDetail')}><div className="ax-detail-natural" ref={natural}>
+    return <RecordDetail variant="issue" className="ax-detail" aria-label={t('center.recordDetail')}><div className="ax-detail-natural">
       <div className="ax-back"><Button variant="ghost" onClick={() => axSelection.set(undefined)}><Icon icon={ArrowLeft} />{t('center.ax.list')}</Button>
         <CopyValue value={entry.id} label={t('center.ax.copyId')} /></div>
       <header className="ax-detail-heading">
@@ -132,7 +129,7 @@ export default function AXPanel() {
           options={[{ value: 'open', label: t('center.ax.open', { count: data.observedAt ? data.entries.length - closedCount : '—' }) }, { value: 'closed', label: t('center.ax.closed', { count: data.observedAt ? closedCount : '—' }) }]} />
         <SearchInput placeholder={t('center.ax.search')} value={view.search} onChange={event => axView.set(old => ({ ...old, search: event.target.value }))} />
       </div>
-      <div ref={list} className="ax-list" tabIndex={-1}><div className="ax-list-natural" ref={natural}>
+      <div ref={list} className="ax-list" tabIndex={-1}><div className="ax-list-natural">
         {rows.slice(0, limit).map(entry => {
           const id = `ax-row-${entry.id}`;
           return <Card asChild padded key={entry.id} className="ax-row"><button type="button" id={id} onClick={() => open(entry, id)} aria-labelledby={`${id}-title`} aria-describedby={`${id}-meta ${id}-status`}>

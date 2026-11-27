@@ -5,7 +5,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import { useI18n } from "@/i18n/react";
+import { useI18n } from "../../i18n/react";
 import { IconButton } from "./button";
 import { cn } from "./utils";
 

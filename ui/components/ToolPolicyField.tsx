@@ -4,7 +4,7 @@ import { t, locale } from "../i18n";
 import { identifyPolicy, normalizeSelection, presetPolicy, type ToolCatalog, type ToolMode, type ToolPolicy } from "../toolPolicy";
 import { Button, Checkbox, Field, Notice, SingleChoice, Tooltip } from "./ui";
 
-import { DialogView } from "./permissions/DialogView";
+import { DialogSubview } from "./kit/dialog";
 export default function ToolPolicyField({
   value,
   onChange,
@@ -123,7 +123,7 @@ export default function ToolPolicyField({
           </Notice>
         )}
       </Field>
-      <DialogView open={open} onBack={back}
+      <DialogSubview open={open} onBack={back}
         title={`${t("toolList")} · ${options.find(option => option.value === mode)?.label}`}
         footer={<Button variant="primary" onClick={back}>{t("done")}</Button>}>
         <div className="tool-groups">
@@ -195,7 +195,7 @@ export default function ToolPolicyField({
             );
           })}
         </div>
-      </DialogView>
+      </DialogSubview>
     </>
   );
 }

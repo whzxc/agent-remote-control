@@ -8,7 +8,6 @@ import { openUrl } from "../platform";
 import { agents, orderedAgents, name, icons, compactAgentVersion, agentLinks, toggleAgent, refreshAgents, type Agent } from "../state/agents";
 import { refreshAccountQuota, useAccounts } from "../state/accounts";
 import { agentActivity } from "../state/activity";
-import { captureLayerTrigger } from "../state/layers";
 import { resolveAgentQuota } from "../state/quota";
 import { iconWindows } from "../subscriptions/AgentQuotaIcon";
 import { quotaDisplay, quotaLabel, quotaPercent } from "../subscriptions/displayPreferences";
@@ -53,7 +52,7 @@ function AgentCard({ agent, provider, activeCount, busy, now, onOpen, onError }:
   const rank = provider && readingStatus(window, provider, now).rank;
   const tone = rank === 4 ? "danger" : rank === 3 || rank === 2 ? "warning" : rank === 1 ? "success" : "muted";
   const adapter = agent.adapter;
-  const open = () => { captureLayerTrigger(trigger.current); onOpen(); };
+  const open = () => { trigger.current?.focus({ preventScroll: true }); onOpen(); };
 
   return <Card asChild><article className="agent-card" onClick={event => {
     if (!(event.target as Element).closest("button, a")) open();

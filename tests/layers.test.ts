@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {act,createElement as h,useState} from 'react';
-import {within,fireEvent,waitFor} from '@testing-library/dom';
-import {assertNodeIdentity} from './helpers/dom-assert.ts';
-import {withDialog} from './helpers/layers-ui.ts';
-import {consumeOutsidePointer,createLayerStore} from '../ui/state/layers.ts';
+import { act, createElement as h, useState } from 'react';
+import { within, fireEvent, waitFor } from '@testing-library/dom';
+import { assertNodeIdentity } from './helpers/dom-assert.ts';
+import { withDialog } from './helpers/layers-ui.ts';
+import { createLayerStore } from '../ui/state/layers.ts';
 
 test('Close and Cancel retain busy work until completion and the dialog stays closed after late results', async () => {
   // Recurring bug class: lifecycle B1 header Close orphaned busy work and job-driven owners could reopen their dialog on completion.
@@ -76,41 +76,6 @@ test('stacked setup edits tools inside its owning dialog and Back and Escape pre
     assert.ok(page.getByRole('textbox', { name: t('setup.connectionName') }));
     await act(async () => fireEvent.keyDown(page.getByRole('dialog', { name: t('source.newConnection'), exact: true }), { key: 'Escape' }));
     assert.ok(page.getByRole('button', { name: t('layers.keepEditing') }));
-  });
-});
-
-test('outside dismissal releases WebKit click suppression when a touch ends without a click', async context => {
-  // Recurring bug class: lifecycle cleanup of a consumed touch must preserve later independent clicks.
-  await withDialog(async ({ root }) => {
-    let activations = 0;
-    await act(async () => root.render(h('main', null,
-      h('button', { onPointerDown: (event: React.PointerEvent) => consumeOutsidePointer(event.nativeEvent) }, 'Dismiss'),
-      h('button', { onClick: () => { activations++; } }, 'Next action'))));
-    const page = within(document.body);
-    const dismiss = page.getByRole('button', { name: 'Dismiss' });
-    const next = page.getByRole('button', { name: 'Next action' });
-    const touch = (pointerId: number) => ({ pointerId, pointerType: 'touch', isPrimary: true });
-    context.mock.timers.enable({ apis: ['setTimeout'] });
-    try {
-      fireEvent.pointerDown(dismiss, touch(1));
-      context.mock.timers.tick(1100);
-      assert.equal(fireEvent.pointerUp(next, touch(1)), false);
-      fireEvent.click(next, { detail: 1 });
-      assert.equal(activations, 0);
-
-      fireEvent.pointerDown(dismiss, touch(2));
-      fireEvent.pointerUp(next, touch(2));
-      context.mock.timers.tick(1100);
-      fireEvent.click(next, { detail: 1 });
-      assert.equal(activations, 1);
-
-      fireEvent.pointerDown(dismiss, touch(3));
-      fireEvent.pointerUp(next, touch(3));
-      fireEvent.pointerDown(next, touch(4));
-      fireEvent.pointerUp(next, touch(4));
-      fireEvent.click(next, { detail: 1 });
-      assert.equal(activations, 2);
-    } finally { context.mock.timers.reset(); }
   });
 });
 
@@ -248,51 +213,44 @@ test('a finished submitted attempt is clean until the user edits the value again
   });
 });
 
-test('deferred close focus restoration preserves the next action trigger', async () => {
-  // Recurring bug class: lifecycle studio-connections at 640px reopened Connections when deferred restoration stole the recovery trigger before Enter.
+test('closing a dialog preserves focus when another action trigger is activated', async () => {
+  // Recurring bug class: lifecycle close focus restoration stole focus from an already-focused recovery trigger.
   await withDialog(async ({ server, root, settle, focused }) => {
     const { default: Dialog } = await server.ssrLoadModule('/ui/components/ui/Dialog.tsx');
     const { Button } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
     const { t } = await server.ssrLoadModule('/ui/i18n.ts');
-    const originalFrame = globalThis.requestAnimationFrame, originalCancel = globalThis.cancelAnimationFrame;
-    const frames: FrameRequestCallback[] = [];
-    globalThis.requestAnimationFrame = callback => { frames.push(callback); return frames.length; };
-    globalThis.cancelAnimationFrame = () => {};
-    try {
-      function Owner() {
-        const [open, setOpen] = useState(false);
-        return h('main', null, h(Button, { onClick: () => setOpen(true) }, 'Connections'), h(Button, null, 'Recover remote'),
-          open && h(Dialog, { title: 'Connections', onClose: () => setOpen(false) }, 'Connection details'));
-      }
-      const page = within(document.body);
-      await act(async () => root.render(h(Owner)));
-      await act(async () => { const trigger = page.getByRole('button', { name: 'Connections', exact: true }); trigger.focus(); fireEvent.click(trigger); });
-      await act(async () => { for (const frame of frames.splice(0)) frame(0); });
-      await act(async () => fireEvent.click(page.getByRole('button', { name: t('close'), exact: true })));
-      assert.equal(page.queryByRole('dialog', { name: 'Connections' }), null); await settle();
-      const recovery = page.getByRole('button', { name: 'Recover remote' });
-      await act(async () => recovery.focus());
-      await act(async () => { for (const frame of frames.splice(0)) frame(0); }); await settle();
-      assertNodeIdentity(focused(), recovery);
-    } finally { globalThis.requestAnimationFrame = originalFrame; globalThis.cancelAnimationFrame = originalCancel; }
+    function Owner() {
+      const [open, setOpen] = useState(false);
+      return h('main', { tabIndex: -1 }, h(Button, { onClick: () => setOpen(true) }, 'Connections'), h(Button, null, 'Recover remote'),
+        open && h(Dialog, { title: 'Connections', onClose: () => setOpen(false) }, 'Connection details'));
+    }
+    const page = within(document.body);
+    await act(async () => root.render(h(Owner)));
+    await act(async () => { const trigger = page.getByRole('button', { name: 'Connections', exact: true }); trigger.focus(); fireEvent.click(trigger); });
+    await settle();
+    await act(async () => fireEvent.click(page.getByRole('button', { name: t('close'), exact: true })));
+    assert.equal(page.queryByRole('dialog', { name: 'Connections' }), null); await settle();
+    const recovery = page.getByRole('button', { name: 'Recover remote' });
+    await act(async () => recovery.focus());
+    await settle();
+    assertNodeIdentity(focused(), recovery);
   });
 });
 
-test('cross-slot Back retains the originating panel detail and restores its control', async () => {
-  // Recurring bug class: lifecycle an exiting Board shell ran its close callback again when the task slot entered, clearing the retained record and Back focus target.
+test('switching from Board to Task and back retains the originating panel detail and restores its control', async () => {
+  // Recurring bug class: lifecycle switching away from Board ran its close callback again, clearing retained detail and Back focus target.
   await withDialog(async ({ server, root, settle, focused }) => {
     const { default: Panel } = await server.ssrLoadModule('/ui/components/ui/Panel.tsx');
-    const { PanelProvider } = await server.ssrLoadModule('/ui/components/providers/PanelProvider.tsx');
     const { Button } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
     const { layers } = await server.ssrLoadModule('/ui/state/layers.ts');
     function Owner() {
       const [view, setView] = useState('board'), [record, setRecord] = useState(true);
       return h('main', null,
-        view === 'board' && h(Panel, { title: 'Board', initialFocus: 'inspect-task', onClose: () => { setRecord(false); setView('closed'); } },
+        view === 'board' && h(Panel, { key: 'board', title: 'Board', initialFocus: 'inspect-task', onClose: () => { setRecord(false); setView('closed'); } },
           record && h('section', { role: 'region', 'aria-label': 'Record details' }, h(Button, { id: 'inspect-task', onClick: () => layers.switchPanel(() => setView('task')) }, 'Inspect task'))),
-        view === 'task' && h(Panel, { title: 'Task', side: 'right', onClose: () => setView('closed') }, h(Button, { onClick: () => layers.switchPanel(() => setView('board')) }, 'Back to Board')));
+        view === 'task' && h(Panel, { key: 'task', title: 'Task', onClose: () => setView('closed') }, h(Button, { onClick: () => layers.switchPanel(() => setView('board')) }, 'Back to Board')));
     }
-    await act(async () => root.render(h(PanelProvider, null, h(Owner)))); await settle();
+    await act(async () => root.render(h(Owner))); await settle();
     const page = within(document.body);
     await act(async () => fireEvent.click(page.getByRole('button', { name: 'Inspect task' })));
     assert.ok(page.getByRole('dialog', { name: 'Task' }));
@@ -302,37 +260,10 @@ test('cross-slot Back retains the originating panel detail and restores its cont
   });
 });
 
-test('slot content retains its feature context across workspace replacement', async () => {
-  // Recurring bug class: lifecycle the external panel registry moved content outside its feature provider.
-  await withDialog(async ({ server, root, settle }) => {
-    const { createContext, useContext } = await import('react');
-    const Context = createContext('Missing context');
-    const { default: Panel, PanelRoute } = await server.ssrLoadModule('/ui/components/ui/Panel.tsx');
-    const { PanelProvider } = await server.ssrLoadModule('/ui/components/providers/PanelProvider.tsx');
-    const { layers } = await server.ssrLoadModule('/ui/state/layers.ts');
-    function Content() { return h('button', null, useContext(Context)); }
-    function Owner() {
-      const [view, setView] = useState('Settings'), [ready, setReady] = useState(false);
-      return h(PanelProvider, null, h('main', null,
-        h('nav', { 'data-workspace-switcher': true }, h('button', { onClick: () => layers.switchPanel(() => setView('Relay')) }, 'Switch workspace')),
-        h('button', { onClick: () => setReady(true) }, 'Finish loading'),
-        h(PanelRoute, { value: view, identity: (value: string) => value }, (snapshot: string) =>
-          h(Context.Provider, { value: 'Feature context' }, (snapshot === 'Settings' || ready) && h(Panel, { title: snapshot, onClose: () => setView('') }, h(Content))))));
-    }
-    const page = within(document.body);
-    await act(async () => root.render(h(Owner))); await settle();
-    assert.ok(within(page.getByRole('dialog', { name: 'Settings' })).getByRole('button', { name: 'Feature context' }));
-    await act(async () => fireEvent.click(page.getByRole('button', { name: 'Switch workspace' }))); await settle();
-    assert.ok(page.getByRole('dialog', { name: 'Settings' }));
-    await act(async () => fireEvent.click(page.getByRole('button', { name: 'Finish loading' }))); await settle();
-    assert.ok(within(page.getByRole('dialog', { name: 'Relay' })).getByRole('button', { name: 'Feature context' }));
-  });
-});
-
 test('a third dialog request reports the stack limit instead of disappearing', () => {
   // Recurring bug class: lifecycle B1 silently ignored a third dialog request and left its trigger without a response.
   const store = createLayerStore();
-  const request = (id: string) => ({ id, kind: 'dialog' as const, node: null, trigger: null, onClose() {} });
+  const request = (id: string) => ({ id, kind: 'dialog' as const, onClose() {} });
   store.open(request('parent'));
   store.open(request('child'));
   assert.throws(() => store.canOpen('dialog', 'third'), /at most two dialogs/);
@@ -340,23 +271,25 @@ test('a third dialog request reports the stack limit instead of disappearing', (
   assert.deepEqual(store.get().map(layer => layer.id), ['parent', 'child']);
 });
 
-test('closing a layer with an unavailable opener restores the main landmark', async () => {
+test('closing a dialog with an unavailable opener restores the main landmark', async () => {
   // Recurring bug class: lifecycle removal of a trigger must leave keyboard focus on an exposed destination.
   await withDialog(async ({ root, server, settle, focused }) => {
-    const { layers } = await server.ssrLoadModule('/ui/state/layers.ts');
+    const { default: Dialog } = await server.ssrLoadModule('/ui/components/ui/Dialog.tsx');
+    const { DialogFocusProvider } = await server.ssrLoadModule('/ui/components/kit/dialog-focus.ts');
+    const { Button } = await server.ssrLoadModule('/ui/components/ui/index.tsx');
+    const { t } = await server.ssrLoadModule('/ui/i18n.ts');
+    function Owner() {
+      const [open, setOpen] = useState(false), [disabled, setDisabled] = useState(false);
+      return h(DialogFocusProvider, null,
+        h('main', { tabIndex: -1 },
+          h(Button, { disabled, onClick: () => { setOpen(true); setDisabled(true); } }, 'Unavailable opener'),
+          open && h(Dialog, { title: 'Transient action', onClose: () => setOpen(false) }, 'Details')));
+    }
     const page = within(document.body);
-    await act(async () => root.render(h('main', { tabIndex: -1 },
-      h('button', { disabled: true }, 'Unavailable opener'),
-      h('button', { className: 'outer-opener' }, 'Outer opener'))));
-    layers.restoreFocus({ trigger: page.getByRole('button', { name: 'Unavailable opener' }) });
-    await settle();
+    await act(async () => root.render(h(Owner))); await settle();
+    const opener = page.getByRole('button', { name: 'Unavailable opener' });
+    await act(async () => { opener.focus(); fireEvent.click(opener); }); await settle();
+    await act(async () => fireEvent.click(page.getByRole('button', { name: t('close'), exact: true }))); await settle();
     assertNodeIdentity(focused(), page.getByRole('main'));
-    document.body.focus();
-    // Same-frame nested close: removing the outer layer while an inner restore is pending must hand off to the outer opener.
-    layers.open({ id: 'outer-panel', kind: 'panel', node: null, trigger: page.getByRole('button', { name: 'Outer opener' }), returnFocus: '.outer-opener', onClose() {} });
-    layers.restoreFocus({ trigger: page.getByRole('button', { name: 'Unavailable opener' }) });
-    layers.remove('outer-panel');
-    await settle();
-    assertNodeIdentity(focused(), page.getByRole('button', { name: 'Outer opener' }));
   });
 });

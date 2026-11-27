@@ -16,7 +16,7 @@ import { BrandMark } from '../components/ui';
 import SourceIcon from '../components/SourceIcon';
 import { icons } from '../state/agents';
 import type { ProviderSnapshot } from '../subscriptions/types';
-import { layers as layerStore } from '../state/layers';
+import { layers as layerStore, type LayerRect as SurfaceRect } from '../state/layers';
 import { topologyCollapsed } from './accountState';
 import { highlightedPaths } from './accounts';
 import { observeTopology } from "../acceptance";
@@ -27,7 +27,6 @@ import { TopologyAnimator, nodeKey } from "./animate";
 import { TopologyPainter, type PaintNode } from "./render";
 import { orderedSubset, moveToY } from "./order";
 import { topologyValues, topologyDebug } from "../state/topology";
-import type { LayerRect as SurfaceRect } from "../components/ui/layerFrame";
 
 type Rect = { x: number; y: number; width: number; height: number };
 

@@ -1,6 +1,6 @@
 import { LoaderCircle } from "lucide-react";
 import type { ComponentProps, ReactElement } from "react";
-import { useI18n } from "@/i18n/react";
+import { useI18n } from "../../i18n/react";
 import { cn } from "./utils";
 
 export function Spinner({

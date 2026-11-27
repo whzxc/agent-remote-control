@@ -1,6 +1,5 @@
 import { TimelineSurface } from './timeline/TimelineSurface';
 import { TurnProgress } from './timeline/TimelineRail';
-import { useLayerNaturalContent } from './ui/LayerPortals';
 import { PanelHeader, PanelFooter, usePanelState } from "./ui/Panel";
 import { readOnlyBrowser } from "../browserMode";
 import { useAppNow } from "../state/appEnvironment";
@@ -308,7 +307,6 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
     phase: "idle" as const, phaseSince: null, headline: "", timeline: true, orderAt: 0, observed: false,
   } : undefined;
   usePanelState({ busy: continuing });
-  useLayerNaturalContent(content, true, { version: `${loading ? 'loading' : 'ready'}:${title}`, flexibleFooter: true, resetHeight: true });
   return <TimelineSurface ref={detail} className="agent-panel-layer" data-related={!!relationKind || undefined} data-narrow={narrow || undefined}>
     <PanelHeader><div className="dialog-header task-detail-header" data-related={!!relationKind || undefined} role="banner">
       <div className="task-detail-navigation"><TaskBackButton aria-label={t("back")} title={backLabel ?? agentName} onClick={onBack}><Icon icon={ArrowLeft} /><RelayRoute source={source} callerAgent={callerAgent} agent={agent} /></TaskBackButton>

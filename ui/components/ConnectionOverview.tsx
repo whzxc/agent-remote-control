@@ -1,9 +1,8 @@
 
 import { GraphFeedback } from "./topology/GraphFeedback";
-import { layers } from '../state/layers';
+import { layers, type LayerRect } from '../state/layers';
 import { markActivitiesRead } from '../state/activityBubbles';
 import { orderedSubset } from '../topology/order';
-import type { LayerRect } from './ui/layerFrame';
 import RemoteTaskPanel from './RemoteTaskPanel';
 import { observeHomepage } from '../acceptance';
 import { homepageTaskFocus } from '../state/homepage';
@@ -12,7 +11,6 @@ import { homepageMode } from '../state/homepage';
 import { useHomepageTasks } from '../state/homepageTasks';
 import { deviceLinkEnabled, deviceView } from '../devices/state';
 import DeviceNodePanel from '../devices/DeviceNodePanel';
-import { PanelRoute } from './ui/Panel';
 import { readOnlyBrowser } from "../browserMode";
 import { taskExecutions } from "../state/taskExecution";
 import { appEnvironment } from "../state/appEnvironment";
@@ -221,14 +219,12 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
             onAddSource={() => openOnboarding("product")}
             onManageAgents={() => setAgentsOpen(true)} />} /></div>}
         {devicesEnabled && <><DeviceNodePanel onPanelFrame={panelFrame} /><RemoteTaskPanel tasks={homepageTasks} /></>}
-        <PanelRoute value={selectedAgent ? selection : undefined} identity={agentPanelId}>{(snapshot, active) => {
-          const agent = inventory.items.find(item => item.agent === snapshot.agent);
-          return agent && <AgentPanel selection={snapshot} active={active} agent={agent} expanded={panelExpanded} onToggleWidth={() => setPanelExpanded(value => !value)}
+        {selectedAgent && selection && (() => {
+          const agent = inventory.items.find(item => item.agent === selection.agent);
+          return agent && <AgentPanel key={agentPanelId(selection)} selection={selection} active={!selection.closing} agent={agent} expanded={panelExpanded} onToggleWidth={() => setPanelExpanded(value => !value)}
             onSettings={() => setDisplaySettingsOpen(agent.agent)} onPanelFrame={panelFrame} />;
-        }}</PanelRoute>
-        <PanelRoute value={sourceSelection} identity={sourcePanelId}>{snapshot =>
-          <IngressPanel onPanelFrame={panelFrame} selection={snapshot} expanded={panelExpanded} onToggleWidth={() => setPanelExpanded(value => !value)} />
-        }</PanelRoute>
+        })()}
+        {sourceSelection && <IngressPanel key={sourcePanelId(sourceSelection)} onPanelFrame={panelFrame} selection={sourceSelection} expanded={panelExpanded} onToggleWidth={() => setPanelExpanded(value => !value)} />}
 
         {error && coreState === "ready" && (
           <GraphFeedback className="graph-error">

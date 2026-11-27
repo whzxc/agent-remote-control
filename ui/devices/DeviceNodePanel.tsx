@@ -121,7 +121,7 @@ function RevokeDialog({ peer, memberSide, close }: { peer: Peer; memberSide: boo
     {error && <Notice layout="inline">{error}</Notice>}
   </ConfirmDialog>;
 }
-export default function DeviceNodePanel({ onPanelFrame }: { onPanelFrame?: (rect: import('../components/ui/layerFrame').LayerRect | null) => void } = {}) {
+export default function DeviceNodePanel({ onPanelFrame }: { onPanelFrame?: (rect: import('../state/layers').LayerRect | null) => void } = {}) {
   const snapshot = deviceSnapshot.use(), error = deviceError.use(), view = deviceView.use();
   const devices = pairedDevices(snapshot), detail = devices.find(device => device.id === view.detail);
   const remote = deviceTasks.use();

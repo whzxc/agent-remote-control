@@ -5,8 +5,8 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
-import { useI18n } from "@/i18n/react";
-import { maskSensitive, sensitiveParts } from "@/privacyMask";
+import { useI18n } from "../../i18n/react";
+import { maskSensitive, sensitiveParts } from "../../privacyMask";
 import { cn } from "./utils";
 
 export interface PrivacyContextValue {

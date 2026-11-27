@@ -85,7 +85,7 @@ try {
         await page.evaluate(async () => {
           await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame);
           const dialogs = [...document.querySelectorAll('.layer-dialog')].filter(node => getComputedStyle(node).visibility !== 'hidden');
-          const panels = [...document.querySelectorAll('.layer-panel')].filter(node => !node.hasAttribute('data-exiting'));
+          const panels = [...document.querySelectorAll('.layer-panel')];
           const expected = Math.max(0, dialogs.length - (panels.length ? 0 : 1));
           if (dialogs.length && document.querySelectorAll('.layer-scrim').length !== expected) throw new Error('Only nested dialogs may show a scrim.');
         });

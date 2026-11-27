@@ -1,5 +1,4 @@
 import { NavCapsule } from './components/navigation/NavCapsule';
-import { PanelRoute } from "./components/ui/Panel";
 import { oauthApproval, requestExternalNavigation } from "./state/externalNavigation";
 import { observeDevices } from './devices/state';
 import McpHub from './mcp/McpHub';
@@ -23,7 +22,7 @@ import { startTasks } from "./state/tasks";
 import { startUpdateChecks, updates, checkUpdate, showUpdate, updateVisible } from "./state/updates";
 import { onboarding, connectionSetup, connectionSwitch } from "./state/onboarding";
 import { navigation, openConnections, type Page } from "./state/navigation";
-import { layers as layerStore, captureLayerTrigger } from "./state/layers";
+import { layers as layerStore } from "./state/layers";
 import { displayMessage } from "./messages";
 import OAuthApproval from "./components/OAuthApproval";
 import ConnectionOverview from "./components/ConnectionOverview";
@@ -35,7 +34,6 @@ import { usePrivacy } from "./state/privacy";
 import { UpdateDock } from "./components/AppUpdate";
 import { Button, Icon, IconButton, Notice, Panel } from "./components/ui";
 import { api } from "./api";
-import { LayerOwnerContext } from "./components/ui/TransientLayer";
 import PermissionsPage from "./components/PermissionsPage";
 import RelayHosting from "./components/RelayHosting";
 import { relayHostingEnabled } from "./state/relay";
@@ -78,7 +76,6 @@ export default function App() {
   const welcome = flow?.step === "welcome" && page === "overview";
   const layers = layerStore.use();
   const modalOpen = layers.some(layer => layer.kind === 'dialog');
-  const panel = layers.find(layer => layer.kind === 'panel');
   useBoardObservation(page === 'overview' && (!modalOpen || bulletinOpen));
   useEffect(() => { localStorage.setItem("arc-page", page); }, [page]);
   useLayoutEffect(() => {
@@ -91,7 +88,7 @@ export default function App() {
     if (!isDesktop) return;
     // Keep drafts and active dialogs alive; only retire an idle hidden surface.
     const timer = setInterval(() => {
-      if (connector.get().feedback.some(item => item.errorSource) || document.querySelector('[role="dialog"], form') || updates.get().phase !== "idle" || updates.get().panelOpen || updateVisible()) return;
+      if (connector.get().feedback.some(item => item.errorSource) || document.querySelector('[role="dialog"], [role="alertdialog"], form') || updates.get().phase !== "idle" || updates.get().panelOpen || updateVisible()) return;
       void import("./nativeBridge").then(({ invoke }) => invoke("release_main_window")).catch(() => {});
     }, 30000);
     return () => clearInterval(timer);
@@ -195,8 +192,6 @@ export default function App() {
   return (
     <div role="region" aria-label="ARC homepage"
       className={`app-scene ${isDesktop ? "desktop" : ""} ${isDesktop && navigator.platform.toLowerCase().includes("mac") ? "mac" : ""}`}
-      onClickCapture={(e) => captureLayerTrigger(e.target)}
-
     >
       <HomepageDisplay headerVisible={page === "overview" && !welcome && !modalOpen} />
       {isDesktop && (
@@ -208,7 +203,7 @@ export default function App() {
       >
         <ConnectionOverview visible={page === "overview"} />
       </main>
-      <PanelRoute value={page === "overview" ? undefined : page} identity={page => page}>{page => page === "mcp-hub" ?
+      {page !== "overview" && (page === "mcp-hub" ?
         <McpHub expanded={sheetWide} onToggleWidth={() => setSheetWide(!sheetWide)} onClose={() => setPage("overview")} /> : page === "relay-hosting" ?
         <RelayHosting expanded={sheetWide} onToggleWidth={() => setSheetWide(!sheetWide)} onClose={() => setPage("overview")} /> :
         <Panel key={page} role="region" title={<>{pages.find(item => item.id === page)?.label}
@@ -224,9 +219,7 @@ export default function App() {
             {page === "permissions" ? <PermissionsPage /> : page === "accounts" ? <PlatformsPage />
               : <SettingsPage />}
           </div>
-        </Panel>
-      }</PanelRoute>
-      <LayerOwnerContext.Provider value={panel?.id}>
+        </Panel>)}
       <NavCapsule
         activeKey={modalOpen ? "" : page === "overview" ? undefined : page}
         data-workspace-switcher
@@ -253,7 +246,6 @@ export default function App() {
           <TuningControls available={page === "overview" && !welcome && !modalOpen} />
           <UpdateDock />
       </NavCapsule>
-      </LayerOwnerContext.Provider>
       {!!feedback.length && <div className="app-feedback" data-global-feedback>
         {feedback.map(notice => <Notice key={notice.errorSource ?? 'message'} elevated tone={notice.errorSource ? "danger" : "success"}
           action={<>{notice.copy && <Button onClick={() => void copyText(notice.copy!).catch(() => notify(t("connect.actionFailed"), { errorSource: 'clipboard' }))}>{t("copy")}</Button>}

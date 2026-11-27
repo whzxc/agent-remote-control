@@ -1,7 +1,16 @@
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { X } from "lucide-react";
+import {
+  createContext,
+  useContext,
+  useLayoutEffect,
+  useRef,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import type * as React from "react";
-import { useI18n } from "@/i18n/react";
+import { createPortal } from "react-dom";
+import { useI18n } from "../../i18n/react";
 import { useDialogFinalFocus } from "./dialog-focus";
 import { cn, stateClass } from "./utils";
 
@@ -254,6 +263,63 @@ export function DialogSurface({
       <DialogBody>{children}</DialogBody>
       {footer && <DialogFooter>{footer}</DialogFooter>}
     </section>
+  );
+}
+
+export interface DialogSubviewEntry {
+  title: string;
+  back: () => void;
+  trigger: HTMLElement | null;
+}
+
+export const DialogSubviewContext = createContext<{
+  set: (view: DialogSubviewEntry | null) => void;
+  body: HTMLElement | null;
+  footer: HTMLElement | null;
+} | null>(null);
+
+/** Renders nested dialog content inside the owning Dialog without opening a third modal. */
+export function DialogSubview({
+  open,
+  title,
+  onBack,
+  children,
+  footer,
+}: {
+  open: boolean;
+  title: string;
+  onBack: () => void;
+  children: ReactNode;
+  footer?: ReactNode;
+}): ReactElement | null {
+  const context = useContext(DialogSubviewContext);
+  const trigger = useRef<HTMLElement | null>(null);
+  const wasOpen = useRef(false);
+
+  if (open && !wasOpen.current && typeof document !== "undefined") {
+    trigger.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+  }
+  wasOpen.current = open;
+
+  useLayoutEffect(() => {
+    if (!open || !context) return;
+    context.set({ title, back: onBack, trigger: trigger.current });
+    return () => context.set(null);
+  }, [open, title, onBack, context]);
+
+  useLayoutEffect(() => {
+    if (open) context?.body?.focus({ preventScroll: true });
+  }, [open, context?.body]);
+
+  if (!open || !context?.body) return null;
+  return (
+    <>
+      {createPortal(children, context.body)}
+      {footer && context.footer && createPortal(footer, context.footer)}
+    </>
   );
 }
 

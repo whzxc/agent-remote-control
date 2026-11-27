@@ -1,12 +1,20 @@
 @import "./timeline/TimelineSurface.css";
 @import "./ui/TaskDetail-TaskPresentation.css";
-@import "./ui/TaskDetail-Dialog.css";
 @import "./ui/TaskDetail-controls.css";
 @import "./timeline/TimelineRail.css";
 @import "./timeline/TaskContent.css";
+.dialog-description .request-routing-inline { color: inherit; }
+.node-panel:has(.task-detail-layer) > .dialog-body { display: flex; overflow: hidden; padding-block: 0; }
+.node-panel:has(.task-detail-layer) > .dialog-body > .dialog-swap, .node-panel:has(.task-detail-layer) .agent-panel-view { display: flex; flex: 1 1 auto; min-height: 0; }
+.node-panel:has(.task-detail-layer) .agent-panel-view[hidden] { display: none; }
+.node-panel .task-detail-layer { flex: 1 1 auto; min-height: 0; }
+.node-panel > .dialog-footer:has(.task-detail-footer) { flex: 0 1 auto; max-height: 60%; min-height: 0; overflow: hidden; padding: 0; background: none; }
+.node-panel .panel-footer-content:has(.task-detail-footer) { display: flex; min-height: 0; width: 100%; }
+.node-panel .task-detail-footer { width: 100%; }
+.node-panel .task-detail-header h2.task-card-title { font-size: var(--text-body); }
 .task-detail-layer { container-type: inline-size; }
 .task-detail-layer .timeline-error, .task-queue-error { min-width: 0; overflow-wrap: anywhere; }
-.node-panel:has(.task-detail-layer) .task-detail-header.dialog-header { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0; }
+.node-panel:has(.task-detail-layer) .task-detail-header.dialog-header { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 14px 20px 12px; border-bottom: 0; }
 .task-detail-navigation { display: flex; justify-content: space-between; gap: 8px; min-width: 0; margin-bottom: 8px; }
 .task-detail-chips { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; margin-bottom: 12px; }
 .task-detail-header:not([data-related]) .task-detail-navigation { align-items: center; min-height: 34px; margin-bottom: 0; }
@@ -24,7 +32,7 @@
 .task-detail-header > .task-card + .task-turn-progress { margin-top: 12px; }
 
 .task-detail-layer .timeline-entries { padding: 16px 0 4px; gap: 16px; }
-.node-panel:has(> .layer-content > .dialog-footer:not([hidden])) .task-detail-layer .timeline-entries { padding-bottom: 16px; }
+.node-panel:has(> .dialog-footer:not([hidden])) .task-detail-layer .timeline-entries { padding-bottom: 16px; }
 .task-turn, .task-turn-content, .task-process-rows { min-width: 0; }
 .task-turn { padding: 0; }
 .task-turn[data-turn-collapsed] { padding: 9px 12px; cursor: pointer; }

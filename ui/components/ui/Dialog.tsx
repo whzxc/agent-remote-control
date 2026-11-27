@@ -1,31 +1,45 @@
-import { PanelCrossfade, PanelPaint } from "./PanelCrossfade";
-import { animate } from "motion/react";
-import { motionTransition } from "../../motion/tokens";
-import { useLayerFrame } from "./useLayerFrame";
-import { layerInsetToken } from "./layerTokens";
-import { useCallback, useMemo, useId, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { Dialog as D } from 'radix-ui';
-import { ChevronLeft, X } from 'lucide-react';
-import { t } from '../../i18n';
-import { isDesktop } from '../../platform';
-import { useReducedMotion } from '../../state/appEnvironment';
-import { layers, layerTrigger } from '../../state/layers';
-import { notify } from '../../state/connector';
-import { type LayerKind, type LayerSize, type LayerRect } from './layerFrame';
-import { LayerOwnerContext } from './TransientLayer';
-import { IconButton, Notice } from './index';
-import { NaturalContentContext, CloseContext, HeaderContext, ActionsContext, PanelStateContext, ViewContext, type View, type PanelState, type NaturalContent } from './LayerPortals';
-import { LayerDismissalFooter } from './LayerDismissalFooter';
-export { DialogClose, DialogActions, PanelHeader, usePanelState, useDialogFeedback } from './LayerPortals';
-import './Dialog.css';
+import {
+  cloneElement,
+  createContext,
+  isValidElement,
+  useCallback,
+  useContext,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ButtonHTMLAttributes,
+  type MouseEvent,
+  type ReactElement,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
+import { ChevronLeft, X } from "lucide-react";
+import { t } from "../../i18n";
+import { isDesktop } from "../../platform";
+import {
+  hasOpenTransient,
+  isTransientTarget,
+  layers,
+  resolveReturnFocus,
+  type LayerKind,
+  type LayerRect,
+  type LayerSize,
+} from "../../state/layers";
+import { notify } from "../../state/connector";
+import {
+  DialogBackdrop,
+  DialogPrimitive,
+  DialogSubviewContext,
+  type DialogSubviewEntry,
+} from "../kit/dialog";
+import { DismissalFooter } from "../kit/dismissal";
+import { useDialogFinalFocus } from "../kit/dialog-focus";
+import { cn } from "../kit/utils";
+import { IconButton, Notice } from "./index";
 
-/** Completion respects Keep open and routes results from closed owners to global feedback. */
-export function useDialogCompletion(onComplete: () => void | Promise<void>) {
-  const layerId = useId();
-  const isOpen = () => layers.get().some(layer => layer.id === layerId);
-  return { layerId, isOpen, feedback: (message: string, error = false) => { if (!isOpen()) notify(message, { errorSource: error ? `layer:${layerId}` : undefined }); }, finish: (message = t('activity.completed')) => isOpen()
-    ? layers.complete(layerId, onComplete) : notify(message) };
-}
+export type { LayerKind, LayerRect, LayerSize };
 
 export type DialogProps = {
   layerId?: string;
@@ -48,224 +62,514 @@ export type DialogProps = {
   returnFocus?: string;
 };
 
-type PanelShellContent = DialogProps & { viewKey?: string; headerNavigation?: ReactNode };
+export const CloseContext = createContext<{
+  id: string;
+  busy?: boolean;
+  close: () => void;
+  feedback: (message: string, error: boolean) => void;
+} | null>(null);
 
-export type LayerContentHost = { layerId: string; target: HTMLDivElement; render: (props: DialogProps) => ReactNode; ready: () => void };
+export type PanelState = {
+  dirty?: boolean;
+  busy?: boolean;
+  onCancel?: DialogProps["onCancel"];
+};
 
-export function LayerShell({ onContentHost, kind, size = kind === 'panel' ? 'xl' : 'm', focusTrigger, onPanelFrame, labelledBy, role = 'dialog', closeLabel, expanded = false, viewKey, contentKey, headerNavigation, onEscapeKeyDown, layerId, open = true, onClose, dirty, busy, onCancel, title, description, children,
-  footer, actions, leading, headerDetail, stepBar, headerless, className = '', initialFocus, returnFocus }: DialogProps & { onContentHost?: (host?: LayerContentHost) => void; kind: LayerKind; size?: LayerSize; focusTrigger?: ReturnType<typeof layerTrigger>; onPanelFrame?: (rect: LayerRect | null) => void; labelledBy?: string; role?: 'dialog' | 'region'; closeLabel?: string; expanded?: boolean; viewKey?: string; contentKey?: string; headerNavigation?: ReactNode; onEscapeKeyDown?: (event: KeyboardEvent) => void }) {
-  const generatedId = useId(), id = layerId ?? generatedId, snapshot = layers.use(), reduced = useReducedMotion();
-  const [headerTarget, setHeaderTarget] = useState<HTMLElement | null>(null);
-  const [headerCount, setHeaderCount] = useState(0);
-  const [headerMounted, setHeaderMounted] = useState(false);
-  const headerReady = useCallback(() => setHeaderMounted(true), []);
-  const registerHeader = useCallback(() => { setHeaderCount(count => count + 1); return () => setHeaderCount(count => count - 1); }, []);
-  const headerContext = useMemo(() => ({ target: headerTarget, register: registerHeader, ready: headerReady }), [headerTarget, registerHeader, headerReady]);
-  const [footerTarget, setFooterTarget] = useState<HTMLElement | null>(null);
-  const [actionCount, setActionCount] = useState(0);
-  const registerActions = useCallback(() => { setActionCount(count => count + 1); return () => setActionCount(count => count - 1); }, []);
-  const actionsContext = useMemo(() => ({ target: footerTarget, register: registerActions }), [footerTarget, registerActions]);
-  const [node, setNode] = useState<HTMLDivElement | null>(null);
-  const [entering, setEntering] = useState(true);
-  const fades = useRef(new Map<HTMLElement, ReturnType<typeof animate>>());
-  const trackFade = useCallback((target: HTMLElement, fade: ReturnType<typeof animate>) => {
-    fades.current.set(target, fade);
-    return fade.then(() => {
-      if (fades.current.get(target) === fade) fades.current.delete(target);
-    });
-  }, []);
-  const reduceMotion = useRef(reduced);
-  useLayoutEffect(() => {
-    reduceMotion.current = reduced;
-    if (reduced) for (const fade of fades.current.values()) fade.complete();
-  }, [reduced]);
-  useLayoutEffect(() => {
-    if (!node) return;
-    const reduced = reduceMotion.current;
-    setEntering(!reduced);
-    if (reduced) { node.style.opacity = '1'; setEntering(false); return; }
-    node.style.opacity = '0';
-    const fade = animate(node, { opacity: 1 }, motionTransition(kind === 'panel' ? 'panel' : 'base'));
-    let mounted = true;
-    void trackFade(node, fade).then(() => { if (mounted) setEntering(false); });
-    return () => {
-      mounted = false;
-      if (fades.current.get(node) === fade) { fade.stop(); fades.current.delete(node); }
-    };
-  }, [node, kind, trackFade]);
-  const [view, setView] = useState<View | null>(null);
-  const viewHeight = useRef<number | undefined>(undefined), currentNode = useRef(node);
-  currentNode.current = node;
-  const setActiveView = useCallback((next: View | null) => {
-    if (next) viewHeight.current = currentNode.current?.getBoundingClientRect().height || undefined;
-    setView(next);
-  }, []);
-  const [viewBody, setViewBody] = useState<HTMLElement | null>(null), [viewFooter, setViewFooter] = useState<HTMLElement | null>(null);
-  const viewContext = useMemo(() => ({ set: setActiveView, body: viewBody, footer: viewFooter }), [viewBody, viewFooter, setActiveView]);
-  const back = () => { view?.back(); requestAnimationFrame(() => view?.trigger?.focus({ preventScroll: true })); };
-  const [naturalBody, setNaturalBody] = useState<NaturalContent>();
-  const [contentNode, setContentNode] = useState<HTMLDivElement | null>(null);
-  const [readyContent, setReadyContent] = useState<{ key: string; revision: number }>();
-  const ready = useCallback(() => setReadyContent(old => ({ key: `${contentKey}:${viewKey}`, revision: (old?.revision ?? 0) + 1 })), [contentKey, viewKey]);
-  const { frame, retainedHeight } = useLayerFrame((!onContentHost || readyContent?.key === `${contentKey}:${viewKey}`) && (!headerless || !headerCount || headerMounted) ? contentNode : null, { kind, size, expanded, viewKey: `${contentKey}:${viewKey}`, retainedViewHeight: view ? viewHeight.current : undefined, naturalBody, chromeVersion: `${readyContent?.revision}:${headerCount}:${actionCount}` });
-  const contentRef = useCallback((element: HTMLDivElement | null) => setContentNode(element), []);
-  const [panelPaint] = useState(() => new PanelPaint());
-  useLayoutEffect(() => {
-    if (reduced) panelPaint.settle();
-    return () => panelPaint.settle();
-  }, [panelPaint, reduced]);
-  const previousContent = useRef(`${contentKey}:${viewKey}:${view?.title}`);
-  useLayoutEffect(() => {
-    const next = `${contentKey}:${viewKey}:${view?.title}`;
-    if (kind === 'dialog' && previousContent.current !== next && contentNode && !reduced && !entering) {
-      for (const part of contentNode.querySelectorAll<HTMLElement>(':scope > .dialog-header, :scope > .layer-custom-header, :scope > .dialog-body')) void trackFade(part, animate(part, { opacity: [.25, 1] }, motionTransition('fast')));
-    }
-    previousContent.current = next;
-  }, [contentKey, viewKey, view, reduced, entering, contentNode, trackFade, kind]);
-  const entryFrame = useRef(frame);
-  if (entering || !entryFrame.current) entryFrame.current = frame;
-  useLayoutEffect(() => {
-    if (!node || !frame) return;
-    if (entering || reduced) {
-      node.style.top = `${frame.y}px`; node.style.height = `${frame.height}px`;
-      return;
-    }
-    const geometry = animate(node, { top: frame.y, height: frame.height }, motionTransition());
-    return () => geometry.stop();
-  }, [node, frame, entering, reduced]);
-  const focusSource = useRef<HTMLElement | null>(null);
-  const self = snapshot.find(layer => layer.id === id);
-  const allowed = !open || layers.canOpen(kind, id);
-  const dialogs = snapshot.filter(layer => layer.kind === 'dialog');
-  const parent = dialogs[dialogs.findIndex(layer => layer.id === id) - 1];
-  const portalReady = !!self && (!parent || parent.ready);
-  const recessed = !!self && snapshot.at(-1)?.id !== id;
-  const depth = Math.max(0, snapshot.filter(layer => layer.kind === 'dialog').findIndex(layer => layer.id === id));
-  const stack = layers.stack(id);
-  const [panelStates, setPanelStates] = useState<Record<string, PanelState>>({});
-  const updatePanelState = useCallback((key: string, state?: PanelState) => setPanelStates(previous => {
-    if (!state?.dirty && !state?.busy) {
-      if (!previous[key]) return previous;
-      const next = { ...previous }; delete next[key]; return next;
-    }
-    if (previous[key]?.dirty === state.dirty && previous[key]?.busy === state.busy && previous[key]?.onCancel === state.onCancel) return previous;
-    return { ...previous, [key]: state };
-  }), []);
-  const contributions = Object.values(panelStates), running = contributions.filter(state => state.busy);
-  dirty ||= contributions.some(state => state.dirty); busy ||= !!running.length;
-  onCancel ??= running.length === 1 ? running[0].onCancel : undefined;
-  const [exiting, setExiting] = useState(false);
-  const onExit = useCallback(async () => {
-    if (reduced || !node) return;
-    setExiting(true);
-    await trackFade(node, animate(node, { opacity: 0 }, motionTransition('fast', kind === 'dialog' ? 'exit' : 'enter')));
-  }, [node, reduced, kind, trackFade]);
-  const latest = useRef({ onClose, dirty, busy, onCancel, onExit });
-  latest.current = { onClose, dirty, busy, onCancel, onExit };
-  useLayoutEffect(() => {
-    if (!open || !allowed) return;
-    focusSource.current = layerTrigger() ?? focusTrigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
-    layers.open({ id, kind, node: null, trigger: focusSource.current, returnFocus, ...latest.current });
-    return () => layers.remove(id);
-  }, [open, allowed, id, kind]);
-  useLayoutEffect(() => {
-    focusSource.current = layerTrigger() ?? focusTrigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
-    focusSource.current = layers.retarget(id, focusSource.current, returnFocus);
-  }, [contentKey, viewKey, returnFocus]);
-  // Parent Radix effects finish before a child portal mounts, so hideOthers cannot hide the child.
-  useEffect(() => {
-    if (!node) return;
-    layers.ready(id, node);
-    return layers.observeOutsidePointer(id);
-  }, [node, id]);
-  const focusReady = !!frame && (!onContentHost || readyContent?.key === `${contentKey}:${viewKey}`);
-  useLayoutEffect(() => {
-    if (!node || !focusReady) return;
-    const focusIncoming = () => {
-      if (layers.top()?.id !== id) return;
-      const active = document.activeElement;
-      if (!initialFocus && active instanceof HTMLElement && node.contains(active) && !active.closest('[hidden], [inert]')) return;
-      const target = initialFocus ? node.querySelector<HTMLElement>(`#${CSS.escape(initialFocus)}`) ?? node : node;
-      if (active !== target) target.focus({ preventScroll: true });
-    };
-    if (reduceMotion.current) { focusIncoming(); return; }
-    const focusFrame = requestAnimationFrame(focusIncoming);
-    return () => cancelAnimationFrame(focusFrame);
-  }, [node, id, initialFocus, contentKey, viewKey, focusReady]);
-  const reportFrame = useRef(onPanelFrame); reportFrame.current = onPanelFrame;
-  useLayoutEffect(() => {
-    if (node && frame) reportFrame.current?.(node.getBoundingClientRect());
-  }, [node, frame]);
-  useLayoutEffect(() => () => { if (!layers.get().some(layer => layer.kind === "panel" && layer.id !== id)) reportFrame.current?.(null); }, []);
-  useLayoutEffect(() => { layers.update(id, { dirty, busy, onClose, onCancel, onExit }); }, [id, dirty, busy, onClose, onCancel, onExit, kind]);
-  const [feedback, setFeedback] = useState<{ message: string; error: boolean }>();
-  const status = self?.dismissal ?? 'none';
-  const close = () => { void layers.close(id); };
-  const renderContent = (props: PanelShellContent) => {
-    const { title, children, footer, actions, leading, headerDetail, headerNavigation, description, stepBar, headerless } = props;
-    const content = <LayerOwnerContext.Provider value={id}><NaturalContentContext.Provider value={setNaturalBody}>
-        {headerless ? <><h2 className="sr-only" id={`${id}-title`}>{title}</h2><div className="layer-custom-header" ref={setHeaderTarget} hidden={!headerCount} /></> : <header className="dialog-header">
-          {view ? <IconButton icon={ChevronLeft} label={t('back')} onClick={back} /> : leading}<h2 id={`${id}-title`} className={kind === 'panel' ? 'panel-title' : undefined}>{view ? <><span className="dialog-breadcrumb">{title}</span><span aria-hidden="true"> / </span>{view.title}</> : title}</h2>{headerNavigation}<div className="actions">{actions}<IconButton icon={X} label={closeLabel ?? t('close')} onClick={close} /></div>
-        </header>}
-        {!view && headerDetail}
-        {description && <div className="dialog-description" id={`${id}-description`}>{description}</div>}
-        {!view && stepBar}
-        <HeaderContext.Provider value={headerContext}><PanelStateContext.Provider value={updatePanelState}><CloseContext.Provider value={{ id, busy, close, feedback: (message, error) => setFeedback({ message, error }) }}>
-        <ViewContext.Provider value={viewContext}>
-        <ActionsContext.Provider value={actionsContext}>
-          <div className="dialog-body dialog-view-stack" inert={status !== 'none' || undefined}>
-            <div key={contentKey} className="dialog-swap" hidden={!!view} inert={!!view || undefined}>{feedback && <Notice tone={feedback.error ? "danger" : "success"}>{feedback.message}</Notice>}{children}</div>
-            <div className="dialog-swap" ref={setViewBody} hidden={!view} inert={!view || undefined} tabIndex={-1} />
-          </div>
-        </ActionsContext.Provider>
-        <footer ref={setFooterTarget} className="dialog-footer" hidden={!!view || status !== 'none' || !footer && !actionCount}>{footer}</footer>
-        <footer ref={setViewFooter} className="dialog-footer" hidden={!view || status !== 'none'} />
-        </ViewContext.Provider>
-        </CloseContext.Provider></PanelStateContext.Provider></HeaderContext.Provider>
-        <LayerDismissalFooter id={id} status={status} cancellable={!!onCancel} close={close} />
-    </NaturalContentContext.Provider></LayerOwnerContext.Provider>;
-    return kind === 'panel' ? <PanelCrossfade content={contentNode} paint={panelPaint} enabled={!reduced && !entering}
-      identity={`${contentKey}:${props.viewKey ?? viewKey}:${view?.title}`}>{content}</PanelCrossfade> : content;
+export const PanelStateContext = createContext<
+  ((id: string, state?: PanelState) => void) | null
+>(null);
+
+export const HeaderContext = createContext<{
+  target: HTMLElement | null;
+  register: () => () => void;
+} | null>(null);
+
+export const ActionsContext = createContext<{
+  target: HTMLElement | null;
+  register: () => () => void;
+} | null>(null);
+
+/** Completion respects Keep open and routes results from closed owners to global feedback. */
+export function useDialogCompletion(onComplete: () => void | Promise<void>) {
+  const layerId = useId();
+  const isOpen = () => layers.get().some((layer) => layer.id === layerId);
+  return {
+    layerId,
+    isOpen,
+    feedback: (message: string, error = false) => {
+      if (!isOpen()) {
+        notify(message, { errorSource: error ? `layer:${layerId}` : undefined });
+      }
+    },
+    finish: (message = t("activity.completed")) =>
+      isOpen() ? layers.complete(layerId, onComplete) : notify(message),
   };
-  const renderRef = useRef(renderContent); renderRef.current = renderContent;
-  const render = useCallback((props: DialogProps) => renderRef.current(props), []);
-  const contentHost = useMemo(() => contentNode ? { layerId: id, target: contentNode, render, ready } : undefined,
-    [contentNode, render, ready, view, status, headerTarget, headerCount, footerTarget, actionCount, viewBody, viewFooter, feedback, busy, entering, reduced]);
-  useLayoutEffect(() => { onContentHost?.(contentHost); return () => onContentHost?.(); }, [onContentHost, contentHost]);
-  return <D.Root modal={kind === 'dialog'} open={open && allowed && portalReady} onOpenChange={next => { if (!next) void layers.close(id); }}>
-    <LayerOwnerContext.Provider value={id}>
-    <D.Portal>
-      {kind === 'dialog' && snapshot.some(layer => layer.id !== id && snapshot.indexOf(layer) < snapshot.findIndex(item => item.id === id)) && <D.Overlay className="layer-scrim" style={{ zIndex: stack.scrim }} />}
-      <D.Content asChild role={role} ref={setNode} className={`dialog ${kind === 'panel' ? `layer-panel ${size === 'm' ? 'node-panel' : ''}` : 'layer-dialog'} ${headerless ? 'headerless' : ''} ${className}`}
-        data-layer-entering={entering || undefined} data-layer-frame-top={frame?.y} data-layer-frame-height={frame?.height}
-        data-layer-kind={kind} data-layer-size={size} data-panel-depth={depth + 1} inert={recessed || undefined} data-exiting={exiting || undefined}
-        {...{ "aria-labelledby": labelledBy ?? `${id}-title` }}
-        aria-describedby={description ? `${id}-description` : undefined}
-        style={{ opacity: 0, top: entryFrame.current?.y, height: entryFrame.current?.height, left: frame?.x, width: frame?.width ?? `var(--layer-${size})`, maxHeight: frame?.maxHeight,
-          visibility: frame ? undefined : 'hidden', zIndex: kind === 'panel' ? stack.panel : stack.dialog,
-          '--layer-retained-height': `${retainedHeight}px`,
-          '--layer-content-cap': `max(0px, calc(100dvh - 2 * var(${layerInsetToken(kind, isDesktop)})))` } as CSSProperties}
-        onOpenAutoFocus={event => {
-          event.preventDefault();
-          const host = event.target instanceof HTMLElement ? event.target : node;
-          const target = initialFocus ? host?.querySelector<HTMLElement>(`#${CSS.escape(initialFocus)}`) : undefined;
-          const destination = target ?? host;
-          if (destination && host?.style.visibility !== 'hidden' && destination !== document.activeElement)
-            destination.focus({ preventScroll: true });
-        }}
-        onCloseAutoFocus={event => { event.preventDefault(); layers.restoreFocus({ trigger: focusSource.current, returnFocus }); }}
-        onEscapeKeyDown={event => { if (layers.top()?.id !== id) return; if (status === 'none') onEscapeKeyDown?.(event); if (event.defaultPrevented) return; event.preventDefault(); if (view && status === 'none') back(); else layers.dismiss(id); }}
-        onPointerDownOutside={event => event.preventDefault()}
-        onInteractOutside={event => event.preventDefault()}>
-        <div>
-        <div className="layer-content" data-natural-body={!!naturalBody || undefined} ref={contentRef}>
-        <D.Title hidden />
-        {onContentHost ? null : renderContent({ onClose, title, children, footer, actions, leading, headerDetail, description, stepBar, headerless, headerNavigation } as DialogProps)}
-        </div></div>
-      </D.Content>
-    </D.Portal>
-    </LayerOwnerContext.Provider>
-  </D.Root>;
 }
 
-export default function Dialog(props: DialogProps) { return <LayerShell {...props} kind="dialog" />; }
+export function useDialogFeedback() {
+  const context = useContext(CloseContext);
+  const source = useId();
+  return (message: string, error = false) => {
+    if (context && layers.get().some((layer) => layer.id === context.id)) {
+      context.feedback(message, error);
+    } else {
+      notify(message, { errorSource: error ? `action:${source}` : undefined });
+    }
+  };
+}
+
+export function DialogClose({
+  asChild,
+  onClick,
+  type = "button",
+  children,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }) {
+  const context = useContext(CloseContext);
+  const handle = (event: MouseEvent<HTMLButtonElement>) => {
+    onClick?.(event);
+    if (!event.defaultPrevented) context?.close();
+  };
+  if (asChild && isValidElement(children)) {
+    const child = children as ReactElement<{
+      onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
+    }>;
+    return cloneElement(child, {
+      ...props,
+      onClick: (event: MouseEvent<HTMLButtonElement>) => {
+        child.props.onClick?.(event);
+        if (!event.defaultPrevented) handle(event);
+      },
+    });
+  }
+  return (
+    <button {...props} type={type} onClick={handle}>
+      {children}
+    </button>
+  );
+}
+
+/** Register draft and work state with the owning workspace or dialog shell. */
+export function usePanelState({
+  dirty = false,
+  busy = false,
+  onCancel,
+}: PanelState) {
+  const update = useContext(PanelStateContext);
+  const id = useId();
+  useLayoutEffect(() => {
+    update?.(id, { dirty, busy, onCancel });
+  }, [update, id, dirty, busy, onCancel]);
+  useLayoutEffect(() => () => update?.(id), [update, id]);
+}
+
+/** Keep feature-owned headers outside the scrolling body. */
+export function PanelHeader({
+  children,
+  active = true,
+}: {
+  children: ReactNode;
+  active?: boolean;
+}) {
+  const context = useContext(HeaderContext);
+  useLayoutEffect(
+    () => (active ? context?.register() : undefined),
+    [active, context?.register],
+  );
+  return active
+    ? context
+      ? context.target && createPortal(children, context.target)
+      : children
+    : null;
+}
+
+/** Keep feature-owned actions in the fixed footer and preserve their native form association. */
+export function DialogActions({
+  children,
+  className = "actions",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  const context = useContext(ActionsContext);
+  const id = useId();
+  const anchor = useRef<HTMLSpanElement>(null);
+  const actions = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => context?.register(), [context?.register]);
+  useLayoutEffect(() => {
+    const form = anchor.current?.closest("form");
+    if (!form || !actions.current) return;
+    if (!form.id) form.id = id;
+    actions.current.querySelectorAll("button").forEach((button) => {
+      if (!button.hasAttribute("form")) button.setAttribute("form", form.id);
+    });
+  }, [context?.target, children, id]);
+  const content = (
+    <div ref={actions} className={className}>
+      {children}
+    </div>
+  );
+  if (!context) return content;
+  return (
+    <>
+      <span hidden ref={anchor} />
+      {context.target && createPortal(content, context.target)}
+    </>
+  );
+}
+
+export default function Dialog({
+  layerId,
+  open = true,
+  onClose,
+  dirty,
+  busy,
+  onCancel,
+  title,
+  description,
+  children,
+  footer,
+  actions,
+  leading,
+  headerDetail,
+  stepBar,
+  headerless,
+  className = "",
+  initialFocus,
+  returnFocus,
+}: DialogProps) {
+  const generatedId = useId();
+  const id = layerId ?? generatedId;
+  const snapshot = layers.use();
+  const fallbackFinalFocus = useDialogFinalFocus();
+
+  const [node, setNode] = useState<HTMLDivElement | null>(null);
+  const [headerTarget, setHeaderTarget] = useState<HTMLElement | null>(null);
+  const [headerCount, setHeaderCount] = useState(0);
+  const registerHeader = useCallback(() => {
+    setHeaderCount((count) => count + 1);
+    return () => setHeaderCount((count) => count - 1);
+  }, []);
+  const headerContext = useMemo(
+    () => ({ target: headerTarget, register: registerHeader }),
+    [headerTarget, registerHeader],
+  );
+
+  const [footerTarget, setFooterTarget] = useState<HTMLElement | null>(null);
+  const [actionCount, setActionCount] = useState(0);
+  const registerActions = useCallback(() => {
+    setActionCount((count) => count + 1);
+    return () => setActionCount((count) => count - 1);
+  }, []);
+  const actionsContext = useMemo(
+    () => ({ target: footerTarget, register: registerActions }),
+    [footerTarget, registerActions],
+  );
+
+  const [view, setView] = useState<DialogSubviewEntry | null>(null);
+  const [viewBody, setViewBody] = useState<HTMLElement | null>(null);
+  const [viewFooter, setViewFooter] = useState<HTMLElement | null>(null);
+  const viewContext = useMemo(
+    () => ({ set: setView, body: viewBody, footer: viewFooter }),
+    [viewBody, viewFooter],
+  );
+  const back = useCallback(() => {
+    const current = view;
+    if (!current) return;
+    current.back();
+    requestAnimationFrame(() => current.trigger?.focus({ preventScroll: true }));
+  }, [view]);
+
+  const [panelStates, setPanelStates] = useState<Record<string, PanelState>>({});
+  const updatePanelState = useCallback((key: string, state?: PanelState) => {
+    setPanelStates((previous) => {
+      if (!state?.dirty && !state?.busy) {
+        if (!previous[key]) return previous;
+        const next = { ...previous };
+        delete next[key];
+        return next;
+      }
+      if (
+        previous[key]?.dirty === state.dirty &&
+        previous[key]?.busy === state.busy &&
+        previous[key]?.onCancel === state.onCancel
+      ) {
+        return previous;
+      }
+      return { ...previous, [key]: state };
+    });
+  }, []);
+
+  const contributions = Object.values(panelStates);
+  const running = contributions.filter((state) => state.busy);
+  const effectiveDirty = Boolean(dirty || contributions.some((state) => state.dirty));
+  const effectiveBusy = Boolean(busy || running.length > 0);
+  const effectiveCancel = onCancel ?? (running.length === 1 ? running[0].onCancel : undefined);
+
+  const allowed = !open || layers.canOpen("dialog", id);
+  const self = snapshot.find((layer) => layer.id === id);
+  const status = self?.dismissal ?? "none";
+  const selfIndex = snapshot.findIndex((layer) => layer.id === id);
+  const recessed = Boolean(self && snapshot.at(-1)?.id !== id);
+  const showScrim = selfIndex > 0;
+  const depth = Math.max(
+    0,
+    snapshot.filter((layer) => layer.kind === "dialog").findIndex((layer) => layer.id === id),
+  );
+  const stack = layers.stack(id);
+
+  const triggerRef = useRef<HTMLElement | null>(null);
+  const latest = useRef({ onClose, dirty: effectiveDirty, busy: effectiveBusy, onCancel: effectiveCancel });
+  latest.current = { onClose, dirty: effectiveDirty, busy: effectiveBusy, onCancel: effectiveCancel };
+
+  useLayoutEffect(() => {
+    if (!open || !allowed) return;
+    triggerRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    layers.open({ id, kind: "dialog", ...latest.current });
+    return () => layers.remove(id);
+  }, [open, allowed, id]);
+
+  useLayoutEffect(() => {
+    layers.update(id, {
+      dirty: effectiveDirty,
+      busy: effectiveBusy,
+      onClose,
+      onCancel: effectiveCancel,
+    });
+  }, [id, effectiveDirty, effectiveBusy, onClose, effectiveCancel]);
+
+  const [feedback, setFeedback] = useState<{ message: string; error: boolean }>();
+  const close = useCallback(() => {
+    void layers.close(id);
+  }, [id]);
+
+  const closeContext = useMemo(
+    () => ({
+      id,
+      busy: effectiveBusy,
+      close,
+      feedback: (message: string, error: boolean) => setFeedback({ message, error }),
+    }),
+    [id, effectiveBusy, close],
+  );
+
+  const resolveInitialFocus = useCallback(() => {
+    if (!node) return true;
+    if (initialFocus) {
+      return node.querySelector<HTMLElement>(`#${CSS.escape(initialFocus)}`) ?? node;
+    }
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && node.contains(active) && !active.closest("[hidden], [inert]")) {
+      return false;
+    }
+    return node;
+  }, [node, initialFocus]);
+
+  const resolveFinalFocus = useCallback(() => {
+    const active = document.activeElement;
+    if (
+      active instanceof HTMLElement &&
+      active !== document.body &&
+      active.isConnected &&
+      !node?.contains(active)
+    ) {
+      return false;
+    }
+    const fallback = fallbackFinalFocus();
+    return (
+      resolveReturnFocus(
+        triggerRef.current,
+        returnFocus,
+        fallback instanceof HTMLElement ? fallback : null,
+      ) ?? false
+    );
+  }, [node, returnFocus, fallbackFinalFocus]);
+
+  const handleEscape = useCallback(
+    (event: { preventDefault: () => void; defaultPrevented: boolean }) => {
+      if (event.defaultPrevented || layers.top()?.id !== id || hasOpenTransient()) return;
+      event.preventDefault();
+      if (view && status === "none") back();
+      else layers.dismiss(id);
+    },
+    [id, view, status, back],
+  );
+
+  if (!open || !allowed) return null;
+
+  return (
+    <DialogPrimitive.Root
+      modal={false}
+      open={open && allowed}
+      onOpenChange={(nextOpen, details) => {
+        if (nextOpen) return;
+        if (details.reason === "focus-out") return;
+        if (layers.top()?.id !== id) return;
+        if (details.reason === "outside-press") {
+          const target = details.event?.target ?? null;
+          if (
+            isTransientTarget(target) ||
+            (target instanceof Element && target.closest("[data-global-feedback]"))
+          ) {
+            return;
+          }
+          layers.dismiss(id);
+          return;
+        }
+        if (details.reason === "escape-key") {
+          if (hasOpenTransient()) return;
+          if (view && status === "none") back();
+          else layers.dismiss(id);
+          return;
+        }
+        void layers.close(id);
+      }}
+    >
+      <DialogPrimitive.Portal>
+        {showScrim && (
+          <DialogBackdrop
+            forceRender
+            className="layer-scrim"
+            style={{ zIndex: stack.scrim }}
+          />
+        )}
+        <DialogPrimitive.Popup
+          ref={setNode}
+          data-slot="dialog-popup"
+          data-layer-kind="dialog"
+          data-layer-size="m"
+          data-panel-depth={depth + 1}
+          inert={recessed || undefined}
+          initialFocus={resolveInitialFocus}
+          finalFocus={resolveFinalFocus}
+          style={{ zIndex: stack.dialog }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") handleEscape(event);
+          }}
+          className={cn(
+            "dialog layer-dialog fixed left-1/2 top-1/2 flex min-h-0 -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-dialog border border-border bg-surface-raised text-foreground shadow-lg outline-none transition-[opacity,scale] duration-(--motion-base) ease-(--ease-enter) data-starting-style:opacity-0 data-starting-style:scale-95 data-ending-style:opacity-0 data-ending-style:scale-95 data-ending-style:duration-(--motion-fast) data-ending-style:ease-(--ease-exit) motion-reduce:transition-none dark:border-border-strong dark:shadow-[inset_0_1px_0_rgb(255_255_255/6%),var(--shadow-lg)]",
+            "w-[min(var(--layer-m),calc(100vw-2*var(--layer-side-margin)))]",
+            isDesktop
+              ? "max-h-[calc(100dvh-2*var(--layer-top-desktop))]"
+              : "max-h-[calc(100dvh-2*var(--layer-side-margin))]",
+            headerless && "headerless",
+            className,
+          )}
+        >
+          {headerless ? (
+            <>
+              <DialogPrimitive.Title id={`${id}-title`} className="sr-only">
+                {title}
+              </DialogPrimitive.Title>
+              <div
+                className="layer-custom-header shrink-0 min-w-0 [&[hidden]]:hidden"
+                ref={setHeaderTarget}
+                hidden={!headerCount}
+              />
+            </>
+          ) : (
+            <header
+              data-slot="dialog-header"
+              className="dialog-header flex min-h-[46px] shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-3"
+            >
+              {view ? (
+                <IconButton icon={ChevronLeft} label={t("back")} onClick={back} />
+              ) : (
+                leading
+              )}
+              <DialogPrimitive.Title
+                id={`${id}-title`}
+                className="min-w-0 flex-1 text-left text-body font-semibold leading-5 text-foreground"
+              >
+                {view ? (
+                  <>
+                    <span className="dialog-breadcrumb font-normal text-text-secondary">
+                      {title}
+                    </span>
+                    <span aria-hidden="true"> / </span>
+                    {view.title}
+                  </>
+                ) : (
+                  title
+                )}
+              </DialogPrimitive.Title>
+              <div className="actions ml-auto flex shrink-0 items-center gap-1.5">
+                {actions}
+                <IconButton icon={X} label={t("close")} onClick={close} />
+              </div>
+            </header>
+          )}
+          {!view && headerDetail && (
+            <div className="shrink-0 px-5 pt-3">{headerDetail}</div>
+          )}
+          {description && (
+            <DialogPrimitive.Description
+              id={`${id}-description`}
+              className="dialog-description shrink-0 px-5 pt-3 text-small leading-5 text-text-secondary"
+            >
+              {description}
+            </DialogPrimitive.Description>
+          )}
+          {!view && stepBar && <div className="shrink-0 px-5 pt-3">{stepBar}</div>}
+          <HeaderContext.Provider value={headerContext}>
+            <PanelStateContext.Provider value={updatePanelState}>
+              <CloseContext.Provider value={closeContext}>
+                <DialogSubviewContext.Provider value={viewContext}>
+                  <ActionsContext.Provider value={actionsContext}>
+                    <div
+                      data-slot="dialog-body"
+                      className="dialog-body dialog-view-stack relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4"
+                      inert={status !== "none" || undefined}
+                    >
+                      <div
+                        className="dialog-swap [&[hidden]]:hidden"
+                        hidden={Boolean(view)}
+                        inert={Boolean(view) || undefined}
+                      >
+                        {feedback && (
+                          <Notice tone={feedback.error ? "danger" : "success"}>
+                            {feedback.message}
+                          </Notice>
+                        )}
+                        {children}
+                      </div>
+                      <div
+                        className="dialog-swap [&[hidden]]:hidden"
+                        ref={setViewBody}
+                        hidden={!view}
+                        inert={!view || undefined}
+                        tabIndex={-1}
+                      />
+                    </div>
+                  </ActionsContext.Provider>
+                  <footer
+                    ref={setFooterTarget}
+                    data-slot="dialog-footer"
+                    className="dialog-footer flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border bg-surface-subtle/60 px-5 py-3 [&[hidden]]:hidden"
+                    hidden={Boolean(view) || status !== "none" || (!footer && !actionCount)}
+                  >
+                    {footer}
+                  </footer>
+                  <footer
+                    ref={setViewFooter}
+                    data-slot="dialog-footer"
+                    className="dialog-footer flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border bg-surface-subtle/60 px-5 py-3 [&[hidden]]:hidden"
+                    hidden={!view || status !== "none"}
+                  />
+                </DialogSubviewContext.Provider>
+              </CloseContext.Provider>
+            </PanelStateContext.Provider>
+          </HeaderContext.Provider>
+          <DismissalFooter
+            status={status}
+            cancellable={Boolean(effectiveCancel)}
+            onDiscard={() => void layers.confirmDiscard(id)}
+            onStopAndClose={() => layers.stopAndClose(id)}
+            onKeepOpen={() => layers.keepOpen(id)}
+          />
+        </DialogPrimitive.Popup>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  );
+}
