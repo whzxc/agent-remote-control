@@ -138,6 +138,63 @@ func TestAntigravityNativeConversationShowsWALSummaryAndTurnEvidence(t *testing.
 	}
 }
 
+func TestAntigravityNativeTimelinePreservesIdlessArgsToolCalls(t *testing.T) {
+	// Recurring bug class: persistence native Antigravity tool_calls omit id and store JSON-quoted PascalCase values under args, which dropped every tool row and poisoned partial.
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	const session = "33333333-3333-4333-8333-333333333333"
+	log := filepath.Join(home, ".gemini", "antigravity-cli", "brain", session, antigravityTranscript)
+	if err := os.MkdirAll(filepath.Dir(log), 0700); err != nil {
+		t.Fatal(err)
+	}
+	steps := []string{
+		`{"type":"USER_INPUT","step_index":0,"status":"DONE","content":"<USER_REQUEST>Build and verify</USER_REQUEST>","created_at":"2026-01-01T00:00:00Z"}`,
+		`{"type":"PLANNER_RESPONSE","step_index":1,"status":"DONE","thinking":"Check files and build","tool_calls":[{"name":"read_file","args":{"Path":"\"/repo/ui/App.tsx\""}},{"name":"edit_file","args":{"Path":"\"/repo/ui/App.tsx\"","Target":"\"old\"","Replacement":"\"new\""}},{"name":"run_command","args":{"CommandLine":"\"npm test\"","Cwd":"\"/repo\""}},{"name":"finish","args":{"action":"\"rename\"","title":"\"Done\""}}],"created_at":"2026-01-01T00:00:01Z"}`,
+		`{"type":"PLANNER_RESPONSE","step_index":2,"status":"DONE","content":"All checks passed.","created_at":"2026-01-01T00:00:02Z"}`,
+	}
+	if err := os.WriteFile(log, []byte(strings.Join(steps, "\n")+"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	history, err := nativeAntigravityTimeline(t.Context(), session)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded object
+	if err := decodeObject([]byte(wire(history)), &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if decoded["partial"] == true {
+		t.Fatalf("expected non-partial timeline, got %s", wire(decoded))
+	}
+	var readEntry, editEntry, cmdEntry, finishEntry object
+	for _, raw := range decodedTaskList(decoded["entries"]) {
+		entry := obj(raw)
+		switch text(entry, "title") {
+		case "read_file":
+			readEntry = entry
+		case "edit_file":
+			editEntry = entry
+		case "run_command":
+			cmdEntry = entry
+		case "finish":
+			finishEntry = entry
+		}
+	}
+	if readEntry["type"] != "file" || readEntry["operation"] != "read" || readEntry["path"] != "/repo/ui/App.tsx" || readEntry["status"] != "completed" {
+		t.Fatalf("read_file entry = %s", wire(readEntry))
+	}
+	if editEntry["type"] != "file" || editEntry["operation"] != "edit" || editEntry["path"] != "/repo/ui/App.tsx" || len(decodedTaskList(editEntry["edits"])) != 1 {
+		t.Fatalf("edit_file entry = %s", wire(editEntry))
+	}
+	if cmdEntry["type"] != "command" || cmdEntry["command"] != "npm test" || cmdEntry["cwd"] != "/repo" || cmdEntry["status"] != "completed" {
+		t.Fatalf("run_command entry = %s", wire(cmdEntry))
+	}
+	if finishEntry["type"] != "tool" || finishEntry["status"] != "completed" {
+		t.Fatalf("finish entry = %s", wire(finishEntry))
+	}
+}
+
 func TestNativePiHistoryUsesMostRecentLeafAncestry(t *testing.T) {
 	// Algorithmic core: replay only the latest Pi v3 branch while retaining tool and compaction evidence.
 	const session = "11111111-1111-4111-8111-111111111111"

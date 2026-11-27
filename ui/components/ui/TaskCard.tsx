@@ -68,6 +68,23 @@ export function selectSnapshotGroupIndices(groups: readonly (readonly TaskSnapsh
   return [...selected].sort((a, b) => a - b);
 }
 
+export function snapshotAgentLineBudget(
+  rows: readonly TaskSnapshotRow[],
+  hasRequest: boolean,
+  hasHeadline = false,
+): 2 | 3 | 4 | 5 {
+  if (hasRequest) return 2;
+  const agentCount = rows.filter(row => row.role === 'agent').length + Number(hasHeadline);
+  if (agentCount === 0) return 2;
+  const nonAgentLines = rows.reduce((sum, row) => {
+    if (row.role === 'source') return sum + 2;
+    if (row.role === 'step') return sum + 1;
+    return sum;
+  }, 0);
+  const perAgent = Math.floor((7 - nonAgentLines) / agentCount);
+  return Math.max(2, Math.min(5, perAgent)) as 2 | 3 | 4 | 5;
+}
+
 const SnapshotRows = memo(function SnapshotRows({ rows, project, request, headline, limit, retry }: {
   rows: TaskSnapshotRow[]; project?: string | null; request?: { label: string; text: string }; headline?: string; limit: number; retry?: () => void;
 }) {
@@ -79,7 +96,9 @@ const SnapshotRows = memo(function SnapshotRows({ rows, project, request, headli
     else groups.push([row]);
   }
   const selected = selectSnapshotGroupIndices(groups, limit - Number(Boolean(request)));
-  return <div className="task-snapshot-tail" data-sparse={!request && selected.length <= 2 || undefined}>
+  const selectedRows = selected.map(index => groups[index][0]);
+  const agentLines = snapshotAgentLineBudget(selectedRows, Boolean(request), Boolean(headline));
+  return <div className="task-snapshot-tail" data-agent-lines={agentLines > 2 ? agentLines : undefined}>
     {headline && <div className="task-snapshot-row" data-role="agent"><SnapshotMarkdown text={headline} /></div>}
     {selected.map(index => {
       const group = groups[index];
@@ -213,6 +232,25 @@ export function EmptyTaskBody({ state, action, onAction }: { state: 'loading' | 
   </div>;
 }
 
+export function TaskPreviewSkeleton() {
+  return <div className="task-snapshot-tail task-skeleton" role="status" aria-busy="true" aria-label={t('homepage.preview.loading')}>
+    <span className="sr-only">{t('homepage.preview.loading')}</span>
+    <div className="task-skeleton-source" aria-hidden="true">
+      <span className="task-skeleton-bar" />
+      <span className="task-skeleton-bar" />
+    </div>
+    <div className="task-skeleton-work" aria-hidden="true">
+      <span className="task-skeleton-bar task-skeleton-icon" />
+      <span className="task-skeleton-bar" />
+    </div>
+    <div className="task-skeleton-agent" aria-hidden="true">
+      <span className="task-skeleton-bar" />
+      <span className="task-skeleton-bar" />
+      <span className="task-skeleton-bar" />
+    </div>
+  </div>;
+}
+
 type CardNotice = { text: string; danger?: boolean };
 function TaskCardPreview({ task, now, rows, notice, limit, pending, failed, retry, onOpen }: {
   task: TaskCardData; now: number; rows: TaskSnapshotRow[]; notice?: CardNotice; limit: number;
@@ -227,10 +265,12 @@ function TaskCardPreview({ task, now, rows, notice, limit, pending, failed, retr
   const hasRows = rows.some(row => row.role !== 'request');
   const headline = !hasRows && !failed ? task.session.headline || (!pending ? task.session.fallbackHeadline : undefined) : undefined;
   const hasPreview = hasRows || !!request || !!headline;
+  const loading = !hasPreview && !failed && pending;
   const state = failed ? 'error' : pending ? 'loading' : 'empty';
-  return <div className="task-snapshot-timeline" data-empty={!hasPreview || undefined} role="region" aria-label={t('homepage.recentSteps')}>
+  return <div className="task-snapshot-timeline" data-empty={!hasPreview && !loading || undefined} data-loading={loading || undefined} role="region" aria-label={t('homepage.recentSteps')}>
     {hasPreview ? <SnapshotRows rows={rows} project={task.session.project} request={request} headline={headline || undefined}
-      limit={limit} retry={failed ? retry : undefined} /> : <EmptyTaskBody state={state} action={failed ? t('retry') : pending ? undefined : t('homepage.viewDetail')} onAction={failed ? retry : onOpen} />}
+      limit={limit} retry={failed ? retry : undefined} /> : loading ? <TaskPreviewSkeleton />
+      : <EmptyTaskBody state={state} action={failed ? t('retry') : t('homepage.viewDetail')} onAction={failed ? retry : onOpen} />}
     {notice && (notice.danger ? <Notice layout="inline">{notice.text}</Notice> : <p className="task-snapshot-routing" role="status">{notice.text}</p>)}
   </div>;
 }

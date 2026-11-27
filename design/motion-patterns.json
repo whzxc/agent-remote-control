@@ -205,6 +205,29 @@
         }
       ]
     },
+    "task-skeleton": {
+      "extends": "ambient-loop",
+      "parameters": {
+        "scale": "--motion-scale-still",
+        "fromOpacity": 0.45
+      },
+      "frames": [
+        {
+          "source": "design/components/task-card.tsx",
+          "frame": "task-snapshot-loading"
+        }
+      ],
+      "consumers": [
+        {
+          "file": "ui/components/ui/TaskCard.css",
+          "match": "css:.task-skeleton-bar"
+        },
+        {
+          "file": "ui/components/ui/TaskCard.css",
+          "match": "keyframes:task-skeleton-pulse"
+        }
+      ]
+    },
     "hub-ripple": {
       "kind": "transition",
       "action": "enter",

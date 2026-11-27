@@ -195,6 +195,25 @@ export default () => [
   ...snapshotForms.map(({ name, id }) => <Frame name={`task-snapshot-${name}`} width={260}>
     <TaskCard task={tasks.find(task => task.id === id)!} form="detail" />
   </Frame>),
+  <Frame name="task-snapshot-loading" width={260}>
+    <TaskCard task={tasks.find(task => task.id === 'finished')!} form="detail" emptyBody={
+      <div className="flex flex-col gap-2" role="status" aria-label="Loading content">
+        <div className="flex flex-col gap-[6px] border-l-2 border-border-strong py-[3px] pl-2" aria-hidden="true">
+          <span className="block h-[10px] w-[86%] rounded-progress bg-surface-sunken" />
+          <span className="block h-[10px] w-[58%] rounded-progress bg-surface-sunken" />
+        </div>
+        <div className="flex h-4 items-center gap-[6px]" aria-hidden="true">
+          <span className="block size-3 shrink-0 rounded-full bg-surface-sunken" />
+          <span className="block h-[10px] w-[52%] rounded-progress bg-surface-sunken" />
+        </div>
+        <div className="flex flex-col gap-[6px] py-[3px]" aria-hidden="true">
+          <span className="block h-[10px] w-[94%] rounded-progress bg-surface-sunken" />
+          <span className="block h-[10px] w-[78%] rounded-progress bg-surface-sunken" />
+          <span className="block h-[10px] w-[44%] rounded-progress bg-surface-sunken" />
+        </div>
+      </div>
+    } />
+  </Frame>,
   ...(['failed', 'interrupted'] as const).map(exception => <Frame name={`task-summary-${exception}`} width={260}>
     <TaskCard task={{ ...tasks.find(task => task.id === 'finished')!, exception }} form="summary" />
   </Frame>),

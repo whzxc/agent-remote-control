@@ -17,6 +17,7 @@ let quota: typeof import('../ui/state/quota.ts');
 let lineage: typeof import('../ui/state/taskLineage.ts');
 let homepage: typeof import('../ui/state/homepageTasks.ts');
 let presentation: typeof import('../ui/subscriptions/presentation.ts');
+let i18n: typeof import('../ui/i18n.ts');
 const browser = new Window({ url: 'http://localhost' });
 
 before(async () => {
@@ -28,6 +29,7 @@ before(async () => {
   previews = await server.ssrLoadModule('/ui/state/taskExecution.ts');
   homepage = await server.ssrLoadModule('/ui/state/homepageTasks.ts');
   presentation = await server.ssrLoadModule('/ui/subscriptions/presentation.ts');
+  i18n = await server.ssrLoadModule('/ui/i18n.ts');
 });
 
 after(async () => {
@@ -230,6 +232,52 @@ test('preview selection preserves anchors and fills spare slots in chronological
   } }), group('agent')];
   assert.deepEqual(taskCard.selectSnapshotGroupIndices(mixed, 4), [0, 3, 5, 6]);
   assert.deepEqual(taskCard.selectSnapshotGroupIndices(mixed, 3), [0, 3, 6]);
+  assert.equal(taskCard.snapshotAgentLineBudget([group('source')[0], group('step', { kind: 'command' })[0], group('step', { kind: 'thinking' })[0], group('agent')[0]], false), 3);
+  assert.equal(taskCard.snapshotAgentLineBudget([group('source')[0], group('agent')[0], group('source')[0], group('step', { kind: 'tool' })[0]], false), 2);
+  assert.equal(taskCard.snapshotAgentLineBudget([group('source')[0], group('step', { kind: 'tool' })[0], group('agent')[0]], false), 4);
+  assert.equal(taskCard.snapshotAgentLineBudget([group('source')[0], group('agent')[0]], false), 5);
+  assert.equal(taskCard.snapshotAgentLineBudget([], false, true), 5);
+  assert.equal(taskCard.snapshotAgentLineBudget([group('source')[0], group('agent')[0]], true), 2);
+});
+
+test('detail task cards render a loading skeleton while cold previews fetch', async () => {
+  // Contract: pending detail cards without rows show a structured skeleton status placeholder rather than an empty body.
+  const { createRoot } = await import('react-dom/client');
+  const mount = document.createElement('div');
+  document.body.append(mount);
+  const root = createRoot(mount);
+  const previous = {
+    IS_REACT_ACT_ENVIRONMENT: Reflect.get(globalThis, 'IS_REACT_ACT_ENVIRONMENT'),
+    Element: globalThis.Element,
+    HTMLElement: globalThis.HTMLElement,
+    Node: globalThis.Node,
+    IntersectionObserver: globalThis.IntersectionObserver,
+  };
+  Object.assign(globalThis, {
+    IS_REACT_ACT_ENVIRONMENT: true,
+    Element: browser.Element,
+    HTMLElement: browser.HTMLElement,
+    Node: browser.Node,
+    IntersectionObserver: class { observe() {} disconnect() {} },
+  });
+  try {
+    await act(async () => root.render(h(taskCard.TaskCard, {
+      form: 'detail',
+      now: Date.parse('2026-11-27T09:00:00Z'),
+      readTimeline: true,
+      task: { key: 'antigravity:cold', agent: 'antigravity', group: 'recent', session: { ...session, id: 'cold', title: 'Cold task', timeline: true, fallbackHeadline: 'Fallback text' } },
+    })));
+    const screen = within(mount);
+    const region = screen.getByRole('region', { name: i18n.t('homepage.recentSteps') });
+    const status = within(region).getByRole('status', { name: i18n.t('homepage.preview.loading') });
+    assert.equal(status.getAttribute('aria-busy'), 'true');
+    assert.equal(within(region).queryByRole('button'), null);
+  } finally {
+    await act(async () => root.unmount());
+    previews.resetTaskExecutions();
+    Object.assign(globalThis, previous);
+    mount.remove();
+  }
 });
 
 test('task card time prefers elapsed duration and falls back to the recorded local clock', () => {

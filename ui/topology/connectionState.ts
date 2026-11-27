@@ -43,3 +43,15 @@ export function wireState(state: string): WireState {
   if (state === "connectionError") return "error";
   return "inactive";
 }
+
+export function hubEmptySides(
+  sourceCount: number,
+  agentCount: number,
+  devicesEnabled: boolean,
+  snapshot?: { controller?: unknown | null; members?: readonly unknown[] } | null,
+) {
+  return {
+    sourceEmpty: sourceCount === 0 && !(devicesEnabled && Boolean(snapshot?.controller)),
+    agentEmpty: agentCount === 0 && !(devicesEnabled && (snapshot?.members?.length ?? 0) > 0),
+  };
+}

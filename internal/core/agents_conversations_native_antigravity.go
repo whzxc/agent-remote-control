@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"io"
 	"net/url"
 	"os"
@@ -56,6 +57,62 @@ func antigravityNativeText(step object) string {
 		return cleanAntigravityInput(text(step, "content"))
 	}
 	return strings.TrimSpace(text(step, "content"))
+}
+
+func antigravityUnquoteArg(value any) any {
+	raw, ok := value.(string)
+	if !ok || len(raw) < 2 || raw[0] != '"' || raw[len(raw)-1] != '"' {
+		return value
+	}
+	var decoded string
+	if unmarshalJSON([]byte(raw), &decoded) == nil {
+		return decoded
+	}
+	return value
+}
+
+func antigravityNativeToolArgs(raw any) any {
+	parsed := parseTrackedInput(raw)
+	args := obj(parsed)
+	if args == nil {
+		return antigravityUnquoteArg(parsed)
+	}
+	normalized := make(object, len(args))
+	for key, value := range args {
+		normalized[key] = antigravityUnquoteArg(value)
+	}
+	for _, mapping := range [][]string{
+		{"command", "CommandLine", "commandLine", "Command"},
+		{"cwd", "Cwd", "WorkingDirectory", "workingDirectory"},
+		{"path", "Path", "TargetFile", "FilePath", "AbsolutePath", "DirectoryPath", "SearchPath"},
+		{"old_string", "Target", "TargetContent", "OldString"},
+		{"new_string", "Replacement", "ReplacementContent", "NewString"},
+		{"content", "Content", "CodeContent"},
+	} {
+		if _, exists := normalized[mapping[0]]; exists {
+			continue
+		}
+		for _, alias := range mapping[1:] {
+			if value, ok := normalized[alias].(string); ok && strings.TrimSpace(value) != "" {
+				normalized[mapping[0]] = value
+				break
+			}
+		}
+	}
+	return normalized
+}
+
+func antigravityNativeToolCall(turnID string, step object, index int, call any) object {
+	id := strings.TrimSpace(text(call, "id"))
+	if id == "" {
+		id = fmt.Sprintf("%s:antigravity:%s:tool:%d", turnID, wire(step["step_index"]), index)
+	}
+	return object{
+		"type":      "toolCall",
+		"id":        id,
+		"name":      field(call, "name"),
+		"arguments": antigravityNativeToolArgs(firstTaskValue(field(call, "arguments"), field(call, "args"))),
+	}
 }
 
 func antigravityNativeDispatch(step object) object {
@@ -234,8 +291,8 @@ func nativeAntigravityTimeline(ctx context.Context, session string) (object, err
 				if content != "" {
 					items = append(items, object{"type": "text", "text": content})
 				}
-				for _, call := range calls {
-					items = append(items, object{"type": "toolCall", "id": field(call, "id"), "name": field(call, "name"), "arguments": field(call, "arguments")})
+				for callIndex, call := range calls {
+					items = append(items, antigravityNativeToolCall(turnID, step, callIndex, call))
 				}
 				timeline.agent("message_end", object{"message": object{"role": "assistant", "content": items}}, at)
 			}

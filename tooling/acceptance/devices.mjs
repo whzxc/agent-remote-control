@@ -74,6 +74,9 @@ export async function verifyDevices(page, fixture, messages) {
       await workspace.getByText(c('controlledBy'), { exact: true }).waitFor();
     }
   } else if (state === 'member-controlled') {
+    if (await page.locator('.hub-source[data-empty]').count()) {
+      throw new Error('Upstream controller device must clear the empty source state on the left hub.');
+    }
     await workspace.getByRole('button', { name: c('revoke'), exact: true }).click();
     await page.getByRole('dialog').getByRole('button', { name: c('cancel'), exact: true }).click();
     await workspace.getByRole('button', { name: c('revoke'), exact: true }).waitFor();

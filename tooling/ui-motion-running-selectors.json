@@ -6,5 +6,6 @@
   ".step-running .icon",
   ".phase-shimmer",
   ".phase-shimmer > span",
+  ".task-skeleton-bar",
   ".topology-wires :where(.primary[data-state=connecting]) .connecting-wire"
 ]

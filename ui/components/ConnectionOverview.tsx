@@ -9,7 +9,7 @@ import { homepageTaskFocus } from '../state/homepage';
 import HomepageTasks from './HomepageTasks';
 import { homepageMode } from '../state/homepage';
 import { useHomepageTasks } from '../state/homepageTasks';
-import { deviceLinkEnabled, deviceView } from '../devices/state';
+import { deviceLinkEnabled, deviceSnapshot, deviceView } from '../devices/state';
 import DeviceNodePanel from '../devices/DeviceNodePanel';
 import { readOnlyBrowser } from "../browserMode";
 import { taskExecutions } from "../state/taskExecution";
@@ -35,7 +35,7 @@ import SourceIcon from "./SourceIcon";
 import { isPendingSource } from "../sourcePresentation";
 import {GraphNode} from './ui/GraphNode';
 import Topology, { type NodeView, type TopologyHandle } from "../topology/Topology";
-import { agentConnectionState, sourceConnectionState, wireState } from "../topology/connectionState";
+import { agentConnectionState, hubEmptySides, sourceConnectionState, wireState } from "../topology/connectionState";
 import { onboarding, openOnboarding, connectionSetup, connectionSwitch, addedSource } from "../state/onboarding";
 import IngressPanel from "./IngressPanel";
 import AgentsSettings from "./AgentsSettings";
@@ -53,7 +53,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
   const homepageObservation = useRef({ mode: homeMode, tasks: homepageTasks });
   homepageObservation.current = { mode: homeMode, tasks: homepageTasks };
   useEffect(() => observeHomepage(() => ({ mode: homepageMode.get(), focus: homepageTaskFocus.get(), tasks: homepageObservation.current.tasks.map(task => ({ key: task.key, agent: task.agent, id: task.session.id, group: task.group, deviceId: task.deviceId, controllerDeviceId: task.controllerDeviceId, step: task.activity.steps.at(-1)?.kind })) })), []);
-  const devicesEnabled = deviceLinkEnabled.use(), selectedDevice = deviceView.use();
+  const devicesEnabled = deviceLinkEnabled.use(), devices = deviceSnapshot.use(), selectedDevice = deviceView.use();
   taskExecutions.use();
   useActivityTracking();
   const selection = agentPanel.use(), sourceSelection = ingressPanel.use();
@@ -199,6 +199,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
     if (side === -1) reorderSources(orderedSubset(controlSources, ids.flatMap(id => nodes.find(n => n.id === id)?.sourceIds ?? [id])).map(s => s.id));
     else reorderAgents(orderedSubset(agents.map(a => ({ id: a.agent })), ids).map(a => a.id));
   };
+  const { sourceEmpty, agentEmpty } = hubEmptySides(sourceViews.length, agents.length, devicesEnabled, devices);
   return (
     <div style={{ display: 'contents' }} onPointerDownCapture={event => {
       if (!event.currentTarget.contains(event.target as Node)) topology.current?.memberLayerPointer(event.nativeEvent);
@@ -215,7 +216,7 @@ export default function ConnectionOverview({ visible = true }: { visible?: boole
               open: openConnections, recover: remoteFailed && !readOnlyBrowser ? () => setRecovery("remote") : undefined }}
             core={{ unhealthy: coreState !== "ready", recovery: coreState !== "ready", label: t(coreState === "ready" ? "hub.coreHealthy" : coreState === "stopped" ? "hub.coreStopped" : "hub.coreUnavailable"),
               busy: stopping, action: readOnlyBrowser || !hubHealth ? undefined : coreState !== "ready" ? () => setRecovery("core") : () => void stopCore() }}
-            sourceEmpty={!sourceViews.length} agentEmpty={!agents.length}
+            sourceEmpty={sourceEmpty} agentEmpty={agentEmpty}
             onAddSource={() => openOnboarding("product")}
             onManageAgents={() => setAgentsOpen(true)} />} /></div>}
         {devicesEnabled && <><DeviceNodePanel onPanelFrame={panelFrame} /><RemoteTaskPanel tasks={homepageTasks} /></>}

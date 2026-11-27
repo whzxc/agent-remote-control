@@ -338,13 +338,15 @@ func trackedToolKind(kind, name string, input any) (string, string) {
 		return "command", ""
 	}
 	switch name {
-	case "read", "read_file", "readfile", "cat", "glob", "grep":
+	case "read", "read_file", "readfile", "cat", "glob", "grep",
+		"view_file", "view_file_outline", "view_code_item", "grep_search", "find_by_name", "list_dir", "fast_batch_search":
 		return "file", "read"
-	case "write", "write_file", "writefile":
+	case "write", "write_file", "writefile", "write_to_file":
 		return "file", "write"
 	case "create", "create_file":
 		return "file", "create"
-	case "edit", "edit_file", "editfile", "apply_patch", "str_replace", "multiedit":
+	case "edit", "edit_file", "editfile", "apply_patch", "str_replace", "multiedit",
+		"replace_file_content", "multi_replace_file_content":
 		return "file", "edit"
 	}
 	if _, ok := field(input, "file_path").(string); ok {

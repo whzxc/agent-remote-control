@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { agentConnectionState, ingressState, isSourceAuthorized, sourceConnectionState, wireState } from "../ui/topology/connectionState.ts";
+import { agentConnectionState, hubEmptySides, ingressState, isSourceAuthorized, sourceConnectionState, wireState } from "../ui/topology/connectionState.ts";
 import type { ControlSource, Ingress } from "../ui/state/types.ts";
 
 function makeIngress(overrides: Partial<Ingress> = {}): Ingress {
@@ -74,4 +74,12 @@ test("right connection wire depends only on agent detection and dispatchability 
   assert.equal(wireState(agentConnectionState({ installed: false, enabled: true, available: false })), "inactive");
   assert.equal(wireState(agentConnectionState({ installed: true, enabled: false, available: false, adapter: { state: "preparing" } })), "connecting");
   assert.equal(wireState(agentConnectionState({ installed: true, enabled: false, available: false, adapter: { state: "failed" } })), "error");
+});
+
+test("upstream controller and paired member devices satisfy hub empty state checks", () => {
+  // Recurring bug class: lifecycle an upstream controller device on the left rail left the source earcup persistently empty with a visible plus cue.
+  assert.deepEqual(hubEmptySides(0, 0, true, { controller: { deviceId: "mac-mini" }, members: [] }), { sourceEmpty: false, agentEmpty: true });
+  assert.deepEqual(hubEmptySides(0, 0, false, { controller: { deviceId: "mac-mini" }, members: [{ deviceId: "member-1" }] }), { sourceEmpty: true, agentEmpty: true });
+  assert.deepEqual(hubEmptySides(0, 0, true, { controller: null, members: [{ deviceId: "member-1" }] }), { sourceEmpty: true, agentEmpty: false });
+  assert.deepEqual(hubEmptySides(1, 2, false, null), { sourceEmpty: false, agentEmpty: false });
 });
