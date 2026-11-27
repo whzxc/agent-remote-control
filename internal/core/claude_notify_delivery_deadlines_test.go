@@ -206,3 +206,38 @@ func TestNotificationControlDuringTransportPreservesNextWake(t *testing.T) {
 		t.Fatalf("second delivery did not run on selected wake: %v with %d sends", err, sends)
 	}
 }
+
+func TestNotificationSchedulingInvalidationSkipsUnchangedIndexWrites(t *testing.T) {
+	// Recurring bug class: persistence scheduler invalidation re-read derived index shards for unchanged pending bindings.
+	t.Setenv("ARC_STATE_DIR", t.TempDir())
+	ctx := context.Background()
+	dir := physicalPath(notificationOwnerPath())
+	t.Cleanup(func() { closeNotificationOwner(dir) })
+	b := newNotificationBinding("stable", "turn", "/fixture", "source", time.Unix(100, 0))
+	b["deliveries"] = []any{object{"eventId": "ev", "key": "terminal", "status": "pending"}}
+	if err := persistNotificationBinding(b); err != nil {
+		t.Fatal(err)
+	}
+	if err := openNotificationOwner(ctx, &service{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := persistNotificationSchedule(ctx, b, 200); err != nil {
+		t.Fatal(err)
+	}
+	costs := new(runtimeCostSet)
+	measured := context.WithValue(ctx, runtimeCostKey{}, runtimeCostContext{set: costs, owner: "indexUpdate"})
+	cost := costs.counter("indexUpdate")
+	invalidateNotificationScheduling()
+	if err := persistNotificationSchedule(measured, b, 200); err != nil {
+		t.Fatal(err)
+	}
+	if cost.read.Load() != 0 || cost.changed.Load() != 0 {
+		t.Fatalf("unchanged schedule after invalidation triggered disk IO: read=%d changed=%d", cost.read.Load(), cost.changed.Load())
+	}
+	if err := persistNotificationSchedule(measured, b, 300); err != nil {
+		t.Fatal(err)
+	}
+	if cost.changed.Load() == 0 {
+		t.Fatal("changed schedule did not persist to derived index")
+	}
+}

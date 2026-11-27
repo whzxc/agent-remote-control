@@ -35,46 +35,60 @@ func readPreferences() object {
 }
 
 func changePreferences(body object, importing bool) (object, error) {
+	after, _, err := changePreferencesChecked(body, importing)
+	return after, err
+}
+
+func changePreferencesChecked(body object, importing bool) (object, bool, error) {
 	preferenceLock.Lock()
 	defer preferenceLock.Unlock()
 	path := filepath.Join(root(), "ui-preferences.json")
 	stored := storedPreferences(path)
 	if importing && stored["imported"] == true {
-		return effectivePreferences(stored), nil
+		return effectivePreferences(stored), false, nil
 	}
 	values := obj(stored["values"])
 	if values == nil {
-		return nil, errors.New("invalid preference store")
+		return nil, false, errors.New("invalid preference store")
 	}
 	patch := obj(body["values"])
 	if patch == nil {
-		return nil, errors.New("values must be an object")
+		return nil, false, errors.New("values must be an object")
 	}
+	changed := false
 	for _, key := range keys(patch) {
 		value := patch[key]
 		if (key == "maintainer-mode" || key == "device-link") && value != nil && value != "on" && value != "off" {
-			return nil, errors.New("INVALID_ARGUMENT: Experimental preferences must be on or off")
+			return nil, false, errors.New("INVALID_ARGUMENT: Experimental preferences must be on or off")
 		}
 		serialized, valid := value.(string)
 		if len(key) > 128 || value != nil && (!valid || len(serialized) > 16384) {
-			return nil, errors.New("invalid preference")
+			return nil, false, errors.New("invalid preference")
 		}
 		if _, exists := values[key]; importing && exists {
 			continue
 		}
 		if value == nil {
-			delete(values, key)
-		} else {
+			if _, exists := values[key]; exists {
+				delete(values, key)
+				changed = true
+			}
+		} else if prev, exists := values[key]; !exists || prev != value {
 			values[key] = value
+			changed = true
 		}
 	}
-	if importing {
+	if importing && stored["imported"] != true {
 		stored["imported"] = true
+		changed = true
+	}
+	if !changed {
+		return effectivePreferences(stored), false, nil
 	}
 	if err := save(path, stored); err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return effectivePreferences(stored), nil
+	return effectivePreferences(stored), true, nil
 }
 
 var preferenceChanges []func(context.Context, object, object) error
@@ -85,9 +99,12 @@ func registerPreferenceChange(change func(context.Context, object, object) error
 
 func updatePreferences(ctx context.Context, body object, importing bool) (object, error) {
 	before := readPreferences()
-	after, err := changePreferences(body, importing)
+	after, changed, err := changePreferencesChecked(body, importing)
 	if err != nil {
 		return nil, err
+	}
+	if !changed {
+		return after, nil
 	}
 	for _, change := range preferenceChanges {
 		if err := change(ctx, before, after); err != nil {

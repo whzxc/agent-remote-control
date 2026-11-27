@@ -216,3 +216,45 @@ func TestCollectionRetriesUnpublishedChanges(t *testing.T) {
 		t.Fatalf("unchanged refresh = %v, %v", changed, err)
 	}
 }
+
+func TestCacheDirectoryEvictionPreservesHotEntries(t *testing.T) {
+	// Recurring bug class: lifecycle directory cache eviction wiped all cached directories when the working set exceeded the cap.
+	rootDir := t.TempDir()
+	dirs := make([]string, 3)
+	for i := range dirs {
+		dirs[i] = filepath.Join(rootDir, fmt.Sprintf("dir-%d", i))
+		if err := os.Mkdir(dirs[i], 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cache := fileCache[object]{dirLimit: 2}
+	if _, err := cache.entries(dirs[0]); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cache.entries(dirs[1]); err != nil {
+		t.Fatal(err)
+	}
+	// Touch dirs[0] so dirs[1] becomes the least recently used entry.
+	if _, err := cache.entries(dirs[0]); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cache.entries(dirs[2]); err != nil {
+		t.Fatal(err)
+	}
+	before := cache.io.directoryReads
+	if _, err := cache.entries(dirs[0]); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cache.entries(dirs[2]); err != nil {
+		t.Fatal(err)
+	}
+	if cache.io.directoryReads != before {
+		t.Fatalf("hot directories re-read after eviction: before=%d after=%d", before, cache.io.directoryReads)
+	}
+	if _, err := cache.entries(dirs[1]); err != nil {
+		t.Fatal(err)
+	}
+	if cache.io.directoryReads != before+1 {
+		t.Fatalf("evicted directory read count = %d, want %d", cache.io.directoryReads, before+1)
+	}
+}

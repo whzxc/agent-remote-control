@@ -25,23 +25,24 @@ func notificationBindingPathIn(directory, thread, turn string) string {
 }
 
 type notificationIndex struct {
-	revision          uint64
-	collection        *fileCollection[object]
-	pending           map[string]bool
-	reconciling       map[string]bool
-	exhausted         map[string]bool
-	resumable         map[string]bool
-	active            map[string]bool
-	threads           map[string]map[string]bool
-	devices           map[string]map[string]bool
-	projections       map[string]object
-	workers           sync.WaitGroup
-	deliveryAt        map[string]int64
-	statusViews       map[string]notificationStatusView
-	statusOwners      *fileChanges
-	nativeEvidence    *fileChanges
-	evidence          map[string]map[string]bool
-	evidenceByBinding map[string]notificationEvidenceWatch
+	revision            uint64
+	collection          *fileCollection[object]
+	pending             map[string]bool
+	reconciling         map[string]bool
+	exhausted           map[string]bool
+	resumable           map[string]bool
+	active              map[string]bool
+	threads             map[string]map[string]bool
+	devices             map[string]map[string]bool
+	projections         map[string]object
+	workers             sync.WaitGroup
+	deliveryAt          map[string]int64
+	persistedDeliveryAt map[string]int64
+	statusViews         map[string]notificationStatusView
+	statusOwners        *fileChanges
+	nativeEvidence      *fileChanges
+	evidence            map[string]map[string]bool
+	evidenceByBinding   map[string]notificationEvidenceWatch
 }
 
 var notificationIndexes struct {
@@ -92,6 +93,7 @@ func (i *notificationIndex) put(path string, row object) {
 	i.revision++
 	clear(i.statusViews)
 	delete(i.deliveryAt, path)
+	delete(i.persistedDeliveryAt, path)
 	if old != nil {
 		device := text(old["device"], "id")
 		delete(i.devices[device], path)
@@ -441,10 +443,17 @@ func persistNotificationSchedule(ctx context.Context, b object, at int64) error 
 		return nil
 	}
 	current, known := index.deliveryAt[key]
-	notificationIndexes.Unlock()
+	persisted, hasPersisted := index.persistedDeliveryAt[key]
 	if known && current == at {
+		notificationIndexes.Unlock()
 		return nil
 	}
+	if hasPersisted && persisted == at {
+		index.deliveryAt[key] = at
+		notificationIndexes.Unlock()
+		return nil
+	}
+	notificationIndexes.Unlock()
 	row, err := notificationIndexProjection(b)
 	if err != nil || row == nil {
 		return err
@@ -459,6 +468,7 @@ func persistNotificationSchedule(ctx context.Context, b object, at int64) error 
 	}
 	notificationIndexes.Lock()
 	index.deliveryAt[key] = at
+	index.persistedDeliveryAt[key] = at
 	notificationIndexes.Unlock()
 	return nil
 }
@@ -505,7 +515,7 @@ func openNotificationOwner(ctx context.Context, _ *service) error {
 	index := &notificationIndex{
 		pending: map[string]bool{}, active: map[string]bool{}, threads: map[string]map[string]bool{},
 		reconciling: map[string]bool{}, exhausted: map[string]bool{}, resumable: map[string]bool{}, devices: map[string]map[string]bool{},
-		projections: map[string]object{}, deliveryAt: map[string]int64{}, statusViews: map[string]notificationStatusView{},
+		projections: map[string]object{}, deliveryAt: map[string]int64{}, persistedDeliveryAt: map[string]int64{}, statusViews: map[string]notificationStatusView{},
 		evidence: map[string]map[string]bool{}, evidenceByBinding: map[string]notificationEvidenceWatch{},
 	}
 	return openIndex(ctx, dir, "notification",
@@ -522,7 +532,9 @@ func openNotificationOwner(ctx context.Context, _ *service) error {
 				path := filepath.Join(dir, name)
 				index.put(path, obj(field(row.Row, "binding")))
 				if field(row.Row, "scheduled") == true {
-					index.deliveryAt[path] = int64(uintOr(field(row.Row, "deliveryAt"), 0))
+					at := int64(uintOr(field(row.Row, "deliveryAt"), 0))
+					index.deliveryAt[path] = at
+					index.persistedDeliveryAt[path] = at
 				}
 				index.collection.stamps[path] = row.Stamp
 			}

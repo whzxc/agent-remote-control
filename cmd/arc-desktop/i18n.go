@@ -31,6 +31,12 @@ func (s *DesktopService) translate(key string) string {
 
 func (s *DesktopService) setLocale(ctx context.Context, locale, resolved string) error {
 	s.locale.Store(locale == "zh-CN")
-	_, err := s.request(ctx, "preferences", http.MethodPut, object{"values": object{"resolved-language": resolved}})
-	return err
+	if previous, ok := s.resolvedLocale.Load().(string); ok && previous == resolved {
+		return nil
+	}
+	if _, err := s.request(ctx, "preferences", http.MethodPut, object{"values": object{"resolved-language": resolved}}); err != nil {
+		return err
+	}
+	s.resolvedLocale.Store(resolved)
+	return nil
 }

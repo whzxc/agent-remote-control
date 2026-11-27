@@ -33,21 +33,22 @@ var (
 type object = map[string]any
 
 type DesktopService struct {
-	requests   chan struct{}
-	ctx        context.Context
-	core       *core.DesktopClient
-	closing    atomic.Bool
-	window     *mygo.Window // main thread
-	ready      bool
-	pending    *desktopMessage
-	opened     bool
-	quitting   bool
-	tray       trayState
-	appearance appearanceState
-	snapshot   snapshotState
-	sources    sourceState
-	updates    updateState
-	locale     atomic.Bool
+	requests       chan struct{}
+	ctx            context.Context
+	core           *core.DesktopClient
+	closing        atomic.Bool
+	window         *mygo.Window // main thread
+	ready          bool
+	pending        *desktopMessage
+	opened         bool
+	quitting       bool
+	tray           trayState
+	appearance     appearanceState
+	snapshot       snapshotState
+	sources        sourceState
+	updates        updateState
+	locale         atomic.Bool
+	resolvedLocale atomic.Value
 }
 
 func main() {

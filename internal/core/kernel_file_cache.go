@@ -19,6 +19,7 @@ import (
 
 const cacheBytes = 32 * 1024 * 1024
 const cacheFiles = 8192
+const cacheDirs = 8192
 
 type indexTime struct {
 	Seconds int64 `json:"secs_since_epoch"`
@@ -81,13 +82,46 @@ type cachedDirectory struct {
 	stamp   *fileStamp
 	entries []directoryEntry
 }
+type dirCacheEntry struct {
+	path string
+	dir  cachedDirectory
+}
 type cacheIO struct{ fileOpens, directoryReads uint64 }
 type fileCache[T any] struct {
 	files                               map[string]*list.Element
 	recency                             list.List
-	dirs                                map[string]cachedDirectory
+	dirs                                map[string]*list.Element
+	dirRecency                          list.List
+	dirLimit                            int
 	size, hits, evictions, evictedBytes uint64
 	io                                  cacheIO
+}
+
+func (c *fileCache[T]) maxDirs() int {
+	if c.dirLimit > 0 {
+		return c.dirLimit
+	}
+	return cacheDirs
+}
+
+func (c *fileCache[T]) removeDir(path string) {
+	if old := c.dirs[path]; old != nil {
+		c.dirRecency.Remove(old)
+		delete(c.dirs, path)
+	}
+}
+
+func (c *fileCache[T]) insertDir(path string, dir cachedDirectory) {
+	if c.dirs == nil {
+		c.dirs = make(map[string]*list.Element)
+	}
+	c.removeDir(path)
+	for limit := c.maxDirs(); len(c.dirs) >= limit && c.dirRecency.Len() > 0; {
+		oldest := c.dirRecency.Back()
+		entry := oldest.Value.(dirCacheEntry)
+		c.removeDir(entry.path)
+	}
+	c.dirs[path] = c.dirRecency.PushFront(dirCacheEntry{path, dir})
 }
 
 func (c *fileCache[T]) insert(path string, stamp *fileStamp, value T) {
@@ -163,9 +197,13 @@ func (c *fileCache[T]) entries(path string) ([]directoryEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	if cached, ok := c.dirs[path]; ok && stampSame(cached.stamp, stamp) {
-		recordFileCost(fileCost{Path: path, CacheHits: 1})
-		return slices.Clone(cached.entries), nil
+	if cached := c.dirs[path]; cached != nil {
+		row := cached.Value.(dirCacheEntry).dir
+		if stampSame(row.stamp, stamp) {
+			c.dirRecency.MoveToFront(cached)
+			recordFileCost(fileCost{Path: path, CacheHits: 1})
+			return slices.Clone(row.entries), nil
+		}
 	}
 	recordFileCost(fileCost{Path: path, CacheMisses: 1})
 	entries := []directoryEntry{}
@@ -184,25 +222,20 @@ func (c *fileCache[T]) entries(path string) ([]directoryEntry, error) {
 		return nil, err
 	}
 	if stampSame(stamp, after) {
-		if c.dirs == nil {
-			c.dirs = make(map[string]cachedDirectory)
-		}
-		if _, exists := c.dirs[path]; !exists && len(c.dirs) >= 2048 {
-			clear(c.dirs)
-		}
-		c.dirs[path] = cachedDirectory{after, slices.Clone(entries)}
+		c.insertDir(path, cachedDirectory{after, slices.Clone(entries)})
 	}
 	return entries, nil
 }
 func (c *fileCache[T]) changed(path string, before *fileStamp) {
 	c.remove(path)
 	parent := filepath.Dir(path)
-	row, present := c.dirs[parent]
-	if !present {
+	cached := c.dirs[parent]
+	if cached == nil {
 		return
 	}
+	row := cached.Value.(dirCacheEntry).dir
 	if !stampSame(row.stamp, before) {
-		delete(c.dirs, parent)
+		c.removeDir(parent)
 		return
 	}
 	row.entries = slices.DeleteFunc(row.entries, func(e directoryEntry) bool { return e.path == path })
@@ -212,11 +245,11 @@ func (c *fileCache[T]) changed(path string, before *fileStamp) {
 	}
 	stamp, err := readStamp(parent)
 	if err != nil {
-		delete(c.dirs, parent)
+		c.removeDir(parent)
 		return
 	}
 	row.stamp = stamp
-	c.dirs[parent] = row
+	cached.Value = dirCacheEntry{parent, row}
 }
 func (c *fileCache[T]) written(path string, before *fileStamp, value T) error {
 	c.changed(path, before)
@@ -419,9 +452,7 @@ func cachedLoadInContext(ctx context.Context, path string) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	var copy any
-	err = unmarshalJSON([]byte(wire(value)), &copy)
-	return copy, err
+	return copyBindingJSON(value), nil
 }
 func cachedEntries(path string) ([]directoryEntry, error) {
 	readCache.Lock()
