@@ -158,11 +158,12 @@ export function IconButton({
   return (
     <Button
       {...props}
+      variant={props.variant ?? (filled ? "secondary" : "ghost")}
       disabled={props.disabled || busy}
       aria-busy={busy || undefined}
       aria-label={label}
       className={cn(
-        "icon-button",
+        "icon-button h-(--icon-button-size) w-(--icon-button-size) min-h-0 rounded-circle p-0",
         compact && "compact",
         filled && "filled",
         className,

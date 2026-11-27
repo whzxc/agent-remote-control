@@ -16,6 +16,9 @@ export interface InputProps
   inputClassName?: string;
 }
 
+const numberInputReset =
+  "[appearance:textfield] [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-outer-spin-button]:appearance-none";
+
 export function Input({
   className,
   inputClassName,
@@ -24,15 +27,17 @@ export function Input({
   unstyled = false,
   ...props
 }: InputProps): React.ReactElement {
+  const numberReset = type === "number" ? numberInputReset : undefined;
   if (unstyled) {
     return (
       <InputPrimitive
         type={type}
         data-slot="input"
         className={cn(
-          "w-full min-w-0 bg-transparent text-foreground placeholder:text-text-tertiary outline-none disabled:pointer-events-none disabled:cursor-not-allowed",
+          "w-full min-w-0 border-0 bg-transparent text-foreground placeholder:text-text-tertiary outline-none disabled:pointer-events-none disabled:cursor-not-allowed",
           inputSizes[size].height,
           inputSizes[size].text,
+          numberReset,
           className,
           inputClassName,
         )}
@@ -54,8 +59,9 @@ export function Input({
         type={type}
         data-slot="input"
         className={cn(
-          "h-full w-full min-w-0 rounded-[inherit] bg-transparent text-foreground placeholder:text-text-tertiary outline-none file:inline-flex file:h-full file:border-0 file:bg-transparent file:text-small file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed",
+          "h-full w-full min-w-0 rounded-[inherit] border-0 bg-transparent text-foreground placeholder:text-text-tertiary outline-none file:inline-flex file:h-full file:border-0 file:bg-transparent file:text-small file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed",
           inputSizes[size].text,
+          numberReset,
           inputClassName,
         )}
         {...props}
@@ -114,7 +120,7 @@ export function SearchInput({
         placeholder={placeholder}
         aria-label={ariaLabel ?? placeholder}
         className={cn(
-          "h-full w-full min-w-0 rounded-[inherit] bg-transparent pl-8 pr-3.5 text-small text-foreground placeholder:text-text-tertiary outline-none [&::-webkit-search-cancel-button]:hidden disabled:pointer-events-none disabled:cursor-not-allowed",
+          "h-full w-full min-w-0 rounded-[inherit] border-0 bg-transparent pl-8 pr-3.5 text-small text-foreground placeholder:text-text-tertiary outline-none [&::-webkit-search-cancel-button]:hidden disabled:pointer-events-none disabled:cursor-not-allowed",
           inputClassName,
         )}
         {...props}

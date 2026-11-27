@@ -9,7 +9,7 @@ export function HomepageBarView({ dateTime, time, day, weekday, summary, mode, o
   return <header className="homepage-bar">
     <div className="homepage-bar-board">
       <time dateTime={dateTime} aria-label={t('studio.clock')}>{time}</time>
-      <Button id="board-trigger" variant="ghost" aria-label={t('center.open')} aria-description={summary || undefined}
+      <Button id="board-trigger" variant="ghost" className="bg-transparent! hover:bg-transparent! data-pressed:bg-transparent!" aria-label={t('center.open')} aria-description={summary || undefined}
         aria-haspopup="dialog" onClick={onOpenBoard}>{t('center.title')}<span className="homepage-bar-date"> · {day} · {weekday}</span></Button>
     </div>
     <div className="homepage-mode-switch"><SingleChoice label={t('homepage.mode')} value={mode} compact onChange={onModeChange}

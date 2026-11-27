@@ -1,7 +1,9 @@
 .homepage-bar { position: absolute; inset: var(--homepage-bar-top) 24px auto; z-index: 3; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 12px; align-items: center; color: var(--text); }
 .homepage-bar-board { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .homepage-bar-board time { font-size: var(--text-title); font-weight: var(--weight-title); line-height: var(--line-title); font-variant-numeric: tabular-nums; }
-.homepage-bar-board > button { padding: 0; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; justify-content: flex-start; }
+.homepage-bar-board > button { padding: 0; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; justify-content: flex-start; background: transparent; color: var(--text); }
+.homepage-bar-board > button:hover:not(:disabled) { background: transparent; color: var(--text-secondary); }
+.homepage-bar-board > button:active:not(:disabled) { background: transparent; opacity: 0.72; }
 .homepage-bar-date { color: var(--text-secondary); font-size: var(--text-meta); }
 .homepage-mode-switch .choice-radio.choice-pills { border-radius: var(--radius-pill); border: var(--stroke-thin) solid var(--border); }
 .homepage-mode-switch .choice-pills .choice-option { border-radius: var(--radius-pill); }

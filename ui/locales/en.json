@@ -1878,7 +1878,7 @@
   "storage.archiveNow": "Archive now",
   "storage.archivedNotice": "Lossless archiving completed: {archived} archived to gzip, {compressed} metric log(s) compressed.",
   "storage.retention": "Archive retention",
-  "storage.retentionDescription": "Applies only to compressed archives (archives/): older archives are permanently deleted during daily maintenance. Keep forever does not cover temporary outputs/ (files unmodified for over {days} days are permanently deleted during daily maintenance without archiving).",
+  "storage.retentionDescription": "Only applies to compressed archives. Temporary outputs are deleted after {days} days.",
   "storage.retentionForever": "Keep forever",
   "storage.retentionDays": "{days} days",
   "storage.cleanup": "Clean up expired data and legacy directories",

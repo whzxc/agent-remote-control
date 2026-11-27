@@ -40,7 +40,7 @@ export function TabsList({
         cn(
           "relative z-0 flex items-center text-text-secondary data-[orientation=vertical]:flex-col data-[orientation=vertical]:items-stretch",
           variant === "default"
-            ? "w-fit gap-0.5 rounded-popover border border-border bg-surface-subtle p-0.5"
+            ? "w-fit gap-0.5 rounded-popover border border-border bg-surface-subtle p-0.5 dark:bg-surface"
             : "max-w-full gap-4 overflow-x-auto border-b border-border data-[orientation=vertical]:border-b-0 data-[orientation=vertical]:border-r",
         ),
         className,
@@ -56,7 +56,7 @@ export function TabsList({
           "absolute bottom-0 left-0 h-(--active-tab-height) w-(--active-tab-width) translate-x-(--active-tab-left) -translate-y-(--active-tab-bottom) transition-[width,height,translate] duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none",
           variant === "underline"
             ? "z-10 bg-primary data-[orientation=horizontal]:h-0.5 data-[orientation=vertical]:w-0.5"
-            : "-z-1 rounded-badge bg-surface-raised shadow-sm",
+            : "-z-1 rounded-badge bg-surface-raised shadow-sm dark:bg-surface-sunken",
         )}
       />
     </TabsPrimitive.List>
@@ -73,10 +73,10 @@ export function TabsTab({
       data-slot="tabs-tab"
       className={stateClass(
         cn(
-          "relative inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap font-medium text-small outline-none transition-[color,background-color,box-shadow] duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-[orientation=vertical]:w-full data-[orientation=vertical]:justify-start data-active:font-semibold data-active:text-foreground data-disabled:pointer-events-none data-disabled:opacity-50",
+          "relative inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap border-0 bg-transparent font-medium text-small outline-none transition-[color,background-color,box-shadow] duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-[orientation=vertical]:w-full data-[orientation=vertical]:justify-start data-active:font-semibold data-active:text-foreground data-disabled:pointer-events-none data-disabled:opacity-50",
           variant === "default"
-            ? "h-[26px] rounded-badge px-2.5 data-active:bg-surface-raised data-active:shadow-sm [:has(>[data-slot=tab-indicator]:not([hidden]))>&]:bg-transparent! [:has(>[data-slot=tab-indicator]:not([hidden]))>&]:shadow-none!"
-            : "border-b-2 border-transparent py-2.5 data-active:border-b-primary [:has(>[data-slot=tab-indicator]:not([hidden]))>&]:border-b-transparent!",
+            ? "h-[26px] rounded-badge px-2.5 data-active:bg-surface-raised data-active:shadow-sm dark:data-active:bg-surface-sunken [:has(>[data-slot=tab-indicator]:not([hidden]))>&]:bg-transparent! [:has(>[data-slot=tab-indicator]:not([hidden]))>&]:shadow-none!"
+            : "border-0 border-b-2 border-transparent py-2.5 data-active:border-b-primary [:has(>[data-slot=tab-indicator]:not([hidden]))>&]:border-b-transparent!",
         ),
         className,
       )}

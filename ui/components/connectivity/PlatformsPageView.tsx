@@ -106,7 +106,7 @@ export function PlatformsPageView({
       >
         <TabsList
           aria-label={navLabel}
-          className="w-full gap-0.5 rounded-kit-card! border border-border bg-surface-subtle p-1"
+          className="w-full gap-0.5 rounded-kit-card! border border-border bg-surface-subtle p-1 dark:bg-surface"
         >
           {platforms.map((item) => (
             <TabsTab

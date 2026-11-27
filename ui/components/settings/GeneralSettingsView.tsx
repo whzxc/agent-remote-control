@@ -122,11 +122,10 @@ export function GeneralSettingsView({
             min={0}
             max={300}
             step={1}
-            size="sm"
             aria-label={t("routing.delaySetting")}
             value={routingDelay}
             disabled={taskSettingsDisabled}
-            inputClassName="tabular-nums"
+            inputClassName="tabular-nums text-small"
             onChange={(event) => onRoutingDelayChange?.(event.target.value)}
             onBlur={(event) =>
               onRoutingDelayCommit?.(

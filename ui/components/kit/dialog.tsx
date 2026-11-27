@@ -258,7 +258,7 @@ export function DialogSurface({
               <button
                 type="button"
                 aria-label={closeLabel ?? t("close")}
-                className="inline-flex size-(--kit-control-height-sm) items-center justify-center rounded-pill text-text-secondary"
+                className="inline-flex size-(--kit-control-height-sm) items-center justify-center rounded-pill border-0 bg-transparent p-0 text-text-secondary"
               >
                 <X size={15} strokeWidth={1.75} absoluteStrokeWidth aria-hidden="true" />
               </button>

@@ -80,7 +80,7 @@ test('StorageSettings separates lossless archiving from previewed permanent outp
       });
 
       assert.ok(page.getByText(/52 to archive, 2 to compress/i));
-      assert.ok(page.getByText(/Keep forever does not cover temporary outputs\//i));
+      assert.ok(page.getByText(/Temporary outputs are deleted after 7 days/i));
       assert.ok(page.getByText(/Expired outputs \(>7d, deleted permanently\): 1/i));
 
       await act(async () => {

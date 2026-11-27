@@ -1846,7 +1846,7 @@
   "storage.archiveNow": "立即归档",
   "storage.archivedNotice": "无损归档完成：已归档 {archived} 项至 gzip，压缩 {compressed} 个指标日志。",
   "storage.retention": "归档保留期限",
-  "storage.retentionDescription": "仅控制压缩归档（archives/），超期归档会在每日维护时永久删除。「永久保留」不覆盖 outputs/ 临时输出（超过 {days} 天未修改的 outputs/ 文件会在每日维护时永久删除，不会写入归档）。",
+  "storage.retentionDescription": "仅针对压缩归档；临时输出在超过 {days} 天未修改后自动清理。",
   "storage.retentionForever": "永久保留",
   "storage.retentionDays": "{days} 天",
   "storage.cleanup": "清理过期数据与遗留目录",

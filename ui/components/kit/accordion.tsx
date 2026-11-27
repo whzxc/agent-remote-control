@@ -43,7 +43,7 @@ export function AccordionTrigger({
     <AccordionPrimitive.Trigger
       data-slot="accordion-trigger"
       className={stateClass(
-        "group flex flex-1 cursor-pointer items-center justify-between gap-2 py-2.5 text-left text-small font-semibold text-foreground outline-none transition-colors duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-disabled:cursor-not-allowed data-disabled:opacity-50",
+        "group flex flex-1 cursor-pointer items-center justify-between gap-2 border-0 bg-transparent px-0 py-2.5 text-left text-small font-semibold text-foreground outline-none transition-colors duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-disabled:cursor-not-allowed data-disabled:opacity-50",
         className,
       )}
       {...props}
