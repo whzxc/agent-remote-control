@@ -46,15 +46,24 @@ func (s *DesktopService) installTray() error {
 			s.show(&desktopMessage{"updates:check", nil})
 		}}
 		state.items[settings], state.items[updates] = "traySettings", "checkForUpdates"
-		mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
-			{Role: mygo.RoleAppMenu, Submenu: []*mygo.MenuItem{
-				{Role: mygo.RoleAbout}, settings, updates, mygo.Separator(), {Role: mygo.RoleServices},
-				mygo.Separator(), {Role: mygo.RoleHide}, {Role: mygo.RoleHideOthers}, {Role: mygo.RoleUnhide},
-				mygo.Separator(), {Role: mygo.RoleQuit},
-			}}, {Role: mygo.RoleEditMenu}, {Role: mygo.RoleViewMenu}, {Role: mygo.RoleWindowMenu},
-		}))
+		mygo.App.SetMenu(darwinApplicationMenu(settings, updates))
 	}
 	return s.setTrayVisible(true)
+}
+
+func darwinApplicationMenu(settings, updates *mygo.MenuItem) *mygo.Menu {
+	return mygo.NewMenu([]*mygo.MenuItem{
+		{Role: mygo.RoleAppMenu, Submenu: []*mygo.MenuItem{
+			{Role: mygo.RoleAbout}, settings, updates, mygo.Separator(),
+			{Role: mygo.RoleServices, Submenu: []*mygo.MenuItem{}},
+			mygo.Separator(), {Role: mygo.RoleHide}, {Role: mygo.RoleHideOthers}, {Role: mygo.RoleUnhide},
+			mygo.Separator(), {Role: mygo.RoleQuit},
+		}},
+		{Role: mygo.RoleFileMenu},
+		{Role: mygo.RoleEditMenu},
+		{Role: mygo.RoleViewMenu},
+		{Role: mygo.RoleWindowMenu},
+	})
 }
 
 func (s *DesktopService) setTrayVisible(visible bool) error {
