@@ -46,7 +46,7 @@ export function SegmentedControl<Value extends string | number = string>({
       data-slot="segmented-control"
       data-size={size}
       className={cn(
-        "min-w-0 max-w-full items-center gap-0.5 rounded-popover border border-border bg-surface-subtle p-0.5",
+        "min-w-0 max-w-full items-center gap-0.5 rounded-popover border border-border bg-surface-subtle p-0.5 dark:bg-surface",
         equal ? "inline-grid grid-flow-col auto-cols-fr" : "inline-flex",
         className,
       )}
@@ -61,7 +61,7 @@ export function SegmentedControl<Value extends string | number = string>({
             aria-label={option["aria-label"]}
             data-slot="segmented-control-item"
             className={cn(
-              "relative inline-flex min-w-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-badge px-3 text-small font-medium text-text-secondary outline-none transition-[background-color,color,box-shadow] duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none hover:not-data-checked:not-data-disabled:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-checked:bg-surface-raised data-checked:font-semibold data-checked:text-foreground data-checked:shadow-sm data-disabled:cursor-not-allowed data-disabled:opacity-50",
+              "relative inline-flex min-w-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-badge px-3 text-small font-medium text-text-secondary outline-none transition-[background-color,color,box-shadow] duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none hover:not-data-checked:not-data-disabled:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-checked:bg-surface-raised data-checked:font-semibold data-checked:text-foreground data-checked:shadow-sm dark:data-checked:bg-surface-sunken data-disabled:cursor-not-allowed data-disabled:opacity-50",
               size === "sm" ? "h-[22px] px-2 text-meta" : "h-[26px]",
             )}
           >

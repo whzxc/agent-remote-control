@@ -34,9 +34,11 @@ export function NavCapsule({
 export type HomepageMode = 'topology' | 'tasks';
 
 export function HomepageModeSwitch({ mode, language = "en" }: { mode: HomepageMode; language?: "en" | "zh-CN" }) {
-  return <SingleChoice label={copy.label} value={mode} options={[
-    { value: 'topology', label: language === "en" ? copy.topology : "拓扑" }, { value: 'tasks', label: language === "en" ? copy.tasks : "任务" },
-  ]} />;
+  return <SingleChoice label={copy.label} value={mode}
+    className="rounded-pill! border border-border dark:bg-surface! [&>button]:rounded-pill! dark:[&>button[aria-checked=true]]:bg-surface-sunken!"
+    options={[
+      { value: 'topology', label: language === "en" ? copy.topology : "拓扑" }, { value: 'tasks', label: language === "en" ? copy.tasks : "任务" },
+    ]} />;
 }
 
 export function HomepageBar({ mode, compact = false, date = copy.date, time = copy.time, title = copy.board, language = "en" }: {
@@ -49,6 +51,6 @@ export function HomepageBar({ mode, compact = false, date = copy.date, time = co
         {title}{!compact && <span className="text-meta text-text-secondary font-semibold">{` · ${date}`}</span>}
       </button>
     </div>
-    <div className={language === "en" ? "w-[157px]" : "w-[114px]"}><HomepageModeSwitch mode={mode} language={language} /></div>
+    <div className="w-max"><HomepageModeSwitch mode={mode} language={language} /></div>
   </div>;
 }

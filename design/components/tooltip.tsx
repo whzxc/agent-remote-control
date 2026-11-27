@@ -22,7 +22,7 @@ export function Tooltip({
     <div
       role="tooltip"
       data-slot="tooltip-popup"
-      className="inline-flex max-w-[min(300px,calc(100vw-24px))] items-center wrap-anywhere rounded-kit-field bg-action px-2 py-1 text-meta font-medium leading-4 text-on-action shadow-md"
+      className="inline-flex w-max max-w-[300px] items-center wrap-break-word rounded-kit-field bg-action px-2 py-1 text-meta font-medium leading-4 text-on-action shadow-md"
     >
       {text ?? children}
     </div>

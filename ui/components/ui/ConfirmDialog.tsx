@@ -152,7 +152,7 @@ export default function ConfirmDialog({
             )}
           </AlertDialogHeader>
           <div
-            className="dialog-body min-h-0 flex-1 overflow-y-auto px-5 py-4 text-small leading-5 text-text-secondary"
+            className="dialog-body flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-4 text-small leading-5 text-text-secondary"
             inert={status !== "none" || undefined}
           >
             {children}
@@ -160,7 +160,9 @@ export default function ConfirmDialog({
           {status === "none" ? (
             <AlertDialogFooter className="dialog-footer px-5 py-3">
               {actionsClassName ? (
-                <div className={actionsClassName}>{actionControls}</div>
+                <div className={cn("flex flex-wrap items-center justify-end gap-2", actionsClassName)}>
+                  {actionControls}
+                </div>
               ) : (
                 actionControls
               )}

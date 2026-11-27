@@ -110,7 +110,7 @@ export default function RelayProgress({
       }
       footer={
         !cancelInFooter ? (
-          <DialogActions className="flex items-center justify-between gap-4">
+          <DialogActions className="flex w-full items-center justify-between gap-4">
             <Button
               disabled={!closeDialog && busy}
               onClick={closeDialog ?? onCancel}

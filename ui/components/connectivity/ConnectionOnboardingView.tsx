@@ -45,7 +45,7 @@ export function ConnectionMethodStepView({
       onValueChange={(next) => {
         if (typeof next === "string") onChange?.(next);
       }}
-      className={cn("grid min-w-0 gap-3", className)}
+      className={cn("min-w-0 gap-3", className)}
     >
       {primary.map((option) => (
         <RadioCard

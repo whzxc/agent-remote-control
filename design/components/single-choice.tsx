@@ -149,7 +149,7 @@ export function SingleChoice({
               <span
                 className={`relative flex h-full items-center after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 ${selected ? "after:bg-accent-text" : ""}`}
               >
-                <span data-label={option.label} className="block after:invisible after:block after:h-0 after:font-[650] after:content-[attr(data-label)]">
+                <span data-label={option.label} className="block overflow-hidden after:invisible after:block after:h-0 after:font-[650] after:content-[attr(data-label)]">
                   {content}
                 </span>
               </span>

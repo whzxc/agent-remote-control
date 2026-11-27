@@ -189,6 +189,7 @@ export function SourceConnectionStepView({
           aria-label={connectionsLabel}
           value={selectedConnection}
           disabled={disabled}
+          className="gap-3"
           onValueChange={(next) => {
             if (typeof next === "string") onSelectConnection?.(next);
           }}

@@ -404,7 +404,7 @@ button.timeline-summary { appearance: none; cursor: pointer; }
 .setup-return, .setup-context { grid-column:1 / -1; margin:0; }
 .setup-actions { display:flex; justify-content:space-between; align-items:center; gap:16px; width:100%; }
 .setup-actions[data-layout="end"] { justify-content:flex-end; }
-.setup-steps { display:flex; flex:none; gap:12px; margin:15px 24px 0; padding:0; list-style:none; }
+.setup-steps { display:flex; flex:none; gap:12px; margin:0; padding:0; list-style:none; }
 .setup-steps li { min-width:0; flex:1; display:flex; flex-direction:column; gap:8px; }
 .setup-steps li::before { content:""; height:3px; }
 .setup-steps li > span { overflow-wrap:anywhere; }

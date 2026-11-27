@@ -391,7 +391,7 @@ export default function Panel({
                     className="dialog-body min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4"
                     inert={status !== "none" || undefined}
                   >
-                    <div className="dialog-swap [&[hidden]]:hidden">
+                    <div className="dialog-swap flex flex-col gap-4 [&[hidden]]:hidden">
                       {feedback && (
                         <Notice tone={feedback.error ? "danger" : "success"}>
                           {feedback.message}
@@ -434,7 +434,7 @@ export function PanelFooter({
   className?: string;
 }) {
   return (
-    <DialogActions className={`panel-footer-content ${className ?? ""}`}>
+    <DialogActions className={cn("panel-footer-content w-full", className)}>
       {children}
     </DialogActions>
   );

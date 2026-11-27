@@ -8,7 +8,7 @@ export function OnboardingSteps({ step }: { step: OnboardingStep }) {
   return (
     <ol className="flex gap-3">
       {step.labels!.map((label, i) => (
-        <li className="flex min-w-0 flex-1 flex-col gap-[6px]">
+        <li key={label} className="flex min-w-0 flex-1 flex-col gap-[6px]">
           <span
             className={`h-[3px] rounded-[2px] ${step.done ? "bg-success" : i <= step.active! ? "bg-accent" : "bg-surface-sunken"}`}
           />
@@ -39,7 +39,7 @@ export function OnboardingFooter({ step }: { step: OnboardingStep }) {
   const actionWidth = widths[step.body] ?? (step.action === onboardingCopy.continue ? "min-w-[76px]" : "");
   return (
     <footer
-      className={`flex items-center gap-4 ${step.body === "approval" ? "justify-end" : "justify-between"}`}
+      className={`flex w-full items-center gap-4 ${step.body === "approval" ? "justify-end" : "justify-between"}`}
     >
       {step.back ? (
         <Button
@@ -73,10 +73,10 @@ export function SetupFlow({ step, children }: { step: OnboardingStep; children?:
     : step.subtitle;
   return (
     <Dialog viewportHeight={step.body === "own" ? 1000 : 800} title={step.title || onboardingCopy.title}
-      headerDetail={<>
+      headerDetail={<div className="flex flex-col gap-3">
         {subtitle && <p className="text-meta leading-4 text-text-secondary">{subtitle}</p>}
         <OnboardingSteps step={step} />
-      </>}
+      </div>}
       footer={<OnboardingFooter step={step} />}>
       {children}
     </Dialog>

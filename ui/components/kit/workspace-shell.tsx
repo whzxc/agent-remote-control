@@ -70,10 +70,10 @@ export function WorkspaceShellSurface({
 }: WorkspaceShellSurfaceProps): ReactElement {
   const { t } = useI18n();
   const widthClass = expanded
-    ? "w-[min(1200px,calc(100vw-32px))]"
+    ? "w-[1200px] max-w-full"
     : size === "m"
-      ? "w-[min(560px,calc(100vw-32px))]"
-      : "w-[min(960px,calc(100vw-32px))]";
+      ? "w-(--layer-m) max-w-full"
+      : "w-(--layer-xl) max-w-full";
 
   return (
     <section
@@ -83,7 +83,7 @@ export function WorkspaceShellSurface({
       data-size={size}
       data-expanded={expanded || undefined}
       className={cn(
-        "flex min-h-0 max-h-[calc(100dvh-96px)] flex-col overflow-hidden rounded-shell border border-border bg-surface-raised text-foreground shadow-lg max-[720px]:w-[calc(100vw-16px)] max-[720px]:max-h-[calc(100dvh-16px)] dark:border-border-strong dark:shadow-[inset_0_1px_0_rgb(255_255_255/6%),var(--shadow-lg)]",
+        "flex min-h-0 flex-col overflow-hidden rounded-shell border border-border bg-surface-raised text-foreground shadow-lg dark:border-border-strong dark:shadow-[inset_0_1px_0_rgb(255_255_255/6%),var(--shadow-lg)]",
         widthClass,
         className,
       )}
@@ -188,7 +188,10 @@ export function WorkspaceShell({
       <WorkspaceShellSurface
         {...props}
         onClose={onClose}
-        className={cn("pointer-events-auto", props.className)}
+        className={cn(
+          "pointer-events-auto max-h-[calc(100dvh-96px)] max-w-[calc(100vw-32px)] max-[720px]:w-[calc(100vw-16px)] max-[720px]:max-h-[calc(100dvh-16px)]",
+          props.className,
+        )}
       />
     </div>
   );
@@ -229,10 +232,8 @@ export function InspectorSheetSurface({
       data-slot="inspector-sheet"
       data-wide={wide || undefined}
       className={cn(
-        "flex min-h-0 max-h-[calc(100dvh-60px)] flex-col overflow-hidden rounded-shell border border-border bg-surface-raised text-foreground shadow-lg max-[720px]:w-[calc(100vw-16px)] max-[720px]:max-h-[calc(100dvh-32px)] dark:border-border-strong dark:shadow-[inset_0_1px_0_rgb(255_255_255/6%),var(--shadow-lg)]",
-        wide
-          ? "w-[min(520px,calc(100vw-32px))]"
-          : "w-[min(480px,calc(100vw-32px))]",
+        "flex min-h-0 flex-col overflow-hidden rounded-shell border border-border bg-surface-raised text-foreground shadow-lg dark:border-border-strong dark:shadow-[inset_0_1px_0_rgb(255_255_255/6%),var(--shadow-lg)]",
+        wide ? "w-[600px] max-w-full" : "w-(--layer-m) max-w-full",
         className,
       )}
       {...props}
@@ -331,7 +332,10 @@ export function InspectorSheet({
       <InspectorSheetSurface
         {...props}
         onClose={onClose}
-        className={cn("pointer-events-auto", props.className)}
+        className={cn(
+          "pointer-events-auto max-h-[calc(100dvh-60px)] max-w-[calc(100vw-32px)] max-[720px]:w-[calc(100vw-16px)] max-[720px]:max-h-[calc(100dvh-32px)]",
+          props.className,
+        )}
       />
     </div>
   );

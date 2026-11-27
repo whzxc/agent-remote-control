@@ -12,7 +12,7 @@
 .setting-control { flex: 0 1 auto; max-width: 60%; min-width: 0; }
 .setting-toggle .setting-control { flex-shrink: 0; }
 .settings-section-card > .notice { margin-block: 16px; }
-.settings-dialog-close { position: absolute; top: 13px; right: 24px; }
+.settings-dialog-close { position: absolute; top: 14px; right: 20px; }
 .setting-control > .select-trigger { width: 100%; }
 .setting-control > .select-trigger > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 

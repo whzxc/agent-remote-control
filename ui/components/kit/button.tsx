@@ -26,7 +26,7 @@ export const buttonVariants = cva(
         primary:
           "bg-primary text-primary-foreground hover:bg-primary/90 data-pressed:bg-primary/85",
         secondary:
-          "bg-surface-subtle text-foreground hover:bg-surface-sunken data-pressed:bg-surface-sunken",
+          "border-border bg-surface-subtle text-foreground hover:bg-surface-sunken data-pressed:bg-surface-sunken dark:bg-surface-sunken/70 dark:hover:bg-surface-sunken",
         outline:
           "border-border-strong bg-surface text-foreground hover:bg-surface-subtle data-pressed:bg-surface-sunken",
         ghost:

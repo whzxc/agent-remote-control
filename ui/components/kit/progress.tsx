@@ -19,7 +19,7 @@ export function Progress({
     >
       <ProgressPrimitive.Track
         data-slot="progress-track"
-        className="relative h-2 w-full overflow-hidden rounded-progress bg-secondary"
+        className="relative h-2 w-full overflow-hidden rounded-progress bg-surface-sunken"
       >
         <ProgressPrimitive.Indicator
           data-slot="progress-indicator"

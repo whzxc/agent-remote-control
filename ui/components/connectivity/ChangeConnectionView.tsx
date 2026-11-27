@@ -44,6 +44,7 @@ export function ChangeConnectionPickView({
         aria-label={connectionsLabel}
         value={selectedId}
         disabled={disabled}
+        className="gap-3"
         onValueChange={(next) => {
           if (typeof next === "string") onSelect?.(next);
         }}

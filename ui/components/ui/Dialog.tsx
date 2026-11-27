@@ -544,7 +544,7 @@ export default function Dialog({
               {description}
             </DialogPrimitive.Description>
           )}
-          {!view && stepBar && <div className="shrink-0 px-5 pt-3">{stepBar}</div>}
+          {!view && stepBar && <div className="shrink-0 px-5 pt-3 pb-1">{stepBar}</div>}
           <HeaderContext.Provider value={headerContext}>
             <PanelStateContext.Provider value={updatePanelState}>
               <CloseContext.Provider value={closeContext}>
@@ -556,7 +556,7 @@ export default function Dialog({
                       inert={status !== "none" || undefined}
                     >
                       <div
-                        className="dialog-swap [&[hidden]]:hidden"
+                        className="dialog-swap flex flex-col gap-4 [&[hidden]]:hidden"
                         hidden={Boolean(view)}
                         inert={Boolean(view) || undefined}
                       >
@@ -568,7 +568,7 @@ export default function Dialog({
                         {children}
                       </div>
                       <div
-                        className="dialog-swap [&[hidden]]:hidden"
+                        className="dialog-swap flex flex-col gap-4 [&[hidden]]:hidden"
                         ref={setViewBody}
                         hidden={!view}
                         inert={!view || undefined}

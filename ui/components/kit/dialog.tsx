@@ -25,8 +25,14 @@ export type DialogSize = "sm" | "md" | "lg";
 
 const dialogWidths: Record<DialogSize, string> = {
   sm: "w-[min(440px,calc(100vw-32px))]",
-  md: "w-[min(540px,calc(100vw-32px))]",
+  md: "w-[min(560px,calc(100vw-32px))]",
   lg: "w-[min(640px,calc(100vw-32px))]",
+};
+
+const staticDialogWidths: Record<DialogSize, string> = {
+  sm: "w-[440px] max-w-full",
+  md: "w-(--layer-m) max-w-full",
+  lg: "w-[640px] max-w-full",
 };
 
 export function DialogBackdrop({
@@ -167,7 +173,7 @@ export function DialogBody({
     <div
       data-slot="dialog-body"
       className={cn(
-        "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4",
+        "flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-5 py-4",
         className,
       )}
       {...props}
@@ -183,7 +189,7 @@ export function DialogFooter({
     <footer
       data-slot="dialog-footer"
       className={cn(
-        "flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border bg-surface-subtle/60 px-4 py-3",
+        "flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border bg-surface-subtle/60 px-5 py-3",
         className,
       )}
       {...props}
@@ -220,8 +226,8 @@ export function DialogSurface({
       data-slot="dialog-surface"
       data-size={size}
       className={cn(
-        "flex min-h-0 max-h-[calc(100dvh-32px)] flex-col overflow-hidden rounded-dialog border border-border bg-surface-raised text-foreground shadow-lg dark:border-border-strong dark:shadow-[inset_0_1px_0_rgb(255_255_255/6%),var(--shadow-lg)]",
-        dialogWidths[size],
+        "flex min-h-0 flex-col overflow-hidden rounded-dialog border border-border bg-surface-raised text-foreground shadow-lg dark:border-border-strong dark:shadow-[inset_0_1px_0_rgb(255_255_255/6%),var(--shadow-lg)]",
+        staticDialogWidths[size],
         className,
       )}
       {...props}
@@ -229,7 +235,7 @@ export function DialogSurface({
       {(title || actions || showCloseButton) && (
         <header
           data-slot="dialog-header"
-          className="flex min-h-[46px] shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3"
+          className="flex min-h-[46px] shrink-0 items-center justify-between gap-3 border-b border-border px-5 py-3"
         >
           <div className="min-w-0 flex-1">
             {title && (

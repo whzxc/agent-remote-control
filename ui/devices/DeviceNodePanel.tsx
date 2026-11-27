@@ -101,7 +101,7 @@ function PairDialog({ close }: { close: () => void }) {
           if (!waiting && !success) void connectDevice();
         }}
         footer={
-          <DialogActions className="device-actions">
+          <DialogActions className="device-actions flex items-center justify-end gap-2">
             <Button
               variant="primary"
               busy={waiting}
@@ -166,7 +166,7 @@ function AddressDialog({ device, close }: { device: Device; close: () => void })
           void save(value.trim());
         }}
         footer={
-          <DialogActions className="device-actions">
+          <DialogActions className="device-actions flex items-center justify-end gap-2">
             <Button disabled={busy} onClick={() => void save(null)}>
               {c("clear")}
             </Button>

@@ -5,6 +5,7 @@ import { Button } from "../kit/button";
 import { Card } from "../kit/card";
 import { Field } from "../kit/field";
 import { Input } from "../kit/input";
+import { SegmentedControl } from "../kit/segmented-control";
 import {
   Select,
   SelectItem,
@@ -144,33 +145,44 @@ export function OAuthApprovalView({
             </div>
           )}
 
-          {authorizationOptions.length > 0 && (
-            <Field label={authorizationLabel}>
-              <Select
+          {authorizationOptions.length > 0 &&
+            (authorizationOptions.length <= (inline ? 3 : 2) ? (
+              <SegmentedControl
+                equal={inline}
+                aria-label={authorizationLabel}
                 value={authorizationValue}
                 disabled={disabled || busy}
-                onValueChange={(next) => {
-                  if (typeof next === "string") onAuthorizationChange?.(next);
-                }}
-              >
-                <SelectTrigger
-                  aria-label={authorizationLabel}
-                  className="w-full"
+                onValueChange={(next) => onAuthorizationChange?.(next)}
+                options={authorizationOptions}
+                className={inline ? "w-full" : undefined}
+              />
+            ) : (
+              <Field label={authorizationLabel}>
+                <Select
+                  value={authorizationValue}
+                  disabled={disabled || busy}
+                  onValueChange={(next) => {
+                    if (typeof next === "string") onAuthorizationChange?.(next);
+                  }}
                 >
-                  <SelectValue placeholder={authorizationLabel}>
-                    {selectedAuthLabel || authorizationLabel}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectPopup>
-                  {authorizationOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectPopup>
-              </Select>
-            </Field>
-          )}
+                  <SelectTrigger
+                    aria-label={authorizationLabel}
+                    className="w-full"
+                  >
+                    <SelectValue placeholder={authorizationLabel}>
+                      {selectedAuthLabel || authorizationLabel}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectPopup>
+                    {authorizationOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
+              </Field>
+            ))}
 
           {showAccountName && (
             <Field

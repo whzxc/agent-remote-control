@@ -185,7 +185,7 @@ export function Panel({
           </div>
         </header>
       )}
-      {headerDetail}
+      {headerDetail && <div className="shrink-0 px-5 pt-3">{headerDetail}</div>}
       {description && (
         <div
           data-slot="workspace-description"
@@ -195,7 +195,13 @@ export function Panel({
         </div>
       )}
       {headerless ? (
-        children
+        <div
+          data-slot="workspace-body"
+          data-adg-id={motionId && `${motionId}-body`}
+          className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden px-5 py-4"
+        >
+          {children}
+        </div>
       ) : (
         <div
           data-slot="workspace-body"
@@ -302,7 +308,7 @@ export function DialogDismissalFooter({
       onDiscard={() => {}}
       onStopAndClose={() => {}}
       onKeepOpen={() => {}}
-      className="-mx-4 -my-3 w-[calc(100%+2rem)]"
+      className="-mx-5 -my-3 w-[calc(100%+2.5rem)]"
     />
   );
 }
