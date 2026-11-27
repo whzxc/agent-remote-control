@@ -4,13 +4,14 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildWindows, buildMac, runCommand, prepareWindowsWorker } from './windows-release.mjs';
-import { buildLinux, preflightLinux } from './linux-release.mjs';
+import { buildWindows, buildMac, checkLocalWindowsTools, runCommand } from './windows-release.mjs';
+import { buildLinux } from './linux-release.mjs';
 import { testEnvironment } from './test-environment.mjs';
 import { buildVersion, stableVersion } from './version.mjs';
 import { readReleaseNotes, rehearsalReleaseNotes } from './release-notes.mjs';
 import { buildOnlyEnv, checkLegacyUpdatePublicKey, feedName, rehearsalSigning, signMygoFeed, updateTargets, verifier, verifyMygoFeed } from './release-signing.mjs';
 import { collectDesktop, fragmentName, installerName, requireEmptyStage, signLegacyPayload, legacyPayloadName } from './release-desktop.mjs';
+import { desktopExecutable } from './dev-identity.mjs';
 import { retainBuildArtifacts } from './retain-build-artifacts.mjs';
 import { macosSigningIdentity } from './macos-signing.mjs';
 import { gh, ghTransfer, releaseByTag, releaseById, requireDraftRelease, uploadReleaseAsset, publishedTags, fileDigest, publicationStages,
@@ -114,20 +115,31 @@ async function finalize(output, selected, notes, env) {
 const releaseBase = () => `https://github.com/${repo}/releases/download/v${version}`;
 
 async function localRehearsal(output, keyDirectory, selected) {
-  if (selected.includes('linux')) throw new Error('Offline desktop rehearsal supports mac and windows. Linux uses native Actions runners.');
   if (!path.isAbsolute(output) || !path.isAbsolute(keyDirectory)) throw new Error('Use absolute output and test-key directories.');
   await requireEmptyStage(output);
   const env = { ...buildOnlyEnv(), ...await rehearsalSigning(keyDirectory), ARC_BUILD_VERSION: version };
+  if (selected.includes('windows')) checkLocalWindowsTools(env);
   console.log(verifier('check-keys', version, [], { env }) || 'Rehearsal public and private keys match.');
   const sourceSha = git('rev-parse', 'HEAD');
   if (git('status', '--porcelain')) throw new Error('Rehearsal requires clean, committed source.');
   const parent = path.join(output, '.packages');
   for (const platform of selected) {
     const target = updateTargets[platform];
-    await runCommand(process.execPath, ['tooling/desktop-build.mjs', '--target', target.replace('-', '/'), '--output', parent, '--adhoc'],
-      { env: buildOnlyEnv(env) });
-    await collectDesktop({ target, version, input: path.join(parent, target), output });
-    await signLegacyPayload({ target, version, output, base, env });
+    if (target) {
+      await runCommand(process.execPath, ['tooling/desktop-build.mjs', '--target', target.replace('-', '/'), '--output', parent, '--adhoc'],
+        { env: buildOnlyEnv(env) });
+      const input = path.join(parent, target);
+      if (platform === 'windows') {
+        console.log(verifier('verify-windows', version, [
+          path.join(input, desktopExecutable + '.exe'),
+          path.join(input, 'bin', 'arc.exe'),
+        ], { publicOnly: true, env }));
+      }
+      await collectDesktop({ target, version, input, output });
+      await signLegacyPayload({ target, version, output, base, env });
+    } else if (platform === 'linux') {
+      await buildLinux({ sourceSha, version, output, env, timer: stageTimer(null, () => {}) });
+    }
   }
   const manifest = await finalize(output, selected, rehearsalReleaseNotes, env);
   const assets = await releaseInventory(output, selected, manifest);
@@ -136,15 +148,14 @@ async function localRehearsal(output, keyDirectory, selected) {
   console.log(`Verified local release rehearsal: ${output}`);
 }
 
-async function coordinateRelease(options, { resume, dryRun, skipExtended = false }) {
+async function coordinateRelease(options, { resume, dryRun, withExtended = false }) {
   const saved = resume ? await json(path.join(options.resume, 'release-state.json')) : undefined;
   const requested = options.version === undefined ? saved?.version : stableVersion(options.version);
   const platforms = releasePlatforms(options.platforms ?? saved?.platforms?.join(','));
   const mac = platforms.includes('mac');
   const windows = platforms.includes('windows');
   const linux = platforms.includes('linux');
-  const desktopRehearsal = dryRun && !linux;
-  if (!desktopRehearsal) requireMainCheckout();
+  if (!dryRun) requireMainCheckout();
   await mkdir('release-artifacts', { recursive: true });
   const timingDir = await mkdtemp(path.join('release-artifacts', '.timings-'));
   const timingFile = path.resolve(timingDir, 'stages.jsonl');
@@ -155,14 +166,6 @@ async function coordinateRelease(options, { resume, dryRun, skipExtended = false
   let state = saved;
   let sourceSha;
   let env, notes;
-  let workerPreparation, workerCleanup;
-  const releaseWorker = () => {
-    if (workerPreparation && !workerCleanup) {
-      workerCleanup = workerPreparation.then(worker => worker.cleanup());
-      workerCleanup.catch(() => {});
-    }
-    return workerCleanup;
-  };
   const assertSource = () => {
     if (git('status', '--porcelain') || git('rev-parse', 'HEAD') !== sourceSha) throw new Error('Source changed during release; refusing to tag or publish');
     const tag = `v${version}`;
@@ -177,19 +180,19 @@ async function coordinateRelease(options, { resume, dryRun, skipExtended = false
     onRetry: (error, attempt, delay) => console.error(`${name}: attempt ${attempt} failed (${error.message}); retrying in ${delay / 1000}s`),
   });
   try {
-    if (!resume && !skipExtended) await timer.run('extended gate', () =>
+    if (!resume && withExtended) await timer.run('extended gate', () =>
       runCommand('npm', ['run', 'test:extended'], { env: testEnvironment(buildOnlyEnv()) }));
-    else if (!resume && skipExtended) timer.skip('extended gate');
+    else if (!resume) timer.skip('extended gate');
     await timer.run('checks', async () => {
-      if (!resume && (mac || windows) && (process.platform !== 'darwin' || process.arch !== 'arm64')) throw new Error('macOS releases require a local build and signing on an Apple Silicon Mac');
+      if (!resume && mac && (process.platform !== 'darwin' || process.arch !== 'arm64')) throw new Error('macOS releases require a local build and signing on an Apple Silicon Mac');
       env = { ...process.env };
       if (mac || windows) checkLegacyUpdatePublicKey(env);
       if (!resume && (mac || windows)) verifier('check-keys', requested || version, [], { env });
+      if (!resume && windows) checkLocalWindowsTools(env);
       env.ARC_RELEASE_TIMINGS_FILE = timingFile;
       if (!resume && mac) macosSigningIdentity(env, { release: true });
       sourceSha = git('rev-parse', 'HEAD');
       if (git('status', '--porcelain')) throw new Error('Release builds require a clean committed source');
-      if (!resume && linux) await preflightLinux(sourceSha);
       if (!dryRun) {
         if (git('branch', '--show-current') !== 'main') throw new Error('Run release from main');
         if (git('status', '--porcelain')) throw new Error('Commit or set aside existing changes before release');
@@ -216,10 +219,6 @@ async function coordinateRelease(options, { resume, dryRun, skipExtended = false
       } else version = requested ?? version;
       parts(version);
       if (!resume) notes = await readReleaseNotes(version, { dryRun });
-      if (!resume && windows) {
-        workerPreparation = prepareWindowsWorker({ timer });
-        workerPreparation.catch(() => {});
-      }
       env.ARC_BUILD_VERSION = version;
       process.env.ARC_BUILD_VERSION = version;
       base = releaseBase();
@@ -234,13 +233,12 @@ async function coordinateRelease(options, { resume, dryRun, skipExtended = false
       await timer.run('build/test critical path', async () => {
         await tests();
         if (mac || windows) await timer.run('UI smoke', () => runCommand('npm', ['run', 'accept:ui',
-          ...(desktopRehearsal ? ['--', '--lane-fixtures', '--port=5287', '--no-screenshots'] : [])],
+          ...(dryRun ? ['--', '--lane-fixtures', '--port=5287', '--no-screenshots'] : [])],
         { env: testEnvironment(buildOnlyEnv(env)) }));
         await timer.run('platform critical path', () => parallelPlatforms([
           ...(mac ? [() => timer.run('macOS wall', () => buildMac({ sourceSha, output, env, timer }))] : []),
-          ...(windows ? [() => timer.run('Windows wall', () => buildWindows({ sourceSha, version, output, env, timer,
-            worker: workerPreparation, onCollected: releaseWorker }))] : []),
-          ...(linux ? [() => timer.run('Linux wall', () => buildLinux({ sourceSha, version, output, timer, platforms }))] : []),
+          ...(windows ? [() => timer.run('Windows wall', () => buildWindows({ sourceSha, version, output, env, timer }))] : []),
+          ...(linux ? [() => timer.run('Linux wall', () => buildLinux({ sourceSha, version, output, env, timer }))] : []),
         ]));
       });
       assertSource();
@@ -330,8 +328,6 @@ async function coordinateRelease(options, { resume, dryRun, skipExtended = false
     if (state?.verified && output) console.error(`Resume after resolving the failure: npm run release -- --resume ${JSON.stringify(path.resolve(output))}`);
     throw error;
   } finally {
-    try { await releaseWorker(); }
-    catch (error) { console.error(`Windows worker cleanup failed: ${error.message}`); process.exitCode = 1; }
     const rows = (await readFile(timingFile, 'utf8')).trim().split('\n').filter(Boolean).map(JSON.parse);
     console.log(`Stage timings: ${timingFile}`);
     console.table(rows);
@@ -348,12 +344,12 @@ if (mode === 'release') {
       const key = option.slice(2);
       if (!args[i + 1] || args[i + 1].startsWith('--') || options[key] !== undefined) throw new Error(`Invalid or repeated ${option}`);
       options[key] = args[++i];
-    } else if (['--dry-run', '--skip-extended'].includes(option) && !flags.has(option)) flags.add(option);
-    else throw new Error('release [--dry-run] [--skip-extended] [--version X.Y.Z] [--platforms mac,windows,linux] [--resume DIR] [--local-output DIR --test-keys DIR]');
+    } else if (['--dry-run', '--with-extended'].includes(option) && !flags.has(option)) flags.add(option);
+    else throw new Error('release [--dry-run] [--with-extended] [--version X.Y.Z] [--platforms mac,windows,linux] [--resume DIR] [--local-output DIR --test-keys DIR]');
   }
   const resume = options.resume !== undefined;
   const dryRun = flags.has('--dry-run');
-  const skipExtended = flags.has('--skip-extended');
+  const withExtended = flags.has('--with-extended');
   if (resume && dryRun) throw new Error('--resume cannot be combined with --dry-run');
   if (options['local-output'] || options['test-keys']) {
     if (!dryRun || !options['local-output'] || !options['test-keys'] || !options.version) {
@@ -363,7 +359,7 @@ if (mode === 'release') {
     base = releaseBase();
     await localRehearsal(options['local-output'], options['test-keys'], releasePlatforms(options.platforms));
   } else {
-    await coordinateRelease(options, { resume, dryRun, skipExtended });
+    await coordinateRelease(options, { resume, dryRun, withExtended });
   }
 } else if (mode === 'stage') {
   const [legacyTarget, input, output] = args;

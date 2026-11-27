@@ -2,11 +2,11 @@
 
 [Development](development.md) · [Installation](../installation.md)
 
-Public source and artifacts live in whzxc/agent-remote-control. Formal Git tags and GitHub Releases hold installers, updater archives, latest.json, Homebrew Cask, and checksums. No public npm package is published. Commit/push as authorized; tags, uploads, and Releases require explicit authorization. Building does not require a tag. Linux builds require the source commit pushed to main before dispatch.
+Public source and artifacts live in whzxc/agent-remote-control. Formal Git tags and GitHub Releases hold installers, updater archives, latest.json, Homebrew Cask, and checksums. No public npm package is published. Commit/push as authorized; tags, uploads, and Releases require explicit authorization. Building does not require a tag.
 
 ## Prerequisites and signing
 
-The default release selects macOS ARM64 on the Apple Silicon Mac coordinator and Windows x64 on the exclusive on-demand worker. An unqualified release request uses only these desktop platforms. Include Linux only when the user explicitly requests all platforms or Linux. Default desktop releases do not check, prepare, build, or validate Linux. The coordinator requires Node.js 24.12+, Go from go.mod, full Xcode 26+, npm dependencies, and authenticated gh for formal publication. Explicit Linux builds also require gh access to dispatch and download Actions artifacts; Linux-only builds do not require signing keys.
+The Apple Silicon Mac coordinator builds every selected platform locally in isolated clean checkouts (`release-artifacts/.macos-source`, `.windows-source`, `.linux-source`) without external build workers or GitHub Actions runners. An unqualified release selects macOS ARM64 and Windows x64 only; include Linux only when the user explicitly requests all platforms or Linux (`--platforms mac,windows,linux` or `--platforms linux`). The coordinator requires Node.js 24.12+, Go from `go.mod`, full Xcode 26+ (for macOS), local NSIS `makensis` (for Windows cross-packaging, e.g. `brew install makensis`), npm dependencies, and authenticated `gh` for formal publication. Linux-only builds do not require signing keys or Xcode.
 
 Desktop releases publish signed MyGo feeds named `update-darwin-arm64.json` and `update-windows-amd64.json` for the macOS app archive and Windows installed-file archive. They also publish `latest.json` for installed ARC 0.9.53 and 0.9.54 Tauri clients. That feed points to the macOS app archive and raw Windows NSIS EXE with Base64-wrapped Minisign sidecars. All feed payload URLs are version-pinned.
 
@@ -14,30 +14,16 @@ The Mac release coordinator uses the following signing inputs.
 
 - Release preflight compares `ARC_TAURI_UPDATE_PUBLIC_KEY` with the shipped legacy public key pinned in `tooling/release-signing.mjs`. `TAURI_SIGNING_PRIVATE_KEY_FILE` points to its matching external Minisign secret. Set `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` for an encrypted key.
 - `ARC_MYGO_UPDATE_PUBLIC_KEY` contains the MyGo Ed25519 public key in Base64. The build embeds the same key in MyGo and ARC's download check. `ARC_MYGO_UPDATE_PRIVATE_KEY_FILE` points to its matching external Base64 Ed25519 secret. An authorized key owner can provision the pair with `mygo keygen`.
-- Windows receives only the MyGo public key. It returns the unsigned NSIS EXE and the archive of installed files, each bound to its digest in the build receipt. The coordinator signs and verifies both formats.
 
-The Go verifier checks the corresponding key pairs, signs payloads, and verifies both feeds before publication. Keep the legacy feed available at the existing latest-release URL.
+The Go verifier checks the corresponding key pairs, verifies cross-compiled Windows PE64 and static Linux ELF64 binaries (`CGO_ENABLED=0`, target architecture, no dynamic loader/GLIBC dependencies, and embedded release version), signs payloads, and verifies both feeds before publication. Keep the legacy feed available at the existing latest-release URL.
 
-Packaged macOS builds use the fixed self-signed identity from tooling/macos-signing.mjs. APPLE_SIGNING_IDENTITY may select only that identity or its fingerprint. Missing certificate/private key, ad-hoc selection, or another identity fails without selecting a company Team. Package checks validate Desktop/Core/screen-helper certificates and identifiers. Keep the original certificate and private key in the Mac keychain; do not regenerate a same-name certificate or export it to workers or GitHub Secrets. Hardened runtime is enabled; Apple notarization and timestamping are not used. First-launch Gatekeeper restrictions are described in Installation.
+Packaged macOS builds use the fixed self-signed identity from tooling/macos-signing.mjs. APPLE_SIGNING_IDENTITY may select only that identity or its fingerprint. Missing certificate/private key, ad-hoc selection, or another identity fails without selecting a company Team. Package checks validate Desktop/Core/screen-helper certificates and identifiers. Keep the original certificate and private key in the Mac keychain; do not regenerate a same-name certificate or export it to GitHub Secrets. Hardened runtime is enabled; Apple notarization and timestamping are not used. First-launch Gatekeeper restrictions are described in Installation.
 
 Production identifiers are com.whzxc.agent-remote-control, .core, and .screen; development uses .dev. Recheck system permissions after identity changes. Updater signatures do not establish OS code-signing identity.
 
-## Linux builds in GitHub Actions
+## Linux cross-builds
 
-Select `--platforms mac,windows,linux` for all platforms, or `--platforms linux` for Linux only. Both Linux architectures are one platform selection. No Mac Linux toolchain or validation VM is required.
-
-The coordinator verifies that its full source SHA is already pushed to main and that `release-linux.yml` is active. It dispatches the workflow from main with the same full SHA, version, platform selection, and a unique request identifier. The workflow verifies that its dispatch commit and checkout match that SHA. Source movement between preflight and dispatch stops the run. Push the intended source before retrying. Linux selection requires Actions access even for a dry run.
-
-The workflow defaults to `mac,windows`, which runs only source/platform planning and skips both Linux jobs. The coordinator dispatches it only when Linux is explicitly selected. It never builds desktops or publishes releases. To inspect platform selection without packaging desktop apps:
-
-```sh
-gh workflow run release-linux.yml --ref main -f source_sha="$(git rev-parse HEAD)" -f version=X.Y.Z
-gh workflow run release-linux.yml --ref main -f source_sha="$(git rev-parse HEAD)" -f version=X.Y.Z -f platforms=mac,windows,linux
-```
-
-Linux x86_64 runs on `ubuntu-24.04`; ARM64 runs on `ubuntu-24.04-arm`. Each native runner runs Go vet and builds CGO-free for its native architecture. It checks ELF64 type and machine, executes `--version` and `cli --help`, and verifies that readelf reports no dynamic loader, shared library requirements or GLIBC versions. There is no emulation. Each archive includes arc, LICENSE, skills, and licenses, using the existing GNU installer names and format.
-
-Only successful jobs upload their archive and a receipt binding the source SHA, version, architecture, checksum, and runtime checks. The coordinator waits for the complete workflow to succeed, downloads that exact run's artifacts, validates both receipts and downloaded digests, then adds the two archives and matching source install script to the selected release assets. `linux-receipts.json` retains the Actions run URL with those receipts. Failed builds and their logs remain in Actions; downloaded files remain in the release output. The coordinator prints the run URL for recovery. Actions caches are per architecture and GLIBC baseline; no Linux cache or source clone is created on the Mac.
+Select `--platforms mac,windows,linux` for all platforms, or `--platforms linux` for Linux only. Both Linux architectures (`x86_64` and `aarch64`) are built locally on the Mac coordinator in parallel using `CGO_ENABLED=0` Go cross-compilation. The Go verifier inspects each ELF64 binary with `debug/elf` and `debug/buildinfo` to verify architecture, static linkage (no `PT_INTERP`, `DT_NEEDED`, or `GLIBC_` references), and the embedded release version. Each archive includes `arc`, `LICENSE`, `skills`, and `licenses`, using the existing GNU installer names and format, and `linux-receipts.json` records the verified checksums.
 
 ## Routine tests
 
@@ -45,11 +31,9 @@ Only successful jobs upload their archive and a receipt binding the source SHA, 
 npm test
 ```
 
-Normal releases run `npm run test:extended` once as the first release step, before preflight, worker preparation, compilation, packaging or publication. It runs Go vet and tests with both tag sets and the extended native integration suites. A failure prints the failing test names and aborts the release before any build starts. The releasing agent fixes the cause in a separate commit and reruns the release. If the fix needs a product decision or changes the release contract, stop and ask the user.
+Normal releases skip `npm run test:extended` by default and run the daily suite (`npm test`, 30-second budget) plus cached desktop UI smoke checks (`npm run accept:ui`) before concurrent local platform builds. Pass `--with-extended` when a release should also run the full Go and native integration suite before preflight. See [Testing](testing.md) for the daily and extended scopes.
 
-The release later runs the daily suite through `npm test`, including policy checks, frozen MCP catalog contracts, pure logic and bounded DOM fixtures. The complete daily step has a 30-second wall-clock budget. See [Testing](testing.md) for the daily scope and explicit extended checks.
-
-The daily suite runs once in the release command before platform compilation, so a test failure stops the run early and tests do not compete with compilers for CPU. Worker readiness may overlap this step. Do not run a separate daily suite immediately before release without changing its inputs. Desktop releases then run the cached browser smoke suite described in [Acceptance](acceptance.md). Add affected UI scenarios during development; a release does not require a full UI matrix. Passing layout cases survive retries while their inputs are unchanged. Tests use development version 0.0.0 inside and outside release; artifact validation separately checks the requested release version. Any failure or test-budget timeout blocks publication. Resume uses its verified publication checkpoint and does not run tests or builds.
+Do not run a separate daily suite immediately before release without changing its inputs. Tests use development version 0.0.0 inside and outside release; artifact validation separately checks the requested release version. Any failure or test-budget timeout blocks publication. Resume uses its verified publication checkpoint and does not run tests or builds.
 
 ## Commands and publication boundaries
 
@@ -68,15 +52,11 @@ npm run release -- --resume release-artifacts/vX.Y.Z-<suffix>
 
 Use a clean main checkout that is not behind its remote. Preflight validates source, signing, branch, and publication permissions and selects a version newer than public releases. ARC_BUILD_VERSION injects it into frontend, Core, Desktop, and installers; source placeholders remain 0.0.0. No version-only commit is created.
 
-The coordinator freezes the same full SHA for each selected platform. Windows readiness starts after preflight validates the release notes and overlaps tests and local builds. Selected macOS, Windows, and Linux Actions builds run concurrently. Source changes during the run fail closed. A unique release-artifacts/v<version>-<suffix> directory holds artifacts and receipts. The coordinator verifies the complete selected platform set, embedded versions, updater signatures, and checksums before tagging or pushing. Formal publication then atomically pushes main/tag, uploads a draft, checks its exact remote inventory and digests, publishes, and reads back the public updater feeds. A rehearsal never enters these mutation stages.
-
-Windows connection/SCNet checkout declarations come from the installed @whzxc/work profile located through enjoy runtime; fleet connections remain in the Enjoy profile. Before acquisition, check SCNet source locks and require both mutually exclusive workers to be stopped and unowned. Preserve and report an occupied or already-running worker. Use enjoy infra execute with proxmox.worker.start/inspect/stop, target k12, a unique owner, and --fresh. Poll until both ssh_reachable and ready are true before Windows SSH. Check guest SCNet locks and build processes again before building. Shutdown requires this run's initial stopped state and retained ownership, including ambiguous start responses.
-
-Transfer a Git bundle into the dedicated clean ordinary Windows checkout, detach at the exact SHA, and preserve the Go compiler and module caches. npm ci is skipped only with a successful installation receipt matching package-lock, package.json, Node/npm versions, platform, and architecture, plus installed lock metadata. Failed installs invalidate the receipt. macOS uses the same dependency receipt rule. Windows returns EXE, version/SHA/architecture/SHA-256 receipt, and stage timings. The Mac validates the downloaded digest before signing. Once artifacts are collected, shutdown starts asynchronously; verification and formal uploads may proceed while it shuts down. The coordinator waits for cleanup and reports its result at the end, including failures. Shutdown is excluded from the artifact critical path.
+The coordinator freezes the same full SHA for each selected platform. Selected macOS, Windows, and Linux builds run concurrently in isolated local checkouts on the Mac coordinator, reusing verified `node_modules` receipts and Go module caches. Source changes during the run fail closed. A unique `release-artifacts/v<version>-<suffix>` directory holds artifacts and receipts. The coordinator verifies the complete selected platform set, PE64/ELF64 headers, static linkage, embedded versions, updater signatures, and checksums before tagging or pushing. Formal publication then atomically pushes `main`/tag, uploads a draft, checks its exact remote inventory and digests, publishes, and reads back the public updater feeds. A rehearsal never enters these mutation stages.
 
 The desktop packager stages the corresponding Go Core and resources, then uses MyGo for the Desktop executable and frontend. macOS keeps the legacy app name, bundle identifier, scheme, executable, native icon and Core/helper paths. Windows NSIS retains current-user installation and the legacy registry and install directory. The macOS package requires macOS 13.0 or later on Apple Silicon.
 
-latest.json contains only the selected desktop platforms from this build. Linux archives and install script are separate assets. Missing updater platforms stay on their prior releases. --platforms accepts a nonduplicated subset of mac,windows,linux; partial publication requires its own new version. Never append to or overwrite a public version, substitute old platform bytes, or publish an incomplete selection. The default selection is mac,windows. Linux Actions runs only for an explicit Linux selection; formal publication remains on the coordinator.
+latest.json contains only the selected desktop platforms from this build. Linux archives and install script are separate assets. Missing updater platforms stay on their prior releases. --platforms accepts a nonduplicated subset of mac,windows,linux; partial publication requires its own new version. Never append to or overwrite a public version, substitute old platform bytes, or publish an incomplete selection. The default selection is mac,windows.
 
 ## Resume
 
@@ -88,7 +68,7 @@ The checkpoint saves draft ID and publish intent before publishing. A lost publi
 
 ## Local release rehearsal
 
-Use a new private evidence directory outside the checkout. The local path runs both desktop builds and the same signing, finalization and verifier as the release path. It uses ad hoc macOS code signing, local NSIS cross-packaging, and the four throwaway updater files. It does not call GitHub or start the release worker.
+Use a new private evidence directory outside the checkout. The local path runs the selected platform builds and the same signing, finalization and verifier as the release path. It uses ad hoc macOS code signing, local NSIS cross-packaging, and the four throwaway updater files. It does not call GitHub.
 
 ```sh
 go run ./tooling/verifier generate-rehearsal-keys /absolute/evidence/test-keys
@@ -104,9 +84,9 @@ npm run release -- --dry-run --version X.Y.Z --platforms mac
 npm run release -- --dry-run --version X.Y.Z --platforms mac,windows,linux
 ```
 
-Rehearsals run the extended gate, the daily suite, cached desktop UI smoke checks and build every selected platform, collect receipts, verify selected Linux runtime checks from Actions, verify Mac package signatures, sign Windows on the Mac, verify updater signatures, and generate the complete local manifest and checksums. Linux jobs upload workflow artifacts for coordinator collection. No tag, source push, draft, public Release, Release asset upload, app installation, or replacement occurs. No publication checkpoint is created.
+Rehearsals run the daily suite, cached desktop UI smoke checks, and build every selected platform locally, collect receipts, verify macOS package signatures and cross-compiled Windows PE64 / static Linux ELF64 binaries, sign updater payloads, verify updater signatures, and generate the complete local manifest and checksums. No tag, source push, draft, public Release, Release asset upload, app installation, or replacement occurs. No publication checkpoint is created.
 
-Each stage prints START/END, status, seconds, and timestamped JSONL under release-artifacts/.timings-<suffix>/. Platform wall and platform critical-path timers cover concurrent builds; build/test critical path covers daily tests and desktop UI smoke checks followed by concurrent platform builds. Worker readiness overlaps preflight/work, and cleanup is a separate background stage. Nested durations must not be added. Overall wall includes final cleanup; formal publication timings include tagging, upload, verification, publish, and readback. Windows sends its detailed dependency/Go/MyGo/NSIS timers back to the coordinator. Each asset records separate prepare and upload stages; prepare includes the draft check and any incomplete-asset deletion. Upload records the artifact byte size and, on success, bytesPerSecond measured over the binary HTTP request. Skipped transfers have a skipped upload stage and no transfer rate. These timings distinguish API overhead from transfer time; they do not predict a future network speed. Receipts and timings are not public assets.
+Each stage prints START/END, status, seconds, and timestamped JSONL under release-artifacts/.timings-<suffix>/. Platform wall and platform critical-path timers cover concurrent local builds; build/test critical path covers daily tests and desktop UI smoke checks followed by concurrent platform builds. Nested durations must not be added. Formal publication timings include tagging, upload, verification, publish, and readback. Each asset records separate prepare and upload stages; prepare includes the draft check and any incomplete-asset deletion. Upload records the artifact byte size and, on success, bytesPerSecond measured over the binary HTTP request. Skipped transfers have a skipped upload stage and no transfer rate. These timings distinguish API overhead from transfer time; they do not predict a future network speed. Receipts and timings are not public assets.
 
 stage/finalize verify existing staged inputs and create metadata. Download URLs, manifest versions, signatures, checksums, and embedded versions must agree. Building is separate from installed-app acceptance.
 

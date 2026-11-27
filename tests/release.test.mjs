@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { boundedMap, ghOptions, transferOptions, platformAssetNames, publicationStages,
   publishedTags, releaseByTag, uploadReleaseAsset, fileDigest, retry, stageTimer, validateResume, validateRemoteAssets, validateArtifactInventory, parallelPlatforms, dependencyEnv, releasePlatforms } from '../tooling/release-support.mjs';
-import { workerReady, canStopWorker, validateWindowsReceipt, workProfileRoot } from '../tooling/windows-release.mjs';
+import { validateWindowsReceipt } from '../tooling/windows-release.mjs';
 import { inputKey, dependenciesMatch } from '../tooling/build-cache.mjs';
 import { testEnvironment } from '../tooling/test-environment.mjs';
 import { validateLinuxElf, validateLinuxReceipt } from '../tooling/linux-release.mjs';
@@ -47,13 +47,13 @@ test('ordinary releases select desktops and Linux requires an explicit selection
   assert.ok(all.includes('agent-remote-control-v1.2.3-linux-aarch64.tar.gz'));
 });
 
-test('Linux receipts bind source version architecture bytes and native runtime checks', () => {
-  // Algorithmic core: collected Linux payloads must match every requested identity and runtime invariant.
+test('Linux receipts bind source version architecture bytes and static linkage', () => {
+  // Algorithmic core: collected Linux payloads must match every requested identity and static-linkage invariant.
   const request = { sourceSha: 'a'.repeat(40), version: '1.2.3', arch: 'aarch64', digest: 'sha256:abc' };
-  const receipt = { ...request, file: 'agent-remote-control-v1.2.3-linux-aarch64.tar.gz', sha256: 'abc', glibcBaseline: '2.28', runtimeVersion: '1.2.3', runtimeHelp: true };
+  const receipt = { ...request, file: 'agent-remote-control-v1.2.3-linux-aarch64.tar.gz', sha256: 'abc', glibcBaseline: '2.28', linkage: 'static' };
   assert.doesNotThrow(() => validateLinuxReceipt(receipt, request));
   for (const patch of [{ sourceSha: 'b'.repeat(40) }, { version: '1.2.4' }, { arch: 'x86_64' }, { sha256: 'def' },
-    { file: '../other.tar.gz' }, { glibcBaseline: '2.39' }, { runtimeVersion: '0.0.0' }, { runtimeHelp: false }]) {
+    { file: '../other.tar.gz' }, { glibcBaseline: '2.39' }, { linkage: 'dynamic' }]) {
     assert.throws(() => validateLinuxReceipt({ ...receipt, ...patch }, request));
   }
 });
@@ -106,29 +106,6 @@ test('dependency installs reread npmrc script policy without mutating the parent
   const env = { npm_config_allow_scripts: 'esbuild', NPM_CONFIG_ALLOW_SCRIPTS: 'esbuild', PATH: '/tools', npm_config_registry: 'https://example.com' };
   assert.deepEqual(dependencyEnv(env), { PATH: '/tools', npm_config_registry: 'https://example.com' });
   assert.equal(env.npm_config_allow_scripts, 'esbuild');
-});
-
-test('Windows worker uses the Work package profile or explicit override', () => {
-  // Recurring bug class: Work profiles live under its personal profile directory, not Enjoy's profile directory.
-  assert.equal(workProfileRoot('/work/dist'), path.join('/work/dist', 'profiles', 'personal'));
-  assert.equal(workProfileRoot('/work/dist', '/custom/profiles'), '/custom/profiles');
-});
-
-test('worker readiness requires power SSH and ready signals together', () => {
-  // Algorithmic core: running alone never authorizes SSH.
-  const ready = { status: 'running', ssh_reachable: 'true', ready: 'true' };
-  assert.equal(workerReady(ready), true);
-  assert.equal(workerReady({ ...ready, ssh_reachable: true, ready: true }), true);
-  for (const invalid of [{ ...ready, status: 'stopped' }, { ...ready, ready: 'false' }, { ...ready, ssh_reachable: false }, {}]) assert.equal(workerReady(invalid), false);
-});
-
-test('shutdown requires the original stopped worker and current ownership', () => {
-  // Algorithmic core: another invocation or a previously running worker cannot be shut down.
-  const current = { owner: 'mine', owner_worker: 'windows' };
-  assert.equal(canStopWorker({ status: 'stopped' }, current, 'mine'), true);
-  assert.equal(canStopWorker({ status: 'running' }, current, 'mine'), false);
-  assert.equal(canStopWorker({ status: 'stopped' }, current, 'other'), false);
-  assert.equal(canStopWorker({ status: 'stopped' }, { ...current, owner_worker: 'linux' }, 'mine'), false);
 });
 
 test('Windows receipts bind version full SHA architecture filename and transferred bytes', () => {

@@ -2,9 +2,13 @@
 package main
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
+	"debug/buildinfo"
+	"debug/elf"
+	"debug/pe"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -29,7 +33,7 @@ func run(args []string) error {
 		return generateKeys(args[1])
 	}
 	if len(args) < 2 {
-		return errors.New("Usage: verifier <check-keys|sign-tauri|verify-tauri|sign-mygo|verify-mygo> <version> [artifact | artifact signature]")
+		return errors.New("Usage: verifier <check-keys|sign-tauri|verify-tauri|sign-mygo|verify-mygo|verify-windows|verify-linux> <version> [artifact | artifact signature]")
 	}
 	switch args[0] {
 	case "check-keys":
@@ -81,9 +85,105 @@ func run(args []string) error {
 		}
 		fmt.Println("Verified MyGo archive signature.")
 		return nil
+	case "verify-windows":
+		if len(args) < 3 {
+			return errors.New("Provide at least one Windows x64 PE executable")
+		}
+		for _, file := range args[2:] {
+			if err := verifyWindowsBinary(file, args[1]); err != nil {
+				return fmt.Errorf("%s: %w", filepath.Base(file), err)
+			}
+		}
+		fmt.Printf("Verified %d Windows x64 binary(s).\n", len(args)-2)
+		return nil
+	case "verify-linux":
+		if len(args) != 4 {
+			return errors.New("Usage: verifier verify-linux <version> <x86_64|aarch64> <binary>")
+		}
+		if err := verifyLinuxBinary(args[3], args[2], args[1]); err != nil {
+			return fmt.Errorf("%s: %w", filepath.Base(args[3]), err)
+		}
+		fmt.Printf("Verified static Linux %s binary.\n", args[2])
+		return nil
 	default:
 		return errors.New("Unknown verifier operation")
 	}
+}
+
+func checkBuildInfo(path, wantOS, wantArch, version string) error {
+	info, err := buildinfo.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("cannot read Go build info: %w", err)
+	}
+	settings := map[string]string{}
+	for _, s := range info.Settings {
+		settings[s.Key] = s.Value
+	}
+	if settings["GOOS"] != wantOS || settings["GOARCH"] != wantArch {
+		return fmt.Errorf("expected Go target %s/%s, got %s/%s", wantOS, wantArch, settings["GOOS"], settings["GOARCH"])
+	}
+	if settings["CGO_ENABLED"] != "0" {
+		return fmt.Errorf("expected CGO_ENABLED=0, got %q", settings["CGO_ENABLED"])
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	if !bytes.Contains(data, []byte(version)) {
+		return fmt.Errorf("embedded version %s not found in binary", version)
+	}
+	return nil
+}
+
+func verifyWindowsBinary(path, version string) error {
+	f, err := pe.Open(path)
+	if err != nil {
+		return fmt.Errorf("invalid PE binary: %w", err)
+	}
+	machine := f.Machine
+	_ = f.Close()
+	if machine != pe.IMAGE_FILE_MACHINE_AMD64 {
+		return fmt.Errorf("expected Windows x86_64 PE (0x8664), got 0x%x", machine)
+	}
+	return checkBuildInfo(path, "windows", "amd64", version)
+}
+
+func verifyLinuxBinary(path, arch, version string) error {
+	var wantMachine elf.Machine
+	var wantGoArch string
+	switch arch {
+	case "x86_64":
+		wantMachine, wantGoArch = elf.EM_X86_64, "amd64"
+	case "aarch64":
+		wantMachine, wantGoArch = elf.EM_AARCH64, "arm64"
+	default:
+		return fmt.Errorf("unsupported Linux arch %q", arch)
+	}
+	f, err := elf.Open(path)
+	if err != nil {
+		return fmt.Errorf("invalid ELF binary: %w", err)
+	}
+	defer f.Close()
+	if f.Class != elf.ELFCLASS64 || f.Data != elf.ELFDATA2LSB ||
+		(f.Type != elf.ET_EXEC && f.Type != elf.ET_DYN) || f.Machine != wantMachine {
+		return fmt.Errorf("expected little-endian Linux %s ELF64 executable", arch)
+	}
+	for _, prog := range f.Progs {
+		if prog.Type == elf.PT_INTERP {
+			return errors.New("Linux Core must be statically linked (unexpected PT_INTERP)")
+		}
+	}
+	if libs, err := f.ImportedLibraries(); err == nil && len(libs) > 0 {
+		return fmt.Errorf("Linux Core must not require shared libraries: %v", libs)
+	}
+	if syms, err := f.DynamicSymbols(); err == nil {
+		for _, sym := range syms {
+			if strings.Contains(sym.Version, "GLIBC_") || strings.Contains(sym.Library, "libc.so") {
+				return fmt.Errorf("Linux Core must be independent of system libc (%s)", sym.Version)
+			}
+		}
+	}
+	return checkBuildInfo(path, "linux", wantGoArch, version)
 }
 
 func publicBytes(variable string, length int) ([]byte, error) {

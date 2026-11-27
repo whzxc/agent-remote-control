@@ -120,7 +120,6 @@ tests/release-notes.test.ts	the archived MCP Events notice appears in its origin
 tests/release.test.mjs	release notes generate both languages from the same version entries
 tests/release.test.mjs	ordinary releases select desktops and Linux requires an explicit selection
 tests/release.test.mjs	dependency installs reread npmrc script policy without mutating the parent environment
-tests/release.test.mjs	Windows worker uses the Work package profile or explicit override
 tests/release.test.mjs	exact release lookup treats only GitHub HTTP 404 as an absent tag
 tests/release.test.mjs	release lookup recovers a draft omitted by the tag endpoint across bounded pages
 tests/release.test.mjs	release lookup refuses ambiguous drafts and preserves fallback permission failures
