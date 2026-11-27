@@ -1,2 +1,1 @@
-
-.settings-group[data-subtle] > h2 { font-size: var(--text-small); font-weight: var(--weight-strong); color: var(--text-secondary); }
+/* Migrated to Tailwind utilities in PermissionsPageView; removed in Wave 5 cleanup. */

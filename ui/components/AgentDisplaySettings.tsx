@@ -1,11 +1,18 @@
-import { readOnlyBrowser } from "../browserMode";
 import { useState } from "react";
+import { readOnlyBrowser } from "../browserMode";
 import { t } from "../i18n";
-import { subscriptions, saveSubscriptions } from "../state/subscriptions";
-import { quotaDisplay, topologyLayout, type LayoutPreference, resetDisplay, maxVisibleAgents } from "../subscriptions/displayPreferences";
+import { saveSubscriptions, subscriptions } from "../state/subscriptions";
+import {
+  maxVisibleAgents,
+  quotaDisplay,
+  resetDisplay,
+  topologyLayout,
+  type LayoutPreference,
+} from "../subscriptions/displayPreferences";
 import AgentDispatchDefaults from "./AgentDispatchDefaults";
-import { Notice, SingleChoice, Switch } from "./ui";
-import { SettingsDialog as Dialog, SettingsSection as Group, Setting as Row } from "./ui/Settings";
+import { DisplaySettingsView } from "./settings/DisplaySettingsView";
+import { SettingsDialog as Dialog } from "./ui/Settings";
+
 export default function AgentDisplaySettings({
   onClose,
   agent,
@@ -14,96 +21,59 @@ export default function AgentDisplaySettings({
   /** The Agent whose panel opened these settings. */
   agent?: string;
 }) {
-  const { snapshot } = subscriptions.use(),
-    layout = topologyLayout.use(), quota = quotaDisplay.use(),
-    reset = resetDisplay.use(),
-    max = maxVisibleAgents.use();
+  const { snapshot } = subscriptions.use();
+  const layout = topologyLayout.use();
+  const quota = quotaDisplay.use();
+  const reset = resetDisplay.use();
+  const max = maxVisibleAgents.use();
   const [defaultsBusy, setDefaultsBusy] = useState(false);
-  const [saving, setSaving] = useState(false),
-    [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
   async function save(action: () => Promise<unknown>) {
     setSaving(true);
     setError("");
     try {
       await action();
-    } catch (e) {
-      setError(String(e));
+    } catch (failure) {
+      setError(String(failure));
     } finally {
       setSaving(false);
     }
   }
-  return (
-    <Dialog title={t("agentDisplaySettings")} onClose={onClose} busy={saving || defaultsBusy}>
-      <div className="settings-stack display-settings">
-      {error && <Notice>{error}</Notice>}
-      {agent && <AgentDispatchDefaults agent={agent} onBusy={setDefaultsBusy} />}
-      <Group title={t("usageAppearance")}>
-        <Row title={t("topology.layout")}><SingleChoice fill label={t("topology.layout")} value={layout}
-          onChange={value => topologyLayout.set(value as LayoutPreference)}
-          options={['auto', 'landscape', 'portrait'].map(value => ({ value, label: t(`topology.layout.${value}`) }))} /></Row>
-        <Row title={t("agentsMaxVisible")} width={200}>
-          <SingleChoice fill
-            value={String(max)}
-            onChange={(value) => maxVisibleAgents.set(Number(value))}
-            label={t("agentsMaxVisible")}
-            options={["4", "6", "8", "10"].map((value) => ({
-              value,
-              label: value,
-            }))}
-          />
-        </Row>
-      </Group>
-      <Group title={t("agentQuotaGroup")}>
-        <Row toggle title={t("usageEnabled")}>
-          <Switch label={t("usageEnabled")} checked={!!snapshot?.settings.enabled}
-            disabled={readOnlyBrowser || saving || !snapshot}
-            onChange={(enabled) => void save(() => saveSubscriptions({ enabled }))} />
-        </Row>
-        <Row title={t("agentQuotaDisplay")} width={220}>
-          <SingleChoice fill
-            value={quota}
-            onChange={(value) =>
-              quotaDisplay.set(value as "remaining" | "used")
-            }
-            label={t("agentQuotaDisplay")}
-            options={[
-              { value: "remaining", label: t("usageRemaining") },
-              { value: "used", label: t("usageUsed") },
-            ]}
-          />
-        </Row>
-        <Row title={t("agentResetDisplay")}>
-          <SingleChoice fill
-            value={reset}
-            onChange={(value) =>
-              resetDisplay.set(value as "countdown" | "time")
-            }
-            label={t("agentResetDisplay")}
-            options={[
-              { value: "countdown", label: t("usageCountdown") },
-              { value: "time", label: t("usageResetTime") },
-            ]}
-          />
-        </Row>
 
-        <Row title={t("usageAutoRefresh")}>
-          <SingleChoice fill
-            value={String(snapshot?.settings.refreshMinutes ?? 3)}
-            onChange={(value) =>
-              void save(() =>
-                saveSubscriptions({ refreshMinutes: Number(value) }),
-              )
-            }
-            label={t("usageAutoRefresh")}
-            disabled={readOnlyBrowser || saving || !snapshot}
-            options={["1", "3", "5", "10"].map((value) => ({
-              value,
-              label: `${value} min`,
-            }))}
-          />
-        </Row>
-      </Group>
-      </div>
+  return (
+    <Dialog
+      title={t("agentDisplaySettings")}
+      onClose={onClose}
+      busy={saving || defaultsBusy}
+    >
+      <DisplaySettingsView
+        error={error || undefined}
+        dispatchDefaultsSlot={
+          agent ? (
+            <AgentDispatchDefaults agent={agent} onBusy={setDefaultsBusy} />
+          ) : undefined
+        }
+        layout={layout}
+        onLayoutChange={(value) => topologyLayout.set(value as LayoutPreference)}
+        maxVisibleAgents={max}
+        onMaxVisibleAgentsChange={(value) => maxVisibleAgents.set(value)}
+        quotaEnabled={!!snapshot?.settings.enabled}
+        quotaDisabled={readOnlyBrowser || saving || !snapshot}
+        onQuotaEnabledChange={(enabled) =>
+          void save(() => saveSubscriptions({ enabled }))
+        }
+        quotaDisplay={quota}
+        onQuotaDisplayChange={(value) => quotaDisplay.set(value)}
+        resetDisplay={reset}
+        onResetDisplayChange={(value) => resetDisplay.set(value)}
+        refreshMinutes={snapshot?.settings.refreshMinutes ?? 3}
+        refreshDisabled={readOnlyBrowser || saving || !snapshot}
+        onRefreshMinutesChange={(refreshMinutes) =>
+          void save(() => saveSubscriptions({ refreshMinutes }))
+        }
+      />
     </Dialog>
   );
 }
