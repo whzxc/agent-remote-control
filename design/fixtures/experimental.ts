@@ -32,22 +32,6 @@ export const experiments = [
     ],
     checked: false,
   },
-  {
-    title: "Pets",
-    description: [
-      "Show interactive pets on Home and choose",
-      "a character for each node.",
-    ],
-    checked: false,
-  },
-  {
-    title: "Studio display",
-    description: [
-      "Show the date, time and task activity with day and night",
-      "lighting and full-screen controls.",
-    ],
-    checked: false,
-  },
 ];
 
 export const copy = {

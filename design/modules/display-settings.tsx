@@ -1,7 +1,3 @@
-import {InspectionPopover} from '../components/inspection-popover';
-import {SingleChoice} from '../components/single-choice';
-import {Button} from '../components/button';
-
 import { copy, samples } from '../fixtures/display-settings';
 
 
@@ -62,10 +58,7 @@ export function Display() {
   );
 }
 export default () => [
-  <Frame name="studio-settings" width={316}><StudioSettings/></Frame>,
   <Frame name="display-content" width={672}>
     <div className="w-full bg-surface-raised"><DisplayContent  /></div>
   </Frame>,
 ];
-
-function StudioSettings() {return <InspectionPopover variant="studio" className="grid gap-4 w-[316px] p-[18px] border border-border rounded-panel bg-surface text-text shadow-md"><SingleChoice label="Lighting" value="day" options={[{value:'day',label:'Day',icon:'sun'},{value:'night',label:'Night',icon:'moon'}]}/><Button icon="expand">Fullscreen</Button></InspectionPopover>;}

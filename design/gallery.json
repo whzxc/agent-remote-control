@@ -23,7 +23,6 @@
         "components/settings-row.tsx",
         "components/record-detail.tsx",
         "components/entity-inventory.tsx",
-        "components/inspection-popover.tsx",
         "components/project-path.tsx",
         "components/notice.tsx",
         "components/quota.tsx",
@@ -96,7 +95,6 @@
         "modules/display-settings.tsx",
         "modules/permissions.tsx",
         "modules/experimental.tsx",
-        "modules/pets.tsx",
         "modules/updates.tsx",
         "modules/layer-content.tsx"
       ]
@@ -149,7 +147,6 @@
       "assets": [
         "surfaces/settings.tsx",
         "surfaces/permissions.tsx",
-        "surfaces/pets-settings.tsx",
         "surfaces/updates.tsx",
         "surfaces/layers.tsx"
       ]

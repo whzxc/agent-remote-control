@@ -7,7 +7,6 @@
   "tasks": [],
   "page": "overview",
   "coordination": "ax-unavailable",
-  "studio": "day",
   "viewports": [
     {
       "width": 1280,
@@ -15,5 +14,6 @@
     }
   ],
   "clock": "2026-11-05T06:32:00Z",
-  "timezone": "Asia/Shanghai"
+  "timezone": "Asia/Shanghai",
+  "bothThemes": true
 }

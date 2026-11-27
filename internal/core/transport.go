@@ -65,9 +65,6 @@ func localHandler(target transportTarget, port int, token string) http.Handler {
 			}
 		}
 		var limit int64 = 16 * 1024 * 1024
-		if r.URL.Path == "/api/pets/import" {
-			limit = 35 * 1024 * 1024
-		}
 		request := http.NewResponseController(w)
 		_ = request.SetReadDeadline(time.Now().Add(5 * time.Second))
 		data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, limit))

@@ -2,7 +2,6 @@
 @import "./components/ui/Feedback.css";
 @import "./components/navigation/NavCapsule.css";
 @import "./components/ui/GraphNode.css";
-@import "./components/ui/InspectionPopover.css";
 @import "./components/permissions/PermissionRow.css";
 @import "./components/ui/SetupFlow.css";
 @import "./components/activity/SourceMark.css";

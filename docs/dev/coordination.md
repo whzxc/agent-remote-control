@@ -328,10 +328,9 @@ upstream observer checkpoint. No new polling task is added.
 
 ## Desktop Board
 
-The homepage's entire activity row opens the read-only Board dialog. With Studio
-enabled, the row sits below the clock and date. Without Studio, the row remains
-available at the top of the homepage. The navigation capsule has no Board entry.
-Studio's running and pending-input counts retain their task-only meaning.
+The homepage's entire activity row opens the read-only Board dialog at the top of the
+homepage. The navigation capsule has no Board entry. Its running and pending-input
+counts retain their task-only meaning.
 
 `ui/coordination` owns bounded query results and view state. Current groups running
 tasks and published intent, resource blockers, and outstanding owner actions.

@@ -1,8 +1,6 @@
 import { EntitySection, EntityCard } from './ui/EntityInventory';
 import { PanelHeader } from "./ui/Panel";
 import { useCallback, useState, type ReactNode } from 'react';
-import PetPicker from '../pets/PetPicker';
-import { controlSourcePlatform } from '../controlSources';
 import { Plus, RefreshCw, Settings, X } from 'lucide-react';
 import { t } from '../i18n';
 import { resolveAgentQuota } from '../state/quota';
@@ -34,7 +32,6 @@ export default function AgentPlatformView({ agent, onSettings, widthControl }: {
       <div className="agent-panel-heading"><h2>{name(agent)}</h2></div>
       <div className="actions">
         {canLogin && <Button data-add-agent-account onClick={() => setLogin({})}><Icon icon={Plus} />{t('accounts.addAgentAccount')}</Button>}
-        <PetPicker scope={`agent:${agent.agent}`} name={name(agent)} platform={controlSourcePlatform(agent.agent).id} />
         {widthControl}
         <DialogClose asChild><IconButton icon={X} label={t('close')} /></DialogClose>
       </div>

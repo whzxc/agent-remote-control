@@ -2,12 +2,11 @@ import { useSubmittedDirty } from "../ui/useSubmittedDirty";
 import { usePanelState } from "../ui/Panel";
 import { useDialogCompletion } from "../ui/Dialog";
 import { readOnlyBrowser } from "../../browserMode";
-import PetPicker from '../../pets/PetPicker';
 import { useId, useRef, useState } from 'react';
 import { Check, Pencil, Trash2, X } from 'lucide-react';
 import { api } from '../../api';
 import { locale, t } from '../../i18n';
-import { controlSource, controlSourcePlatform } from '../../controlSources';
+import { controlSource } from '../../controlSources';
 import { connector, refreshConnector } from '../../state/connector';
 import { sourceDate } from '../../sourcePresentation';
 import type { ControlSource } from '../../state/types';
@@ -74,7 +73,6 @@ export default function ConnectorCard({ source }: { source: ControlSource }) {
       {editing && <span className="connector-state" data-connected={source.state === 'connected' || undefined}>{t(`source.state.${source.state}`)}</span>}
       <div className="connector-actions">
       {!editing && <IconButton compact ref={editTrigger} disabled={readOnlyBrowser || busy} icon={Pencil} label={t('platforms.rename', { name: source.label })} onClick={() => { setLabel(source.label); setError(''); setEditing(true); }} />}
-      <PetPicker scope={`source:${source.id}`} name={source.label} platform={controlSourcePlatform(source.product).id} />
       <IconButton compact icon={Trash2} disabled={readOnlyBrowser || editing || busy} label={t('platforms.remove', { name: source.label })} onClick={() => { setError(''); setRemoving(true); }} />
       </div>
     </div></CardHeader>

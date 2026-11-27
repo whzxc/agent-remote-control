@@ -1,7 +1,6 @@
 {
   "theme": "light",
   "language": "zh-CN",
-  "studio": "day",
   "agents": [
     "claude",
     "codex"
@@ -76,5 +75,6 @@
       "headline": "Configuration ready",
       "completed": true
     }
-  ]
+  ],
+  "bothThemes": true
 }

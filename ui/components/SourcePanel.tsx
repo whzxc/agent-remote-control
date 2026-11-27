@@ -1,4 +1,3 @@
-import PetPicker from '../pets/PetPicker';
 import type { ReactNode } from 'react';
 import { controlSourcePlatform } from '../controlSources';
 import { isLocalSource } from '../sourcePresentation';
@@ -16,7 +15,7 @@ export default function SourcePanel({ source, widthControl }: { source: ControlS
   return <>
     <SourcePanelHeader title={label}
       brand={<Button variant="link" aria-label={platform.displayName} onClick={() => { selectSourcePlatform(platform.id); navigation.set(old => ({ ...old, page: 'overview', remoteSourceId: undefined })); }}><SourceIcon platform={platform.id} /></Button>}
-      actions={<><PetPicker scope={`source:${source.id}`} name={label} platform={platform.id} />{widthControl}</>} />
+      actions={widthControl} />
     <div className="agent-view-scroll"><SourceDispatches sourceId={source.id} /></div>
   </>;
 }

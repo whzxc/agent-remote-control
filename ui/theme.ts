@@ -1,4 +1,3 @@
-import { studioTone } from './display/state';
 import { appEnvironment, envOverrides } from "./state/appEnvironment";
 import { createStore, preference } from "./state/store";
 import { isDesktop } from "./platform";
@@ -31,11 +30,7 @@ export const dark = createStore(system.matches);
 let hostDark: boolean | undefined;
 function applyTheme() {
   const value = theme.get();
-  const studio = studioTone.get();
-  const resolved = studio ? studio === "night" :
-    envOverrides().colorScheme ? envOverrides().colorScheme === "dark" : value === "system" ? (hostDark ?? system.matches) : value === "dark";
-  if (studio) document.documentElement.dataset.studioPhase = studio;
-  else delete document.documentElement.dataset.studioPhase;
+  const resolved = envOverrides().colorScheme ? envOverrides().colorScheme === "dark" : value === "system" ? (hostDark ?? system.matches) : value === "dark";
   dark.set(resolved);
   document.documentElement.dataset.theme = resolved ? "dark" : "light";
   document.documentElement.style.colorScheme = resolved ? "dark" : "light";
@@ -57,7 +52,6 @@ function applyTheme() {
 }
 appEnvironment.subscribe(applyTheme);
 theme.subscribe(applyTheme);
-studioTone.subscribe(applyTheme);
 themeColor.subscribe(applyTheme);
 system.addEventListener("change", () => {
   hostDark = undefined;

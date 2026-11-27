@@ -69,17 +69,6 @@ export const checks = [
             const { page, fixture, name, root } = context;
             let { model } = context;
             try {
-                if (fixture.settingsExtras) {
-                    // Regression: experimental pets were exposed as a primary navigation page.
-                    const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
-                    await page.getByRole('radio', { name: messages['topology.experimental'] }).click();
-                    const pets = page.getByRole('switch', { name: messages['pets.show'], exact: true });
-                    const studio = page.getByRole('switch', { name: messages['studio.enabled'], exact: true });
-                    if (await pets.isChecked() !== !!fixture.pets || await studio.isChecked() !== !!fixture.studio)
-                        throw new Error('Experimental defaults differ from fixture preferences');
-                    await pets.click();
-                    await pets.click();
-                }
                 if (name === 'settings-about-light') {
                     const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
                     const label = messages['desktopRecovery.setting'];

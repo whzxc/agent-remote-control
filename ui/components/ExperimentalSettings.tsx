@@ -8,14 +8,11 @@ import { SettingsSection as Group, Setting as Row, SettingLine } from "./ui/Sett
 import { api } from "../api";
 import { connector, run } from "../state/connector";
 import { acceptPreferences, maintainerMode } from "../state/store";
-import { showPets } from "../pets/state";
-import { studioEnabled } from "../display/state";
 import { relayHostingEnabled } from "../state/relay";
 
 export default function ExperimentalSettings() {
   const mcp = mcpHubEnabled.use(), devices = deviceLinkEnabled.use();
   const tuning = topologyTuningEnabled.use(), hosting = relayHostingEnabled.use();
-  const pets = showPets.use(), studio = studioEnabled.use();
   const maintainer = maintainerMode.use(), { busy, status } = connector.use();
   async function saveMaintainer(enabled: boolean) {
     await run("maintainer-mode", async () => {
@@ -51,12 +48,6 @@ export default function ExperimentalSettings() {
   </Group><Group>
     <Row toggle title={t("topology.tuning")} description={t("topology.settingDescription")}>
       <Switch label={t("topology.tuning")} checked={tuning} onChange={topologyTuningEnabled.set} />
-    </Row>
-    <Row toggle title={t("pets.title")} description={t("pets.showDescription")}>
-      <Switch label={t("pets.show")} checked={pets} onChange={showPets.set} />
-    </Row>
-    <Row toggle title={t("studio.enabled")} description={t("studio.enabledDescription")}>
-      <Switch label={t("studio.enabled")} checked={studio} onChange={studioEnabled.set} />
     </Row>
   </Group></div>;
 }

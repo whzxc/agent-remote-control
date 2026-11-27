@@ -4,8 +4,6 @@ import { Tooltip as HoverHelp } from "./ui/index";
 import { layerTrigger } from "../state/layers";
 import Panel, { PanelHeader, usePanelState } from "./ui/Panel";
 import { readOnlyBrowser } from "../browserMode";
-import PetPicker from '../pets/PetPicker';
-import { controlSourcePlatform } from '../controlSources';
 import { agentPanel, panelBack, selectAgentPanel, agentPanelId, managesAgentAccounts } from "../state/overviewPanels";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { ArrowUpRight, Settings, Maximize2, Minimize2, RefreshCw } from "lucide-react";
@@ -70,7 +68,6 @@ function AgentView({ agent, onSettings, expanded, onToggleWidth, active, platfor
       <div className="actions">
         {provider && !readOnlyBrowser && <IconButton icon={RefreshCw} label={t("usageRefresh")} busy={quotaBusy}
           disabled={!provider.eligible} onClick={() => void refresh()} />}
-        <PetPicker scope={`agent:${agent.agent}`} name={name(agent)} platform={controlSourcePlatform(agent.agent).id} />
         <IconButton icon={Settings} label={t("agentDisplaySettings")} disabled={quotaBusy} onClick={onSettings} />
         {resizable && <IconButton icon={expanded ? Minimize2 : Maximize2} label={t(expanded ? "restorePanelWidth" : "expandPanelWidth")}
           aria-pressed={expanded} onClick={onToggleWidth} />}

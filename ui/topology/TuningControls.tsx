@@ -1,4 +1,3 @@
-import {InspectionPopover} from '../components/ui/InspectionPopover';
 import { Tooltip as HoverHelp } from "../components/ui/index";
 import { TransientLayer } from "../components/ui/TransientLayer";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -11,6 +10,7 @@ import { Slider } from "./Slider";
 import { PARAMETERS, PARAMETER_GROUPS } from "./solve";
 import { importParameters, parameterDiff } from "./parameters";
 import { topologyTuningEnabled, topologyParameters, topologyValues, topologyDebug, previewParameter, saveTopologyParameters, resetTopologyParameter } from "../state/topology";
+import "./TuningControls.css";
 
 function TuningSection({ value, title, className, children }: { value: string; title: string; className: string; children: ReactNode }) {
   return <Accordion.Item value={value} className={className}>
@@ -67,7 +67,7 @@ export default function TuningControls({ available }: { available: boolean }) {
   if (!enabled) return null;
   return <Popover.Root open={open} onOpenChange={changeOpen}>
     <Popover.Trigger asChild><IconButton icon={SlidersHorizontal} size={20} label={t("topology.tuning")} data-hover-target="topology" /></Popover.Trigger>
-    <Popover.Portal><TransientLayer onDismiss={() => changeOpen(false)}><InspectionPopover ref={element} variant="tuning" side="top" align="start" sideOffset={12} collisionPadding={16}
+    <Popover.Portal><TransientLayer onDismiss={() => changeOpen(false)}><Popover.Content ref={element} className="topology-tuner" side="top" align="start" sideOffset={12} collisionPadding={16}
       aria-label={t("topology.tuning")} onEscapeKeyDown={event => {
         if (event.target instanceof HTMLInputElement && event.target.matches('.topology-parameter input[data-edited]')) event.preventDefault();
         else event.stopPropagation();
@@ -110,6 +110,6 @@ export default function TuningControls({ available }: { available: boolean }) {
           </TuningSection>)}
         </Accordion.Root>
       </div>
-    </InspectionPopover></TransientLayer></Popover.Portal>
+    </Popover.Content></TransientLayer></Popover.Portal>
   </Popover.Root>;
 }

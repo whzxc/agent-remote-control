@@ -1,4 +1,3 @@
-import PetPicker from '../pets/PetPicker';
 import type { ReactNode } from 'react';
 import { t } from '../i18n';
 import { controlSourcePlatform } from '../controlSources';
@@ -9,7 +8,7 @@ export default function SourcePlatformView({ platform, widthControl }: { platfor
   const { id, displayName } = controlSourcePlatform(platform);
   return <>
     <SourcePanelHeader title={id === 'custom' ? t('platforms.other') : displayName} brand={<SourceIcon platform={platform} />}
-      actions={<><PetPicker scope={`platform:${id}`} name={displayName} />{widthControl}</>} />
+      actions={widthControl} />
     <div className="side-panel-scroll source-panel-content"><PlatformConnectors platform={id} /></div>
   </>;
 }

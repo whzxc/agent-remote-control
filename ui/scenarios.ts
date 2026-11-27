@@ -5,7 +5,6 @@ import { readOnlyBrowser } from './browserMode';
 import { mcpScenario, type McpFixture } from './mcp/scenario';
 import { coordinationScenario, type CoordinationFixture } from './scenarioCoordination';
 import { resetBoardObservation, centerView, boardOpen } from './coordination/state';
-import { installPetFixture } from "./pets/scenario";
 import { srcConversationsScenario } from './scenarioSrcConversations';
 import { installTopologyAccounts, installDenseTopologyAccounts, installDevicePortraitAccounts } from './topology/scenarioAccounts';
 import { nodeKey } from './topology/animate';
@@ -40,7 +39,7 @@ import { taskPanelSnapshot } from './state/taskPanel';
 
 type TimelineRow = Pick<AgentTimelineEntry, 'type' | 'status'> & Partial<AgentTimelineEntry>;
 
-type Fixture = { coldTaskPreviews?: boolean; homepage?: { mode: 'topology' | 'tasks'; check?: string; remoteTaskCount?: number };  deviceLink?: DeviceFixture; expandedSources?: string[]; claudeQuota?: boolean; sourceProducts?: string[]; dispatchModels?: CatalogModel[]; agentInventory?: Agent[]; agentDiscoveryError?: string; platformAgent?: string; mcpHub?: McpFixture; coordination?: CoordinationFixture; ingressStates?: string[]; hubCore?: HubHealth["core"]; hubRemoteFailure?: boolean; hubRemoteCheckFailed?: boolean; statusUnavailable?: boolean; relayHosting?: boolean; topologyTuning?: boolean; settingsExperimental?: boolean; studio?: 'day' | 'night' | 'auto'; pets?: boolean; mascots?: boolean; historyRows?: number; historyDelayMs?: number; slowDock?: 'accounts' | 'dispatches'; metadataOnlyHistory?: boolean; maxVisibleAgents?: number; topologyAccounts?: boolean | 'dense' | 'device-portrait'; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: Partial<UpdateView>; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean | 'session-week-month' | 'single-ring-pace' | 'antigravity'; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; previousTurnOutcomes?: ('failed' | 'cancelled')[]; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { originController?: boolean; originSource?: boolean; agent: string; spec?: Pick<DispatchSummary, 'model' | 'effort' | 'serviceTier'>; parent?: number; relationKind?: AgentActivitySession["relationKind"]; direct?: boolean; assignment?: string; previewFailure?: boolean; previewDelayMs?: number; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; historyDate?: string; projectName?: string; turnCount?: number; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; entries?: TimelineRow[]; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { url?: string; empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
+type Fixture = { coldTaskPreviews?: boolean; homepage?: { mode: 'topology' | 'tasks'; check?: string; remoteTaskCount?: number };  deviceLink?: DeviceFixture; expandedSources?: string[]; claudeQuota?: boolean; sourceProducts?: string[]; dispatchModels?: CatalogModel[]; agentInventory?: Agent[]; agentDiscoveryError?: string; platformAgent?: string; mcpHub?: McpFixture; coordination?: CoordinationFixture; ingressStates?: string[]; hubCore?: HubHealth["core"]; hubRemoteFailure?: boolean; hubRemoteCheckFailed?: boolean; statusUnavailable?: boolean; relayHosting?: boolean; topologyTuning?: boolean; settingsExperimental?: boolean; bothThemes?: boolean; historyRows?: number; historyDelayMs?: number; slowDock?: 'accounts' | 'dispatches'; metadataOnlyHistory?: boolean; maxVisibleAgents?: number; topologyAccounts?: boolean | 'dense' | 'device-portrait'; reviewUnavailable?: boolean; dispatchHistory?: boolean; update?: Partial<UpdateView>; updatePanel?: boolean; panelHistory?: boolean; quota?: boolean | 'session-week-month' | 'single-ring-pace' | 'antigravity'; quotaDisplay?: 'remaining' | 'used'; resetDisplay?: 'countdown' | 'time' } & { timeline?: 'multi-turn'; previousTurnOutcomes?: ('failed' | 'cancelled')[]; detailTask?: number; bubbles?: { density?: 'compact' | 'standard' | 'detailed'; width?: 'narrow' | 'medium' | 'wide'; autoCompact?: boolean }; theme: 'light' | 'dark'; language: 'en' | 'zh-CN'; agents: string[]; tasks: { originController?: boolean; originSource?: boolean; agent: string; spec?: Pick<DispatchSummary, 'model' | 'effort' | 'serviceTier'>; parent?: number; relationKind?: AgentActivitySession["relationKind"]; direct?: boolean; assignment?: string; previewFailure?: boolean; previewDelayMs?: number; unconfirmed?: boolean; phase: AgentActivitySession['phase']; title: string; headline: string; approval?: boolean; question?: boolean; interaction?: AgentInteraction; completed?: boolean; historyDate?: string; projectName?: string; turnCount?: number; outcome?: 'failed' | 'cancelled'; finalAnswer?: AgentTimelineEntry['text']; entries?: TimelineRow[]; elapsedSeconds?: number; ownership?: AgentTimeline['ownership']; requestRouting?: RequestRouting['state'] }[]; panel?: PanelRequest; remoteLink?: { url?: string; empty?: boolean; pending?: boolean; connected?: boolean; joined?: boolean; local?: boolean }; remoteSourceId?: string; sourceSetup?: SourceSetup; connectionSetup?: ConnectionSetup; page?: Page; connectionsOpen?: boolean; remoteConnectionId?: string; relayProgress?: RelayProgress };
 const fixtures = import.meta.glob('../tooling/acceptance/scenarios/*.json', { import: 'default' });
 let responses: Record<string, unknown> = {};
 let motionOverride: boolean | undefined;
@@ -122,14 +121,6 @@ function respondToScenario(path: string, method: string, body?: unknown): unknow
   if (srcResult !== undefined) return structuredClone(srcResult);
   const accountResult = accountResponse?.(path, method, body);
   if (accountResult !== undefined) return structuredClone(accountResult);
-  if (path === 'pets' && method === 'GET') return responses.pets ?? { packages: [], errors: [] };
-  if (path === 'pets/remove' && method === 'POST') {
-    const library = responses.pets as { packages: import('./pets/model').PetPackage[]; errors: { key: string; error: string }[] };
-    const key = (body as { key: string }).key, pet = library?.packages.find(p => p.key === key);
-    if (!pet) throw new Error('INVALID_ARGUMENT: pet not installed; refresh pets');
-    if (pet.origin !== 'arc') throw new Error('INVALID_ARGUMENT: Codex pets are read-only; remove them in their owning application');
-    return responses.pets = { ...library, packages: library.packages.filter(p => p.key !== key) };
-  }
   if (path === 'preferences' && method === 'PUT') return responses.preferences = { ...(responses.preferences as Record<string,string>), ...(body as { values: Record<string,string> }).values };
   if (path === 'preferences' || path === 'preferences/import') return responses.preferences;
   if (path === 'storage/status' && method === 'GET') return responses['storage/status'] ?? {
@@ -260,7 +251,7 @@ export async function installScenario(name: string) {
   centerView.set({ view: 'current', filter: 'all', resource: '' });
   beginScenario(name, fixture.detailTask === undefined ? undefined : `fixture-task-${fixture.detailTask}`);
   localStorage.setItem('arc-page', 'overview');
-  const preferences = { 'arc.topology-tuning': String(!!fixture.topologyTuning), 'topology-layout': 'auto', 'arc.homepage-mode': JSON.stringify(fixture.homepage?.mode ?? 'topology'), 'arc.controller-sources': 'false', 'device-link': fixture.deviceLink?.enabled === false || !fixture.deviceLink ? 'off' : 'on', 'mcp-services': fixture.mcpHub ? 'on' : 'off', 'arc.relay-hosting': String(!!fixture.relayHosting), 'arc.display.enabled': String(!!fixture.studio), 'arc.display.phase': fixture.studio ?? 'auto', 'update-skipped-version': '', 'arc.privacy': fixture.deviceLink ? 'false' : 'true', theme: fixture.theme, language: fixture.language, 'arc.agent-order': JSON.stringify(fixture.agents), 'agents-max-visible': String(fixture.maxVisibleAgents ?? 4), 'quota-display': fixture.quotaDisplay ?? 'remaining', 'quota-reset-display': fixture.resetDisplay ?? 'countdown', 'task-bubble-density': fixture.bubbles?.density ?? 'standard', 'task-bubble-width': fixture.bubbles?.width ?? 'medium', 'task-bubble-auto-compact': fixture.bubbles?.autoCompact === false ? 'off' : 'on' };
+  const preferences = { 'arc.topology-tuning': String(!!fixture.topologyTuning), 'topology-layout': 'auto', 'arc.homepage-mode': JSON.stringify(fixture.homepage?.mode ?? 'topology'), 'arc.controller-sources': 'false', 'device-link': fixture.deviceLink?.enabled === false || !fixture.deviceLink ? 'off' : 'on', 'mcp-services': fixture.mcpHub ? 'on' : 'off', 'arc.relay-hosting': String(!!fixture.relayHosting), 'update-skipped-version': '', 'arc.privacy': fixture.deviceLink ? 'false' : 'true', theme: fixture.theme, language: fixture.language, 'arc.agent-order': JSON.stringify(fixture.agents), 'agents-max-visible': String(fixture.maxVisibleAgents ?? 4), 'quota-display': fixture.quotaDisplay ?? 'remaining', 'quota-reset-display': fixture.resetDisplay ?? 'countdown', 'task-bubble-density': fixture.bubbles?.density ?? 'standard', 'task-bubble-width': fixture.bubbles?.width ?? 'medium', 'task-bubble-auto-compact': fixture.bubbles?.autoCompact === false ? 'off' : 'on' };
   const now = new Date().toISOString();
   const defaults = Object.fromEntries(Object.entries(config.fields).map(([key, field]) => [key, field.default]));
   const status = {
@@ -504,7 +495,6 @@ export async function installScenario(name: string) {
       ],
     });
   }
-  acceptPreferences({ 'arc.pets.show': 'false', 'arc.pets.assignments': '{}' });
   const observed = { ...activity, agents: Object.fromEntries(Object.entries(activity.agents).map(([agent, group]) => [agent, {
     sessions: group.sessions.filter(session => !fixture.tasks[Number(session.id.replace('fixture-task-', ''))]?.historyDate),
   }])) };
@@ -515,14 +505,6 @@ export async function installScenario(name: string) {
   responses.historyDelayMs = fixture.historyDelayMs;
   responses.slowDock = fixture.slowDock;
   responses.timelineRecent = name === 'timeline-recent';
-  if (fixture.pets) {
-    responses.pets = installPetFixture(!!fixture.mascots);
-    acceptPreferences({ 'arc.pets.show': 'true', 'arc.pets.assignments': JSON.stringify(fixture.mascots ? {} : {
-      'source:fixture-source': 'fixture:claude-maiden',
-      'agent:codex': 'fixture:gpt-dragon-girl--legeling',
-      'agent:dsh': 'fixture:maid-deepseek-whale',
-    }) });
-  }
   responses.statusUnavailable = fixture.statusUnavailable;
   responses.hubHealth = hubHealth;
   responses.expectedRemote = expectedRemote;

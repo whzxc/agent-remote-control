@@ -1464,28 +1464,6 @@
     },
     {
       "implementation": {
-        "file": "ui/pets/PetsPage.tsx"
-      },
-      "design": [
-        {
-          "source": "design/modules/pets.tsx",
-          "part": "PetImport"
-        },
-        {
-          "source": "design/modules/pets.tsx",
-          "part": "PetCard"
-        },
-        {
-          "source": "design/modules/pets.tsx",
-          "part": "PetsLibrary"
-        },
-        {
-          "source": "design/surfaces/pets-settings.tsx"
-        }
-      ]
-    },
-    {
-      "implementation": {
         "file": "ui/components/AppUpdate.tsx",
         "symbol": "PanelContents",
         "anchor": "function PanelContents() {"
@@ -1973,21 +1951,6 @@
         {
           "source": "design/modules/agent-account-add.tsx",
           "part": "AgentAccountAdd"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/display/Studio.css"
-      },
-      "design": [
-        {
-          "source": "design/modules/homepage-scene/navigation.tsx",
-          "part": "HomepageModeSwitch"
-        },
-        {
-          "source": "design/modules/homepage-scene/navigation.tsx",
-          "part": "HomepageBar"
         }
       ]
     },
@@ -2928,52 +2891,6 @@
         {
           "source": "design/modules/permissions.tsx",
           "part": "PermissionRow"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/ui/InspectionPopover.tsx",
-        "symbol": "InspectionPopover"
-      },
-      "design": [
-        {
-          "source": "design/components/inspection-popover.tsx",
-          "part": "InspectionPopover"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/ui/InspectionPopover.css"
-      },
-      "design": [
-        {
-          "source": "design/components/inspection-popover.tsx",
-          "part": "InspectionPopover"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/pets/LibraryContent.tsx",
-        "symbol": "LibraryContent"
-      },
-      "design": [
-        {
-          "source": "design/modules/pets.tsx",
-          "part": "LibraryContent"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/pets/LibraryContent.css"
-      },
-      "design": [
-        {
-          "source": "design/modules/pets.tsx",
-          "part": "LibraryContent"
         }
       ]
     },

@@ -7,13 +7,12 @@ import { mcpHubEnabled } from './mcp/state';
 import CoordinationCenter, { centerReturn } from './coordination/CoordinationCenter';
 import { boardFocus, boardOpen, useBoardObservation } from './coordination/state';
 import { ingressPanel } from './state/overviewPanels';
-import { HomepageDisplay, StudioControls } from './display/Studio';
-import { studioEnabled } from './display/state';
+import { HomepageDisplay } from './display/Studio';
 import { ArrowLeft } from "lucide-react";
 import { scenarioName } from "./scenarioMode";
 import { captureRequest, type PanelRequest } from "./acceptance";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Settings, X, ShieldAlert, ShieldCheck, RefreshCw, Users, PawPrint, Cloud, Plug } from "lucide-react";
+import { Settings, X, ShieldAlert, ShieldCheck, RefreshCw, Users, Cloud, Plug } from "lucide-react";
 import { t, locale } from "./i18n";
 import { copyText, isDesktop } from "./platform";
 import { connector, dismissFeedback, notify, startConnector } from "./state/connector";
@@ -38,17 +37,14 @@ import { Button, Icon, IconButton, Notice, Panel } from "./components/ui";
 import { api } from "./api";
 import { LayerOwnerContext } from "./components/ui/TransientLayer";
 import PermissionsPage from "./components/PermissionsPage";
-import PetsPage from "./pets/PetsPage";
-import { showPets } from "./pets/state";
 import RelayHosting from "./components/RelayHosting";
 import { relayHostingEnabled } from "./state/relay";
 import { permissions, permissionsReady, refreshPermissions, startPermissions } from "./state/permissions";
 import TuningControls from "./topology/TuningControls";
 export default function App() {
   locale.use();
-  const studio = studioEnabled.use();
   useEffect(observeDevices, []);
-  const pets = showPets.use(), hosting = relayHostingEnabled.use(), mcp = mcpHubEnabled.use();
+  const hosting = relayHostingEnabled.use(), mcp = mcpHubEnabled.use();
   const privateMode = usePrivacy();
   useLayoutEffect(() => { document.documentElement.dataset.privacy = String(privateMode); }, [privateMode]);
   const nav = navigation.use();
@@ -75,7 +71,7 @@ export default function App() {
 
   const [page, setPage] = useState<Page>(() => {
     const saved = localStorage.getItem("arc-page");
-    return ["overview", "settings", "accounts", "permissions", ...(pets ? ["pets"] : []), ...(hosting ? ["relay-hosting"] : []), ...(mcp ? ["mcp-hub"] : [])].includes(saved ?? "") ? saved as Page : "overview";
+    return ["overview", "settings", "accounts", "permissions", ...(hosting ? ["relay-hosting"] : []), ...(mcp ? ["mcp-hub"] : [])].includes(saved ?? "") ? saved as Page : "overview";
   });
   const [sheetWide, setSheetWide] = useState(false);
   const flow = onboarding.use(), newConnection = connectionSetup.use();
@@ -86,11 +82,11 @@ export default function App() {
   useBoardObservation(page === 'overview' && (!modalOpen || bulletinOpen));
   useEffect(() => { localStorage.setItem("arc-page", page); }, [page]);
   useLayoutEffect(() => {
-    if ((page === "pets" && !pets) || (page === "relay-hosting" && !hosting) || (page === "mcp-hub" && !mcp)) {
+    if ((page === "relay-hosting" && !hosting) || (page === "mcp-hub" && !mcp)) {
       setPage("overview");
       requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-page="settings"]')?.focus({ preventScroll: true }));
     }
-  }, [pets, hosting, mcp, page]);
+  }, [hosting, mcp, page]);
   useEffect(() => {
     if (!isDesktop) return;
     // Keep drafts and active dialogs alive; only retire an idle hidden surface.
@@ -107,7 +103,7 @@ export default function App() {
   }, [nav.page]);
 
   function navigate(next: Page) {
-    if ((next === "pets" && !showPets.get()) || (next === "relay-hosting" && !relayHostingEnabled.get()) || (next === "mcp-hub" && !mcpHubEnabled.get())) return;
+    if ((next === "relay-hosting" && !relayHostingEnabled.get()) || (next === "mcp-hub" && !mcpHubEnabled.get())) return;
     setPage(next);
   }
   useEffect(() => {
@@ -145,7 +141,7 @@ export default function App() {
         listen<string>("navigate", (e) => requestExternalNavigation(t(e.payload === "remote" ? "connections.title" : e.payload === "accounts" ? "platforms.title" : e.payload), () => {
           if (e.payload === "remote") { openConnections(); return; }
           if (["tasks", "logs"].includes(e.payload)) { navigate("overview"); return; }
-          if (["overview", "settings", "accounts", "permissions", "pets", "relay-hosting"].includes(e.payload))
+          if (["overview", "settings", "accounts", "permissions", "relay-hosting"].includes(e.payload))
             navigate(e.payload as Page);
         })),
         listen<string>("subscriptions:open", external(t("platforms.title"), (e: { payload: string }) => {
@@ -193,14 +189,12 @@ export default function App() {
     { id: "settings" as const, label: t("settings"), icon: Settings },
     { id: "accounts" as const, label: t("platforms.title"), icon: Users },
     { id: "permissions" as const, label: t("permissionsTitle"), icon: ready ? ShieldCheck : ShieldAlert },
-    ...(pets ? [{ id: "pets" as const, label: t("pets.title"), icon: PawPrint }] : []),
     ...(hosting ? [{ id: "relay-hosting" as const, label: t("hosting.feature"), icon: Cloud }] : []),
     ...(mcp ? [{ id: "mcp-hub" as const, label: t("mcp.title"), icon: Plug }] : []),
   ];
   return (
     <div role="region" aria-label="ARC homepage"
       className={`app-scene ${isDesktop ? "desktop" : ""} ${isDesktop && navigator.platform.toLowerCase().includes("mac") ? "mac" : ""}`}
-      data-display={studio ? "studio" : undefined}
       onClickCapture={(e) => captureLayerTrigger(e.target)}
 
     >
@@ -227,7 +221,7 @@ export default function App() {
           actions={page === "permissions" ? <IconButton icon={RefreshCw} label={t("permissionsRefresh")} busy={permissionState.loading}
             onClick={() => void refreshPermissions().catch(error => notify(String(error), { errorSource: 'permissions-refresh' }))} /> : undefined}>
           <div className={`workspace ${page === "accounts" ? "accounts-workspace-container" : ""}`}>
-            {page === "permissions" ? <PermissionsPage /> : page === "accounts" ? <PlatformsPage /> : page === "pets" ? <PetsPage />
+            {page === "permissions" ? <PermissionsPage /> : page === "accounts" ? <PlatformsPage />
               : <SettingsPage />}
           </div>
         </Panel>
@@ -257,7 +251,6 @@ export default function App() {
             </button>
           ))}
           <TuningControls available={page === "overview" && !welcome && !modalOpen} />
-          <StudioControls available={studio && page === "overview" && !welcome && !modalOpen} />
           <UpdateDock />
       </NavCapsule>
       </LayerOwnerContext.Provider>

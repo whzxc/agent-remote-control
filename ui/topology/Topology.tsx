@@ -1,8 +1,6 @@
 import { CapsuleNode, capsuleState, tasksForNode, useDeviceNodes } from './nodeViews';
 import { capsuleItems, type HomepageTask } from '../state/activityModel';
 import './topology.css';
-import { participantPost, petSize, wanderPost, petPath, type Rect } from '../pets/geometry';
-import PetLayer, { type PetLayerHandle, type PetGeometry } from "../pets/PetLayer";
 import { arcActionRegion, hubMarkGeometry, hubControlGeometry, hubHoverRegion } from "./geometry";
 import ArcActions, { type ArcActionsHandle } from './ArcActions';
 import type { ActivityReadTarget } from '../state/activityBubbles';
@@ -30,6 +28,8 @@ import { TopologyPainter, type PaintNode } from "./render";
 import { orderedSubset, moveToY } from "./order";
 import { topologyValues, topologyDebug } from "../state/topology";
 import type { LayerRect as SurfaceRect } from "../components/ui/layerFrame";
+
+type Rect = { x: number; y: number; width: number; height: number };
 
 function containsPoint(rect: Rect, x: number, y: number) {
   return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height;
@@ -70,7 +70,6 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
       attention: !!node.attention || !!state.attention, unread: [...node.unread ?? [], ...tasksForNode({ ...node, side }, tasks).filter(task => task.group === 'unread').map(task => ({ agent: task.agent, id: task.session.id }))],
       children: decorate(node.children ?? [], side) };
   });
-  const pets = useRef<PetLayerHandle>(null);
   const graph = useRef<HTMLDivElement>(null), svg = useRef<SVGSVGElement>(null), hub = useRef<HTMLDivElement>(null);
   const portraitSvg = useRef<SVGSVGElement>(null), portraitPainter = useRef<PortraitPainter | null>(null);
   const elements = useRef(new Map<string, HTMLDivElement>());
@@ -289,51 +288,6 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
     primitives: Object.fromEntries([...animator.current.live.keys()].map(key => [key, animator.current.values(key)])),
     paths: [...((orientation.current === "portrait" ? portraitSvg.current : svg.current)?.querySelectorAll("path") ?? [])].map(path => ({ d: path.getAttribute("d"), class: path.getAttribute("class"), opacity: path.getAttribute("opacity"), mask: path.getAttribute("mask") })),
   })), []);
-  const petGeometry = (): PetGeometry => {
-    const bounds = { x: size.current?.vw ?? 0, y: animator.current.values('scene')?.height ?? 0, top: Math.max(0, 40 - origin.current.y) };
-    const hub = animator.current.values('hub');
-    const nodeRects = new Map<string, Rect>(), nodeLabels = new Map<string, Rect[]>();
-    const chrome = [...document.querySelectorAll<HTMLElement>('.homepage-bar, .navigation-capsule:not([hidden])')].flatMap(element => {
-      const r = element.getBoundingClientRect();
-      return r.width && r.height ? [{ x: r.x - origin.current.x - 8, y: r.y - origin.current.y - 8, width: r.width + 16, height: r.height + 16 }] : [];
-    });
-    const obstacles: Rect[] = [...chrome];
-    for (const n of latest.current.nodes) {
-      const key = nodeKey(n.side, n.id), v = animator.current.values(key);
-      if (!v || v.op < .02) continue;
-      const radius = v.size * v.scale / 2;
-      const icon = { x: v.x - radius, y: v.y - radius, width: radius * 2, height: radius * 2 };
-      const parts = [icon];
-      for (const label of elements.current.get(key)?.querySelectorAll<HTMLElement>('.graph-node-name, .agent-auto-compact') ?? []) {
-        if (n.group) continue;
-        const r = label.getBoundingClientRect();
-        if (r.width && r.height) parts.push({ x: r.x - origin.current.x, y: r.y - origin.current.y, width: r.width, height: r.height });
-      }
-      obstacles.push(...parts); nodeLabels.set(key, parts.slice(1));
-      const x = Math.min(...parts.map(r => r.x)), y = Math.min(...parts.map(r => r.y));
-      nodeRects.set(key, { x, y, width: Math.max(...parts.map(r => r.x + r.width)) - x, height: Math.max(...parts.map(r => r.y + r.height)) - y });
-    }
-    return {
-      bounds, taskFrame: () => undefined, taskPresent: () => false,
-      feedback: (key, amount) => {
-        const element = elements.current.get(key)?.querySelector<HTMLElement>('.graph-node');
-        if (!element) return;
-        const value = latest.current.reduced || drag.current ? 0 : Math.max(-1, Math.min(1, amount));
-        element.style.translate = value ? `${value * 9}px 0` : '';
-        element.style.rotate = value ? `${value * 5}deg` : '';
-      },
-      route: (from, to, size, occupied = []) => petPath(from, to, bounds, [...obstacles, ...occupied], size),
-      wander: (from, size, occupied) => wanderPost(from, bounds, [...obstacles, ...occupied], size),
-      participant: (p, size = petSize('participant', p.brand === 'other')) => {
-        const side = p.kind === 'source' ? -1 : 1;
-        const candidates = latest.current.nodes.filter(n => n.side === side && nodeRects.has(nodeKey(n.side, n.id)) && (side === -1 ? n.sourceIds?.includes(p.nativeId) || n.id === p.nativeId : (n.platform ?? n.id) === p.nativeId));
-        const node = candidates.find(n => side === -1 && n.id === p.nativeId) ?? candidates.find(n => !n.account) ?? candidates[0];
-        const rect = node && nodeRects.get(nodeKey(side, node.id));
-        return rect && hub ? participantPost(rect, { x: hub.x, y: hub.y }, obstacles, bounds, size) : undefined;
-      },
-      task: () => undefined,
-    };
-  };
   const paint = useCallback(() => {
     const a = animator.current, h = a.values("hub"), root = graph.current;
     if (!h || !root) return;
@@ -424,7 +378,6 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
     if (blend < 0.999) painter.current?.paint(a, latest.current.nodes,
       latest.current.guides ? layout.current : null);
     updateActionPointer();
-    pets.current?.layout();
   }, [boundary, updateActionPointer]);
   const tick = useCallback((time: number) => {
     frame.current = 0;
@@ -666,7 +619,6 @@ export default function Topology({ left: localLeft, right: localRight, tasks = n
       if (orientationPending.current && orientationTimer.current === null) evaluateOrientation.current();
       target(); event.preventDefault(); event.stopPropagation();
     } }}>
-    <PetLayer ref={pets} geometry={petGeometry} />
     <svg ref={svg} className="topology-wires" aria-hidden="true" />
     <svg ref={portraitSvg} className="topology-wires portrait-wires" aria-hidden="true" />
     <div ref={hub} className="topology-hub" data-hub-open={hubZoneOpen || undefined}

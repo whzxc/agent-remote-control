@@ -1,37 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 export const checks = [
-    { stage: "verify", order: 24, visual: true, async run(context) {
-            const { page, fixture, name, root } = context;
-            let { model } = context;
-            try {
-                if (fixture.studio && !fixture.coordination) {
-                    // Regression: changing studio lighting must not replace the saved application theme.
-                    const messages = JSON.parse(await readFile(path.join(root, 'ui/locales', `${fixture.language}.json`), 'utf8'));
-                    const settings = page.getByRole('button', { name: messages['studio.settings'], exact: true });
-                    await page.getByLabel(messages['studio.clock'], { exact: true }).waitFor({ state: 'visible' });
-                    await settings.click();
-                    const phase = fixture.studio === 'night' ? 'day' : 'night';
-                    await page.getByRole('radio', { name: messages[`studio.${phase}`], exact: true }).click();
-                    await page.waitForFunction(expected => window.__ARC_VIEW_MODEL__().theme === expected, phase === 'day' ? 'light' : 'dark');
-                    await page.keyboard.press('Escape');
-                    await page.getByRole('button', { name: messages.settings, exact: true }).click();
-                    await page.getByRole('button', { name: messages['topology.experimental'], exact: true }).click();
-                    const enabled = page.getByRole('switch', { name: messages['studio.enabled'], exact: true });
-                    await enabled.click();
-                    await page.waitForFunction(expected => window.__ARC_VIEW_MODEL__().theme === expected, fixture.theme);
-                    await enabled.click();
-                    await page.getByRole('button', { name: messages.backToHome, exact: true }).click();
-                    await settings.click();
-                    await page.getByRole('radio', { name: messages[`studio.${fixture.studio}`], exact: true }).click();
-                    await page.keyboard.press('Escape');
-                    await settings.waitFor({ state: 'visible' });
-                }
-            }
-            finally {
-                context.model = model;
-            }
-        } },
     { stage: "verify", order: 25, visual: false, async run(context) {
             const { page, fixture, name, root } = context;
             let { model } = context;
@@ -143,4 +112,4 @@ export const checks = [
             }
         } }
 ];
-export const bothThemes = fixture => !!fixture.studio;
+export const bothThemes = fixture => !!fixture.bothThemes;

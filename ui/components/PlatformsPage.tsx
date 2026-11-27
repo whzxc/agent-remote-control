@@ -1,6 +1,5 @@
 import { EntityInventory, EntitySection } from './ui/EntityInventory';
 import { readOnlyBrowser } from "../browserMode";
-import PetPicker from '../pets/PetPicker';
 import { Plus } from 'lucide-react';
 import { t } from '../i18n';
 import { controlSources, sourcePlatforms } from '../controlSources';
@@ -28,6 +27,6 @@ export default function PlatformsPage() {
   return <EntityInventory className="platforms-page">
     <nav className="platforms-navigation" aria-label={t('platforms.title')}><SingleChoice navigation label={t('platforms.title')} value={platform.id} onChange={platformId => navigation.set(old => ({ ...old, platformId }))}
       options={sourcePlatforms.map(item => ({ value: item.id, label: item.id === 'custom' ? t('platforms.other') : item.displayName, graphic: <SourceIcon platform={item.id} /> }))} /></nav>
-    <EntitySection as="section" className="platforms-content" aria-label={platform.id === 'custom' ? t('platforms.other') : platform.displayName}><header className="platforms-heading"><h2>{platform.id === 'custom' ? t('platforms.other') : platform.displayName}</h2><div className="flex items-center gap-2"><PetPicker scope={`platform:${platform.id}`} name={platform.displayName} />{products.length === 1 ? addButton : <Menu trigger={addButton} label={t('addControlSource')} items={products.map(product => ({ label: t('setup.addProduct', { name: product.displayName }), action: () => openOnboarding('connection', { source: product.id }) }))} />}</div></header><PlatformConnectors platform={platform.id} /></EntitySection>
+    <EntitySection as="section" className="platforms-content" aria-label={platform.id === 'custom' ? t('platforms.other') : platform.displayName}><header className="platforms-heading"><h2>{platform.id === 'custom' ? t('platforms.other') : platform.displayName}</h2><div className="flex items-center gap-2">{products.length === 1 ? addButton : <Menu trigger={addButton} label={t('addControlSource')} items={products.map(product => ({ label: t('setup.addProduct', { name: product.displayName }), action: () => openOnboarding('connection', { source: product.id }) }))} />}</div></header><PlatformConnectors platform={platform.id} /></EntitySection>
   </EntityInventory>;
 }

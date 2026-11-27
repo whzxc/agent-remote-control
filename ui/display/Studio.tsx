@@ -1,24 +1,13 @@
-import {InspectionPopover} from '../components/ui/InspectionPopover';
+import { useEffect, useState } from 'react';
 import { HomepageBarView } from './HomepageBar';
 import { homepageMode, selectHomepageMode } from '../state/homepage';
-import { TransientLayer } from "../components/ui/TransientLayer";
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Popover } from 'radix-ui';
-import { Expand, Minimize, Monitor, Moon, Sun, Sunrise } from 'lucide-react';
-import { Button, Icon, IconButton, SingleChoice } from '../components/ui';
 import { locale, t } from '../i18n';
-import { isDesktop } from '../platform';
-import { notify } from '../state/connector';
-import { layers as layerStore } from '../state/layers';
 import { appEnvironment, appNow } from '../state/appEnvironment';
-import { nextClockTick, parseStudioPhase, studioToneAt, studioActivitySummary } from './model';
+import { nextClockTick, studioActivitySummary } from './model';
 import { openCenter } from '../coordination/state';
 import { trackedActivity } from '../state/activityBubbles';
 import { taskExecutions } from '../state/taskExecution';
 import { activityApprovals, agentActivity } from '../state/activity';
-import { studioEnabled, studioPhase, studioTone } from './state';
-import { useStudioMotion } from './useStudioMotion';
-import './studio.css';
 
 function useMinuteClock(enabled: boolean) {
   const [now, setNow] = useState(appNow);
@@ -61,94 +50,6 @@ function HomepageBar({ now }: { now: number }) {
 }
 
 export function HomepageDisplay({ headerVisible }: { headerVisible: boolean }) {
-  const enabled = studioEnabled.use(), phase = studioPhase.use();
-  const motion = useStudioMotion(enabled && headerVisible);
-  const now = useMinuteClock(headerVisible || enabled && motion.visible), tone = studioToneAt(now, phase);
-  useLayoutEffect(() => { studioTone.set(enabled ? tone : null); }, [enabled, tone]);
-  useLayoutEffect(() => () => studioTone.set(null), []);
-  return <>
-    {enabled && <div className="studio-backdrop" data-phase={tone} data-motion={motion.state} aria-hidden="true">
-      <div className="studio-image studio-day" /><div className="studio-image studio-night" />
-      <div className="studio-atmosphere" />
-      <div className="studio-motion"><div className="studio-window-light" /><div className="studio-leaf-shadows" /><div className="studio-lamp-light" /><div className="studio-window-glints" /></div>
-    </div>}
-    {headerVisible && <HomepageBar now={now} />}
-  </>;
-}
-
-export function StudioLighting() {
-  const phase = studioPhase.use();
-  return <SingleChoice label={t('studio.light')} value={phase} onChange={value => studioPhase.set(parseStudioPhase(value))}
-    options={[{ value: 'auto', label: t('studio.auto'), icon: Sunrise }, { value: 'day', label: t('studio.day'), icon: Sun }, { value: 'night', label: t('studio.night'), icon: Moon }]} />;
-}
-
-export function StudioControls({ available }: { available: boolean }) {
-  const enabled = studioEnabled.use();
-  const [open, setOpen] = useState(false), [fullscreen, setFullscreen] = useState(false), [busy, setBusy] = useState(false);
-  const trigger = useRef<HTMLButtonElement>(null), wasFullscreen = useRef(false), pendingFullscreen = useRef(false);
-  const restoreFocus = () => {
-    if (trigger.current?.getClientRects().length && !layerStore.get().length && !document.querySelector('[role="dialog"]')) trigger.current.focus();
-  };
-  useEffect(() => { if (!available) setOpen(false); }, [available]);
-  useEffect(() => {
-    let disposed = false, unlisten: (() => void) | undefined;
-    const accept = (value: boolean) => {
-      if (disposed) return;
-      setFullscreen(value);
-      if (!value && wasFullscreen.current) restoreFocus();
-      wasFullscreen.current = value;
-    };
-    const read = () => {
-      if (isDesktop) void import('../nativeBridge').then(({ getCurrentWindow }) => getCurrentWindow().isFullscreen()).then(accept).catch(() => {});
-      else accept(!!document.fullscreenElement);
-    };
-    read();
-    if (isDesktop) void import('../nativeBridge').then(async ({ getCurrentWindow }) => {
-      const stop = await getCurrentWindow().onResized(read);
-      if (disposed) stop(); else unlisten = stop;
-      read();
-    }).catch(() => {});
-    else document.addEventListener('fullscreenchange', read);
-    return () => { disposed = true; unlisten?.(); document.removeEventListener('fullscreenchange', read); };
-  }, []);
-  async function changeFullscreen(value: boolean) {
-    if (pendingFullscreen.current) return;
-    pendingFullscreen.current = true; setBusy(true);
-    try {
-      if (isDesktop) {
-        const { getCurrentWindow } = await import('../nativeBridge');
-        const window = getCurrentWindow(); await window.setFullscreen(value);
-        const actual = await window.isFullscreen(); setFullscreen(actual); wasFullscreen.current = actual;
-        if (!value && !actual) restoreFocus();
-      } else if (value) await document.documentElement.requestFullscreen();
-      else if (document.fullscreenElement) await document.exitFullscreen();
-    } catch { notify(t('studio.fullscreenFailed'), { errorSource: 'studio-fullscreen' }); }
-    finally { pendingFullscreen.current = false; setBusy(false); }
-  }
-  useEffect(() => {
-    if (!isDesktop || !fullscreen || !available || open) return;
-    let escapeTimer: ReturnType<typeof setTimeout>;
-    const escape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return;
-      // Task queues and overlays also handle Escape on window. Let the event finish first.
-      clearTimeout(escapeTimer);
-      escapeTimer = setTimeout(() => {
-        if (event.defaultPrevented || layerStore.get().length || document.querySelector('[role="dialog"], [data-radix-popper-content-wrapper]')) return;
-        void changeFullscreen(false);
-      }, 0);
-    };
-    window.addEventListener('keydown', escape);
-    return () => { clearTimeout(escapeTimer); window.removeEventListener('keydown', escape); };
-  }, [fullscreen, available, open]);
-  if (!enabled) return null;
-  return <Popover.Root open={open} onOpenChange={setOpen}>
-    <Popover.Trigger asChild><IconButton ref={trigger} icon={Monitor} size={20} label={t('studio.settings')} data-hover-target="studio" /></Popover.Trigger>
-    <Popover.Portal><TransientLayer onDismiss={() => setOpen(false)}><InspectionPopover variant="studio" side="top" align="start" sideOffset={12} collisionPadding={16}
-      aria-label={t('studio.settings')} onEscapeKeyDown={event => event.stopPropagation()}>
-      <StudioLighting />
-      <Button busy={busy} onClick={() => { void changeFullscreen(!fullscreen); setOpen(false); }}>
-        <Icon icon={fullscreen ? Minimize : Expand} />{t(fullscreen ? 'studio.exitFullscreen' : 'studio.fullscreen')}
-      </Button>
-    </InspectionPopover></TransientLayer></Popover.Portal>
-  </Popover.Root>;
+  const now = useMinuteClock(headerVisible);
+  return headerVisible ? <HomepageBar now={now} /> : null;
 }

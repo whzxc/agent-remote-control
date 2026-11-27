@@ -1,36 +1,6 @@
 [
   {
     "file": "ui/tokens.css",
-    "token": "--studio-wall",
-    "reason": "Studio artwork needs paired day/night colors for its full-viewport illustrated wall; this canvas palette is independent of control semantics."
-  },
-  {
-    "file": "ui/tokens.css",
-    "token": "--studio-veil",
-    "reason": "Studio artwork needs paired day/night colors for its ambient overlay above the illustration; this canvas palette is independent of control semantics."
-  },
-  {
-    "file": "ui/tokens.css",
-    "token": "--studio-window-glow",
-    "reason": "Studio artwork needs paired day/night colors for its window light projected onto the scene; this canvas palette is independent of control semantics."
-  },
-  {
-    "file": "ui/tokens.css",
-    "token": "--studio-leaf-shadow",
-    "reason": "Studio artwork needs paired day/night colors for its plant shadow cast on the wall; this canvas palette is independent of control semantics."
-  },
-  {
-    "file": "ui/tokens.css",
-    "token": "--studio-lamp-glow",
-    "reason": "Studio artwork needs paired day/night colors for its radial lamp light; this canvas palette is independent of control semantics."
-  },
-  {
-    "file": "ui/tokens.css",
-    "token": "--studio-night-glint",
-    "reason": "Studio artwork needs paired day/night colors for its reflective window highlights; this canvas palette is independent of control semantics."
-  },
-  {
-    "file": "ui/tokens.css",
     "token": "--brand-orange",
     "reason": "Claude brand artwork preserves its source mark color in both themes."
   },

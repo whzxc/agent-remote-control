@@ -1,9 +1,15 @@
 {
   "hubCore": "stopped",
-  "studio": "day",
   "theme": "light",
   "language": "en",
-  "ingressStates": ["stopped"],
-  "agents": ["codex", "claude", "dsh"],
-  "tasks": []
+  "ingressStates": [
+    "stopped"
+  ],
+  "agents": [
+    "codex",
+    "claude",
+    "dsh"
+  ],
+  "tasks": [],
+  "bothThemes": true
 }

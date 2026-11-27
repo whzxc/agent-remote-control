@@ -1,8 +1,7 @@
 # Read the Agent Board
 
-Click the current-activity row below the homepage clock and date to open **Board**.
-The whole row opens the dialog. With Studio disabled, the activity row remains at
-the top of the homepage. Its running and pending-input counts keep their task-only
+Click the current-activity row beside the homepage clock to open **Board**.
+The whole row opens the dialog. Its running and pending-input counts keep their task-only
 meaning.
 
 ## Inspect current work
