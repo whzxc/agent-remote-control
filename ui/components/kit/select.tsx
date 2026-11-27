@@ -9,9 +9,25 @@ import {
   ChevronUp,
 } from "lucide-react";
 import type * as React from "react";
+import { consumeOutsidePointerGesture } from "./outside-pointer";
 import { cn, stateClass } from "./utils";
 
-export const Select: typeof SelectPrimitive.Root = SelectPrimitive.Root;
+export function Select<Value, Multiple extends boolean | undefined = false>({
+  onOpenChange,
+  ...props
+}: SelectPrimitive.Root.Props<Value, Multiple>): React.ReactElement {
+  return (
+    <SelectPrimitive.Root
+      onOpenChange={(open, details) => {
+        if (!open && details.reason === "outside-press") {
+          consumeOutsidePointerGesture(details.event);
+        }
+        onOpenChange?.(open, details);
+      }}
+      {...props}
+    />
+  );
+}
 
 export const selectTriggerVariants = cva(
   "relative inline-flex w-auto min-w-0 cursor-pointer select-none items-center justify-between gap-2 rounded-kit-field border border-border bg-surface px-3 text-left text-small text-foreground outline-none ring-ring/24 transition-[border-color,box-shadow] duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none hover:not-focus-visible:not-data-popup-open:not-aria-invalid:border-border-strong data-popup-open:border-ring focus-visible:border-ring focus-visible:ring-2 aria-invalid:border-destructive data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg:not([class*='size-'])]:size-3.5 [&_svg]:pointer-events-none [&_svg]:shrink-0",

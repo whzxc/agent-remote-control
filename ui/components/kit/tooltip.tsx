@@ -53,6 +53,7 @@ export function TooltipPopup({
         className="z-80"
       >
         <TooltipPrimitive.Popup
+          role="tooltip"
           data-slot="tooltip-popup"
           className={stateClass(
             "max-w-[min(300px,calc(100vw-24px))] origin-(--transform-origin) wrap-anywhere rounded-kit-field bg-action px-2 py-1 text-[11.5px] font-medium leading-4 text-on-action shadow-md transition-[opacity,scale] duration-(--motion-fast) ease-(--ease-enter) data-starting-style:opacity-0 data-starting-style:scale-95 data-ending-style:opacity-0 data-ending-style:scale-95 motion-reduce:transition-none",

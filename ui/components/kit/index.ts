@@ -14,6 +14,7 @@ export * from "./empty";
 export * from "./field";
 export * from "./input";
 export * from "./menu";
+export * from "./outside-pointer";
 export * from "./popover";
 export * from "./privacy";
 export * from "./progress";

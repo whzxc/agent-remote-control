@@ -1,8 +1,24 @@
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 import type * as React from "react";
+import { consumeOutsidePointerGesture } from "./outside-pointer";
 import { stateClass } from "./utils";
 
-export const Popover: typeof PopoverPrimitive.Root = PopoverPrimitive.Root;
+export function Popover({
+  onOpenChange,
+  ...props
+}: PopoverPrimitive.Root.Props): React.ReactElement {
+  return (
+    <PopoverPrimitive.Root
+      onOpenChange={(open, details) => {
+        if (!open && details.reason === "outside-press") {
+          consumeOutsidePointerGesture(details.event);
+        }
+        onOpenChange?.(open, details);
+      }}
+      {...props}
+    />
+  );
+}
 export const PopoverTrigger: typeof PopoverPrimitive.Trigger =
   PopoverPrimitive.Trigger;
 export const PopoverClose: typeof PopoverPrimitive.Close =

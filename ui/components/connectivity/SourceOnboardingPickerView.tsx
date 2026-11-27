@@ -47,37 +47,42 @@ export function SourceProductPickerView({
               if (typeof next === "string") onChange?.(next);
             }}
             aria-label={group.label}
-            data-setup-product-grid=""
-            className="grid grid-cols-3 gap-2.5 max-[520px]:grid-cols-2"
+            className="min-w-0"
           >
-            {group.options.map((option) => (
-              <RadioPrimitive.Root
-                key={option.value}
-                value={option.value}
-                disabled={option.disabled}
-                aria-label={option.label}
-                title={option.disabled ? option.description : undefined}
-                data-slot="product-radio-tile"
-                className={cn(
-                  "flex min-w-0 cursor-pointer flex-col items-start gap-2 rounded-kit-card border border-border bg-surface px-3.5 py-3 text-left text-foreground outline-none hover:not-data-disabled:border-border-strong hover:not-data-disabled:bg-surface-subtle focus-visible:ring-2 focus-visible:ring-ring data-checked:border-accent data-checked:bg-accent/6 data-disabled:cursor-not-allowed data-disabled:opacity-50",
-                  option.value === "custom" && "border-dashed",
-                )}
-              >
-                <div className="flex w-full min-w-0 items-center gap-2.5">
-                  <span className="flex size-6 shrink-0 items-center justify-center [&_.source-icon]:size-6 [&_.source-icon>span]:size-6 [&_.source-icon_svg]:size-6">
-                    {option.icon}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-small leading-5 font-semibold text-foreground">
-                    {option.label}
-                  </span>
+            <div
+              data-setup-product-grid=""
+              className="grid grid-cols-3 gap-2.5 max-[520px]:grid-cols-2"
+            >
+              {group.options.map((option) => (
+                <div key={option.value} className="flex min-w-0">
+                  <RadioPrimitive.Root
+                    value={option.value}
+                    disabled={option.disabled}
+                    aria-label={option.label}
+                    title={option.disabled ? option.description : undefined}
+                    data-slot="product-radio-tile"
+                    className={cn(
+                      "flex w-full min-w-0 cursor-pointer flex-col items-start gap-2 rounded-kit-card border border-border bg-surface px-3.5 py-3 text-left text-foreground outline-none hover:not-data-disabled:border-border-strong hover:not-data-disabled:bg-surface-subtle focus-visible:ring-2 focus-visible:ring-ring data-checked:border-accent data-checked:bg-accent/6 data-disabled:cursor-not-allowed data-disabled:opacity-50",
+                      option.value === "custom" && "border-dashed",
+                    )}
+                  >
+                    <div className="flex w-full min-w-0 items-center gap-2.5">
+                      <span className="flex size-6 shrink-0 items-center justify-center [&_.source-icon]:size-6 [&_.source-icon>span]:size-6 [&_.source-icon_svg]:size-6">
+                        {option.icon}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-small leading-5 font-semibold text-foreground">
+                        {option.label}
+                      </span>
+                    </div>
+                    {option.description && (
+                      <span className="text-meta leading-4 text-text-secondary">
+                        {option.description}
+                      </span>
+                    )}
+                  </RadioPrimitive.Root>
                 </div>
-                {option.description && (
-                  <span className="text-meta leading-4 text-text-secondary">
-                    {option.description}
-                  </span>
-                )}
-              </RadioPrimitive.Root>
-            ))}
+              ))}
+            </div>
           </RadioGroup>
         </section>
       ))}

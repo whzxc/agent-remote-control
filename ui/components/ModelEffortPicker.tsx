@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { RotateCcw } from "lucide-react";
 import { t } from "../i18n";
 import { PopoverPrimitive } from "./kit/popover";
+import { consumeOutsidePointerGesture } from "./kit/outside-pointer";
 import { IconButton, SingleChoice } from "./ui";
 import { effortGaugePosition, effortLabel } from "./composites/dispatchSpecLabel";
 import DispatchSpec from "./ui/DispatchSpec";
@@ -70,6 +71,9 @@ export default function ModelEffortPicker({ label, models, efforts, model, effor
       if (!next && details.reason === "escape-key") {
         details.event.stopPropagation();
         details.event.stopImmediatePropagation?.();
+      }
+      if (!next && details.reason === "outside-press") {
+        consumeOutsidePointerGesture(details.event);
       }
       setOpen(next);
     }}

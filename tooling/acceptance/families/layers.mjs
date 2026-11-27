@@ -8,7 +8,7 @@ async function setMotion(page, reduced) {
     await page.waitForFunction(value => document.documentElement.dataset.reducedMotion === String(value), reduced);
 }
 
-async function verifyReducedMotionAndFocus(page) {
+async function verifyReducedMotionAndFocus(page, fixture) {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await setMotion(page, false);
     await page.evaluate(() => {
@@ -37,8 +37,10 @@ async function verifyReducedMotionAndFocus(page) {
     await panel.waitFor({ state: 'hidden', timeout: 1200 });
     await page.locator('[data-page="settings"]').click();
     await panel.waitFor({ state: 'visible', timeout: 1200 });
-    await page.locator('[data-page="relay-hosting"]').click();
-    await panel.getByRole('heading', { name: 'Relay hosting', exact: true }).waitFor();
+    const nextPage = page.locator(fixture.relayHosting ? '[data-page="relay-hosting"]' : '[data-page="permissions"]');
+    const expectedHeading = (await nextPage.getAttribute('aria-label')) ?? 'Relay hosting';
+    await nextPage.click();
+    await panel.getByRole('heading', { name: expectedHeading, exact: true }).waitFor();
 }
 
 export const checks = [
@@ -47,7 +49,7 @@ export const checks = [
             let { model } = context;
             try {
                 if (fixture.layerEntryCheck || (context.name === 'relay-hosting-light' && context.width === 1280 && context.behavior)) {
-                    await verifyReducedMotionAndFocus(page);
+                    await verifyReducedMotionAndFocus(page, fixture);
                     row.layerShell = { verified: true };
                 }
             }

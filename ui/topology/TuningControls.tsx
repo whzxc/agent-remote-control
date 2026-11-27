@@ -5,6 +5,7 @@ import { locale, t } from "../i18n";
 import { copyText } from "../platform";
 import { AccordionPrimitive } from "../components/kit/accordion";
 import { PopoverPrimitive } from "../components/kit/popover";
+import { consumeOutsidePointerGesture } from "../components/kit/outside-pointer";
 import { Button, Field, Icon, IconButton, Input, Switch } from "../components/ui";
 import { Slider } from "./Slider";
 import { PARAMETERS, PARAMETER_GROUPS } from "./solve";
@@ -95,6 +96,7 @@ export default function TuningControls({ available }: { available: boolean }) {
             details.event.stopPropagation();
           }
           if (details.reason === "outside-press") {
+            consumeOutsidePointerGesture(details.event);
             const active = document.activeElement;
             if (active instanceof HTMLInputElement && element.current?.contains(active)) {
               active.blur();

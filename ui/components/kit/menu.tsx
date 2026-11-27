@@ -1,9 +1,25 @@
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import { Check, ChevronRight } from "lucide-react";
 import type * as React from "react";
+import { consumeOutsidePointerGesture } from "./outside-pointer";
 import { cn, stateClass } from "./utils";
 
-export const Menu: typeof MenuPrimitive.Root = MenuPrimitive.Root;
+export function Menu({
+  onOpenChange,
+  ...props
+}: MenuPrimitive.Root.Props): React.ReactElement {
+  return (
+    <MenuPrimitive.Root
+      onOpenChange={(open, details) => {
+        if (!open && details.reason === "outside-press") {
+          consumeOutsidePointerGesture(details.event);
+        }
+        onOpenChange?.(open, details);
+      }}
+      {...props}
+    />
+  );
+}
 export const MenuTrigger: typeof MenuPrimitive.Trigger = MenuPrimitive.Trigger;
 export const MenuGroup: typeof MenuPrimitive.Group = MenuPrimitive.Group;
 export const MenuRadioGroup: typeof MenuPrimitive.RadioGroup =

@@ -20,6 +20,10 @@ import {
   type LayerSize,
 } from "../../state/layers";
 import { DismissalFooter } from "../kit/dismissal";
+import {
+  consumeOutsidePointerGesture,
+  isOutsidePointerConsumed,
+} from "../kit/outside-pointer";
 import { cn } from "../kit/utils";
 import {
   ActionsContext,
@@ -234,7 +238,14 @@ export default function Panel({
   useEffect(() => {
     if (!open || !node || role === "region") return;
     const handlePointerDown = (event: PointerEvent) => {
-      if (event.button !== 0 || layers.top()?.id !== id) return;
+      if (
+        event.button !== 0 ||
+        layers.top()?.id !== id ||
+        hasOpenTransient() ||
+        isOutsidePointerConsumed()
+      ) {
+        return;
+      }
       const target = event.target;
       if (!(target instanceof Element)) return;
       if (
@@ -244,6 +255,7 @@ export default function Panel({
       ) {
         return;
       }
+      consumeOutsidePointerGesture(event);
       layers.dismiss(id);
     };
     document.addEventListener("pointerdown", handlePointerDown, true);
@@ -285,8 +297,16 @@ export default function Panel({
           className="fixed inset-0"
           style={{ zIndex: stack.panel - 1 }}
           onPointerDown={(event) => {
-            if (event.button !== 0 || layers.top()?.id !== id || hasOpenTransient()) return;
+            if (
+              event.button !== 0 ||
+              layers.top()?.id !== id ||
+              hasOpenTransient() ||
+              isOutsidePointerConsumed()
+            ) {
+              return;
+            }
             event.preventDefault();
+            consumeOutsidePointerGesture(event.nativeEvent);
             layers.dismiss(id);
           }}
         />

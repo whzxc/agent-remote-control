@@ -27,6 +27,7 @@ import {
 import { Notice } from "./kit/alert";
 import { IconButton } from "./kit/button";
 import { PopoverPrimitive } from "./kit/popover";
+import { consumeOutsidePointerGesture } from "./kit/outside-pointer";
 import { Icon, Menu } from "./ui";
 import Dialog, { useDialogFeedback } from "./ui/Dialog";
 import { UpdateAboutView } from "./updates/UpdateAboutView";
@@ -223,6 +224,9 @@ export function UpdateDock() {
           if (installing) {
             details.cancel();
             return;
+          }
+          if (!open && details.reason === "outside-press") {
+            consumeOutsidePointerGesture(details.event);
           }
           if (open) showUpdate();
           else dismissUpdate();

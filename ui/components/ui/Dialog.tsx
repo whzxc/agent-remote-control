@@ -36,6 +36,10 @@ import {
 } from "../kit/dialog";
 import { DismissalFooter } from "../kit/dismissal";
 import { useDialogFinalFocus } from "../kit/dialog-focus";
+import {
+  consumeOutsidePointerGesture,
+  isOutsidePointerConsumed,
+} from "../kit/outside-pointer";
 import { cn } from "../kit/utils";
 import { IconButton, Notice } from "./index";
 
@@ -319,6 +323,10 @@ export default function Dialog({
   const stack = layers.stack(id);
 
   const triggerRef = useRef<HTMLElement | null>(null);
+  const returnFocusRef = useRef(returnFocus);
+  returnFocusRef.current = returnFocus;
+  const fallbackFinalFocusRef = useRef(fallbackFinalFocus);
+  fallbackFinalFocusRef.current = fallbackFinalFocus;
   const latest = useRef({ onClose, dirty: effectiveDirty, busy: effectiveBusy, onCancel: effectiveCancel });
   latest.current = { onClose, dirty: effectiveDirty, busy: effectiveBusy, onCancel: effectiveCancel };
 
@@ -327,7 +335,30 @@ export default function Dialog({
     triggerRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
     layers.open({ id, kind: "dialog", ...latest.current });
-    return () => layers.remove(id);
+    return () => {
+      layers.remove(id);
+      const exposedId = layers.top()?.id;
+      const trigger = triggerRef.current;
+      const selector = returnFocusRef.current;
+      const fallback = fallbackFinalFocusRef.current();
+      requestAnimationFrame(() => {
+        if (layers.top()?.id !== exposedId) return;
+        const active = document.activeElement;
+        if (
+          active instanceof HTMLElement &&
+          active !== document.body &&
+          active.isConnected &&
+          !active.closest("[hidden], [inert]")
+        ) {
+          return;
+        }
+        resolveReturnFocus(
+          trigger,
+          selector,
+          fallback instanceof HTMLElement ? fallback : null,
+        )?.focus({ preventScroll: true });
+      });
+    };
   }, [open, allowed, id]);
 
   useLayoutEffect(() => {
@@ -407,6 +438,7 @@ export default function Dialog({
         if (details.reason === "focus-out") return;
         if (layers.top()?.id !== id) return;
         if (details.reason === "outside-press") {
+          if (hasOpenTransient() || isOutsidePointerConsumed()) return;
           const target = details.event?.target ?? null;
           if (
             isTransientTarget(target) ||
@@ -414,6 +446,7 @@ export default function Dialog({
           ) {
             return;
           }
+          consumeOutsidePointerGesture(details.event);
           layers.dismiss(id);
           return;
         }

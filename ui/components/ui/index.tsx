@@ -38,6 +38,7 @@ import { Empty as KitEmpty } from "../kit/empty";
 import { Field as KitField } from "../kit/field";
 import { InputPrimitive } from "../kit/input";
 import { MenuPrimitive } from "../kit/menu";
+import { consumeOutsidePointerGesture } from "../kit/outside-pointer";
 import { RadioGroupPrimitive, RadioPrimitive } from "../kit/radio-group";
 import { SelectPrimitive } from "../kit/select";
 import { Loading as KitLoading } from "../kit/spinner";
@@ -581,7 +582,15 @@ export function SingleChoice({
           ))}
         </RadioGroupPrimitive>
       ) : menuLabel ? (
-        <MenuPrimitive.Root open={open} onOpenChange={(next) => setOpen(next)}>
+        <MenuPrimitive.Root
+          open={open}
+          onOpenChange={(next, details) => {
+            if (!next && details.reason === "outside-press") {
+              consumeOutsidePointerGesture(details.event);
+            }
+            setOpen(next);
+          }}
+        >
           <MenuPrimitive.Trigger
             onKeyDown={(event) => {
               if (!open && !disabled && event.key === "Enter") {
@@ -654,7 +663,12 @@ export function SingleChoice({
       ) : (
         <SelectPrimitive.Root
           open={open}
-          onOpenChange={(next) => setOpen(next)}
+          onOpenChange={(next, details) => {
+            if (!next && details.reason === "outside-press") {
+              consumeOutsidePointerGesture(details.event);
+            }
+            setOpen(next);
+          }}
           value={value}
           onValueChange={(next) => {
             if (typeof next === "string") onChange(next);
@@ -804,6 +818,7 @@ export function Tooltip({
           className="z-70 pointer-events-auto"
         >
           <TooltipPrimitive.Popup
+            role="tooltip"
             className="tooltip"
             data-state={open ? "open" : "closed"}
           >
@@ -849,7 +864,15 @@ export function Menu({
     <span>{trigger}</span>
   );
   return (
-    <MenuPrimitive.Root open={open} onOpenChange={(next) => setOpen(next)}>
+    <MenuPrimitive.Root
+      open={open}
+      onOpenChange={(next, details) => {
+        if (!next && details.reason === "outside-press") {
+          consumeOutsidePointerGesture(details.event);
+        }
+        setOpen(next);
+      }}
+    >
       <MenuPrimitive.Trigger render={triggerNode} />
       <MenuPrimitive.Portal>
         <MenuPrimitive.Positioner
