@@ -1,4 +1,5 @@
 import { Frame } from "adg";
+import { Switch as KitSwitch } from "@/components/kit";
 import { switchForms } from "../fixtures/inputs";
 
 export function Switch({
@@ -13,22 +14,21 @@ export function Switch({
   id?: string;
 }) {
   return (
-    <button
-      id={id}
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      disabled={disabled}
-      className={`flex shrink-0 items-center w-(--switch-width) h-(--switch-height)
-        p-[2px] rounded-switch ${checked ? "justify-end bg-accent" : "bg-surface-sunken"}`}
-    >
-      <span className="size-(--switch-thumb-size) rounded-full bg-knob shadow-sm" />
-    </button>
+    <span className="inline-flex shrink-0">
+      <KitSwitch
+        id={id}
+        checked={checked}
+        aria-label={label}
+        disabled={disabled}
+        readOnly
+      />
+    </span>
   );
 }
+
 export default () =>
   switchForms.map(({ name, ...props }) => (
-    <Frame name={name}>
+    <Frame key={name} name={name}>
       <Switch {...props} />
     </Frame>
   ));

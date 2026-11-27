@@ -1,7 +1,14 @@
 import type { ReactNode } from "react";
-import { Frame, Icon } from "adg";
+import { Frame } from "adg";
+import {
+  DialogSurface,
+  DismissalFooter,
+  InspectorSheetSurface,
+  Spinner,
+  WorkspaceShellSurface,
+  cn,
+} from "@/components/kit";
 import { IconButton } from "./icon-button";
-import { Button } from "./button";
 import { Field, Input } from "./field";
 import { dismissalCopy, dismissalForms } from "../fixtures/layers";
 import { panelExample } from "../fixtures/panels";
@@ -23,7 +30,6 @@ export function Panel({
   viewportHeight = 800,
   viewportWidth = 1280,
   headerless = false,
-  roomyHeader = false,
   transparent = false,
   headerHeight,
   height,
@@ -49,41 +55,164 @@ export function Panel({
   headerHeight?: number;
   height?: number;
 }) {
+  const narrow =
+    Boolean(viewportHeight) &&
+    (viewportWidth < 760 || viewportHeight > viewportWidth);
+  const closeButton = (
+    <IconButton
+      key="close"
+      anchor={motionId && `${motionId}-close`}
+      icon="x"
+      label={closeLabel}
+      compact
+    />
+  );
+
+  if (kind === "dialog") {
+    const dialogWidth = narrow
+      ? `calc(${viewportWidth}px - 2 * var(--layer-side-margin))`
+      : size === "xl"
+        ? "var(--layer-xl)"
+        : undefined;
+    const maxHeight = viewportHeight
+      ? `calc(${viewportHeight}px - 2 * var(--layer-top-browser))`
+      : undefined;
+
+    if (headerless) {
+      return (
+        <DialogSurface
+          size="md"
+          showCloseButton={false}
+          role={motionId ? "dialog" : undefined}
+          data-adg-id={motionId}
+          tabIndex={motionId ? -1 : undefined}
+          style={{
+            width: dialogWidth,
+            height,
+            minHeight: retainedHeight || undefined,
+            maxHeight,
+          }}
+          className={cn(
+            motionId && "pointer-events-auto",
+            "mx-auto max-w-[calc(100%-2*var(--layer-side-margin))]!",
+          )}
+          footer={footer}
+        >
+          {children}
+        </DialogSurface>
+      );
+    }
+
+    return (
+      <DialogSurface
+        size="md"
+        title={title}
+        description={description}
+        actions={
+          <>
+            {actions}
+            {closeButton}
+          </>
+        }
+        footer={footer}
+        showCloseButton={false}
+        role={motionId ? "dialog" : undefined}
+        aria-label={motionId && typeof title === "string" ? title : undefined}
+        data-adg-id={motionId}
+        tabIndex={motionId ? -1 : undefined}
+        style={{
+          width: dialogWidth,
+          height,
+          minHeight: retainedHeight || undefined,
+          maxHeight,
+        }}
+        className={cn(
+          motionId && "pointer-events-auto",
+          "mx-auto max-w-[calc(100%-2*var(--layer-side-margin))]!",
+        )}
+      >
+        {headerDetail}
+        {children}
+      </DialogSurface>
+    );
+  }
+
+  const panelWidth = narrow
+    ? `calc(${viewportWidth}px - 2 * var(--layer-side-margin))`
+    : undefined;
+  const panelMaxHeight = viewportHeight
+    ? `calc(${viewportHeight}px - 2 * var(--layer-panel-inset))`
+    : undefined;
+
   return (
-    <section
-      role={motionId ? (kind === "dialog" ? "dialog" : "region") : undefined}
+    <WorkspaceShellSurface
+      size={size ?? "xl"}
+      headerless
+      role={motionId ? "region" : undefined}
       aria-label={motionId && typeof title === "string" ? title : undefined}
-      data-adg-id={motionId} tabIndex={motionId ? -1 : undefined}
-      style={{ height, width: viewportHeight && (viewportWidth < 760 || viewportHeight > viewportWidth) ? `calc(${viewportWidth}px - 2 * var(--layer-side-margin))` : `var(--layer-${size ?? (kind === "panel" ? "xl" : "m")})`, "--layer-retained-height": retainedHeight ? `${retainedHeight}px` : "0px", "--layer-viewport-height": viewportHeight ? `${viewportHeight}px` : undefined, "--layer-frame-top": `var(${kind === "panel" ? "--layer-panel-inset" : "--layer-top-browser"})`, "--layer-frame-bottom": `var(${kind === "panel" ? "--layer-panel-inset" : "--layer-top-browser"})` }}
-      className={`${motionId ? "pointer-events-auto" : ""} flex min-h-(--layer-retained-height) flex-col rounded-panel ${transparent ? "bg-transparent backdrop-blur-[24px]" : "bg-surface-raised"} pb-6 px-6 text-text shadow-lg
-        mx-auto max-w-[calc(100%_-_2_*_var(--layer-side-margin))]! max-h-[calc(100%_-_var(--layer-frame-top)_-_var(--layer-frame-bottom))]!
-        ${viewportHeight ? "max-h-[calc(var(--layer-viewport-height)_-_var(--layer-frame-top)_-_var(--layer-frame-bottom))]!" : ""}
-        max-w-full [&>header]:shrink-0
-        ${roomyHeader ? "gap-[29px] pt-[21px]" : "gap-[25px] pt-[13px]"}`}
+      data-adg-id={motionId}
+      tabIndex={motionId ? -1 : undefined}
+      style={{
+        width: panelWidth,
+        height,
+        minHeight: retainedHeight || undefined,
+        maxHeight: panelMaxHeight,
+      }}
+      className={cn(
+        motionId && "pointer-events-auto",
+        transparent && "border-border/60 bg-transparent backdrop-blur-[24px]",
+        "mx-auto max-w-[calc(100%-2*var(--layer-side-margin))]!",
+      )}
+      footer={footer}
     >
       {!headerless && (
-        <header data-adg-id={motionId && `${motionId}-header`} className="flex h-(--control-height) items-center justify-between gap-4" style={{height: headerHeight}}>
+        <header
+          data-slot="workspace-header"
+          data-adg-id={motionId && `${motionId}-header`}
+          className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border px-5"
+          style={headerHeight ? { height: headerHeight } : undefined}
+        >
           {leading}
-          <h2 className="text-title leading-6 font-[650]">{title}</h2>
+          {title && (
+            <h2 className="min-w-0 truncate text-[15px] font-semibold leading-5 tracking-[-0.01em] text-foreground">
+              {title}
+            </h2>
+          )}
           {headerNavigation}
-          <div className="ml-auto flex items-center gap-(--control-gap)">
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
             {actions}
-            <IconButton key="close" anchor={motionId && `${motionId}-close`} icon="x" label={closeLabel} />
+            {closeButton}
           </div>
         </header>
       )}
       {headerDetail}
       {description && (
-        <div className="text-small text-text-secondary">{description}</div>
+        <div
+          data-slot="workspace-description"
+          className="shrink-0 border-b border-border px-5 py-2.5 text-small leading-5 text-text-secondary"
+        >
+          {description}
+        </div>
       )}
-      {headerless ? children : <div data-adg-id={motionId && `${motionId}-body`} className="min-h-0 flex-1 overflow-y-auto">{children}</div>}
-      {footer ? <div className="shrink-0">{footer}</div> : footer}
-    </section>
+      {headerless ? (
+        children
+      ) : (
+        <div
+          data-slot="workspace-body"
+          data-adg-id={motionId && `${motionId}-body`}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4"
+        >
+          {children}
+        </div>
+      )}
+    </WorkspaceShellSurface>
   );
 }
+
 export function Dialog(props: Parameters<typeof Panel>[0]) {
   return <Panel {...props} kind="dialog" />;
 }
+
 /** Content-sized shell for topology panels and workspace-specific headers. */
 export function PanelShell({
   viewportHeight = 800,
@@ -98,15 +227,31 @@ export function PanelShell({
   children?: ReactNode;
   className?: string;
 }) {
+  const narrow =
+    Boolean(viewportHeight) &&
+    (viewportWidth < 760 || viewportHeight > viewportWidth);
+
   return (
-    <section
-      style={{ width: viewportHeight && (viewportWidth < 760 || viewportHeight > viewportWidth) ? `calc(${viewportWidth}px - 2 * var(--layer-side-margin))` : "var(--layer-m)", height, "--layer-viewport-height": viewportHeight ? `${viewportHeight}px` : undefined }}
-      className={`flex min-h-(--layer-retained-height) flex-col rounded-panel bg-surface-raised text-text shadow-lg ${viewportHeight ? "max-h-[calc(var(--layer-viewport-height)_-_2_*_var(--layer-panel-inset))]!" : ""} ${extra}`}
+    <InspectorSheetSurface
+      style={{
+        width: narrow
+          ? `calc(${viewportWidth}px - 2 * var(--layer-side-margin))`
+          : undefined,
+        height,
+        maxHeight: viewportHeight
+          ? `calc(${viewportHeight}px - 2 * var(--layer-panel-inset))`
+          : undefined,
+      }}
+      className={cn(
+        extra && "[&>[data-slot=inspector-body]]:contents",
+        extra,
+      )}
     >
       {children}
-    </section>
+    </InspectorSheetSurface>
   );
 }
+
 export function PanelHeader({
   title,
   children,
@@ -119,12 +264,14 @@ export function PanelHeader({
   close?: boolean;
 }) {
   return (
-    <header className="flex h-(--control-height) shrink-0 items-center gap-4">
-      <h2 className="text-title leading-6 font-[650]">{title}</h2>
+    <header className="flex h-(--kit-control-height) shrink-0 items-center gap-3">
+      <h2 className="text-[15px] font-semibold leading-5 text-foreground">
+        {title}
+      </h2>
       {children}
-      <div className="ml-auto flex items-center gap-(--control-gap)">
+      <div className="ml-auto flex items-center gap-1.5">
         {actions}
-        {close && <IconButton icon="x" label="Close" />}
+        {close && <IconButton compact icon="x" label="Close" />}
       </div>
     </header>
   );
@@ -132,63 +279,74 @@ export function PanelHeader({
 
 export function PanelLoading({ label }: { label: string }) {
   return (
-    <div className="flex items-center justify-center gap-2 p-6 text-body text-text-secondary" role="status">
-      <Icon name="loader-circle" size={16} />
+    <div
+      className="flex items-center justify-center gap-2 p-6 text-small text-text-secondary"
+      role="status"
+    >
+      <Spinner size={16} />
       {label}
     </div>
   );
 }
 
-
 /** Replaces the dialog's normal footer after outside input or Escape. */
-export function DialogDismissalFooter({ state }: { state: "discard" | "cancellable" | "running" }) {
+export function DialogDismissalFooter({
+  state,
+}: {
+  state: "discard" | "cancellable" | "running";
+}) {
   return (
-    <footer className="flex flex-col gap-4 border-t border-border pt-4" role="status">
-      <p className="text-small leading-5 text-text-secondary">{dismissalCopy[state]}</p>
-      {state === "discard" && (
-        <div className="flex flex-wrap justify-end gap-3">
-          <Button variant="danger">{dismissalCopy.discardAction}</Button>
-          <Button variant="primary" className="outline-2 outline-offset-2 outline-accent">{dismissalCopy.keep}</Button>
-        </div>
-      )}
-      {state !== "discard" && (
-        <div className="flex flex-wrap justify-end gap-3">
-          {state === "cancellable" && <Button variant="danger">{dismissalCopy.stop}</Button>}
-          <Button variant="primary" className="outline-2 outline-offset-2 outline-accent">{dismissalCopy.keepOpen}</Button>
-        </div>
-      )}
-    </footer>
+    <DismissalFooter
+      status={state === "discard" ? "discard" : "running"}
+      cancellable={state === "cancellable"}
+      onDiscard={() => {}}
+      onStopAndClose={() => {}}
+      onKeepOpen={() => {}}
+      className="-mx-4 -my-3 w-[calc(100%+2rem)]"
+    />
   );
 }
 
 export default () => {
-  const actions = <IconButton icon="maximize-2" label="Expand" />;
+  const actions = <IconButton compact icon="maximize-2" label="Expand" />;
   const content = (
     <div
-      className="flex h-36 items-center justify-center rounded-card border border-dashed
-        border-border-strong text-caption text-text-tertiary font-mono"
+      className="flex h-36 items-center justify-center rounded-kit-card border border-dashed
+        border-border-strong font-mono text-caption text-text-tertiary"
     >
       {panelExample.content}
     </div>
   );
   return [
-    <Frame name="panel" width={992} note="Desktop XL panel in its host slot; the panel body is 960px wide.">
+    <Frame
+      key="panel"
+      name="panel"
+      width={992}
+      note="Desktop XL WorkspaceShell in its host slot; the shell width caps at 960px."
+    >
       <Panel title={panelExample.title} actions={actions}>{content}</Panel>
     </Frame>,
-    <Frame name="dialog" width={592}>
+    <Frame key="dialog" name="dialog" width={592}>
       <Dialog title={panelExample.title} actions={actions}>{content}</Dialog>
     </Frame>,
-    <Frame name="panel-shell" width={560}>
+    <Frame key="panel-shell" name="panel-shell" width={560}>
       <PanelShell>{content}</PanelShell>
     </Frame>,
-    ...dismissalForms.filter(form => form.name !== 'dialog-running-cancellable').map(({ name, state, note }) => (
-      <Frame name={name} width={592} note={note}>
-        <Dialog title={dismissalCopy.title} footer={<DialogDismissalFooter state={state} />}>
-          <Field label={dismissalCopy.field}><Input value={dismissalCopy.value} /></Field>
-        </Dialog>
-      </Frame>
-    )),
-    <Frame name="panel-header" width={512}>
+    ...dismissalForms
+      .filter((form) => form.name !== "dialog-running-cancellable")
+      .map(({ name, state, note }) => (
+        <Frame key={name} name={name} width={592} note={note}>
+          <Dialog
+            title={dismissalCopy.title}
+            footer={<DialogDismissalFooter state={state} />}
+          >
+            <Field label={dismissalCopy.field}>
+              <Input value={dismissalCopy.value} />
+            </Field>
+          </Dialog>
+        </Frame>
+      )),
+    <Frame key="panel-header" name="panel-header" width={512}>
       <div className="w-full bg-surface-raised text-text">
         <PanelHeader title={panelExample.title} actions={actions} />
       </div>

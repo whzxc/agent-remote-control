@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Frame, Icon } from "adg";
+import { Button as KitButton, cn } from "@/components/kit";
 import { buttonForms } from "../fixtures/buttons";
 
 export type ButtonProps = {
@@ -13,45 +14,39 @@ export type ButtonProps = {
   children?: ReactNode;
   className?: string;
 };
+
 export function Button({
   variant = "secondary",
   presentation,
-  busy,
+  busy = false,
   anchor,
   disabled,
   icon,
   children,
   className: extra = "",
 }: ButtonProps) {
-  const paint = {
-    primary: "bg-action text-on-action",
-    secondary: "bg-surface-sunken text-text",
-    ghost: "text-text",
-    link: "text-accent-text",
-    danger:
-      `relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit]
-      before:bg-danger before:opacity-14 text-danger`,
-    "danger-outline": "text-danger border border-danger",
-  };
   return (
-    <button
+    <KitButton
+      variant={variant}
+      busy={busy}
+      disabled={disabled}
       data-adg-id={anchor}
-      disabled={disabled || busy}
-      aria-busy={busy}
-      className={`inline-flex shrink-0 items-center justify-center gap-(--control-gap)
-        ${variant === "link" ? "h-6 px-0" : "h-(--control-height) px-4"}
-        rounded-control text-small leading-4 font-semibold whitespace-nowrap ${paint[variant]} ${presentation === "record-link" ? "text-accent! text-meta!" : ""} ${extra}`}
+      className={cn(
+        presentation === "record-link" && "text-accent! text-meta!",
+        extra,
+      )}
     >
-      {(busy || icon) && (
-        <Icon name={busy ? "loader-circle" : icon!} className="size-(--control-icon-size)" />
+      {!busy && icon && (
+        <Icon name={icon} className="size-(--control-icon-size)" />
       )}
       {children}
-    </button>
+    </KitButton>
   );
 }
+
 export default () =>
   buttonForms.map(({ name, text, ...props }) => (
-    <Frame name={name}>
+    <Frame key={name} name={name}>
       <Button {...props}>{text}</Button>
     </Frame>
   ));

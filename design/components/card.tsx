@@ -1,5 +1,11 @@
 import type { ReactNode } from "react";
 import { Frame } from "adg";
+import {
+  Card as KitCard,
+  CardContent as KitCardContent,
+  CardHeader as KitCardHeader,
+  cn,
+} from "@/components/kit";
 import { cardForms } from "../fixtures/panels";
 
 export type CardProps = {
@@ -8,6 +14,7 @@ export type CardProps = {
   padded?: boolean;
   className?: string;
 };
+
 export function Card({
   children,
   variant = "default",
@@ -15,25 +22,36 @@ export function Card({
   className: extra = "",
 }: CardProps) {
   return (
-    <div
-      className={`flex w-full min-w-0 flex-col gap-4 rounded-card text-text ${padded ? "p-4" : "py-4"}
-        ${variant === "reply" ? "bg-surface" : "bg-surface-subtle"} ${extra}`}
+    <KitCard
+      padded={padded}
+      className={cn(
+        !padded && "py-4",
+        variant === "reply" ? "rounded-card bg-surface" : "bg-surface",
+        extra,
+      )}
     >
       {children}
-    </div>
+    </KitCard>
   );
 }
+
 export function CardHeader({ children }: { children?: ReactNode }) {
-  return <div className="flex flex-col gap-2 px-4">{children}</div>;
+  return (
+    <KitCardHeader className="flex-col items-stretch gap-2 pt-0">
+      {children}
+    </KitCardHeader>
+  );
 }
+
 export function CardContent({ children }: { children?: ReactNode }) {
-  return <div className="px-4">{children}</div>;
+  return <KitCardContent className="pb-0">{children}</KitCardContent>;
 }
+
 export default () => [
   ...cardForms.map(({ name, variant, text }) => (
-    <Frame name={name} width={560}>
+    <Frame key={name} name={name} width={560}>
       <Card variant={variant}>
-        <div className="flex h-[88px] items-center justify-center text-caption font-mono text-text-tertiary">
+        <div className="flex h-[88px] items-center justify-center font-mono text-caption text-text-tertiary">
           {text}
         </div>
       </Card>
@@ -43,8 +61,10 @@ export default () => [
     { name: "card-header", Part: CardHeader },
     { name: "card-content", Part: CardContent },
   ].map(({ name, Part }) => (
-    <Frame name={name} width={560}>
-      <div className="w-full bg-surface-subtle text-text"><Part>{cardForms[0].text}</Part></div>
+    <Frame key={name} name={name} width={560}>
+      <div className="w-full bg-surface text-text">
+        <Part>{cardForms[0].text}</Part>
+      </div>
     </Frame>
   )),
 ];

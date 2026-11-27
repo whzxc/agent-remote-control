@@ -1,25 +1,34 @@
-import type { ReactNode } from "react";
+import { isValidElement, type ReactNode } from "react";
 import { Frame } from "adg";
+import { HintTooltip } from "@/components/kit";
 import { tooltipExample } from "../fixtures/feedback";
 
 export function Tooltip({
   text,
-  children, open = false,
+  children,
+  open = false,
 }: {
   text?: ReactNode;
   children?: ReactNode;
   open?: boolean;
 }) {
-  if (!open) return <span title={String(text ?? '')} className="contents">{children}</span>;
+  if (!open) {
+    if (isValidElement(children) && text) {
+      return <HintTooltip text={text}>{children}</HintTooltip>;
+    }
+    return <span title={String(text ?? "")} className="contents">{children}</span>;
+  }
   return (
     <div
       role="tooltip"
-      className="inline-flex items-center px-3 py-2 rounded-tile bg-action text-on-action shadow-md text-meta leading-[14px] font-medium"
+      data-slot="tooltip-popup"
+      className="inline-flex max-w-[min(300px,calc(100vw-24px))] items-center wrap-anywhere rounded-kit-field bg-action px-2 py-1 text-meta font-medium leading-4 text-on-action shadow-md"
     >
       {text ?? children}
     </div>
   );
 }
+
 export default () => (
   <Frame name="default">
     <Tooltip open>{tooltipExample}</Tooltip>

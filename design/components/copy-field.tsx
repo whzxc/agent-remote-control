@@ -1,5 +1,5 @@
 import { Frame } from "adg";
-import { IconButton } from "./icon-button";
+import { CopyField as KitCopyField, PrivacyProvider } from "@/components/kit";
 import { copyFieldExample } from "../fixtures/inputs";
 
 export function CopyField({
@@ -17,20 +17,21 @@ export function CopyField({
   loading?: boolean;
   placeholder?: string;
 }) {
-  return (
-    <div
-      className="flex w-full items-center justify-between gap-3 h-(--field-height)
-        pl-(--field-padding-inline) pr-(--control-inset) rounded-field bg-surface-sunken text-text"
-    >
-      <span
-        className={`min-w-0 truncate font-mono text-small ${masked || password ? "blur-[2px] opacity-50" : ""}`}
-      >
-        {value || placeholder}
-      </span>
-      <IconButton icon="copy" label={label} busy={loading} />
-    </div>
+  const field = (
+    <KitCopyField
+      value={value}
+      label={label}
+      password={password}
+      loading={loading}
+      placeholder={placeholder}
+    />
   );
+  if (masked && !password) {
+    return <PrivacyProvider hidden>{field}</PrivacyProvider>;
+  }
+  return field;
 }
+
 export default () => (
   <Frame name="default" width={680}>
     <CopyField {...copyFieldExample} />
