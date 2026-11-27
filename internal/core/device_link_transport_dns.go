@@ -45,6 +45,7 @@ func advertiseDeviceDNS(identity *deviceIdentity, port uint16, bindings []device
 			endpoint.socket.Close()
 		}
 	}
+	var lastErr error
 	for _, binding := range bindings {
 		ip := binding.addr.Addr().WithZone("")
 		if !advertised[ip] {
@@ -63,10 +64,17 @@ func advertiseDeviceDNS(identity *deviceIdentity, port uint16, bindings []device
 		opened[family] = true
 		endpoint, err := deviceListenDNS(binding.nic, family.ipv6)
 		if err != nil {
-			closeAll()
-			return nil, err
+			lastErr = err
+			recordLog("WARN", "Device link mDNS listen skipped: "+err.Error(), nil)
+			continue
 		}
 		endpoints = append(endpoints, endpoint)
+	}
+	if len(endpoints) == 0 {
+		if lastErr != nil {
+			return nil, lastErr
+		}
+		return func() {}, nil
 	}
 	message := dnsmessage.Message{Header: dnsmessage.Header{Response: true, Authoritative: true}, Answers: resources}
 	packet, err := message.Pack()
@@ -75,14 +83,25 @@ func advertiseDeviceDNS(identity *deviceIdentity, port uint16, bindings []device
 		return nil, err
 	}
 	var workers sync.WaitGroup
+	active := make([]deviceDNSEndpoint, 0, len(endpoints))
 	for _, endpoint := range endpoints {
 		if _, err := endpoint.socket.WriteToUDP(packet, endpoint.group); err != nil {
-			closeAll()
-			workers.Wait()
-			return nil, err
+			lastErr = err
+			recordLog("WARN", "Device link mDNS announce skipped: "+err.Error(), nil)
+			endpoint.socket.Close()
+			continue
 		}
+		active = append(active, endpoint)
 		workers.Go(func() { endpoint.respond(message, service, instance, host) })
 	}
+	if len(active) == 0 {
+		workers.Wait()
+		if lastErr != nil {
+			return nil, lastErr
+		}
+		return func() {}, nil
+	}
+	endpoints = active
 	return func() {
 		goodbye := dnsmessage.Message{Header: message.Header, Answers: append([]dnsmessage.Resource(nil), resources...)}
 		for i := range goodbye.Answers {

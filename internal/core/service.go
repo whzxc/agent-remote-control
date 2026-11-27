@@ -272,7 +272,7 @@ func (s *service) status(ctx context.Context) (object, error) {
 	}
 	recordRuntimeWork(ctx, runtimeWorkCost{Owner: "status", Reason: "poll", Rows: len(items), ScanSet: len(items)})
 	logs := recentLogs(nil)
-	core := object{"pid": s.metadata["pid"], "desktop": object{"state": "unknown"}, "appServer": object{"state": "unknown"},
+	core := object{"pid": s.metadata["pid"], "desktop": s.desktopStatus(ctx), "appServer": s.codexAppServerHealth(),
 		"chatgpt": object{}, "resources": coreResourceStatus(), "logs": logs, "version": buildVersion,
 		"backendSession": s.metadata["instance"], "activeTurns": 0, "liveProcesses": 0, "uncertain": false, "draining": false,
 		"account": object{"state": "unknown", "observedAt": nil}, "lastInbound": nil, "schemaDiscovered": "unknown",

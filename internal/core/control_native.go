@@ -89,6 +89,26 @@ func (s *service) codexUtility(ctx context.Context) (*rpcConnection, error) {
 	return connection, state.launches.run(func() error { return nil })
 }
 
+func (s *service) codexAppServerHealth() object {
+	s.codex.mu.Lock()
+	rpc := s.codex.utility
+	s.codex.mu.Unlock()
+	if rpc != nil {
+		return rpc.health()
+	}
+	if !runtimeFixture {
+		if record, err := loadCodexHost(primaryCodexProfile); err == nil {
+			if pid := codexHostPID(record); pid != 0 {
+				resources := childResourceStatus(pid, obj(record["inheritedNofile"]), "process exited or could not be checked")
+				return object{"state": "ready", "pid": pid, "startedAt": record["startedAt"], "observedAt": now(),
+					"evidence": "native-connector", "stale": false, "resources": resources, "detached": true, "adopted": true}
+			}
+		}
+	}
+	return object{"state": "stopped", "pid": nil, "startedAt": nil, "observedAt": now(),
+		"evidence": "native-connector", "stale": false, "resources": childResourceStatus(0, nil, "app-server has not been started")}
+}
+
 func (s *service) closeNativeCodex() {
 	state := &s.codex
 	state.activity.close()

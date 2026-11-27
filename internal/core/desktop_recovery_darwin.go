@@ -282,7 +282,28 @@ func revealMacNativeDesktopBackendTask(ctx context.Context, thread string, bindi
 	return sendNativeDesktopEvent(instance, 0x4755524c, 0x4755524c, "codex://threads/"+thread)
 }
 
+func macNativeDesktopReadiness(ctx context.Context, s *service) (string, bool) {
+	if socket, err := codexHostLocation(primaryCodexProfile, ".sock"); err == nil {
+		if resolved, err := filepath.EvalSymlinks(socket); err == nil {
+			if instance, err := nativeDesktopConnected(ctx, resolved, ""); err == nil && instance != nil && instance.independent() {
+				if _, err := s.desktopBackendRPC(ctx, "arc"); err == nil {
+					return "private-app-server", true
+				}
+			}
+		}
+	}
+	if socket, err := nativeSharedDesktopSocket(); err == nil {
+		if instance, err := nativeDesktopConnected(ctx, socket, ""); err == nil && instance != nil {
+			if _, err := s.desktopBackendRPC(ctx, "shared"); err == nil {
+				return "local-daemon", true
+			}
+		}
+	}
+	return "", false
+}
+
 func init() {
 	prepareNativeDesktopBackend = macNativeDesktopPreparation
 	revealNativeDesktopBackendTask = revealMacNativeDesktopBackendTask
+	desktopDaemonReadiness = macNativeDesktopReadiness
 }

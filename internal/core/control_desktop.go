@@ -48,6 +48,32 @@ func (s *service) closeNativeDesktop() {
 	}
 }
 
+var desktopDaemonReadiness func(context.Context, *service) (string, bool)
+
+func (s *service) desktopStatus(ctx context.Context) object {
+	if runtimeFixture && fixtureUsesDesktop == nil {
+		return object{"state": "unknown"}
+	}
+	_, err := s.nativeDesktop(ctx)
+	if err == nil {
+		return object{"supported": true, "state": "ready", "executionOwner": "desktop", "transport": "ipc", "message": "Codex Desktop is ready"}
+	}
+	if desktopDaemonReadiness != nil && fixtureUsesDesktop == nil {
+		if transport, ok := desktopDaemonReadiness(ctx, s); ok {
+			return object{"supported": true, "state": "ready", "executionOwner": "desktop", "transport": transport, "message": "Codex Desktop is ready"}
+		}
+	}
+	supported := desktopCodexBinary() != ""
+	if fixtureUsesDesktop != nil {
+		supported = fixtureUsesDesktop()
+	}
+	state := "unavailable"
+	if supported {
+		state = "disconnected"
+	}
+	return object{"supported": supported, "state": state, "executionOwner": "desktop", "message": err.Error()}
+}
+
 func nativeDesktopRead(ctx context.Context, s *service, method string, args object, timeout time.Duration) (any, error) {
 	id := text(args, "threadId")
 	complete := method != "thread/read" || args["includeTurns"] == true

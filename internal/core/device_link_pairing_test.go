@@ -511,3 +511,35 @@ func TestDevicePairingRejectsAThreeDeviceCycleBeforeApproval(t *testing.T) {
 		t.Fatalf("cycle reached approval: %v, %v", pending, err)
 	}
 }
+
+func TestDeviceLinkKeepsPeerListenerWhenDiscoveryFails(t *testing.T) {
+	// Recurring bug class: lifecycle peer TCP listener stays active when mDNS discovery fails on startup.
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	m, err := newDeviceManager(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	probe, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.stored.Port = uint16(probe.Addr().(*net.TCPAddr).Port)
+	probe.Close()
+	m.allow = netip.Addr.IsLoopback
+	m.bindings = func(port uint16) ([]deviceLANBinding, error) {
+		return []deviceLANBinding{{addr: netip.AddrPortFrom(netip.MustParseAddr("127.0.0.1"), port)}}, nil
+	}
+	m.discovery = func(*deviceIdentity, uint16, []deviceLANBinding) (func(), error) {
+		return nil, errors.New("write udp6 [::]:5353->[ff02::fb%en0]:5353: sendto: no route to host")
+	}
+	if err := m.reconcile(true); err != nil {
+		t.Fatalf("reconcile failed when discovery failed: %v", err)
+	}
+	t.Cleanup(func() { _ = m.reconcile(false) })
+	conn, err := net.DialTimeout("tcp4", netip.AddrPortFrom(netip.MustParseAddr("127.0.0.1"), m.stored.Port).String(), time.Second)
+	if err != nil {
+		t.Fatalf("peer listener not reachable after discovery failure: %v", err)
+	}
+	conn.Close()
+}

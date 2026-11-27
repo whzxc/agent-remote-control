@@ -304,3 +304,25 @@ func TestDesktopOnlyDefiniteMissingOwnerAllowsLoadingFallback(t *testing.T) {
 		}
 	}
 }
+
+func TestServiceStatusReportsCodexDesktopAndAppServerState(t *testing.T) {
+	// Contract: core.desktop and core.appServer report live readiness instead of hardcoded unknown.
+	s := &service{}
+	d := desktopFixture(t, 16, nil)
+	s.codex.desktop = d
+	desktop := s.desktopStatus(t.Context())
+	if desktop["state"] != "ready" || desktop["transport"] != "ipc" || desktop["supported"] != true {
+		t.Fatalf("desktop status = %v", desktop)
+	}
+	stopped := s.codexAppServerHealth()
+	if stopped["state"] != "stopped" {
+		t.Fatalf("idle appServer health = %v", stopped)
+	}
+	rpc := &rpcConnection{startedAt: now(), pid: 42}
+	rpc.alive.Store(true)
+	s.codex.utility = rpc
+	ready := s.codexAppServerHealth()
+	if ready["state"] != "ready" || ready["pid"] != 42 {
+		t.Fatalf("live appServer health = %v", ready)
+	}
+}

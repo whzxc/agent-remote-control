@@ -330,8 +330,8 @@ func (m *deviceManager) startPeerRuntime(identity *deviceIdentity, port uint16) 
 	}
 	stopDNS, err := m.discovery(identity, port, bindings)
 	if err != nil {
-		closeAll()
-		return nil, err
+		recordLog("WARN", "Device link mDNS startup degraded: "+err.Error(), nil)
+		stopDNS = func() {}
 	}
 	ctx, cancel := context.WithCancel(m.lifetime)
 	peer := newDevicePeerListener(identity, m.acceptCertificate, func(id string) bool {
