@@ -225,7 +225,11 @@ export function UpdateDock() {
             details.cancel();
             return;
           }
-          if (!open && details.reason === "outside-press") {
+          if (
+            !open &&
+            (details.reason === "outside-press" ||
+              details.reason === "focus-out")
+          ) {
             consumeOutsidePointerGesture(details.event);
           }
           if (open) showUpdate();

@@ -72,7 +72,10 @@ export default function ModelEffortPicker({ label, models, efforts, model, effor
         details.event.stopPropagation();
         details.event.stopImmediatePropagation?.();
       }
-      if (!next && details.reason === "outside-press") {
+      if (
+        !next &&
+        (details.reason === "outside-press" || details.reason === "focus-out")
+      ) {
         consumeOutsidePointerGesture(details.event);
       }
       setOpen(next);

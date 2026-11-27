@@ -96,6 +96,9 @@ export function HintTooltip({
     <TooltipPrimitive.Root
       open={open}
       onOpenChange={(next, details) => {
+        if (details.reason === "escape-key") {
+          details.allowPropagation();
+        }
         if (hoverOnly && next && details.reason !== "trigger-hover") {
           setOpen(false);
           return;

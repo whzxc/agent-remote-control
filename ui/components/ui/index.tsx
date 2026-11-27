@@ -782,6 +782,9 @@ export function Tooltip({
     <TooltipPrimitive.Root
       open={open}
       onOpenChange={(next, details) => {
+        if (details.reason === "escape-key") {
+          details.allowPropagation();
+        }
         if (hoverOnly && next && (!pointerHover.current || details.reason !== "trigger-hover")) {
           return;
         }

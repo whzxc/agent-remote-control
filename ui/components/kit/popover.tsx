@@ -10,7 +10,10 @@ export function Popover({
   return (
     <PopoverPrimitive.Root
       onOpenChange={(open, details) => {
-        if (!open && details.reason === "outside-press") {
+        if (
+          !open &&
+          (details.reason === "outside-press" || details.reason === "focus-out")
+        ) {
           consumeOutsidePointerGesture(details.event);
         }
         onOpenChange?.(open, details);

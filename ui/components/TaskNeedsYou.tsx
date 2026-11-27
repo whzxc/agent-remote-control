@@ -43,6 +43,7 @@ export default function TaskNeedsYou({ agent, session, entries, source, callerAg
   const routing = useRequestRouting(agent, session.id, pending?.interaction);
   const pauseOnInteraction = (event: React.SyntheticEvent<HTMLElement>) => {
     if (readOnlyBrowser) return;
+    if (event.type === "keydown" && "key" in event && event.key === "Escape") return;
     const target = event.target as HTMLElement;
     if (event.type === "focus" && !target.matches("input, textarea, [contenteditable=true]")) return;
     if (target !== event.currentTarget && !target.closest("[data-routing-controls]")) void routing.change("pause");

@@ -95,7 +95,7 @@ export default function TuningControls({ available }: { available: boolean }) {
             }
             details.event.stopPropagation();
           }
-          if (details.reason === "outside-press") {
+          if (details.reason === "outside-press" || details.reason === "focus-out") {
             consumeOutsidePointerGesture(details.event);
             const active = document.activeElement;
             if (active instanceof HTMLInputElement && element.current?.contains(active)) {
