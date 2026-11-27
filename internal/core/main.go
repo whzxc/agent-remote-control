@@ -13,11 +13,11 @@ import (
 	"syscall"
 )
 
-func tuneServerGC(limitBytes int64) {
-	if _, set := os.LookupEnv("GOGC"); !set {
-		debug.SetGCPercent(50)
+func tuneServerGC(gcPercent int, limitBytes int64) {
+	if _, set := os.LookupEnv("GOGC"); !set && gcPercent > 0 {
+		debug.SetGCPercent(gcPercent)
 	}
-	if _, set := os.LookupEnv("GOMEMLIMIT"); !set {
+	if _, set := os.LookupEnv("GOMEMLIMIT"); !set && limitBytes > 0 {
 		debug.SetMemoryLimit(limitBytes)
 	}
 }
@@ -69,10 +69,10 @@ func runCommand(ctx context.Context, args []string, stdin io.Reader, stdout, std
 			}
 			return outputLine(stdout, wire(status))
 		case "serve", "daemon":
-			tuneServerGC(180 << 20)
+			tuneServerGC(75, 0)
 			return serveRuntime(ctx, args[0] == "daemon")
 		case "front-door":
-			tuneServerGC(64 << 20)
+			tuneServerGC(50, 96<<20)
 			return runFrontDoor(ctx)
 		case "start":
 			return printResult(stdout, func() (object, error) { return startHeadless(ctx) })
