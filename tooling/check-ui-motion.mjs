@@ -91,7 +91,7 @@ export function checkMotion(base) {
       file, line: rule.source.start.line, selector: rule.params, property: '@keyframes', value: rule.toString(),
     }));
     sheet.walkDecls(decl => {
-      if (decl.parent.type === 'atrule' && decl.parent.name === 'theme') return;
+      if (file === 'ui/styles/kit.css' && decl.parent.type === 'atrule' && decl.parent.name === 'theme') return;
       const property = decl.prop.replace(/^-webkit-/i, '').toLowerCase();
       if (!motionProperty.test(property) && !property.startsWith('--')) return;
       const { selector } = decl.parent;

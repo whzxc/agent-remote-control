@@ -129,5 +129,7 @@ test('kit theme bridge and primitives stay exempt without weakening feature poli
     assert.ok(checkTokens(root).errors.some(error => error.includes('nearest --line-small')));
     await writeFile(path.join(root, 'ui/feature.css'), '.a { color: red; }');
     assert.equal((await checkStyles(root)).errors.length, 1);
+    await writeFile(path.join(root, 'ui/feature.css'), '@theme inline { --ease-enter: linear; }');
+    assert.equal(checkMotion(root).errors.length, 1);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
