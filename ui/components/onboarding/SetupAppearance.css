@@ -11,7 +11,6 @@
 .pairing-inline .pairing-code { font:var(--weight-title) var(--text-display)/var(--line-code-display) var(--font-mono); letter-spacing:normal; }
 .welcome-page { border-radius:var(--radius-panel); background:var(--surface-raised); box-shadow:var(--shadow-lg); }
 .welcome-page h1 { font:var(--weight-title) var(--text-title)/var(--line-title) var(--font-ui); }
-.welcome-readiness > .status { font-size:var(--text-small); }
 
 .pairing-card .pairing-fact { font-size: var(--text-meta); color: var(--text-secondary); }
 .pairing-card .pairing-summary { font-size: var(--text-small); }

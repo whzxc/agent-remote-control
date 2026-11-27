@@ -21,7 +21,8 @@ import { t } from "../i18n";
 import type { AgentTimeline } from "../types";
 import { activityApprovals, agentActivity, openActivitySession } from "../state/activity";
 import { followsTimeline, refreshTimeline, reuseTimelineEntries, timelineScrollTarget } from "../state/timelineModel";
-import { Button, Icon, IconButton, LoadingIndicator, Menu, Notice, Tag } from "./ui";
+import { Badge } from "./kit/badge";
+import { Button, Icon, IconButton, LoadingIndicator, Menu, Notice } from "./ui";
 import TimelineEntries, { TimelinePlanDock } from "./TimelineEntries";
 import { PhaseLabel } from "./ui/TaskPhase";
 import { TaskSpecChoice } from "./AgentDispatchDefaults";
@@ -301,7 +302,7 @@ export default function ActivityTimeline({ agent, session, expanded, onToggleWid
         summary={latestSummary} editable={editableSpec} />
     : null;
   const selectedTurnIndex = session.selectedTurnId ? groups.findIndex(group => group.turnId === session.selectedTurnId) : -1;
-  const selectedTurnTag = selectedTurnIndex >= 0 ? <Tag>{t("detail.selectedTurn", { count: selectedTurnIndex + 1 })}</Tag> : null;
+  const selectedTurnTag = selectedTurnIndex >= 0 ? <Badge className="tag" data-form="spec">{t("detail.selectedTurn", { count: selectedTurnIndex + 1 })}</Badge> : null;
   const parentSession = parentId ? parent ?? {
     id: parentId, nativeSessionId: parentId, source: "codex-thread" as const, title: parentTitle || undefined,
     phase: "idle" as const, phaseSince: null, headline: "", timeline: true, orderAt: 0, observed: false,

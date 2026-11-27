@@ -1,4 +1,3 @@
-import { TransientLayer } from "./ui/TransientLayer";
 import { useEffect, useId, useRef, useState } from "react";
 import { RotateCcw } from "lucide-react";
 import { t } from "../i18n";
@@ -84,16 +83,16 @@ export default function ModelEffortPicker({ label, models, efforts, model, effor
       }
     />
     <PopoverPrimitive.Portal>
-      <TransientLayer onDismiss={() => setOpen(false)}>
-        <PopoverPrimitive.Positioner side="bottom" align="start" sideOffset={8} collisionPadding={12} className="z-60">
-          <PopoverPrimitive.Popup
-            ref={setPopupNode}
-            role="dialog"
-            finalFocus={triggerRef}
-            className="popover spec-picker"
-            aria-label={label}
-            style={{ maxHeight: "min(70dvh, var(--available-height))" }}
-          >
+      <PopoverPrimitive.Positioner side="bottom" align="start" sideOffset={8} collisionPadding={12} className="z-[65] pointer-events-auto">
+        <PopoverPrimitive.Popup
+          ref={setPopupNode}
+          role="dialog"
+          data-slot="popover-popup"
+          finalFocus={triggerRef}
+          className="popover spec-picker"
+          aria-label={label}
+          style={{ maxHeight: "min(70dvh, var(--available-height))" }}
+        >
             <div className="spec-picker-model-row">
               <SingleChoice dropdown label={`${t("dispatchDefaults.model")}: ${modelName}`} value={model || INHERIT} disabled={disabled}
                 options={[{ value: INHERIT, label: inheritLabel }, ...models]} menuLabel={t("dispatchDefaults.chooseModel")} side="right"
@@ -106,9 +105,8 @@ export default function ModelEffortPicker({ label, models, efforts, model, effor
             </strong>
               <SteppedSlider steps={steps} value={preview} disabled={disabled} label={t("dispatchDefaults.effort")} valueText={stepLabel(preview)} onChange={setPreview} onCommit={commit} />
             </div>}
-          </PopoverPrimitive.Popup>
-        </PopoverPrimitive.Positioner>
-      </TransientLayer>
+        </PopoverPrimitive.Popup>
+      </PopoverPrimitive.Positioner>
     </PopoverPrimitive.Portal>
   </PopoverPrimitive.Root>;
 }

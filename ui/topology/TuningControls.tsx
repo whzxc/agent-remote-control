@@ -1,6 +1,5 @@
 import { Tooltip as HoverHelp } from "../components/ui/index";
-import { TransientLayer } from "../components/ui/TransientLayer";
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import { locale, t } from "../i18n";
 import { copyText } from "../platform";
@@ -30,7 +29,6 @@ function TuningSection({ value, title, className, open, children }: {
       <AccordionPrimitive.Panel
         className="topology-section-content"
         data-state={state}
-        style={{ "--radix-accordion-content-height": "var(--accordion-panel-height)" } as CSSProperties}
       >
         <div className="topology-section-inner">{children}</div>
       </AccordionPrimitive.Panel>
@@ -112,15 +110,14 @@ export default function TuningControls({ available }: { available: boolean }) {
         }
       />
       <PopoverPrimitive.Portal>
-        <TransientLayer onDismiss={() => changeOpen(false)}>
-          <PopoverPrimitive.Positioner side="top" align="start" sideOffset={12} collisionPadding={16} className="z-60">
-            <PopoverPrimitive.Popup
-              ref={element}
-              className="topology-tuner"
-              aria-label={t("topology.tuning")}
-              finalFocus={(!available || !enabled) ? false : undefined}
-              style={{ "--radix-popover-content-available-height": "var(--available-height)" } as CSSProperties}
-            >
+        <PopoverPrimitive.Positioner side="top" align="start" sideOffset={12} collisionPadding={16} className="z-[65] pointer-events-auto">
+          <PopoverPrimitive.Popup
+            ref={element}
+            data-slot="popover-popup"
+            className="topology-tuner"
+            aria-label={t("topology.tuning")}
+            finalFocus={(!available || !enabled) ? false : undefined}
+          >
               <header>
                 <strong>{t("topology.tuning")}</strong>
                 <PopoverPrimitive.Close render={<IconButton icon={X} label={t("close")} />} />
@@ -163,9 +160,8 @@ export default function TuningControls({ available }: { available: boolean }) {
                   ))}
                 </AccordionPrimitive.Root>
               </div>
-            </PopoverPrimitive.Popup>
-          </PopoverPrimitive.Positioner>
-        </TransientLayer>
+          </PopoverPrimitive.Popup>
+        </PopoverPrimitive.Positioner>
       </PopoverPrimitive.Portal>
     </PopoverPrimitive.Root>
   );

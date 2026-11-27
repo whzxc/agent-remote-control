@@ -20,8 +20,7 @@ None.
 - Remaining combined component specimens need review for distinct-appearance coverage.
 - Remote task cards have snapshot history. Remote timeline, response forwarding, account/quota inventory and transfer controls remain unavailable.
 - Loading, failure, not-found, busy, pagination, Board detail/event rows and populated hosting forms without declared sources need coverage in their owning family.
-- Shared controls still have geometry, typography and state differences: Button wrapping, Input error spacing, CopyField masking/loading, SearchInput entered-value color, Notice spacing, CardHeader layout and settings section typography. Reconcile each with the current implementation.
-- Theme swatches and isolated AX badges require fidelity review. Shared runtime CSS still contains local dimensions instead of some declared control tokens.
+- Isolated AX badges and untouched legacy wrappers (`HomepageBar`, `ModelEffortPicker`, `TaskQuestion`) remain candidates for future fidelity review; shared Coss UI controls (`Button`, `Input`, `CopyField`, `SearchInput`, `Notice`, `Card`, `Tabs`, `SegmentedControl`, `Select`, `RadioGroup`/`RadioSwatch`, settings rows) now render directly from `ui/components/kit/` and Level 2 `*View.tsx` modules.
 - Literal paint retained for illustrated topology and quota-ring layers has an exact selector, property and drawing-specific reason in the style policy.
 
 ## Image dimensions and budgets

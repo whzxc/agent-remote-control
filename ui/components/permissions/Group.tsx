@@ -1,5 +1,3 @@
-import './Group.css';
-
 import { type ReactNode } from "react";
 
 export function Group({

@@ -21,8 +21,6 @@ type LayerInput = Omit<Layer, 'dismissal' | 'keepAfterWork'>;
 const transientSelector = [
   '[role="listbox"]',
   '[role="menu"]',
-  '[data-radix-popper-content-wrapper]',
-  '[data-radix-select-viewport]',
   '[data-slot="popover-popup"]',
   '[data-slot="select-popup"]',
   '[data-slot="menu-popup"]',

@@ -452,7 +452,7 @@ export default function Dialog({
             "w-[min(var(--layer-m),calc(100vw-2*var(--layer-side-margin)))]",
             isDesktop
               ? "max-h-[calc(100dvh-2*var(--layer-top-desktop))]"
-              : "max-h-[calc(100dvh-2*var(--layer-side-margin))]",
+              : "max-h-[calc(100dvh-2*var(--layer-top-browser))]",
             headerless && "headerless",
             className,
           )}

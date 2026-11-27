@@ -83,7 +83,12 @@ export function SensitiveText({
       className={cn("inline", className)}
       aria-label={hidden && value ? t("accounts.hidden") : undefined}
     >
-      <span aria-hidden={hidden || undefined}>{displayed}</span>
+      <span
+        aria-hidden={hidden || undefined}
+        className={cn(hidden && "blur-[2px] opacity-50")}
+      >
+        {displayed}
+      </span>
     </span>
   );
 }

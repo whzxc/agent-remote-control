@@ -29,7 +29,6 @@ import { IconButton } from "./kit/button";
 import { PopoverPrimitive } from "./kit/popover";
 import { Icon, Menu } from "./ui";
 import Dialog, { useDialogFeedback } from "./ui/Dialog";
-import { TransientLayer } from "./ui/TransientLayer";
 import { UpdateAboutView } from "./updates/UpdateAboutView";
 import { UpdateHistoryView } from "./updates/UpdateHistoryView";
 import {
@@ -247,30 +246,25 @@ export function UpdateDock() {
           {available() && <span className="update-available-dot" />}
         </PopoverPrimitive.Trigger>
         <PopoverPrimitive.Portal>
-          <TransientLayer
-            onDismiss={() => {
-              if (!installing) dismissUpdate();
-            }}
+          <PopoverPrimitive.Positioner
+            side="top"
+            align="end"
+            sideOffset={12}
+            collisionPadding={16}
+            className="z-[65] pointer-events-auto"
           >
-            <PopoverPrimitive.Positioner
-              side="top"
-              align="end"
-              sideOffset={12}
-              collisionPadding={16}
-              className="z-60"
+            <PopoverPrimitive.Popup
+              data-slot="popover-popup"
+              className="update-panel rounded-dialog"
+              aria-label={t("appUpdates")}
+              style={{
+                maxHeight:
+                  "min(650px, calc(100dvh - 100px), var(--available-height, 650px))",
+              }}
             >
-              <PopoverPrimitive.Popup
-                className="update-panel rounded-dialog"
-                aria-label={t("appUpdates")}
-                style={{
-                  maxHeight:
-                    "min(650px, calc(100dvh - 100px), var(--available-height, 650px))",
-                }}
-              >
-                <PanelContents />
-              </PopoverPrimitive.Popup>
-            </PopoverPrimitive.Positioner>
-          </TransientLayer>
+              <PanelContents />
+            </PopoverPrimitive.Popup>
+          </PopoverPrimitive.Positioner>
         </PopoverPrimitive.Portal>
       </PopoverPrimitive.Root>
     </>

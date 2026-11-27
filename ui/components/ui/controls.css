@@ -216,32 +216,6 @@ textarea.input {
   padding: 24px;
   color: var(--text-secondary);
 }
-.status {
-  --tone: var(--text-tertiary);
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 24px;
-  padding: 0 10px 0 9px;
-  border-radius: 12px;
-  color: var(--tone);
-  background: color-mix(in srgb, var(--tone) 15%, transparent);
-  font-size: var(--text-meta);
-  font-weight: 600;
-  white-space: nowrap;
-}
-.status:has(> .sr-only) {
-  height: auto;
-  padding: 0;
-  background: none;
-}
-.status-dot {
-  width: 6px;
-  height: 6px;
-  background: currentColor;
-  border-radius: 50%;
-  flex: none;
-}
 .switch {
   flex: none;
   display: inline-flex;
@@ -439,8 +413,8 @@ textarea.input {
   animation: appear var(--motion-fast) var(--ease-enter);
 }
 .select-content {
-  min-width: var(--radix-select-trigger-width);
-  max-height: var(--radix-select-content-available-height);
+  min-width: var(--anchor-width);
+  max-height: var(--available-height);
 }
 .select-item,
 .menu-item {
@@ -473,7 +447,7 @@ textarea.input {
 .popover {
   padding: 16px;
   width: 300px;
-  max-height: min(70dvh, var(--radix-popover-content-available-height));
+  max-height: min(70dvh, var(--available-height));
   overflow: auto;
   font-size: var(--text-small);
 }
@@ -588,9 +562,6 @@ h3 {
 pre,
 code {
   font-family: var(--font-mono);
-}
-.status.neutral {
-  background: color-mix(in srgb, var(--tone) 12%, transparent);
 }
 .connection-core button {
   color: inherit;

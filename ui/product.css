@@ -2,7 +2,6 @@
 @import "./components/ui/Feedback.css";
 @import "./components/navigation/NavCapsule.css";
 @import "./components/ui/GraphNode.css";
-@import "./components/permissions/PermissionRow.css";
 @import "./components/ui/SetupFlow.css";
 @import "./components/activity/SourceMark.css";
 @import "./mcp/ServiceInventory.css";
@@ -308,7 +307,7 @@ button.timeline-summary { appearance: none; cursor: pointer; }
 /* Turns share the existing scroll viewport, including nested disclosures. */
 
 /* Optional topology controls open from the shared navigation capsule. */
-.topology-tuner { display: flex; flex-direction: column; overflow: hidden; width: min(320px, calc(100vw - 32px)); max-height: min(650px, calc(100dvh - 100px), var(--radix-popover-content-available-height, 650px)); box-sizing: border-box; }
+.topology-tuner { display: flex; flex-direction: column; overflow: hidden; width: min(320px, calc(100vw - 32px)); max-height: min(650px, calc(100dvh - 100px), var(--available-height, 650px)); box-sizing: border-box; }
 .topology-tuner > header { display: flex; flex: none; align-items: center; gap: 8px; padding: 10px 12px; }
 .topology-tuner > header strong { flex: 1; }
 .topology-tuner-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 12px 12px; }
@@ -326,8 +325,8 @@ button.timeline-summary { appearance: none; cursor: pointer; }
 .topology-section-content[data-state="open"] { animation: topology-expand var(--motion-base) var(--ease-enter); }
 .topology-section-content[data-state="closed"] { animation: topology-collapse var(--motion-base) var(--ease-enter); }
 .topology-section-inner { display: flow-root; padding-bottom: 4px; }
-@keyframes topology-expand { from { height: 0; opacity: 0; } to { height: var(--radix-accordion-content-height); opacity: 1; } }
-@keyframes topology-collapse { from { height: var(--radix-accordion-content-height); opacity: 1; } to { height: 0; opacity: 0; } }
+@keyframes topology-expand { from { height: 0; opacity: 0; } to { height: var(--accordion-panel-height); opacity: 1; } }
+@keyframes topology-collapse { from { height: var(--accordion-panel-height); opacity: 1; } to { height: 0; opacity: 0; } }
 :root[data-reduced-motion="true"] {
   .topology-section-trigger > .icon { transition: none; }
   .topology-section-content[data-state] { animation: none; }
@@ -400,30 +399,6 @@ button.timeline-summary { appearance: none; cursor: pointer; }
 .relay-settings .actions { flex-wrap:wrap; margin-block:12px; }
 .relay-settings h3 { margin-bottom:6px; }
 .source-product-choice { display:grid; gap:var(--space-2); }
-.relay-hosting, .hosted-relay { display: grid; gap: var(--space-6); }
-.relay-hosting h2, .relay-hosting h3 { margin: 0; }
-.hosting-section-heading { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); }
-.hosting-section-heading > div { min-width: 0; }
-.hosting-section-heading p, .hosted-relay-danger p { margin: var(--space-1) 0 0; }
-.hosted-relay-card, .hosted-relay-table { overflow: hidden; }
-.hosted-relay-summary { display: flex; gap: var(--space-3); align-items: center; padding: var(--space-4); }
-.hosted-relay-icon { display: grid; place-items: center; flex-shrink: 0; width: var(--field-height); height: var(--field-height); }
-.hosted-relay-identity { min-width: 0; flex: 1; }
-.hosted-relay-identity h3 { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.hosted-relay-provider { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-1); }
-.hosted-relay-state { flex-shrink: 0; padding: var(--space-1) var(--space-2); }
-.hosted-relay-invite { padding: var(--space-3) var(--space-4); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
-.hosted-relay-invite p { flex: 1 1 220px; margin: 0; }
-.hosted-relay-invite .actions { flex-wrap: wrap; margin-left: auto; }
-.hosted-relay-devices { display: grid; gap: var(--space-3); }
-.hosted-relay-table time { white-space: nowrap; }
-.hosted-relay-device { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
-.hosted-relay-device > .status { flex-shrink: 0; gap: 0; }
-.hosted-relay-device-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.hosted-relay-self { flex-shrink: 0; padding: 0 var(--space-1); white-space: nowrap; }
-.hosted-relay-danger { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: center; justify-content: space-between; padding-top: var(--space-4); }
-.hosted-relay-danger > div { flex: 1 1 260px; }
-.hosted-relay + .hosted-relay { padding-top: var(--space-6); }
 
 /* Approved setup, connection and empty-hosting surfaces. */
 .setup-return, .setup-context { grid-column:1 / -1; margin:0; }
@@ -480,10 +455,6 @@ button.timeline-summary { appearance: none; cursor: pointer; }
 .welcome-page h1 { margin:24px 0 0; }
 .welcome-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; width:100%; margin-top:36px; }
 .welcome-readiness { width:100%; margin-top:36px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
-.welcome-readiness > .status { gap:0; }
-.welcome-readiness .status-dot { margin-right:8px; }
-
-.hosting-empty-group p { margin:0; }
 
 @media (max-width:520px) {
   .welcome-cards, .setup-empty-actions, .connection-domain-name { grid-template-columns:1fr; }
@@ -529,7 +500,6 @@ button.timeline-summary { appearance: none; cursor: pointer; }
 @keyframes privacy-in { from { filter: blur(0); opacity: 1; } }
 :root[data-reduced-motion="true"] { .pii { animation: none; } }
 
-.account-card { min-width: 0; flex: none; gap: 12px; padding: 16px; }
 .account-heading { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .account-heading .actions { flex: none; gap: 4px; }
 .account-identity { flex: 1; min-width: 0; }
@@ -636,9 +606,6 @@ button.timeline-summary { appearance: none; cursor: pointer; }
 .agents-toolbar > h3 { margin: 0 4px 0 0; margin-right: 13px; }
 .display-settings.settings-stack { padding-top: 8px; gap: 30px; }
 .agent-summary { display: flex; align-items: center; gap: 12px; margin-top: 5px; margin-bottom: 36px; }
-.relay-hosting { padding-top: 6px; }
-.hosting-empty-group { display: grid; justify-items: start; gap: 20px; }
-.hosting-empty-copy { display: grid; gap: 12px; }
 
 .experimental-settings { gap: 24px; padding-top: 8px; }
 

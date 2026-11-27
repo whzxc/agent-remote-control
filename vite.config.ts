@@ -130,7 +130,7 @@ export default defineConfig(({ mode }) => ({
           groups: [
             { name: 'react', test: /node_modules[\\/](?:react|react-dom|scheduler)[\\/]/ },
             { name: 'motion', test: /node_modules[\\/](?:motion|motion-dom|motion-utils|framer-motion)[\\/]/ },
-            { name: 'radix', test: /node_modules[\\/](?:radix-ui|@radix-ui|@floating-ui)[\\/]/ },
+            { name: 'base-ui', test: /node_modules[\\/](?:@base-ui|@floating-ui)[\\/]/ },
           ],
         },
       },

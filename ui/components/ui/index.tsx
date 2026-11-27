@@ -1,5 +1,4 @@
 import { useCopyState } from "./useCopyState";
-import { TransientLayer } from "./TransientLayer";
 import { Sensitive, useSensitiveText } from "../Sensitive";
 import { maskSensitive } from "../../privacyMask";
 import {
@@ -33,7 +32,6 @@ import {
 } from "lucide-react";
 import { t } from "../../i18n";
 import { Alert as KitAlert } from "../kit/alert";
-import { Badge as KitBadge } from "../kit/badge";
 import { Button as KitButton } from "../kit/button";
 import { CheckboxPrimitive } from "../kit/checkbox";
 import { Empty as KitEmpty } from "../kit/empty";
@@ -58,43 +56,6 @@ export { LoadingIndicator } from "./Feedback";
 
 export type IconSize = 10 | 11 | 12 | 13 | 14 | 16 | 18 | 20 | 24 | 26 | 28 | 32;
 
-/** A compact label. `spec` names a choice, `fact` states a property and `danger` flags a risk. */
-export function Tag({
-  children,
-  title,
-  id,
-  form = "spec",
-  tone,
-}: {
-  children: ReactNode;
-  title?: string;
-  id?: string;
-  form?:
-    | "spec"
-    | "fact"
-    | "danger"
-    | "resource"
-    | "status"
-    | "claim"
-    | "compact-status"
-    | "workflow-status";
-  tone?: "success" | "warning" | "danger" | "command";
-}) {
-  return (
-    <Tooltip text={title}>
-      <KitBadge
-        id={id}
-        tone={tone}
-        className="tag"
-        data-form={form}
-        data-tone={tone}
-      >
-        {children}
-      </KitBadge>
-    </Tooltip>
-  );
-}
-
 export function Icon({
   icon: Component,
   size = 16,
@@ -112,47 +73,6 @@ export function Icon({
       aria-hidden="true"
       className={`icon ${className}`}
     />
-  );
-}
-
-/** A tinted square that carries an icon in the color of its parent's `color`. */
-export function Tile({
-  icon,
-  className = "",
-  form = "card",
-  tone,
-}: {
-  icon: LucideIcon;
-  className?: string;
-  form?: "card" | "phase";
-  tone?:
-    | "warning"
-    | "success"
-    | "neutral"
-    | "command"
-    | "file"
-    | "thinking"
-    | "danger"
-    | "accent";
-}) {
-  const colors = {
-    danger: "var(--danger)",
-    accent: "var(--accent)",
-    warning: "var(--warning)",
-    success: "var(--success)",
-    neutral: "var(--text-tertiary)",
-    command: "var(--phase-command)",
-    file: "var(--phase-file)",
-    thinking: "var(--phase-thinking)",
-  };
-  return (
-    <span
-      className={`tile ${form === "phase" ? "tile-phase" : ""} ${className}`}
-      style={tone ? { color: colors[tone] } : undefined}
-      aria-hidden="true"
-    >
-      <Icon icon={icon} size={form === "phase" ? 16 : 18} />
-    </span>
   );
 }
 
@@ -383,21 +303,6 @@ export function Empty({
 
 export function Loading({ label = t("loading") }: { label?: string }) {
   return <KitLoading label={label} className="loading" />;
-}
-
-export function Status({
-  children,
-  tone = "neutral",
-}: {
-  children: ReactNode;
-  tone?: "neutral" | "running" | "success" | "warning" | "danger";
-}) {
-  return (
-    <span className={`status ${tone}`}>
-      <span aria-hidden="true" className="status-dot" />
-      {children}
-    </span>
-  );
 }
 
 export function Switch({
@@ -695,57 +600,55 @@ export function SingleChoice({
             }
           />
           <MenuPrimitive.Portal>
-            <TransientLayer onDismiss={() => setOpen(false)}>
-              <MenuPrimitive.Positioner
-                side={side}
-                align="start"
-                sideOffset={6}
-                collisionPadding={12}
-                className="z-60"
+            <MenuPrimitive.Positioner
+              side={side}
+              align="start"
+              sideOffset={6}
+              collisionPadding={12}
+              className="z-[65] pointer-events-auto"
+            >
+              <MenuPrimitive.Popup
+                className="select-content choice-labelled-menu"
+                aria-label={menuLabel}
+                style={{
+                  maxHeight: "var(--available-height)",
+                  overflowY: "auto",
+                }}
               >
-                <MenuPrimitive.Popup
-                  className="select-content choice-labelled-menu"
-                  aria-label={menuLabel}
-                  style={{
-                    maxHeight: "var(--available-height)",
-                    overflowY: "auto",
-                  }}
-                >
-                  <MenuPrimitive.Group>
-                    <MenuPrimitive.GroupLabel className="choice-menu-label">
-                      {menuLabel}
-                    </MenuPrimitive.GroupLabel>
-                    <MenuPrimitive.RadioGroup
-                      value={value}
-                      onValueChange={(next) => {
-                        if (typeof next === "string") onChange(next);
-                      }}
-                    >
-                      <HoverScope tracking="highlighted">
-                        {options.map((option) => (
-                          <MenuPrimitive.RadioItem
-                            key={option.value}
-                            value={option.value}
-                            disabled={option.disabled}
-                            closeOnClick
-                            className="select-item"
-                            data-state={
-                              option.value === value ? "checked" : "unchecked"
-                            }
-                            data-hover-target={option.value}
-                          >
-                            <span>{option.label}</span>
-                            <MenuPrimitive.RadioItemIndicator>
-                              <Icon icon={Check} />
-                            </MenuPrimitive.RadioItemIndicator>
-                          </MenuPrimitive.RadioItem>
-                        ))}
-                      </HoverScope>
-                    </MenuPrimitive.RadioGroup>
-                  </MenuPrimitive.Group>
-                </MenuPrimitive.Popup>
-              </MenuPrimitive.Positioner>
-            </TransientLayer>
+                <MenuPrimitive.Group>
+                  <MenuPrimitive.GroupLabel className="choice-menu-label">
+                    {menuLabel}
+                  </MenuPrimitive.GroupLabel>
+                  <MenuPrimitive.RadioGroup
+                    value={value}
+                    onValueChange={(next) => {
+                      if (typeof next === "string") onChange(next);
+                    }}
+                  >
+                    <HoverScope tracking="highlighted">
+                      {options.map((option) => (
+                        <MenuPrimitive.RadioItem
+                          key={option.value}
+                          value={option.value}
+                          disabled={option.disabled}
+                          closeOnClick
+                          className="select-item"
+                          data-state={
+                            option.value === value ? "checked" : "unchecked"
+                          }
+                          data-hover-target={option.value}
+                        >
+                          <span>{option.label}</span>
+                          <MenuPrimitive.RadioItemIndicator>
+                            <Icon icon={Check} />
+                          </MenuPrimitive.RadioItemIndicator>
+                        </MenuPrimitive.RadioItem>
+                      ))}
+                    </HoverScope>
+                  </MenuPrimitive.RadioGroup>
+                </MenuPrimitive.Group>
+              </MenuPrimitive.Popup>
+            </MenuPrimitive.Positioner>
           </MenuPrimitive.Portal>
         </MenuPrimitive.Root>
       ) : (
@@ -776,54 +679,52 @@ export function SingleChoice({
             </SelectPrimitive.Icon>
           </SelectPrimitive.Trigger>
           <SelectPrimitive.Portal>
-            <TransientLayer onDismiss={() => setOpen(false)}>
-              <SelectPrimitive.Positioner
-                alignItemWithTrigger={position === "item-aligned"}
-                side={side}
-                align="start"
-                sideOffset={6}
-                collisionPadding={12}
-                className="z-60"
+            <SelectPrimitive.Positioner
+              alignItemWithTrigger={position === "item-aligned"}
+              side={side}
+              align="start"
+              sideOffset={6}
+              collisionPadding={12}
+              className="z-[65] pointer-events-auto"
+            >
+              <SelectPrimitive.Popup
+                className="select-content"
+                style={{
+                  minWidth: "var(--anchor-width)",
+                  maxHeight: "var(--available-height)",
+                }}
               >
-                <SelectPrimitive.Popup
-                  className="select-content"
-                  style={{
-                    minWidth: "var(--anchor-width)",
-                    maxHeight: "var(--available-height)",
-                  }}
-                >
-                  <SelectPrimitive.ScrollUpArrow className="select-scroll">
-                    <Icon icon={ChevronUp} />
-                  </SelectPrimitive.ScrollUpArrow>
-                  <SelectPrimitive.List>
-                    <HoverScope tracking="highlighted">
-                      {options.map((option) => (
-                        <SelectPrimitive.Item
-                          key={option.value}
-                          value={option.value}
-                          disabled={option.disabled}
-                          className="select-item"
-                          data-state={
-                            option.value === value ? "checked" : "unchecked"
-                          }
-                          data-hover-target={option.value}
-                        >
-                          <SelectPrimitive.ItemText>
-                            {option.label}
-                          </SelectPrimitive.ItemText>
-                          <SelectPrimitive.ItemIndicator>
-                            <Icon icon={Check} />
-                          </SelectPrimitive.ItemIndicator>
-                        </SelectPrimitive.Item>
-                      ))}
-                    </HoverScope>
-                  </SelectPrimitive.List>
-                  <SelectPrimitive.ScrollDownArrow className="select-scroll">
-                    <Icon icon={ChevronDown} />
-                  </SelectPrimitive.ScrollDownArrow>
-                </SelectPrimitive.Popup>
-              </SelectPrimitive.Positioner>
-            </TransientLayer>
+                <SelectPrimitive.ScrollUpArrow className="select-scroll">
+                  <Icon icon={ChevronUp} />
+                </SelectPrimitive.ScrollUpArrow>
+                <SelectPrimitive.List>
+                  <HoverScope tracking="highlighted">
+                    {options.map((option) => (
+                      <SelectPrimitive.Item
+                        key={option.value}
+                        value={option.value}
+                        disabled={option.disabled}
+                        className="select-item"
+                        data-state={
+                          option.value === value ? "checked" : "unchecked"
+                        }
+                        data-hover-target={option.value}
+                      >
+                        <SelectPrimitive.ItemText>
+                          {option.label}
+                        </SelectPrimitive.ItemText>
+                        <SelectPrimitive.ItemIndicator>
+                          <Icon icon={Check} />
+                        </SelectPrimitive.ItemIndicator>
+                      </SelectPrimitive.Item>
+                    ))}
+                  </HoverScope>
+                </SelectPrimitive.List>
+                <SelectPrimitive.ScrollDownArrow className="select-scroll">
+                  <Icon icon={ChevronDown} />
+                </SelectPrimitive.ScrollDownArrow>
+              </SelectPrimitive.Popup>
+            </SelectPrimitive.Positioner>
           </SelectPrimitive.Portal>
         </SelectPrimitive.Root>
       )}
@@ -896,21 +797,19 @@ export function Tooltip({
         onBlur={hoverOnly ? dismiss : undefined}
       />
       <TooltipPrimitive.Portal>
-        <TransientLayer onDismiss={() => setOpen(false)}>
-          <TooltipPrimitive.Positioner
-            side={side}
-            sideOffset={6}
-            collisionPadding={10}
-            className="z-70"
+        <TooltipPrimitive.Positioner
+          side={side}
+          sideOffset={6}
+          collisionPadding={10}
+          className="z-70 pointer-events-auto"
+        >
+          <TooltipPrimitive.Popup
+            className="tooltip"
+            data-state={open ? "open" : "closed"}
           >
-            <TooltipPrimitive.Popup
-              className="tooltip"
-              data-state={open ? "open" : "closed"}
-            >
-              {typeof text === "string" ? protect(text) : text}
-            </TooltipPrimitive.Popup>
-          </TooltipPrimitive.Positioner>
-        </TransientLayer>
+            {typeof text === "string" ? protect(text) : text}
+          </TooltipPrimitive.Popup>
+        </TooltipPrimitive.Positioner>
       </TooltipPrimitive.Portal>
     </TooltipPrimitive.Root>
   );
@@ -953,29 +852,27 @@ export function Menu({
     <MenuPrimitive.Root open={open} onOpenChange={(next) => setOpen(next)}>
       <MenuPrimitive.Trigger render={triggerNode} />
       <MenuPrimitive.Portal>
-        <TransientLayer onDismiss={() => setOpen(false)}>
-          <MenuPrimitive.Positioner
-            sideOffset={6}
-            collisionPadding={12}
-            className="z-60"
-          >
-            <MenuPrimitive.Popup className="menu" aria-label={label}>
-              <HoverScope tracking="highlighted">
-                {items.map((item, index) => (
-                  <MenuPrimitive.Item
-                    key={index}
-                    data-hover-target={item.danger ? undefined : String(index)}
-                    className={`menu-item ${item.danger ? "danger" : ""}`}
-                    disabled={item.disabled}
-                    onClick={item.action}
-                  >
-                    {item.label}
-                  </MenuPrimitive.Item>
-                ))}
-              </HoverScope>
-            </MenuPrimitive.Popup>
-          </MenuPrimitive.Positioner>
-        </TransientLayer>
+        <MenuPrimitive.Positioner
+          sideOffset={6}
+          collisionPadding={12}
+          className="z-[65] pointer-events-auto"
+        >
+          <MenuPrimitive.Popup className="menu" aria-label={label}>
+            <HoverScope tracking="highlighted">
+              {items.map((item, index) => (
+                <MenuPrimitive.Item
+                  key={index}
+                  data-hover-target={item.danger ? undefined : String(index)}
+                  className={`menu-item ${item.danger ? "danger" : ""}`}
+                  disabled={item.disabled}
+                  onClick={item.action}
+                >
+                  {item.label}
+                </MenuPrimitive.Item>
+              ))}
+            </HoverScope>
+          </MenuPrimitive.Popup>
+        </MenuPrimitive.Positioner>
       </MenuPrimitive.Portal>
     </MenuPrimitive.Root>
   );

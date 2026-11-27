@@ -1,5 +1,4 @@
 import { QuotaPopover, QuotaDetail } from './QuotaDetail';
-import { TransientLayer } from "../components/ui/TransientLayer";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { PopoverPrimitive } from "../components/kit/popover";
 import { useGeometryTransition } from "../motion/geometry";
@@ -151,35 +150,33 @@ export default function UsageHistory({
         }}
       >
         <PopoverPrimitive.Portal>
-          <TransientLayer onDismiss={dismiss} isAnchor={isReading}>
-            <PopoverPrimitive.Positioner
-              anchor={virtualAnchor}
-              side="top"
-              align="center"
-              sideOffset={8}
-              collisionPadding={12}
-              positionMethod="fixed"
-              className="z-60"
+          <PopoverPrimitive.Positioner
+            anchor={virtualAnchor}
+            side="top"
+            align="center"
+            sideOffset={8}
+            collisionPadding={12}
+            positionMethod="fixed"
+            className="z-[65] pointer-events-auto"
+          >
+            <QuotaPopover
+              ref={card}
+              initialFocus={false}
+              finalFocus={false}
+              style={{ height: motion.value[2]! + 16 }}
+              onMouseEnter={() => { schedule(displayed); }}
+              onMouseLeave={() => { schedule(""); }}
             >
-              <QuotaPopover
-                ref={card}
-                initialFocus={false}
-                finalFocus={false}
-                style={{ height: motion.value[2]! + 16 }}
-                onMouseEnter={() => { schedule(displayed); }}
-                onMouseLeave={() => { schedule(""); }}
-              >
-                <div className="history-scroll">
-                  <QuotaDetail
-                    ref={attachContent}
-                    className="history-detail"
-                  >
-                    {detail(displayed)}
-                  </QuotaDetail>
-                </div>
-              </QuotaPopover>
-            </PopoverPrimitive.Positioner>
-          </TransientLayer>
+              <div className="history-scroll">
+                <QuotaDetail
+                  ref={attachContent}
+                  className="history-detail"
+                >
+                  {detail(displayed)}
+                </QuotaDetail>
+              </div>
+            </QuotaPopover>
+          </PopoverPrimitive.Positioner>
         </PopoverPrimitive.Portal>
       </PopoverPrimitive.Root>
     </>

@@ -8,7 +8,6 @@ import { SetupAccountDialog } from './accounts/SetupAccountDialog';
 import { useSubmittedDirty } from './ui/useSubmittedDirty';
 import { useDialogCompletion } from './ui/Dialog';
 import { AgentAccountFooterView, AgentAccountFormView } from './AgentAccountDialogView';
-import './AgentAccountAdd.css';
 
 export default function AgentAccountAdd({ kind, account, onClose }: {
   kind: 'claude'; account?: ProviderAccount; onClose: () => void;

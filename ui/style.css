@@ -50,18 +50,6 @@ pre {
 .spacer {
   flex: 1;
 }
-.status.running {
-  --tone: var(--accent-text);
-}
-.status.success {
-  --tone: var(--success);
-}
-.status.danger {
-  --tone: var(--danger);
-}
-.status.warning {
-  --tone: var(--warning);
-}
 .settings-group {
   display: grid;
   gap: 12px;

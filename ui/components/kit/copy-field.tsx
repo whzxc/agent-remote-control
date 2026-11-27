@@ -55,7 +55,7 @@ export function CopyField({
   };
 
   return (
-    <div data-slot="copy-field" className={cn("grid min-w-0 gap-1.5", className)}>
+    <div data-slot="copy-field" className={cn("grid w-full min-w-0 gap-1.5", className)}>
       <div className="flex h-(--kit-field-height) w-full min-w-0 items-center justify-between gap-2 rounded-kit-field border border-border bg-surface-subtle pl-3 pr-1 text-foreground">
         <div
           role="textbox"

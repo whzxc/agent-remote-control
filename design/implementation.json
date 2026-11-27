@@ -148,8 +148,8 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/index.tsx",
-        "symbol": "Tile"
+        "file": "ui/components/connectivity/WelcomeView.tsx",
+        "symbol": "WelcomeChoiceCard"
       },
       "design": [
         {
@@ -786,8 +786,8 @@
     },
     {
       "implementation": {
-        "file": "ui/components/ui/index.tsx",
-        "symbol": "Tag"
+        "file": "ui/components/kit/badge.tsx",
+        "symbol": "Badge"
       },
       "design": [
         {
@@ -1892,17 +1892,6 @@
     },
     {
       "implementation": {
-        "file": "ui/components/AgentAccountAdd.css"
-      },
-      "design": [
-        {
-          "source": "design/modules/agent-account-add.tsx",
-          "part": "AgentAccountAdd"
-        }
-      ]
-    },
-    {
-      "implementation": {
         "file": "ui/components/HomepageTasks.css"
       },
       "design": [
@@ -2802,17 +2791,6 @@
     },
     {
       "implementation": {
-        "file": "ui/components/permissions/PermissionRow.css"
-      },
-      "design": [
-        {
-          "source": "design/modules/permissions.tsx",
-          "part": "PermissionRow"
-        }
-      ]
-    },
-    {
-      "implementation": {
         "file": "ui/subscriptions/QuotaDetail.tsx",
         "symbol": "QuotaDetail"
       },
@@ -3112,16 +3090,6 @@
       "design": [
         {
           "source": "design/modules/model-configuration.tsx"
-        }
-      ]
-    },
-    {
-      "implementation": {
-        "file": "ui/components/permissions/Group.css"
-      },
-      "design": [
-        {
-          "source": "design/modules/permissions.tsx"
         }
       ]
     },
