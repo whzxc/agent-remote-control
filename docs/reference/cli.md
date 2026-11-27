@@ -619,7 +619,7 @@ only and clears it. Empty clipboard retries do not accept a known rejected key.
 | Bearer | ingress token rotate `<id>` |
 | Settings | configure --stdin, network --stdin, connect, disconnect |
 | Quota | subscriptions get/set --stdin/refresh [providerId]/open [providerId] |
-| Storage | storage status, storage archive [--dry-run\|--apply], storage prune [--older-than `<days>`] [--include-legacy] [--dry-run\|--apply], storage compact |
+| Storage | storage status, storage archive [--dry-run\|--apply], storage prune [--older-than `<days>`] [--include-legacy] [--include-outputs] [--dry-run\|--apply], storage compact |
 
 help, guide, capabilities, schema, ingress presets, and logs --offline do not need Core running. Other commands use the target instance's Core/Desktop. app start can launch an installed app. Prefer ingress commands for multi-connection administration; configure/network/connect/disconnect address the primary connection projection.
 

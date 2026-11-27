@@ -11,10 +11,15 @@ interface StorageHotCategory {
   archivable?: number;
   compressible?: number;
   prunable?: number;
+  prunableBytes?: number;
   capacity?: number;
 }
 
 interface StorageStatus {
+  policy?: {
+    outputsMaxAgeDays?: number;
+    archiveRetentionDays?: number;
+  };
   hot: {
     receipts: StorageHotCategory;
     coordination: StorageHotCategory;
@@ -31,14 +36,17 @@ interface StorageStatus {
 
 interface StorageArchiveResult {
   applied: boolean;
-  categories: Record<string, { eligible?: number; archived?: number; compressed?: number; pruned?: number; bytes?: number }>;
+  categories: Record<string, { eligible?: number; archived?: number; compressed?: number; bytes?: number }>;
+  summary?: { eligibleArchive?: number; archived?: number; eligibleCompress?: number; compressed?: number };
 }
 
 interface StoragePruneResult {
   applied: boolean;
   olderThanDays: number;
   includeLegacy: boolean;
+  includeOutputs: boolean;
   archives: { eligible: number; removed: number; bytes: number };
+  outputs?: { eligible: number; removed: number; bytes: number };
   legacy: { directories: string[]; removed: number; bytes: number };
 }
 
@@ -58,6 +66,7 @@ export default function StorageSettings() {
   const [pruning, setPruning] = useState(false);
   const [notice, setNotice] = useState<{ message: string; tone?: "danger" }>();
   const [pruneOpen, setPruneOpen] = useState(false);
+  const [includeOutputs, setIncludeOutputs] = useState(true);
   const [includeLegacy, setIncludeLegacy] = useState(true);
   const [prunePreview, setPrunePreview] = useState<StoragePruneResult>();
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -74,7 +83,7 @@ export default function StorageSettings() {
     void refresh();
   }, [refresh]);
 
-  const loadPrunePreview = useCallback(async (withLegacy: boolean) => {
+  const loadPrunePreview = useCallback(async (withLegacy: boolean, withOutputs: boolean) => {
     setLoadingPreview(true);
     try {
       const olderThanDays = Number(retention) > 0 ? Number(retention) : 90;
@@ -82,6 +91,7 @@ export default function StorageSettings() {
         apply: false,
         olderThanDays,
         includeLegacy: withLegacy,
+        includeOutputs: withOutputs,
       }));
     } catch (error) {
       setNotice({ message: String(error), tone: "danger" });
@@ -90,6 +100,7 @@ export default function StorageSettings() {
     }
   }, [retention]);
 
+  const outputsMaxAgeDays = status?.policy?.outputsMaxAgeDays ?? 7;
   const hotFiles = status
     ? status.hot.receipts.files + status.hot.coordination.files + status.hot.dispatches.files +
       status.hot.changes.files + status.hot.notifications.files + status.hot.controlMetrics.files + status.hot.outputs.files
@@ -101,9 +112,12 @@ export default function StorageSettings() {
   const archivableCount = status
     ? (status.hot.receipts.archivable ?? 0) + (status.hot.coordination.archivable ?? 0) +
       (status.hot.dispatches.archivable ?? 0) + (status.hot.changes.archivable ?? 0) +
-      (status.hot.notifications.archivable ?? 0) + (status.hot.controlMetrics.compressible ?? 0) +
-      (status.hot.outputs.prunable ?? 0)
+      (status.hot.notifications.archivable ?? 0)
     : 0;
+  const compressibleCount = status ? (status.hot.controlMetrics.compressible ?? 0) : 0;
+  const losslessReadyCount = archivableCount + compressibleCount;
+  const expiredOutputsCount = status ? (status.hot.outputs.prunable ?? 0) : 0;
+  const expiredOutputsBytes = status ? (status.hot.outputs.prunableBytes ?? 0) : 0;
   const highWater = !!status?.warnings?.includes("coordination-high-water");
 
   const archiveDescription = !status
@@ -113,6 +127,7 @@ export default function StorageSettings() {
           files: hotFiles,
           size: formatBytes(hotBytes),
           archivable: archivableCount,
+          compressible: compressibleCount,
           coordFiles: status.hot.coordination.files,
           coordCap: status.hot.coordination.capacity ?? 8192,
         })
@@ -120,13 +135,17 @@ export default function StorageSettings() {
           files: hotFiles,
           size: formatBytes(hotBytes),
           archivable: archivableCount,
+          compressible: compressibleCount,
         });
 
   const cleanupDescription = !status
     ? t("storage.loading")
-    : status.legacy.bytes > 0 || status.archives.bytes > 0
+    : status.legacy.bytes > 0 || status.archives.bytes > 0 || expiredOutputsCount > 0
       ? t("storage.cleanupDescription", {
           archives: formatBytes(status.archives.bytes),
+          days: outputsMaxAgeDays,
+          outputs: expiredOutputsCount,
+          outputsSize: formatBytes(expiredOutputsBytes),
           legacy: formatBytes(status.legacy.bytes),
         })
       : t("storage.cleanupEmpty");
@@ -137,12 +156,16 @@ export default function StorageSettings() {
     setNotice(undefined);
     try {
       const result = await api<StorageArchiveResult>("storage/archive", "POST", { apply: true });
-      let moved = 0;
-      for (const entry of Object.values(result.categories || {})) {
-        moved += (entry.archived ?? 0) + (entry.compressed ?? 0) + (entry.pruned ?? 0);
+      let archived = result.summary?.archived ?? 0;
+      let compressed = result.summary?.compressed ?? 0;
+      if (!result.summary) {
+        for (const entry of Object.values(result.categories || {})) {
+          archived += entry.archived ?? 0;
+          compressed += entry.compressed ?? 0;
+        }
       }
       await refresh();
-      setNotice({ message: t("storage.archivedNotice", { count: moved }) });
+      setNotice({ message: t("storage.archivedNotice", { archived, compressed }) });
     } catch (error) {
       setNotice({ message: String(error), tone: "danger" });
     } finally {
@@ -152,7 +175,7 @@ export default function StorageSettings() {
 
   function openPruneDialog() {
     setPruneOpen(true);
-    void loadPrunePreview(includeLegacy);
+    void loadPrunePreview(includeLegacy, includeOutputs);
   }
 
   async function handleApplyPrune() {
@@ -165,11 +188,21 @@ export default function StorageSettings() {
         apply: true,
         olderThanDays,
         includeLegacy,
+        includeOutputs,
       });
       setPruneOpen(false);
       await refresh();
-      const freed = formatBytes((result.archives?.bytes ?? 0) + (result.legacy?.bytes ?? 0));
-      setNotice({ message: t("storage.prunedNotice", { size: freed }) });
+      const freed = formatBytes(
+        (result.archives?.bytes ?? 0) + (result.outputs?.bytes ?? 0) + (result.legacy?.bytes ?? 0),
+      );
+      setNotice({
+        message: t("storage.prunedNotice", {
+          archives: result.archives?.removed ?? 0,
+          outputs: result.outputs?.removed ?? 0,
+          legacy: result.legacy?.removed ?? 0,
+          size: freed,
+        }),
+      });
     } catch (error) {
       setNotice({ message: String(error), tone: "danger" });
     } finally {
@@ -177,8 +210,14 @@ export default function StorageSettings() {
     }
   }
 
-  const pruneTotalBytes = (prunePreview?.archives.bytes ?? 0) + (prunePreview?.legacy.bytes ?? 0);
-  const pruneHasItems = (prunePreview?.archives.eligible ?? 0) > 0 || (prunePreview?.legacy.directories.length ?? 0) > 0;
+  const pruneTotalBytes =
+    (prunePreview?.archives.bytes ?? 0) +
+    (prunePreview?.outputs?.bytes ?? 0) +
+    (prunePreview?.legacy.bytes ?? 0);
+  const pruneHasItems =
+    (prunePreview?.archives.eligible ?? 0) > 0 ||
+    (prunePreview?.outputs?.eligible ?? 0) > 0 ||
+    (prunePreview?.legacy.directories.length ?? 0) > 0;
 
   return (
     <>
@@ -188,13 +227,17 @@ export default function StorageSettings() {
           <Button
             variant="primary"
             busy={archiving}
-            disabled={!status || archivableCount === 0}
+            disabled={!status || losslessReadyCount === 0}
             onClick={() => void handleArchiveNow()}
           >
             {t("storage.archiveNow")}
           </Button>
         </Row>
-        <Row title={t("storage.retention")} description={t("storage.retentionDescription")} width={180}>
+        <Row
+          title={t("storage.retention")}
+          description={t("storage.retentionDescription", { days: outputsMaxAgeDays })}
+          width={180}
+        >
           <SingleChoice
             dropdown
             fill
@@ -244,6 +287,21 @@ export default function StorageSettings() {
         >
           <div className="settings-stack">
             <Row
+              title={t("storage.includeOutputs", { days: outputsMaxAgeDays })}
+              description={t("storage.includeOutputsDescription", { days: outputsMaxAgeDays })}
+              toggle
+            >
+              <Switch
+                label={t("storage.includeOutputs", { days: outputsMaxAgeDays })}
+                checked={includeOutputs}
+                disabled={pruning || loadingPreview}
+                onChange={value => {
+                  setIncludeOutputs(value);
+                  void loadPrunePreview(includeLegacy, value);
+                }}
+              />
+            </Row>
+            <Row
               title={t("storage.includeLegacy")}
               description={t("storage.includeLegacyDescription")}
               toggle
@@ -254,7 +312,7 @@ export default function StorageSettings() {
                 disabled={pruning || loadingPreview}
                 onChange={value => {
                   setIncludeLegacy(value);
-                  void loadPrunePreview(value);
+                  void loadPrunePreview(value, includeOutputs);
                 }}
               />
             </Row>
@@ -266,6 +324,7 @@ export default function StorageSettings() {
                   : pruneHasItems
                     ? t("storage.pruneSummary", {
                         archives: prunePreview.archives.eligible,
+                        outputs: prunePreview.outputs?.eligible ?? 0,
                         legacyDirs: prunePreview.legacy.directories.join(", ") || t("none"),
                         size: formatBytes(pruneTotalBytes),
                       })

@@ -54,7 +54,11 @@ var cliCommands = []string{
 	"storage prune --dry-run",
 	"storage prune --older-than <days> [--apply]",
 	"storage prune --include-legacy [--apply]",
+	"storage prune --include-outputs [--apply]",
 	"storage prune --older-than <days> --include-legacy [--apply]",
+	"storage prune --older-than <days> --include-outputs [--apply]",
+	"storage prune --include-legacy --include-outputs [--apply]",
+	"storage prune --older-than <days> --include-legacy --include-outputs [--apply]",
 	"ax import --from <path>",
 	"ax export --to <path>",
 	"subscriptions get",
@@ -825,9 +829,10 @@ func executeCLIRoute(ctx context.Context, args []string, body object, setupLocal
 				olderDays = parsed
 			}
 			return request("storage/prune", http.MethodPost, object{
-				"apply":         slices.Contains(args[2:], "--apply"),
-				"olderThanDays": olderDays,
-				"includeLegacy": slices.Contains(args[2:], "--include-legacy"),
+				"apply":          slices.Contains(args[2:], "--apply"),
+				"olderThanDays":  olderDays,
+				"includeLegacy":  slices.Contains(args[2:], "--include-legacy"),
+				"includeOutputs": slices.Contains(args[2:], "--include-outputs"),
 			})
 		}
 	case "context":

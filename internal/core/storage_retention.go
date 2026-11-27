@@ -490,8 +490,11 @@ func archiveCategoryItems(base, category string, items []storageFileItem, limit 
 	return object{"eligible": len(items), "bytes": archivedBytes, "archived": archivedCount}, nil
 }
 
-func storageStatus(_ context.Context) (object, error) {
-	base := root()
+func storageStatus(ctx context.Context) (object, error) {
+	return storageStatusIn(ctx, root())
+}
+
+func storageStatusIn(_ context.Context, base string) (object, error) {
 	nowAt := storageNow()
 	rcCount, rcBytes, rcCand := collectReceiptArchiveCandidates(base, nowAt)
 	coCount, coBytes, coCand := collectCoordinationArchiveCandidates(base, nowAt)
@@ -502,6 +505,10 @@ func storageStatus(_ context.Context) (object, error) {
 		return strings.HasSuffix(name, ".jsonl")
 	})
 	oCount, oBytes, oCand := collectOldFilesInDir(filepath.Join(base, "outputs"), nowAt.AddDate(0, 0, -storageOutputsMaxAgeDays), nil)
+	var oPrunableBytes int64
+	for _, item := range oCand {
+		oPrunableBytes += item.size
+	}
 	archCount, archBytes := dirStats(filepath.Join(base, "archives"))
 
 	legacy := object{}
@@ -540,7 +547,7 @@ func storageStatus(_ context.Context) (object, error) {
 			"changes":        object{"files": chCount, "bytes": chBytes, "archivable": len(chCand)},
 			"notifications":  object{"files": nCount, "bytes": nBytes, "archivable": len(nCand)},
 			"controlMetrics": object{"files": mCount, "bytes": mBytes, "compressible": len(mCand)},
-			"outputs":        object{"files": oCount, "bytes": oBytes, "prunable": len(oCand)},
+			"outputs":        object{"files": oCount, "bytes": oBytes, "prunable": len(oCand), "prunableBytes": oPrunableBytes},
 		},
 		"archives": object{"files": archCount, "bytes": archBytes},
 		"legacy":   object{"files": legacyFiles, "bytes": legacyBytes, "directories": legacy},
@@ -565,9 +572,10 @@ func runStorageArchiveIn(_ context.Context, base string, apply bool, batchLimit 
 	_, _, mCand := collectOldFilesInDir(filepath.Join(base, "control-metrics"), nowAt.AddDate(0, 0, -storageMetricsRawDays), func(name string) bool {
 		return strings.HasSuffix(name, ".jsonl")
 	})
-	_, _, oCand := collectOldFilesInDir(filepath.Join(base, "outputs"), nowAt.AddDate(0, 0, -storageOutputsMaxAgeDays), nil)
 
 	results := object{}
+	eligibleArchive := 0
+	archivedTotal := 0
 	for _, spec := range []struct {
 		name  string
 		items []storageFileItem
@@ -583,6 +591,8 @@ func runStorageArchiveIn(_ context.Context, base string, apply bool, batchLimit 
 			return nil, err
 		}
 		results[spec.name] = row
+		eligibleArchive += int(uintOr(row["eligible"], 0))
+		archivedTotal += int(uintOr(row["archived"], 0))
 	}
 
 	if len(mCand) > batchLimit {
@@ -604,38 +614,50 @@ func runStorageArchiveIn(_ context.Context, base string, apply bool, batchLimit 
 	}
 	results["controlMetrics"] = object{"eligible": len(mCand), "compressed": metricsCompressed, "bytes": metricsBytes}
 
-	if len(oCand) > batchLimit {
-		oCand = oCand[:batchLimit]
+	return object{
+		"applied":    apply,
+		"dryRun":     !apply,
+		"categories": results,
+		"summary": object{
+			"eligibleArchive":  eligibleArchive,
+			"archived":         archivedTotal,
+			"eligibleCompress": len(mCand),
+			"compressed":       metricsCompressed,
+		},
+	}, nil
+}
+
+func pruneExpiredOutputsUnlocked(base string, nowAt time.Time, apply bool, limit int) (object, error) {
+	_, _, oCand := collectOldFilesInDir(filepath.Join(base, "outputs"), nowAt.AddDate(0, 0, -storageOutputsMaxAgeDays), nil)
+	if limit > 0 && len(oCand) > limit {
+		oCand = oCand[:limit]
 	}
-	outputsPruned := 0
+	outputsRemoved := 0
 	var outputsBytes int64
 	for _, item := range oCand {
+		outputsBytes += item.size
 		if apply {
 			if err := os.Remove(item.path); err != nil && !errors.Is(err, os.ErrNotExist) {
 				return nil, err
 			}
-			outputsPruned++
-			outputsBytes += item.size
-		} else {
-			outputsBytes += item.size
+			outputsRemoved++
 		}
 	}
-	results["outputs"] = object{"eligible": len(oCand), "pruned": outputsPruned, "bytes": outputsBytes}
-
-	return object{"applied": apply, "dryRun": !apply, "categories": results}, nil
+	return object{"eligible": len(oCand), "removed": outputsRemoved, "bytes": outputsBytes}, nil
 }
 
-func runStoragePrune(ctx context.Context, apply bool, olderThanDays int, includeLegacy bool) (object, error) {
-	return runStoragePruneIn(ctx, root(), apply, olderThanDays, includeLegacy)
+func runStoragePrune(ctx context.Context, apply bool, olderThanDays int, includeLegacy, includeOutputs bool) (object, error) {
+	return runStoragePruneIn(ctx, root(), apply, olderThanDays, includeLegacy, includeOutputs)
 }
 
-func runStoragePruneIn(_ context.Context, base string, apply bool, olderThanDays int, includeLegacy bool) (object, error) {
+func runStoragePruneIn(_ context.Context, base string, apply bool, olderThanDays int, includeLegacy, includeOutputs bool) (object, error) {
 	storageMaintenanceMu.Lock()
 	defer storageMaintenanceMu.Unlock()
+	nowAt := storageNow()
 	if olderThanDays <= 0 {
 		olderThanDays = storageDefaultPruneOlderDays
 	}
-	cutoff := storageNow().AddDate(0, 0, -olderThanDays)
+	cutoff := nowAt.AddDate(0, 0, -olderThanDays)
 	archiveRoot := filepath.Join(base, "archives")
 
 	var expired []storageFileItem
@@ -669,6 +691,15 @@ func runStoragePruneIn(_ context.Context, base string, apply bool, olderThanDays
 		removeEmptySubdirs(archiveRoot)
 	}
 
+	outputsResult := object{"eligible": 0, "removed": 0, "bytes": int64(0)}
+	if includeOutputs {
+		var err error
+		outputsResult, err = pruneExpiredOutputsUnlocked(base, nowAt, apply, storageManualBatchLimit)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	legacyRemoved := 0
 	var legacyBytes int64
 	legacyTargets := []string{}
@@ -691,12 +722,48 @@ func runStoragePruneIn(_ context.Context, base string, apply bool, olderThanDays
 	}
 
 	return object{
-		"applied":       apply,
-		"dryRun":        !apply,
-		"olderThanDays": olderThanDays,
-		"includeLegacy": includeLegacy,
-		"archives":      object{"eligible": len(expired), "removed": archivesRemoved, "bytes": archivesBytes},
-		"legacy":        object{"directories": legacyTargets, "removed": legacyRemoved, "bytes": legacyBytes},
+		"applied":        apply,
+		"dryRun":         !apply,
+		"olderThanDays":  olderThanDays,
+		"includeLegacy":  includeLegacy,
+		"includeOutputs": includeOutputs,
+		"archives":       object{"eligible": len(expired), "removed": archivesRemoved, "bytes": archivesBytes},
+		"outputs":        outputsResult,
+		"legacy":         object{"directories": legacyTargets, "removed": legacyRemoved, "bytes": legacyBytes},
+	}, nil
+}
+
+func runStorageMaintenancePassIn(ctx context.Context, base string, retentionDays, batchLimit int) (object, error) {
+	archiveResult, err := runStorageArchiveIn(ctx, base, true, batchLimit)
+	if err != nil {
+		return nil, err
+	}
+	summary := obj(archiveResult["summary"])
+	archived := int(uintOr(field(summary, "archived"), 0))
+	compressed := int(uintOr(field(summary, "compressed"), 0))
+
+	storageMaintenanceMu.Lock()
+	outputsResult, outErr := pruneExpiredOutputsUnlocked(base, storageNow(), true, batchLimit)
+	storageMaintenanceMu.Unlock()
+	if outErr != nil {
+		return nil, outErr
+	}
+	deletedOutputs := int(uintOr(outputsResult["removed"], 0))
+
+	deletedArchives := 0
+	if retentionDays > 0 && ctx.Err() == nil {
+		pruneResult, pruneErr := runStoragePruneIn(ctx, base, true, retentionDays, false, false)
+		if pruneErr != nil {
+			return nil, pruneErr
+		}
+		deletedArchives = int(uintOr(field(pruneResult["archives"], "removed"), 0))
+	}
+
+	return object{
+		"archived":        archived,
+		"compressed":      compressed,
+		"deletedOutputs":  deletedOutputs,
+		"deletedArchives": deletedArchives,
 	}, nil
 }
 
@@ -710,21 +777,21 @@ func startStorageMaintenance(ctx context.Context, _ *service) error {
 				return
 			case <-timer.C:
 			}
-			result, err := runStorageArchive(ctx, true, storageAutoBatchLimit)
+			counts, err := runStorageMaintenancePassIn(ctx, root(), storageRetentionDays(), storageAutoBatchLimit)
 			if err != nil && ctx.Err() == nil {
-				recordLog("WARN", "Storage archive maintenance: "+err.Error(), nil)
+				recordLog("WARN", "Storage maintenance: "+err.Error(), nil)
 			} else if err == nil {
-				totalArchived := 0
-				for _, entry := range obj(result["categories"]) {
-					totalArchived += int(uintOr(field(entry, "archived"), 0) + uintOr(field(entry, "compressed"), 0) + uintOr(field(entry, "pruned"), 0))
-				}
-				if totalArchived > 0 {
-					recordLog("INFO", "Storage archive maintenance completed", object{"items": totalArchived})
-				}
-			}
-			if days := storageRetentionDays(); days > 0 && ctx.Err() == nil {
-				if _, err := runStoragePrune(ctx, true, days, false); err != nil && ctx.Err() == nil {
-					recordLog("WARN", "Storage archive prune: "+err.Error(), nil)
+				archived := int(uintOr(counts["archived"], 0))
+				compressed := int(uintOr(counts["compressed"], 0))
+				deletedOutputs := int(uintOr(counts["deletedOutputs"], 0))
+				deletedArchives := int(uintOr(counts["deletedArchives"], 0))
+				if archived > 0 || compressed > 0 || deletedOutputs > 0 || deletedArchives > 0 {
+					recordLog("INFO", "Storage maintenance completed", object{
+						"archived":        archived,
+						"compressed":      compressed,
+						"deletedOutputs":  deletedOutputs,
+						"deletedArchives": deletedArchives,
+					})
 				}
 			}
 			timer.Reset(storageMaintenanceInterval)
@@ -745,7 +812,8 @@ func init() {
 		apply := body["apply"] == true
 		days := int(uintOr(body["olderThanDays"], storageDefaultPruneOlderDays))
 		includeLegacy := body["includeLegacy"] == true
-		return runStoragePrune(ctx, apply, days, includeLegacy)
+		includeOutputs := body["includeOutputs"] == true
+		return runStoragePrune(ctx, apply, days, includeLegacy, includeOutputs)
 	})
 	registerAfterIndexStartup(50, startStorageMaintenance)
 }

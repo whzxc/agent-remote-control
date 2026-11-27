@@ -111,13 +111,13 @@ export function GeneralSettingsContent() { return (<div class="flex flex-col gap
           </SettingLine>
         </Group>
         <Group title="Storage">
-          <SettingLine title="Local state archiving" description="120 hot files (1.4 MB); 24 items ready to archive losslessly.">
+          <SettingLine title="Local state archiving" description="120 hot files (1.4 MB); 52 to archive, 2 to compress losslessly.">
             <Button variant="primary">Archive now</Button>
           </SettingLine>
-          <SettingLine title="Archive retention" description="Compressed archives older than this window are pruned during daily maintenance.">
+          <SettingLine title="Archive retention" description="Applies only to compressed archives (archives/): older archives are permanently deleted during daily maintenance. Keep forever does not cover temporary outputs/ (files unmodified for over 7 days are permanently deleted during daily maintenance without archiving).">
             <Choices dropdown label="Archive retention" options={["Keep forever", "30 days", "90 days", "180 days"]} value="Keep forever" width={180} />
           </SettingLine>
-          <SettingLine title="Prune old archives and legacy data" description="Archives: 480 KB · Legacy data: 0 B.">
+          <SettingLine title="Clean up expired data and legacy directories" description="Archives: 480 KB · Expired outputs (>7d, deleted permanently): 1 (12.0 KB) · Legacy: 0 B.">
             <Button variant="secondary">Preview cleanup…</Button>
           </SettingLine>
         </Group>
