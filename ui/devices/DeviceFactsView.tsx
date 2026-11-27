@@ -51,7 +51,8 @@ export function DeviceFingerprintView({
   const formatted = value.match(/.{1,16}/g)?.join(" ") ?? value;
   return (
     <div
-      className={cn("device-fingerprint flex min-w-0 flex-col gap-1.5", className)}
+      data-slot="device-fingerprint"
+      className={cn("flex min-w-0 flex-col gap-1.5", className)}
     >
       <span className="text-small font-semibold leading-4 text-foreground">
         {t(controller ? "device.controllerFingerprint" : "device.fingerprint")}
@@ -153,7 +154,7 @@ export function DeviceDetailView({
   const os = platformName(device.platform);
 
   return (
-    <div className="device-detail flex min-w-0 flex-col gap-4">
+    <div data-slot="device-detail" className="flex min-w-0 flex-col gap-4">
       <DeviceIdentityView
         name={device.name}
         platform={device.platform}
@@ -183,7 +184,7 @@ export function DeviceDetailView({
             </dd>
           </div>
         </dl>
-        <div className="device-fingerprint flex flex-col gap-2">
+        <div data-slot="device-capabilities" className="flex flex-col gap-2">
           <span className="text-small font-semibold leading-4 text-foreground">
             {c("capabilities")}
           </span>
@@ -202,7 +203,7 @@ export function DeviceDetailView({
       </Card>
 
       <Card padded className="gap-4">
-        <div className="device-fingerprint flex min-w-0 flex-col gap-1.5">
+        <div data-slot="device-addresses" className="flex min-w-0 flex-col gap-1.5">
           <span className="text-small font-semibold leading-4 text-foreground">
             {c("addresses")}
           </span>
@@ -219,7 +220,7 @@ export function DeviceDetailView({
             <span className="text-small text-text-secondary">{c("none")}</span>
           )}
         </div>
-        <div className="device-fingerprint flex min-w-0 flex-col gap-1.5">
+        <div data-slot="device-tunnel" className="flex min-w-0 flex-col gap-1.5">
           <span className="text-small font-semibold leading-4 text-foreground">
             {c("tunnel")}
           </span>

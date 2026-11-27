@@ -19,7 +19,8 @@ export function McpDisclosureView({
   return (
     <button
       type="button"
-      className="tag disclosure inline-flex h-6 shrink-0 items-center gap-1 rounded-badge border border-border bg-surface px-2 text-meta font-semibold text-foreground"
+      data-slot="mcp-disclosure"
+      className="inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-badge border border-border bg-surface px-2 text-meta font-semibold text-foreground hover:bg-surface-subtle focus-visible:ring-2 focus-visible:ring-ring"
       aria-expanded={expanded}
       aria-controls={controls}
       onClick={onToggle}

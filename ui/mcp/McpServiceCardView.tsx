@@ -36,7 +36,7 @@ const statusTone = (state: McpServerState) =>
 export function McpToolRowView({ tool }: { tool: McpToolItem }) {
   const { t } = useI18n();
   return (
-    <li className="mcp-tool grid min-w-0 gap-1 px-3.5 py-2.5">
+    <li data-slot="mcp-tool" className="grid min-w-0 gap-1 px-3.5 py-2.5">
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <code className="font-mono text-small font-medium leading-4 text-foreground wrap-anywhere">
           {tool.name}
@@ -181,10 +181,11 @@ export function McpServiceCardView({
 
   return (
     <article
+      data-slot="mcp-server"
       data-state={state}
       data-transport={transport}
       aria-labelledby={headingId}
-      className="mcp-server grid min-w-0 gap-3 rounded-kit-card border border-border bg-surface-subtle/60 p-4"
+      className="grid min-w-0 gap-3 rounded-kit-card border border-border bg-surface-subtle/60 p-4"
     >
       <div className="flex min-w-0 flex-wrap items-center gap-3">
         <span
@@ -313,8 +314,9 @@ export function McpServiceCardView({
           {expanded && tools.length > 0 && (
             <ul
               id={toolsId}
+              data-slot="mcp-tools"
               aria-label={t("mcp.toolList")}
-              className="mcp-tools m-0 grid list-none divide-y divide-border rounded-inset border border-border bg-surface p-0"
+              className="m-0 grid list-none divide-y divide-border rounded-inset border border-border bg-surface p-0"
             >
               {tools.map((tool) => (
                 <McpToolRowView key={tool.name} tool={tool} />

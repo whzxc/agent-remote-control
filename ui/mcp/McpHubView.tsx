@@ -106,7 +106,8 @@ export function McpHubView({
 
   return (
     <main
-      className="mcp-content flex min-h-0 flex-col gap-5"
+      data-slot="mcp-content"
+      className="flex min-h-0 flex-col gap-5"
       aria-busy={reading || busy}
     >
       {error && (
@@ -136,14 +137,14 @@ export function McpHubView({
         <>
           {searchSlot ?? (
             <SearchInput
-              className="mcp-search w-full"
+              className="w-full"
               value={query}
               placeholder={t("mcp.search")}
               readOnly={!onQueryChange}
               onChange={(event) => onQueryChange?.(event.target.value)}
             />
           )}
-          <div className="mcp-servers grid gap-3.5">{children}</div>
+          <div data-slot="mcp-servers" className="grid gap-3.5">{children}</div>
           {visibleCount === 0 && (
             <p
               className="m-0 py-12 text-center text-small text-text-secondary"

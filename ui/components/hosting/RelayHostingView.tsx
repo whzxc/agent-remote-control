@@ -30,9 +30,9 @@ export function RelayHostingView({
   const { t } = useI18n();
 
   return (
-    <div className="relay-hosting grid gap-5 pt-1">
-      <div className="hosting-empty-group grid justify-items-start gap-4">
-        <div className="hosting-empty-copy grid gap-1.5">
+    <div data-slot="relay-hosting" className="grid gap-5 pt-1">
+      <div data-slot="hosting-empty-group" className="grid justify-items-start gap-4">
+        <div className="grid gap-1.5">
           <h2 className="m-0 text-body font-semibold leading-5 text-foreground">
             {t("hosting.title")}
           </h2>

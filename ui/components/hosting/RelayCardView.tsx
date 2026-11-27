@@ -53,19 +53,26 @@ export function RelayCardView({
 
   return (
     <article
-      className="hosted-relay grid gap-5"
+      data-slot="hosted-relay"
+      className="grid gap-5 border-t border-border pt-5 first:border-t-0 first:pt-0"
       aria-label={t("hosting.title")}
     >
-      <Card className="hosted-relay-card gap-0 overflow-hidden p-0">
-        <div className="hosted-relay-summary flex items-center gap-3 p-4">
-          <div className="hosted-relay-icon grid size-9 shrink-0 place-items-center rounded-tile border border-border bg-surface-subtle text-text-secondary">
+      <Card
+        data-slot="hosted-relay-card"
+        className="gap-0 overflow-hidden p-0"
+      >
+        <div className="flex items-center gap-3 p-4">
+          <div
+            data-slot="hosted-relay-icon"
+            className="grid size-9 shrink-0 place-items-center rounded-tile border border-border bg-surface-subtle text-text-secondary"
+          >
             <Cloud size={16} strokeWidth={1.75} absoluteStrokeWidth aria-hidden="true" />
           </div>
-          <div className="hosted-relay-identity min-w-0 flex-1">
+          <div className="min-w-0 flex-1">
             <h3 className="m-0 truncate font-mono text-small font-medium leading-5 text-foreground">
               <SensitiveText>{hostname}</SensitiveText>
             </h3>
-            <div className="hosted-relay-provider mt-0.5 flex flex-wrap items-center gap-1 text-meta leading-4 text-text-secondary">
+            <div className="mt-0.5 flex flex-wrap items-center gap-1 text-meta leading-4 text-text-secondary">
               <span>Cloudflare Workers</span>
               <span aria-hidden="true">·</span>
               {outdated || !hasUrl ? (
@@ -91,7 +98,10 @@ export function RelayCardView({
           </Badge>
         </div>
 
-        <div className="hosted-relay-invite flex flex-wrap items-center gap-3 border-t border-border bg-surface-subtle/60 px-4 py-3">
+        <div
+          data-slot="hosted-relay-invite"
+          className="flex flex-wrap items-center gap-3 border-t border-border bg-surface-subtle/60 px-4 py-3"
+        >
           <p className="m-0 min-w-[200px] flex-1 text-small leading-5 text-foreground">
             {t("hosting.invite")}
             <span className="text-text-secondary">
@@ -99,7 +109,7 @@ export function RelayCardView({
               · {t("hosting.inviteDescription")}
             </span>
           </p>
-          <div className="actions ml-auto flex flex-wrap items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
             <Button
               variant="primary"
               busy={shareBusy}
@@ -128,7 +138,10 @@ export function RelayCardView({
         onRemove={onRemoveMember}
       />
 
-      <div className="hosted-relay-danger flex flex-wrap items-center justify-between gap-4 border-t border-border pt-4">
+      <div
+        data-slot="hosted-relay-danger"
+        className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-4"
+      >
         <div className="min-w-[240px] flex-1">
           <h3 className="m-0 text-body font-semibold leading-5 text-foreground">
             {t("hosting.deleteTitle")}

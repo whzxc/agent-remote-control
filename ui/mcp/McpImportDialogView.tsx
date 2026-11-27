@@ -42,8 +42,9 @@ export function McpImportPromptView({
 
   return (
     <div
+      data-slot="mcp-import"
       className={cn(
-        "mcp-import grid w-full min-w-0 gap-3",
+        "grid w-full min-w-0 gap-3",
         actionBelow
           ? "max-w-[520px] justify-items-center gap-4"
           : "justify-items-start",

@@ -404,7 +404,7 @@ export function DeviceRevokeCopyView({
     t(`device.${key}`, params);
 
   return (
-    <div className="device-revoke-copy flex flex-col gap-2.5 text-small leading-5">
+    <div data-slot="device-revoke-copy" className="flex flex-col gap-2.5 text-small leading-5">
       <p className="m-0 text-foreground">
         {c(memberSide ? "revokeMemberEffect" : "revokeEffect", {
           name: peerName,

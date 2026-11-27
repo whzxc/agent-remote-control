@@ -38,8 +38,8 @@ export function RelayDevicesTableView({
   const { t } = useI18n();
 
   return (
-    <section className="hosted-relay-devices grid gap-3">
-      <div className="hosting-section-heading flex items-center justify-between gap-3">
+    <section data-slot="hosted-relay-devices" className="grid gap-3">
+      <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h3 className="m-0 text-body font-semibold leading-5 text-foreground">
             {t("hosting.devices")}
@@ -58,7 +58,8 @@ export function RelayDevicesTableView({
       </div>
       {error && <Notice tone="danger">{error}</Notice>}
       <div
-        className="hosted-relay-table overflow-hidden rounded-kit-card border border-border bg-surface"
+        data-slot="hosted-relay-table"
+        className="overflow-hidden rounded-kit-card border border-border bg-surface [&_thead]:bg-surface-subtle [&_tbody_tr:last-child_td]:shadow-none"
         aria-busy={loading}
       >
         <DataTable
@@ -84,7 +85,7 @@ export function RelayDevicesTableView({
               title: t("hosting.device"),
               width: 180,
               render: (member) => (
-                <div className="hosted-relay-device flex min-w-0 items-center gap-2">
+                <div className="flex min-w-0 items-center gap-2">
                   <span
                     className={`size-2 shrink-0 rounded-full ${member.online ? "bg-success" : "bg-text-tertiary"}`}
                     aria-hidden="true"
@@ -93,12 +94,12 @@ export function RelayDevicesTableView({
                     {t(member.online ? "connect.online" : "connect.offline")}
                   </span>
                   <HintTooltip text={member.name}>
-                    <span className="hosted-relay-device-name truncate text-small text-foreground">
+                    <span className="truncate text-small text-foreground">
                       {member.name}
                     </span>
                   </HintTooltip>
                   {member.isSelf && (
-                    <Badge size="sm" tone="neutral" className="hosted-relay-self">
+                    <Badge size="sm" tone="neutral">
                       {t("hosting.self")}
                     </Badge>
                   )}

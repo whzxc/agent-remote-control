@@ -354,7 +354,7 @@ function RelayHostingContent({
   const owners = relays.relays.filter((relay) => relay.owner);
 
   return (
-    <EntityInventory variant="relay">
+    <EntityInventory className="contents">
       <RelayHostingView
         loaded={relays.loaded}
         hasOwners={owners.length > 0}
