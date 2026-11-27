@@ -36,13 +36,54 @@ export function DialogBackdrop({
   );
 }
 
-export function DialogPopup({
+function DialogPopupInner({
   className,
   children,
+  size,
+  showCloseButton,
+  closeLabel,
+  finalFocus: finalFocusProp,
+  ...props
+}: DialogPrimitive.Popup.Props & {
+  size: DialogSize;
+  closeLabel?: string;
+  showCloseButton: boolean;
+}): React.ReactElement {
+  const { t } = useI18n();
+  const fallbackFinalFocus = useDialogFinalFocus();
+
+  return (
+    <DialogPrimitive.Popup
+      data-slot="dialog-popup"
+      data-size={size}
+      finalFocus={finalFocusProp ?? fallbackFinalFocus}
+      className={stateClass(
+        cn(
+          "fixed left-1/2 top-1/2 z-50 flex min-h-0 max-h-[calc(100dvh-32px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[var(--radius-dialog,12px)] border border-border bg-surface-raised text-foreground shadow-lg outline-none transition-[opacity,scale] duration-(--motion-base) ease-(--ease-enter) data-starting-style:opacity-0 data-starting-style:scale-95 data-ending-style:opacity-0 data-ending-style:scale-95 data-ending-style:duration-(--motion-fast) data-ending-style:ease-(--ease-exit) motion-reduce:transition-none dark:border-border-strong dark:shadow-[inset_0_1px_0_rgb(255_255_255/6%),var(--shadow-lg)]",
+          dialogWidths[size],
+        ),
+        className,
+      )}
+      {...props}
+    >
+      {children}
+      {showCloseButton && (
+        <DialogPrimitive.Close
+          aria-label={closeLabel ?? t("close")}
+          data-slot="dialog-close"
+          className="absolute right-3 top-2.5 inline-flex size-[var(--kit-control-height-sm,26px)] cursor-pointer items-center justify-center rounded-pill text-text-secondary outline-none transition-colors duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none hover:bg-surface-subtle hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <X size={15} strokeWidth={1.75} absoluteStrokeWidth aria-hidden="true" />
+        </DialogPrimitive.Close>
+      )}
+    </DialogPrimitive.Popup>
+  );
+}
+
+export function DialogPopup({
   size = "md",
   showCloseButton = true,
   showBackdrop = true,
-  closeLabel,
   portalProps,
   ...props
 }: DialogPrimitive.Popup.Props & {
@@ -52,36 +93,14 @@ export function DialogPopup({
   showBackdrop?: boolean;
   portalProps?: DialogPrimitive.Portal.Props;
 }): React.ReactElement {
-  const { t } = useI18n();
-  const finalFocus = useDialogFinalFocus();
-
   return (
     <DialogPrimitive.Portal {...portalProps}>
       {showBackdrop && <DialogBackdrop />}
-      <DialogPrimitive.Popup
-        data-slot="dialog-popup"
-        data-size={size}
-        finalFocus={finalFocus}
-        className={stateClass(
-          cn(
-            "fixed left-1/2 top-1/2 z-50 flex min-h-0 max-h-[calc(100dvh-32px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[var(--radius-dialog,12px)] border border-border bg-surface-raised text-foreground shadow-lg outline-none transition-[opacity,scale] duration-(--motion-base) ease-(--ease-enter) data-starting-style:opacity-0 data-starting-style:scale-95 data-ending-style:opacity-0 data-ending-style:scale-95 data-ending-style:duration-(--motion-fast) data-ending-style:ease-(--ease-exit) motion-reduce:transition-none dark:border-border-strong dark:shadow-[inset_0_1px_0_rgb(255_255_255/6%),var(--shadow-lg)]",
-            dialogWidths[size],
-          ),
-          className,
-        )}
+      <DialogPopupInner
+        size={size}
+        showCloseButton={showCloseButton}
         {...props}
-      >
-        {children}
-        {showCloseButton && (
-          <DialogPrimitive.Close
-            aria-label={closeLabel ?? t("close")}
-            data-slot="dialog-close"
-            className="absolute right-3 top-2.5 inline-flex size-[var(--kit-control-height-sm,26px)] cursor-pointer items-center justify-center rounded-pill text-text-secondary outline-none transition-colors duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none hover:bg-surface-subtle hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <X size={15} strokeWidth={1.75} absoluteStrokeWidth aria-hidden="true" />
-          </DialogPrimitive.Close>
-        )}
-      </DialogPrimitive.Popup>
+      />
     </DialogPrimitive.Portal>
   );
 }

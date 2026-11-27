@@ -9,6 +9,24 @@ import { useI18n } from "@/i18n/react";
 import { IconButton } from "./button";
 import { cn } from "./utils";
 
+const higherOverlaySelector = [
+  '[role="dialog"]',
+  '[role="alertdialog"]',
+  '[role="listbox"]',
+  '[role="menu"]',
+  '[data-slot="popover-popup"]',
+  '[data-slot="select-popup"]',
+  '[data-slot="menu-popup"]',
+].join(", ");
+
+function hasOpenOverlay(): boolean {
+  for (const node of document.querySelectorAll(higherOverlaySelector)) {
+    if (node.closest("[hidden]") || node.hasAttribute("data-closed")) continue;
+    return true;
+  }
+  return false;
+}
+
 export type WorkspaceSize = "m" | "xl";
 
 export interface WorkspaceShellSurfaceProps
@@ -152,7 +170,7 @@ export function WorkspaceShell({
     if (!open || typeof document === "undefined") return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
-      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+      if (hasOpenOverlay()) return;
       event.preventDefault();
       (onDismiss ?? onClose)?.();
     };
@@ -288,7 +306,7 @@ export function InspectorSheet({
     if (!open || typeof document === "undefined") return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
-      if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+      if (hasOpenOverlay()) return;
       event.preventDefault();
       (onDismiss ?? onClose)?.();
     };

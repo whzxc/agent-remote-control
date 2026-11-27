@@ -60,22 +60,32 @@ export function DialogFocusProvider({
   return createElement(FocusContext.Provider, { value: lastAction }, children);
 }
 
+function isAvailableFocusTarget(target: HTMLElement): boolean {
+  if (!target.isConnected) return false;
+  return (
+    !target.hasAttribute("disabled") &&
+    target.getAttribute("aria-disabled") !== "true"
+  );
+}
+
 export function useDialogFinalFocus(): () => HTMLElement | boolean {
   const lastAction = useContext(FocusContext);
-  const opener = useRef<HTMLElement[]>([]);
+  const opener = useRef<HTMLElement[] | null>(null);
 
-  useEffect(() => {
-    if (typeof document === "undefined") return;
+  if (opener.current === null && typeof document !== "undefined") {
     const current = actionTarget(document.activeElement);
     opener.current = [
       ...(current ? [current] : []),
       ...(lastAction?.current ?? []),
     ];
-  }, [lastAction]);
+  }
 
   return useCallback(() => {
-    for (const target of opener.current) {
-      if (target.isConnected) return target;
+    for (const target of opener.current ?? []) {
+      if (isAvailableFocusTarget(target)) return target;
+    }
+    if (typeof document !== "undefined") {
+      return document.querySelector<HTMLElement>('main[tabindex="-1"]') ?? true;
     }
     return true;
   }, []);

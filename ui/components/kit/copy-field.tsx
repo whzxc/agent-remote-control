@@ -81,7 +81,7 @@ export function CopyField({
           )}
         </div>
         {loading ? (
-          <span className="inline-flex size-(--control-height) items-center justify-center text-text-secondary">
+          <span className="inline-flex size-[var(--kit-control-height-sm,26px)] items-center justify-center text-text-secondary">
             <Spinner size={16} />
           </span>
         ) : (

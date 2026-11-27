@@ -27,8 +27,27 @@ export function AlertDialogBackdrop({
   );
 }
 
-export function AlertDialogPopup({
+function AlertDialogPopupInner({
   className,
+  finalFocus: finalFocusProp,
+  ...props
+}: AlertDialogPrimitive.Popup.Props): React.ReactElement {
+  const fallbackFinalFocus = useDialogFinalFocus();
+
+  return (
+    <AlertDialogPrimitive.Popup
+      data-slot="alert-dialog-popup"
+      finalFocus={finalFocusProp ?? fallbackFinalFocus}
+      className={stateClass(
+        "fixed left-1/2 top-1/2 z-60 flex max-h-[calc(100dvh-32px)] w-[min(440px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[var(--radius-dialog,12px)] border border-border bg-surface-raised text-foreground shadow-lg outline-none transition-[opacity,scale] duration-(--motion-base) ease-(--ease-enter) data-starting-style:opacity-0 data-starting-style:scale-95 data-ending-style:opacity-0 data-ending-style:scale-95 data-ending-style:duration-(--motion-fast) data-ending-style:ease-(--ease-exit) motion-reduce:transition-none dark:border-border-strong dark:shadow-[inset_0_1px_0_rgb(255_255_255/6%),var(--shadow-lg)]",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export function AlertDialogPopup({
   onBackdropClick,
   portalProps,
   ...props
@@ -36,20 +55,10 @@ export function AlertDialogPopup({
   onBackdropClick?: () => void;
   portalProps?: AlertDialogPrimitive.Portal.Props;
 }): React.ReactElement {
-  const finalFocus = useDialogFinalFocus();
-
   return (
     <AlertDialogPrimitive.Portal {...portalProps}>
       <AlertDialogBackdrop onClick={onBackdropClick} />
-      <AlertDialogPrimitive.Popup
-        data-slot="alert-dialog-popup"
-        finalFocus={finalFocus}
-        className={stateClass(
-          "fixed left-1/2 top-1/2 z-60 flex max-h-[calc(100dvh-32px)] w-[min(440px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[var(--radius-dialog,12px)] border border-border bg-surface-raised text-foreground shadow-lg outline-none transition-[opacity,scale] duration-(--motion-base) ease-(--ease-enter) data-starting-style:opacity-0 data-starting-style:scale-95 data-ending-style:opacity-0 data-ending-style:scale-95 data-ending-style:duration-(--motion-fast) data-ending-style:ease-(--ease-exit) motion-reduce:transition-none dark:border-border-strong dark:shadow-[inset_0_1px_0_rgb(255_255_255/6%),var(--shadow-lg)]",
-          className,
-        )}
-        {...props}
-      />
+      <AlertDialogPopupInner {...props} />
     </AlertDialogPrimitive.Portal>
   );
 }

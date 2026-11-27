@@ -130,6 +130,10 @@ test('i18n core, LocaleProvider, and static kit surfaces render in SSR without D
       core.setSsrLocale('zh-CN');
       assert.equal(core.t('close'), zhCN.close);
 
+      core.setSsrLocale(null);
+      assert.equal(core.getActiveLocale(), 'en');
+      assert.equal(core.t('close'), en.close);
+
       core.setSsrLocale('en');
       assert.equal(core.t('close'), en.close);
 
@@ -264,7 +268,7 @@ test('useDismissalGuard and DismissalFooter guard dirty drafts, running work, an
 
     // Keep editing retains draft and clears the confirmation footer.
     await act(async () => fireEvent.click(keepEditing));
-    assert.equal(page.queryByRole('button', { name: en['layers.keepEditing'] }), null);
+    assertNodeIdentity(page.queryByRole('button', { name: en['layers.keepEditing'] }), null);
     assert.equal(
       (page.getByRole('textbox', { name: 'Draft field' }) as HTMLInputElement).value,
       'Unsaved token',
@@ -272,7 +276,7 @@ test('useDismissalGuard and DismissalFooter guard dirty drafts, running work, an
 
     // Explicit cancel closes a dirty (non-busy) layer immediately.
     await act(async () => fireEvent.click(page.getByRole('button', { name: 'Explicit cancel' })));
-    assert.equal(page.queryByRole('dialog', { name: 'Guarded form' }), null);
+    assertNodeIdentity(page.queryByRole('dialog', { name: 'Guarded form' }), null);
 
     // Reopen and verify Discard closes on ambient dismiss.
     await act(async () => fireEvent.click(page.getByRole('button', { name: 'Reopen' })));
@@ -280,7 +284,7 @@ test('useDismissalGuard and DismissalFooter guard dirty drafts, running work, an
     await act(async () =>
       fireEvent.click(page.getByRole('button', { name: en['layers.discardAction'] })),
     );
-    assert.equal(page.queryByRole('dialog', { name: 'Guarded form' }), null);
+    assertNodeIdentity(page.queryByRole('dialog', { name: 'Guarded form' }), null);
 
     // Reopen, submit draft (marks baseline & busy): explicit cancel must still guard running work.
     await act(async () => fireEvent.click(page.getByRole('button', { name: 'Reopen' })));
@@ -298,7 +302,7 @@ test('useDismissalGuard and DismissalFooter guard dirty drafts, running work, an
 
     // After submission with no subsequent edit, useSubmittedDirty reports clean so ambient dismiss closes directly.
     await act(async () => fireEvent.click(page.getByRole('button', { name: 'Ambient dismiss' })));
-    assert.equal(page.queryByRole('dialog', { name: 'Guarded form' }), null);
+    assertNodeIdentity(page.queryByRole('dialog', { name: 'Guarded form' }), null);
 
     // Reopen, run busy work, request close without clicking Keep open -> auto-closes when work finishes.
     await act(async () => fireEvent.click(page.getByRole('button', { name: 'Reopen' })));
@@ -307,7 +311,7 @@ test('useDismissalGuard and DismissalFooter guard dirty drafts, running work, an
     assert.ok(page.getByRole('button', { name: en['layers.keepOpen'] }));
     await act(async () => fireEvent.click(page.getByRole('button', { name: 'Finish busy' })));
     await settle();
-    assert.equal(page.queryByRole('dialog', { name: 'Guarded form' }), null);
+    assertNodeIdentity(page.queryByRole('dialog', { name: 'Guarded form' }), null);
     assert.deepEqual(outcomes, [{ closed: false }, { closed: true }]);
 
     // Cancellable busy work honors onCancel returning false vs true.
@@ -328,7 +332,7 @@ test('useDismissalGuard and DismissalFooter guard dirty drafts, running work, an
       fireEvent.click(page.getByRole('button', { name: en['layers.stopClose'] })),
     );
     await settle();
-    assert.equal(page.queryByRole('dialog', { name: 'Guarded form' }), null);
+    assertNodeIdentity(page.queryByRole('dialog', { name: 'Guarded form' }), null);
     assert.equal(cancelled, 1);
 
     // Backwards-compatible ui/i18n.ts facade remains wired to the runtime language store.
@@ -341,71 +345,118 @@ test('useDismissalGuard and DismissalFooter guard dirty drafts, running work, an
 });
 
 test('Base UI Dialog supports Select popups and nested Dialogs without dismissing parent shells', async () => {
-  // Contract: native Base UI portal stacking replaces ARC TransientLayer for Select inside Dialog and nested Dialog over WorkspaceShell.
-  await withKitDom(async ({ server, root, settle }) => {
+  // Contract: native Base UI portal stacking replaces ARC TransientLayer for Select inside Dialog, nested Dialog over WorkspaceShell, and opener focus fallback.
+  await withKitDom(async ({ server, root, settle, focused }) => {
     const kit = await server.ssrLoadModule('/ui/components/kit/index.ts');
 
     function StackingHarness() {
       const [shellOpen, setShellOpen] = useState(true);
       const [parentOpen, setParentOpen] = useState(true);
       const [childOpen, setChildOpen] = useState(false);
+      const [fallbackDialogOpen, setFallbackDialogOpen] = useState(false);
+      const [openerDisabled, setOpenerDisabled] = useState(false);
       const [profile, setProfile] = useState('default');
+      const [workspaceFilter, setWorkspaceFilter] = useState('all');
 
       return h(
-        'main',
+        kit.DialogFocusProvider,
         null,
         h(
-          kit.WorkspaceShell,
-          {
-            open: shellOpen,
-            title: 'Connections workspace',
-            onClose: () => setShellOpen(false),
-          },
-          h('p', null, 'Workspace content'),
-        ),
-        h(
-          kit.Dialog,
-          { open: parentOpen, onOpenChange: setParentOpen },
+          'main',
+          { tabIndex: -1 },
           h(
-            kit.DialogPopup,
-            { closeLabel: 'Close parent' },
-            h(kit.DialogHeader, null, h(kit.DialogTitle, null, 'Agent account')),
+            kit.Button,
+            {
+              disabled: openerDisabled,
+              onClick: () => {
+                setFallbackDialogOpen(true);
+                setOpenerDisabled(true);
+              },
+            },
+            'Launch disposable dialog',
+          ),
+          h(
+            kit.WorkspaceShell,
+            {
+              open: shellOpen,
+              title: 'Connections workspace',
+              onClose: () => setShellOpen(false),
+            },
             h(
-              kit.DialogBody,
-              null,
-              h(
-                kit.Select,
-                {
-                  value: profile,
-                  onValueChange: (next: string | null) => {
-                    if (next !== null) setProfile(next);
-                  },
+              kit.Select,
+              {
+                value: workspaceFilter,
+                onValueChange: (next: string | null) => {
+                  if (next !== null) setWorkspaceFilter(next);
                 },
-                h(
-                  kit.SelectTrigger,
-                  { 'aria-label': 'Browser profile' },
-                  h(kit.SelectValue, { placeholder: 'Choose profile' }),
-                ),
-                h(
-                  kit.SelectPopup,
-                  null,
-                  h(kit.SelectItem, { value: 'default' }, 'Default browser'),
-                  h(kit.SelectItem, { value: 'chrome-profile-a' }, 'Chrome Profile A'),
-                ),
+              },
+              h(
+                kit.SelectTrigger,
+                { 'aria-label': 'Workspace filter' },
+                h(kit.SelectValue, { placeholder: 'Filter' }),
               ),
-              h('output', { 'aria-label': 'Selected profile' }, profile),
-              h(kit.Button, { onClick: () => setChildOpen(true) }, 'Open child dialog'),
+              h(
+                kit.SelectPopup,
+                null,
+                h(kit.SelectItem, { value: 'all' }, 'All connections'),
+                h(kit.SelectItem, { value: 'remote' }, 'Remote only'),
+              ),
             ),
           ),
-        ),
-        h(
-          kit.Dialog,
-          { open: childOpen, onOpenChange: setChildOpen },
           h(
-            kit.DialogPopup,
-            { size: 'sm', closeLabel: 'Close child' },
-            h(kit.DialogHeader, null, h(kit.DialogTitle, null, 'Tool permissions')),
-            h(kit.DialogBody, null, h('p', null, 'Nested confirmation content')),
+            kit.Dialog,
+            { open: parentOpen, onOpenChange: setParentOpen },
+            h(
+              kit.DialogPopup,
+              { closeLabel: 'Close parent' },
+              h(kit.DialogHeader, null, h(kit.DialogTitle, null, 'Agent account')),
+              h(
+                kit.DialogBody,
+                null,
+                h(
+                  kit.Select,
+                  {
+                    value: profile,
+                    onValueChange: (next: string | null) => {
+                      if (next !== null) setProfile(next);
+                    },
+                  },
+                  h(
+                    kit.SelectTrigger,
+                    { 'aria-label': 'Browser profile' },
+                    h(kit.SelectValue, { placeholder: 'Choose profile' }),
+                  ),
+                  h(
+                    kit.SelectPopup,
+                    null,
+                    h(kit.SelectItem, { value: 'default' }, 'Default browser'),
+                    h(kit.SelectItem, { value: 'chrome-profile-a' }, 'Chrome Profile A'),
+                  ),
+                ),
+                h('output', { 'aria-label': 'Selected profile' }, profile),
+                h(kit.Button, { onClick: () => setChildOpen(true) }, 'Open child dialog'),
+              ),
+            ),
+          ),
+          h(
+            kit.Dialog,
+            { open: childOpen, onOpenChange: setChildOpen },
+            h(
+              kit.DialogPopup,
+              { size: 'sm', closeLabel: 'Close child' },
+              h(kit.DialogHeader, null, h(kit.DialogTitle, null, 'Tool permissions')),
+              h(kit.DialogBody, null, h('p', null, 'Nested confirmation content')),
+            ),
+          ),
+          h(
+            kit.Dialog,
+            { open: fallbackDialogOpen, onOpenChange: setFallbackDialogOpen },
+            h(
+              kit.DialogPopup,
+              { size: 'sm', closeLabel: 'Close fallback dialog' },
+              h(kit.DialogHeader, null, h(kit.DialogTitle, null, 'Transient confirmation')),
+              h(kit.DialogBody, null, h('p', null, 'Opener disabled while open')),
+            ),
           ),
         ),
       );
@@ -444,19 +495,45 @@ test('Base UI Dialog supports Select popups and nested Dialogs without dismissin
 
     await act(async () => fireEvent.click(page.getByRole('button', { name: 'Close child' })));
     await settle();
-    assert.equal(page.queryByRole('dialog', { name: 'Tool permissions' }), null);
+    assertNodeIdentity(page.queryByRole('dialog', { name: 'Tool permissions' }), null);
     assert.ok(page.getByRole('dialog', { name: 'Agent account' }));
     assert.ok(page.getByRole('region', { name: 'Connections workspace', hidden: true }));
 
     // Pressing Escape while a Dialog is open dismisses only the Dialog, keeping WorkspaceShell open.
     await act(async () => fireEvent.keyDown(document, { key: 'Escape' }));
     await settle();
-    assert.equal(page.queryByRole('dialog', { name: 'Agent account' }), null);
+    assertNodeIdentity(page.queryByRole('dialog', { name: 'Agent account' }), null);
     assert.ok(page.getByRole('region', { name: 'Connections workspace' }));
 
-    // Pressing Escape once no Dialog remains dismisses WorkspaceShell cleanly.
+    // Pressing Escape while an inner Select inside WorkspaceShell is open closes only the Select, not WorkspaceShell.
+    const workspaceSelect = page.getByRole('combobox', { name: 'Workspace filter' });
+    await act(async () => fireEvent.click(workspaceSelect));
+    await settle();
+    assert.ok(page.getByRole('option', { name: 'Remote only' }));
+
     await act(async () => fireEvent.keyDown(document, { key: 'Escape' }));
     await settle();
-    assert.equal(page.queryByRole('region', { name: 'Connections workspace' }), null);
+    assert.equal(workspaceSelect.getAttribute('aria-expanded'), 'false');
+    assert.ok(page.getByRole('region', { name: 'Connections workspace' }));
+
+    // Pressing Escape once no inner popup or Dialog remains dismisses WorkspaceShell cleanly.
+    await act(async () => fireEvent.keyDown(document, { key: 'Escape' }));
+    await settle();
+    assertNodeIdentity(page.queryByRole('region', { name: 'Connections workspace' }), null);
+
+    // Closing a Dialog whose opener became disabled falls back to main[tabindex="-1"].
+    const disposableOpener = page.getByRole('button', { name: 'Launch disposable dialog' });
+    await act(async () => {
+      disposableOpener.focus();
+      fireEvent.click(disposableOpener);
+    });
+    await settle();
+    assert.ok(page.getByRole('dialog', { name: 'Transient confirmation' }));
+    await act(async () =>
+      fireEvent.click(page.getByRole('button', { name: 'Close fallback dialog' })),
+    );
+    await settle();
+    assertNodeIdentity(page.queryByRole('dialog', { name: 'Transient confirmation' }), null);
+    assertNodeIdentity(focused(), page.getByRole('main'));
   });
 });

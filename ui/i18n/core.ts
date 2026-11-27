@@ -37,7 +37,7 @@ export function translate(
   );
 }
 
-let activeLocale: Locale = "en";
+const defaultLocale: Locale = "en";
 let ssrLocale: Locale | null = null;
 let runtimeReader: (() => Locale) | null = null;
 const listeners = new Set<() => void>();
@@ -59,13 +59,12 @@ export function setRuntimeLocaleReader(reader: (() => Locale) | null) {
 
 export function setSsrLocale(next: Locale | null) {
   ssrLocale = next;
-  if (next !== null) activeLocale = next;
   notifyLocaleListeners();
 }
 
 export function getActiveLocale(): Locale {
   if (ssrLocale !== null) return ssrLocale;
-  return runtimeReader ? runtimeReader() : activeLocale;
+  return runtimeReader ? runtimeReader() : defaultLocale;
 }
 
 export function t(key: string, params: Record<string, unknown> = {}): string {
