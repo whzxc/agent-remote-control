@@ -117,10 +117,12 @@ function checked { if ($LASTEXITCODE -ne 0) { throw "Command failed: $LASTEXITCO
 Set-Location ${psQuote(remoteRoot)}
 if (!(Test-Path source/.git)) { git init source; checked }
 Set-Location source
+foreach ($legacy in @('desktop/gen', 'desktop/runtime')) { if (Test-Path $legacy) { Remove-Item -Recurse -Force $legacy } }
 if ((git status --porcelain)) { throw 'Windows release checkout is dirty' }
 git fetch ../release-artifacts/source.bundle HEAD:refs/remotes/source/frozen; checked
 if (!(Test-Path .git/packed-refs)) { git pack-refs --all; checked }
 if ((git rev-parse --verify --quiet HEAD) -ne '${sourceSha}') { git checkout --detach ${sourceSha}; checked }
+foreach ($legacy in @('desktop/gen', 'desktop/runtime')) { if (Test-Path $legacy) { Remove-Item -Recurse -Force $legacy } }
 if ((git rev-parse HEAD) -ne '${sourceSha}') { throw 'Windows source SHA mismatch' }
 $env:ARC_BUILD_VERSION='${version}'
 $env:ARC_MYGO_UPDATE_PUBLIC_KEY=${psQuote(resolveMygoUpdatePublicKey(env))}
@@ -154,11 +156,13 @@ export async function buildMac({ sourceSha, output, env, timer }) {
       if (error.code !== 'ENOENT') throw error;
       await runCommand('git', ['clone', '--no-hardlinks', '.', source]);
     }
+    await Promise.all(['desktop/gen', 'desktop/runtime'].map(rel => rm(path.join(source, rel), { recursive: true, force: true })));
     if (capture('git', ['-C', source, 'status', '--porcelain'])) throw new Error('macOS release checkout is dirty');
     await runCommand('git', ['-C', source, 'fetch', path.resolve('.'), sourceSha]);
     if (capture('git', ['-C', source, 'rev-parse', 'HEAD']) !== sourceSha) {
       await runCommand('git', ['-C', source, 'checkout', '--detach', sourceSha]);
     }
+    await Promise.all(['desktop/gen', 'desktop/runtime'].map(rel => rm(path.join(source, rel), { recursive: true, force: true })));
     await installDependencies(source, () => runCommand('npm', ['ci'], { cwd: source, env: dependencyEnv(env) }));
   });
   const parent = path.join(source, 'dist/desktop-release');
