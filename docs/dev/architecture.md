@@ -74,7 +74,7 @@ During an unused ten-minute offer, unpaired self-signed clients may complete TLS
 to prove the offer secret. They cannot execute business calls. The first valid
 proof consumes the secret and waits for member-local approve or decline until
 the original expiry. Approval creates one source with `credential.type:peer` in
-`sources.rs`, stores the controller public key on the member, and returns the
+`internal/core/sources.go`, stores the controller public key on the member, and returns the
 member public key, label and addresses for the controller's local record. A member
 has one controller. Pairing rejects self-links, reciprocal links and
 ancestor/descendant cycles before

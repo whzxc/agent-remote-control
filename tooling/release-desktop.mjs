@@ -30,7 +30,7 @@ export async function collectDesktop({ target, version, input, output }) {
     await copyFile(mygoArchive, path.join(output, legacyPayloadName(target, version)));
   } else if (target === 'windows-amd64') {
     const list = (await readFile(path.join(input, '.mygo-files'), 'utf8')).trim().split(/\r?\n/);
-    const expected = [desktopExecutable + '.exe', 'bin', 'licenses', 'menubar-18Template@2x.png', 'skills', 'tray-logo.png'];
+    const expected = [desktopExecutable + '.exe', 'bin', 'licenses', 'skills', 'tray-logo.png'];
     if (list.sort().join('\n') !== expected.sort().join('\n')) throw new Error('Unexpected Windows installed payload inventory.');
     archive(mygoArchive, input, ['.mygo-files', ...list]);
   } else throw new Error(`Unknown desktop target ${target}`);

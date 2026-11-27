@@ -7,8 +7,14 @@ const identity = development ? developmentConfig() : { identifier: desktopIdenti
 const fixtureFrontend = development ? process.env.ARC_MYGO_FIXTURE_FRONTEND : undefined;
 const updateKey = resolveMygoUpdatePublicKey(process.env, development, fixtureFrontend);
 const updateBase = process.env.ARC_MYGO_UPDATE_BASE || "https://github.com/whzxc/agent-remote-control/releases/latest/download";
-const resources = ["desktop/icons/menubar-18Template@2x.png", "desktop/icons/tray-logo.png", "dist/mygo-input/bin", "skills", "licenses"];
-if (process.env.ARC_MYGO_MACOS === "1") resources.push("dist/mygo-input/icon/Assets.car");
+const macos = process.env.ARC_MYGO_MACOS === "1";
+const resources = [
+  macos ? "desktop/icons/menubar-18Template@2x.png" : "desktop/icons/tray-logo.png",
+  "dist/mygo-input/bin",
+  "skills",
+  "licenses",
+];
+if (macos) resources.push("dist/mygo-input/icon/Assets.car");
 
 export default defineConfig({
   name: desktopExecutable,

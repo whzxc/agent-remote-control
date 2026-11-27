@@ -33,10 +33,7 @@ func generate(source, destination string) error {
 		return err
 	}
 	sizes := map[string]int{
-		"icon.png": 512, "64x64.png": 64, "128x128.png": 128, "128x128@2x.png": 256,
-		"Square107x107Logo.png": 107, "Square142x142Logo.png": 142, "Square150x150Logo.png": 150,
-		"Square284x284Logo.png": 284, "Square310x310Logo.png": 310, "Square44x44Logo.png": 44,
-		"Square71x71Logo.png": 71, "Square89x89Logo.png": 89, "StoreLogo.png": 50,
+		"icon.png": 512, "128x128@2x.png": 256,
 	}
 	for name, size := range sizes {
 		output := image.NewNRGBA(image.Rect(0, 0, size, size))

@@ -2,7 +2,7 @@
 
 ### Ownership and compatibility
 
-Desktop provides one plain native window per account with a direct wry child. Core owns the account-scoped conversation registry and task bindings. The renderer API is defined in `ui/srcConversations.ts`; native WebView lifecycle remains with Desktop.
+Desktop provides one plain native window per account with a direct native WKWebView child. Core owns the account-scoped conversation registry and task bindings. The renderer API is defined in `ui/srcConversations.ts`; native WebView lifecycle remains with Desktop.
 
 The native implementation requires macOS 14 or later for identifier-based persistent WK data stores. Other platforms and non-Claude source providers report `unsupported`. Core owns the persisted registry and account scope; Desktop owns native windows and login import. Remote content opens in a standalone native WKWebView. Construction verifies that the native user-script count is zero before any navigation. Desktop uses only the isolated data store and never exposes a remote IPC handler or reads page content or the browser history.
 
@@ -37,7 +37,7 @@ The native URL poll runs on a 250 ms cadence. Only canonical `/chat/<uuid>` and 
 
 Blocked reasons include `keychain-timeout`, `keychain-denied`, `keychain-pending`, `keychain-unavailable`, `cookie-write-timeout`, `cookie-write-pending`, `chrome-profile-unavailable`, `window-closed`, `import-interrupted` and `import-failed`. Keychain hints direct the user to enter the macOS login password in the Chrome Safe Storage prompt and choose Always Allow. Failures expose only these safe codes and fixed hints, never native error payloads. An interrupted Desktop job becomes `import-blocked` on the next complete metadata sync. A completed empty import returns `not-imported`; a nonempty import returns `signed-in-pending` until URL observation resolves it. Retry requires a new explicit action after the blocker is handled.
 
-Safari UA override is per account and defaults to false. `src_conversation_open` can save it; an already-open view must be closed before the changed preference takes effect. The optional compatibility string uses `Version/27.0.1 Safari/605.1.15` with the frozen WebKit token; it is not an assertion about the host Safari version. Default wry UA is the normal route. Popups and navigation outside the HTTPS claude.ai origin are denied.
+Safari UA override is per account and defaults to false. `src_conversation_open` can save it; an already-open view must be closed before the changed preference takes effect. The optional compatibility string uses `Version/27.0.1 Safari/605.1.15` with the frozen WebKit token; it is not an assertion about the host Safari version. Default WKWebView UA is the normal route. Popups and navigation outside the HTTPS claude.ai origin are denied.
 
 ### Registry and task bindings
 

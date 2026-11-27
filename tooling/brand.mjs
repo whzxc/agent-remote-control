@@ -20,12 +20,9 @@ execFileSync('go', ['run', './tooling/brand-icons', path.join(source, 'png/app-i
 });
 copy('icons/AppIcon.icns', 'desktop/icons/macos/Icon.icns');
 copy('icons/app.ico', 'desktop/icons/icon.ico');
-copy('png/app-icon-32.png', 'desktop/icons/32x32.png');
-copy('png/app-icon-30.png', 'desktop/icons/Square30x30Logo.png');
 copy('png/app-icon-1024.png', 'desktop/icons/dev/icon.png');
 copy('png/app-icon-32.png', 'desktop/icons/tray-logo.png');
-for (const suffix of ['', '@2x']) copy(`png/menubar-18Template${suffix}.png`, `desktop/icons/menubar-18Template${suffix}.png`);
-copy('svg/app-icon.svg', 'desktop/icon.svg');
+copy('png/menubar-18Template@2x.png', 'desktop/icons/menubar-18Template@2x.png');
 for (const file of ['mark.svg', 'mark-theme.svg']) copy(`svg/${file}`, `ui/assets/arc/${file}`);
 for (const file of ['favicon.svg', 'favicon.ico']) copy(`icons/${file}`, `ui/assets/arc/${file}`);
 

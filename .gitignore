@@ -4,7 +4,6 @@ node_modules/
 dist/
 *.tgz
 .env
-target
 
 # Release outputs and signing secrets
 release-artifacts/
@@ -29,7 +28,6 @@ output/acceptance/
 
 # Local mutation audit output
 output/mutation/
-mutants.out*/
 .stryker-tmp/
 output/
 .playwright-cli
