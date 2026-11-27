@@ -8,9 +8,19 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"runtime/debug"
 	"slices"
 	"syscall"
 )
+
+func tuneServerGC(limitBytes int64) {
+	if _, set := os.LookupEnv("GOGC"); !set {
+		debug.SetGCPercent(50)
+	}
+	if _, set := os.LookupEnv("GOMEMLIMIT"); !set {
+		debug.SetMemoryLimit(limitBytes)
+	}
+}
 
 const operatingSystem = runtime.GOOS
 
@@ -59,8 +69,10 @@ func runCommand(ctx context.Context, args []string, stdin io.Reader, stdout, std
 			}
 			return outputLine(stdout, wire(status))
 		case "serve", "daemon":
+			tuneServerGC(180 << 20)
 			return serveRuntime(ctx, args[0] == "daemon")
 		case "front-door":
+			tuneServerGC(64 << 20)
 			return runFrontDoor(ctx)
 		case "start":
 			return printResult(stdout, func() (object, error) { return startHeadless(ctx) })

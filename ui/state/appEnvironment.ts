@@ -72,14 +72,22 @@ export function observeAppEnvironment() {
   const media = environmentMedia("(prefers-reduced-motion: reduce)");
   const update = () => { document.documentElement.dataset.reducedMotion = String(media.matches); };
   media.addEventListener("change", update); update();
+  let stopped = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const schedule = () => {
+    if (stopped) return;
+    clearTimeout(timer);
+    const delay = appEnvironment.get()?.active ? 500 : 5000;
+    timer = setTimeout(() => { refresh(); }, delay);
+  };
   const refresh = () => {
-    if (document.hidden) return;
+    if (stopped) return;
+    if (document.hidden) { schedule(); return; }
     const sample = appEnvironment.get();
     if (sample?.active && sample.expiresAt !== null && Date.now() >= sample.expiresAt) appEnvironment.set(undefined);
-    void refreshAppEnvironment().catch(console.error);
+    void refreshAppEnvironment().catch(console.error).finally(schedule);
   };
   refresh();
   document.addEventListener("visibilitychange", refresh);
-  const timer = setInterval(refresh, 500);
-  return () => { clearInterval(timer); document.removeEventListener("visibilitychange", refresh); media.removeEventListener("change", update); };
+  return () => { stopped = true; clearTimeout(timer); document.removeEventListener("visibilitychange", refresh); media.removeEventListener("change", update); };
 }

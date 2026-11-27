@@ -148,7 +148,7 @@ export function startConnector() {
   const timer = setInterval(() => {
     if (document.hidden) return;
     if (isDesktop || stream?.readyState !== EventSource.OPEN || connector.get().error) read();
-  }, 2000);
+  }, 5000);
   return () => {
     stopped = true;
     clearInterval(timer);

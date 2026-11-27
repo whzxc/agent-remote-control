@@ -136,7 +136,7 @@ func (s *DesktopService) observeTray(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(5 * time.Second):
+		case <-time.After(10 * time.Second):
 		}
 	}
 }

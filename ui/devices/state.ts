@@ -39,7 +39,7 @@ export function observeDevices() {
     timer = undefined;
     if (deviceLinkEnabled.get()) {
       void refreshDevices();
-      timer = setInterval(() => { if (document.visibilityState === 'visible') void refreshDevices(); }, 2000);
+      timer = setInterval(() => { if (document.visibilityState === 'visible') void refreshDevices(); }, 5000);
     } else {
       resetDeviceTasks();
       deviceSnapshot.set(undefined); deviceError.set(''); deviceOffer.set(undefined); memberOutcome.set(undefined);

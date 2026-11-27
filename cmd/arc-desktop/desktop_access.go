@@ -207,29 +207,36 @@ func (s *DesktopService) close() {
 func (s *DesktopService) observeProjection(ctx context.Context, route, event string, interval time.Duration) {
 	var previous []byte
 	for ctx.Err() == nil {
-		value, err := s.core.Request(ctx, route, http.MethodGet, nil)
-		if err != nil && route == "subscriptions" {
-			value, err = object{}, nil
-		}
-		if err == nil {
-			comparison := value
-			if route == "agents/activity" {
-				fields := object{}
-				for key, item := range objectValue(value) {
-					if key != "observedAt" {
-						fields[key] = item
-					}
-				}
-				comparison = fields
+		visible := false
+		_ = onMain(ctx, func() error {
+			visible = s.window != nil && s.ready && s.window.IsVisible()
+			return nil
+		})
+		if visible {
+			value, err := s.core.Request(ctx, route, http.MethodGet, nil)
+			if err != nil && route == "subscriptions" {
+				value, err = object{}, nil
 			}
-			current, err := canonjson.Marshal(comparison)
-			if err == nil && !bytes.Equal(previous, current) {
-				mygo.RunOnMain(func() {
-					if s.ready {
-						s.emit(event, value)
-						previous = current
+			if err == nil {
+				comparison := value
+				if route == "agents/activity" {
+					fields := object{}
+					for key, item := range objectValue(value) {
+						if key != "observedAt" {
+							fields[key] = item
+						}
 					}
-				})
+					comparison = fields
+				}
+				current, err := canonjson.Marshal(comparison)
+				if err == nil && !bytes.Equal(previous, current) {
+					mygo.RunOnMain(func() {
+						if s.ready {
+							s.emit(event, value)
+							previous = current
+						}
+					})
+				}
 			}
 		}
 		select {

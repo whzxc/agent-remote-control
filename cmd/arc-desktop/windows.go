@@ -129,8 +129,8 @@ func onMain(ctx context.Context, fn func() error) error {
 }
 
 func (s *DesktopService) observeCore(ctx context.Context) {
-	go s.observeProjection(ctx, "subscriptions", "subscriptions:changed", 2*time.Second)
-	go s.observeProjection(ctx, "agents/activity", "agents:activity", time.Second)
+	go s.observeProjection(ctx, "subscriptions", "subscriptions:changed", 10*time.Second)
+	go s.observeProjection(ctx, "agents/activity", "agents:activity", 3*time.Second)
 	go s.observeTray(ctx)
 	ticker := time.NewTicker(time.Hour)
 	defer ticker.Stop()
