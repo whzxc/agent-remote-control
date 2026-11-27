@@ -5,12 +5,12 @@ import { taskDispatch } from "../fixtures/task-presentation";
 import { agentHistory, agentRowExample } from "../fixtures/agent-activity";
 
 export function AgentSectionHeading({ label, attention = false }: { label: string; attention?: boolean }) {
-  return <h3 class={`text-meta leading-4 font-semibold ${attention ? "text-warning" : "text-text-secondary"}`}>{label}</h3>;
+  return <h3 className={`text-meta leading-4 font-semibold ${attention ? "text-warning" : "text-text-secondary"}`}>{label}</h3>;
 }
 
 export function AgentTaskHistory({ groups }: { groups: typeof agentHistory }) {
   return groups.map((group) => (
-    <section class="flex flex-col gap-2">
+    <section className="flex flex-col gap-2">
       <AgentSectionHeading label={group.heading} />
       {group.tasks.map((n) => (
         <TaskCard form={group.date === agentHistory[0].date ? "detail" : "summary"} task={{
@@ -24,6 +24,6 @@ export function AgentTaskHistory({ groups }: { groups: typeof agentHistory }) {
 }
 export default () => (
   <Frame name="history" width={380}>
-    <div class="w-full bg-surface-raised"><AgentTaskHistory groups={[agentHistory[0]]} /></div>
+    <div className="w-full bg-surface-raised"><AgentTaskHistory groups={[agentHistory[0]]} /></div>
   </Frame>
 );

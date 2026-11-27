@@ -14,7 +14,7 @@ import { Switch } from "../components/switch";
 
 
 export function DisplayContent() {
-  return (<div class="flex flex-col gap-[30px] pt-2">
+  return (<div className="flex flex-col gap-[30px] pt-2">
         <Group title={copy.text19}>
           <SettingLine title={copy.text23}>
             <Choices
@@ -64,8 +64,8 @@ export function Display() {
 export default () => [
   <Frame name="studio-settings" width={316}><StudioSettings/></Frame>,
   <Frame name="display-content" width={672}>
-    <div class="w-full bg-surface-raised"><DisplayContent  /></div>
+    <div className="w-full bg-surface-raised"><DisplayContent  /></div>
   </Frame>,
 ];
 
-function StudioSettings() {return <InspectionPopover variant="studio" class="grid gap-4 w-[316px] p-[18px] border border-border rounded-panel bg-surface text-text shadow-md"><SingleChoice label="Lighting" value="day" options={[{value:'day',label:'Day',icon:'sun'},{value:'night',label:'Night',icon:'moon'}]}/><Button icon="expand">Fullscreen</Button></InspectionPopover>;}
+function StudioSettings() {return <InspectionPopover variant="studio" className="grid gap-4 w-[316px] p-[18px] border border-border rounded-panel bg-surface text-text shadow-md"><SingleChoice label="Lighting" value="day" options={[{value:'day',label:'Day',icon:'sun'},{value:'night',label:'Night',icon:'moon'}]}/><Button icon="expand">Fullscreen</Button></InspectionPopover>;}

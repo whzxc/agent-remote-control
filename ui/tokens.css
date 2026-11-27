@@ -1,5 +1,6 @@
 @import "../design/tokens.css";
 @import "tailwindcss/theme.css";
+@import "./styles/kit.css";
 @import "tailwindcss/utilities.css";
 @source "./components";
 /* Runtime-only tokens. Design tokens come from design/tokens.css. */

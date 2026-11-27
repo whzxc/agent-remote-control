@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Frame, Icon } from 'adg';
 import { Button } from './button';
 import { Card } from './card';
@@ -6,12 +7,12 @@ import { permissionExample, routingForms, routingActions } from '../fixtures/req
 
 export function PermissionActions({ sheet = false }: { sheet?: boolean } = {}) {
   return (
-      <div class="flex justify-end gap-2">
+      <div className="flex justify-end gap-2">
         <Button>{permissionExample.deny}</Button>
-        <Button disabled class="opacity-42">
+        <Button disabled className="opacity-42">
           {permissionExample.bypass}
         </Button>
-        <Button variant="primary" class={sheet ? "px-4" : "px-5"}>
+        <Button variant="primary" className={sheet ? "px-4" : "px-5"}>
           {permissionExample.approve}
         </Button>
       </div>
@@ -26,20 +27,20 @@ export function PermissionCard({
   sheet = false,
 }: { title?: string; scope?: string; command?: string; sheet?: boolean } = {}) {
   return (
-    <Card padded class="gap-3 border border-border bg-surface shadow-sm">
-      <div class="flex flex-col gap-1">
-        <strong class={`text-body ${sheet ? "leading-5" : "leading-5"} font-semibold text-text`}>
+    <Card padded className="gap-3 border border-border bg-surface shadow-sm">
+      <div className="flex flex-col gap-1">
+        <strong className={`text-body ${sheet ? "leading-5" : "leading-5"} font-semibold text-text`}>
           {title}
         </strong>
-        <span class="text-meta leading-4 text-text-secondary">
+        <span className="text-meta leading-4 text-text-secondary">
           {scope}
         </span>
       </div>
-      <pre class="flex min-h-10 items-center overflow-x-auto rounded-field border border-border/70
+      <pre className="flex min-h-10 items-center overflow-x-auto rounded-field border border-border/70
         bg-surface-sunken px-3 py-2 text-meta leading-5 font-mono text-text">
         {command}
       </pre>
-      {!sheet && <div class="pt-1"><PermissionActions /></div>}
+      {!sheet && <div className="pt-1"><PermissionActions /></div>}
     </Card>
   );
 }
@@ -56,12 +57,12 @@ export function RoutingRow({
   children,
   inline = true,
 }: {
-  children?: unknown;
+  children?: ReactNode;
   inline?: boolean;
 }) {
   return (
     <div
-      class={`flex gap-2 text-meta text-text-secondary ${
+      className={`flex gap-2 text-meta text-text-secondary ${
         inline ? "w-full items-center justify-between" : "flex-col items-start"
       }`}
     >
@@ -115,10 +116,10 @@ export function RequestRouting({
   }
   if (!status) return null;
   return (
-    <div class={!inline && resumeLabel ? "pb-[6px]" : ""}>
+    <div className={!inline && resumeLabel ? "pb-[6px]" : ""}>
       <RoutingRow inline={inline}>
         <span
-          class={
+          className={
             resumeLabel && !inline
               ? "leading-6"
               : resumeLabel
@@ -129,12 +130,12 @@ export function RequestRouting({
           {status}
         </span>
         {resumeLabel && (
-          <div class="flex items-center gap-2">
-            <Button disabled={busy} variant="ghost" class="px-5">
+          <div className="flex items-center gap-2">
+            <Button disabled={busy} variant="ghost" className="px-5">
               {resumeLabel}
             </Button>
             {handoffLabel && (
-              <Button disabled={busy} class="px-[18px]">
+              <Button disabled={busy} className="px-[18px]">
                 {handoffLabel}
               </Button>
             )}
@@ -157,9 +158,9 @@ export default () => [
     </Frame>
   )),
   <Frame name="permission-card" width={312}>
-    <div class="w-full bg-surface-raised"><PermissionCard /></div>
+    <div className="w-full bg-surface-raised"><PermissionCard /></div>
   </Frame>,
   <Frame name="routing-row" width={239}>
-    <RoutingRow inline={false}><span class="leading-7">{routingForms[0].status}</span></RoutingRow>
+    <RoutingRow inline={false}><span className="leading-7">{routingForms[0].status}</span></RoutingRow>
   </Frame>,
 ];

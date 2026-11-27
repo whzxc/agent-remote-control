@@ -19,24 +19,24 @@ export function SteppedSlider({
       aria-valuetext={valueText}
       aria-valuenow={value}
       aria-disabled={disabled}
-      class="grid w-full items-center h-9"
+      className="grid w-full items-center h-9"
     >
-      <span class="col-start-1 row-start-1 h-7 rounded-(--radius-pill) bg-surface-sunken" />
-      <div class="col-start-1 row-start-1 flex justify-between px-4">
+      <span className="col-start-1 row-start-1 h-7 rounded-(--radius-pill) bg-surface-sunken" />
+      <div className="col-start-1 row-start-1 flex justify-between px-4">
         {steps.map((step) => (
           <span
             title={step}
-            class="size-[5px] rounded-[3px] bg-text-tertiary"
+            className="size-[5px] rounded-[3px] bg-text-tertiary"
           />
         ))}
       </div>
-      <div class="col-start-1 row-start-1 flex">
+      <div className="col-start-1 row-start-1 flex">
         <span
           style={{
             width: `calc((100% - 36px) * ${value / Math.max(1, steps.length - 1)})`,
           }}
         />
-        <span class="size-9 rounded-full bg-knob shadow-md" />
+        <span className="size-9 rounded-full bg-knob shadow-md" />
       </div>
     </div>
   );
@@ -51,10 +51,10 @@ import { dispatchExample, effortGaugeForms, modelExample, followModelOptions, pi
 
 export function ModelDialog() {
   return (
-    <Dialog title={modelExample.title} description={<span class="whitespace-nowrap">{modelExample.description.join("")}</span>}>
-      <div class="flex items-center gap-4 min-h-9">
-        <span class="text-small leading-4 font-semibold">{modelExample.setting}</span>
-        <div><span class="inline-flex items-center gap-2 rounded-control bg-surface-sunken pl-[7px] pr-3 min-h-9">
+    <Dialog title={modelExample.title} description={<span className="whitespace-nowrap">{modelExample.description.join("")}</span>}>
+      <div className="flex items-center gap-4 min-h-9">
+        <span className="text-small leading-4 font-semibold">{modelExample.setting}</span>
+        <div><span className="inline-flex items-center gap-2 rounded-control bg-surface-sunken pl-[7px] pr-3 min-h-9">
           <DispatchSpec model={modelExample.inherit} /><Icon name="chevron-down" size={14} />
         </span></div>
       </div>
@@ -64,9 +64,9 @@ export function ModelDialog() {
 
 export function ModelEffortPicker() {
   return (
-    <section class="flex w-[312px] flex-col rounded-panel bg-surface-raised text-text shadow-lg p-4">
-      <div class="flex items-center gap-[18px]">
-        <div class="flex-1">
+    <section className="flex w-[312px] flex-col rounded-panel bg-surface-raised text-text shadow-lg p-4">
+      <div className="flex items-center gap-[18px]">
+        <div className="flex-1">
           <SingleChoice
             value="follow"
             options={followModelOptions}
@@ -78,8 +78,8 @@ export function ModelEffortPicker() {
         </div>
         <IconButton icon="rotate-ccw" compact label={modelExample.resetLabel} />
       </div>
-      <div class="mt-5 text-meta leading-4 font-semibold">{modelExample.inherit}</div>
-      <div class="mt-[10px]">
+      <div className="mt-5 text-meta leading-4 font-semibold">{modelExample.inherit}</div>
+      <div className="mt-[10px]">
         <SteppedSlider
           steps={pickerEffortSteps}
           value={0}
@@ -94,11 +94,11 @@ export function ModelEffortPicker() {
 
 export function ModelMenu() {
   return (
-    <section class="flex w-[220px] flex-col rounded-panel bg-surface-raised text-text shadow-lg mt-4 pt-4 pb-[6px] px-4 gap-[9px]">
-      <h3 class="text-meta leading-4 text-text-secondary">{modelExample.menuTitle}</h3>
-      <div class="flex flex-col">
+    <section className="flex w-[220px] flex-col rounded-panel bg-surface-raised text-text shadow-lg mt-4 pt-4 pb-[6px] px-4 gap-[9px]">
+      <h3 className="text-meta leading-4 text-text-secondary">{modelExample.menuTitle}</h3>
+      <div className="flex flex-col">
         {modelOptions.map((model, i) => (
-          <div class="flex h-[39px] items-center justify-between text-small">
+          <div className="flex h-[39px] items-center justify-between text-small">
             <span>{model}</span>
             {i === 0 && <Icon name="check" size={14} />}
           </div>

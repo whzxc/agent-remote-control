@@ -8,10 +8,10 @@ import { Switch } from '../components/switch';
 import { deviceCopy, type DeviceLocale } from '../fixtures/device-link';
 
 export function ExperimentalContent() {
-  return (<div class="flex flex-col gap-6 pt-2">
+  return (<div className="flex flex-col gap-6 pt-2">
         <DeviceExperiment locale="en" enabled={false} />
         {[experiments.slice(0, 3), experiments.slice(3)].map((rows) => (
-          <Card class="gap-0! py-0!">
+          <Card className="gap-0! py-0!">
             <ToggleRows rows={rows.map(row => ({ ...row, description: row.description.join(" ") }))} />
           </Card>
         ))}
@@ -32,7 +32,7 @@ export function Experimental({ workspace = false }: { workspace?: boolean } = {}
 
 const experimentalFrames = () => [
   <Frame name="experimental-content" width={672}>
-    <div class="w-full bg-surface-raised"><ExperimentalContent  /></div>
+    <div className="w-full bg-surface-raised"><ExperimentalContent  /></div>
   </Frame>,
 ];
 
@@ -41,7 +41,7 @@ type Localized = { locale: DeviceLocale };
 
 export function DeviceExperiment({ locale, enabled }: Localized & { enabled: boolean }) {
   const c = deviceCopy[locale];
-  return <Card class="py-0! gap-0!">
+  return <Card className="py-0! gap-0!">
     <SettingLine title={c.deviceLink}><Switch checked={enabled} label={c.deviceLink} /></SettingLine>
   </Card>;
 }

@@ -9,10 +9,10 @@ import { sourcePanelCopy } from "../fixtures/source-activity";
 
 export function SourcePanelHeader({ title }: { title: string }) {
   return (
-    <header class="flex h-9 shrink-0 items-center gap-4">
+    <header className="flex h-9 shrink-0 items-center gap-4">
       <BrandMark brand="anthropic" size={36} />
-      <h2 class="flex-1 text-title font-[650]">{title}</h2>
-      <div class="flex gap-[6px]">
+      <h2 className="flex-1 text-title font-[650]">{title}</h2>
+      <div className="flex gap-[6px]">
         <IconButton icon="maximize-2" label="Expand" />
         <IconButton icon="x" label="Close" />
       </div>
@@ -27,11 +27,11 @@ function SourcePanel({
 }) {
   const platform = form === "platform";
   return (
-    <PanelShell viewportHeight={800} class="gap-[25px] overflow-hidden pt-[13px] px-6 pb-6">
+    <PanelShell viewportHeight={800} className="gap-[25px] overflow-hidden pt-[13px] px-6 pb-6">
       <SourcePanelHeader title={platform || form === "loading" ? "Anthropic" : "Claude"} />
-      <div class="min-h-0 overflow-y-auto">
+      <div className="min-h-0 overflow-y-auto">
         {platform ? (
-          <SourceConnectorSummary class="" />
+          <SourceConnectorSummary className="" />
         ) : form === "loading" ? (
           <PanelLoading label={sourcePanelCopy.loading} />
         ) : (

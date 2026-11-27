@@ -32,10 +32,10 @@ export function GeneralSettings({ workspace = false }: { workspace?: boolean } =
     </Panel>
   );
 }
-export function GeneralSettingsContent() { return (<div class="flex flex-col gap-7 pt-2">
+export function GeneralSettingsContent() { return (<div className="flex flex-col gap-7 pt-2">
         <Group title={copy.text3}>
-          <SettingLine title={copy.text4} class="py-3!">
-            <Input value={copy.text5} class="w-[104px]" />
+          <SettingLine title={copy.text4} className="py-3!">
+            <Input value={copy.text5} className="w-[104px]" />
           </SettingLine>
           <ToggleRows rows={behavior.slice(0, 2)} />
           <SettingLine title="When Codex Desktop is unavailable">
@@ -69,7 +69,7 @@ export function GeneralSettingsContent() { return (<div class="flex flex-col gap
               value={copy.text20}
               iconOnly
               compact
-              class="w-[198px]"
+              className="w-[198px]"
               options={palettes.map(([value]) => ({
                 value,
                 label: value,
@@ -92,7 +92,7 @@ export function GeneralSettingsContent() { return (<div class="flex flex-col gap
               value={copy.text26}
               iconOnly
               compact
-              class="w-20"
+              className="w-20"
               options={samples.sample27}
             />
           </SettingLine>
@@ -101,7 +101,7 @@ export function GeneralSettingsContent() { return (<div class="flex flex-col gap
           <SettingLine
             title={copy.text29}
             description={samples.sample30}
-            class="py-[23px]!"
+            className="py-[23px]!"
           >
             <Choices
               label={copy.text31}
@@ -132,9 +132,9 @@ export function GeneralSettingsContent() { return (<div class="flex flex-col gap
       </div>); }
 export default () => [
   <Frame name="general-settings-content" width={672}>
-    <div class="w-full bg-surface-raised"><GeneralSettingsContent /></div>
+    <div className="w-full bg-surface-raised"><GeneralSettingsContent /></div>
   </Frame>,
   <Frame name="theme-swatch" width={16}>
-    <div class="flex w-full bg-surface-raised"><ThemeSwatch value={displayCopy.text40} /></div>
+    <div className="flex w-full bg-surface-raised"><ThemeSwatch value={displayCopy.text40} /></div>
   </Frame>,
 ];

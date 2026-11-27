@@ -19,10 +19,10 @@ export function Switch({
       aria-checked={checked}
       aria-label={label}
       disabled={disabled}
-      class={`flex shrink-0 items-center w-(--switch-width) h-(--switch-height)
+      className={`flex shrink-0 items-center w-(--switch-width) h-(--switch-height)
         p-(--control-inset) rounded-switch ${checked ? "justify-end bg-accent" : "bg-surface-sunken"}`}
     >
-      <span class="size-(--switch-thumb-size) rounded-full bg-knob shadow-sm" />
+      <span className="size-(--switch-thumb-size) rounded-full bg-knob shadow-sm" />
     </button>
   );
 }

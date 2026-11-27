@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Frame, Icon } from "adg";
 import type { TileTone } from "../components/tile";
 import { TaskCard, TaskCardHeader, type TaskSnapshotData } from '../components/task-card';
@@ -16,10 +17,10 @@ export type RelationTask = {
 };
 export function TaskRelation({ kind }: { kind?: RelationKind }) {
   return kind ? (
-    <span class="inline-flex items-center gap-[6px] text-meta text-text-secondary">
+    <span className="inline-flex items-center gap-[6px] text-meta text-text-secondary">
       <Icon name={kind === "side-chat" ? "message-circle" : "bot"} size={14} />
       <span>{kind === "side-chat" ? "Side chat" : "Subagent"}</span>
-      <span class="text-text-tertiary">·</span>
+      <span className="text-text-tertiary">·</span>
     </span>
   ) : null;
 }
@@ -29,7 +30,7 @@ function relatedTask(title: string, elapsed?: string): TaskSnapshotData {
 }
 
 export function RelationTaskCard({ title, duration }: RelationTask) {
-  return <div class="w-[400px]"><TaskCard task={relatedTask(title, duration)} form="summary" /></div>;
+  return <div className="w-[400px]"><TaskCard task={relatedTask(title, duration)} form="summary" /></div>;
 }
 export function TaskDetailHeader({
   agent,
@@ -46,25 +47,25 @@ export function TaskDetailHeader({
   phase: string;
   tone: TileTone;
   parentTitle: string;
-  handback?: unknown;
+  handback?: ReactNode;
 }) {
   return (
-    <section class="flex w-[424px] flex-col rounded-panel bg-surface-raised px-4 py-4 shadow-lg">
-      <div class="flex items-center gap-3 px-1 h-6 text-text text-small font-semibold">
+    <section className="flex w-[424px] flex-col rounded-panel bg-surface-raised px-4 py-4 shadow-lg">
+      <div className="flex items-center gap-3 px-1 h-6 text-text text-small font-semibold">
         <Icon name="arrow-left" size={16} />
         {agent}
       </div>
       <TaskCardHeader task={relatedTask(title)} heading />
-      <div class="mt-1 flex items-center gap-5 text-meta leading-4">
+      <div className="mt-1 flex items-center gap-5 text-meta leading-4">
         <TaskRelation kind={kind} />
         {handback}
         <span
-          class={tone === "thinking" ? "text-phase-thinking font-semibold" : "text-success font-semibold"}
+          className={tone === "thinking" ? "text-phase-thinking font-semibold" : "text-success font-semibold"}
         >
           {phase}
         </span>
       </div>
-      <div class="mt-3">
+      <div className="mt-3">
         <TaskCard task={relatedTask(parentTitle)} form="summary" />
       </div>
     </section>
@@ -73,11 +74,11 @@ export function TaskDetailHeader({
 export default () => [
   ...relationKinds.map((kind, i) => (
     <Frame name={`task-relation-${kind}`} width={i === 0 ? 83 : 84}>
-      <div class="flex w-full bg-surface-raised text-meta leading-4"><TaskRelation kind={kind} /></div>
+      <div className="flex w-full bg-surface-raised text-meta leading-4"><TaskRelation kind={kind} /></div>
     </Frame>
   )),
   <Frame name="task-parent-link" width={392}>
-    <div class="w-full bg-surface-raised"><TaskCard task={relatedTask(parentTitle)} form="summary" /></div>
+    <div className="w-full bg-surface-raised"><TaskCard task={relatedTask(parentTitle)} form="summary" /></div>
   </Frame>,
   <Frame name="relation-task-card" width={400}>
     <RelationTaskCard {...family[0]} />

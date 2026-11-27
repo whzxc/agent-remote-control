@@ -18,18 +18,18 @@ export function AccountCard({ account }: { account: AgentAccount }) {
   const signedIn = account.state === "signed-in";
   const status = signedIn ? copy.quotaUnavailable : copy.signedOut;
   return (
-    <EntityCard padded variant="reply" class="gap-3! border border-border">
-      <div class="flex items-center gap-2">
-        <div class="flex min-w-0 flex-1 flex-col">
-          <div class="flex items-center gap-2">
-            <h3 class="flex min-w-0"><Button variant="link" class="max-w-full">
-              <span class="truncate">{account.alias}</span>
+    <EntityCard padded variant="reply" className="gap-3! border border-border">
+      <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex items-center gap-2">
+            <h3 className="flex min-w-0"><Button variant="link" className="max-w-full">
+              <span className="truncate">{account.alias}</span>
             </Button></h3>
             {account.default && <Tag form="meta">{copy.default}</Tag>}
           </div>
-          {account.email && <p class="truncate text-meta leading-4 text-text-secondary">{account.email}</p>}
+          {account.email && <p className="truncate text-meta leading-4 text-text-secondary">{account.email}</p>}
         </div>
-        <div class="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           <IconButton compact icon="pencil" label={copy.edit} />
           {signedIn && <IconButton compact icon="refresh-cw" label={copy.refresh} />}
           {account.removable !== false && <IconButton compact icon="trash-2" label={copy.remove} />}
@@ -38,8 +38,8 @@ export function AccountCard({ account }: { account: AgentAccount }) {
       {signedIn && account.windows.length ? (
         <QuotaCards windows={account.windows} />
       ) : (
-        <div class="flex min-h-(--control-height) items-center justify-between gap-2">
-          <p class={`text-meta ${signedIn ? "text-text-secondary" : "text-danger"}`}>{status}</p>
+        <div className="flex min-h-(--control-height) items-center justify-between gap-2">
+          <p className={`text-meta ${signedIn ? "text-text-secondary" : "text-danger"}`}>{status}</p>
           {!signedIn && <Button>{copy.reauth}</Button>}
         </div>
       )}
@@ -50,7 +50,7 @@ export function AccountCard({ account }: { account: AgentAccount }) {
 export function EditAccountAlias({ account }: { account: AgentAccount }) {
   return (
     <Dialog title={copy.edit}
-      footer={<div class="flex justify-end"><Button variant="primary">{copy.save}</Button></div>}>
+      footer={<div className="flex justify-end"><Button variant="primary">{copy.save}</Button></div>}>
       <Field label={copy.alias}><Input value={account.alias} /></Field>
     </Dialog>
   );
@@ -59,8 +59,8 @@ export function EditAccountAlias({ account }: { account: AgentAccount }) {
 export function RemoveAccount() {
   return (
     <Dialog title={copy.removeTitle}
-      footer={<div class="flex justify-end"><Button variant="danger">{copy.remove}</Button></div>}>
-      <p class="text-small leading-5">{copy.removal}</p>
+      footer={<div className="flex justify-end"><Button variant="danger">{copy.remove}</Button></div>}>
+      <p className="text-small leading-5">{copy.removal}</p>
     </Dialog>
   );
 }

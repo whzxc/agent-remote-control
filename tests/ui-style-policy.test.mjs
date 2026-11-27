@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { checkStyles, tokenPaint } from '../tooling/check-ui-styles.mjs';
 import { checkConsumers } from '../tooling/check-ui-consumers.mjs';
 import { checkTokens } from '../tooling/check-ui-tokens.mjs';
+import { checkMotion } from '../tooling/check-ui-motion.mjs';
 import { lengthDifference, deltaE, valueDifference } from '../tooling/token-distance.mjs';
 
 test('feature presentation accepts tokens and rejects unowned literal paint', async () => {
@@ -98,4 +99,35 @@ test('normalization thresholds require both absolute and relative length differe
   assert.equal(valueDifference('shadow',['inset 0 -1px #000'],['0 1px 2px #000']).large,true);
   assert.equal(valueDifference('font-weight',['650'],['600']).large,false);
   assert.equal(valueDifference('font-weight',['800'],['600']).large,true);
+});
+
+test('kit theme bridge and primitives stay exempt without weakening feature policy', async () => {
+  // Contract: ui/styles/kit.css and ui/components/kit/ participate in kit mode without inflating feature token uses or bypassing feature paint checks.
+  const root = await mkdtemp(path.join(tmpdir(), 'arc-kit-policy-'));
+  try {
+    for (const dir of ['design', 'tooling', 'ui/styles', 'ui/components/kit', 'ui/components/ui', 'ui/devices']) {
+      await mkdir(path.join(root, dir), { recursive: true });
+    }
+    await writeFile(path.join(root, 'design/tokens.css'),
+      ':root { --text: #222; --line-small: 18px; --line-summary: 19px; --motion-fast: 120ms; --motion-base: 160ms; --motion-panel: 180ms; --motion-running: 1600ms; --ease-enter: cubic-bezier(0.16, 1, 0.3, 1); --ease-exit: cubic-bezier(0.4, 0, 1, 1); --ease-running: ease-in-out; }');
+    await writeFile(path.join(root, 'ui/styles/kit.css'),
+      '@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));\n@theme inline { --color-text: var(--text); --line-summary: var(--line-summary); --ease-enter: var(--ease-enter); }');
+    await writeFile(path.join(root, 'ui/style.css'),
+      ':root[data-reduced-motion="true"] { *, *::before, *::after { animation-duration: 0s !important; transition-duration: 0ms !important; } }');
+    await writeFile(path.join(root, 'ui/components/kit/button.tsx'),
+      'export function KitButton() { return <button className="bg-surface" />; }');
+    await writeFile(path.join(root, 'ui/components/kit/button.css'),
+      '.kit-btn { color: #111; }');
+    await writeFile(path.join(root, 'ui/feature.css'),
+      '.a { line-height: var(--line-summary); } .b { line-height: var(--line-summary); }');
+    await writeFile(path.join(root, 'tooling/ui-style-allowlist.json'), '[]');
+    await writeFile(path.join(root, 'tooling/ui-motion-allowlist.json'), '[]');
+    await writeFile(path.join(root, 'tooling/ui-motion-running-selectors.json'), '[]');
+    assert.deepEqual((await checkStyles(root)).errors, []);
+    assert.deepEqual(checkConsumers(root).errors, []);
+    assert.deepEqual(checkMotion(root).errors, []);
+    assert.ok(checkTokens(root).errors.some(error => error.includes('nearest --line-small')));
+    await writeFile(path.join(root, 'ui/feature.css'), '.a { color: red; }');
+    assert.equal((await checkStyles(root)).errors.length, 1);
+  } finally { await rm(root, { recursive: true, force: true }); }
 });

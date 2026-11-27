@@ -16,8 +16,8 @@ function AgentPanel({ history = "long", portrait = false }: {
 }) {
   const tasks = history === "long" ? active : [];
   return (
-    <PanelShell viewportHeight={800} viewportWidth={portrait ? 640 : 1280} class="gap-[25px] overflow-hidden pt-[13px] px-6 pb-6">
-      <header class="flex shrink-0 items-center gap-3">
+    <PanelShell viewportHeight={800} viewportWidth={portrait ? 640 : 1280} className="gap-[25px] overflow-hidden pt-[13px] px-6 pb-6">
+      <header className="flex shrink-0 items-center gap-3">
         <AgentIcon
           brand="codex"
           size={44}
@@ -29,34 +29,34 @@ function AgentPanel({ history = "long", portrait = false }: {
             elapsed: q.elapsed,
           }))}
         />
-        <div class="flex flex-1 flex-col gap-1">
-          <h2 class="text-title leading-6 font-[650] flex items-center gap-2">
+        <div className="flex flex-1 flex-col gap-1">
+          <h2 className="text-title leading-6 font-[650] flex items-center gap-2">
             Codex
             <Icon name="arrow-up-right" size={16} />
           </h2>
-          <p class="text-meta leading-4 text-text-secondary">
+          <p className="text-meta leading-4 text-text-secondary">
             fixture · {tasks.length} 个任务进行中
           </p>
         </div>
-        <div class="flex items-center gap-1">
+        <div className="flex items-center gap-1">
           {["refresh-cw", "settings", "maximize-2"].map((icon) => (
             <IconButton icon={icon} label={icon} />
           ))}
         </div>
       </header>
-      <div class="min-h-0 overflow-y-auto">
+      <div className="min-h-0 overflow-y-auto">
         <div><QuotaCards windows={quotas} /></div>
         {history === "empty" ? (
-          <div class="mt-12 flex flex-col items-center gap-[10px] text-text-tertiary">
+          <div className="mt-12 flex flex-col items-center gap-[10px] text-text-tertiary">
             <Tile icon="messages-square" tone="neutral" />
-            <p class="text-small leading-4">暂无未归档对话。</p>
+            <p className="text-small leading-4">暂无未归档对话。</p>
           </div>
         ) : history === "loading" ? (
-          <div class="mt-4"><PanelLoading label={agentHistoryLoading} /></div>
+          <div className="mt-4"><PanelLoading label={agentHistoryLoading} /></div>
         ) : (
-          <div class="mt-6 flex flex-col gap-7">
+          <div className="mt-6 flex flex-col gap-7">
             {tasks.map(({ heading, ...task }) => (
-              <section class="flex flex-col gap-2">
+              <section className="flex flex-col gap-2">
                 <AgentSectionHeading label={heading} attention={task.tone === "warning"} />
                 <TaskCard form="detail" task={{
                   id: task.title, node: 'codex', title: task.title, group: task.tone === 'warning' ? 'needs-me' : 'running',

@@ -1,24 +1,25 @@
+import type { ReactNode } from "react";
 import { Tag } from "../components/tag";
 import { Card } from '../components/card';
-export function TaskReplyCard({ children }: { children: unknown }) {
-  return <Card variant="reply" padded class="border border-border bg-transparent text-small leading-[22px]">{children}</Card>;
+export function TaskReplyCard({ children }: { children: ReactNode }) {
+  return <Card variant="reply" padded className="border border-border bg-transparent text-small leading-[22px]">{children}</Card>;
 }
-export function ContentProse({ children }: { children: unknown }) {
-  return <div class="min-w-0 text-small leading-[22px]">{children}</div>;
+export function ContentProse({ children }: { children: ReactNode }) {
+  return <div className="min-w-0 text-small leading-[22px]">{children}</div>;
 }
-export function PlanContent({ children }: { children: unknown }) {
-  return <section class="text-small text-text-secondary">{children}</section>;
+export function PlanContent({ children }: { children: ReactNode }) {
+  return <section className="text-small text-text-secondary">{children}</section>;
 }
 import { stateForms, messageForms, messageExample } from '../fixtures/task-presentation';
 export type TaskState = "running" | "waiting" | "done" | "failed" | "stopped";
 export function StatePill({
   state,
   children,
-  class: extra = "",
+  className: extra = "",
 }: {
   state: TaskState;
-  children?: unknown;
-  class?: string;
+  children?: ReactNode;
+  className?: string;
 }) {
   const paint = {
     running:
@@ -39,10 +40,10 @@ export function StatePill({
   };
   return (
     <span
-      class={`inline-flex items-center gap-[5px] h-6 pl-[9px] pr-[10px] rounded-(--radius-pill)
+      className={`inline-flex items-center gap-[5px] h-6 pl-[9px] pr-[10px] rounded-(--radius-pill)
         text-meta font-semibold ${paint[state]} ${extra}`}
     >
-      <span class="size-[6px] rounded-[3px] bg-current" />
+      <span className="size-[6px] rounded-[3px] bg-current" />
       {children}
     </span>
   );
@@ -52,21 +53,21 @@ export function TaskMessage({
   children,
   queued = false,
   status,
-  class: extra = "",
+  className: extra = "",
 }: {
   text?: string;
-  children?: unknown;
+  children?: ReactNode;
   queued?: boolean;
   status?: string;
-  class?: string;
+  className?: string;
 }) {
   return (
     <div
-      class={`flex w-full flex-col gap-[18px] rounded-card bg-surface-sunken px-4 py-[15px] text-text ${extra}`}
+      className={`flex w-full flex-col gap-[18px] rounded-card bg-surface-sunken px-4 py-[15px] text-text ${extra}`}
     >
-      <p class="text-small leading-4">{text ?? children}</p>
+      <p className="text-small leading-4">{text ?? children}</p>
       {(status || queued) && (
-        <span class="self-end text-meta leading-[14px] text-text-secondary">
+        <span className="self-end text-meta leading-[14px] text-text-secondary">
           {status || "Queued"}
         </span>
       )}
@@ -74,13 +75,13 @@ export function TaskMessage({
   );
 }
 
-export function TimelineRailStep({ children }: { children: unknown }) {
-  return <li class="relative flex gap-[10px] min-w-0"><span class="grid size-5 shrink-0 place-items-center rounded-full bg-surface-raised text-phase-command"><Icon name="terminal" size={13}/></span><div class="flex-1 min-w-0">{children}</div></li>;
+export function TimelineRailStep({ children }: { children: ReactNode }) {
+  return <li className="relative flex gap-[10px] min-w-0"><span className="grid size-5 shrink-0 place-items-center rounded-full bg-surface-raised text-phase-command"><Icon name="terminal" size={13}/></span><div className="flex-1 min-w-0">{children}</div></li>;
 }
 export function TurnProgress() {
-  return <div class="flex gap-1"><div class="h-[3px] flex-1 rounded bg-success"/><div class="h-[3px] flex-1 rounded bg-accent-text"/></div>;
+  return <div className="flex gap-1"><div className="h-[3px] flex-1 rounded bg-success"/><div className="h-[3px] flex-1 rounded bg-accent-text"/></div>;
 }
-export function TimelineSurface({ children, class: extra = '' }: { children: unknown; class?: string }) { return <section class={extra}>{children}</section>; }
+export function TimelineSurface({ children, className: extra = '' }: { children: ReactNode; className?: string }) { return <section className={extra}>{children}</section>; }
 
 import { Frame, Icon } from "adg";
 import { PanelShell } from "../components/panel";
@@ -110,19 +111,19 @@ export function RelayRoute({ from = source, to = agent, label, time, tone }: {
         ? "border border-success/25 bg-success/10 text-success"
         : "bg-surface-sunken text-text-secondary";
   return (
-    <div class="flex min-w-0 flex-1 items-center gap-[6px] text-meta leading-4 text-text-secondary"
+    <div className="flex min-w-0 flex-1 items-center gap-[6px] text-meta leading-4 text-text-secondary"
       aria-label={`${from.name} → ${to.name}${label ? ` · ${label}` : ""}`}>
       <BrandMark brand={from.brand} size={14} />
-      <strong class="font-semibold text-text">{from.name}</strong>
-      <Icon name="arrow-right" size={11} class="text-text-tertiary" />
+      <strong className="font-semibold text-text">{from.name}</strong>
+      <Icon name="arrow-right" size={11} className="text-text-tertiary" />
       <BrandMark brand={to.brand} size={14} />
-      <span class="text-text">{to.name}</span>
+      <span className="text-text">{to.name}</span>
       {label && (
-        <span class={`rounded-full px-[7px] py-[1px] text-caption leading-4 font-semibold ${pill}`}>
+        <span className={`rounded-full px-[7px] py-[1px] text-caption leading-4 font-semibold ${pill}`}>
           {label}
         </span>
       )}
-      {time && <span class="ml-auto tabular-nums text-text-tertiary">{time}</span>}
+      {time && <span className="ml-auto tabular-nums text-text-tertiary">{time}</span>}
     </div>
   );
 }
@@ -133,19 +134,19 @@ export function RelayMessage({ kind = "followup", text = relayTurns.second.promp
 }) {
   const local = kind === "local", queued = kind === "queued";
   return (
-    <article class={`overflow-hidden rounded-card px-4 py-3 ${
+    <article className={`overflow-hidden rounded-card px-4 py-3 ${
       queued
         ? "border border-dashed border-warning/45 bg-warning/5"
         : "border border-border bg-surface-subtle"
     }`}>
       {local ? (
-        <div class="flex items-center gap-[6px] text-meta leading-4 text-text-secondary">
-          <Icon name="user-round" size={13} class="text-text-tertiary" />
-          <span class="font-semibold text-text">{relayCopy.kind.local}</span>
-          <span class="ml-auto tabular-nums text-text-tertiary">{time}</span>
+        <div className="flex items-center gap-[6px] text-meta leading-4 text-text-secondary">
+          <Icon name="user-round" size={13} className="text-text-tertiary" />
+          <span className="font-semibold text-text">{relayCopy.kind.local}</span>
+          <span className="ml-auto tabular-nums text-text-tertiary">{time}</span>
         </div>
       ) : <RelayRoute label={relayCopy.kind[kind]} tone={queued ? "warning" : undefined} time={time} />}
-      <p class={`mt-2 text-small leading-6 ${queued ? "text-text-secondary" : "text-text"}`}>{text}</p>
+      <p className={`mt-2 text-small leading-6 ${queued ? "text-text-secondary" : "text-text"}`}>{text}</p>
     </article>
   );
 }
@@ -168,31 +169,31 @@ export function TimelineStep({ step }: { step: RelayStep }) {
   const live = step.kind === "live" || step.kind === "thinking";
   const disclose = step.kind !== "say" && !live && step.kind !== "request";
   return (
-    <li class="relative flex gap-[10px] not-last:after:absolute not-last:after:left-[9px] not-last:after:top-[22px]
+    <li className="relative flex gap-[10px] not-last:after:absolute not-last:after:left-[9px] not-last:after:top-[22px]
       not-last:after:-bottom-[10px] not-last:after:w-[2px] not-last:after:rounded-[1px] not-last:after:bg-border-strong/75">
-      <span class={`relative z-1 grid shrink-0 place-items-center rounded-full ${paint} ${
+      <span className={`relative z-1 grid shrink-0 place-items-center rounded-full ${paint} ${
         step.kind === "say" ? "m-[3px] mt-[5px] size-[14px]" : "size-5"
       }`}>
-        {step.kind === "say" ? <span class="size-[6px] rounded-full bg-role-agent" /> : <Icon name={icon} size={12} />}
+        {step.kind === "say" ? <span className="size-[6px] rounded-full bg-role-agent" /> : <Icon name={icon} size={12} />}
       </span>
-      <div class="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         {step.kind === "say" ? (
-          <p class="text-small leading-6 text-text">
+          <p className="text-small leading-6 text-text">
             {step.label}
             {step.streaming && <span aria-hidden="true"
-              class="ml-[2px] inline-block h-[15px] w-[2px] translate-y-[2px] rounded-[1px] bg-role-agent" />}
+              className="ml-[2px] inline-block h-[15px] w-[2px] translate-y-[2px] rounded-[1px] bg-role-agent" />}
           </p>
         ) : (
-          <div class="flex min-h-5 min-w-0 items-center gap-2 text-small leading-5">
-            <span class={`flex min-w-0 flex-1 items-center gap-[6px]
+          <div className="flex min-h-5 min-w-0 items-center gap-2 text-small leading-5">
+            <span className={`flex min-w-0 flex-1 items-center gap-[6px]
               ${step.kind === "failed" ? "text-danger" : step.kind === "request" ? "text-warning" : "text-text-secondary"}`}>
               {step.kind === "answered" && step.by && <BrandMark brand={source.brand} size={13} />}
               {step.kind === "request" || step.kind === "answered" || step.kind === "edit"
-                ? <span class={`shrink-0 ${step.kind === "request" ? "font-semibold" : ""}`}>
+                ? <span className={`shrink-0 ${step.kind === "request" ? "font-semibold" : ""}`}>
                   {step.by ? `${step.by} ${step.label}` : step.label}</span> : null}
-              {step.kind === "request" || step.kind === "answered" ? <span class="shrink-0">·</span> : null}
+              {step.kind === "request" || step.kind === "answered" ? <span className="shrink-0">·</span> : null}
               {step.target ? (
-                <code class={`min-w-0 truncate font-mono text-meta ${
+                <code className={`min-w-0 truncate font-mono text-meta ${
                   step.kind === "failed"
                     ? "text-danger font-medium"
                     : step.kind === "edit"
@@ -202,15 +203,15 @@ export function TimelineStep({ step }: { step: RelayStep }) {
                         : "text-text"
                 }`}>{step.target}</code>
               ) : step.kind !== "edit" && step.kind !== "request" && step.kind !== "answered" && (
-                <span class={`min-w-0 truncate ${step.kind === "thinking" ? "font-semibold text-text" : "text-text"}`}>
+                <span className={`min-w-0 truncate ${step.kind === "thinking" ? "font-semibold text-text" : "text-text"}`}>
                   {step.label}
                 </span>
               )}
-              {step.added !== undefined && <span class="shrink-0 font-mono text-meta text-success">+{step.added}</span>}
-              {step.removed !== undefined && <span class="shrink-0 font-mono text-meta text-danger">−{step.removed}</span>}
+              {step.added !== undefined && <span className="shrink-0 font-mono text-meta text-success">+{step.added}</span>}
+              {step.removed !== undefined && <span className="shrink-0 font-mono text-meta text-danger">−{step.removed}</span>}
             </span>
             {step.meta && (
-              <span class={`shrink-0 tabular-nums text-meta ${
+              <span className={`shrink-0 tabular-nums text-meta ${
                 live
                   ? "rounded-full bg-role-agent/12 px-[7px] py-[1px] font-mono text-caption font-semibold text-role-agent"
                   : step.kind === "failed"
@@ -219,11 +220,11 @@ export function TimelineStep({ step }: { step: RelayStep }) {
               }`}>{step.meta}</span>
             )}
             {disclose && <Icon name={step.expanded ? "chevron-down" : "chevron-right"} size={12}
-              class="shrink-0 text-text-tertiary" />}
+              className="shrink-0 text-text-tertiary" />}
           </div>
         )}
         {step.detail && (step.kind !== "thought" || step.expanded) && (
-          <div class={`mt-[6px] flex flex-col font-mono text-meta leading-5 ${
+          <div className={`mt-[6px] flex flex-col font-mono text-meta leading-5 ${
             step.kind === "thought"
               ? "border-l-2 border-phase-thinking/35 pl-3 font-sans text-small leading-5 text-text-secondary"
               : step.kind === "failed"
@@ -232,7 +233,7 @@ export function TimelineStep({ step }: { step: RelayStep }) {
                   ? "rounded-field border border-role-agent/25 bg-surface-subtle px-3 py-2 text-text-secondary"
                   : "rounded-field bg-surface-sunken px-3 py-2 text-text-tertiary"
           }`}>
-            {step.detail.map((line) => <span class="truncate">{line}</span>)}
+            {step.detail.map((line) => <span className="truncate">{line}</span>)}
           </div>
         )}
       </div>
@@ -245,18 +246,18 @@ export function TimelineRail({ steps, status, live = false }: {
   steps: readonly RelayStep[]; status?: string; live?: boolean;
 }) {
   return (
-    <section class="flex flex-col gap-3" aria-label={`${agent.name} ${status ?? ""}`}>
+    <section className="flex flex-col gap-3" aria-label={`${agent.name} ${status ?? ""}`}>
       {status && (
-        <header class="flex h-5 items-center gap-[10px]">
-          <span class="grid size-5 place-items-center"><BrandMark brand={agent.brand} size={16} /></span>
-          <span class="flex items-center gap-[6px] text-meta leading-4 text-text-secondary">
-            <strong class="font-semibold text-text">{agent.name}</strong>
-            {live && <span class="size-[6px] rounded-full bg-role-agent" />}
+        <header className="flex h-5 items-center gap-[10px]">
+          <span className="grid size-5 place-items-center"><BrandMark brand={agent.brand} size={16} /></span>
+          <span className="flex items-center gap-[6px] text-meta leading-4 text-text-secondary">
+            <strong className="font-semibold text-text">{agent.name}</strong>
+            {live && <span className="size-[6px] rounded-full bg-role-agent" />}
             <span>{status}</span>
           </span>
         </header>
       )}
-      <ol class="flex flex-col gap-3">
+      <ol className="flex flex-col gap-3">
         {steps.map((step) => <TimelineStep step={step} />)}
       </ol>
     </section>
@@ -266,29 +267,29 @@ export function TimelineRail({ steps, status, live = false }: {
 /** Completed or failed work collapses to duration and counts; opening it reveals the rail. */
 export function TimelineFold({ failed = false, expanded = false }: { failed?: boolean; expanded?: boolean }) {
   return (
-    <button aria-expanded={expanded} class={`flex w-fit items-center gap-2 rounded-full border px-[10px] py-1 text-meta leading-4 ${
+    <button aria-expanded={expanded} className={`flex w-fit items-center gap-2 rounded-full border px-[10px] py-1 text-meta leading-4 ${
       failed
         ? "border-danger/25 bg-danger/8 text-danger"
         : "border-border bg-surface-subtle/75 text-text-secondary"
     }`}>
-      <Icon name={failed ? "circle-x" : "circle-check"} size={14} class={failed ? "text-danger" : "text-success"} />
+      <Icon name={failed ? "circle-x" : "circle-check"} size={14} className={failed ? "text-danger" : "text-success"} />
       <span>{failed ? relayCopy.failedFold : relayCopy.worked}</span>
-      <Icon name={expanded ? "chevron-down" : "chevron-right"} size={12} class="text-text-tertiary" />
+      <Icon name={expanded ? "chevron-down" : "chevron-right"} size={12} className="text-text-tertiary" />
     </button>
   );
 }
 
 function RelayChanges() {
   return (
-    <div class="flex items-center gap-[6px] text-meta leading-4 text-text-secondary">
-      <Icon name="git-compare-arrows" size={14} class="shrink-0 text-text-tertiary" />
+    <div className="flex items-center gap-[6px] text-meta leading-4 text-text-secondary">
+      <Icon name="git-compare-arrows" size={14} className="shrink-0 text-text-tertiary" />
       <span>{relayCopy.changes}</span>
-      <span class="text-text-tertiary">·</span>
-      <span class="rounded-disclosure bg-surface-sunken px-[6px] py-[1px] text-text">
+      <span className="text-text-tertiary">·</span>
+      <span className="rounded-disclosure bg-surface-sunken px-[6px] py-[1px] text-text">
         <FilePath directory="" filename={relayReply.file} fullPath={`/workspace/acceptance/${relayReply.file}`} />
       </span>
-      <span class="font-mono text-success">+12</span>
-      <span class="font-mono text-danger">−3</span>
+      <span className="font-mono text-success">+12</span>
+      <span className="font-mono text-danger">−3</span>
     </div>
   );
 }
@@ -296,27 +297,27 @@ function RelayChanges() {
 /** The executor's final reply, addressed back to the controller. */
 export function RelayReply() {
   return (
-    <article class="relative overflow-hidden rounded-card border border-border bg-surface p-4 shadow-sm">
-      <header class="flex items-center gap-2">
+    <article className="relative overflow-hidden rounded-card border border-border bg-surface p-4 shadow-sm">
+      <header className="flex items-center gap-2">
         <RelayRoute from={agent} to={source} label={relayCopy.reply} tone="success" />
         <IconButton icon="copy" label={relayCopy.copy} compact />
       </header>
-      <p class="mt-2 text-small leading-6 text-text">{relayReply.lead}</p>
-      <div class="mt-3 overflow-hidden rounded-field border border-border bg-surface-subtle/60">
-        <table class="w-full text-small leading-4">
+      <p className="mt-2 text-small leading-6 text-text">{relayReply.lead}</p>
+      <div className="mt-3 overflow-hidden rounded-field border border-border bg-surface-subtle/60">
+        <table className="w-full text-small leading-4">
           <tbody>
             {relayReply.results.map((row, i) => (
-              <tr class={i === 0 ? "border-b border-border bg-surface-subtle font-semibold text-text" : "border-t border-border/60"}>
-                {row.map((cell) => <td class="w-1/2 px-3 py-2">{cell}</td>)}
+              <tr className={i === 0 ? "border-b border-border bg-surface-subtle font-semibold text-text" : "border-t border-border/60"}>
+                {row.map((cell) => <td className="w-1/2 px-3 py-2">{cell}</td>)}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <ul class="mt-3 flex flex-col gap-1 pl-4 text-small leading-6 text-text">
-        {relayReply.bullets.map((line) => <li class="list-disc">{line}</li>)}
+      <ul className="mt-3 flex flex-col gap-1 pl-4 text-small leading-6 text-text">
+        {relayReply.bullets.map((line) => <li className="list-disc">{line}</li>)}
       </ul>
-      <footer class="mt-3 border-t border-border pt-3"><RelayChanges /></footer>
+      <footer className="mt-3 border-t border-border pt-3"><RelayChanges /></footer>
     </article>
   );
 }
@@ -324,12 +325,12 @@ export function RelayReply() {
 /** A request travels back to the controller unless someone answers it here first. */
 export function RelayRequest() {
   return (
-    <article class="flex flex-col gap-3 overflow-hidden rounded-card border border-warning/35 bg-surface-subtle/75 p-3">
-      <div class="px-1 pt-[2px]">
+    <article className="flex flex-col gap-3 overflow-hidden rounded-card border border-warning/35 bg-surface-subtle/75 p-3">
+      <div className="px-1 pt-[2px]">
         <RelayRoute from={agent} to={source} label={relayCopy.request} tone="warning" />
       </div>
       <PermissionCard />
-      <div class="px-1">
+      <div className="px-1">
         <RequestRouting inline status={relayCopy.routing} resumeLabel={relayCopy.pause}
           handoffLabel={relayCopy.handoff} />
       </div>
@@ -340,15 +341,15 @@ export function RelayRequest() {
 /** Turn failure stays in the turn and keeps the failed command one click away. */
 export function RelayFailure() {
   return (
-    <article class="flex flex-col gap-3 overflow-hidden rounded-card border border-danger/40 bg-surface p-4 shadow-sm">
+    <article className="flex flex-col gap-3 overflow-hidden rounded-card border border-danger/40 bg-surface p-4 shadow-sm">
       <RelayRoute from={agent} to={source} label={relayCopy.failed} tone="danger" />
-      <p class="text-small leading-6 text-text">{relayFailure.message}</p>
-      <div class="flex flex-col gap-2 rounded-field bg-surface-subtle px-3 py-[10px]">
-        <p class="text-meta leading-5 text-text-secondary">{relayFailure.retained}</p>
+      <p className="text-small leading-6 text-text">{relayFailure.message}</p>
+      <div className="flex flex-col gap-2 rounded-field bg-surface-subtle px-3 py-[10px]">
+        <p className="text-meta leading-5 text-text-secondary">{relayFailure.retained}</p>
         <RelayChanges />
       </div>
-      <div class="flex gap-2 pt-1">
-        <Button class="px-5">{relayCopy.retry}</Button>
+      <div className="flex gap-2 pt-1">
+        <Button className="px-5">{relayCopy.retry}</Button>
         <Button variant="ghost">{relayCopy.copyLog}</Button>
       </div>
     </article>
@@ -359,32 +360,32 @@ export function RelayFailure() {
 export function TimelinePlanDock({ expanded = false }: { expanded?: boolean }) {
   const plan = relayPlan;
   return (
-    <div class="flex flex-col gap-2 border-t border-border pt-3">
+    <div className="flex flex-col gap-2 border-t border-border pt-3">
       {expanded && (
-        <ol class="flex flex-col gap-[6px] rounded-field border border-border bg-surface-subtle/70 px-3 py-[10px]"
+        <ol className="flex flex-col gap-[6px] rounded-field border border-border bg-surface-subtle/70 px-3 py-[10px]"
           aria-label={relayCopy.plan}>
           {plan.items.map((item) => (
-            <li class="flex items-center gap-2 text-small leading-5">
+            <li className="flex items-center gap-2 text-small leading-5">
               <Icon size={14} name={item.status === "completed" ? "circle-check" : "circle-dot"}
-                class={item.status === "completed" ? "text-success" : "text-role-agent"} />
-              <span class={item.status === "completed" ? "text-text-secondary" : "font-semibold text-text"}>
+                className={item.status === "completed" ? "text-success" : "text-role-agent"} />
+              <span className={item.status === "completed" ? "text-text-secondary" : "font-semibold text-text"}>
                 {item.text}
               </span>
             </li>
           ))}
         </ol>
       )}
-      <button aria-expanded={expanded} class="flex h-6 w-full items-center gap-3">
-        <Icon name="list-checks" size={14} class="text-role-agent" />
-        <span class="shrink-0 text-meta tabular-nums text-text-secondary">
+      <button aria-expanded={expanded} className="flex h-6 w-full items-center gap-3">
+        <Icon name="list-checks" size={14} className="text-role-agent" />
+        <span className="shrink-0 text-meta tabular-nums text-text-secondary">
           {relayCopy.plan} {plan.completed}/{plan.total}
         </span>
-        <span class="min-w-0 flex-1 truncate text-left text-small font-semibold text-text">{plan.current}</span>
+        <span className="min-w-0 flex-1 truncate text-left text-small font-semibold text-text">{plan.current}</span>
         <span role="progressbar" aria-valuenow={plan.completed} aria-valuemax={plan.total}
-          class="h-1 w-16 overflow-hidden rounded-full bg-surface-sunken">
-          <span class="block h-full rounded-full bg-role-agent" style={{ width: `${(plan.completed / plan.total) * 100}%` }} />
+          className="h-1 w-16 overflow-hidden rounded-full bg-surface-sunken">
+          <span className="block h-full rounded-full bg-role-agent" style={{ width: `${(plan.completed / plan.total) * 100}%` }} />
         </span>
-        <Icon name={expanded ? "chevron-down" : "chevron-up"} size={14} class="text-text-secondary" />
+        <Icon name={expanded ? "chevron-down" : "chevron-up"} size={14} className="text-text-secondary" />
       </button>
     </div>
   );
@@ -401,20 +402,20 @@ export function TimelineEarlierTurn({ state = "done", turn = relayCopy.turn }: {
   const time = state === "interrupted" ? relayCopy.interruptedTurnTime : relayCopy.turnTime;
   return (
     <button aria-expanded="false"
-      class="flex w-full items-center gap-[10px] rounded-field border border-border/70 bg-surface-subtle/80 px-3 py-[9px] text-left">
-      <span class="shrink-0 rounded-disclosure bg-surface-sunken px-[6px] py-[2px]
+      className="flex w-full items-center gap-[10px] rounded-field border border-border/70 bg-surface-subtle/80 px-3 py-[9px] text-left">
+      <span className="shrink-0 rounded-disclosure bg-surface-sunken px-[6px] py-[2px]
         text-caption font-semibold tabular-nums text-text-secondary">
         {turn}
       </span>
-      <span class="flex shrink-0 items-center gap-[3px]" aria-label={`${source.name} → ${agent.name}`}>
+      <span className="flex shrink-0 items-center gap-[3px]" aria-label={`${source.name} → ${agent.name}`}>
         <BrandMark brand={source.brand} size={12} />
-        <Icon name="arrow-right" size={10} class="text-text-tertiary" />
+        <Icon name="arrow-right" size={10} className="text-text-tertiary" />
         <BrandMark brand={agent.brand} size={12} />
       </span>
-      <span class="min-w-0 flex-1 truncate text-small text-text">{result}</span>
-      <Icon name={icon} size={14} class={`shrink-0 ${color}`} />
-      <span class="shrink-0 text-meta tabular-nums text-text-tertiary">{time}</span>
-      <Icon name="chevron-right" size={14} class="shrink-0 text-text-secondary" />
+      <span className="min-w-0 flex-1 truncate text-small text-text">{result}</span>
+      <Icon name={icon} size={14} className={`shrink-0 ${color}`} />
+      <span className="shrink-0 text-meta tabular-nums text-text-tertiary">{time}</span>
+      <Icon name="chevron-right" size={14} className="shrink-0 text-text-secondary" />
     </button>
   );
 }
@@ -432,26 +433,26 @@ export function RelayTimeline({ state, handback }: { state: "running" | "waiting
   const failed = state === "failed", done = state === "done", waiting = state === "waiting";
   const bars = failed ? ["bg-danger"] : ["bg-success", done ? "bg-success" : waiting ? "bg-warning" : "bg-accent-text"];
   return (
-    <PanelShell viewportHeight={1100} class="overflow-hidden px-6 pb-5 pt-[13px]">
-      <header class="flex h-[34px] shrink-0 items-center gap-2">
+    <PanelShell viewportHeight={1100} className="overflow-hidden px-6 pb-5 pt-[13px]">
+      <header className="flex h-[34px] shrink-0 items-center gap-2">
         <Icon name="arrow-left" size={16} />
         <RelayRoute />
         <IconButton icon="maximize-2" label="Expand" />
       </header>
-      <div class="mt-[10px] shrink-0 overflow-x-auto [scrollbar-width:none]">
-        <h2 class="w-max whitespace-nowrap text-body leading-6 font-[650]">{task.title}</h2>
+      <div className="mt-[10px] shrink-0 overflow-x-auto [scrollbar-width:none]">
+        <h2 className="w-max whitespace-nowrap text-body leading-6 font-[650]">{task.title}</h2>
       </div>
-      <div class="mt-3 flex shrink-0 items-center gap-2">
-        <StatePill class="pr-[10px]" state={state}>{relayCopy.state[state]}</StatePill>
+      <div className="mt-3 flex shrink-0 items-center gap-2">
+        <StatePill className="pr-[10px]" state={state}>{relayCopy.state[state]}</StatePill>
         <DispatchSpec {...taskDispatch} />
         {handback && <HandbackStatus state={handback} />}
         <ProjectLabel label="项目" name={agent.workspace} path="/workspace/acceptance" />
-        <span class="ml-auto text-meta tabular-nums text-text-tertiary">{relayCopy.duration[state]}</span>
+        <span className="ml-auto text-meta tabular-nums text-text-tertiary">{relayCopy.duration[state]}</span>
       </div>
-      <div class="mt-3 flex shrink-0 gap-[6px] border-b border-border pb-3">
-        {bars.map((paint) => <span class={`h-1 flex-1 rounded-full ${paint}`} />)}
+      <div className="mt-3 flex shrink-0 gap-[6px] border-b border-border pb-3">
+        {bars.map((paint) => <span className={`h-1 flex-1 rounded-full ${paint}`} />)}
       </div>
-      <TimelineSurface class="mt-4 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+      <TimelineSurface className="mt-4 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
         {!failed && <TimelineEarlierTurn />}
         <RelayMessage kind={failed ? "dispatch" : "followup"} text={failed ? relayTurns.second.prompt : undefined} />
         {state === "running" && (
@@ -474,7 +475,7 @@ export function RelayTimeline({ state, handback }: { state: "running" | "waiting
           </>
         )}
       </TimelineSurface>
-      {(state === "running" || waiting) && <div class="mt-4 shrink-0"><TimelinePlanDock /></div>}
+      {(state === "running" || waiting) && <div className="mt-4 shrink-0"><TimelinePlanDock /></div>}
     </PanelShell>
   );
 }
@@ -487,14 +488,14 @@ export default () => [
     <Tag form="ownership" icon="monitor">共享 Codex 后台 · 无法连接 ARC App Server</Tag>
   </Frame>,
   <Frame name="desktop-handback-running" width={440}>
-    <div class="flex items-center gap-2"><HandbackStatus state="running" /></div>
+    <div className="flex items-center gap-2"><HandbackStatus state="running" /></div>
   </Frame>,
   <Frame name="desktop-handback-held" width={440}><HandbackStatus state="held" /></Frame>,
 
   <Frame name="relay-route" width={420}><RelayRoute label={relayCopy.kind.dispatch} time="13:58" /></Frame>,
   ...(["dispatch", "queued", "local"] as const).map((kind) => (
     <Frame name={`relay-message-${kind}`} width={512}>
-      <div class="w-full bg-surface-raised">
+      <div className="w-full bg-surface-raised">
         <RelayMessage kind={kind} text={kind === "queued" ? relayTurns.queued.prompt : undefined}
           time={kind === "queued" ? relayTurns.queued.time : undefined} />
       </div>
@@ -506,34 +507,34 @@ export default () => [
     ["live", s.live], ["request", s.request], ["answered", s.answered], ["answered-unknown", s.answeredUnknown],
   ] as const).map(([name, step]) => (
     <Frame name={`timeline-step-${name}`} width={512}>
-      <ol class="w-full bg-surface-raised"><TimelineStep step={step} /></ol>
+      <ol className="w-full bg-surface-raised"><TimelineStep step={step} /></ol>
     </Frame>
   )),
   <Frame name="timeline-rail" width={512}>
-    <div class="w-full bg-surface-raised">
+    <div className="w-full bg-surface-raised">
       <TimelineRail live status={`${relayCopy.working} · 1 分 12 秒`} steps={[s.thought, s.say, s.tools, s.edit, s.live]} />
     </div>
   </Frame>,
-  <Frame name="timeline-fold" width={512}><div class="w-full bg-surface-raised"><TimelineFold /></div></Frame>,
+  <Frame name="timeline-fold" width={512}><div className="w-full bg-surface-raised"><TimelineFold /></div></Frame>,
   <Frame name="timeline-fold-failed" width={512}>
-    <div class="w-full bg-surface-raised"><TimelineFold failed expanded /></div>
+    <div className="w-full bg-surface-raised"><TimelineFold failed expanded /></div>
   </Frame>,
-  <Frame name="relay-reply" width={512}><div class="w-full bg-surface-raised"><RelayReply /></div></Frame>,
-  <Frame name="relay-request" width={512}><div class="w-full bg-surface-raised"><RelayRequest /></div></Frame>,
-  <Frame name="relay-failure" width={512}><div class="w-full bg-surface-raised"><RelayFailure /></div></Frame>,
-  <Frame name="timeline-plan-dock" width={512}><div class="w-full bg-surface-raised"><TimelinePlanDock /></div></Frame>,
+  <Frame name="relay-reply" width={512}><div className="w-full bg-surface-raised"><RelayReply /></div></Frame>,
+  <Frame name="relay-request" width={512}><div className="w-full bg-surface-raised"><RelayRequest /></div></Frame>,
+  <Frame name="relay-failure" width={512}><div className="w-full bg-surface-raised"><RelayFailure /></div></Frame>,
+  <Frame name="timeline-plan-dock" width={512}><div className="w-full bg-surface-raised"><TimelinePlanDock /></div></Frame>,
   <Frame name="timeline-plan-dock-expanded" width={512}>
-    <div class="w-full bg-surface-raised"><TimelinePlanDock expanded /></div>
+    <div className="w-full bg-surface-raised"><TimelinePlanDock expanded /></div>
   </Frame>,
   <Frame name="timeline-earlier-turn" width={512}>
-    <div class="w-full bg-surface-raised"><TimelineEarlierTurn /></div>
+    <div className="w-full bg-surface-raised"><TimelineEarlierTurn /></div>
   </Frame>,
   <Frame name="timeline-earlier-turn-failed" width={310} fixture="timeline-history-outcomes"
     capture={{ selector: '.task-turn:has(.task-previous-turn[data-state="failed"])', viewport: "390x844" }}>
-    <div class="w-full bg-surface-raised"><TimelineEarlierTurn state="failed" /></div>
+    <div className="w-full bg-surface-raised"><TimelineEarlierTurn state="failed" /></div>
   </Frame>,
   <Frame name="timeline-earlier-turn-interrupted" width={310} fixture="timeline-history-outcomes"
     capture={{ selector: '.task-turn:has(.task-previous-turn[data-state="interrupted"])', viewport: "390x844" }}>
-    <div class="w-full bg-surface-raised"><TimelineEarlierTurn state="interrupted" turn={relayCopy.secondTurn} /></div>
+    <div className="w-full bg-surface-raised"><TimelineEarlierTurn state="interrupted" turn={relayCopy.secondTurn} /></div>
   </Frame>,
 ];

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Frame, Icon } from "adg";
 import { IconButton } from "./icon-button";
 import { Button } from "./button";
@@ -27,17 +28,17 @@ export function Panel({
   headerHeight,
   height,
 }: {
-  title?: unknown;
+  title?: ReactNode;
   motionId?: string;
   closeLabel?: string;
   kind?: "panel" | "dialog";
-  children?: unknown;
-  actions?: unknown;
-  footer?: unknown;
-  leading?: unknown;
-  headerDetail?: unknown;
-  headerNavigation?: unknown;
-  description?: unknown;
+  children?: ReactNode;
+  actions?: ReactNode;
+  footer?: ReactNode;
+  leading?: ReactNode;
+  headerDetail?: ReactNode;
+  headerNavigation?: ReactNode;
+  description?: ReactNode;
   size?: "m" | "xl";
   retainedHeight?: number;
   viewportHeight?: number;
@@ -52,20 +53,20 @@ export function Panel({
     <section
       role={motionId ? (kind === "dialog" ? "dialog" : "region") : undefined}
       aria-label={motionId && typeof title === "string" ? title : undefined}
-      data-adg-id={motionId} tabindex={motionId ? -1 : undefined}
+      data-adg-id={motionId} tabIndex={motionId ? -1 : undefined}
       style={{ height, width: viewportHeight && (viewportWidth < 760 || viewportHeight > viewportWidth) ? `calc(${viewportWidth}px - 2 * var(--layer-side-margin))` : `var(--layer-${size ?? (kind === "panel" ? "xl" : "m")})`, "--layer-retained-height": retainedHeight ? `${retainedHeight}px` : "0px", "--layer-viewport-height": viewportHeight ? `${viewportHeight}px` : undefined, "--layer-frame-top": `var(${kind === "panel" ? "--layer-panel-inset" : "--layer-top-browser"})`, "--layer-frame-bottom": `var(${kind === "panel" ? "--layer-panel-inset" : "--layer-top-browser"})` }}
-      class={`${motionId ? "pointer-events-auto" : ""} flex min-h-(--layer-retained-height) flex-col rounded-panel ${transparent ? "bg-transparent backdrop-blur-[24px]" : "bg-surface-raised"} pb-6 px-6 text-text shadow-lg
+      className={`${motionId ? "pointer-events-auto" : ""} flex min-h-(--layer-retained-height) flex-col rounded-panel ${transparent ? "bg-transparent backdrop-blur-[24px]" : "bg-surface-raised"} pb-6 px-6 text-text shadow-lg
         mx-auto max-w-[calc(100%_-_2_*_var(--layer-side-margin))]! max-h-[calc(100%_-_var(--layer-frame-top)_-_var(--layer-frame-bottom))]!
         ${viewportHeight ? "max-h-[calc(var(--layer-viewport-height)_-_var(--layer-frame-top)_-_var(--layer-frame-bottom))]!" : ""}
         max-w-full [&>header]:shrink-0
         ${roomyHeader ? "gap-[29px] pt-[21px]" : "gap-[25px] pt-[13px]"}`}
     >
       {!headerless && (
-        <header data-adg-id={motionId && `${motionId}-header`} class="flex h-(--control-height) items-center justify-between gap-4" style={{height: headerHeight}}>
+        <header data-adg-id={motionId && `${motionId}-header`} className="flex h-(--control-height) items-center justify-between gap-4" style={{height: headerHeight}}>
           {leading}
-          <h2 class="text-title leading-6 font-[650]">{title}</h2>
+          <h2 className="text-title leading-6 font-[650]">{title}</h2>
           {headerNavigation}
-          <div class="ml-auto flex items-center gap-(--control-gap)">
+          <div className="ml-auto flex items-center gap-(--control-gap)">
             {actions}
             <IconButton key="close" anchor={motionId && `${motionId}-close`} icon="x" label={closeLabel} />
           </div>
@@ -73,10 +74,10 @@ export function Panel({
       )}
       {headerDetail}
       {description && (
-        <div class="text-small text-text-secondary">{description}</div>
+        <div className="text-small text-text-secondary">{description}</div>
       )}
-      {headerless ? children : <div data-adg-id={motionId && `${motionId}-body`} class="min-h-0 flex-1 overflow-y-auto">{children}</div>}
-      {footer ? <div class="shrink-0">{footer}</div> : footer}
+      {headerless ? children : <div data-adg-id={motionId && `${motionId}-body`} className="min-h-0 flex-1 overflow-y-auto">{children}</div>}
+      {footer ? <div className="shrink-0">{footer}</div> : footer}
     </section>
   );
 }
@@ -89,18 +90,18 @@ export function PanelShell({
   viewportWidth = 1280,
   height,
   children,
-  class: extra = "",
+  className: extra = "",
 }: {
   viewportHeight?: number;
   viewportWidth?: number;
   height?: number;
-  children?: unknown;
-  class?: string;
+  children?: ReactNode;
+  className?: string;
 }) {
   return (
     <section
       style={{ width: viewportHeight && (viewportWidth < 760 || viewportHeight > viewportWidth) ? `calc(${viewportWidth}px - 2 * var(--layer-side-margin))` : "var(--layer-m)", height, "--layer-viewport-height": viewportHeight ? `${viewportHeight}px` : undefined }}
-      class={`flex min-h-(--layer-retained-height) flex-col rounded-panel bg-surface-raised text-text shadow-lg ${viewportHeight ? "max-h-[calc(var(--layer-viewport-height)_-_2_*_var(--layer-panel-inset))]!" : ""} ${extra}`}
+      className={`flex min-h-(--layer-retained-height) flex-col rounded-panel bg-surface-raised text-text shadow-lg ${viewportHeight ? "max-h-[calc(var(--layer-viewport-height)_-_2_*_var(--layer-panel-inset))]!" : ""} ${extra}`}
     >
       {children}
     </section>
@@ -112,16 +113,16 @@ export function PanelHeader({
   actions,
   close = true,
 }: {
-  title: unknown;
-  children?: unknown;
-  actions?: unknown;
+  title: ReactNode;
+  children?: ReactNode;
+  actions?: ReactNode;
   close?: boolean;
 }) {
   return (
-    <header class="flex h-(--control-height) shrink-0 items-center gap-4">
-      <h2 class="text-title leading-6 font-[650]">{title}</h2>
+    <header className="flex h-(--control-height) shrink-0 items-center gap-4">
+      <h2 className="text-title leading-6 font-[650]">{title}</h2>
       {children}
-      <div class="ml-auto flex items-center gap-(--control-gap)">
+      <div className="ml-auto flex items-center gap-(--control-gap)">
         {actions}
         {close && <IconButton icon="x" label="Close" />}
       </div>
@@ -131,7 +132,7 @@ export function PanelHeader({
 
 export function PanelLoading({ label }: { label: string }) {
   return (
-    <div class="flex items-center justify-center gap-2 p-6 text-body text-text-secondary" role="status">
+    <div className="flex items-center justify-center gap-2 p-6 text-body text-text-secondary" role="status">
       <Icon name="loader-circle" size={16} />
       {label}
     </div>
@@ -142,18 +143,18 @@ export function PanelLoading({ label }: { label: string }) {
 /** Replaces the dialog's normal footer after outside input or Escape. */
 export function DialogDismissalFooter({ state }: { state: "discard" | "cancellable" | "running" }) {
   return (
-    <footer class="flex flex-col gap-4 border-t border-border pt-4" role="status">
-      <p class="text-small leading-5 text-text-secondary">{dismissalCopy[state]}</p>
+    <footer className="flex flex-col gap-4 border-t border-border pt-4" role="status">
+      <p className="text-small leading-5 text-text-secondary">{dismissalCopy[state]}</p>
       {state === "discard" && (
-        <div class="flex flex-wrap justify-end gap-3">
+        <div className="flex flex-wrap justify-end gap-3">
           <Button variant="danger">{dismissalCopy.discardAction}</Button>
-          <Button variant="primary" class="outline-2 outline-offset-2 outline-accent">{dismissalCopy.keep}</Button>
+          <Button variant="primary" className="outline-2 outline-offset-2 outline-accent">{dismissalCopy.keep}</Button>
         </div>
       )}
       {state !== "discard" && (
-        <div class="flex flex-wrap justify-end gap-3">
+        <div className="flex flex-wrap justify-end gap-3">
           {state === "cancellable" && <Button variant="danger">{dismissalCopy.stop}</Button>}
-          <Button variant="primary" class="outline-2 outline-offset-2 outline-accent">{dismissalCopy.keepOpen}</Button>
+          <Button variant="primary" className="outline-2 outline-offset-2 outline-accent">{dismissalCopy.keepOpen}</Button>
         </div>
       )}
     </footer>
@@ -164,7 +165,7 @@ export default () => {
   const actions = <IconButton icon="maximize-2" label="Expand" />;
   const content = (
     <div
-      class="flex h-36 items-center justify-center rounded-card border border-dashed
+      className="flex h-36 items-center justify-center rounded-card border border-dashed
         border-border-strong text-caption text-text-tertiary font-mono"
     >
       {panelExample.content}
@@ -188,7 +189,7 @@ export default () => {
       </Frame>
     )),
     <Frame name="panel-header" width={512}>
-      <div class="w-full bg-surface-raised text-text">
+      <div className="w-full bg-surface-raised text-text">
         <PanelHeader title={panelExample.title} actions={actions} />
       </div>
     </Frame>,

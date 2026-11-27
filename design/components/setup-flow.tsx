@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { OnboardingStep } from './onboarding-fields';
 import { Frame } from 'adg';
 import { Dialog } from './panel';
@@ -5,14 +6,14 @@ import { Button } from './button';
 import { onboardingFrames, onboardingCopy } from '../fixtures/onboarding';
 export function OnboardingSteps({ step }: { step: OnboardingStep }) {
   return (
-    <ol class="flex gap-3">
+    <ol className="flex gap-3">
       {step.labels!.map((label, i) => (
-        <li class="flex min-w-0 flex-1 flex-col gap-[6px]">
+        <li className="flex min-w-0 flex-1 flex-col gap-[6px]">
           <span
-            class={`h-[3px] rounded-[2px] ${step.done ? "bg-success" : i <= step.active! ? "bg-accent" : "bg-surface-sunken"}`}
+            className={`h-[3px] rounded-[2px] ${step.done ? "bg-success" : i <= step.active! ? "bg-accent" : "bg-surface-sunken"}`}
           />
           <span
-            class={`text-meta leading-4 ${i === step.active ? "font-semibold text-text" : "text-text-secondary"}`}
+            className={`text-meta leading-4 ${i === step.active ? "font-semibold text-text" : "text-text-secondary"}`}
           >
             {label}
           </span>
@@ -38,12 +39,12 @@ export function OnboardingFooter({ step }: { step: OnboardingStep }) {
   const actionWidth = widths[step.body] ?? (step.action === onboardingCopy.continue ? "min-w-[76px]" : "");
   return (
     <footer
-      class={`flex items-center gap-4 ${step.body === "approval" ? "justify-end" : "justify-between"}`}
+      className={`flex items-center gap-4 ${step.body === "approval" ? "justify-end" : "justify-between"}`}
     >
       {step.back ? (
         <Button
           variant={step.body === "approval" ? "secondary" : "ghost"}
-          class={step.body === "approval" ? "min-w-[76px]" : "min-w-16"}
+          className={step.body === "approval" ? "min-w-[76px]" : "min-w-16"}
         >
           {step.back}
         </Button>
@@ -56,7 +57,7 @@ export function OnboardingFooter({ step }: { step: OnboardingStep }) {
           busy={step.busy}
           disabled={step.body === "products"}
           icon={step.body === "method" ? "external-link" : undefined}
-          class={`${step.busy ? "justify-start! " : ""}${step.body === "products" ? "opacity-45 " : ""}${actionWidth}`}
+          className={`${step.busy ? "justify-start! " : ""}${step.body === "products" ? "opacity-45 " : ""}${actionWidth}`}
         >
           {step.action}
         </Button>
@@ -64,7 +65,7 @@ export function OnboardingFooter({ step }: { step: OnboardingStep }) {
     </footer>
   );
 }
-export function SetupFlow({ step, children }: { step: OnboardingStep; children?: unknown }) {
+export function SetupFlow({ step, children }: { step: OnboardingStep; children?: ReactNode }) {
   const nested = step.name.startsWith("stacked-");
   const subtitle = nested
     ? onboardingCopy.returnPrefix +
@@ -73,7 +74,7 @@ export function SetupFlow({ step, children }: { step: OnboardingStep; children?:
   return (
     <Dialog viewportHeight={step.body === "own" ? 1000 : 800} title={step.title || onboardingCopy.title}
       headerDetail={<>
-        {subtitle && <p class="text-meta leading-4 text-text-secondary">{subtitle}</p>}
+        {subtitle && <p className="text-meta leading-4 text-text-secondary">{subtitle}</p>}
         <OnboardingSteps step={step} />
       </>}
       footer={<OnboardingFooter step={step} />}>

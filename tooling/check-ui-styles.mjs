@@ -16,7 +16,7 @@ export async function inspectStyles(base = root) {
   const declarations = [];
   const files = await readdir(path.join(base, 'ui'), { recursive: true });
   for (const file of files.map(file => file.split(path.sep).join('/')).sort()) {
-    if (!file.endsWith('.css') || file.startsWith('components/ui/') || file === 'tokens.css') continue;
+    if (!file.endsWith('.css') || file.startsWith('components/ui/') || file.startsWith('components/kit/') || file === 'tokens.css' || file === 'styles/kit.css') continue;
     const relative = `ui/${file}`;
     postcss.parse(await readFile(path.join(base, relative), 'utf8'), { from: relative }).walkDecls(declaration => {
       if (!paint.test(declaration.prop.toLowerCase())) return;

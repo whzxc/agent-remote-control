@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Frame, Icon } from "adg";
 import { BrandMark, type Brand } from "./brand-mark";
 import { SetupChoice } from "./setup-choice";
@@ -19,7 +20,7 @@ export type Choice = {
   value: string;
   label: string;
   icon?: string;
-  graphic?: unknown;
+  graphic?: ReactNode;
   description?: string;
   disabled?: boolean;
   brand?: Brand;
@@ -39,7 +40,7 @@ export type SingleChoiceProps = {
   tabs?: boolean;
   tiles?: boolean;
   form?: "setup-row" | "setup-product" | "content-pills";
-  class?: string;
+  className?: string;
   catalog?: boolean;
   dropdownIcon?: string;
 };
@@ -58,13 +59,13 @@ export function SingleChoice({
   fill,
   iconOnly,
   compact,
-  class: extra = "",
+  className: extra = "",
   catalog = false,
   dropdownIcon = "chevron-down",
 }: SingleChoiceProps) {
-  if (tiles && iconOnly) return <div role="radiogroup" aria-label={label} class={`grid grid-cols-[repeat(auto-fill,minmax(80px,1fr))] w-full gap-2 ${extra}`}>
+  if (tiles && iconOnly) return <div role="radiogroup" aria-label={label} className={`grid grid-cols-[repeat(auto-fill,minmax(80px,1fr))] w-full gap-2 ${extra}`}>
     {options.map(option => <button role="radio" aria-checked={option.value === value} aria-label={option.label} disabled={disabled || option.disabled}
-      class={`grid min-h-[88px] place-items-center rounded-card p-1 ${option.value===value?'bg-surface-raised shadow-sm':'bg-surface-sunken'}`}>
+      className={`grid min-h-[88px] place-items-center rounded-card p-1 ${option.value===value?'bg-surface-raised shadow-sm':'bg-surface-sunken'}`}>
       {option.graphic ?? <Icon name={option.icon ?? 'paw-print'} size={24}/>}
     </button>)}
   </div>;
@@ -73,7 +74,7 @@ export function SingleChoice({
       <div
         role="radiogroup"
         aria-label={label}
-        class={`grid ${catalog ? "gap-[10px]" : "gap-3"} ${extra} ${tiles || form === "setup-product" ? "grid-cols-3" : "grid-cols-1"}`}
+        className={`grid ${catalog ? "gap-[10px]" : "gap-3"} ${extra} ${tiles || form === "setup-product" ? "grid-cols-3" : "grid-cols-1"}`}
       >
         {options.map((option) => (
           <SetupChoice
@@ -90,19 +91,19 @@ export function SingleChoice({
       <button
         aria-label={label}
         disabled={disabled}
-        class={`inline-flex h-(--control-height) items-center gap-(--control-gap) px-4
+        className={`inline-flex h-(--control-height) items-center gap-(--control-gap) px-4
           rounded-control bg-surface-sunken text-text text-small whitespace-nowrap
           ${fill ? "w-full justify-between" : ""} ${extra}`}
       >
         <span>{options.find((option) => option.value === value)?.label}</span>
-        <Icon name={dropdownIcon} size={14} class="text-text-secondary" />
+        <Icon name={dropdownIcon} size={14} className="text-text-secondary" />
       </button>
     );
   return (
     <div
       role="radiogroup"
       aria-label={label}
-      class={`${extra} ${
+      className={`${extra} ${
         navigation
           ? "flex w-full flex-col gap-1 rounded-card bg-surface-sunken px-2 pt-3 pb-4"
           : optionCards
@@ -135,20 +136,20 @@ export function SingleChoice({
             role="radio"
             aria-checked={selected}
             disabled={disabled || option.disabled}
-            class={`flex items-center ${shape} ${selected
+            className={`flex items-center ${shape} ${selected
               ? `text-text ${!optionCards ? "font-[650]" : ""} ${!tabs && !optionCards ? "bg-surface-raised shadow-sm" : ""}`
               : "text-text-secondary"}`}
           >
             {optionCards && (
-              <span class="font-mono text-meta text-text-tertiary">
+              <span className="font-mono text-meta text-text-tertiary">
                 {index + 1}
               </span>
             )}
             {tabs ? (
               <span
-                class={`relative flex h-full items-center after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 ${selected ? "after:bg-accent-text" : ""}`}
+                className={`relative flex h-full items-center after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 ${selected ? "after:bg-accent-text" : ""}`}
               >
-                <span data-label={option.label} class="block after:invisible after:block after:h-0 after:font-[650] after:content-[attr(data-label)]">
+                <span data-label={option.label} className="block after:invisible after:block after:h-0 after:font-[650] after:content-[attr(data-label)]">
                   {content}
                 </span>
               </span>

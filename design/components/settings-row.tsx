@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Card } from "./card";
 import { SingleChoice } from "./single-choice";
 import { Frame } from "adg";
@@ -10,23 +11,23 @@ export function Setting({
   width = 300,
   toggle = false,
 }: {
-  title: unknown;
-  description?: unknown;
-  children?: unknown;
+  title: ReactNode;
+  description?: ReactNode;
+  children?: ReactNode;
   width?: number;
   toggle?: boolean;
 }) {
   return (
-    <div class={`flex w-full items-center justify-between gap-6 px-4 min-h-14 ${description ? "py-[14px]" : "py-[11px]"}`}>
-      <div class="flex min-w-0 flex-col gap-1">
-        <div class="text-body leading-5 font-medium text-text">{title}</div>
+    <div className={`flex w-full items-center justify-between gap-6 px-4 min-h-14 ${description ? "py-[14px]" : "py-[11px]"}`}>
+      <div className="flex min-w-0 flex-col gap-1">
+        <div className="text-body leading-5 font-medium text-text">{title}</div>
         {description && (
-          <div class="text-meta leading-[18px] text-text-secondary whitespace-pre-line">
+          <div className="text-meta leading-[18px] text-text-secondary whitespace-pre-line">
             {description}
           </div>
         )}
       </div>
-      <div class="shrink-0" style={{ width: toggle ? 44 : width }}>
+      <div className="shrink-0" style={{ width: toggle ? 44 : width }}>
         {children}
       </div>
     </div>
@@ -36,13 +37,13 @@ export function SettingsSection({
   title,
   children,
 }: {
-  title?: unknown;
-  children?: unknown;
+  title?: ReactNode;
+  children?: ReactNode;
 }) {
   return (
-    <section class="flex flex-col gap-3">
-      {title && <h2 class="text-small leading-4 font-[650] text-text-secondary">{title}</h2>}
-      <Card class="py-0! gap-0!">{children}</Card>
+    <section className="flex flex-col gap-3">
+      {title && <h2 className="text-small leading-4 font-[650] text-text-secondary">{title}</h2>}
+      <Card className="py-0! gap-0!">{children}</Card>
     </section>
   );
 }
@@ -65,28 +66,28 @@ export function SettingLine({
   title,
   description,
   children,
-  class: extra = "",
+  className: extra = "",
 }: {
-  title: unknown;
+  title: ReactNode;
   description?: readonly string[] | string;
-  children?: unknown;
-  class?: string;
+  children?: ReactNode;
+  className?: string;
 }) {
   return (
     <div
-      class={`flex min-h-14 items-center justify-between gap-4 px-4 ${description ? "py-[15px]" : "py-[11px]"} ${extra}`}
+      className={`flex min-h-14 items-center justify-between gap-4 px-4 ${description ? "py-[15px]" : "py-[11px]"} ${extra}`}
     >
-      <div class="flex min-w-0 flex-col gap-[6px]">
-        <div class="text-body leading-4 font-medium">{title}</div>
+      <div className="flex min-w-0 flex-col gap-[6px]">
+        <div className="text-body leading-4 font-medium">{title}</div>
         {description && (
-          <div class="text-meta leading-[18px] text-text-secondary">
+          <div className="text-meta leading-[18px] text-text-secondary">
             {typeof description === "string" ? description : description.map((line) => (
               <div>{line}</div>
             ))}
           </div>
         )}
       </div>
-      <div class="shrink-0">{children}</div>
+      <div className="shrink-0">{children}</div>
     </div>
   );
 }
@@ -116,13 +117,13 @@ export function SettingsChoices({
     </div>
   );
 }
-export function SettingsGroup({ title, children }: { title: string; children?: unknown }) {
+export function SettingsGroup({ title, children }: { title: string; children?: ReactNode }) {
   return (
-    <section class="flex flex-col gap-3">
-      <h3 class="text-small leading-4 font-[650] text-text-secondary">
+    <section className="flex flex-col gap-3">
+      <h3 className="text-small leading-4 font-[650] text-text-secondary">
         {title}
       </h3>
-      <Card class="py-0! gap-0!">{children}</Card>
+      <Card className="py-0! gap-0!">{children}</Card>
     </section>
   );
 }

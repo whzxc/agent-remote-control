@@ -59,8 +59,8 @@ export function EffortGauge({
             d={`M${point(start).join(" ")} A${radius} ${radius} 0 ${end - start > 180 ? 1 : 0} 1 ${point(end).join(" ")}`}
             fill="none"
             stroke={i < index ? "var(--role-agent)" : "var(--border-strong)"}
-            stroke-width={stroke}
-            stroke-linecap="round"
+            strokeWidth={stroke}
+            strokeLinecap="round"
           />
         );
       })}
@@ -109,20 +109,20 @@ export function DispatchSpec({
       style={width ? { width } : undefined}
       role="img"
       aria-label={[model, effort, tier].filter(Boolean).join(" · ")}
-      class="inline-flex shrink-0 items-center gap-[6px] h-6 px-[9px] rounded-(--radius-pill)
+      className="inline-flex shrink-0 items-center gap-[6px] h-6 px-[9px] rounded-(--radius-pill)
         border border-border-strong/60 bg-surface-subtle text-text text-meta font-semibold"
     >
       {model && <span>{model}</span>}
-      {model && hasTelemetry && <span aria-hidden="true" class="h-3 w-px bg-border-strong/70" />}
+      {model && hasTelemetry && <span aria-hidden="true" className="h-3 w-px bg-border-strong/70" />}
       {effort && <EffortGauge {...position} size={18} />}
       {tier &&
-        (tier === 'ultrafast' ? <span class="relative inline-flex h-[14px] w-4 items-end">
-          <Icon name="zap" size={12} class="absolute left-0 top-0 fill-current" />
-          <Icon name="zap" size={12} class="ml-1" />
+        (tier === 'ultrafast' ? <span className="relative inline-flex h-[14px] w-4 items-end">
+          <Icon name="zap" size={12} className="absolute left-0 top-0 fill-current" />
+          <Icon name="zap" size={12} className="ml-1" />
         </span> : fast ? (
-          <Icon name="zap" size={12} class="text-warning" />
+          <Icon name="zap" size={12} className="text-warning" />
         ) : (
-          <span class="text-text-secondary">{tier}</span>
+          <span className="text-text-secondary">{tier}</span>
         ))}
     </span>
   );

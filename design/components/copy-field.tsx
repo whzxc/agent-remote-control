@@ -19,11 +19,11 @@ export function CopyField({
 }) {
   return (
     <div
-      class="flex w-full items-center justify-between gap-3 h-(--field-height)
+      className="flex w-full items-center justify-between gap-3 h-(--field-height)
         pl-(--field-padding-inline) pr-(--control-inset) rounded-field bg-surface-sunken text-text"
     >
       <span
-        class={`min-w-0 truncate font-mono text-small ${masked || password ? "blur-[2px] opacity-50" : ""}`}
+        className={`min-w-0 truncate font-mono text-small ${masked || password ? "blur-[2px] opacity-50" : ""}`}
       >
         {value || placeholder}
       </span>

@@ -27,67 +27,67 @@ export function AXStatusBadge({ status }: { status: AXStatus }) {
 }
 
 export function AXEntryRow({ entry }: { entry: AXEntry }) {
-  return <Card padded class="gap-0">
-    <button class="flex w-full items-center gap-3 text-left">
+  return <Card padded className="gap-0">
+    <button className="flex w-full items-center gap-3 text-left">
       <Tile form="phase" icon="lightbulb" tone="neutral" />
-      <span class="flex min-w-0 flex-1 flex-col gap-[6px]">
-        <span class="flex items-baseline gap-3">
-          <span class="shrink-0 font-mono text-meta leading-5 text-text-tertiary">{entry.id}</span>
-          <strong class="text-small leading-5 font-semibold">{entry.title}</strong>
+      <span className="flex min-w-0 flex-1 flex-col gap-[6px]">
+        <span className="flex items-baseline gap-3">
+          <span className="shrink-0 font-mono text-meta leading-5 text-text-tertiary">{entry.id}</span>
+          <strong className="text-small leading-5 font-semibold">{entry.title}</strong>
         </span>
-        <span class="text-meta leading-4 text-text-secondary">{entry.meta}</span>
+        <span className="text-meta leading-4 text-text-secondary">{entry.meta}</span>
       </span>
       <AXStatusBadge status={entry.status} />
-      <Icon name="chevron-right" size={16} class="shrink-0 text-text-tertiary" />
+      <Icon name="chevron-right" size={16} className="shrink-0 text-text-tertiary" />
     </button>
   </Card>;
 }
 
 export function AXEntryDetail() {
-  return <RecordDetail variant="issue" class="flex flex-col gap-6">
-    <div class="flex items-center justify-between">
+  return <RecordDetail variant="issue" className="flex flex-col gap-6">
+    <div className="flex items-center justify-between">
       <Button variant="ghost" icon="arrow-left">{axCopy.back}</Button>
       <IconButton icon="copy" label={axCopy.copyId} />
     </div>
-    <div class="flex flex-col gap-3">
-      <div class="flex items-center gap-3">
-        <span class="font-mono text-meta text-text-secondary">{axDetail.entry.id}</span>
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-3">
+        <span className="font-mono text-meta text-text-secondary">{axDetail.entry.id}</span>
         <AXStatusBadge status={axDetail.entry.status} />
-        <span class="text-meta text-text-secondary">{axCopy.workaround}</span>
+        <span className="text-meta text-text-secondary">{axCopy.workaround}</span>
       </div>
-      <h3 class="text-title leading-6 font-semibold">{axDetail.entry.title}</h3>
-      <p class="text-meta leading-4 text-text-secondary">{axCopy.lastSeen}</p>
+      <h3 className="text-title leading-6 font-semibold">{axDetail.entry.title}</h3>
+      <p className="text-meta leading-4 text-text-secondary">{axCopy.lastSeen}</p>
     </div>
-    <div class="grid grid-cols-2 gap-8">
-      {axDetail.facts.map(fact => <section class="flex flex-col gap-2">
-        <h4 class="text-meta leading-4 font-semibold text-text-secondary">{fact.label}</h4>
-        <p class="text-small leading-5">{fact.text}</p>
+    <div className="grid grid-cols-2 gap-8">
+      {axDetail.facts.map(fact => <section className="flex flex-col gap-2">
+        <h4 className="text-meta leading-4 font-semibold text-text-secondary">{fact.label}</h4>
+        <p className="text-small leading-5">{fact.text}</p>
       </section>)}
     </div>
-    <Card padded class="gap-3">
-      <h4 class="text-small leading-4 font-semibold">{axCopy.result}</h4>
-      <p class="text-small leading-5">{axDetail.resolution}</p>
-      <div class="flex items-center gap-2 text-meta leading-4 text-text-secondary">
+    <Card padded className="gap-3">
+      <h4 className="text-small leading-4 font-semibold">{axCopy.result}</h4>
+      <p className="text-small leading-5">{axDetail.resolution}</p>
+      <div className="flex items-center gap-2 text-meta leading-4 text-text-secondary">
         <Icon name="git-commit-horizontal" size={14} />
-        <span>{axCopy.fixingCommit}</span><code class="font-mono text-text">{axDetail.commit}</code>
+        <span>{axCopy.fixingCommit}</span><code className="font-mono text-text">{axDetail.commit}</code>
         <IconButton icon="copy" label={axCopy.copyCommit} compact />
       </div>
     </Card>
-    <section class="flex flex-col gap-3">
-      <h4 class="text-meta leading-4 font-semibold text-text-secondary">{axCopy.evidence}</h4>
-      <div class="flex flex-col gap-3">
-        {axDetail.evidence.map(item => <div class="flex items-center gap-3 text-small leading-5">
-          <Icon name={item.icon} size={15} class="text-text-secondary" />
-          <span>{item.label}</span><code class="font-mono text-meta text-text-secondary">{item.value}</code>
-          <span class="ml-auto text-meta text-text-secondary">{item.status}</span>
+    <section className="flex flex-col gap-3">
+      <h4 className="text-meta leading-4 font-semibold text-text-secondary">{axCopy.evidence}</h4>
+      <div className="flex flex-col gap-3">
+        {axDetail.evidence.map(item => <div className="flex items-center gap-3 text-small leading-5">
+          <Icon name={item.icon} size={15} className="text-text-secondary" />
+          <span>{item.label}</span><code className="font-mono text-meta text-text-secondary">{item.value}</code>
+          <span className="ml-auto text-meta text-text-secondary">{item.status}</span>
         </div>)}
       </div>
     </section>
-    <section class="flex flex-col gap-3 border-t border-border pt-5">
-      <h4 class="text-meta leading-4 font-semibold text-text-secondary">{axCopy.history}</h4>
-      {axDetail.history.map(item => <div class="flex items-center gap-3 text-meta leading-4">
-        <Icon name={item.icon} size={14} class="text-text-tertiary" />
-        <span class="text-text-secondary">{item.time}</span><span>{item.text}</span>
+    <section className="flex flex-col gap-3 border-t border-border pt-5">
+      <h4 className="text-meta leading-4 font-semibold text-text-secondary">{axCopy.history}</h4>
+      {axDetail.history.map(item => <div className="flex items-center gap-3 text-meta leading-4">
+        <Icon name={item.icon} size={14} className="text-text-tertiary" />
+        <span className="text-text-secondary">{item.time}</span><span>{item.text}</span>
       </div>)}
     </section>
   </RecordDetail>;
@@ -98,16 +98,16 @@ export function AXBoard({ form }: { form: AXForm }) {
   return <Panel viewportHeight={1000} retainedHeight={closed ? 602 : undefined} title={axCopy.region}
     headerNavigation={<SingleChoice value="ax" options={axTabs} label={axCopy.region} tabs />}
     actions={<IconButton icon="refresh-cw" label={axCopy.refresh} />}
-    footer={form !== "detail" && <div class="flex w-full items-center justify-between">
-      <span class="text-meta leading-4 text-text-tertiary">{closed ? axCopy.shown : axCopy.updated}</span>
+    footer={form !== "detail" && <div className="flex w-full items-center justify-between">
+      <span className="text-meta leading-4 text-text-tertiary">{closed ? axCopy.shown : axCopy.updated}</span>
       {closed && <Button variant="ghost" icon="chevron-down">{axCopy.more}</Button>}
     </div>}>
-    {form === "detail" ? <div class="pb-[25px]"><AXEntryDetail /></div> : <>
-      <div class="flex items-center justify-between gap-6">
-        <SingleChoice value={closed ? "closed" : "open"} options={axFilters} label={axCopy.status} class="auto-cols-auto!" />
-        <div class="w-[240px]"><SearchInput placeholder={axCopy.search} /></div>
+    {form === "detail" ? <div className="pb-[25px]"><AXEntryDetail /></div> : <>
+      <div className="flex items-center justify-between gap-6">
+        <SingleChoice value={closed ? "closed" : "open"} options={axFilters} label={axCopy.status} className="auto-cols-auto!" />
+        <div className="w-[240px]"><SearchInput placeholder={axCopy.search} /></div>
       </div>
-      <div class="mt-6 flex flex-col gap-2">
+      <div className="mt-6 flex flex-col gap-2">
         {(closed ? axClosedEntries : axOpenEntries).map(entry => <AXEntryRow entry={entry} />)}
       </div>
     </>}
@@ -116,30 +116,30 @@ export function AXBoard({ form }: { form: AXForm }) {
 
 export default () => [
   <Frame name="ax-status-badge-open" width={70}>
-    <div class="flex w-full bg-surface-subtle"><AXStatusBadge status="open" /></div>
+    <div className="flex w-full bg-surface-subtle"><AXStatusBadge status="open" /></div>
   </Frame>,
   <Frame name="ax-entry-row-open" width={772}>
-    <div class="w-full bg-surface-raised"><AXEntryRow entry={axOpenEntries[0]} /></div>
+    <div className="w-full bg-surface-raised"><AXEntryRow entry={axOpenEntries[0]} /></div>
   </Frame>,
   <Frame name="ax-status-badge-triaged" width={70}>
-    <div class="flex w-full bg-surface-subtle"><AXStatusBadge status="triaged" /></div>
+    <div className="flex w-full bg-surface-subtle"><AXStatusBadge status="triaged" /></div>
   </Frame>,
   <Frame name="ax-entry-row-triaged" width={772}>
-    <div class="w-full bg-surface-raised"><AXEntryRow entry={axOpenEntries[3]} /></div>
+    <div className="w-full bg-surface-raised"><AXEntryRow entry={axOpenEntries[3]} /></div>
   </Frame>,
   <Frame name="ax-status-badge-fixed" width={70}>
-    <div class="flex w-full bg-surface-subtle"><AXStatusBadge status="fixed" /></div>
+    <div className="flex w-full bg-surface-subtle"><AXStatusBadge status="fixed" /></div>
   </Frame>,
   <Frame name="ax-entry-row-fixed" width={772}>
-    <div class="w-full bg-surface-raised"><AXEntryRow entry={axClosedEntries[0]} /></div>
+    <div className="w-full bg-surface-raised"><AXEntryRow entry={axClosedEntries[0]} /></div>
   </Frame>,
   <Frame name="ax-status-badge-wontfix" width={70}>
-    <div class="flex w-full bg-surface-subtle"><AXStatusBadge status="wontfix" /></div>
+    <div className="flex w-full bg-surface-subtle"><AXStatusBadge status="wontfix" /></div>
   </Frame>,
   <Frame name="ax-entry-row-wontfix" width={772}>
-    <div class="w-full bg-surface-raised"><AXEntryRow entry={axClosedEntries[3]} /></div>
+    <div className="w-full bg-surface-raised"><AXEntryRow entry={axClosedEntries[3]} /></div>
   </Frame>,
   <Frame name="ax-entry-detail" width={772}>
-    <div class="w-full bg-surface-raised"><AXEntryDetail /></div>
+    <div className="w-full bg-surface-raised"><AXEntryDetail /></div>
   </Frame>,
 ];

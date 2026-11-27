@@ -7,7 +7,8 @@ import { nearestToken } from './token-distance.mjs';
 import { featureOwner, inspectConsumers } from './check-ui-consumers.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const shared = 'ui/components/ui/';
+const isShared = file => file.startsWith('ui/components/ui/') || file.startsWith('ui/components/kit/');
+const tokenSheets = new Set(['ui/tokens.css', 'ui/styles/kit.css']);
 const paint = /^(?:color|background(?:-.+)?|border(?!-collapse|-spacing).*|box-shadow|font(?:-.+)?|line-height|letter-spacing|text-shadow|text-decoration.*|fill|stroke(?:-width|-color)?)$/;
 const references = value => [...value.matchAll(/var\(\s*(--[\w-]+)/g)].map(match => match[1]);
 
@@ -35,18 +36,18 @@ export function inspectTokens(base = root, parts = inspectConsumers(base)) {
             for (const token of references(declaration.value)) dependencies.add(token);
             localAliases.set(declaration.prop, dependencies);
           }
-          if (file !== 'ui/tokens.css') for (const token of new Set(references(declaration.value))) {
+          if (!tokenSheets.has(file)) for (const token of new Set(references(declaration.value))) {
             declarationUses.set(token, (declarationUses.get(token) ?? 0) + 1);
             used.add(token);
-            if (file.startsWith(shared)) sharedPaint.push({ token, selector: declaration.parent.selector ?? '' });
+            if (isShared(file)) sharedPaint.push({ token, selector: declaration.parent.selector ?? '' });
           }
           return;
         }
         for (const token of new Set(references(declaration.value))) {
-          if (file !== 'ui/tokens.css') declarationUses.set(token, (declarationUses.get(token) ?? 0) + 1);
+          if (!tokenSheets.has(file)) declarationUses.set(token, (declarationUses.get(token) ?? 0) + 1);
           used.add(token);
           if (paint.test(declaration.prop)) paintTokens.add(token);
-          if (file.startsWith(shared)) sharedPaint.push({ token, selector: declaration.parent.selector ?? '' });
+          if (isShared(file)) sharedPaint.push({ token, selector: declaration.parent.selector ?? '' });
         }
       });
     } else {
@@ -65,7 +66,7 @@ export function inspectTokens(base = root, parts = inspectConsumers(base)) {
     definition.consumers.add(owner);
     for (const value of definition.values) for (const dependency of references(value)) include(dependency, owner, seen);
   }
-  for (const file of files.filter(file => !file.startsWith(shared) && file !== 'ui/tokens.css')) {
+  for (const file of files.filter(file => !isShared(file) && !tokenSheets.has(file))) {
     const owner = featureOwner(file.replace(/\.css$/, '.tsx')), seen = new Set();
     function visit(target) {
       if (seen.has(target)) return;

@@ -22,16 +22,16 @@ export function OnboardingChoiceField({
   label,
   options,
   value,
-  class: extra = "",
+  className: extra = "",
 }: {
   label: string;
   options: string[];
   value: string;
-  class?: string;
+  className?: string;
 }) {
   return (
-    <div class={`flex flex-col gap-3 ${extra}`}>
-      <h3 class="text-small leading-4 font-semibold">{label}</h3>
+    <div className={`flex flex-col gap-3 ${extra}`}>
+      <h3 className="text-small leading-4 font-semibold">{label}</h3>
       <SingleChoice
         label={label}
         value={value}
@@ -54,9 +54,9 @@ export function OnboardingField({
   return (
     <Field
       label={
-        <span class="flex items-center gap-3">
+        <span className="flex items-center gap-3">
           {label}
-          {action && <span class="font-semibold">{action}</span>}
+          {action && <span className="font-semibold">{action}</span>}
         </span>
       }
     >
@@ -67,11 +67,11 @@ export function OnboardingField({
 
 export default () => [
   <Frame name="onboarding-choice-field" width={632}>
-    <div class="w-full bg-surface-raised">
+    <div className="w-full bg-surface-raised">
       <OnboardingChoiceField label={connectionCopy.https} options={connectionCopy.providers} value={connectionCopy.provider} />
     </div>
   </Frame>,
   <Frame name="onboarding-field" width={308}>
-    <div class="w-full bg-surface-raised"><OnboardingField label={connectionCopy.domainLabel} value={connectionCopy.domain} /></div>
+    <div className="w-full bg-surface-raised"><OnboardingField label={connectionCopy.domainLabel} value={connectionCopy.domain} /></div>
   </Frame>,
 ];

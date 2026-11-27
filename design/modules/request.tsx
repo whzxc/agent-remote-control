@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { PermissionActions, PermissionCard, RoutingRow, RequestRouting } from '../components/request';
 import { Frame, Icon } from "adg";
 import { Button } from "../components/button";
@@ -9,9 +10,9 @@ import { permissionExample, requestCopy, requestExample, questionOptions, routin
 
 function QuestionActions({ sheet = false }: { sheet?: boolean } = {}) {
   return (
-      <div class="flex justify-end gap-2">
+      <div className="flex justify-end gap-2">
         <Button variant="ghost">{requestCopy.skip}</Button>
-        <Button variant="primary" disabled class={`opacity-42 ${sheet ? "px-4" : "px-[30px]"}`}>
+        <Button variant="primary" disabled className={`opacity-42 ${sheet ? "px-4" : "px-[30px]"}`}>
           {requestCopy.send}
         </Button>
       </div>
@@ -20,8 +21,8 @@ function QuestionActions({ sheet = false }: { sheet?: boolean } = {}) {
 
 export function QuestionCard({ sheet = false }: { sheet?: boolean } = {}) {
   return (
-    <Card padded class="gap-4">
-      <strong class={`text-body ${sheet ? "leading-5" : "leading-[14px]"} font-semibold`}>
+    <Card padded className="gap-4">
+      <strong className={`text-body ${sheet ? "leading-5" : "leading-[14px]"} font-semibold`}>
         {requestCopy.question}
       </strong>
       <SingleChoice
@@ -29,10 +30,10 @@ export function QuestionCard({ sheet = false }: { sheet?: boolean } = {}) {
         options={questionOptions}
         label={requestCopy.answer}
         optionCards
-        class="[&_button]:text-text"
+        className="[&_button]:text-text"
       />
-      <div class="flex flex-col gap-2">
-        <label class="text-small leading-4 text-text font-semibold">
+      <div className="flex flex-col gap-2">
+        <label className="text-small leading-4 text-text font-semibold">
           {requestCopy.other}
         </label>
         <Input />
@@ -45,19 +46,19 @@ export function QuestionCard({ sheet = false }: { sheet?: boolean } = {}) {
 export function RequestSheet({ question = false }: { question?: boolean }) {
   return (
     <Dialog viewportWidth={390} viewportHeight={844} title={requestCopy.title}
-      description={<div class="text-meta leading-[18px]">{requestCopy.status}</div>}
+      description={<div className="text-meta leading-[18px]">{requestCopy.status}</div>}
       footer={question ? <QuestionActions sheet /> : <PermissionActions sheet />}>
       {question ? <QuestionCard sheet /> : <PermissionCard sheet />}
     </Dialog>
   );
 }
 
-export function InlineRequest({ class: extra = "" }: { class?: string }) {
+export function InlineRequest({ className: extra = "" }: { className?: string }) {
   return (
-    <section class={`flex flex-col gap-4 ${extra}`}>
-      <div class="flex flex-col gap-[6px]">
-        <h3 class="text-body leading-5 font-semibold">{requestCopy.title}</h3>
-        <p class="text-meta leading-4 text-text-tertiary">{requestCopy.status}</p>
+    <section className={`flex flex-col gap-4 ${extra}`}>
+      <div className="flex flex-col gap-[6px]">
+        <h3 className="text-body leading-5 font-semibold">{requestCopy.title}</h3>
+        <p className="text-meta leading-4 text-text-tertiary">{requestCopy.status}</p>
       </div>
       <PermissionCard />
     </section>
@@ -74,13 +75,13 @@ export function RequestEntry({
   action: string;
 }) {
   return (
-    <div class={`flex w-full items-center gap-[10px] rounded-card relative isolate before:absolute before:inset-0 before:-z-10
+    <div className={`flex w-full items-center gap-[10px] rounded-card relative isolate before:absolute before:inset-0 before:-z-10
         before:rounded-[inherit] before:bg-warning before:opacity-10 p-4`}>
-      <Icon name="shield-alert" size={18} class="self-start text-warning" />
-      <div class="flex flex-1 flex-col gap-[10px]">
-        <strong class="text-meta leading-4 text-warning">{title}</strong>
+      <Icon name="shield-alert" size={18} className="self-start text-warning" />
+      <div className="flex flex-1 flex-col gap-[10px]">
+        <strong className="text-meta leading-4 text-warning">{title}</strong>
         {summary && (
-          <span class="text-small leading-[18px] text-text">{summary}</span>
+          <span className="text-small leading-[18px] text-text">{summary}</span>
         )}
       </div>
       <Button>{action}</Button>
@@ -91,12 +92,12 @@ export function ReviewUnavailable({
   children,
   action,
 }: {
-  children?: unknown;
-  action?: unknown;
+  children?: ReactNode;
+  action?: ReactNode;
 }) {
   return (
     <div
-      class="flex w-full items-center justify-between gap-4 rounded-card bg-surface-subtle
+      className="flex w-full items-center justify-between gap-4 rounded-card bg-surface-subtle
         px-4 py-[18px] text-small text-text-secondary"
     >
       <span>{children}</span>
@@ -147,9 +148,9 @@ export default () => [
     </ReviewUnavailable>
   </Frame>,
   <Frame name="question-card" width={312}>
-    <div class="w-full bg-surface-raised"><QuestionCard /></div>
+    <div className="w-full bg-surface-raised"><QuestionCard /></div>
   </Frame>,
   <Frame name="inline-request" width={600}>
-    <div class="w-full bg-surface-raised"><InlineRequest /></div>
+    <div className="w-full bg-surface-raised"><InlineRequest /></div>
   </Frame>,
 ];

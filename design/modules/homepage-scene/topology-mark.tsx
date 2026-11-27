@@ -44,7 +44,7 @@ export function TopologyMark({
     >
       <ArcMarkArt data-brand width={240} height={240} style={fault} />
       {sourceAction && (
-        <g fill="none" stroke="var(--canvas)" stroke-width={7.82} stroke-linecap="round">
+        <g fill="none" stroke="var(--canvas)" strokeWidth={7.82} strokeLinecap="round">
           <path d={`M${g.sourceX - 9.333} ${g.centerY}h18.666M${g.sourceX} ${g.centerY - 9.333}v18.666`} />
         </g>
       )}
@@ -60,9 +60,9 @@ export function TopologyMark({
     ? remote === "unhealthy" ? [ringCopy.remote.healthy, ringCopy.remote.unhealthy] : [ringCopy.remote.healthy]
     : [{ icon: "laptop", label: "Device link" }, ringCopy.core[core]];
   return (
-    <div class={`relative flex justify-center ${upper ? "pt-4" : "pb-4"}`} style={{ width: size }}>
+    <div className={`relative flex justify-center ${upper ? "pt-4" : "pb-4"}`} style={{ width: size }}>
       {mark}
-      <div class={`absolute left-1/2 flex -translate-x-1/2 gap-2 ${upper ? "top-0" : "bottom-0"}`}>
+      <div className={`absolute left-1/2 flex -translate-x-1/2 gap-2 ${upper ? "top-0" : "bottom-0"}`}>
         {actions.map((action) => <IconButton {...action} compact active />)}
       </div>
     </div>
@@ -73,11 +73,11 @@ export function ArcRecovery({ form }: { form: typeof recoveryForms[number]["form
   const { title, reason, impact, secondary, primary } = ringCopy.recovery[form];
   return (
     <Dialog title={title}>
-      <div class="flex flex-col gap-2">
-        <p class="text-small leading-5">{reason}</p>
-        {impact && <p class="text-meta leading-5 text-text-secondary">{impact}</p>}
+      <div className="flex flex-col gap-2">
+        <p className="text-small leading-5">{reason}</p>
+        {impact && <p className="text-meta leading-5 text-text-secondary">{impact}</p>}
       </div>
-      <div class="flex flex-wrap justify-end gap-2">
+      <div className="flex flex-wrap justify-end gap-2">
         {secondary && <Button>{secondary}</Button>}
         <Button variant="primary">{primary}</Button>
       </div>

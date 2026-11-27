@@ -27,10 +27,36 @@ const prepared = {
 };
 
 export default {
-  requires: '>=0.17.12',
+  requires: '>=0.17.16',
   design: 'design',
   check: { strictLayers: true, lifecycle: true, strictMotion: true },
   output: 'output/design',
+  kit: {
+    engine: 'react',
+    paths: {
+      '@/': 'ui/',
+    },
+    roots: [
+      'ui/components/kit',
+      'ui/components/ui',
+      'ui/components',
+      'ui/lib',
+      'ui',
+    ],
+    ui: [
+      'ui/components/kit',
+    ],
+    packages: [
+      '@base-ui/react',
+      'class-variance-authority',
+      'clsx',
+      'tailwind-merge',
+      'lucide-react',
+      'motion',
+    ],
+    css: ['ui/styles/kit.css'],
+    tokens: 'tailwind-kit',
+  },
   compare: {
     port: 5188,
     viewport: '1280x800',

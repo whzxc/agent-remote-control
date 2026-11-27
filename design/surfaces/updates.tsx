@@ -7,7 +7,7 @@ import { UpdateContent, UpdateHistoryContent } from '../modules/updates';
 export default () => [
   ...frames.map(({ name, fixture }) => (
     <Frame name={name} fixture={fixture} capture={{ region: "应用更新", viewport: "1280x800" }}>
-      <PanelShell class="gap-2 p-6">
+      <PanelShell className="gap-2 p-6">
         <PanelHeader title={copy.title} close={false} />
         <UpdateContent state={name} />
       </PanelShell>
@@ -21,7 +21,7 @@ export default () => [
   </Frame>,
   <Frame name="settings" fixture="updates-settings"
     capture={{ selector: ".settings-about", viewport: "1280x800" }}>
-    <div class="w-[672px] bg-surface-raised">
+    <div className="w-[672px] bg-surface-raised">
       <UpdateAboutContent />
     </div>
   </Frame>,

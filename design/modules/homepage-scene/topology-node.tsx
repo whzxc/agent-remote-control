@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { type Brand, BrandMark } from '../../components/brand-mark';
 import { type AgentIconReading } from './agent-icon';
 import { type NodeTaskState, NodeCapsule } from './node-capsule';
@@ -11,9 +12,9 @@ export type TopologyNodeProps = {
   width?: number;
   layout?: "vertical" | "source" | "agent";
   hideLabel?: boolean;
-  graphic?: unknown;
+  graphic?: ReactNode;
   /** The logo drawn inside a working capsule, whose outline replaces the quota ring. */
-  capsuleMark?: unknown;
+  capsuleMark?: ReactNode;
   capsuleReadings?: readonly AgentIconReading[];
   taskState?: NodeTaskState;
   capsuleNeutralRing?: boolean;
@@ -42,16 +43,16 @@ export function TopologyNode({
 }: TopologyNodeProps) {
   const horizontal = layout !== "vertical";
   const baseGraphic = customGraphic ?? (
-    <span class={horizontal ? "grid size-12 shrink-0 place-items-center" : "flex"}>
+    <span className={horizontal ? "grid size-12 shrink-0 place-items-center" : "flex"}>
       {horizontal && (
         <span
-          class={
+          className={
             "col-start-1 row-start-1 rounded-full bg-canvas " +
             String(readings?.length ? "size-[46px]" : "size-[42px]")
           }
         />
       )}
-      <span class="col-start-1 row-start-1 flex">
+      <span className="col-start-1 row-start-1 flex">
         <BrandMark brand={brand} size={readings?.length ? 28 : 38} />
       </span>
     </span>
@@ -65,7 +66,7 @@ export function TopologyNode({
     <div
       aria-label={hideLabel ? label : undefined}
       style={{ width: hideLabel ? 48 : width }}
-      class={
+      className={
         "flex text-text " +
         String(
           hideLabel
@@ -80,14 +81,14 @@ export function TopologyNode({
         graphic
       ) : layout === "source" ? (
         <>
-          <span class="flex w-[85px] shrink-0 justify-end items-center h-12 text-meta">{label}</span>
+          <span className="flex w-[85px] shrink-0 justify-end items-center h-12 text-meta">{label}</span>
           {graphic}
         </>
       ) : (
         <>
           {graphic}
           {label && (
-            <span class={`text-meta ${horizontal ? "flex items-center h-12 whitespace-nowrap" : "leading-5"}`}>
+            <span className={`text-meta ${horizontal ? "flex items-center h-12 whitespace-nowrap" : "leading-5"}`}>
               {label}
             </span>
           )}

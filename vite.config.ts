@@ -19,6 +19,11 @@ type Endpoint = { port: number; token: string };
 export default defineConfig(({ mode }) => ({
   base: './',
   root: fileURLToPath(new URL('./ui', import.meta.url)),
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./ui', import.meta.url)),
+    },
+  },
   define: { __CONNECTOR_VERSION__: JSON.stringify(packageVersion) },
   plugins: [react(), tailwindcss(), {
     name: 'connector-native-preview',

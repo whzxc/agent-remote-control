@@ -11,21 +11,21 @@ function Platform({ agent, state = "ready" }: {
   state?: "ready" | "empty" | "loading";
 }) {
   return (
-    <PanelShell viewportHeight={800} class="gap-[25px] overflow-hidden pt-[13px] px-6 pb-6">
-      <header class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2">
+    <PanelShell viewportHeight={800} className="gap-[25px] overflow-hidden pt-[13px] px-6 pb-6">
+      <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2">
         <BrandMark brand={agent.brand} size={36} />
-        <h2 class="flex-1 text-title font-[650]">{agent.name}</h2>
-        <div class="ml-auto flex items-center gap-(--control-gap)">
+        <h2 className="flex-1 text-title font-[650]">{agent.name}</h2>
+        <div className="ml-auto flex items-center gap-(--control-gap)">
           <Button icon="plus">{copy.add}</Button>
           <IconButton icon="maximize-2" label={copy.expand} />
           <IconButton icon="x" label={copy.close} />
         </div>
       </header>
-      <div class="min-h-0 overflow-y-auto">
+      <div className="min-h-0 overflow-y-auto">
         {state === "loading" ? <PanelLoading label={copy.loading} /> : state === "empty" ? (
-          <p class="py-8 text-center text-small text-text-secondary">{copy.empty}</p>
+          <p className="py-8 text-center text-small text-text-secondary">{copy.empty}</p>
         ) : (
-          <div class="flex flex-col gap-3">
+          <div className="flex flex-col gap-3">
             {agent.accounts.map(account => <AccountCard account={account} />)}
           </div>
         )}

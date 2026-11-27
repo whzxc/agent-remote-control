@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Frame, Icon } from "adg";
 import { buttonForms } from "../fixtures/buttons";
 
@@ -9,8 +10,8 @@ export type ButtonProps = {
   anchor?: string;
   disabled?: boolean;
   icon?: string;
-  children?: unknown;
-  class?: string;
+  children?: ReactNode;
+  className?: string;
 };
 export function Button({
   variant = "secondary",
@@ -20,7 +21,7 @@ export function Button({
   disabled,
   icon,
   children,
-  class: extra = "",
+  className: extra = "",
 }: ButtonProps) {
   const paint = {
     primary: "bg-action text-on-action",
@@ -37,12 +38,12 @@ export function Button({
       data-adg-id={anchor}
       disabled={disabled || busy}
       aria-busy={busy}
-      class={`inline-flex shrink-0 items-center justify-center gap-(--control-gap)
+      className={`inline-flex shrink-0 items-center justify-center gap-(--control-gap)
         ${variant === "link" ? "h-6 px-0" : "h-(--control-height) px-4"}
         rounded-control text-small leading-4 font-semibold whitespace-nowrap ${paint[variant]} ${presentation === "record-link" ? "text-accent! text-meta!" : ""} ${extra}`}
     >
       {(busy || icon) && (
-        <Icon name={busy ? "loader-circle" : icon!} class="size-(--control-icon-size)" />
+        <Icon name={busy ? "loader-circle" : icon!} className="size-(--control-icon-size)" />
       )}
       {children}
     </button>

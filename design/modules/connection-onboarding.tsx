@@ -9,14 +9,14 @@ import { onboardingFrames, methods, maskedAddress } from "../fixtures/onboarding
 
 export function ConnectionOperations() {
   return (
-    <div class="flex flex-col gap-[7px]">
+    <div className="flex flex-col gap-[7px]">
       <OnboardingChoiceField
         label={connectionCopy.operationLabel}
         options={connectionCopy.operationOptions}
         value={connectionCopy.operationValue}
       />
-      <div class="flex items-center gap-2">
-        <p class="text-meta text-text-secondary">{connectionCopy.operationSummary}</p>
+      <div className="flex items-center gap-2">
+        <p className="text-meta text-text-secondary">{connectionCopy.operationSummary}</p>
         <Button variant="ghost">{connectionCopy.viewOperations}</Button>
       </div>
     </div>
@@ -27,11 +27,11 @@ export function ConnectionOnboarding({ step }: { step: OnboardingStep }) {
   switch (step.body) {
     case "local":
       return (
-        <p class="text-body leading-6">{connectionCopy.localInstall}</p>
+        <p className="text-body leading-6">{connectionCopy.localInstall}</p>
       );
     case "method":
       return (
-        <div class="flex flex-col gap-[38px]">
+        <div className="flex flex-col gap-[38px]">
           <SingleChoice
             label={connectionCopy.method}
             value="relay"
@@ -39,7 +39,7 @@ export function ConnectionOnboarding({ step }: { step: OnboardingStep }) {
             form="setup-row"
           />
           {!nested && (
-            <div class="grid grid-cols-[224px_186px_1fr] gap-4">
+            <div className="grid grid-cols-[224px_186px_1fr] gap-4">
               {connectionCopy.extraMethods.map(
                 (label, i) => (
                   <SingleChoice
@@ -58,10 +58,10 @@ export function ConnectionOnboarding({ step }: { step: OnboardingStep }) {
     case "relay":
     case "login":
       return (
-        <div class="flex flex-col gap-6">
-          <div class="flex flex-col gap-6">
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-6">
             {connectionCopy.relaySteps.map((label, i) => (
-              <div class="flex items-center gap-4">
+              <div className="flex items-center gap-4">
                 <Tile
                   icon={
                     i === 0
@@ -80,11 +80,11 @@ export function ConnectionOnboarding({ step }: { step: OnboardingStep }) {
                         : "neutral"
                   }
                 />
-                <div class="flex flex-col gap-[10px]">
-                  <h3 class="text-body leading-5 font-[650]">{label}</h3>
+                <div className="flex flex-col gap-[10px]">
+                  <h3 className="text-body leading-5 font-[650]">{label}</h3>
                   {((step.body === "login" && i < 2) ||
                     (step.body === "relay" && i === 1)) && (
-                    <p class="text-meta leading-[14px] text-text-secondary">
+                    <p className="text-meta leading-[14px] text-text-secondary">
                       {i === 0
                         ? "请在浏览器中完成授权"
                         : step.body === "login"
@@ -103,30 +103,30 @@ export function ConnectionOnboarding({ step }: { step: OnboardingStep }) {
       );
     case "join":
       return (
-        <div class="flex flex-col gap-6">
+        <div className="flex flex-col gap-6">
           <OnboardingField label={connectionCopy.sharedLink} value="" />
-          <div class="flex flex-col gap-[6px]">
+          <div className="flex flex-col gap-[6px]">
             <OnboardingField label={connectionCopy.machineLabel} value={connectionCopy.machineName} />
-            <p class="text-meta leading-4 text-text-secondary">{connectionCopy.visibility}</p>
+            <p className="text-meta leading-4 text-text-secondary">{connectionCopy.visibility}</p>
           </div>
         </div>
       );
     case "own":
       return (
-        <div class="flex flex-col">
+        <div className="flex flex-col">
           <OnboardingChoiceField
             label={connectionCopy.https}
             options={connectionCopy.providers}
             value={connectionCopy.provider}
-            class="mb-[14px]"
+            className="mb-[14px]"
           />
           <OnboardingChoiceField
             label={connectionCopy.domainMode}
             options={connectionCopy.domainModes}
             value={connectionCopy.fixedDomain}
-            class="mb-[22px]"
+            className="mb-[22px]"
           />
-          <div class="grid grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-2 gap-4 mb-4">
             <OnboardingField label={connectionCopy.domainLabel} value={connectionCopy.domain} />
             <OnboardingField label={connectionCopy.connectionLabel} value={connectionCopy.connectionName} />
           </div>
@@ -136,19 +136,19 @@ export function ConnectionOnboarding({ step }: { step: OnboardingStep }) {
             action={connectionCopy.credentialsAction}
           />
           <OnboardingChoiceField
-            class="mt-4"
+            className="mt-4"
             label={connectionCopy.identity}
             options={connectionCopy.authOptions}
             value={connectionCopy.auth}
           />
-          <div class="mt-[26px]">
+          <div className="mt-[26px]">
             <ConnectionOperations />
           </div>
         </div>
       );
     case "secure":
       return (
-        <div class="flex flex-col gap-6">
+        <div className="flex flex-col gap-6">
           {connectionCopy.credentials.map((field) => (
             <OnboardingField {...field} />
           ))}
@@ -159,17 +159,17 @@ export function ConnectionOnboarding({ step }: { step: OnboardingStep }) {
       );
     case "ready":
       return (
-        <div class="flex flex-col gap-6">
-          <div class="flex items-center gap-4">
+        <div className="flex flex-col gap-6">
+          <div className="flex items-center gap-4">
             <Tile icon="check" tone="success" />
-            <h3 class="text-title leading-6 font-[650]">{connectionCopy.ready}</h3>
+            <h3 className="text-title leading-6 font-[650]">{connectionCopy.ready}</h3>
           </div>
-          <div class="flex flex-col rounded-card bg-surface-subtle p-5">
-            <h3 class="text-body leading-4 font-[650]">{connectionCopy.relay}</h3>
-            <p class="mt-[10px] flex items-center gap-2 text-meta leading-4 text-text-secondary">
-              <span class="size-[6px] rounded-full bg-success" />{connectionCopy.online}</p>
-            <p class="mt-[18px] text-small leading-4 text-text-secondary">{connectionCopy.relayLink}</p>
-            <div class="mt-2">
+          <div className="flex flex-col rounded-card bg-surface-subtle p-5">
+            <h3 className="text-body leading-4 font-[650]">{connectionCopy.relay}</h3>
+            <p className="mt-[10px] flex items-center gap-2 text-meta leading-4 text-text-secondary">
+              <span className="size-[6px] rounded-full bg-success" />{connectionCopy.online}</p>
+            <p className="mt-[18px] text-small leading-4 text-text-secondary">{connectionCopy.relayLink}</p>
+            <div className="mt-2">
               <CopyField value={maskedAddress} masked />
             </div>
           </div>
@@ -182,10 +182,10 @@ export default () => [
   ...onboardingFrames.filter(step => !step.name.startsWith("source-") && step.body !== "welcome"
     && step.name !== "stacked-ready").map(step => (
     <Frame name={`connection-onboarding-${step.name === "stacked-method" ? "nested-method" : step.body}`} width={632}>
-      <div class="w-full bg-surface-raised"><ConnectionOnboarding step={step} /></div>
+      <div className="w-full bg-surface-raised"><ConnectionOnboarding step={step} /></div>
     </Frame>
   )),
   <Frame name="connection-operations" width={632}>
-    <div class="w-full bg-surface-raised"><ConnectionOperations /></div>
+    <div className="w-full bg-surface-raised"><ConnectionOperations /></div>
   </Frame>,
 ];

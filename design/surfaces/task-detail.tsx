@@ -13,6 +13,6 @@ const existing = () => relayForms.map(({ name, state }) => (
 export default () => [
   ...existing(),
   <Frame name="task-detail-empty-body" width={512} locale="zh-CN" fixture="task-detail-empty-body" capture={{ selector: '.timeline-entries > .task-empty-body', viewport: '1040x720' }}>
-    <div class="flex h-[256px] w-full bg-surface-raised"><EmptyTaskBody state="empty" detail /></div>
+    <div className="flex h-[256px] w-full bg-surface-raised"><EmptyTaskBody state="empty" detail /></div>
   </Frame>,
 ];

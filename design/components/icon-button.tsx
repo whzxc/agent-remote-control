@@ -27,14 +27,14 @@ export function IconButton({
       data-adg-id={anchor}
       aria-label={label}
       disabled={disabled || busy}
-      class={`flex shrink-0 items-center justify-center rounded-control text-text
+      className={`flex shrink-0 items-center justify-center rounded-control text-text
         ${compact ? "size-(--control-height-compact)" : "size-(--control-height)"} ${active ? "bg-surface-sunken" : ""}`}
     >
-      <span class={agent ? "grid size-5 place-items-center rounded-full bg-role-agent text-canvas" : "flex"}>
+      <span className={agent ? "grid size-5 place-items-center rounded-full bg-role-agent text-canvas" : "flex"}>
         <Icon
           name={busy ? "loader-circle" : icon}
           size={size}
-          class={size === undefined ? "size-(--control-icon-size)" : ""}
+          className={size === undefined ? "size-(--control-icon-size)" : ""}
         />
       </span>
     </button>

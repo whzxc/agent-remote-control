@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Frame, Icon } from "adg";
 import { forms } from "../fixtures/tiles";
 
@@ -13,7 +14,7 @@ export function Tile({
   icon: string;
   form?: "card" | "phase";
   tone?: TileTone;
-  overlay?: unknown;
+  overlay?: ReactNode;
   size?: 24;
 }) {
   const paint = {
@@ -29,12 +30,12 @@ export function Tile({
   };
   return (
     <span
-      class={`grid shrink-0 place-items-center ${size === 24 ? "size-6 rounded-[8px]" : form === "phase" ? "size-8 rounded-tile" : "size-10 rounded-field"} ${paint[tone]}`}
+      className={`grid shrink-0 place-items-center ${size === 24 ? "size-6 rounded-[8px]" : form === "phase" ? "size-8 rounded-tile" : "size-10 rounded-field"} ${paint[tone]}`}
     >
       <span
-        class={`col-start-1 row-start-1 size-full rounded-[inherit] bg-current ${form === "phase" ? "opacity-17" : "opacity-16"}`}
+        className={`col-start-1 row-start-1 size-full rounded-[inherit] bg-current ${form === "phase" ? "opacity-17" : "opacity-16"}`}
       />
-      <Icon name={icon} size={form === "phase" ? 16 : 18} class="col-start-1 row-start-1" />
+      <Icon name={icon} size={form === "phase" ? 16 : 18} className="col-start-1 row-start-1" />
       {overlay}
     </span>
   );

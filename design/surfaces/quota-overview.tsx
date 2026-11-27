@@ -9,28 +9,28 @@ import { antigravityQuotaOverview } from "../fixtures/quota";
 
 function QuotaOverview({ empty = false }: { empty?: boolean }) {
   return (
-    <PanelShell class="px-6 pt-[13px] pb-6">
+    <PanelShell className="px-6 pt-[13px] pb-6">
       <PanelHeader
         title="订阅额度"
         actions={!empty && <IconButton icon="refresh-cw" label="刷新" />}
       />
       {empty ? (
-        <div class="mt-[33px] flex flex-col items-center">
+        <div className="mt-[33px] flex flex-col items-center">
           <Tile icon="gauge" tone="neutral" />
-          <p class="mt-[14px] text-small leading-4 text-text-tertiary">
+          <p className="mt-[14px] text-small leading-4 text-text-tertiary">
             暂无已启用的订阅来源
           </p>
-          <div class="mt-[18px]">
-            <Button class="px-[21px]">设置</Button>
+          <div className="mt-[18px]">
+            <Button className="px-[21px]">设置</Button>
           </div>
         </div>
       ) : (
-        <div class="mt-[25px]">
+        <div className="mt-[25px]">
           <QuotaCards windows={antigravityQuotaOverview.windows} heading={
-            <header class="flex items-center gap-2.5 border-b border-border py-3">
+            <header className="flex items-center gap-2.5 border-b border-border py-3">
               <BrandMark brand="antigravity" size={26} />
-              <strong class="text-body font-[650]">{antigravityQuotaOverview.name}</strong>
-              <span class="ml-auto inline-flex items-center gap-1.5 text-meta text-text-secondary">
+              <strong className="text-body font-[650]">{antigravityQuotaOverview.name}</strong>
+              <span className="ml-auto inline-flex items-center gap-1.5 text-meta text-text-secondary">
                 <Icon name="refresh-cw" size={13} />{antigravityQuotaOverview.observed}
               </span>
             </header>

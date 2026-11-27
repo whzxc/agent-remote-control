@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Frame, Icon } from "adg";
 import { forms } from "../fixtures/tags";
 
@@ -7,27 +8,27 @@ export function Tag({
   icon,
   tone,
 }: {
-  children?: unknown;
+  children?: ReactNode;
   form?: "spec" | "meta" | "fact" | "danger" | "ownership" | "resource" | "status" | "claim" | "compact-status" | "workflow-status";
   tone?: "success" | "warning" | "danger" | "command";
   icon?: string;
 }) {
   if (form === "compact-status" || form === "workflow-status") {
     const ink = tone === 'command' ? 'text-phase-command bg-phase-command/10' : tone === 'warning' ? 'text-warning bg-warning/10' : tone === 'success' ? 'text-success bg-success/10' : tone === 'danger' ? 'text-danger bg-danger/10' : 'text-text-secondary bg-surface-sunken';
-    return <span class={`inline-flex items-center gap-[5px] ${form === 'compact-status' ? 'px-[7px] rounded-pill text-caption leading-[18px]' : 'px-2 py-1 rounded-field text-meta leading-4 font-medium'} ${ink}`}>
+    return <span className={`inline-flex items-center gap-[5px] ${form === 'compact-status' ? 'px-[7px] rounded-pill text-caption leading-[18px]' : 'px-2 py-1 rounded-field text-meta leading-4 font-medium'} ${ink}`}>
       {icon && <Icon name={icon} size={14}/>} {children}
     </span>;
   }
-  if (form === "claim") return <span class="rounded-(--radius-pill) bg-surface-sunken px-3 py-[6px] text-body leading-[1.4] text-text-secondary">{children}</span>;
-  if (form === "resource") return <span class="max-w-full overflow-hidden whitespace-nowrap text-ellipsis rounded-[6px]
+  if (form === "claim") return <span className="rounded-(--radius-pill) bg-surface-sunken px-3 py-[6px] text-body leading-[1.4] text-text-secondary">{children}</span>;
+  if (form === "resource") return <span className="max-w-full overflow-hidden whitespace-nowrap text-ellipsis rounded-[6px]
     border border-border px-[6px] text-[11px] leading-[18px] text-text-secondary">{children}</span>;
-  if (form === "status") return <span class={`inline-flex items-center gap-1 whitespace-nowrap rounded-(--radius-pill)
+  if (form === "status") return <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-(--radius-pill)
     px-2 py-1 text-meta ${tone === "success" ? "text-success bg-success-soft" : tone === "warning" ? "text-warning bg-warning-soft" : "text-text-secondary bg-surface-subtle"}`}>
     {icon && <Icon name={icon} size={tone === "success" ? 16 : 6} />}{children}</span>;
   const small = form === "meta" || form === "spec" || form === "danger";
   return (
     <span
-      class={
+      className={
         "inline-flex items-center gap-2 rounded-field whitespace-nowrap " +
         String(
           small
@@ -50,11 +51,11 @@ export function Tag({
     </span>
   );
 }
-export function Disclosure({ expanded = false, children }: { expanded?: boolean; children?: unknown }) {
+export function Disclosure({ expanded = false, children }: { expanded?: boolean; children?: ReactNode }) {
   return (
-    <span class="inline-flex items-center gap-[3px] h-6 px-[10px] rounded-field bg-surface text-text text-meta font-semibold">
+    <span className="inline-flex items-center gap-[3px] h-6 px-[10px] rounded-field bg-surface text-text text-meta font-semibold">
       {children}
-      <Icon name={expanded ? "chevron-up" : "chevron-down"} size={12} class="text-text-secondary" />
+      <Icon name={expanded ? "chevron-up" : "chevron-down"} size={12} className="text-text-secondary" />
     </span>
   );
 }

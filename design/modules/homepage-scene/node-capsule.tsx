@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { type TaskStepKind, TaskActivityIcon } from './task-activity';
 import { type AgentIconReading } from './agent-icon';
 import { Icon } from 'adg';
@@ -57,8 +58,8 @@ function CapsuleRing({ width, readings = [], used = false }: {
   const ranges = ({ 1: [[0, 360]], 2: [[-8, -172], [8, 172]], 3: [[8, 112], [128, 232], [248, 352]] } as
     Record<number, number[][]>)[readings.length];
   const d = (s: { total: number }, angle: number) => s.total * angle / 360;
-  return <svg data-free class="pointer-events-none absolute inset-0" width={width} height={height}
-    viewBox={`0 0 ${width} ${height}`} fill="none" stroke-width="3" stroke-linecap="round">
+  return <svg data-free className="pointer-events-none absolute inset-0" width={width} height={height}
+    viewBox={`0 0 ${width} ${height}`} fill="none" strokeWidth="3" strokeLinecap="round">
     {!ranges && <path d={ring.path(0, ring.total)} stroke="var(--border-strong)" />}
     {ranges?.map(([start, end], i) => {
       const { value, color, elapsed } = readings[i];
@@ -70,9 +71,9 @@ function CapsuleRing({ width, readings = [], used = false }: {
       return <g>
         <path d={ring.path(d(ring, start), d(ring, end))} stroke="var(--border-strong)" />
         <path d={reverse ? ring.path(d(ring, end), d(ring, start)) : ring.path(d(ring, start), d(ring, end))}
-          pathLength="100" stroke={color} stroke-dasharray={`${value} 100`} />
+          pathLength="100" stroke={color} strokeDasharray={`${value} 100`} />
         <path d={`M${tx + nx * 2} ${ty + ny * 2}L${tx - nx * 2} ${ty - ny * 2}`}
-          stroke="var(--text-secondary)" stroke-width="1.5" />
+          stroke="var(--text-secondary)" strokeWidth="1.5" />
       </g>;
     })}
   </svg>;
@@ -86,20 +87,20 @@ const stepTone: Record<TaskStepKind | 'running', string> = {
 function CapsuleItem({ item }: { item: Item }) {
   const base = 'flex shrink-0 items-center justify-center rounded-full';
   const size = { width: disc, height: disc };
-  if (item.kind === 'attention') return <span style={size} class={`${base} bg-warning text-canvas`}>
+  if (item.kind === 'attention') return <span style={size} className={`${base} bg-warning text-canvas`}>
     <Icon name="shield-alert" size={12} /></span>;
   if (item.kind === 'overflow') return <span style={size}
-    class={`${base} bg-surface-sunken text-text-secondary`}><Icon name="ellipsis" size={13} /></span>;
+    className={`${base} bg-surface-sunken text-text-secondary`}><Icon name="ellipsis" size={13} /></span>;
   if (item.kind === 'failed' || item.kind === 'interrupted') return <span style={size}
-    class={`${base} bg-surface-subtle ${item.kind === 'failed' ? 'text-danger' : 'text-warning'}`}>
+    className={`${base} bg-surface-subtle ${item.kind === 'failed' ? 'text-danger' : 'text-warning'}`}>
     <Icon name={item.kind === 'failed' ? 'circle-x' : 'circle-pause'} size={12} /></span>;
-  return <span style={size} class={`${base} bg-surface-subtle ${stepTone[item.step]}`}>
+  return <span style={size} className={`${base} bg-surface-subtle ${stepTone[item.step]}`}>
     {item.step === 'running' ? <Icon name="loader" size={12} /> : <TaskActivityIcon kind={item.step} size={12} />}
   </span>;
 }
 
 export function NodeCapsule({ state, label, graphic, mark, readings, used, neutralRing = false, compact = false, wing = 'right', expanded }: {
-  state?: NodeTaskState; label: string; graphic: unknown; mark?: unknown; readings?: readonly AgentIconReading[];
+  state?: NodeTaskState; label: string; graphic: ReactNode; mark?: ReactNode; readings?: readonly AgentIconReading[];
   used?: boolean; neutralRing?: boolean; compact?: boolean; wing?: 'left' | 'right'; expanded?: boolean;
 }) {
   const model = nodeCapsuleLayout(state, compact);
@@ -111,23 +112,23 @@ export function NodeCapsule({ state, label, graphic, mark, readings, used, neutr
   const width = model.width;
   const mirror = wing === 'left';
   const buttonLeft = 40;
-  return <span data-free class="relative inline-flex size-12 shrink-0" data-capsule-logo-anchor
+  return <span data-free className="relative inline-flex size-12 shrink-0" data-capsule-logo-anchor
     data-spring-stiffness="210" data-spring-damping="26">
-    <span class={`absolute top-0 h-12 motion-reduce:transition-none ${mirror ? 'right-0' : 'left-0'}`}
+    <span className={`absolute top-0 h-12 motion-reduce:transition-none ${mirror ? 'right-0' : 'left-0'}`}
       style={{ width, transform: mirror ? 'scaleX(-1)' : undefined }}>
       {model.active ? <>
-        <span class="absolute inset-[1.5px] rounded-full bg-surface shadow-sm" />
+        <span className="absolute inset-[1.5px] rounded-full bg-surface shadow-sm" />
         <CapsuleRing width={width} readings={readings} used={used} />
         <button aria-label={`Open ${label} panel`} aria-expanded={expanded}
-          class="absolute left-0 top-0 z-10 flex size-12 items-center justify-center rounded-full"
-          style={{ transform: mirror ? 'scaleX(-1)' : undefined }}><span class="flex scale-[.92]">{mark ?? graphic}</span></button>
+          className="absolute left-0 top-0 z-10 flex size-12 items-center justify-center rounded-full"
+          style={{ transform: mirror ? 'scaleX(-1)' : undefined }}><span className="flex scale-[.92]">{mark ?? graphic}</span></button>
         <button aria-label={`${label}: ${summary}. Open Tasks`} title={summary}
-          class="absolute top-0 z-10 h-12 rounded-r-full" style={{ left: buttonLeft, width: width - buttonLeft }}>
-          {model.items.map((item, i) => <span class="absolute flex size-5 items-center justify-center"
+          className="absolute top-0 z-10 h-12 rounded-r-full" style={{ left: buttonLeft, width: width - buttonLeft }}>
+          {model.items.map((item, i) => <span className="absolute flex size-5 items-center justify-center"
             style={{ left: 24 + (i + 1) * step - disc / 2 - buttonLeft, top: (height - disc) / 2, width: disc,
               transform: mirror ? 'scaleX(-1)' : undefined }}><CapsuleItem item={item} /></span>)}
         </button>
-      </> : <span class="absolute left-0 top-0 flex size-12" style={{ transform: mirror ? 'scaleX(-1)' : undefined }}>
+      </> : <span className="absolute left-0 top-0 flex size-12" style={{ transform: mirror ? 'scaleX(-1)' : undefined }}>
         {neutralRing && <CapsuleRing width={48} />}
         {graphic}</span>}
 

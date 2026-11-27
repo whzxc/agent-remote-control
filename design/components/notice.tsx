@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Frame } from "adg";
 import { Button } from "./button";
 import { noticeExample } from "../fixtures/feedback";
@@ -11,17 +12,17 @@ export function Notice({
   layout = "inline",
   compact = false,
   elevated = false,
-  class: extra = "",
+  className: extra = "",
 }: {
-  children?: unknown;
-  title?: unknown;
+  children?: ReactNode;
+  title?: ReactNode;
   tone?: "danger" | "warning" | "success";
-  action?: unknown;
+  action?: ReactNode;
   actionBelow?: boolean;
   layout?: "inline" | "stacked";
   compact?: boolean;
   elevated?: boolean;
-  class?: string;
+  className?: string;
 }) {
   const paint = {
     danger:
@@ -37,30 +38,30 @@ export function Notice({
   if (layout === "stacked") {
     const background = { danger: "bg-danger/10", warning: "bg-warning/10", success: "bg-success/10" };
     const ink = { danger: "text-danger", warning: "text-warning", success: "text-success" };
-    return <div class={`flex flex-col gap-1 rounded-[14px] ${background[tone]} p-4 ${extra}`}>
-      {title && <strong class={`text-small leading-4 ${ink[tone]}`}>{title}</strong>}
+    return <div className={`flex flex-col gap-1 rounded-[14px] ${background[tone]} p-4 ${extra}`}>
+      {title && <strong className={`text-small leading-4 ${ink[tone]}`}>{title}</strong>}
       {children}
-      {action && <div class="mt-2">{action}</div>}
+      {action && <div className="mt-2">{action}</div>}
     </div>;
   }
   if (actionBelow) return (
-    <div class={`grid w-full gap-[14px] rounded-inset p-4 ${paint[tone]}`}>
-      <div class="grid gap-0.5 text-meta leading-[18px]">
-        {title && <strong class="text-small font-semibold">{title}</strong>}
-        <div class="text-text">{children}</div>
+    <div className={`grid w-full gap-[14px] rounded-inset p-4 ${paint[tone]}`}>
+      <div className="grid gap-0.5 text-meta leading-[18px]">
+        {title && <strong className="text-small font-semibold">{title}</strong>}
+        <div className="text-text">{children}</div>
       </div>
-      <div class="flex items-center gap-2">{action}</div>
+      <div className="flex items-center gap-2">{action}</div>
     </div>
   );
   return (
     <div
-      class={`flex w-full items-start gap-3 rounded-[14px] px-4 pt-4 pb-[13px] ${paint[tone]} ${compact ? "text-meta leading-4 font-normal" : ""} ${elevated ? "shadow-md" : ""}`}
+      className={`flex w-full items-start gap-3 rounded-[14px] px-4 pt-4 pb-[13px] ${paint[tone]} ${compact ? "text-meta leading-4 font-normal" : ""} ${elevated ? "shadow-md" : ""}`}
     >
-      <div class="flex min-w-0 flex-1 flex-col gap-1 text-meta leading-4">
-        {title && <strong class="text-small leading-4">{title}</strong>}
+      <div className="flex min-w-0 flex-1 flex-col gap-1 text-meta leading-4">
+        {title && <strong className="text-small leading-4">{title}</strong>}
         {children}
       </div>
-      {action && <div class="-mt-1">{action}</div>}
+      {action && <div className="-mt-1">{action}</div>}
     </div>
   );
 }
@@ -70,8 +71,8 @@ export default () => [
       title={noticeExample.title}
       action={<Button icon="copy">{noticeExample.copy}</Button>}
     >
-      <p class="text-text">{noticeExample.detail}</p>
-      <div class="mt-[2px] font-mono text-caption leading-4 text-text-secondary">
+      <p className="text-text">{noticeExample.detail}</p>
+      <div className="mt-[2px] font-mono text-caption leading-4 text-text-secondary">
         {noticeExample.diagnostic.map((line) => (
           <div>{line}</div>
         ))}

@@ -1,4 +1,5 @@
-export function SetupAccountDialog({children}:{children:unknown}){return <div class="text-small leading-[18px]">{children}</div>}
+import type { ReactNode } from "react";
+export function SetupAccountDialog({children}:{children:ReactNode}){return <div className="text-small leading-[18px]">{children}</div>}
 import { Frame } from 'adg';
 import { Dialog } from '../components/panel';
 import { Button } from '../components/button';
@@ -14,7 +15,7 @@ export function AgentAccountAdd({
   const title = flow === 'claude-add' ? signIn.add : signIn.reauth;
   const waiting = flow === 'waiting', expired = flow === 'expired';
   const footer = (
-    <div class="flex justify-end gap-3">
+    <div className="flex justify-end gap-3">
       {waiting && <Button icon="copy">{signIn.copyLink}</Button>}
       <Button variant="primary">{waiting ? signIn.submit : expired ? signIn.retry : signIn.start}</Button>
     </div>
@@ -22,8 +23,8 @@ export function AgentAccountAdd({
   return (
     <Dialog title={title} footer={footer}>
       {waiting ? (
-        <div class="flex flex-col gap-4">
-          <p class="text-small font-medium" role="status">{signIn.waiting} · {signIn.browsers[1].label}</p>
+        <div className="flex flex-col gap-4">
+          <p className="text-small font-medium" role="status">{signIn.waiting} · {signIn.browsers[1].label}</p>
           <Field label={signIn.code}><Input placeholder={signIn.codePlaceholder} /></Field>
         </div>
       ) : expired ? (

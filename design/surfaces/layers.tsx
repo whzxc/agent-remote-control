@@ -19,10 +19,10 @@ function workspaceFrame(name: string, fixture: string) {
   const deploy = name === 'deploy-dialog';
   const scene = topologyScenes[settings ? 'workspace-cap' : 'workspace-fit'];
   return <Frame name={name} width={1280} height={800} fixture={fixture} capture={capture}>
-    <div data-adg-id="workspace-stage" class="relative w-[1280px] h-[800px]">
+    <div data-adg-id="workspace-stage" className="relative w-[1280px] h-[800px]">
       <div inert={deploy || undefined} aria-hidden={deploy ? 'true' : undefined}>
         <HomepageScene key="homepage" scene={scene} chrome={home} hosting active={home || deploy ? '' : settings ? 'settings' : 'relay-hosting'} />
-        {!home && <div class="pointer-events-none absolute inset-0 flex items-center justify-center py-[76px]">
+        {!home && <div className="pointer-events-none absolute inset-0 flex items-center justify-center py-[76px]">
           <Panel key="center" motionId="center" closeLabel="Back to home" size="xl" retainedHeight={settings ? 648 : 200}
             headerHeight={settings ? 50 : undefined} title={settings ? 'Settings' : 'Relay hosting'}
             actions={<IconButton key="expand" icon="maximize-2" label="Expand panel width"/>}>
@@ -30,12 +30,12 @@ function workspaceFrame(name: string, fixture: string) {
           </Panel>
         </div>}
       </div>
-      {deploy && <div class="absolute inset-0 flex items-center justify-center py-5">
-        <div data-adg-id="deployment-scrim" class="absolute inset-0 bg-layer-scrim" />
-        <div class="relative flex w-full justify-center">
+      {deploy && <div className="absolute inset-0 flex items-center justify-center py-5">
+        <div data-adg-id="deployment-scrim" className="absolute inset-0 bg-layer-scrim" />
+        <div className="relative flex w-full justify-center">
           <Dialog key="deploy" motionId="deployment" title="Deploy new relay"
-            footer={<div class="flex justify-end"><Button variant="primary">Deploy new relay</Button></div>}>
-            <p class="text-body text-text-secondary">No account? Sign up for free on the login page.</p>
+            footer={<div className="flex justify-end"><Button variant="primary">Deploy new relay</Button></div>}>
+            <p className="text-body text-text-secondary">No account? Sign up for free on the login page.</p>
           </Dialog>
         </div>
       </div>}
@@ -56,13 +56,13 @@ export default () => [
     const scene=topologyScenes[slot.scene], node=slot.name==='node-panel';
     return <Frame name={slot.name} width={scene.width} height={scene.height} fixture={slot.fixture}
       capture={{page:true,origin:'0 0',viewport:`${scene.width}x${scene.height}`}}>
-      <div class="relative" style={{width:scene.width,height:scene.height}}>
+      <div className="relative" style={{width:scene.width,height:scene.height}}>
         <HomepageScene scene={scene} chrome={node}/>
-        <div data-free class="absolute inset-0 flex items-center justify-center py-[76px]">
+        <div data-free className="absolute inset-0 flex items-center justify-center py-[76px]">
           <Panel size={node?'m':'xl'} viewportWidth={scene.width} retainedHeight={slot.height} height={node ? slot.height : undefined} headerHeight={node?46:undefined}
             title={node?<NodePanelHeading/>:'Relay hosting'}
             headerless={node} actions={node?undefined:<IconButton icon="maximize-2" label="Expand"/>}>
-            {node?<><NodePanelHeading/><div class="min-h-0 overflow-y-auto"><NodePanelContent/></div></>:<WorkspaceContent/>}
+            {node?<><NodePanelHeading/><div className="min-h-0 overflow-y-auto"><NodePanelContent/></div></>:<WorkspaceContent/>}
           </Panel>
         </div>
       </div>
@@ -70,12 +70,12 @@ export default () => [
   }),
   <Frame name="nested-dialog" width={1280} height={800} fixture="p3-stacked-method"
     capture={{page:true,origin:'0 0',viewport:'1280x800'}}>
-    <div class="relative w-[1280px] h-[800px] bg-canvas">
+    <div className="relative w-[1280px] h-[800px] bg-canvas">
       <div aria-hidden="true"><HomepageScene scene={topologyScenes['nested-dialog']} chrome={false} /></div>
-      <div aria-hidden="true" inert class="absolute top-[192px] left-[360px] w-[560px] h-[420px]">
+      <div aria-hidden="true" inert className="absolute top-[192px] left-[360px] w-[560px] h-[420px]">
         <SetupFlow step={onboardingFrames.find(s=>s.name==='source-connection')!}><SourceOnboarding step={onboardingFrames.find(s=>s.name==='source-connection')!}/></SetupFlow>
       </div>
-      <div class="absolute inset-0 bg-layer-scrim flex items-center justify-center py-5">
+      <div className="absolute inset-0 bg-layer-scrim flex items-center justify-center py-5">
         <SetupFlow step={onboardingFrames.find(s=>s.name==='stacked-method')!}>
           <ConnectionOnboarding step={onboardingFrames.find(s=>s.name==='stacked-method')!}/>
         </SetupFlow>

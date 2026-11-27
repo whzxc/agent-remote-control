@@ -1,0 +1,120 @@
+@custom-variant dark (&:where(.dark, .dark *, [data-theme="dark"], [data-theme="dark"] *));
+
+/* Tailwind v4 kit theme bridge for design/tokens.css and Coss UI primitives. */
+@theme inline {
+  /* Surfaces */
+  --color-layer-scrim: var(--layer-scrim);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-knob: var(--knob);
+
+  /* Text */
+  --color-text: var(--text);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+
+  /* Action and accent */
+  --color-accent: var(--accent);
+  --color-accent-text: var(--accent-text);
+  --color-on-accent: var(--on-accent);
+  --color-action: var(--action);
+  --color-on-action: var(--on-action);
+
+  /* Status */
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  /* Roles and phases */
+  --color-role-source: var(--role-source);
+  --color-role-agent: var(--role-agent);
+  --color-phase-thinking: var(--phase-thinking);
+  --color-phase-tool: var(--phase-tool);
+  --color-phase-text: var(--phase-text);
+  --color-phase-command: var(--phase-command);
+  --color-phase-file: var(--phase-file);
+
+  /* Theme swatches */
+  --color-theme-swatch-default-left: var(--theme-swatch-default-left);
+  --color-theme-swatch-default-right: var(--theme-swatch-default-right);
+  --color-theme-swatch-blue-left: var(--theme-swatch-blue-left);
+  --color-theme-swatch-blue-right: var(--theme-swatch-blue-right);
+  --color-theme-swatch-purple-left: var(--theme-swatch-purple-left);
+  --color-theme-swatch-purple-right: var(--theme-swatch-purple-right);
+  --color-theme-swatch-orange-left: var(--theme-swatch-orange-left);
+  --color-theme-swatch-orange-right: var(--theme-swatch-orange-right);
+  --color-theme-swatch-green-left: var(--theme-swatch-green-left);
+  --color-theme-swatch-green-right: var(--theme-swatch-green-right);
+
+  /* Coss UI semantic color aliases */
+  --color-background: var(--surface);
+  --color-foreground: var(--text);
+  --color-card: var(--surface-raised);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--surface-raised);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--action);
+  --color-primary-foreground: var(--on-action);
+  --color-secondary: var(--surface-sunken);
+  --color-secondary-foreground: var(--text);
+  --color-muted: var(--surface-subtle);
+  --color-muted-foreground: var(--text-secondary);
+  --color-accent-foreground: var(--on-accent);
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: var(--on-accent);
+  --color-info: var(--accent);
+  --color-info-foreground: var(--on-accent);
+  --color-success-foreground: var(--on-accent);
+  --color-warning-foreground: var(--on-accent);
+  --color-input: var(--border-strong);
+  --color-ring: var(--accent);
+
+  /* Typography */
+  --font-sans: var(--font-ui);
+  --font-heading: var(--font-ui);
+  --font-ui: var(--font-ui);
+  --font-mono: var(--font-mono);
+  --font-lettermark: var(--font-lettermark);
+  --font-rounded: var(--font-rounded);
+  --text-display: var(--text-display);
+  --text-title: var(--text-title);
+  --text-body: var(--text-body);
+  --text-small: var(--text-small);
+  --text-meta: var(--text-meta);
+  --text-caption: var(--text-caption);
+  --text-code-display: var(--text-code-display);
+
+  /* Shape */
+  --radius-rail: var(--radius-rail);
+  --radius-progress: var(--radius-progress);
+  --radius-disclosure: var(--radius-disclosure);
+  --radius-tile: var(--radius-tile);
+  --radius-field: var(--radius-field);
+  --radius-switch: var(--radius-switch);
+  --radius-inset: var(--radius-inset);
+  --radius-control: var(--radius-control);
+  --radius-card: var(--radius-card);
+  --radius-panel: var(--radius-panel);
+  --radius-pill: var(--radius-pill);
+  --radius-circle: var(--radius-circle);
+  --radius: var(--radius-disclosure);
+  --radius-xs: var(--radius-progress);
+  --radius-sm: var(--radius-disclosure);
+  --radius-md: var(--radius-tile);
+  --radius-lg: var(--radius-field);
+  --radius-xl: var(--radius-card);
+  --radius-2xl: var(--radius-panel);
+
+  /* Elevation */
+  --shadow-hub-halo: var(--shadow-hub-halo);
+  --shadow-table-divider: var(--shadow-table-divider);
+  --shadow-focus: var(--shadow-focus);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+}

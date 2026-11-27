@@ -15,53 +15,53 @@ export function DeviceFingerprint({ locale, value, controller: isController = fa
   value: string; controller?: boolean;
 }) {
   const c = deviceCopy[locale];
-  return <div class="flex flex-col gap-2">
-    <span class="text-small font-semibold">{isController ? c.controllerFingerprint : c.fingerprint}</span>
-    <code class="break-all font-mono text-meta leading-5 text-text-secondary">{value.match(/.{1,16}/g)?.join(' ')}</code>
+  return <div className="flex flex-col gap-2">
+    <span className="text-small font-semibold">{isController ? c.controllerFingerprint : c.fingerprint}</span>
+    <code className="break-all font-mono text-meta leading-5 text-text-secondary">{value.match(/.{1,16}/g)?.join(' ')}</code>
   </div>;
 }
 export function DevicePairDialog({ locale, state }: Localized & { state: PairState }) {
   const c = deviceCopy[locale];
   const error = state in errors ? errors[state as keyof typeof errors] : undefined;
   const waiting = state === 'waiting', success = state === 'success';
-  return <Dialog title={c.add} footer={<div class="flex justify-end gap-2">
+  return <Dialog title={c.add} footer={<div className="flex justify-end gap-2">
     <Button variant="primary" busy={waiting}>{success ? c.done : waiting ? c.waiting : c.pair}</Button>
   </div>}>
-    <div class="flex flex-col gap-5">
+    <div className="flex flex-col gap-5">
       {success ? <Notice tone="success" title={c.paired}>
-        <span class="text-text">{c.online} · {c.lan} · {member.latency}</span>
+        <span className="text-text">{c.online} · {c.lan} · {member.latency}</span>
       </Notice> : <>
         <Field label={c.pairing} error={state === 'invalid' ? c.invalidHint : undefined}>
           <Input value={state === 'input' ? undefined : state === 'invalid' ? invalidPairingString : pairingString}
-            placeholder={c.paste} invalid={!!error} truncate class="font-mono text-small" />
+            placeholder={c.paste} invalid={!!error} truncate className="font-mono text-small" />
         </Field>
-        {waiting ? <div class="flex flex-col gap-4" role="status">
-          <p class="text-small leading-5">{c.waitingHint}</p>
+        {waiting ? <div className="flex flex-col gap-4" role="status">
+          <p className="text-small leading-5">{c.waitingHint}</p>
           <DeviceFingerprint locale={locale} value={controller.fingerprint} controller />
-          <p class="text-meta text-text-secondary">{c.deadline}</p>
-        </div> : state === 'invalid' ? <code class="font-mono text-caption text-danger">{errors.invalid.code}</code>
+          <p className="text-meta text-text-secondary">{c.deadline}</p>
+        </div> : state === 'invalid' ? <code className="font-mono text-caption text-danger">{errors.invalid.code}</code>
           : error ? <Notice title={c[error.title]}>
-          <p class="text-text">{c[error.detail]}</p><code class="font-mono text-caption">{error.code}</code>
-        </Notice> : <p class="text-small leading-5 text-text-secondary">{c.lanOnly}</p>}
+          <p className="text-text">{c[error.detail]}</p><code className="font-mono text-caption">{error.code}</code>
+        </Notice> : <p className="text-small leading-5 text-text-secondary">{c.lanOnly}</p>}
       </>}
     </div>
   </Dialog>;
 }
 export function DeviceAddressDialog({ locale }: Localized) {
   const c = deviceCopy[locale];
-  return <Dialog title={c.override} footer={<div class="flex justify-end gap-2"><Button>{c.clear}</Button><Button variant="primary">{c.save}</Button></div>}>
-    <form class="flex flex-col gap-5">
+  return <Dialog title={c.override} footer={<div className="flex justify-end gap-2"><Button>{c.clear}</Button><Button variant="primary">{c.save}</Button></div>}>
+    <form className="flex flex-col gap-5">
       <Field label={member.name}><Input value={member.override} /></Field>
-      <p class="text-small leading-5 text-text-secondary">{c.overrideHint}</p>
+      <p className="text-small leading-5 text-text-secondary">{c.overrideHint}</p>
     </form>
   </Dialog>;
 }
 export function DeviceRevokeDialog({ locale, memberSide }: Localized & { memberSide: boolean }) {
   const c = deviceCopy[locale];
-  return <Dialog title={memberSide ? c.revokeMemberTitle : c.revokeTitle} footer={<div class="flex justify-end gap-2"><Button>{c.cancel}</Button><Button variant="danger">{c.revoke}</Button></div>}>
-    <div class="flex flex-col gap-3 text-small leading-5">
+  return <Dialog title={memberSide ? c.revokeMemberTitle : c.revokeTitle} footer={<div className="flex justify-end gap-2"><Button>{c.cancel}</Button><Button variant="danger">{c.revoke}</Button></div>}>
+    <div className="flex flex-col gap-3 text-small leading-5">
       <p>{memberSide ? c.revokeMemberEffect : c.revokeEffect}</p>
-      <p class="text-text-secondary">{c.localWork}</p>
+      <p className="text-text-secondary">{c.localWork}</p>
     </div>
   </Dialog>;
 }

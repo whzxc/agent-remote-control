@@ -4,31 +4,31 @@ import { ChildTaskList, TaskGrid } from '../modules/tasks';
 import { dayGridExample, examples, taskListClock } from '../fixtures/task-list';
 
 function HomepageTaskList() {
-  return <div class="relative h-[720px] w-full overflow-hidden bg-canvas px-6 pt-6 text-text">
+  return <div className="relative h-[720px] w-full overflow-hidden bg-canvas px-6 pt-6 text-text">
     <HomepageBar mode="tasks" language="zh-CN" {...taskListClock} />
-    <main class="mt-5">
-      <h2 class="mb-2 text-small font-semibold text-text-secondary">今天</h2>
+    <main className="mt-5">
+      <h2 className="mb-2 text-small font-semibold text-text-secondary">今天</h2>
       <TaskGrid items={examples} day={{ columns: 3, form: 'detail' }} />
     </main>
-    <div data-free class="absolute bottom-4 left-6"><NavCapsule active="" /></div>
+    <div data-free className="absolute bottom-4 left-6"><NavCapsule active="" /></div>
   </div>;
 }
 
 function HomepageTaskDayGroups({ expanded = false }: { expanded?: boolean }) {
   const columns = 4;
-  return <div class="relative w-full bg-canvas px-6 pt-6 pb-20 text-text">
+  return <div className="relative w-full bg-canvas px-6 pt-6 pb-20 text-text">
     <HomepageBar mode="tasks" language="zh-CN" {...taskListClock} />
-    <main class="mt-4 flex flex-col gap-6">
+    <main className="mt-4 flex flex-col gap-6">
       <section aria-label="今天">
-        <h2 class="mb-2 text-small font-semibold text-text-secondary">今天</h2>
+        <h2 className="mb-2 text-small font-semibold text-text-secondary">今天</h2>
         <TaskGrid items={dayGridExample.today} day={{ columns, form: 'detail' }} />
       </section>
       <section aria-label="昨天">
-        <h2 class="mb-2 text-small font-semibold text-text-secondary">昨天</h2>
+        <h2 className="mb-2 text-small font-semibold text-text-secondary">昨天</h2>
         <TaskGrid items={dayGridExample.yesterday} day={{ columns, form: 'summary', expanded }} />
       </section>
     </main>
-    <div data-free class="absolute bottom-6 left-6"><NavCapsule active="" /></div>
+    <div data-free className="absolute bottom-6 left-6"><NavCapsule active="" /></div>
   </div>;
 }
 

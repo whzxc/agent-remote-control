@@ -24,14 +24,14 @@ export type TopologySceneData = {
 };
 
 export function TopologyScene({ scene }: { scene: TopologySceneData }) {
-  return <div data-free class="absolute inset-0 overflow-hidden">
-    <svg class="absolute inset-0" width={scene.width} height={scene.height} fill="none">
+  return <div data-free className="absolute inset-0 overflow-hidden">
+    <svg className="absolute inset-0" width={scene.width} height={scene.height} fill="none">
       <g transform={`translate(${scene.origin.x} ${scene.origin.y})`}>
         {scene.paths.map(path => <path d={path.d} fill={path.fill} stroke={path.stroke}
-          stroke-width={path.strokeWidth} opacity={path.opacity} stroke-linecap="round" />)}
+          strokeWidth={path.strokeWidth} opacity={path.opacity} strokeLinecap="round" />)}
       </g>
     </svg>
-    <div class="absolute" style={{ left: scene.hub.x, top: scene.hub.y }}>
+    <div className="absolute" style={{ left: scene.hub.x, top: scene.hub.y }}>
       <TopologyMark size={scene.hub.width} sourceAction={false} agentAction={false} />
     </div>
     {scene.nodes.map(node => {
@@ -43,23 +43,23 @@ export function TopologyScene({ scene }: { scene: TopologySceneData }) {
         steps: node.items.filter(item => item.kind === 'step').map(item => item.phase as 'thinking'),
         ...(node.items.some(item => item.kind === 'failed') ? { exception: 'failed' as const } : {}),
       };
-      const deviceMark = <span class="relative flex size-7"><BrandMark brand="codex" size={28}/><span class="absolute -bottom-1 -right-1 rounded-full bg-surface p-px"><Icon name="laptop" size={10}/></span></span>;
+      const deviceMark = <span className="relative flex size-7"><BrandMark brand="codex" size={28}/><span className="absolute -bottom-1 -right-1 rounded-full bg-surface p-px"><Icon name="laptop" size={10}/></span></span>;
       const graphic = node.device ? deviceMark : node.wing === 'left'
         ? <BrandMark brand={brand} size={39.81} />
         : <AgentIcon brand={brand} size={44} readings={readings} />;
-      return <div class="absolute size-11" style={{ left: node.x, top: node.y }}>
-        {node.group ? <div style={{ transform: `scale(${node.scale})`, 'transform-origin': '22px 22px' }}>
+      return <div className="absolute size-11" style={{ left: node.x, top: node.y }}>
+        {node.group ? <div style={{ transform: `scale(${node.scale})`, transformOrigin: '22px 22px' }}>
           <TopologyGroup key={node.id} label={node.label} members={Array.from({ length: node.group.count }, () => ({ brand: 'codex' as const }))}
             layout={node.group.layout as 'vertical'} />
         </div> : <>
-          <div class="absolute" style={{ left: -2, top: -2, transform: `scale(${node.scale})`, 'transform-origin': '24px 24px' }}>
+          <div className="absolute" style={{ left: -2, top: -2, transform: `scale(${node.scale})`, transformOrigin: '24px 24px' }}>
             <TopologyNode key={node.id} bare hideLabel taskState={state} label={node.label} graphic={graphic}
               capsuleMark={node.device ? deviceMark : <BrandMark brand={brand} size={28} />}
               capsuleNeutralRing={node.device} readings={readings} capsuleWing={node.wing as 'left' | 'right'} capsuleCompact={scene.width < scene.height} />
           </div>
-          {node.labelBox && <span class={`absolute text-text text-meta leading-[14px] text-center ${node.device ? "whitespace-pre-line" : "truncate"}`}
+          {node.labelBox && <span className={`absolute text-text text-meta leading-[14px] text-center ${node.device ? "whitespace-pre-line" : "truncate"}`}
             style={{ left: node.labelBox.x, top: node.labelBox.y, width: node.labelBox.width,
-              'font-size': 12 * node.scale * 44 / 42, 'line-height': `${14 * node.scale * 44 / 42}px` }}>{node.device ? <>{node.label.split("\n")[0]}<small class="block text-[83.3333%] leading-[14px] text-text-secondary">{node.label.split("\n")[1]}</small></> : node.label}</span>}
+              fontSize: 12 * node.scale * 44 / 42, lineHeight: `${14 * node.scale * 44 / 42}px` }}>{node.device ? <>{node.label.split("\n")[0]}<small className="block text-[83.3333%] leading-[14px] text-text-secondary">{node.label.split("\n")[1]}</small></> : node.label}</span>}
         </>}
       </div>;
     })}
@@ -67,11 +67,11 @@ export function TopologyScene({ scene }: { scene: TopologySceneData }) {
 }
 
 export function HomepageScene({ scene, chrome = true, hosting = false, active = "" }: { scene: TopologySceneData; chrome?: boolean; hosting?: boolean; active?: string }) {
-  return <div data-free class="relative bg-canvas text-text" style={{ width: scene.width, height: scene.height }}>
+  return <div data-free className="relative bg-canvas text-text" style={{ width: scene.width, height: scene.height }}>
     <TopologyScene scene={scene} />
     {chrome && <>
-      <div class="absolute top-6 inset-x-6"><HomepageBar mode="topology" compact={scene.width < 1000} time={scene.time} date={scene.date} title={scene.language === "zh-CN" ? "公示牌" : "Board"} language={scene.language} /></div>
+      <div className="absolute top-6 inset-x-6"><HomepageBar mode="topology" compact={scene.width < 1000} time={scene.time} date={scene.date} title={scene.language === "zh-CN" ? "公示牌" : "Board"} language={scene.language} /></div>
     </>}
-    <div class="absolute bottom-6 left-6"><NavCapsule hosting={hosting} active={active} /></div>
+    <div className="absolute bottom-6 left-6"><NavCapsule hosting={hosting} active={active} /></div>
   </div>;
 }

@@ -1,4 +1,5 @@
-export function ReleaseContent({ children, class: extra = '' }: { children: unknown; class?: string }) { return <div class={extra}>{children}</div>; }
+import type { ReactNode } from "react";
+export function ReleaseContent({ children, className: extra = '' }: { children: ReactNode; className?: string }) { return <div className={extra}>{children}</div>; }
 import { UpdateAboutContent } from '../components/update-about';
 import { Frame, Icon } from "adg";
 import { Button } from "../components/button";
@@ -24,13 +25,13 @@ function NoteGroup({ title, items }: {
   items: ReadonlyArray<{ text: string; version?: string }>;
 }) {
   return (
-    <section class="flex flex-col gap-2">
-      <h3 class="text-small leading-4 font-semibold">{title}</h3>
-      <ul class="flex list-disc flex-col gap-1.5 pl-5 text-body leading-5 text-text-secondary">
+    <section className="flex flex-col gap-2">
+      <h3 className="text-small leading-4 font-semibold">{title}</h3>
+      <ul className="flex list-disc flex-col gap-1.5 pl-5 text-body leading-5 text-text-secondary">
         {items.map(({ text, version }) => (
           <li>
             {text}
-            {version && <span class="ml-2 whitespace-nowrap text-meta text-text-tertiary">{version}</span>}
+            {version && <span className="ml-2 whitespace-nowrap text-meta text-text-tertiary">{version}</span>}
           </li>
         ))}
       </ul>
@@ -45,27 +46,27 @@ export function UpdateContent({ state }: { state: UpdateState }) {
   const installing = state === "installing";
   const status = ready ? copy.ready : downloading ? copy.downloading : "";
   return (
-    <ReleaseContent class="flex min-w-0 flex-col gap-4">
-      <div class="flex flex-col gap-2">
-        <div class="flex items-center justify-between gap-3 text-meta leading-4 text-text-secondary" role="status">
+    <ReleaseContent className="flex min-w-0 flex-col gap-4">
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-3 text-meta leading-4 text-text-secondary" role="status">
           <p>{[copy.fromVersion, status].filter(Boolean).join(" · ")}</p>
           {downloading && <span>{download.amount}</span>}
         </div>
         {downloading && (
           <div role="progressbar" aria-label={copy.downloading} aria-valuenow={download.percent}
-            class="h-1.5 overflow-hidden rounded-full bg-surface-sunken">
-            <div class="h-full rounded-full bg-accent" style={{ width: `${download.percent}%` }} />
+            className="h-1.5 overflow-hidden rounded-full bg-surface-sunken">
+            <div className="h-full rounded-full bg-accent" style={{ width: `${download.percent}%` }} />
           </div>
         )}
       </div>
       {failed && <Notice>{copy.downloadFailed}</Notice>}
-      <Card padded class="max-h-[280px] gap-4 overflow-y-auto">
+      <Card padded className="max-h-[280px] gap-4 overflow-y-auto">
         {preview.map(section => <NoteGroup {...section} />)}
       </Card>
-      <div class="flex flex-col gap-3">
-        {(ready || installing) && <p class="text-meta leading-4 text-text-secondary">{copy.restartEffect}</p>}
-        <div class="flex min-h-(--control-height) items-center justify-between gap-3">
-          <Button variant="ghost" disabled={installing} class={installing ? "opacity-45" : ""}>{copy.later}</Button>
+      <div className="flex flex-col gap-3">
+        {(ready || installing) && <p className="text-meta leading-4 text-text-secondary">{copy.restartEffect}</p>}
+        <div className="flex min-h-(--control-height) items-center justify-between gap-3">
+          <Button variant="ghost" disabled={installing} className={installing ? "opacity-45" : ""}>{copy.later}</Button>
           {failed && <Button variant="primary" icon="refresh-cw">{copy.retry}</Button>}
           {(ready || installing) && (
             <Button variant="primary" busy={installing} icon="rotate-cw">
@@ -80,18 +81,18 @@ export function UpdateContent({ state }: { state: UpdateState }) {
 
 export function UpdateHistoryContent({ entries }: { entries: readonly Release[] }) {
   return (
-    <div class="flex min-w-0 flex-col gap-4">
-      <div class="flex max-h-[360px] flex-col gap-3 overflow-y-auto">
+    <div className="flex min-w-0 flex-col gap-4">
+      <div className="flex max-h-[360px] flex-col gap-3 overflow-y-auto">
         {entries.map(release => (
           <Card padded>
-            <h2 class="text-body leading-5 font-semibold">{release.version}</h2>
+            <h2 className="text-body leading-5 font-semibold">{release.version}</h2>
             {release.sections.map(({ title, items }) => (
               <NoteGroup title={title} items={items.map(text => ({ text }))} />
             ))}
           </Card>
         ))}
       </div>
-      <div class="flex justify-end">
+      <div className="flex justify-end">
         <Button variant="link">{copy.allReleases}<Icon name="arrow-up-right" size={14} /></Button>
       </div>
     </div>
@@ -101,10 +102,10 @@ export function UpdateHistoryContent({ entries }: { entries: readonly Release[] 
 export default () => [
   ...frames.map(({ name }) => (
     <Frame name={`update-content-${name}`} width={472}>
-      <div class="w-full bg-surface-raised"><UpdateContent state={name} /></div>
+      <div className="w-full bg-surface-raised"><UpdateContent state={name} /></div>
     </Frame>
   )),
   <Frame name="update-history-content" width={472}>
-    <div class="w-full bg-surface-raised"><UpdateHistoryContent entries={releases} /></div>
+    <div className="w-full bg-surface-raised"><UpdateHistoryContent entries={releases} /></div>
   </Frame>,
 ];

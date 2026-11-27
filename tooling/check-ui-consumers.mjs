@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const shared = 'ui/components/ui/';
+const kit = 'ui/components/kit/';
 
 // Feature folders are one consumer even when split across implementation files.
 // The legacy flat components folder and the two Board/AX features use file ownership.
@@ -20,8 +21,12 @@ export function inspectConsumers(base = root) {
     .map(file => `ui/${file.split(path.sep).join('/')}`);
   const modules = new Map();
   function resolve(file, specifier) {
-    if (!specifier.startsWith('.')) return;
-    const candidate = path.posix.normalize(path.posix.join(path.posix.dirname(file), specifier));
+    const candidate = specifier.startsWith('@/')
+      ? path.posix.normalize(`ui/${specifier.slice(2)}`)
+      : specifier.startsWith('.')
+        ? path.posix.normalize(path.posix.join(path.posix.dirname(file), specifier))
+        : undefined;
+    if (!candidate) return;
     return [candidate, `${candidate}.ts`, `${candidate}.tsx`, `${candidate}/index.ts`, `${candidate}/index.tsx`]
       .find(file => existsSync(path.join(base, file)) && statSync(path.join(base, file)).isFile());
   }
@@ -94,13 +99,15 @@ export function inspectConsumers(base = root) {
   }
   const edges = new Map(), consumers = new Map();
   for (const [file, module] of modules) for (const [name, node] of module.definitions) edges.set(`${file}#${name}`, dependencies(file, node));
-  for (const [file, module] of modules) if (!file.startsWith(shared)) {
+  for (const [file, module] of modules) if (!file.startsWith(shared) && !file.startsWith(kit)) {
     const visited = new Set();
     function visit(id) {
-      if (visited.has(id) || !id.startsWith(shared)) return;
+      if (visited.has(id) || (!id.startsWith(shared) && !id.startsWith(kit))) return;
       visited.add(id);
-      if (!consumers.has(id)) consumers.set(id, new Set());
-      consumers.get(id).add(featureOwner(file));
+      if (id.startsWith(shared)) {
+        if (!consumers.has(id)) consumers.set(id, new Set());
+        consumers.get(id).add(featureOwner(file));
+      }
       for (const dependency of edges.get(id) ?? []) visit(dependency);
     }
     for (const id of dependencies(file, module.ast)) visit(id);

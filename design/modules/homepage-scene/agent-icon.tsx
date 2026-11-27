@@ -49,20 +49,20 @@ export function AgentIcon({
   return (
     <span
       style={{ width: size, height: size }}
-      class="grid shrink-0 place-items-center text-text"
+      className="grid shrink-0 place-items-center text-text"
       role="img"
       aria-label={readings.map((r) => r.label).join(" · ")}
     >
       {ranges && (
         <svg
           data-free
-          class="col-start-1 row-start-1"
+          className="col-start-1 row-start-1"
           width={size}
           height={size}
           viewBox="0 0 48 48"
           fill="none"
-          stroke-width="3"
-          stroke-linecap="round"
+          strokeWidth="3"
+          strokeLinecap="round"
         >
           {ranges.map(([start, end], i) => {
             const { value, color, elapsed } = readings[i];
@@ -82,28 +82,28 @@ export function AgentIcon({
                   }
                   pathLength="100"
                   stroke={color}
-                  stroke-dasharray={`${value} 100`}
+                  strokeDasharray={`${value} 100`}
                 />
                 {showPace && (
                   <path
                     d={arcPath(Math.min(tick, quotaEnd), Math.max(tick, quotaEnd), 17)}
                     stroke={pace > 0 ? "var(--danger)" : "var(--success)"}
-                    stroke-width="1.5"
-                    stroke-dasharray="2 2.4"
+                    strokeWidth="1.5"
+                    strokeDasharray="2 2.4"
                   />
                 )}
                 <path
                   d={showPace ? "M24 1V7" : "M24 1V5"}
                   transform={`rotate(${tick} 24 24)`}
                   stroke="var(--text-secondary)"
-                  stroke-width="1.5"
+                  strokeWidth="1.5"
                 />
               </g>
             );
           })}
         </svg>
       )}
-      <span class="col-start-1 row-start-1 flex">
+      <span className="col-start-1 row-start-1 flex">
         <BrandMark
           brand={brand}
           size={Math.round(((ranges ? 28 : 38) * size) / 48)}

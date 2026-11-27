@@ -31,8 +31,8 @@ const capsuleSpecimens = () => [
     const model = nodeCapsuleLayout(state, compact);
     return <Frame name={`capsule-${name}`} width={model.width} height={48}
       note={index === 0 ? "The quota ring is the capsule outline. Logo anchor stays fixed; width and the outer port use the topology spring 210/26; reduced motion is direct." : undefined}>
-      <div class="flex h-12" style={{ width: model.width }}>
-        {wing === 'left' && <span class="flex-1" />}
+      <div className="flex h-12" style={{ width: model.width }}>
+        {wing === 'left' && <span className="flex-1" />}
         <NodeCapsule label={label} graphic={<AgentIcon brand={brand} readings={quotaReadings} />}
           mark={<BrandMark brand={brand} size={28} />} readings={quotaReadings}
           state={state} compact={compact} wing={wing} />
@@ -40,7 +40,7 @@ const capsuleSpecimens = () => [
     </Frame>;
   }),
   <Frame name="account-contrast" width={420} height={72}>
-    <div class="flex w-[420px] items-start justify-between gap-6 pt-1">
+    <div className="flex w-[420px] items-start justify-between gap-6 pt-1">
       <NodeCapsule label="Codex" graphic={<AgentIcon brand="codex" readings={quotaReadings} />}
         mark={<BrandMark brand="codex" size={28} />} readings={quotaReadings} state={capsuleForms[1].state} />
       <TopologyGroup {...accountContrast} />
@@ -54,7 +54,7 @@ const taskActivityFrames = () => [
   <Frame name="phase-label"><PhaseLabel>Thinking</PhaseLabel></Frame>,
 
   <Frame name="task-activity-icons">
-    <div class="flex items-center gap-3">
+    <div className="flex items-center gap-3">
       {[...new Set(recentSteps.map(step => step.kind)), 'waiting' as const].map(kind => <TaskActivityIcon kind={kind} />)}
     </div>
   </Frame>

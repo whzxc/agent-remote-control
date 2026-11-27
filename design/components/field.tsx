@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Frame, Icon } from "adg";
 import { fieldForms } from "../fixtures/inputs";
 
@@ -6,13 +7,13 @@ export function Input({
   placeholder,
   invalid = false,
   truncate = false,
-  class: extra = "",
+  className: extra = "",
 }: {
   value?: string;
   placeholder?: string;
   invalid?: boolean;
   truncate?: boolean;
-  class?: string;
+  className?: string;
 }) {
   const paint = invalid
     ? `relative isolate before:absolute before:inset-0 before:-z-10 before:rounded-[inherit]
@@ -20,11 +21,11 @@ export function Input({
     : "bg-surface-sunken";
   return (
     <div
-      class={`flex items-center h-(--field-height) px-(--field-padding-inline)
+      className={`flex items-center h-(--field-height) px-(--field-padding-inline)
         rounded-field text-body leading-5 text-text ${paint} ${extra}`}
     >
-      {truncate ? <span class="min-w-0 truncate">{value || <span class="text-text-tertiary">{placeholder}</span>}</span>
-        : value || <span class="text-text-tertiary">{placeholder}</span>}
+      {truncate ? <span className="min-w-0 truncate">{value || <span className="text-text-tertiary">{placeholder}</span>}</span>
+        : value || <span className="text-text-tertiary">{placeholder}</span>}
     </div>
   );
 }
@@ -37,22 +38,22 @@ export function Field({
   compact = false,
 }: {
   id?: string;
-  label: unknown;
+  label: ReactNode;
   error?: string;
-  help?: unknown;
-  children?: unknown;
+  help?: ReactNode;
+  children?: ReactNode;
   compact?: boolean;
 }) {
   return (
-    <div class="flex w-full min-w-0 flex-col gap-2 text-text">
-      <div class={`flex items-center justify-between gap-2 ${compact ? "text-meta" : "text-small"} leading-4 font-semibold`}>
-        <label for={id}>{label}</label>
+    <div className="flex w-full min-w-0 flex-col gap-2 text-text">
+      <div className={`flex items-center justify-between gap-2 ${compact ? "text-meta" : "text-small"} leading-4 font-semibold`}>
+        <label htmlFor={id}>{label}</label>
         {help}
       </div>
       {children}
       {error && (
-        <div class="flex items-center gap-(--field-error-gap) text-meta leading-3 text-danger">
-          <Icon name="circle-alert" size={14} class="size-(--field-icon-size)" />
+        <div className="flex items-center gap-(--field-error-gap) text-meta leading-3 text-danger">
+          <Icon name="circle-alert" size={14} className="size-(--field-icon-size)" />
           <span>{error}</span>
         </div>
       )}
@@ -69,7 +70,7 @@ export default () => [
   )),
   ...fieldForms.map(({ name, value, error }) => (
     <Frame name={name === "default" ? "input" : `input-${name}`} width={280}>
-      <Input value={value} invalid={!!error} class="w-full" />
+      <Input value={value} invalid={!!error} className="w-full" />
     </Frame>
   )),
 ];

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Icon } from 'adg';
 
 export type TaskStepKind = 'reading' | 'editing' | 'command' | 'thinking' | 'waiting';
@@ -16,8 +17,8 @@ export function TaskActivityIcon({ kind, size = 14 }: { kind: TaskStepKind; size
   return <Icon name={icons[kind]} size={size} />;
 }
 
-export function PhaseLabel({ children, phase = 'thinking', running = false }: { children: unknown; phase?: string; running?: boolean }) {
-  return <span data-free class="relative min-w-0 overflow-hidden text-ellipsis" style={{ color: `var(--phase-${phase})` }}>
-    {children}{running && <span class="absolute inset-0 opacity-15" aria-hidden="true">{children}</span>}
+export function PhaseLabel({ children, phase = 'thinking', running = false }: { children: ReactNode; phase?: string; running?: boolean }) {
+  return <span data-free className="relative min-w-0 overflow-hidden text-ellipsis" style={{ color: `var(--phase-${phase})` }}>
+    {children}{running && <span className="absolute inset-0 opacity-15" aria-hidden="true">{children}</span>}
   </span>;
 }

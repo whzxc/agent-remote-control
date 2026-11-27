@@ -49,7 +49,7 @@ export function BrandMark({
   const Artwork = brand && brands[brand];
   return (
     <span
-      class="inline-flex shrink-0 items-center justify-center text-text"
+      className="inline-flex shrink-0 items-center justify-center text-text"
       style={{ width: size, height: size }}
     >
       {Artwork ? (
