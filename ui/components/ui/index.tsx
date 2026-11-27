@@ -866,14 +866,16 @@ export function Tooltip({
   const content = (
     <TooltipPrimitive.Root
       open={open}
-      onOpenChange={(next) =>
-        setOpen(next && (!hoverOnly || pointerHover.current))
-      }
+      onOpenChange={(next, details) => {
+        if (hoverOnly && next && (!pointerHover.current || details.reason !== "trigger-hover")) {
+          return;
+        }
+        setOpen(next);
+      }}
       disableHoverablePopup={hoverOnly}
     >
       <TooltipPrimitive.Trigger
         render={triggerNode}
-        onFocus={hoverOnly ? (event) => event.preventDefault() : undefined}
         onPointerMoveCapture={
           hoverOnly
             ? (event) => {

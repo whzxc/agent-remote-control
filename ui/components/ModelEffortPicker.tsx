@@ -43,6 +43,7 @@ export default function ModelEffortPicker({ label, models, efforts, model, effor
     if (value !== effort) onChange({ model, effort: value });
   };
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const restoreFocusOnClose = useRef(false);
   const [popupNode, setPopupNode] = useState<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
   useEffect(() => {
@@ -52,11 +53,17 @@ export default function ModelEffortPicker({ label, models, efforts, model, effor
       if (!(event.target instanceof Node) || !popupNode.contains(event.target)) return;
       event.preventDefault();
       event.stopPropagation();
+      restoreFocusOnClose.current = true;
       setOpen(false);
-      queueMicrotask(() => triggerRef.current?.focus({ preventScroll: true }));
     };
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [open, popupNode]);
+  useEffect(() => {
+    if (!open && !popupNode && restoreFocusOnClose.current) {
+      restoreFocusOnClose.current = false;
+      triggerRef.current?.focus({ preventScroll: true });
+    }
   }, [open, popupNode]);
   return <PopoverPrimitive.Root
     open={open}

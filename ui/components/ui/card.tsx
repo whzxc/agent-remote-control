@@ -39,7 +39,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 function CardContent({ className, ...props }: React.ComponentProps<"div">) {
-  return <Kit.CardContent className={cn("px-4", className)} {...props} />;
+  return <Kit.CardContent className={cn("px-4 pb-0", className)} {...props} />;
 }
 
 export { Card, CardHeader, CardContent };
