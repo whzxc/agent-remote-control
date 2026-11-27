@@ -28,25 +28,34 @@
 
   /* Shape */
   --radius-progress: 4px;
-  --radius-inset: 14px;
+  --radius-badge: 5px;
+  --radius-inset: 8px;
   --radius-rail: 1px;
   --radius-circle: 50%;
   --radius-disclosure: 6px;
   --stroke-ring: 2px;
   --stroke-thin: 1px;
-  --radius-control: 17px;
+  --radius-control: 6px;
+  --radius-kit-field: 6px;
+  --radius-popover: 8px;
+  --radius-kit-card: 10px;
+  --radius-dialog: 12px;
+  --radius-shell: 12px;
   --radius-field: 12px;
   --radius-tile: 10px;
   --radius-card: 18px;
   --radius-panel: 24px;
   --radius-pill: 999px;
-  --radius-switch: 13px;
+  --radius-switch: 9px;
 
   /* Sizing */
   --dock-button-size: 36px;
   --dock-padding-block: 4px;
   --control-height: 34px;
   --control-height-compact: 30px;
+  --kit-control-height: 30px;
+  --kit-control-height-sm: 26px;
+  --kit-field-height: 32px;
   --control-gap: 6px;
   --control-icon-size: 16px;
   --field-height: 40px;
@@ -54,9 +63,9 @@
   --field-icon-size: 14px;
   --field-error-gap: 5px;
   --control-inset: 3px;
-  --switch-width: 44px;
-  --switch-height: 26px;
-  --switch-thumb-size: 20px;
+  --switch-width: 32px;
+  --switch-height: 18px;
+  --switch-thumb-size: 14px;
 
   /* Layers */
   --layer-m: 560px;
@@ -86,41 +95,41 @@
   --motion-spring-topology-bounce: .002;
 
   /* Surfaces */
-  --layer-scrim: rgb(0 0 0 / 24%);
-  --canvas: #f3eee7;
-  --surface: #fffdfa;
-  --surface-raised: #fffdfa;
-  --surface-subtle: #f6f0e8;
-  --surface-sunken: #ece4d9;
-  --border: #e7ded2;
-  --border-strong: #d6cabb;
+  --layer-scrim: rgb(9 9 11 / 36%);
+  --canvas: #f4f4f6;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-subtle: #f0f0f3;
+  --surface-sunken: #e8e8ed;
+  --border: #e2e2e8;
+  --border-strong: #cbcbd4;
   --knob: #ffffff;
 
   /* Text */
-  --text: #2b2420;
-  --text-secondary: #625952;
-  --text-tertiary: #7a726b;
+  --text: #111114;
+  --text-secondary: #52525e;
+  --text-tertiary: #767684;
 
   /* Action and accent */
-  --accent: #d4663f;
-  --accent-text: #b8532f;
+  --accent: #c85a32;
+  --accent-text: #b34b25;
   --on-accent: #ffffff;
-  --action: #2b2420;
-  --on-action: #fffaf4;
+  --action: #18181b;
+  --on-action: #ffffff;
 
   /* Status */
-  --success: #398253;
-  --warning: #a16717;
-  --danger: #c2453b;
+  --success: #15803d;
+  --warning: #b45309;
+  --danger: #dc2626;
 
   /* Roles and phases */
-  --role-source: #d4663f;
-  --role-agent: #6a5ad0;
-  --phase-thinking: #7d63c9;
+  --role-source: #c85a32;
+  --role-agent: #5b5bd6;
+  --phase-thinking: #6e56cf;
   --phase-tool: var(--text-secondary);
-  --phase-text: #4a5bbd;
-  --phase-command: #3e72c4;
-  --phase-file: #2a816c;
+  --phase-text: #3f51c4;
+  --phase-command: #2563eb;
+  --phase-file: #0f8a75;
 
   /* Theme swatches */
   --theme-swatch-default-left: #5B5FF5;
@@ -138,39 +147,39 @@
   --shadow-hub-halo: 0 0 6px var(--stroke-ring) color-mix(in srgb, var(--hub-color) 45%, transparent);
   --shadow-table-divider: inset 0 -1px var(--border);
   --shadow-focus: 0 0 0 var(--stroke-ring) var(--surface), 0 0 0 4px var(--accent);
-  --shadow-sm: 0 1px 2px rgb(74 52 36 / 8%);
-  --shadow-md: 0 1px 3px rgb(74 52 36 / 5%), 0 6px 20px rgb(74 52 36 / 8%);
-  --shadow-lg: 0 2px 4px rgb(74 52 36 / 5%), 0 18px 56px rgb(74 52 36 / 13%);
+  --shadow-sm: 0 1px 2px rgb(9 9 11 / 7%), 0 0 0 1px rgb(9 9 11 / 4%);
+  --shadow-md: 0 1px 3px rgb(9 9 11 / 6%), 0 6px 18px rgb(9 9 11 / 7%);
+  --shadow-lg: 0 4px 12px rgb(9 9 11 / 8%), 0 18px 48px rgb(9 9 11 / 14%);
 }
 
 :root[data-theme="dark"] {
-  --layer-scrim: rgb(0 0 0 / 60%);
-  --canvas: #171412;
-  --surface: #221e1b;
-  --surface-raised: #2a2522;
-  --surface-subtle: #2e2925;
-  --surface-sunken: #3a332e;
-  --border: #3a332e;
-  --border-strong: #4d4540;
-  --text: #f3ebe3;
-  --text-secondary: #bcafa4;
-  --text-tertiary: #91857c;
-  --accent: #ec8459;
-  --accent-text: #f29a74;
-  --on-accent: #1c120c;
-  --action: #f3ebe3;
-  --on-action: #1c1714;
-  --success: #7fcb98;
-  --warning: #e6b066;
-  --danger: #f08b80;
-  --role-source: #ec8459;
-  --role-agent: #ab9fff;
-  --phase-thinking: #b9a6ff;
-  --phase-text: #9aaeff;
-  --phase-command: #8cb4ff;
-  --phase-file: #6fd3b9;
+  --layer-scrim: rgb(0 0 0 / 62%);
+  --canvas: #0c0c0e;
+  --surface: #16161a;
+  --surface-raised: #1c1c21;
+  --surface-subtle: #1c1c22;
+  --surface-sunken: #24242c;
+  --border: #282832;
+  --border-strong: #3b3b48;
+  --text: #f4f4f6;
+  --text-secondary: #a1a1ae;
+  --text-tertiary: #787887;
+  --accent: #ea7e54;
+  --accent-text: #f2946f;
+  --on-accent: #120e0c;
+  --action: #f4f4f6;
+  --on-action: #0c0c0e;
+  --success: #4ade80;
+  --warning: #f59e0b;
+  --danger: #f87171;
+  --role-source: #ea7e54;
+  --role-agent: #9e9bff;
+  --phase-thinking: #b5a3ff;
+  --phase-text: #96abff;
+  --phase-command: #78a9ff;
+  --phase-file: #5cd6be;
   --knob: #ffffff;
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 35%);
-  --shadow-md: 0 1px 3px rgb(0 0 0 / 30%), 0 6px 24px rgb(0 0 0 / 40%);
-  --shadow-lg: 0 2px 4px rgb(0 0 0 / 30%), 0 18px 60px rgb(0 0 0 / 55%);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%), 0 0 0 1px rgb(255 255 255 / 5%);
+  --shadow-md: 0 2px 4px rgb(0 0 0 / 34%), 0 8px 24px rgb(0 0 0 / 44%);
+  --shadow-lg: 0 6px 16px rgb(0 0 0 / 42%), 0 22px 56px rgb(0 0 0 / 62%);
 }

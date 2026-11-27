@@ -60,7 +60,7 @@
   --color-popover-foreground: var(--text);
   --color-primary: var(--action);
   --color-primary-foreground: var(--on-action);
-  --color-secondary: var(--surface-sunken);
+  --color-secondary: var(--surface-subtle);
   --color-secondary-foreground: var(--text);
   --color-muted: var(--surface-subtle);
   --color-muted-foreground: var(--text-secondary);
@@ -92,7 +92,13 @@
   /* Shape */
   --radius-rail: var(--radius-rail);
   --radius-progress: var(--radius-progress);
+  --radius-badge: var(--radius-badge);
   --radius-disclosure: var(--radius-disclosure);
+  --radius-kit-field: var(--radius-kit-field);
+  --radius-popover: var(--radius-popover);
+  --radius-kit-card: var(--radius-kit-card);
+  --radius-dialog: var(--radius-dialog);
+  --radius-shell: var(--radius-shell);
   --radius-tile: var(--radius-tile);
   --radius-field: var(--radius-field);
   --radius-switch: var(--radius-switch);
@@ -102,13 +108,13 @@
   --radius-panel: var(--radius-panel);
   --radius-pill: var(--radius-pill);
   --radius-circle: var(--radius-circle);
-  --radius: var(--radius-disclosure);
+  --radius: var(--radius-control);
   --radius-xs: var(--radius-progress);
-  --radius-sm: var(--radius-disclosure);
-  --radius-md: var(--radius-tile);
-  --radius-lg: var(--radius-field);
-  --radius-xl: var(--radius-card);
-  --radius-2xl: var(--radius-panel);
+  --radius-sm: var(--radius-control);
+  --radius-md: var(--radius-popover);
+  --radius-lg: var(--radius-kit-card);
+  --radius-xl: var(--radius-dialog);
+  --radius-2xl: var(--radius-shell);
 
   /* Elevation */
   --shadow-hub-halo: var(--shadow-hub-halo);

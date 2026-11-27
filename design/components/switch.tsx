@@ -20,7 +20,7 @@ export function Switch({
       aria-label={label}
       disabled={disabled}
       className={`flex shrink-0 items-center w-(--switch-width) h-(--switch-height)
-        p-(--control-inset) rounded-switch ${checked ? "justify-end bg-accent" : "bg-surface-sunken"}`}
+        p-[2px] rounded-switch ${checked ? "justify-end bg-accent" : "bg-surface-sunken"}`}
     >
       <span className="size-(--switch-thumb-size) rounded-full bg-knob shadow-sm" />
     </button>

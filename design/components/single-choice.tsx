@@ -116,12 +116,12 @@ export function SingleChoice({
       {options.map((option, index) => {
         const selected = option.value === value;
         const shape = navigation
-          ? "gap-3 h-10 px-3 rounded-[14px] text-body"
+          ? "gap-3 h-10 px-3 rounded-inset text-body"
           : optionCards
             ? "gap-5 h-11 px-4 rounded-card text-body font-medium bg-surface-sunken"
             : tabs
               ? "h-(--control-height) px-3 text-body"
-              : `h-7 ${form === "content-pills" ? "px-4" : compact ? "px-0" : "px-[14px]"} rounded-[14px] justify-center text-small whitespace-nowrap`;
+              : `h-7 ${form === "content-pills" ? "px-4" : compact ? "px-0" : "px-[14px]"} rounded-progress justify-center text-small whitespace-nowrap`;
         const content = (
           <>
             {option.graphic ||

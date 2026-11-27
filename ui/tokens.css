@@ -16,7 +16,6 @@
   --warning-soft: color-mix(in srgb, var(--warning) 14%, var(--surface));
   --danger-soft: color-mix(in srgb, var(--danger) 12%, var(--surface));
   --on-success: #ffffff;
-  --brand-ink: #1d1d1f;
   --brand-orange: #d97757;
   --brand-agent-start: #9c8cff;
   --brand-agent-end: #3f63ff;
@@ -25,7 +24,6 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
   --on-success: #0d2416;
-  --brand-ink: #f5f5f7;
   --brand-orange: #e8865e;
   --brand-agent-start: #b7aaff;
   --brand-agent-end: #5c7cff;
@@ -34,17 +32,17 @@
 /* Host colors remain semantic; shared controls use the same Connector tokens. */
 :root[data-surface="mcp"] {
   --canvas: var(--color-background-primary, var(--surface));
-  --surface: var(--color-background-secondary, light-dark(#fffdfa, #221e1b));
-  --surface-subtle: var(--color-background-tertiary, light-dark(#f6f0e8, #2e2925));
-  --text: var(--color-text-primary, light-dark(#2b2420, #f3ebe3));
-  --text-secondary: var(--color-text-secondary, light-dark(#625952, #bcafa4));
+  --surface: var(--color-background-secondary, light-dark(#ffffff, #16161a));
+  --surface-subtle: var(--color-background-tertiary, light-dark(#f0f0f3, #1c1c22));
+  --text: var(--color-text-primary, light-dark(#111114, #f4f4f6));
+  --text-secondary: var(--color-text-secondary, light-dark(#52525e, #a1a1ae));
   --text-tertiary: var(--color-text-tertiary, var(--text-secondary));
-  --border: var(--color-border-primary, light-dark(#e7ded2, #3a332e));
+  --border: var(--color-border-primary, light-dark(#e2e2e8, #282832));
 }
 
 /* The theme color preference tints the topology's Agent side, not the design accent. */
 :root {
-  --topology-source: var(--theme-source, var(--brand-ink));
+  --topology-source: var(--theme-source, var(--action));
   --topology-agent: var(--theme-agent);
   --mark-agent-start: var(--theme-agent);
   --mark-agent-end: var(--theme-agent);

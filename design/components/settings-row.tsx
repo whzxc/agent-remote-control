@@ -27,7 +27,7 @@ export function Setting({
           </div>
         )}
       </div>
-      <div className="shrink-0" style={{ width: toggle ? 44 : width }}>
+      <div className="shrink-0" style={{ width: toggle ? "var(--switch-width)" : width }}>
         {children}
       </div>
     </div>
