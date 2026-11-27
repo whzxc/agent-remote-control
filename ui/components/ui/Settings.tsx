@@ -14,7 +14,7 @@ export function SettingsSection({ title, children }: { title?: ReactNode; childr
   </section>;
 }
 export function Setting({ title, description, children, width = 300, toggle = false }: {
-  title: ReactNode; description?: ReactNode; children: ReactNode; width?: number; toggle?: boolean;
+  title: ReactNode; description?: ReactNode; children: ReactNode; width?: number | "auto"; toggle?: boolean;
 }) {
   const id = useId();
   const labelled = isValidElement(children) && (children.type === Input || children.type === Switch);

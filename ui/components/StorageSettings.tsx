@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import { t } from "../i18n";
-import { connector, run as runGlobal } from "../state/connector";
 import { preference } from "../state/store";
-import { Button, Dialog, SingleChoice, Switch } from "./ui";
-import { useDialogFeedback } from "./ui/Dialog";
+import { Button, Dialog, Notice, SingleChoice, Switch } from "./ui";
 import { SettingsSection as Group, Setting as Row } from "./ui/Settings";
 
 interface StorageHotCategory {
@@ -54,17 +52,15 @@ function formatBytes(bytes: number): string {
 }
 
 export default function StorageSettings() {
-  const notify = useDialogFeedback();
-  const { busy } = connector.use();
   const retention = archiveRetentionPreference.use();
   const [status, setStatus] = useState<StorageStatus>();
+  const [archiving, setArchiving] = useState(false);
+  const [pruning, setPruning] = useState(false);
+  const [notice, setNotice] = useState<{ message: string; tone?: "danger" }>();
   const [pruneOpen, setPruneOpen] = useState(false);
   const [includeLegacy, setIncludeLegacy] = useState(true);
   const [prunePreview, setPrunePreview] = useState<StoragePruneResult>();
   const [loadingPreview, setLoadingPreview] = useState(false);
-
-  const run = (label: string, action: () => Promise<unknown>) =>
-    runGlobal(label, action, message => notify(message, true));
 
   const refresh = useCallback(async () => {
     try {
@@ -88,11 +84,11 @@ export default function StorageSettings() {
         includeLegacy: withLegacy,
       }));
     } catch (error) {
-      notify(String(error), true);
+      setNotice({ message: String(error), tone: "danger" });
     } finally {
       setLoadingPreview(false);
     }
-  }, [notify, retention]);
+  }, [retention]);
 
   const hotFiles = status
     ? status.hot.receipts.files + status.hot.coordination.files + status.hot.dispatches.files +
@@ -136,15 +132,22 @@ export default function StorageSettings() {
       : t("storage.cleanupEmpty");
 
   async function handleArchiveNow() {
-    await run("storage-archive", async () => {
+    if (archiving) return;
+    setArchiving(true);
+    setNotice(undefined);
+    try {
       const result = await api<StorageArchiveResult>("storage/archive", "POST", { apply: true });
       let moved = 0;
       for (const entry of Object.values(result.categories || {})) {
         moved += (entry.archived ?? 0) + (entry.compressed ?? 0) + (entry.pruned ?? 0);
       }
       await refresh();
-      notify(t("storage.archivedNotice", { count: moved }));
-    });
+      setNotice({ message: t("storage.archivedNotice", { count: moved }) });
+    } catch (error) {
+      setNotice({ message: String(error), tone: "danger" });
+    } finally {
+      setArchiving(false);
+    }
   }
 
   function openPruneDialog() {
@@ -153,8 +156,11 @@ export default function StorageSettings() {
   }
 
   async function handleApplyPrune() {
+    if (pruning) return;
     const olderThanDays = Number(retention) > 0 ? Number(retention) : 90;
-    await run("storage-prune", async () => {
+    setPruning(true);
+    setNotice(undefined);
+    try {
       const result = await api<StoragePruneResult>("storage/prune", "POST", {
         apply: true,
         olderThanDays,
@@ -163,8 +169,12 @@ export default function StorageSettings() {
       setPruneOpen(false);
       await refresh();
       const freed = formatBytes((result.archives?.bytes ?? 0) + (result.legacy?.bytes ?? 0));
-      notify(t("storage.prunedNotice", { size: freed }));
-    });
+      setNotice({ message: t("storage.prunedNotice", { size: freed }) });
+    } catch (error) {
+      setNotice({ message: String(error), tone: "danger" });
+    } finally {
+      setPruning(false);
+    }
   }
 
   const pruneTotalBytes = (prunePreview?.archives.bytes ?? 0) + (prunePreview?.legacy.bytes ?? 0);
@@ -173,10 +183,12 @@ export default function StorageSettings() {
   return (
     <>
       <Group title={t("storage.title")}>
-        <Row title={t("storage.localArchive")} description={archiveDescription}>
+        {notice && <Notice tone={notice.tone}>{notice.message}</Notice>}
+        <Row title={t("storage.localArchive")} description={archiveDescription} width="auto">
           <Button
             variant="primary"
-            disabled={!!busy || !status || archivableCount === 0}
+            busy={archiving}
+            disabled={!status || archivableCount === 0}
             onClick={() => void handleArchiveNow()}
           >
             {t("storage.archiveNow")}
@@ -188,7 +200,6 @@ export default function StorageSettings() {
             fill
             label={t("storage.retention")}
             value={retention}
-            disabled={!!busy}
             onChange={value => archiveRetentionPreference.set(value)}
             options={[
               { value: "0", label: t("storage.retentionForever") },
@@ -198,10 +209,10 @@ export default function StorageSettings() {
             ]}
           />
         </Row>
-        <Row title={t("storage.cleanup")} description={cleanupDescription}>
+        <Row title={t("storage.cleanup")} description={cleanupDescription} width="auto">
           <Button
             variant="secondary"
-            disabled={!!busy || !status}
+            disabled={!status || pruning}
             onClick={openPruneDialog}
           >
             {t("storage.previewCleanup")}
@@ -211,18 +222,19 @@ export default function StorageSettings() {
       {pruneOpen && (
         <Dialog
           open={pruneOpen}
-          busy={!!busy || loadingPreview}
+          busy={pruning || loadingPreview}
           title={t("storage.pruneDialogTitle")}
           description={t("storage.pruneDialogDescription")}
           onClose={() => setPruneOpen(false)}
           actions={
             <>
-              <Button variant="ghost" disabled={!!busy} onClick={() => setPruneOpen(false)}>
+              <Button variant="ghost" disabled={pruning} onClick={() => setPruneOpen(false)}>
                 {t("cancel")}
               </Button>
               <Button
                 variant="danger"
-                disabled={!!busy || loadingPreview || !pruneHasItems}
+                busy={pruning}
+                disabled={loadingPreview || !pruneHasItems}
                 onClick={() => void handleApplyPrune()}
               >
                 {t("storage.confirmPrune")}
@@ -239,7 +251,7 @@ export default function StorageSettings() {
               <Switch
                 label={t("storage.includeLegacy")}
                 checked={includeLegacy}
-                disabled={!!busy || loadingPreview}
+                disabled={pruning || loadingPreview}
                 onChange={value => {
                   setIncludeLegacy(value);
                   void loadPrunePreview(value);
