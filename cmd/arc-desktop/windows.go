@@ -23,19 +23,37 @@ type desktopMessage struct {
 
 var DesktopEvent = mygo.NewEvent[desktopMessage]("arc:desktop")
 
+func mainWindowOptions() mygo.WindowOptions {
+	return mygo.WindowOptions{
+		Title:           appName,
+		Width:           initialWidth,
+		Height:          initialHeight,
+		MinWidth:        minWidth,
+		MinHeight:       minHeight,
+		UseContentSize:  true,
+		Hidden:          true,
+		URL:             "/",
+		TitleBarStyle:   mygo.TitleBarHidden,
+		TitleBarHeight:  38,
+		BackgroundColor: "light-dark(#f3eee7, #171412)",
+		StateKey:        "main",
+	}
+}
+
+func windowsButtonsTheme(dark bool) mygo.ThemeSource {
+	if dark {
+		return mygo.ThemeDark
+	}
+	return mygo.ThemeLight
+}
+
 func (s *DesktopService) ensureWindow() *mygo.Window {
 	if s.window != nil {
 		return s.window
 	}
-	window := mygo.NewWindow(mygo.WindowOptions{
-		Title: appName, Width: initialWidth, Height: initialHeight, MinWidth: minWidth, MinHeight: minHeight,
-		UseContentSize: true, Hidden: true, URL: "/", Transparent: true,
-		TitleBarStyle: mygo.TitleBarHidden, TitleBarHeight: 38, BackgroundColor: "#0000", StateKey: "main",
-		HideWindowButtons: runtime.GOOS == "windows",
-	})
+	window := mygo.NewWindow(mainWindowOptions())
 	s.window = window
 	window.Page().OnPageTitleUpdated(func(e *mygo.TitleEvent) { e.PreventDefault() })
-	installWindowsFrame(window)
 	window.OnClose(func(event *mygo.CloseEvent) {
 		if !s.quitting {
 			event.PreventDefault()
