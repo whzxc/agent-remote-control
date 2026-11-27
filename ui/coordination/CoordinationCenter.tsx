@@ -1,16 +1,12 @@
-import { RecordSurface } from '../components/ui/RecordDetail';
-import { RecordDetail, RecordEmpty } from '../components/ui/RecordDetail';
-import { RecordDisclosure, RecordEvent, RecordFooter } from "./RecordParts";
-import { RecordRow, RecordHeading, RecordCard, RecordMeta } from './Record';
-import { layers } from "../state/layers";
-import { Tooltip as HoverHelp } from "../components/ui/index";
-import { oauthApproval, openNavigationAttention } from "../state/externalNavigation";
-import Panel from "../components/ui/Panel";
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Braces, ChevronDown, ChevronRight, Inbox, RefreshCw, type LucideIcon } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { api } from '../api';
 import { locale, t } from '../i18n';
-import { Button, Icon, IconButton, Notice, SingleChoice, Tag, Tile } from '../components/ui';
+import { Notice } from '../components/kit/alert';
+import { Button, IconButton } from '../components/kit/button';
+import { HintTooltip } from '../components/kit/tooltip';
+import Panel from '../components/ui/Panel';
+import { RecordDetail, RecordEmpty, RecordSurface } from '../components/ui/RecordDetail';
 import { TaskCard, localTaskCard } from '../components/ui/TaskCard';
 import { connector, refreshConnector } from '../state/connector';
 import { acceptActivity } from '../state/activity';
@@ -24,14 +20,21 @@ import { activityState } from '../state/taskExecutionModel';
 import { showUpdate } from '../state/updates';
 import { useAppNow } from '../state/appEnvironment';
 import { createStore } from '../state/store';
+import { layers } from '../state/layers';
+import { oauthApproval, openNavigationAttention } from '../state/externalNavigation';
 import { dayKey, relativeTime } from '../lib/relativeTime';
 import { groupEvents, liveRecord, mergeEvents, type Attention, type BoardPage, type BoardRecord, type EventPage, type JournalEvent } from './model';
-import { attentionLook, clock, duration, eventTone, recordLook, stateTone, type Tone } from './presentation';
+import { attentionLook, clock, duration, eventTone, recordLook, stateTone } from './presentation';
 import { boardObservation, boardOpen, boardFocus, centerView, ownerResult, refreshBoard, useAttention } from './state';
-interface ResourceOption { key: string; label: string }
-import './center.css';
+import { BoardEventRowView, BoardTimelineGroupView } from './BoardEventView';
+import { BoardRecordDetailView, BoardRowView, BoardSectionView, type BoardDetailFact } from './BoardRecordView';
+import { BoardEmptyView, BoardFeedbackView, BoardFiltersView, BoardFooterView, BoardViewNavigation, CoordinationBoardView } from './CoordinationBoardView';
+import { RecordHeading } from './Record';
 import AXPanel, { axSelection } from './AXPanel';
 import { axObservation, refreshAX } from './axState';
+import './center.css';
+
+interface ResourceOption { key: string; label: string }
 
 export const centerReturn = createStore<{ kind: 'connection' | 'update'; focusId: string } | undefined>(undefined);
 const selectedRecord = createStore<BoardRecord | undefined>(undefined);
@@ -42,19 +45,9 @@ const known = (prefix: string, value: string) => t(`${prefix}.${value}`) === `${
 const stateName = (value: string) => known('center.state', value);
 const coverageName = (value: string) => known('center.coverageState', value);
 
-function RowGlyph({ icon, tone }: { icon: LucideIcon; tone: Tone }) {
-  return <Tile icon={icon} form="phase" tone={tone} />;
-}
-function Pill({ tone, children }: { tone: Tone; children: ReactNode }) {
-  return <Tag form="compact-status" tone={tone === "neutral" || tone === "accent" ? undefined : tone}>{children}</Tag>;
-}
 function Section({ label, count, note, attention, children }: { label: string; count?: number; note?: string; attention?: boolean; children: ReactNode }) {
-  return <section className="center-section" data-attention={attention || undefined} aria-label={label}>
-    <RecordHeading count={count} attention={attention} note={note}>{label}</RecordHeading>
-    <div className="center-rows">{children}</div>
-  </section>;
+  return <BoardSectionView label={label} count={count} note={note} attention={attention}>{children}</BoardSectionView>;
 }
-
 
 export default function CoordinationCenter() {
   const initialFocus = boardFocus.use();
@@ -71,20 +64,29 @@ export default function CoordinationCenter() {
   const selected = selectedRecord.use(), setSelected = selectedRecord.set;
   const firstSelection = useRef(true);
   const showHistory = view.view === 'current' && view.filter === 'history';
+
   useEffect(() => {
     const returning = firstSelection.current && initialFocus;
     firstSelection.current = false;
     if (selected && !returning) requestAnimationFrame(() => document.getElementById('center-record-heading')?.focus());
   }, [selected?.id]);
-  function closeRecord() { setSelected(undefined); requestAnimationFrame(() => (document.getElementById(recordFocus) ?? document.querySelector<HTMLElement>('[role="dialog"]'))?.focus()); }
+
+  function closeRecord() {
+    setSelected(undefined);
+    requestAnimationFrame(() => (document.getElementById(recordFocus) ?? document.querySelector<HTMLElement>('[role="dialog"]'))?.focus());
+  }
+
   const historyRequest = useRef(0);
   const generation = useRef(0), mounted = useRef(true), pending = useRef<number | undefined>(undefined);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; generation.current++; }; }, []);
   useEffect(() => {
     let cancelled = false;
-    void api<{ resources: ResourceOption[]; coverage: string }>('coordination/resources').then(result => { if (!cancelled) { setResources(result.resources); setResourceError(result.coverage === 'unavailable' ? t('center.resourcesUnavailable') : ''); } }).catch(error => { if (!cancelled) setResourceError(String(error)); });
+    void api<{ resources: ResourceOption[]; coverage: string }>('coordination/resources')
+      .then(result => { if (!cancelled) { setResources(result.resources); setResourceError(result.coverage === 'unavailable' ? t('center.resourcesUnavailable') : ''); } })
+      .catch(error => { if (!cancelled) setResourceError(String(error)); });
     return () => { cancelled = true; };
   }, []);
+
   async function readEvents(mode: 'refresh' | 'history' | 'reset' = 'refresh') {
     if (pending.current === generation.current) return;
     const before = generation.current; pending.current = before; setReading(true);
@@ -98,6 +100,7 @@ export default function CoordinationCenter() {
     } catch (error) { if (mounted.current && before === generation.current) journal.set(old => ({ ...old, error: String(error) })); }
     finally { if (pending.current === before) pending.current = undefined; if (mounted.current && before === generation.current) setReading(false); }
   }
+
   useEffect(() => {
     generation.current++;
     if (view.view !== 'activity') { setReading(false); return; }
@@ -106,6 +109,7 @@ export default function CoordinationCenter() {
     document.addEventListener('visibilitychange', read);
     return () => { generation.current++; clearInterval(timer); document.removeEventListener('visibilitychange', read); };
   }, [view.resource, view.view]);
+
   async function readHistory(cursor?: string) {
     const before = generation.current, request = ++historyRequest.current; setLoadingHistory(true);
     try {
@@ -114,7 +118,9 @@ export default function CoordinationCenter() {
     } catch (error) { if (mounted.current && before === generation.current && request === historyRequest.current) setHistoryError(String(error)); }
     finally { if (mounted.current && request === historyRequest.current) setLoadingHistory(false); }
   }
+
   useEffect(() => { setHistory(undefined); setHistoryError(''); if (showHistory) void readHistory(); }, [showHistory, view.resource]);
+
   function taskTarget(threadId: string, turnId?: string) {
     for (const [agent, sessions] of Object.entries(tracked)) {
       const session = sessions.find(session => session.id === threadId);
@@ -132,11 +138,13 @@ export default function CoordinationCenter() {
       dispatchSummary: { model: record.task.model ?? record.requested?.model, effort: record.task.effort ?? record.requested?.effort, serviceTier: record.requested?.serviceTier },
       source: record.agent === 'codex' ? 'codex-thread' as const : 'arc-task' as const, phase: 'idle' as const, headline: '', phaseSince: null, timeline: true, orderAt: 0, observed: false, conversation: true, selectedTurnId: turnId } };
   }
+
   function openTask(threadId: string, turnId: string | undefined, focusId: string) {
     const target = taskTarget(threadId, turnId); if (!target) return;
     panelBack.set({ open: () => { boardFocus.set(focusId); boardOpen.set(true); }, label: t('center.title') });
     layers.switchPanel(() => { boardOpen.set(false); selectAgentPanel({ type: 'task', ...target }); });
   }
+
   function openAttention(item: Attention, focusId: string) {
     if (item.kind === 'feedback') return;
     if (item.kind === 'oauth') { oauthApproval.set({ id: item.requestId }); return; }
@@ -148,12 +156,14 @@ export default function CoordinationCenter() {
     if (item.kind === 'update') showUpdate();
     else { const ingress = connection.status?.ingresses.find(row => row.id === item.connectionId); if (ingress) selectIngressPanel(ingress); }
   }
+
   async function readRecord(row: Pick<BoardRecord, 'id'> & Partial<BoardRecord>) {
     if (selected?.id !== row.id) recordFocus = document.activeElement?.id ?? '';
     setSelected({ resources: [], revision: 0, state: 'unknown', lastActiveAt: '', observedAt: '', inactivityAgeSeconds: null, activityCoverage: 'unavailable', summary: row.id, ...row }); setDetailError('');
     try { const page = ownerResult(await api<BoardPage>('coordination/board', 'POST', { id: row.id, view: 'full' })); const full = [...page.notices, ...page.blockers].find(r => r.id === row.id); if (!full) throw new Error('COORDINATION_NOT_FOUND'); if (mounted.current) setSelected(old => old?.id === row.id ? full : old); }
     catch (error) { if (mounted.current && selectedRecord.get()?.id === row.id) setDetailError(String(error)); }
   }
+
   const patch = (value: Partial<typeof view>) => { setSelected(undefined); axSelection.set(undefined); centerView.set(old => ({ ...old, ...value })); };
   const ago = (value?: string | null) => relativeTime(value, now, language, t('time.justNow'));
   const page = showHistory ? history : observed.page;
@@ -168,157 +178,178 @@ export default function CoordinationCenter() {
   const sourceName = (id?: string) => connection.sources.find(source => source.id === id)?.label ?? id ?? t('center.unknown');
   const owner = (row: BoardRecord) => row.localOrigin ? t('center.local') : connection.sources.find(source => source.id === row.ownerSourceId)?.label ?? row.ownerSourceId ?? t('center.unknown');
   const kindLabel = (item: Attention) => item.kind === 'feedback' ? t('connect.actionFailed') : item.kind === 'oauth' ? t('connect.approveTitle') : item.kind === 'navigation' ? t('open') : item.kind === 'task' ? t(item.state === 'needsYou' ? 'center.waitUser' : `detail.state.${item.state}`) : t(item.kind === 'connection' && item.notification ? 'center.notification' : `center.${item.kind}`);
-  const chips = (keys: readonly string[]) => keys.length > 0 && <span className="center-chips">{keys.map(key => <Tag key={key} form="resource">{resourceLabel(key)}</Tag>)}</span>;
-  const coverageNote = (row: BoardRecord) => row.activityCoverage !== 'observed' && <span className="center-note">{t(`center.coverage.${row.activityCoverage}`)}</span>;
+  const busy = (view.view === 'ax' ? ax.loading : reading || observed.loading || loadingHistory) || !!pendingAction;
+  const runAction = async (action: string, run: () => Promise<unknown>) => { setPendingAction(action); try { await run(); } finally { setPendingAction(''); } };
+
   function attentionRow(item: Attention) {
     const id = `attention-${encodeURIComponent(item.id)}`;
     if (item.kind === 'task') {
       const available = !!taskTarget(item.session.id);
       const task = localTaskCard(item.agent, { ...item.session, title: title(item) }, item.state === 'needsYou' ? 'needs-me' : 'recent');
       return <TaskCard key={item.id} task={task} form={item.state === 'needsYou' ? 'detail' : 'summary'} now={now}
-        readTimeline={false}
-        description={available ? kindLabel(item) : t('center.targetUnavailable')} trigger={{ id, disabled: !available }}
+        readTimeline={false} description={available ? kindLabel(item) : t('center.targetUnavailable')} trigger={{ id, disabled: !available }}
         onOpen={available ? () => openAttention(item, id) : undefined} />;
     }
-    const look = attentionLook(item), meta = <RecordMeta>{kindLabel(item)}</RecordMeta>;
-    if (item.kind === 'feedback') return <RecordCard key={item.id}><RowGlyph {...look} /><span className="record-row-body"><strong>{item.title}</strong></span></RecordCard>;
-    if (item.kind === 'ax') return <RecordCard key={item.id}><RowGlyph {...look} /><span className="record-row-body"><strong>{title(item)}</strong><RecordMeta><span>{item.item.kind === 'ax-candidate' ? t('center.axCandidate', { source: sourceName(item.item.ownerSourceId) }) : t('center.axTriageWait')}</span></RecordMeta></span></RecordCard>;
-    return <RecordRow key={item.id} id={id} onClick={() => openAttention(item, id)}><RowGlyph {...look} /><span className="record-row-body"><strong>{title(item)}</strong>{meta}</span><Icon icon={ChevronRight} className="center-row-go" /></RecordRow>;
+    const look = attentionLook(item);
+    if (item.kind === 'feedback') return <BoardRowView key={item.id} icon={look.icon} tone={look.tone} title={item.title} interactive={false} />;
+    if (item.kind === 'ax') return <BoardRowView key={item.id} icon={look.icon} tone={look.tone} title={title(item)} meta={[item.item.kind === 'ax-candidate' ? t('center.axCandidate', { source: sourceName(item.item.ownerSourceId) }) : t('center.axTriageWait')]} interactive={false} />;
+    return <BoardRowView key={item.id} id={id} icon={look.icon} tone={look.tone} title={title(item)} meta={[kindLabel(item)]} onClick={() => openAttention(item, id)} />;
   }
+
   function recordRow(row: BoardRecord) {
-    const live = liveRecord(row);
-    return <RecordRow key={row.id} id={`record-${row.id}`} className={live ? '' : 'muted'} aria-expanded={selected?.id === row.id} aria-controls={selected?.id === row.id ? 'center-record-detail' : undefined} onClick={() => void readRecord(row)}>
-      <RowGlyph {...recordLook(row)} />
-      <span className="record-row-body"><strong>{row.intent ?? row.summary}</strong>
-        <RecordMeta>{(row.intent == null || !live || row.state !== 'active') && <span>{stateName(row.state)}</span>}<span>{owner(row)}</span>{row.lastActiveAt && <HoverHelp text={date(row.lastActiveAt)}><time dateTime={row.lastActiveAt}>{ago(row.lastActiveAt)}</time></HoverHelp>}{coverageNote(row)}{row.resources.map(key => <span key={key}>{resourceLabel(key)}</span>)}</RecordMeta>
-      </span>
-      <Icon icon={ChevronRight} className="center-row-go" />
-    </RecordRow>;
+    const live = liveRecord(row), look = recordLook(row);
+    const meta: ReactNode[] = [
+      (row.intent == null || !live || row.state !== 'active') ? stateName(row.state) : null,
+      owner(row),
+      row.lastActiveAt ? <HintTooltip text={date(row.lastActiveAt)}><time dateTime={row.lastActiveAt}>{ago(row.lastActiveAt)}</time></HintTooltip> : null,
+      row.activityCoverage !== 'observed' ? t(`center.coverage.${row.activityCoverage}`) : null,
+      ...row.resources.map(resourceLabel),
+    ];
+    return <BoardRowView key={row.id} id={`record-${row.id}`} icon={look.icon} tone={look.tone} title={row.intent ?? row.summary ?? row.id}
+      meta={meta} muted={!live} expanded={selected?.id === row.id} controlsId={selected?.id === row.id ? 'center-record-detail' : undefined}
+      onClick={() => void readRecord(row)} />;
   }
-  function recordDetail(row: BoardRecord) {
-    const linked = row.threadLinks ?? [], conflicts = (observed.page?.conflicts ?? []).filter(conflict => conflict.noticeId !== row.id && row.resources.includes(conflict.resource));
-    const fact = (label: string, value: ReactNode) => <><dt>{label}</dt><dd>{value}</dd></>;
-    return <RecordDetail id="center-record-detail" className="center-detail" aria-label={t('center.recordDetail')}>
-      <header>
-        <div className="center-detail-title"><span className="center-kind">{t(row.intent != null ? 'center.kind.notice' : 'center.kind.blocker')}</span><h2 id="center-record-heading" tabIndex={-1}>{row.intent ?? row.summary}</h2></div>
-        <Button onClick={closeRecord}>{t('back')}</Button>
-      </header>
-      <RecordMeta as="div"><Pill tone={stateTone(row.state)}>{stateName(row.state)}</Pill><span>{owner(row)}</span>{chips(row.resources)}</RecordMeta>
-      {detailError && <Notice tone="danger" action={<Button busy={pendingAction === 'retry-detail'} disabled={busy} onClick={() => void runAction('retry-detail', () => readRecord(row))}>{t('retry')}</Button>}>{detailError}</Notice>}
-      {conflicts.map(conflict => <Notice key={`${conflict.noticeId}:${conflict.resource}`} tone="warning">{t('center.conflict', { resource: resourceLabel(conflict.resource), id: conflict.noticeId })}</Notice>)}
-      <dl>
-        {fact(t('center.activity'), <><HoverHelp text={date(row.lastActiveAt)}><time dateTime={row.lastActiveAt}>{row.lastActiveAt ? ago(row.lastActiveAt) : '—'}</time></HoverHelp>{row.activityCoverage !== 'observed' && <span className="center-note"> · {t(`center.coverage.${row.activityCoverage}`)}</span>}</>)}
-        {fact(t('center.observed'), <HoverHelp text={date(row.observedAt)}><time dateTime={row.observedAt}>{row.observedAt ? ago(row.observedAt) : '—'}</time></HoverHelp>)}
-        {row.expectedDurationSeconds != null && fact(t('center.durationLabel'), duration(row.expectedDurationSeconds, language))}
-        {row.causeCode && fact(t('center.causeLabel'), <code>{row.causeCode}</code>)}
-        {(row.reason || row.closedReason) && fact(t('center.reason'), row.reason ?? stateName(row.closedReason!))}
-        {!!row.evidenceIds?.length && fact(t('center.evidenceLabel'), <code>{row.evidenceIds.join(' · ')}</code>)}
-        {row.fixingCommit && fact(t('center.commit'), <code>{row.fixingCommit.projectId} · {row.fixingCommit.oid}</code>)}
-        {row.clearedAt && fact(t('center.clearedAt'), <HoverHelp text={date(row.clearedAt)}><time dateTime={row.clearedAt}>{ago(row.clearedAt)}</time></HoverHelp>)}
-        {row.suggestedNextStep && fact(t('center.next'), stateName(row.suggestedNextStep))}
-      </dl>
-      {linked.length > 0 && <div className="center-linked"><h3>{t('center.linkedTasks')}</h3>
-        {linked.map(link => { const target = taskTarget(link.threadId, link.observedTurnId), id = `link-${row.id}-${link.threadId}`;
-          return target ? <TaskCard key={link.threadId} task={localTaskCard(target.agent, target.session)} form="summary" now={now}
-            trigger={{ id }} onOpen={() => openTask(link.threadId, link.observedTurnId, id)} />
-            : <p key={link.threadId} className="center-note">{link.threadId} · {t('center.targetUnavailable')}</p>; })}
-      </div>}
-      {observed.page?.conflictCoverage !== 'observed' && <p className="center-note">{t('center.conflictsUnknown')}</p>}
-      <RecordDisclosure className="center-technical"><summary><Icon icon={ChevronDown} />{t('center.metadata')}</summary><pre>{JSON.stringify(row, null, 2)}</pre></RecordDisclosure>
-    </RecordDetail>;
+
+  function renderDetail(row: BoardRecord) {
+    const linked = row.threadLinks ?? [];
+    const conflicts = (observed.page?.conflicts ?? []).filter(conflict => conflict.noticeId !== row.id && row.resources.includes(conflict.resource))
+      .map(conflict => ({ key: `${conflict.noticeId}:${conflict.resource}`, message: t('center.conflict', { resource: resourceLabel(conflict.resource), id: conflict.noticeId }) }));
+    const facts: BoardDetailFact[] = [
+      { label: t('center.activity'), value: <><HintTooltip text={date(row.lastActiveAt)}><time dateTime={row.lastActiveAt}>{row.lastActiveAt ? ago(row.lastActiveAt) : '—'}</time></HintTooltip>{row.activityCoverage !== 'observed' && <span className="text-text-secondary"> · {t(`center.coverage.${row.activityCoverage}`)}</span>}</> },
+      { label: t('center.observed'), value: <HintTooltip text={date(row.observedAt)}><time dateTime={row.observedAt}>{row.observedAt ? ago(row.observedAt) : '—'}</time></HintTooltip> },
+      ...(row.expectedDurationSeconds != null ? [{ label: t('center.durationLabel'), value: duration(row.expectedDurationSeconds, language) }] : []),
+      ...(row.causeCode ? [{ label: t('center.causeLabel'), value: <code className="font-mono text-meta">{row.causeCode}</code> }] : []),
+      ...((row.reason || row.closedReason) ? [{ label: t('center.reason'), value: row.reason ?? stateName(row.closedReason!) }] : []),
+      ...(row.evidenceIds?.length ? [{ label: t('center.evidenceLabel'), value: <code className="font-mono text-meta">{row.evidenceIds.join(' · ')}</code> }] : []),
+      ...(row.fixingCommit ? [{ label: t('center.commit'), value: <code className="font-mono text-meta">{row.fixingCommit.projectId} · {row.fixingCommit.oid}</code> }] : []),
+      ...(row.clearedAt ? [{ label: t('center.clearedAt'), value: <HintTooltip text={date(row.clearedAt)}><time dateTime={row.clearedAt}>{ago(row.clearedAt)}</time></HintTooltip> }] : []),
+      ...(row.suggestedNextStep ? [{ label: t('center.next'), value: stateName(row.suggestedNextStep) }] : []),
+    ];
+    return <BoardRecordDetailView Container={RecordDetail} ariaLabel={t('center.recordDetail')} kindLabel={t(row.intent != null ? 'center.kind.notice' : 'center.kind.blocker')}
+      title={row.intent ?? row.summary ?? row.id} backLabel={t('back')} onBack={closeRecord}
+      statusLabel={stateName(row.state)} statusTone={stateTone(row.state)} ownerLabel={owner(row)} resources={row.resources.map(resourceLabel)}
+      error={detailError || undefined} retryLabel={t('retry')} retryBusy={pendingAction === 'retry-detail'} retryDisabled={busy}
+      onRetry={() => void runAction('retry-detail', () => readRecord(row))} conflicts={conflicts} facts={facts}
+      linkedHeading={linked.length > 0 ? t('center.linkedTasks') : undefined}
+      linkedTasks={linked.length > 0 ? linked.map(link => {
+        const target = taskTarget(link.threadId, link.observedTurnId), id = `link-${row.id}-${link.threadId}`;
+        return target ? <TaskCard key={link.threadId} task={localTaskCard(target.agent, target.session)} form="summary" now={now}
+          trigger={{ id }} onOpen={() => openTask(link.threadId, link.observedTurnId, id)} />
+          : <p key={link.threadId} className="m-0 text-meta text-text-secondary">{link.threadId} · {t('center.targetUnavailable')}</p>;
+      }) : undefined}
+      conflictsUnknownNote={observed.page?.conflictCoverage !== 'observed' ? t('center.conflictsUnknown') : undefined}
+      metadataLabel={t('center.metadata')} metadataJson={JSON.stringify(row, null, 2)} />;
   }
-  function eventRow(event: JournalEvent) {
-    const evidence = event.evidenceRefs?.find(ref => ['notice','blocker'].includes(ref.kind));
+
+  function renderEvent(event: JournalEvent, nested = false) {
+    const evidence = event.evidenceRefs?.find(ref => ['notice', 'blocker'].includes(ref.kind));
     const sourceConnection = connection.sources.find(source => source.id === event.origin?.sourceId)?.ingressId;
-    const row = evidence && [...observed.page?.notices ?? [], ...observed.page?.blockers ?? [], ...history?.notices ?? [], ...history?.blockers ?? []].find(row => row.id === evidence.id);
+    const row = evidence && [...observed.page?.notices ?? [], ...observed.page?.blockers ?? [], ...history?.notices ?? [], ...history?.blockers ?? []].find(item => item.id === evidence.id);
     const origin = event.origin?.type === 'local-authority' ? t('center.local') : connection.sources.find(source => source.id === event.origin?.sourceId)?.label ?? event.origin?.sourceId ?? event.origin?.type ?? t('center.unknown');
     const links = [
       ...(event.threadRefs ?? []).map(ref => {
         const target = taskTarget(ref.threadId, ref.turnId), id = `event-${event.eventId}-${ref.threadId}`;
         return target ? <TaskCard key={`${ref.threadId}:${ref.turnId}`} task={localTaskCard(target.agent, target.session)} form="summary" now={now}
           trigger={{ id }} onOpen={() => openTask(ref.threadId, ref.turnId, id)} />
-          : <span key={`${ref.threadId}:${ref.turnId}`} className="center-note">{ref.threadId} {ref.turnId} · {t('center.targetUnavailable')}</span>;
+          : <span key={`${ref.threadId}:${ref.turnId}`} className="text-meta text-text-secondary">{ref.threadId} {ref.turnId} · {t('center.targetUnavailable')}</span>;
       }),
-      ...(evidence ? [<Button id={`record-ref-${event.eventId}`} key="record" variant="ghost" presentation="record-link" className="center-link" onClick={() => void readRecord(row ?? { id: evidence.id, resources: event.resources })}>{row ? row.intent ?? row.summary : evidence.id}</Button>] : []),
-      ...(event.kind === 'notification.delivery-failed' && sourceConnection && connection.status?.ingresses.some(row => row.id === sourceConnection) ? [<Button id={`connection-${event.eventId}`} key="connection" variant="ghost" presentation="record-link" className="center-link" onClick={() => openAttention({ id: sourceConnection, kind: 'connection', connectionId: sourceConnection, title: sourceConnection }, `connection-${event.eventId}`)}>{t('connections.title')}</Button>] : []),
-      ...(event.kind.startsWith('app.') ? [<Button id={`update-${event.eventId}`} key="update" variant="ghost" presentation="record-link" className="center-link" onClick={() => openAttention({ id: 'update', kind: 'update', title: 'ARC' }, `update-${event.eventId}`)}>{t('viewUpdate')}</Button>] : []),
+      ...(evidence ? [<Button id={`record-ref-${event.eventId}`} key="record" variant="ghost" size="xs" className="max-w-full truncate text-accent-text" onClick={() => void readRecord(row ?? { id: evidence.id, resources: event.resources })}>{row ? row.intent ?? row.summary : evidence.id}</Button>] : []),
+      ...(event.kind === 'notification.delivery-failed' && sourceConnection && connection.status?.ingresses.some(item => item.id === sourceConnection) ? [<Button id={`connection-${event.eventId}`} key="connection" variant="ghost" size="xs" className="text-accent-text" onClick={() => openAttention({ id: sourceConnection, kind: 'connection', connectionId: sourceConnection, title: sourceConnection }, `connection-${event.eventId}`)}>{t('connections.title')}</Button>] : []),
+      ...(event.kind.startsWith('app.') ? [<Button id={`update-${event.eventId}`} key="update" variant="ghost" size="xs" className="text-accent-text" onClick={() => openAttention({ id: 'update', kind: 'update', title: 'ARC' }, `update-${event.eventId}`)}>{t('viewUpdate')}</Button>] : []),
     ];
-    return <RecordEvent key={event.eventId} className="center-event" data-tone={eventTone(event)}>
-      <div className="center-event-line"><strong>{event.summary}</strong><HoverHelp text={date(event.observedAt)}><time dateTime={event.observedAt}>{clock(event.observedAt, language)}</time></HoverHelp>
-        <IconButton icon={Braces} label={t('center.metadata')} className="center-raw-toggle" aria-expanded={rawEvent === event.eventId} aria-controls={`raw-${event.eventId}`} onClick={() => setRawEvent(rawEvent === event.eventId ? '' : event.eventId)} /></div>
-      <RecordMeta as="div">{event.status && event.status !== 'active' && <Pill tone={stateTone(event.status)}>{stateName(event.status)}</Pill>}<span>{origin}</span>{chips(event.resources)}</RecordMeta>
-      {links.length > 0 && <div className="center-event-links">{links}</div>}
-      {rawEvent === event.eventId && <pre id={`raw-${event.eventId}`}>{JSON.stringify(event, null, 2)}</pre>}
-    </RecordEvent>;
+    return <BoardEventRowView key={event.eventId} eventId={event.eventId} tone={eventTone(event)} summary={event.summary} nested={nested}
+      timeNode={<HintTooltip text={date(event.observedAt)}><time dateTime={event.observedAt}>{clock(event.observedAt, language)}</time></HintTooltip>}
+      rawOpen={rawEvent === event.eventId} metadataLabel={t('center.metadata')} onToggleRaw={() => setRawEvent(rawEvent === event.eventId ? '' : event.eventId)}
+      statusLabel={event.status && event.status !== 'active' ? stateName(event.status) : undefined} statusTone={event.status ? stateTone(event.status) : undefined}
+      originLabel={origin} resources={event.resources.map(resourceLabel)} links={links.length > 0 ? links : undefined} rawJson={JSON.stringify(event, null, 2)} />;
   }
-  function dayLabel(value: string) {
-    const key = dayKey(value);
-    if (key === dayKey(new Date(now).toISOString())) return t('center.today');
-    if (key === dayKey(new Date(now - 86_400_000).toISOString())) return t('center.yesterday');
-    return new Date(value).toLocaleDateString(language, { month: 'long', day: 'numeric', weekday: 'short' });
-  }
-  function timeline(rows: JournalEvent[]) {
+
+  function renderTimeline(rows: JournalEvent[]) {
+    const dayLabel = (value: string) => {
+      const key = dayKey(value);
+      if (key === dayKey(new Date(now).toISOString())) return t('center.today');
+      if (key === dayKey(new Date(now - 86_400_000).toISOString())) return t('center.yesterday');
+      return new Date(value).toLocaleDateString(language, { month: 'long', day: 'numeric', weekday: 'short' });
+    };
     const days: { label: string; groups: JournalEvent[][] }[] = [];
     for (const group of groupEvents(rows)) {
       const label = dayLabel(group[0].observedAt);
       if (days.at(-1)?.label === label) days.at(-1)!.groups.push(group); else days.push({ label, groups: [group] });
     }
-    return days.map(day => <section key={day.label} className="center-day" aria-label={day.label}><RecordHeading>{day.label}</RecordHeading>
-      <ol className="center-timeline">{day.groups.map(group => group.length === 1 ? eventRow(group[0]) : <RecordEvent key={group[0].eventId} className="center-event" data-tone={eventTone(group[0])}>
-        <details className="center-group"><summary><span className="center-event-line"><strong>{group[0].summary}</strong><span className="center-count">{group.length}</span><HoverHelp text={date(group[0].observedAt)}><time dateTime={group[0].observedAt}>{clock(group[0].observedAt, language)}</time></HoverHelp></span></summary>
-          <ol className="center-timeline nested">{group.map(eventRow)}</ol></details></RecordEvent>)}</ol>
-    </section>);
+    return days.map(day => (
+      <section key={day.label} className="flex flex-col gap-1" aria-label={day.label}>
+        <RecordHeading>{day.label}</RecordHeading>
+        <ol className="m-0 grid list-none p-0">
+          {day.groups.map(group => group.length === 1 ? renderEvent(group[0]) : (
+            <BoardTimelineGroupView key={group[0].eventId} tone={eventTone(group[0])} summary={group[0].summary} count={group.length}
+              timeNode={<HintTooltip text={date(group[0].observedAt)}><time dateTime={group[0].observedAt}>{clock(group[0].observedAt, language)}</time></HintTooltip>}>
+              {group.map(item => renderEvent(item, true))}
+            </BoardTimelineGroupView>
+          ))}
+        </ol>
+      </section>
+    ));
   }
+
   const coverage = feed.page?.coverage as { state?: string } | undefined;
-  const emptyCurrent = page && !boardRows.length && !activeWork.length && !ownerAttention.length && !historyError && !observed.error;
+  const emptyCurrent = Boolean(page && !boardRows.length && !activeWork.length && !ownerAttention.length && !historyError && !observed.error);
   const footer = view.view === 'activity'
-    ? feed.page && <RecordFooter className="center-footer"><span>{t('center.observedAgo', { time: ago(feed.page.observedAt) })}</span><span data-tone={coverage?.state === 'observed' ? undefined : 'warning'}>{coverageName(coverage?.state ?? 'unknown')}</span>
-      <RecordDisclosure className="center-technical"><summary><Icon icon={ChevronDown} />{t('center.coverage')}</summary><pre>{JSON.stringify(feed.page.coverage, null, 2)}</pre></RecordDisclosure></RecordFooter>
-    : page && <RecordFooter className="center-footer"><span>{t('center.observedAgo', { time: ago(page.observedAt) })}</span></RecordFooter>;
-  const busy = (view.view === 'ax' ? ax.loading : reading || observed.loading || loadingHistory) || !!pendingAction;
-  const runAction = async (action: string, run: () => Promise<unknown>) => { setPendingAction(action); try { await run(); } finally { setPendingAction(''); } };
-  return <Panel initialFocus={initialFocus} title={t('center.title')} viewKey={view.view} busy={busy} footer={view.view === "ax" ? undefined : footer}
-    headerNavigation={<div className="center-navigation"><SingleChoice tabs disabled={busy} label={t('center.view')} value={view.view} onChange={value => patch({ view: value as typeof view.view })} options={['current','activity','ax'].map(value => ({ value, label: value === 'ax' ? 'AX' : t(value === 'activity' ? 'center.activityView' : `center.${value}`) }))} /></div>}
-    actions={<IconButton icon={RefreshCw} label={t('refresh')} busy={pendingAction === 'refresh' || !pendingAction && (view.view === 'ax' ? ax.loading : reading || observed.loading || loadingHistory)} disabled={busy} onClick={() => void runAction('refresh', async () => {
-      if (view.view === 'ax') { await refreshAX(); return; }
-      await Promise.allSettled([refreshBoard(), selected ? readRecord(selected) : Promise.resolve(), refreshConnector(), api<AgentActivitySnapshot>('agents/activity').then(acceptActivity), view.view === 'activity' ? readEvents() : showHistory ? readHistory() : Promise.resolve()]);
-    })} />}
-    onClose={() => { setSelected(undefined); axSelection.set(undefined); boardOpen.set(false); }} returnFocus="#board-trigger" onEscapeKeyDown={event => { if (view.view === 'ax' && axSelection.get()) { event.preventDefault(); axSelection.set(undefined); } else if (selected) { event.preventDefault(); closeRecord(); } }}><RecordSurface className="coordination-center" aria-busy={busy}>
-    {view.view === 'ax' ? <AXPanel /> : <>
-    <div className="center-filters">
-      {view.view === 'current' && <SingleChoice compact form="content-pills" disabled={busy} label={t('center.filter')} value={view.filter} onChange={value => patch({ filter: value as typeof view.filter })} options={['all', 'attention', 'input', 'history'].map(value => ({ value, label: t(`center.${value}`) }))} />}
-      <div className="center-resource"><SingleChoice dropdown compact disabled={busy} label={t('center.resourceFilter')} value={view.resource || 'all-resources'} onChange={resource => patch({ resource: resource === 'all-resources' ? '' : resource })} options={[{ value: 'all-resources', label: t('center.allResources') }, ...options.map(row => ({ value: row.key, label: row.label }))]} /></div>
-    </div>
-    {resourceError && <p role="status" className="center-note">{resourceError}</p>}
-    {observed.error && <Notice tone="danger" title={t('center.unavailable')} actionBelow action={<Button busy={pendingAction === 'retry'} disabled={busy} onClick={() => void runAction('retry', refreshBoard)}>{t('retry')}</Button>}><p>{observed.error}</p></Notice>}
-    <div className={`center-content ${selected ? 'has-detail' : ''}`}>
-      {selected && recordDetail(selected)}<div className="center-list" data-empty={emptyCurrent || undefined}>{view.view === 'activity' ? <>
-        <section aria-label={t('center.activityView')}>
-          {feed.error && <Notice tone="danger" title={t(feed.reset ? 'center.gap' : 'center.unavailable')} actionBelow action={<Button busy={pendingAction === 'retry'} disabled={busy} onClick={() => void runAction('retry', () => readEvents(feed.reset ? 'reset' : 'refresh'))}>{t(feed.reset ? 'center.reset' : 'retry')}</Button>}><p>{feed.error}</p></Notice>}
-          {feed.gap?.resource === view.resource && !feed.reset && <Notice tone="warning">{[t('center.retainedGap'), feed.gap.observedAt ? date(feed.gap.observedAt) : ''].filter(Boolean).join(' · ')}</Notice>}
-          {!feed.rows.length && !reading && !feed.error && feed.page && <RecordEmpty className="center-empty" role="status"><Icon icon={Inbox} size={20} /><p>{t('center.emptyEvents')}</p></RecordEmpty>}
-          {timeline(feed.resource === view.resource ? feed.rows : [])}
-          <div className="center-more">
-            {feed.page?.hasMore && <Button busy={pendingAction === 'more'} disabled={busy} onClick={() => void runAction('more', () => readEvents())}>{t('center.more')}</Button>}
-            {feed.page && feed.historyCursor !== '' && <Button variant="ghost" busy={pendingAction === 'history'} disabled={busy} onClick={() => void runAction('history', () => readEvents('history'))}>{t('center.retainedHistory')}</Button>}
-          </div>
-        </section>
-      </> : <>
-        {historyError && <Notice tone="danger" action={<Button busy={pendingAction === 'retry-history'} disabled={busy} onClick={() => void runAction('retry-history', () => readHistory())}>{t('retry')}</Button>}>{historyError}</Notice>}
-        {(ownerAttention.length > 0 || !attention.complete && !showHistory) && <Section label={t('center.attention')} count={ownerAttention.length} attention note={!attention.complete ? t('center.partial') : undefined}>
-          {ownerAttention.map(attentionRow)}
-        </Section>}
-        {(activeWork.length > 0 || notices.length > 0) && <Section label={t(showHistory ? 'center.notices' : 'center.work')} count={activeWork.length + notices.length}>
-          {activeWork.map(({ agent, session }) => <TaskCard key={`${agent}:${session.id}`} task={localTaskCard(agent, session, 'running')} form="detail" now={now}
-            readTimeline={false}
-            trigger={{ id: `work-${session.id}` }} onOpen={() => openTask(session.id, session.turnId ?? undefined, `work-${session.id}`)} />)}
-          {notices.map(recordRow)}
-        </Section>}
-        {blockers.length > 0 && <Section label={t('center.blockers')} count={blockers.length}>{blockers.map(recordRow)}</Section>}
-        {emptyCurrent && <RecordEmpty className="center-empty" role="status"><Icon icon={Inbox} size={20} /><p>{t(view.filter === 'all' || showHistory ? 'center.emptyBoard' : 'center.noAttention')}</p></RecordEmpty>}
-        {showHistory && history?.nextCursor && <div className="center-more"><Button busy={pendingAction === 'more'} disabled={busy} onClick={() => void runAction('more', () => readHistory(history.nextCursor!))}>{t('center.more')}</Button></div>}
-      </>}
-    </div></div>
-    </>}
-  </RecordSurface></Panel>;
+    ? feed.page && <BoardFooterView observedLabel={t('center.observedAgo', { time: ago(feed.page.observedAt) })} coverageLabel={coverageName(coverage?.state ?? 'unknown')}
+        coverageWarning={coverage?.state !== 'observed'} coverageSummaryLabel={t('center.coverage')} coverageJson={JSON.stringify(feed.page.coverage, null, 2)} />
+    : page && <BoardFooterView observedLabel={t('center.observedAgo', { time: ago(page.observedAt) })} />;
+
+  const viewOptions = (['current', 'activity', 'ax'] as const).map(value => ({
+    value, label: value === 'ax' ? 'AX' : t(value === 'activity' ? 'center.activityView' : `center.${value}`),
+  }));
+  const filterOptions = (['all', 'attention', 'input', 'history'] as const).map(value => ({ value, label: t(`center.${value}`) }));
+  const resourceOptions = [{ value: 'all-resources', label: t('center.allResources') }, ...options.map(row => ({ value: row.key, label: row.label }))];
+
+  return (
+    <Panel initialFocus={initialFocus} title={t('center.title')} viewKey={view.view} busy={busy} footer={view.view === 'ax' ? undefined : footer}
+      headerNavigation={<BoardViewNavigation label={t('center.view')} value={view.view} options={viewOptions} disabled={busy} onChange={next => patch({ view: next })} />}
+      actions={<IconButton icon={RefreshCw} label={t('refresh')} busy={pendingAction === 'refresh' || !pendingAction && (view.view === 'ax' ? ax.loading : reading || observed.loading || loadingHistory)} disabled={busy} onClick={() => void runAction('refresh', async () => {
+        if (view.view === 'ax') { await refreshAX(); return; }
+        await Promise.allSettled([refreshBoard(), selected ? readRecord(selected) : Promise.resolve(), refreshConnector(), api<AgentActivitySnapshot>('agents/activity').then(acceptActivity), view.view === 'activity' ? readEvents() : showHistory ? readHistory() : Promise.resolve()]);
+      })} />}
+      onClose={() => { setSelected(undefined); axSelection.set(undefined); boardOpen.set(false); }} returnFocus="#board-trigger"
+      onEscapeKeyDown={event => { if (view.view === 'ax' && axSelection.get()) { event.preventDefault(); axSelection.set(undefined); } else if (selected) { event.preventDefault(); closeRecord(); } }}>
+      {view.view === 'ax' ? <RecordSurface className="flex min-h-0 flex-1 flex-col"><AXPanel /></RecordSurface> : (
+        <CoordinationBoardView Surface={RecordSurface} EmptyContainer={RecordEmpty} busy={busy} resourceError={resourceError || undefined}
+          filters={<BoardFiltersView showFilter={view.view === 'current'} filterLabel={t('center.filter')} filterValue={view.filter} filterOptions={filterOptions} onFilterChange={next => patch({ filter: next })}
+            resourceLabel={t('center.resourceFilter')} resourceValue={view.resource || 'all-resources'} resourceOptions={resourceOptions} onResourceChange={resource => patch({ resource: resource === 'all-resources' ? '' : resource })} disabled={busy} />}
+          notice={observed.error ? <BoardFeedbackView title={t('center.unavailable')} detail={observed.error} actionLabel={t('retry')} actionBusy={pendingAction === 'retry'} actionDisabled={busy} onAction={() => void runAction('retry', refreshBoard)} /> : undefined}
+          detail={selected ? renderDetail(selected) : undefined}
+          empty={view.view === 'current' && emptyCurrent}
+          emptyMessage={t(view.filter === 'all' || showHistory ? 'center.emptyBoard' : 'center.noAttention')}
+          moreActions={view.view === 'activity' ? <>
+            {feed.page?.hasMore && <Button size="sm" busy={pendingAction === 'more'} disabled={busy} onClick={() => void runAction('more', () => readEvents())}>{t('center.more')}</Button>}
+            {feed.page && feed.historyCursor !== '' && <Button size="sm" variant="ghost" busy={pendingAction === 'history'} disabled={busy} onClick={() => void runAction('history', () => readEvents('history'))}>{t('center.retainedHistory')}</Button>}
+          </> : showHistory && history?.nextCursor ? <Button size="sm" busy={pendingAction === 'more'} disabled={busy} onClick={() => void runAction('more', () => readHistory(history.nextCursor!))}>{t('center.more')}</Button> : undefined}>
+          {view.view === 'activity' ? (
+            <section className="flex flex-col gap-4" aria-label={t('center.activityView')}>
+              {feed.error && <BoardFeedbackView title={t(feed.reset ? 'center.gap' : 'center.unavailable')} detail={feed.error} actionLabel={t(feed.reset ? 'center.reset' : 'retry')} actionBusy={pendingAction === 'retry'} actionDisabled={busy} onAction={() => void runAction('retry', () => readEvents(feed.reset ? 'reset' : 'refresh'))} />}
+              {feed.gap?.resource === view.resource && !feed.reset && <Notice tone="warning">{[t('center.retainedGap'), feed.gap.observedAt ? date(feed.gap.observedAt) : ''].filter(Boolean).join(' · ')}</Notice>}
+              {!feed.rows.length && !reading && !feed.error && feed.page && <BoardEmptyView EmptyContainer={RecordEmpty} message={t('center.emptyEvents')} />}
+              {renderTimeline(feed.resource === view.resource ? feed.rows : [])}
+            </section>
+          ) : <>
+            {historyError && <BoardFeedbackView detail={historyError} actionLabel={t('retry')} actionBusy={pendingAction === 'retry-history'} actionDisabled={busy} onAction={() => void runAction('retry-history', () => readHistory())} />}
+            {(ownerAttention.length > 0 || !attention.complete && !showHistory) && (
+              <Section label={t('center.attention')} count={ownerAttention.length} attention note={!attention.complete ? t('center.partial') : undefined}>
+                {ownerAttention.map(attentionRow)}
+              </Section>
+            )}
+            {(activeWork.length > 0 || notices.length > 0) && (
+              <Section label={t(showHistory ? 'center.notices' : 'center.work')} count={activeWork.length + notices.length}>
+                {activeWork.map(({ agent, session }) => <TaskCard key={`${agent}:${session.id}`} task={localTaskCard(agent, session, 'running')} form="detail" now={now}
+                  readTimeline={false} trigger={{ id: `work-${session.id}` }} onOpen={() => openTask(session.id, session.turnId ?? undefined, `work-${session.id}`)} />)}
+                {notices.map(recordRow)}
+              </Section>
+            )}
+            {blockers.length > 0 && <Section label={t('center.blockers')} count={blockers.length}>{blockers.map(recordRow)}</Section>}
+          </>}
+        </CoordinationBoardView>
+      )}
+    </Panel>
+  );
 }

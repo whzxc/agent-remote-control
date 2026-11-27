@@ -1,50 +1,92 @@
 import { Frame } from "adg";
-import { PanelLoading, PanelShell } from "../components/panel";
+import { Maximize2, X } from "lucide-react";
+import { LocaleProvider } from "@/i18n/react";
+import { IconButton } from "@/components/kit/button";
+import {
+  AgentPlatformContentView,
+  AgentPlatformHeaderView,
+} from "@/components/AgentPlatformContentView";
+import { PanelShell } from "../components/panel";
 import { BrandMark } from "../components/brand-mark";
-import { Button } from "../components/button";
-import { IconButton } from "../components/icon-button";
 import { AccountCard } from "../modules/agent-account";
-import { platformAccounts, platformAccountCopy as copy } from "../fixtures/agent-accounts";
+import {
+  platformAccounts,
+  platformAccountCopy as copy,
+} from "../fixtures/agent-accounts";
 
-function Platform({ agent, state = "ready" }: {
+function Platform({
+  agent,
+  state = "ready",
+}: {
   agent: typeof platformAccounts.claude;
   state?: "ready" | "empty" | "loading";
 }) {
   return (
-    <PanelShell viewportHeight={800} className="gap-[25px] overflow-hidden pt-[13px] px-6 pb-6">
-      <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2">
-        <BrandMark brand={agent.brand} size={36} />
-        <h2 className="flex-1 text-title font-[650]">{agent.name}</h2>
-        <div className="ml-auto flex items-center gap-(--control-gap)">
-          <Button icon="plus">{copy.add}</Button>
-          <IconButton icon="maximize-2" label={copy.expand} />
-          <IconButton icon="x" label={copy.close} />
-        </div>
-      </header>
-      <div className="min-h-0 overflow-y-auto">
-        {state === "loading" ? <PanelLoading label={copy.loading} /> : state === "empty" ? (
-          <p className="py-8 text-center text-small text-text-secondary">{copy.empty}</p>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {agent.accounts.map(account => <AccountCard account={account} />)}
-          </div>
-        )}
-      </div>
-    </PanelShell>
+    <LocaleProvider locale="zh-CN">
+      <PanelShell viewportHeight={800} className="overflow-hidden">
+        <AgentPlatformContentView
+          header={
+            <AgentPlatformHeaderView
+              brandSlot={<BrandMark brand={agent.brand} size={36} />}
+              title={agent.name}
+              addAccountLabel={copy.add}
+              widthControl={
+                <IconButton compact icon={Maximize2} label={copy.expand} />
+              }
+              closeAction={<IconButton compact icon={X} label={copy.close} />}
+            />
+          }
+          loading={state === "loading"}
+          loadingLabel={copy.loading}
+          hasAccounts={state === "ready" && agent.accounts.length > 0}
+          canLogin
+          emptyMessage={copy.empty}
+        >
+          {state === "ready" && (
+            <div className="flex flex-col gap-3 p-5">
+              {agent.accounts.map((account) => (
+                <AccountCard key={account.alias} account={account} />
+              ))}
+            </div>
+          )}
+        </AgentPlatformContentView>
+      </PanelShell>
+    </LocaleProvider>
   );
 }
 
 export default () => [
-  <Frame name="accounts" fixture="agent-platform-lifecycle"
-    capture={{ selector: ".dialog:has(.agent-platform-view)", viewport: "1280x800" }}>
+  <Frame
+    key="accounts"
+    name="accounts"
+    fixture="agent-platform-lifecycle"
+    capture={{
+      selector: ".dialog:has(.agent-platform-view)",
+      viewport: "1280x800",
+    }}
+  >
     <Platform agent={platformAccounts.claude} />
   </Frame>,
-  <Frame name="empty" fixture="agent-platform-empty"
-    capture={{ selector: ".dialog:has(.agent-platform-view)", viewport: "1280x800" }}>
+  <Frame
+    key="empty"
+    name="empty"
+    fixture="agent-platform-empty"
+    capture={{
+      selector: ".dialog:has(.agent-platform-view)",
+      viewport: "1280x800",
+    }}
+  >
     <Platform agent={platformAccounts.claude} state="empty" />
   </Frame>,
-  <Frame name="loading" fixture="agent-platform-loading"
-    capture={{ selector: ".dialog:has(.agent-platform-view)", viewport: "1280x800" }}>
+  <Frame
+    key="loading"
+    name="loading"
+    fixture="agent-platform-loading"
+    capture={{
+      selector: ".dialog:has(.agent-platform-view)",
+      viewport: "1280x800",
+    }}
+  >
     <Platform agent={platformAccounts.claude} state="loading" />
   </Frame>,
 ];

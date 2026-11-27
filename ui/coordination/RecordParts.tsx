@@ -1,19 +1,30 @@
-import './RecordParts.css';
-type BlockProps = import('react').HTMLAttributes<HTMLElement> & {as?:'div'|'span'|'section'|'footer'|'details'|'li';variant?:'record'|'issue'};
 import type { HTMLAttributes } from 'react';
+import {
+  RecordDisclosureView,
+  RecordEventView,
+  RecordFooterView,
+  RecordListRowView,
+} from './RecordView';
 import '../components/ui/RecordDetail.css';
-export function RecordListRow({ as: Element = 'div', className = '', ...props }: BlockProps) {
-  return <Element {...props} className={`ax-row-body ${className}`} />;
+import './RecordParts.css';
+
+type BlockProps = HTMLAttributes<HTMLElement> & {
+  as?: 'div' | 'span' | 'section' | 'footer' | 'details' | 'li';
+  variant?: 'record' | 'issue';
+};
+
+export function RecordListRow(props: BlockProps) {
+  return <RecordListRowView {...props} />;
 }
 
-export function RecordFooter({ as: Element = 'footer', variant = 'record', className = '', ...props }: BlockProps) {
-  return <Element {...props} className={`${variant === 'issue' ? 'ax-footer' : 'center-footer'} ${className}`} />;
+export function RecordFooter(props: BlockProps) {
+  return <RecordFooterView {...props} />;
 }
 
-export function RecordDisclosure({ className = '', ...props }: HTMLAttributes<HTMLDetailsElement>) {
-  return <details {...props} className={`center-technical ${className}`} />;
+export function RecordDisclosure(props: HTMLAttributes<HTMLDetailsElement>) {
+  return <RecordDisclosureView {...props} />;
 }
 
-export function RecordEvent({ className = '', ...props }: HTMLAttributes<HTMLLIElement>) {
-  return <li {...props} className={`center-event ${className}`} />;
+export function RecordEvent(props: HTMLAttributes<HTMLLIElement>) {
+  return <RecordEventView {...props} />;
 }

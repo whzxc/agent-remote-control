@@ -1,5 +1,1 @@
-@import "./ui/SetupFlow.css";
-.agent-account-add .agent-account-add-form { display: flex; flex-direction: column; gap: 20px; }
-.agent-account-add .agent-account-add-form[data-waiting] { gap: 16px; }
-.agent-account-add .dialog-footer { justify-content: flex-end; }
-.agent-account-add .dialog-footer .actions { gap: 12px; }
+/* Styles moved to Tailwind utilities in AgentAccountDialogView.tsx; kept for Wave 5 implementation.json sweep. */

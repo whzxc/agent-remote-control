@@ -1,17 +1,17 @@
-import { EntityCard } from './ui/EntityInventory';
-import { useSubmittedDirty } from "./ui/useSubmittedDirty";
-import { useDialogCompletion } from "./ui/Dialog";
 import { useId, useState, type FormEvent } from 'react';
-import { Pencil, RefreshCw, Trash2 } from 'lucide-react';
 import { accountsApi } from '../api';
 import type { AccountAgentProfile, ProviderAccount as Account } from '../types';
 import { refreshAccounts, refreshAccountQuota } from '../state/accounts';
 import { readOnlyBrowser } from '../browserMode';
 import { t } from '../i18n';
-import { Button, Dialog, Field, IconButton, Input, Notice, Tag } from './ui';
+import { Button } from './kit/button';
+import Dialog, { useDialogCompletion } from './ui/Dialog';
+import { EntityCard } from './ui/EntityInventory';
+import { useSubmittedDirty } from './ui/useSubmittedDirty';
 import { Sensitive } from './Sensitive';
 import AgentQuota from './AgentQuota';
 import { accountQuotaProvider } from '../subscriptions/accountQuota';
+import { AccountCardView, EditAccountAliasFormView, RemoveAccountFormView } from './AccountCardView';
 
 export function AgentAccountCard({ account, profile, onSelect, onReauth }: {
   account: Account; profile: AccountAgentProfile; onSelect: () => void; onReauth?: () => void;
@@ -22,36 +22,53 @@ export function AgentAccountCard({ account, profile, onSelect, onReauth }: {
   const provider = accountQuotaProvider(profile.agent, account.quota);
   const signedIn = profile.state === 'signed-in';
   const canRemove = account.agentProfiles.length === 1 && !account.sources.length;
+
   async function refresh() {
     setRefreshing(true); setError('');
     try { await refreshAccountQuota(account.id); }
-    catch (error) { setError(String(error)); }
+    catch (err) { setError(String(err)); }
     finally { setRefreshing(false); }
   }
-  return <EntityCard variant="reply" className="account-card" role="region" aria-label={account.alias}>
-    <div className="account-heading">
-      <div className="account-identity">
-        <div className="account-name">
-          <h3><Button variant="link" onClick={onSelect}><span>{account.alias}</span></Button></h3>
-          {profile.default && <Tag>{t('accounts.defaultBadge')}</Tag>}
-        </div>
-        {account.email && <div className="account-email"><Sensitive>{account.email}</Sensitive></div>}
-      </div>
-      {!readOnlyBrowser && <div className="actions">
-        <IconButton id={id + '-alias'} compact icon={Pencil} label={t('accounts.editAliasAction')} onClick={() => setEditing('alias')} />
-        {signedIn && <IconButton compact icon={RefreshCw} label={t('usageRefresh')} busy={refreshing} onClick={() => void refresh()} />}
-        {canRemove && <IconButton id={id + '-remove'} compact icon={Trash2} label={t('accounts.removeAction')} onClick={() => setEditing('remove')} />}
-      </div>}
-    </div>
-    {error && <Notice tone="danger">{error}</Notice>}
-    {signedIn && provider.windows.length > 0 ? <AgentQuota provider={provider} /> :
-      <div className="account-status">
-        <span data-signed-out={!signedIn || undefined}>{t(signedIn ? 'accounts.quotaUnavailable' : profile.state === 'signed-out' ? 'accounts.agentSignedOut' : `accounts.profile.${profile.state}`)}</span>
-        {profile.state === 'signed-out' && onReauth && <Button data-account-reauth={account.id} onClick={onReauth}>{t('accounts.reauth')}</Button>}
-      </div>}
-    {editing && <AccountEdit account={account} profile={profile} action={editing}
-      returnFocus={`[id="${id}-${editing}"], [data-add-agent-account]`} onClose={() => setEditing(undefined)} />}
-  </EntityCard>;
+
+  return (
+    <>
+      <AccountCardView
+        CardWrapper={EntityCard}
+        accountId={account.id}
+        alias={account.alias}
+        emailNode={account.email ? <Sensitive>{account.email}</Sensitive> : undefined}
+        isDefault={profile.default}
+        defaultLabel={t('accounts.defaultBadge')}
+        signedIn={signedIn}
+        readOnly={readOnlyBrowser}
+        canRemove={canRemove}
+        refreshing={refreshing}
+        error={error || undefined}
+        editButtonId={`${id}-alias`}
+        removeButtonId={`${id}-remove`}
+        editLabel={t('accounts.editAliasAction')}
+        refreshLabel={t('usageRefresh')}
+        removeLabel={t('accounts.removeAction')}
+        statusLabel={t(signedIn ? 'accounts.quotaUnavailable' : profile.state === 'signed-out' ? 'accounts.agentSignedOut' : `accounts.profile.${profile.state}`)}
+        reauthLabel={profile.state === 'signed-out' && onReauth ? t('accounts.reauth') : undefined}
+        quotaSlot={signedIn && provider.windows.length > 0 ? <AgentQuota provider={provider} /> : undefined}
+        onSelect={onSelect}
+        onEdit={() => setEditing('alias')}
+        onRefresh={() => void refresh()}
+        onRemove={() => setEditing('remove')}
+        onReauth={onReauth}
+      />
+      {editing && (
+        <AccountEdit
+          account={account}
+          profile={profile}
+          action={editing}
+          returnFocus={`[id="${id}-${editing}"], [data-add-agent-account]`}
+          onClose={() => setEditing(undefined)}
+        />
+      )}
+    </>
+  );
 }
 
 function AccountEdit({ account, profile, action, returnFocus, onClose }: {
@@ -63,6 +80,7 @@ function AccountEdit({ account, profile, action, returnFocus, onClose }: {
   const removing = action === 'remove';
   const completion = useDialogCompletion(onClose);
   const draft = useSubmittedDirty(alias, !removing && alias !== account.alias);
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!removing && !alias.trim()) {
@@ -77,20 +95,44 @@ function AccountEdit({ account, profile, action, returnFocus, onClose }: {
       await completion.finish();
       // Let the dialog restore focus before removing its trigger from the list.
       void refreshAccounts(true);
-    } catch (error) { setError(String(error)); } finally { setBusy(false); }
+    } catch (err) { setError(String(err)); } finally { setBusy(false); }
   }
-  return <Dialog layerId={completion.layerId} title={removing ? t('accounts.removeTitle', { alias: account.alias }) : t('accounts.editAliasAction')}
-    className="agent-account-add" initialFocus={removing ? undefined : id} dirty={!removing && draft.dirty} busy={busy} returnFocus={returnFocus} onClose={onClose}
-    footer={<Button form={id + '-form'} type="submit" variant={removing ? 'danger' : 'primary'} busy={busy}>
-      {t(removing ? 'accounts.removeAction' : 'save')}
-    </Button>}>
-    <form id={id + '-form'} className="agent-account-add-form" onSubmit={event => void submit(event)}>
-      {error && <Notice tone="danger">{error}</Notice>}
-      {removing ? <p className="account-removal">{t('accounts.removeAgentConsequence')}</p> :
-        <Field id={id} label={t('accounts.alias')} error={invalid ? t('accounts.aliasRequired') : undefined}>
-          <Input id={id} value={alias} onChange={event => { setAlias(event.target.value); setInvalid(false); }}
-            aria-invalid={invalid || undefined} aria-describedby={invalid ? id + '-error' : undefined} />
-        </Field>}
-    </form>
-  </Dialog>;
+
+  return (
+    <Dialog
+      layerId={completion.layerId}
+      title={removing ? t('accounts.removeTitle', { alias: account.alias }) : t('accounts.editAliasAction')}
+      className="agent-account-add"
+      initialFocus={removing ? undefined : id}
+      dirty={!removing && draft.dirty}
+      busy={busy}
+      returnFocus={returnFocus}
+      onClose={onClose}
+      footer={
+        <Button form={`${id}-form`} type="submit" variant={removing ? 'danger' : 'primary'} busy={busy}>
+          {t(removing ? 'accounts.removeAction' : 'save')}
+        </Button>
+      }
+    >
+      {removing ? (
+        <RemoveAccountFormView
+          formId={`${id}-form`}
+          consequence={t('accounts.removeAgentConsequence')}
+          error={error || undefined}
+          onSubmit={event => void submit(event)}
+        />
+      ) : (
+        <EditAccountAliasFormView
+          formId={`${id}-form`}
+          inputId={id}
+          aliasLabel={t('accounts.alias')}
+          alias={alias}
+          invalidError={invalid ? t('accounts.aliasRequired') : undefined}
+          error={error || undefined}
+          onAliasChange={value => { setAlias(value); setInvalid(false); }}
+          onSubmit={event => void submit(event)}
+        />
+      )}
+    </Dialog>
+  );
 }

@@ -1,7 +1,5 @@
-import { EntitySection, EntityCard } from './ui/EntityInventory';
-import { PanelHeader } from "./ui/Panel";
 import { useCallback, useState, type ReactNode } from 'react';
-import { Plus, RefreshCw, Settings, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { t } from '../i18n';
 import { resolveAgentQuota } from '../state/quota';
 import { subscriptions } from '../state/subscriptions';
@@ -9,9 +7,13 @@ import { refreshAccounts, useAccounts } from '../state/accounts';
 import { name, refreshAgents, type Agent } from '../state/agents';
 import { managesAgentAccounts, selectAgentPanel } from '../state/overviewPanels';
 import { AgentQuotaIcon } from '../subscriptions/AgentQuotaIcon';
+import { IconButton } from './kit/button';
+import { DialogClose } from './ui/Dialog';
+import { EntityCard, EntitySection } from './ui/EntityInventory';
+import { PanelHeader } from './ui/Panel';
 import { AgentAccountCard } from './AccountCards';
 import AgentAccountAdd from './AgentAccountAdd';
-import { Button, DialogClose, Icon, IconButton, Loading, Notice } from './ui';
+import { AgentPlatformContentView, AgentPlatformHeaderView } from './AgentPlatformContentView';
 import type { ProviderAccount } from '../types';
 import { readOnlyBrowser } from '../browserMode';
 
@@ -24,37 +26,56 @@ export default function AgentPlatformView({ agent, onSettings, widthControl }: {
   const state = useAccounts();
   const { snapshot } = subscriptions.use();
   const kind = managesAgentAccounts(agent.agent) ? agent.agent : undefined;
-  const canLogin = kind && agent.installed && !readOnlyBrowser;
+  const canLogin = Boolean(kind && agent.installed && !readOnlyBrowser);
   const accounts = state.items.filter(account => account.agentProfiles.some(profile => profile.agent === agent.agent));
-  return <EntitySection as="section" className="agent-panel-layer agent-platform-view">
-    <PanelHeader><header className="dialog-header agent-panel-header">
-      <AgentQuotaIcon agent={agent.agent} provider={resolveAgentQuota(agent.agent, snapshot, state.items)} />
-      <div className="agent-panel-heading"><h2>{name(agent)}</h2></div>
-      <div className="actions">
-        {canLogin && <Button data-add-agent-account onClick={() => setLogin({})}><Icon icon={Plus} />{t('accounts.addAgentAccount')}</Button>}
-        {widthControl}
-        <DialogClose asChild><IconButton icon={X} label={t('close')} /></DialogClose>
-      </div>
-    </header></PanelHeader>
-    <div className="agent-view-scroll" aria-busy={state.loading}>
-      {state.error && <Notice action={<Button onClick={() => void refreshAccounts()}>{t('retry')}</Button>}>{state.error}</Notice>}
-      {state.loading && !accounts.length && <Loading />}
-      {accounts.map(account => <AgentAccountCard key={account.id} account={account}
-        profile={account.agentProfiles.find(profile => profile.agent === agent.agent)!}
-        onReauth={canLogin ? () => setLogin({ account }) : undefined}
-        onSelect={() => selectAgentPanel({ type: 'agent', agent: agent.agent })} />)}
-      {!accounts.length && !state.error && !state.loading && (canLogin ?
-        <p className="agent-platform-empty">{t('accounts.empty')}</p> :
-        <EntityCard className="native-agent-card">
-          <p>{t(agent.installed && agent.available && agent.enabled ? 'agentReadyNoAccounts' : 'agentNeedsSetup')}</p>
-          <div className="actions">
-            <IconButton compact icon={RefreshCw} label={t('refreshAgents')} busy={refreshing} onClick={async () => {
-              setRefreshing(true); try { await refreshAgents(true); } finally { setRefreshing(false); }
-            }} />
-            <IconButton compact icon={Settings} label={t('agents')} disabled={refreshing} onClick={onSettings} />
-          </div>
-        </EntityCard>)}
-    </div>
-    {login && kind && <AgentAccountAdd kind={kind} account={login.account} onClose={closeLogin} />}
-  </EntitySection>;
+
+  return (
+    <>
+      <AgentPlatformContentView
+        SectionWrapper={EntitySection}
+        NativeCardWrapper={EntityCard}
+        header={
+          <PanelHeader>
+            <AgentPlatformHeaderView
+              brandSlot={<AgentQuotaIcon agent={agent.agent} provider={resolveAgentQuota(agent.agent, snapshot, state.items)} />}
+              title={name(agent)}
+              addAccountLabel={canLogin ? t('accounts.addAgentAccount') : undefined}
+              onAddAccount={canLogin ? () => setLogin({}) : undefined}
+              widthControl={widthControl}
+              closeAction={<DialogClose asChild><IconButton compact icon={X} label={t('close')} /></DialogClose>}
+            />
+          </PanelHeader>
+        }
+        loading={state.loading}
+        loadingLabel={t('loading')}
+        error={state.error || undefined}
+        retryLabel={t('retry')}
+        onRetry={() => void refreshAccounts()}
+        hasAccounts={accounts.length > 0}
+        canLogin={canLogin}
+        emptyMessage={t('accounts.empty')}
+        nativeStatusMessage={t(agent.installed && agent.available && agent.enabled ? 'agentReadyNoAccounts' : 'agentNeedsSetup')}
+        refreshAgentsLabel={t('refreshAgents')}
+        settingsLabel={t('agents')}
+        refreshingNative={refreshing}
+        onRefreshNative={async () => {
+          setRefreshing(true);
+          try { await refreshAgents(true); }
+          finally { setRefreshing(false); }
+        }}
+        onSettings={onSettings}
+      >
+        {accounts.map(account => (
+          <AgentAccountCard
+            key={account.id}
+            account={account}
+            profile={account.agentProfiles.find(profile => profile.agent === agent.agent)!}
+            onReauth={canLogin ? () => setLogin({ account }) : undefined}
+            onSelect={() => selectAgentPanel({ type: 'agent', agent: agent.agent })}
+          />
+        ))}
+      </AgentPlatformContentView>
+      {login && kind && <AgentAccountAdd kind={kind} account={login.account} onClose={closeLogin} />}
+    </>
+  );
 }

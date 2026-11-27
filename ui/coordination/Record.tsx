@@ -1,16 +1,53 @@
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from 'react';
-import { Card } from '../components/ui/card';
+import {
+  RecordCardView,
+  RecordHeadingView,
+  RecordMetaView,
+  RecordRowView,
+} from './RecordView';
 import './Record.css';
 
-export function RecordCard({ children }: { children: ReactNode }) {
-  return <Card className="record-row">{children}</Card>;
+export function RecordCard({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return <RecordCardView className={className}>{children}</RecordCardView>;
 }
-export function RecordRow({ children, className = '', ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
-  return <Card asChild className={`record-row ${className}`}><button type="button" {...props}>{children}</button></Card>;
+
+export function RecordRow(props: ButtonHTMLAttributes<HTMLButtonElement>) {
+  return <RecordRowView {...props} />;
 }
-export function RecordMeta({ as: Element = 'span', className = '', ...props }: HTMLAttributes<HTMLElement> & { as?: 'span' | 'div' }) {
-  return <Element {...props} className={`record-row-meta ${className}`} />;
+
+export function RecordMeta(
+  props: HTMLAttributes<HTMLElement> & { as?: 'span' | 'div' },
+) {
+  return <RecordMetaView {...props} />;
 }
-export function RecordHeading({ count, children, attention, note }: { count?: number; children: ReactNode; attention?: boolean; note?: ReactNode }) {
-  return <h2 className="record-heading" data-attention={attention || undefined}>{children}{count !== undefined && count > 0 && <span className="record-count">{count}</span>}{note && <span role="status" className="record-note">· {note}</span>}</h2>;
+
+export function RecordHeading({
+  count,
+  children,
+  attention,
+  note,
+  className,
+}: {
+  count?: number;
+  children: ReactNode;
+  attention?: boolean;
+  note?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <RecordHeadingView
+      count={count}
+      attention={attention}
+      note={note}
+      className={className}
+    >
+      {children}
+    </RecordHeadingView>
+  );
 }
