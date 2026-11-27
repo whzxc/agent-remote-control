@@ -1,22 +1,21 @@
-
-import { RelayHostingContent } from '../modules/relay-hosting';
 import { Frame } from "adg";
-import { Panel } from "../components/panel";
 import { IconButton } from "../components/icon-button";
+import { Panel } from "../components/panel";
+import { RelayHostingContent } from "../modules/relay-hosting";
 
 export default () => (
   <Frame
-
     name="empty"
     fixture="relay-hosting-light"
     capture={{ selector: ".layer-panel", viewport: "1280x800" }}
     width={992}
   >
-    <Panel viewportHeight={800}
+    <Panel
+      viewportHeight={800}
       title="Relay hosting"
       actions={<IconButton icon="maximize-2" label="Expand" />}
     >
-      <RelayHostingContent  />
+      <RelayHostingContent />
     </Panel>
   </Frame>
 );
