@@ -1,0 +1,17 @@
+[
+  {
+    "section": "improvements",
+    "en": "Core cuts idle CPU, disk writes and memory churn by using LRU directory caching, skipping redundant notification index checks, and avoiding no-op preference writes.",
+    "zh-CN": "Core 通过目录缓存 LRU 淘汰、跳过无变更通知索引检查以及避免无变更偏好重复写盘，显著降低空闲 CPU、磁盘写入和内存抖动。"
+  },
+  {
+    "section": "fixes",
+    "en": "Forwarded remote writes preserve their original receipt IDs across device links.",
+    "zh-CN": "跨设备转发的写操作现在会保留原始回执 ID。"
+  },
+  {
+    "section": "fixes",
+    "en": "Uninstalling ARC now completes platform cleanup reliably and verifies process ownership; the Windows installer retries WebView2 cleanup after Desktop quits.",
+    "zh-CN": "卸载 ARC 时会完整执行平台清理并校验进程归属；Windows 安装程序在桌面端退出后会自动重试 WebView2 清理。"
+  }
+]

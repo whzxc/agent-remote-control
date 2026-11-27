@@ -136,7 +136,7 @@ async function localRehearsal(output, keyDirectory, selected) {
   console.log(`Verified local release rehearsal: ${output}`);
 }
 
-async function coordinateRelease(options, { resume, dryRun }) {
+async function coordinateRelease(options, { resume, dryRun, skipExtended = false }) {
   const saved = resume ? await json(path.join(options.resume, 'release-state.json')) : undefined;
   const requested = options.version === undefined ? saved?.version : stableVersion(options.version);
   const platforms = releasePlatforms(options.platforms ?? saved?.platforms?.join(','));
@@ -177,8 +177,9 @@ async function coordinateRelease(options, { resume, dryRun }) {
     onRetry: (error, attempt, delay) => console.error(`${name}: attempt ${attempt} failed (${error.message}); retrying in ${delay / 1000}s`),
   });
   try {
-    if (!resume) await timer.run('extended gate', () =>
+    if (!resume && !skipExtended) await timer.run('extended gate', () =>
       runCommand('npm', ['run', 'test:extended'], { env: testEnvironment(buildOnlyEnv()) }));
+    else if (!resume && skipExtended) timer.skip('extended gate');
     await timer.run('checks', async () => {
       if (!resume && (mac || windows) && (process.platform !== 'darwin' || process.arch !== 'arm64')) throw new Error('macOS releases require a local build and signing on an Apple Silicon Mac');
       env = { ...process.env };
@@ -347,11 +348,12 @@ if (mode === 'release') {
       const key = option.slice(2);
       if (!args[i + 1] || args[i + 1].startsWith('--') || options[key] !== undefined) throw new Error(`Invalid or repeated ${option}`);
       options[key] = args[++i];
-    } else if (option === '--dry-run' && !flags.has(option)) flags.add(option);
-    else throw new Error('release [--dry-run] [--version X.Y.Z] [--platforms mac,windows,linux] [--resume DIR] [--local-output DIR --test-keys DIR]');
+    } else if (['--dry-run', '--skip-extended'].includes(option) && !flags.has(option)) flags.add(option);
+    else throw new Error('release [--dry-run] [--skip-extended] [--version X.Y.Z] [--platforms mac,windows,linux] [--resume DIR] [--local-output DIR --test-keys DIR]');
   }
   const resume = options.resume !== undefined;
   const dryRun = flags.has('--dry-run');
+  const skipExtended = flags.has('--skip-extended');
   if (resume && dryRun) throw new Error('--resume cannot be combined with --dry-run');
   if (options['local-output'] || options['test-keys']) {
     if (!dryRun || !options['local-output'] || !options['test-keys'] || !options.version) {
@@ -361,7 +363,7 @@ if (mode === 'release') {
     base = releaseBase();
     await localRehearsal(options['local-output'], options['test-keys'], releasePlatforms(options.platforms));
   } else {
-    await coordinateRelease(options, { resume, dryRun });
+    await coordinateRelease(options, { resume, dryRun, skipExtended });
   }
 } else if (mode === 'stage') {
   const [legacyTarget, input, output] = args;
