@@ -132,6 +132,31 @@ function respondToScenario(path: string, method: string, body?: unknown): unknow
   }
   if (path === 'preferences' && method === 'PUT') return responses.preferences = { ...(responses.preferences as Record<string,string>), ...(body as { values: Record<string,string> }).values };
   if (path === 'preferences' || path === 'preferences/import') return responses.preferences;
+  if (path === 'storage/status' && method === 'GET') return responses['storage/status'] ?? {
+    hot: {
+      receipts: { files: 120, bytes: 640000, archivable: 24 },
+      coordination: { files: 180, bytes: 120000, archivable: 18, capacity: 8192 },
+      dispatches: { files: 40, bytes: 96000, archivable: 6 },
+      changes: { files: 30, bytes: 42000, archivable: 4 },
+      notifications: { files: 12, bytes: 18000, archivable: 0 },
+      controlMetrics: { files: 8, bytes: 512000, compressible: 2 },
+      outputs: { files: 4, bytes: 32000, prunable: 1 },
+    },
+    archives: { files: 2, bytes: 480000 },
+    legacy: { files: 0, bytes: 0, directories: {} },
+    warnings: [],
+  };
+  if (path === 'storage/archive' && method === 'POST') return {
+    applied: !!(body as { apply?: boolean })?.apply,
+    categories: { receipts: { eligible: 24, archived: 24, bytes: 128000 } },
+  };
+  if (path === 'storage/prune' && method === 'POST') return {
+    applied: !!(body as { apply?: boolean })?.apply,
+    olderThanDays: (body as { olderThanDays?: number })?.olderThanDays ?? 90,
+    includeLegacy: !!(body as { includeLegacy?: boolean })?.includeLegacy,
+    archives: { eligible: 0, removed: 0, bytes: 0 },
+    legacy: { directories: [], removed: 0, bytes: 0 },
+  };
   if (path === 'agents/dispatch-catalog' && method === 'POST') return {
     authoritative: true, source: 'fixture', models: responses.dispatchModels ?? [{ model: 'gpt-6.1-sol', displayName: 'GPT-6.1 Sol', efforts: ['low', 'medium', 'high', 'max'] }, { model: 'gpt-5.6-sol', displayName: 'GPT-5.6 Sol', efforts: ['low', 'medium', 'high'] }],
   };

@@ -19,6 +19,7 @@ import { Button, Icon, Switch, SingleChoice, Input, Field } from "./ui";
 import { SettingsSection as Group, Setting as Row } from "./ui/Settings";
 import ExperimentalSettings from "./ExperimentalSettings";
 import { AppUpdate } from "./AppUpdate";
+import StorageSettings from "./StorageSettings";
 import { tasks } from "../state/tasks";
 import DesktopRecoveryNotice, { awaitsDesktopDecision } from "./DesktopRecoveryNotice";
 export default function SettingsPage() {
@@ -326,6 +327,7 @@ export default function SettingsPage() {
           </Field>
         )}
       </Group>
+      <StorageSettings />
       <AppUpdate>
         <Button id="settings-experimental-entry" variant="ghost"
           onClick={() => navigation.set(old => ({ ...old, settingsExperimental: true }))}>{t("topology.experimental")}<Icon icon={ChevronRight} size={14} /></Button>

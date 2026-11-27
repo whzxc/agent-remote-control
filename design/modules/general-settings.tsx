@@ -8,6 +8,7 @@ import { SingleChoice } from "../components/single-choice";
 import { Switch } from "../components/switch";
 import { Input } from "../components/field";
 import { IconButton } from "../components/icon-button";
+import { Button } from "../components/button";
 import { UpdateAboutContent } from '../components/update-about';
 
 
@@ -107,6 +108,17 @@ export function GeneralSettingsContent() { return (<div class="flex flex-col gap
               options={samples.sample32}
               width={340}
             />
+          </SettingLine>
+        </Group>
+        <Group title="Storage">
+          <SettingLine title="Local state archiving" description="120 hot files (1.4 MB); 24 items ready to archive losslessly.">
+            <Button variant="primary">Archive now</Button>
+          </SettingLine>
+          <SettingLine title="Archive retention" description="Compressed archives older than this window are pruned during daily maintenance.">
+            <Choices dropdown label="Archive retention" options={["Keep forever", "30 days", "90 days", "180 days"]} value="Keep forever" width={180} />
+          </SettingLine>
+          <SettingLine title="Prune old archives and legacy data" description="Archives: 480 KB · Legacy data: 0 B.">
+            <Button variant="secondary">Preview cleanup…</Button>
           </SettingLine>
         </Group>
         <UpdateAboutContent checkDisabled labels={{
