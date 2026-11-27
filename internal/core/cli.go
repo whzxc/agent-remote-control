@@ -47,6 +47,14 @@ var cliCommands = []string{
 	"app quit",
 	"app restart",
 	"storage compact",
+	"storage status",
+	"storage archive [--apply]",
+	"storage archive --dry-run",
+	"storage prune [--apply]",
+	"storage prune --dry-run",
+	"storage prune --older-than <days> [--apply]",
+	"storage prune --include-legacy [--apply]",
+	"storage prune --older-than <days> --include-legacy [--apply]",
 	"ax import --from <path>",
 	"ax export --to <path>",
 	"subscriptions get",
@@ -123,7 +131,7 @@ const cliHelpJSON = `{"version":"0.0.0",
                 {"commands":"app start|status|quit|restart; uninstall [--purge]","description":"Control the installed application. Install local builds from an independent terminal with npm run desktop:install in the source checkout."},
                 {"commands":"ax import --from <path>; ax export --to <path>","description":"Import the interim AX queue or export retained AX history through local Core management. Paths must be absolute; export requires a new file in an existing directory outside ARC state."},
                 {"commands":"subscriptions get|set|refresh|open","description":"Read or refresh subscription usage; set accepts JSON on stdin."},
-                {"commands":"stats control [--since <duration>]; logs [--stdin|--follow|--offline]; watch; storage compact","description":"Inspect logs, watch changes or compact local storage."},
+                {"commands":"stats control [--since <duration>]; logs [--stdin|--follow|--offline]; watch; storage status|archive|prune|compact","description":"Inspect logs, watch changes, or inspect, archive, prune and compact local storage."},
                 {"commands":"config get; config set --stdin","description":"Read or set device configuration. set accepts {maintainerMode:boolean}; default false, effective without restart."},
                 {"commands":"configure --stdin; network --stdin; connect; disconnect; verify [--fresh]","description":"Configure and control the primary connection."},
                 {"commands":"capabilities; schema <operation>; call <operation> [--stdin]; mcp","description":"Discover full operation schemas, execute an operation or serve local management MCP."},
@@ -799,7 +807,29 @@ func executeCLIRoute(ctx context.Context, args []string, body object, setupLocal
 	case "ax":
 		return request("ax/"+action, http.MethodPost, object{strings.TrimPrefix(args[2], "--"): args[3]})
 	case "storage":
-		return compactWithCoreLease(ctx)
+		switch action {
+		case "compact":
+			return compactWithCoreLease(ctx)
+		case "status":
+			return get("storage/status")
+		case "archive":
+			return request("storage/archive", http.MethodPost, object{"apply": slices.Contains(args[2:], "--apply")})
+		case "prune":
+			olderDays := storageDefaultPruneOlderDays
+			if idx := slices.Index(args[2:], "--older-than"); idx >= 0 && idx+3 < len(args) {
+				raw := strings.TrimSuffix(strings.ToLower(strings.TrimSpace(args[idx+3])), "d")
+				parsed, err := strconv.Atoi(raw)
+				if err != nil || parsed <= 0 {
+					return nil, errors.New("INVALID_ARGUMENT: --older-than expects a positive day count such as 90 or 90d")
+				}
+				olderDays = parsed
+			}
+			return request("storage/prune", http.MethodPost, object{
+				"apply":         slices.Contains(args[2:], "--apply"),
+				"olderThanDays": olderDays,
+				"includeLegacy": slices.Contains(args[2:], "--include-legacy"),
+			})
+		}
 	case "context":
 		return request("context", http.MethodPost, body)
 	case "configure":
