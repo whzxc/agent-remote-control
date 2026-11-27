@@ -57,6 +57,9 @@ func init() {
 	fixtureNativeCodexInputs = func() (string, string, error) {
 		binary := os.Getenv("ARC_FIXTURE_BINARY")
 		home := os.Getenv("CODEX_HOME")
+		if home == "" {
+			home, _ = nativeCodexHome()
+		}
 		if !filepath.IsAbs(binary) || !filepath.IsAbs(home) || !filepath.IsAbs(os.Getenv("ARC_STATE_DIR")) ||
 			!filepath.IsAbs(os.Getenv("ARC_FIXTURE_SCRIPT")) {
 			return "", "", errors.New("fixture binary, script, state and Codex home are required")

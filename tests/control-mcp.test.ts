@@ -82,7 +82,7 @@ for await (const line of createInterface({input:process.stdin})) {
   const target = process.env.ARC_TEST_TARGET_DIR || fileURLToPath(new URL('../dist/native-tests', import.meta.url));
   fixtureCommand = prepareFixtureBinary(target);
   await prepareCoreBinary(target);
-  fixtureEnv={ ...process.env, HOME: home, USERPROFILE: home, XDG_CONFIG_HOME: home, ARC_STATE_DIR: stateDir, ARC_FIXTURE_DATA: directory, ARC_FIXTURE_SCRIPT: fixture, ARC_FIXTURE_BINARY: process.execPath } as Record<string,string>;
+  fixtureEnv={ ...process.env, HOME: home, USERPROFILE: home, XDG_CONFIG_HOME: home, CODEX_HOME: path.join(home, '.codex'), ARC_STATE_DIR: stateDir, ARC_FIXTURE_DATA: directory, ARC_FIXTURE_SCRIPT: fixture, ARC_FIXTURE_BINARY: process.execPath } as Record<string,string>;
   await connectFixture();
   await management('task-settings', 'PUT', {autoOpenCodex:false});
   inventory = await client.listTools();
