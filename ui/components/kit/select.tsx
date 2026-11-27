@@ -14,16 +14,16 @@ import { cn, stateClass } from "./utils";
 export const Select: typeof SelectPrimitive.Root = SelectPrimitive.Root;
 
 export const selectTriggerVariants = cva(
-  "relative inline-flex w-auto min-w-0 cursor-pointer select-none items-center justify-between gap-2 rounded-[var(--radius-kit-field,6px)] border border-border bg-surface px-3 text-left text-small text-foreground outline-none ring-ring/24 transition-[border-color,box-shadow] duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none hover:not-focus-visible:not-data-popup-open:not-aria-invalid:border-border-strong data-popup-open:border-ring focus-visible:border-ring focus-visible:ring-2 aria-invalid:border-destructive data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg:not([class*='size-'])]:size-3.5 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "relative inline-flex w-auto min-w-0 cursor-pointer select-none items-center justify-between gap-2 rounded-kit-field border border-border bg-surface px-3 text-left text-small text-foreground outline-none ring-ring/24 transition-[border-color,box-shadow] duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none hover:not-focus-visible:not-data-popup-open:not-aria-invalid:border-border-strong data-popup-open:border-ring focus-visible:border-ring focus-visible:ring-2 aria-invalid:border-destructive data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg:not([class*='size-'])]:size-3.5 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     defaultVariants: {
       size: "default",
     },
     variants: {
       size: {
-        default: "h-[var(--kit-control-height,30px)]",
-        sm: "h-[var(--kit-control-height-sm,26px)] gap-1.5 px-2.5 text-meta",
-        lg: "h-[var(--kit-field-height,32px)] px-3 text-body",
+        default: "h-(--kit-control-height)",
+        sm: "h-(--kit-control-height-sm) gap-1.5 px-2.5 text-meta",
+        lg: "h-(--kit-field-height) px-3 text-body",
       },
     },
   },
@@ -154,7 +154,7 @@ export function SelectPopup({
         <SelectPrimitive.Popup
           data-slot="select-popup"
           className={stateClass(
-            "relative min-w-(--anchor-width) max-w-[calc(100vw-24px)] origin-(--transform-origin) rounded-[var(--radius-popover,8px)] border border-border-strong bg-surface-raised text-popover-foreground shadow-md outline-none transition-[opacity,scale] duration-(--motion-fast) ease-(--ease-enter) data-starting-style:opacity-0 data-starting-style:scale-95 data-ending-style:opacity-0 data-ending-style:scale-95 motion-reduce:transition-none dark:shadow-[inset_0_1px_0_rgb(255_255_255/6%),var(--shadow-md)]",
+            "relative min-w-(--anchor-width) max-w-[calc(100vw-24px)] origin-(--transform-origin) rounded-popover border border-border-strong bg-surface-raised text-popover-foreground shadow-md outline-none transition-[opacity,scale] duration-(--motion-fast) ease-(--ease-enter) data-starting-style:opacity-0 data-starting-style:scale-95 data-ending-style:opacity-0 data-ending-style:scale-95 motion-reduce:transition-none dark:shadow-[inset_0_1px_0_rgb(255_255_255/6%),var(--shadow-md)]",
             className,
           )}
           {...props}
@@ -192,7 +192,7 @@ export function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={stateClass(
-        "grid min-h-7 cursor-default grid-cols-[minmax(0,1fr)_1rem] items-center gap-2 rounded-[var(--radius-badge,5px)] px-2.5 py-1 text-small text-foreground outline-none data-highlighted:bg-surface-subtle data-selected:font-semibold data-disabled:pointer-events-none data-disabled:opacity-50",
+        "grid min-h-7 cursor-default grid-cols-[minmax(0,1fr)_1rem] items-center gap-2 rounded-badge px-2.5 py-1 text-small text-foreground outline-none data-highlighted:bg-surface-subtle data-selected:font-semibold data-disabled:pointer-events-none data-disabled:opacity-50",
         className,
       )}
       {...props}

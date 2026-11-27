@@ -56,7 +56,7 @@ export function RadioCard({
     <RadioPrimitive.Root
       data-slot="radio-card"
       className={stateClass(
-        "group relative flex w-full min-w-0 cursor-pointer items-start gap-3 rounded-[var(--radius-kit-card,10px)] border border-border bg-surface p-3 text-left text-foreground outline-none transition-[border-color,background-color,box-shadow] duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none hover:not-data-disabled:border-border-strong focus-visible:ring-2 focus-visible:ring-ring data-checked:border-accent data-checked:bg-accent/6 data-disabled:cursor-not-allowed data-disabled:opacity-50",
+        "group relative flex w-full min-w-0 cursor-pointer items-start gap-3 rounded-kit-card border border-border bg-surface p-3 text-left text-foreground outline-none transition-[border-color,background-color,box-shadow] duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none hover:not-data-disabled:border-border-strong focus-visible:ring-2 focus-visible:ring-ring data-checked:border-accent data-checked:bg-accent/6 data-disabled:cursor-not-allowed data-disabled:opacity-50",
         className,
       )}
       {...props}
@@ -102,7 +102,7 @@ export function RadioSwatch({
       aria-label={label}
       data-slot="radio-swatch"
       className={stateClass(
-        "inline-flex h-7 w-9 shrink-0 cursor-pointer items-center justify-center rounded-[var(--radius-badge,5px)] outline-none transition-[background-color,box-shadow] duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring data-checked:bg-surface-raised data-checked:shadow-sm data-disabled:cursor-not-allowed data-disabled:opacity-50",
+        "inline-flex h-7 w-9 shrink-0 cursor-pointer items-center justify-center rounded-badge outline-none transition-[background-color,box-shadow] duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring data-checked:bg-surface-raised data-checked:shadow-sm data-disabled:cursor-not-allowed data-disabled:opacity-50",
         className,
       )}
       {...props}

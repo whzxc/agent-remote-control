@@ -45,7 +45,7 @@ export function PopoverPopup({
         <PopoverPrimitive.Popup
           data-slot="popover-popup"
           className={stateClass(
-            "relative max-h-[min(70dvh,var(--available-height))] max-w-[calc(100vw-24px)] origin-(--transform-origin) overflow-auto rounded-[var(--radius-popover,8px)] border border-border-strong bg-surface-raised p-3.5 text-small text-popover-foreground shadow-md outline-none transition-[opacity,scale] duration-(--motion-fast) ease-(--ease-enter) data-starting-style:opacity-0 data-starting-style:scale-95 data-ending-style:opacity-0 data-ending-style:scale-95 motion-reduce:transition-none dark:shadow-[inset_0_1px_0_rgb(255_255_255/6%),var(--shadow-md)]",
+            "relative max-h-[min(70dvh,var(--available-height))] max-w-[calc(100vw-24px)] origin-(--transform-origin) overflow-auto rounded-popover border border-border-strong bg-surface-raised p-3.5 text-small text-popover-foreground shadow-md outline-none transition-[opacity,scale] duration-(--motion-fast) ease-(--ease-enter) data-starting-style:opacity-0 data-starting-style:scale-95 data-ending-style:opacity-0 data-ending-style:scale-95 motion-reduce:transition-none dark:shadow-[inset_0_1px_0_rgb(255_255_255/6%),var(--shadow-md)]",
             className,
           )}
           {...props}

@@ -12,10 +12,10 @@ export const MenuSubmenu: typeof MenuPrimitive.SubmenuRoot =
   MenuPrimitive.SubmenuRoot;
 
 const popupClass =
-  "max-h-[min(360px,var(--available-height))] min-w-40 max-w-[calc(100vw-24px)] origin-(--transform-origin) overflow-y-auto overscroll-contain rounded-[var(--radius-popover,8px)] border border-border-strong bg-surface-raised p-1 text-popover-foreground shadow-md outline-none transition-[opacity,scale] duration-(--motion-fast) ease-(--ease-enter) data-starting-style:opacity-0 data-starting-style:scale-95 data-ending-style:opacity-0 data-ending-style:scale-95 motion-reduce:transition-none dark:shadow-[inset_0_1px_0_rgb(255_255_255/6%),var(--shadow-md)]";
+  "max-h-[min(360px,var(--available-height))] min-w-40 max-w-[calc(100vw-24px)] origin-(--transform-origin) overflow-y-auto overscroll-contain rounded-popover border border-border-strong bg-surface-raised p-1 text-popover-foreground shadow-md outline-none transition-[opacity,scale] duration-(--motion-fast) ease-(--ease-enter) data-starting-style:opacity-0 data-starting-style:scale-95 data-ending-style:opacity-0 data-ending-style:scale-95 motion-reduce:transition-none dark:shadow-[inset_0_1px_0_rgb(255_255_255/6%),var(--shadow-md)]";
 
 const itemClass =
-  "flex min-h-7 cursor-default items-center gap-2 rounded-[var(--radius-badge,5px)] px-2.5 py-1 text-small text-foreground outline-none data-highlighted:bg-surface-subtle data-disabled:pointer-events-none data-disabled:opacity-50";
+  "flex min-h-7 cursor-default items-center gap-2 rounded-badge px-2.5 py-1 text-small text-foreground outline-none data-highlighted:bg-surface-subtle data-disabled:pointer-events-none data-disabled:opacity-50";
 
 type PositionProps = Pick<
   MenuPrimitive.Positioner.Props,

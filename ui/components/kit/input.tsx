@@ -4,8 +4,8 @@ import type * as React from "react";
 import { cn } from "./utils";
 
 const inputSizes = {
-  default: { height: "h-[var(--kit-field-height,32px)]", text: "px-3 text-body" },
-  sm: { height: "h-[var(--kit-control-height-sm,26px)]", text: "px-2.5 text-small" },
+  default: { height: "h-(--kit-field-height)", text: "px-3 text-body" },
+  sm: { height: "h-(--kit-control-height-sm)", text: "px-2.5 text-small" },
   lg: { height: "h-10", text: "px-3.5 text-body" },
 };
 
@@ -45,7 +45,7 @@ export function Input({
     <span
       data-slot="input-control"
       className={cn(
-        "relative inline-flex w-full min-w-0 rounded-[var(--radius-kit-field,6px)] border border-border bg-surface not-dark:bg-clip-padding ring-ring/24 transition-[border-color,box-shadow] duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none hover:not-has-disabled:not-has-focus-visible:not-has-aria-invalid:border-border-strong has-focus-visible:border-ring has-focus-visible:ring-2 has-aria-invalid:border-destructive has-aria-invalid:bg-destructive/8 has-aria-invalid:ring-destructive/20 has-disabled:opacity-50",
+        "relative inline-flex w-full min-w-0 rounded-kit-field border border-border bg-surface not-dark:bg-clip-padding ring-ring/24 transition-[border-color,box-shadow] duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none hover:not-has-disabled:not-has-focus-visible:not-has-aria-invalid:border-border-strong has-focus-visible:border-ring has-focus-visible:ring-2 has-aria-invalid:border-destructive has-aria-invalid:bg-destructive/8 has-aria-invalid:ring-destructive/20 has-disabled:opacity-50",
         inputSizes[size].height,
         className,
       )}
@@ -72,7 +72,7 @@ export function Textarea({
     <textarea
       data-slot="textarea"
       className={cn(
-        "min-h-20 w-full min-w-0 rounded-[var(--radius-kit-field,6px)] border border-border bg-surface px-3 py-2 text-body text-foreground placeholder:text-text-tertiary outline-none ring-ring/24 transition-[border-color,box-shadow] duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none hover:not-disabled:not-focus-visible:not-aria-invalid:border-border-strong focus-visible:border-ring focus-visible:ring-2 aria-invalid:border-destructive aria-invalid:bg-destructive/8 aria-invalid:ring-destructive/20 disabled:cursor-not-allowed disabled:opacity-50",
+        "min-h-20 w-full min-w-0 rounded-kit-field border border-border bg-surface px-3 py-2 text-body text-foreground placeholder:text-text-tertiary outline-none ring-ring/24 transition-[border-color,box-shadow] duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none hover:not-disabled:not-focus-visible:not-aria-invalid:border-border-strong focus-visible:border-ring focus-visible:ring-2 aria-invalid:border-destructive aria-invalid:bg-destructive/8 aria-invalid:ring-destructive/20 disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...props}
@@ -97,7 +97,7 @@ export function SearchInput({
     <label
       data-slot="search-input"
       className={cn(
-        "relative inline-flex h-[var(--kit-control-height,30px)] w-full min-w-0 items-center rounded-[var(--radius-kit-field,6px)] border border-border bg-surface not-dark:bg-clip-padding ring-ring/24 transition-[border-color,box-shadow] duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none hover:not-has-disabled:not-has-focus-visible:border-border-strong has-focus-visible:border-ring has-focus-visible:ring-2 has-disabled:opacity-50",
+        "relative inline-flex h-(--kit-control-height) w-full min-w-0 items-center rounded-kit-field border border-border bg-surface not-dark:bg-clip-padding ring-ring/24 transition-[border-color,box-shadow] duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none hover:not-has-disabled:not-has-focus-visible:border-border-strong has-focus-visible:border-ring has-focus-visible:ring-2 has-disabled:opacity-50",
         className,
       )}
     >

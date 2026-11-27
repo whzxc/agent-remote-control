@@ -15,7 +15,7 @@ export function Card({
 }: CardProps): React.ReactElement {
   const defaultProps = {
     className: cn(
-      "flex min-w-0 flex-col gap-3 rounded-[var(--radius-kit-card,10px)] border border-border bg-surface text-card-foreground",
+      "flex min-w-0 flex-col gap-3 rounded-kit-card border border-border bg-surface text-card-foreground",
       padded && "p-4",
       className,
     ),

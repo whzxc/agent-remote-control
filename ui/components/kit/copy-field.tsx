@@ -56,7 +56,7 @@ export function CopyField({
 
   return (
     <div data-slot="copy-field" className={cn("grid min-w-0 gap-1.5", className)}>
-      <div className="flex h-[var(--kit-field-height,32px)] w-full min-w-0 items-center justify-between gap-2 rounded-[var(--radius-kit-field,6px)] border border-border bg-surface-subtle pl-3 pr-1 text-foreground">
+      <div className="flex h-(--kit-field-height) w-full min-w-0 items-center justify-between gap-2 rounded-kit-field border border-border bg-surface-subtle pl-3 pr-1 text-foreground">
         <div
           role="textbox"
           aria-readonly="true"
@@ -81,7 +81,7 @@ export function CopyField({
           )}
         </div>
         {loading ? (
-          <span className="inline-flex size-[var(--kit-control-height-sm,26px)] items-center justify-center text-text-secondary">
+          <span className="inline-flex size-(--kit-control-height-sm) items-center justify-center text-text-secondary">
             <Spinner size={16} />
           </span>
         ) : (

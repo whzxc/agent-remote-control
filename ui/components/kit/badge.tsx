@@ -5,7 +5,7 @@ import type * as React from "react";
 import { cn } from "./utils";
 
 export const badgeVariants = cva(
-  "relative inline-flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-[var(--radius-badge,5px)] border border-transparent font-medium outline-none [&_svg:not([class*='size-'])]:size-3 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "relative inline-flex shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-badge border border-transparent font-medium outline-none [&_svg:not([class*='size-'])]:size-3 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     defaultVariants: {
       size: "default",

@@ -7,7 +7,7 @@ import { Spinner } from "./spinner";
 import { cn } from "./utils";
 
 export const buttonVariants = cva(
-  "relative inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-[var(--radius-kit-field,6px)] border border-transparent font-semibold text-small outline-none transition-[color,background-color,border-color,box-shadow] duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 data-loading:select-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "relative inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-kit-field border border-transparent font-semibold text-small outline-none transition-[color,background-color,border-color,box-shadow] duration-(--motion-fast) ease-(--ease-enter) motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 data-loading:select-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     defaultVariants: {
       size: "default",
@@ -15,12 +15,12 @@ export const buttonVariants = cva(
     },
     variants: {
       size: {
-        default: "h-[var(--kit-control-height,30px)] px-3",
-        sm: "h-[var(--kit-control-height-sm,26px)] px-2.5 text-meta [&_svg:not([class*='size-'])]:size-3.5",
-        xs: "h-6 gap-1 rounded-[var(--radius-badge,5px)] px-2 text-meta [&_svg:not([class*='size-'])]:size-3",
-        icon: "size-[var(--kit-control-height,30px)] p-0",
+        default: "h-(--kit-control-height) px-3",
+        sm: "h-(--kit-control-height-sm) px-2.5 text-meta [&_svg:not([class*='size-'])]:size-3.5",
+        xs: "h-6 gap-1 rounded-badge px-2 text-meta [&_svg:not([class*='size-'])]:size-3",
+        icon: "size-(--kit-control-height) p-0",
         "icon-sm":
-          "size-[var(--kit-control-height-sm,26px)] p-0 [&_svg:not([class*='size-'])]:size-3.5",
+          "size-(--kit-control-height-sm) p-0 [&_svg:not([class*='size-'])]:size-3.5",
       },
       variant: {
         primary:

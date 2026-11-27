@@ -39,7 +39,7 @@ function AlertDialogPopupInner({
       data-slot="alert-dialog-popup"
       finalFocus={finalFocusProp ?? fallbackFinalFocus}
       className={stateClass(
-        "fixed left-1/2 top-1/2 z-60 flex max-h-[calc(100dvh-32px)] w-[min(440px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[var(--radius-dialog,12px)] border border-border bg-surface-raised text-foreground shadow-lg outline-none transition-[opacity,scale] duration-(--motion-base) ease-(--ease-enter) data-starting-style:opacity-0 data-starting-style:scale-95 data-ending-style:opacity-0 data-ending-style:scale-95 data-ending-style:duration-(--motion-fast) data-ending-style:ease-(--ease-exit) motion-reduce:transition-none dark:border-border-strong dark:shadow-[inset_0_1px_0_rgb(255_255_255/6%),var(--shadow-lg)]",
+        "fixed left-1/2 top-1/2 z-60 flex max-h-[calc(100dvh-32px)] w-[min(440px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-dialog border border-border bg-surface-raised text-foreground shadow-lg outline-none transition-[opacity,scale] duration-(--motion-base) ease-(--ease-enter) data-starting-style:opacity-0 data-starting-style:scale-95 data-ending-style:opacity-0 data-ending-style:scale-95 data-ending-style:duration-(--motion-fast) data-ending-style:ease-(--ease-exit) motion-reduce:transition-none dark:border-border-strong dark:shadow-[inset_0_1px_0_rgb(255_255_255/6%),var(--shadow-lg)]",
         className,
       )}
       {...props}
