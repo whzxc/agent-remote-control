@@ -9,7 +9,7 @@ import { ChangedFiles } from "./TaskChanges";
 import TaskOutcome from "./TaskOutcome";
 import { memo, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { AlertCircle, Brain, Copy, ChevronRight, CircleCheck, CircleDot, CirclePause, CircleX, FilePenLine, FileSearch, FileText, ListChecks, LoaderCircle, MessageSquare, ShieldAlert, ShieldCheck, Terminal, UserRound, Wrench } from "lucide-react";
-import { Collapsible } from "radix-ui";
+import { CollapsiblePrimitive } from "./kit/collapsible";
 import { AnimatePresence, motion } from "motion/react";
 import { t } from "../i18n";
 import { durationText } from "../lib/duration";
@@ -38,20 +38,25 @@ function Fold({ open, onChange, summary, children, className = "", expandable = 
 }) {
   const reduced = useMedia("(prefers-reduced-motion: reduce)");
   if (!expandable) return <div className={`timeline-fold ${className}`}><div className="timeline-summary">{summary}</div></div>;
-  return <Collapsible.Root open={open} onOpenChange={onChange} className={`timeline-fold ${className}`}>
-    <Collapsible.Trigger className="timeline-summary" type="button">
+  return <CollapsiblePrimitive.Root open={open} onOpenChange={onChange} className={`timeline-fold ${className}`}>
+    <CollapsiblePrimitive.Trigger className="timeline-summary" data-state={open ? "open" : "closed"} type="button">
       {summary}<Icon icon={ChevronRight} size={12} className="timeline-chevron" />
-    </Collapsible.Trigger>
-    {reduced ? open && <Collapsible.Content className="timeline-fold-content">{children}</Collapsible.Content> : <AnimatePresence initial={false}>
-      {open && <Collapsible.Content forceMount asChild>
-        <motion.div className="timeline-fold-content" initial={{ height: 0, opacity: 0 }}
-          animate={{ height: "auto", opacity: 1 }} transition={motionTransition("base", "enter")}
-          exit={{ height: 0, opacity: 0, transition: motionTransition("base", "exit") }}>
-          {children}
-        </motion.div>
-      </Collapsible.Content>}
+    </CollapsiblePrimitive.Trigger>
+    {reduced ? open && <CollapsiblePrimitive.Panel keepMounted className="timeline-fold-content" data-state="open">{children}</CollapsiblePrimitive.Panel> : <AnimatePresence initial={false}>
+      {open && <CollapsiblePrimitive.Panel
+        keepMounted
+        hidden={false}
+        data-state="open"
+        render={
+          <motion.div className="timeline-fold-content" initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }} transition={motionTransition("base", "enter")}
+            exit={{ height: 0, opacity: 0, transition: motionTransition("base", "exit") }} />
+        }
+      >
+        {children}
+      </CollapsiblePrimitive.Panel>}
     </AnimatePresence>}
-  </Collapsible.Root>;
+  </CollapsiblePrimitive.Root>;
 }
 function UserMessage({ text, truncated, open, onChange }: { text: string; truncated?: boolean; open: boolean; onChange: (open: boolean) => void }) {
   const id = useId(), content = useRef<HTMLDivElement>(null);
@@ -160,11 +165,11 @@ export function TimelinePlanDock({ entry }: { entry: AgentTimelineEntry }) {
   const [open, setOpen] = useState(false);
   const steps = entry.plan ?? [], completed = steps.filter(step => step.status === "completed").length;
   const current = steps.find(step => ["in_progress", "inProgress", "running"].includes(step.status)) ?? steps.find(step => step.status !== "completed");
-  return <Collapsible.Root className="relay-plan-dock" open={open} onOpenChange={setOpen}>
-    <Collapsible.Content><PlanEntry entry={entry} settled={false} /></Collapsible.Content>
-    <Collapsible.Trigger className="timeline-summary" type="button"><Icon icon={ListChecks} size={14} /><span className="relay-plan-count">{t("timeline.plan")} {completed}/{steps.length}</span><span className="relay-plan-current">{current?.content.text}</span>
-      <span role="progressbar" aria-label={t("timeline.plan")} aria-valuemin={0} aria-valuenow={completed} aria-valuemax={steps.length} className="relay-plan-progress"><span style={{ width: `${steps.length ? (completed / steps.length) * 100 : 0}%` }} /></span><Icon icon={ChevronRight} size={14} className="timeline-chevron" /></Collapsible.Trigger>
-  </Collapsible.Root>;
+  return <CollapsiblePrimitive.Root className="relay-plan-dock" open={open} onOpenChange={setOpen}>
+    <CollapsiblePrimitive.Panel data-state={open ? "open" : "closed"}><PlanEntry entry={entry} settled={false} /></CollapsiblePrimitive.Panel>
+    <CollapsiblePrimitive.Trigger className="timeline-summary" data-state={open ? "open" : "closed"} type="button"><Icon icon={ListChecks} size={14} /><span className="relay-plan-count">{t("timeline.plan")} {completed}/{steps.length}</span><span className="relay-plan-current">{current?.content.text}</span>
+      <span role="progressbar" aria-label={t("timeline.plan")} aria-valuemin={0} aria-valuenow={completed} aria-valuemax={steps.length} className="relay-plan-progress"><span style={{ width: `${steps.length ? (completed / steps.length) * 100 : 0}%` }} /></span><Icon icon={ChevronRight} size={14} className="timeline-chevron" /></CollapsiblePrimitive.Trigger>
+  </CollapsiblePrimitive.Root>;
 }
 function ToolEntry({ entry, rail = false, project }: { entry: AgentTimelineEntry; rail?: boolean; project?: string | null }) {
   const [open, setOpen] = useState(false);
@@ -274,11 +279,18 @@ const TurnCard = memo(function TurnCard({ narrow, group, index, latest, current,
   const processSummary = <span className="task-process-summary"><span>{processLabel(duration)}</span>
     <span>{t("detail.process.actions", { count: projection.actions })}</span>
     {!!projection.failed && state !== "failed" && <span data-failed>{t("detail.tools.failed", { count: projection.failed })}</span>}</span>;
-  const processTrigger = <Collapsible.Trigger className="timeline-summary task-process-trigger" data-state-outcome={state} type="button"><Icon icon={outcomeIcon} size={14} />{processSummary}<Icon icon={ChevronRight} size={12} className="timeline-chevron" /></Collapsible.Trigger>;
+  const processOpenState = live || processOpen(state, expanded[workId]);
+  const processTrigger = <CollapsiblePrimitive.Trigger className="timeline-summary task-process-trigger" data-state={processOpenState ? "open" : "closed"} data-state-outcome={state} type="button"><Icon icon={outcomeIcon} size={14} />{processSummary}<Icon icon={ChevronRight} size={12} className="timeline-chevron" /></CollapsiblePrimitive.Trigger>;
   const hasProcess = !!visibleRows.length || !!activity;
-  return <Collapsible.Root open={live || processOpen(state, expanded[workId])} onOpenChange={change(workId)} asChild><section className="task-turn" data-timeline-id={group.id} data-turn-collapsed={!turnOpen || undefined} onClick={event => {
-    if (!turnOpen && !(event.target as Element).closest("button, a, input")) change("turn")(true);
-  }}>
+  return <CollapsiblePrimitive.Root
+    open={processOpenState}
+    onOpenChange={change(workId)}
+    render={
+      <section className="task-turn" data-timeline-id={group.id} data-turn-collapsed={!turnOpen || undefined} onClick={event => {
+        if (!turnOpen && !(event.target as Element).closest("button, a, input")) change("turn")(true);
+      }} />
+    }
+  >
     {!latest && <div className="task-turn-heading">
       <button type="button" className="task-previous-turn" data-state={state} aria-expanded={turnOpen} onClick={() => change("turn")(!turnOpen)}>
         <span className="task-previous-turn-badge">{t("relay.turn", { count: index + 1 })}</span>
@@ -292,13 +304,13 @@ const TurnCard = memo(function TurnCard({ narrow, group, index, latest, current,
     </div>}
     {turnOpen && <div className="task-turn-content">
       {prompt && <Prompt entry={prompt} agent={agent} followup={index > 0} summary={summary} />}
-      {hasProcess && (live ? process : <div className="task-process">{latest && processTrigger}<Collapsible.Content>{process}</Collapsible.Content></div>)}
+      {hasProcess && (live ? process : <div className="task-process">{latest && processTrigger}<CollapsiblePrimitive.Panel data-state={processOpenState ? "open" : "closed"}>{process}</CollapsiblePrimitive.Panel></div>)}
       {pending && <TaskNeedsYou agent={agent} session={session} entries={group.entries} source={source} callerAgent={callerAgent} narrow={!!narrow} inline />}
       {(state === "failed" || state === "interrupted") && <TaskOutcome state={state} entries={group.entries} project={session.project} onResume={latest && current ? onResume : undefined} onRetry={latest && current ? onRetry : undefined} continuing={continuing} agent={agent} source={source} />}
       <TaskReceiptHistory agent={agent} id={session.id} turnId={group.turnId} latest={latest} />
       {final && state !== "failed" && state !== "interrupted" && <TaskReplyCard><header><RelayRoute source={source} callerAgent={callerAgent} agent={agent} reverse tone="success" label={t("relay.reply")} /><CopyReply text={final.text ?? ""} /></header><TimelineMarkdown text={final.text ?? ""} />{final.truncated && <span className="timeline-meta">{t("timeline.truncated")}</span>}<footer><ChangedFiles entries={group.entries} project={session.project} /></footer></TaskReplyCard>}
     </div>}
-  </section></Collapsible.Root>;
+  </CollapsiblePrimitive.Root>;
 }, sameTurn);
 export default function TimelineEntries({ narrow, entries, agent, session, now, running = false, turnStatuses, turnTimings, turnDispatchSummaries, currentDispatchSummary, status, onResume, onRetry, continuing }: {
   narrow?: boolean; entries: AgentTimelineEntry[]; agent: string; session: AgentActivitySession & { selectedTurnId?: string }; now: number; running?: boolean; turnDispatchSummaries?: Record<string, DispatchSummary>; currentDispatchSummary?: DispatchSummary; turnStatuses?: Record<string, string>; status?: string; turnTimings?: Record<string, TurnTiming>;

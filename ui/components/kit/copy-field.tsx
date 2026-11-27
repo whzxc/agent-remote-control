@@ -1,7 +1,7 @@
 import { Check, Copy, Eye, EyeOff } from "lucide-react";
 import { useEffect, useRef, useState, type ReactElement } from "react";
-import { useI18n } from "@/i18n/react";
-import { maskSensitive } from "@/privacyMask";
+import { useI18n } from "../../i18n/react";
+import { maskSensitive } from "../../privacyMask";
 import { IconButton } from "./button";
 import { SensitiveText } from "./privacy";
 import { Spinner } from "./spinner";

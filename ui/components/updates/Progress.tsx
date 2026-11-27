@@ -1,6 +1,5 @@
-import './Progress.css';
-
-import { Progress as R } from "radix-ui";
+import "./Progress.css";
+import { ProgressPrimitive } from "../kit/progress";
 
 export function Progress({
   value,
@@ -11,18 +10,17 @@ export function Progress({
   label: string;
   color?: string;
 }) {
+  const clamped = Math.max(0, Math.min(100, value));
   return (
-    <R.Root
-      className="progress"
-      value={Math.max(0, Math.min(100, value))}
-      aria-label={label}
-    >
-      <R.Indicator
-        style={{
-          width: `${Math.max(0, Math.min(100, value))}%`,
-          background: color,
-        }}
-      />
-    </R.Root>
+    <ProgressPrimitive.Root value={clamped} aria-label={label}>
+      <ProgressPrimitive.Track className="progress">
+        <ProgressPrimitive.Indicator
+          style={{
+            width: `${clamped}%`,
+            background: color,
+          }}
+        />
+      </ProgressPrimitive.Track>
+    </ProgressPrimitive.Root>
   );
 }

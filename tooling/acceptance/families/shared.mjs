@@ -34,5 +34,5 @@ export async function chooseSpec(page, messages, model, effort) {
   const slider = page.getByRole('slider', { name: messages['dispatchDefaults.effort'] });
   await slider.focus();
   await slider.press('End');
-  await page.locator(`[role=slider][aria-valuetext="${effort}"]`).waitFor();
+  await slider.and(page.locator(`[aria-valuetext="${effort}"]`)).waitFor();
 }

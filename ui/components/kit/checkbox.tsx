@@ -42,21 +42,30 @@ export function CheckboxField({
   children: ReactNode;
 }): ReactElement {
   const generatedId = useId();
+  const labelId = useId();
   const id = idProp ?? generatedId;
 
   return (
-    <label
-      htmlFor={id}
+    <div
       data-slot="checkbox-field"
       className={cn(
-        "flex min-h-7 min-w-0 cursor-pointer items-start gap-2 py-1 text-small text-foreground",
+        "flex min-h-7 min-w-0 items-start gap-2 py-1 text-small text-foreground",
         props.disabled && "cursor-not-allowed opacity-50",
         className,
       )}
     >
-      <Checkbox id={id} className="mt-0.5" {...props} />
-      <span className="min-w-0 wrap-anywhere">{children}</span>
-    </label>
+      <Checkbox id={id} aria-labelledby={labelId} className="mt-0.5" {...props} />
+      <label
+        id={labelId}
+        htmlFor={id}
+        className={cn(
+          "min-w-0 wrap-anywhere",
+          props.disabled ? "cursor-not-allowed" : "cursor-pointer",
+        )}
+      >
+        {children}
+      </label>
+    </div>
   );
 }
 

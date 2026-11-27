@@ -2,23 +2,99 @@ import { useCopyState } from "./useCopyState";
 import { TransientLayer } from "./TransientLayer";
 import { Sensitive, useSensitiveText } from "../Sensitive";
 import { maskSensitive } from "../../privacyMask";
-import { createContext, useContext, type ComponentProps, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type CSSProperties, type Ref } from "react";
-import { Select as S, RadioGroup, Switch as Sw, Checkbox as C, Tooltip as T, DropdownMenu as M } from "radix-ui";
-import { Bot, Check, ChevronDown, ChevronRight, ChevronUp, CircleAlert, LoaderCircle, Copy, Eye, Search, EyeOff, type LucideIcon } from "lucide-react";
+import {
+  createContext,
+  isValidElement,
+  useContext,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ButtonHTMLAttributes,
+  type ComponentProps,
+  type CSSProperties,
+  type InputHTMLAttributes,
+  type ReactElement,
+  type ReactNode,
+  type Ref,
+} from "react";
+import {
+  Bot,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  Copy,
+  Eye,
+  EyeOff,
+  LoaderCircle,
+  Search,
+  type LucideIcon,
+} from "lucide-react";
 import { t } from "../../i18n";
+import { Alert as KitAlert } from "../kit/alert";
+import { Badge as KitBadge } from "../kit/badge";
+import { Button as KitButton } from "../kit/button";
+import { CheckboxPrimitive } from "../kit/checkbox";
+import { Empty as KitEmpty } from "../kit/empty";
+import { Field as KitField } from "../kit/field";
+import { InputPrimitive } from "../kit/input";
+import { MenuPrimitive } from "../kit/menu";
+import { RadioGroupPrimitive, RadioPrimitive } from "../kit/radio-group";
+import { SelectPrimitive } from "../kit/select";
+import { Loading as KitLoading } from "../kit/spinner";
+import { SwitchPrimitive } from "../kit/switch";
+import {
+  TooltipPrimitive,
+  TooltipProvider as KitTooltipProvider,
+} from "../kit/tooltip";
+import { cn } from "../kit/utils";
 import { HoverScope } from "./HoverScope";
 import ChoiceTrigger from "./ChoiceTrigger";
+
 export { HoverScope };
 export { SetupAction } from "./SetupChoice";
 export { LoadingIndicator } from "./Feedback";
+
 export type IconSize = 10 | 11 | 12 | 13 | 14 | 16 | 18 | 20 | 24 | 26 | 28 | 32;
+
 /** A compact label. `spec` names a choice, `fact` states a property and `danger` flags a risk. */
-export function Tag({ children, title, id, form = "spec", tone }: {
-  children: ReactNode; title?: string; id?: string; form?: "spec" | "fact" | "danger" | "resource" | "status" | "claim" | "compact-status" | "workflow-status";
+export function Tag({
+  children,
+  title,
+  id,
+  form = "spec",
+  tone,
+}: {
+  children: ReactNode;
+  title?: string;
+  id?: string;
+  form?:
+    | "spec"
+    | "fact"
+    | "danger"
+    | "resource"
+    | "status"
+    | "claim"
+    | "compact-status"
+    | "workflow-status";
   tone?: "success" | "warning" | "danger" | "command";
 }) {
-  return <Tooltip text={title}><span id={id} className="tag" data-form={form} data-tone={tone}>{children}</span></Tooltip>;
+  return (
+    <Tooltip text={title}>
+      <KitBadge
+        id={id}
+        tone={tone}
+        className="tag"
+        data-form={form}
+        data-tone={tone}
+      >
+        {children}
+      </KitBadge>
+    </Tooltip>
+  );
 }
+
 export function Icon({
   icon: Component,
   size = 16,
@@ -38,19 +114,71 @@ export function Icon({
     />
   );
 }
+
 /** A tinted square that carries an icon in the color of its parent's `color`. */
-export function Tile({ icon, className = "", form = 'card', tone }: {
-  icon: LucideIcon; className?: string; form?: 'card' | 'phase'; tone?: 'warning' | 'success' | 'neutral' | 'command' | 'file' | 'thinking' | 'danger' | 'accent';
+export function Tile({
+  icon,
+  className = "",
+  form = "card",
+  tone,
+}: {
+  icon: LucideIcon;
+  className?: string;
+  form?: "card" | "phase";
+  tone?:
+    | "warning"
+    | "success"
+    | "neutral"
+    | "command"
+    | "file"
+    | "thinking"
+    | "danger"
+    | "accent";
 }) {
-  const colors = { danger: 'var(--danger)', accent: 'var(--accent)', warning: 'var(--warning)', success: 'var(--success)', neutral: 'var(--text-tertiary)', command: 'var(--phase-command)', file: 'var(--phase-file)', thinking: 'var(--phase-thinking)' };
-  return <span className={`tile ${form === 'phase' ? 'tile-phase' : ''} ${className}`} style={tone ? { color: colors[tone] } : undefined} aria-hidden="true"><Icon icon={icon} size={form === 'phase' ? 16 : 18} /></span>;
+  const colors = {
+    danger: "var(--danger)",
+    accent: "var(--accent)",
+    warning: "var(--warning)",
+    success: "var(--success)",
+    neutral: "var(--text-tertiary)",
+    command: "var(--phase-command)",
+    file: "var(--phase-file)",
+    thinking: "var(--phase-thinking)",
+  };
+  return (
+    <span
+      className={`tile ${form === "phase" ? "tile-phase" : ""} ${className}`}
+      style={tone ? { color: colors[tone] } : undefined}
+      aria-hidden="true"
+    >
+      <Icon icon={icon} size={form === "phase" ? 16 : 18} />
+    </span>
+  );
 }
+
 /** Bundled brand artwork with no control or quota decoration. */
-export function BrandMark({ markup, size = 40 }: { markup?: string; size?: number }) {
-  return <span className="brand-mark" style={{ width: size, height: size }} aria-hidden="true">
-    {markup ? <span dangerouslySetInnerHTML={{ __html: markup }} /> : <Icon icon={Bot} size={20} />}
-  </span>;
+export function BrandMark({
+  markup,
+  size = 40,
+}: {
+  markup?: string;
+  size?: number;
+}) {
+  return (
+    <span
+      className="brand-mark"
+      style={{ width: size, height: size }}
+      aria-hidden="true"
+    >
+      {markup ? (
+        <span dangerouslySetInnerHTML={{ __html: markup }} />
+      ) : (
+        <Icon icon={Bot} size={20} />
+      )}
+    </span>
+  );
 }
+
 export function Button({
   variant = "secondary",
   presentation,
@@ -61,25 +189,35 @@ export function Button({
   title,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "ghost" | "link" | "danger" | "danger-outline";
+  variant?:
+    | "primary"
+    | "secondary"
+    | "ghost"
+    | "link"
+    | "danger"
+    | "danger-outline";
   busy?: boolean;
   presentation?: "record-link";
   ref?: Ref<HTMLButtonElement>;
 }) {
   return (
-    <Tooltip text={title}><button
-      type="button"
-      {...props}
-      disabled={disabled || busy}
-      data-presentation={presentation}
-      aria-busy={busy || props["aria-busy"]}
-      className={`button ${variant} ${busy ? "pending" : ""} ${className}`}
-    >
-      {busy && <Icon icon={LoaderCircle} className="spin" />}
-      {children}
-    </button></Tooltip>
+    <Tooltip text={title}>
+      <KitButton
+        type="button"
+        {...props}
+        variant={variant}
+        busy={busy}
+        disabled={disabled || busy}
+        data-presentation={presentation}
+        aria-busy={busy || props["aria-busy"]}
+        className={cn("button", variant, busy && "pending", className)}
+      >
+        {children}
+      </KitButton>
+    </Tooltip>
   );
 }
+
 export function IconButton({
   icon,
   label,
@@ -102,25 +240,49 @@ export function IconButton({
       disabled={props.disabled || busy}
       aria-busy={busy || undefined}
       aria-label={label}
-      className={`icon-button ${compact ? "compact" : ""} ${filled ? "filled" : ""} ${className}`}
+      className={cn(
+        "icon-button",
+        compact && "compact",
+        filled && "filled",
+        className,
+      )}
     >
-      <Icon icon={busy ? LoaderCircle : icon} size={size} className={busy ? "spin" : ""} />
+      <Icon
+        icon={busy ? LoaderCircle : icon}
+        size={size}
+        className={busy ? "spin" : ""}
+      />
     </Button>
   );
 }
+
 export function Input({
   className = "",
   ...props
 }: InputHTMLAttributes<HTMLInputElement> & { ref?: Ref<HTMLInputElement> }) {
-  return <input {...props} className={`input ${className}`} />;
+  return <InputPrimitive {...props} className={cn("input", className)} />;
 }
+
 /** A rounded search field with a leading icon. The placeholder doubles as the accessible name. */
-export function SearchInput({ className = "", placeholder, ...props }: InputHTMLAttributes<HTMLInputElement> & { placeholder: string }) {
-  return <label className={`search ${className}`}>
-    <Icon icon={Search} size={14} />
-    <input type="search" {...props} placeholder={placeholder} aria-label={props["aria-label"] ?? placeholder} className="input" />
-  </label>;
+export function SearchInput({
+  className = "",
+  placeholder,
+  ...props
+}: InputHTMLAttributes<HTMLInputElement> & { placeholder: string }) {
+  return (
+    <label className={cn("search", className)}>
+      <Icon icon={Search} size={14} />
+      <InputPrimitive
+        type="search"
+        {...props}
+        placeholder={placeholder}
+        aria-label={props["aria-label"] ?? placeholder}
+        className="input"
+      />
+    </label>
+  );
 }
+
 export function Field({
   id,
   label,
@@ -139,25 +301,20 @@ export function Field({
   children: ReactNode;
 }) {
   return (
-    <div className="field" data-compact={compact || undefined}>
-      <div className="field-heading" data-help-placement={helpPlacement}>
-        <label htmlFor={id}>{label}</label>
-        {help}
-      </div>
+    <KitField
+      id={id}
+      label={label}
+      error={error}
+      help={help}
+      helpPlacement={helpPlacement}
+      compact={compact}
+      className="field"
+    >
       {children}
-      {error && (
-        <p
-          id={id ? `${id}-error` : undefined}
-          className="field-error"
-          role="alert"
-        >
-          <Icon icon={CircleAlert} size={14} />
-          {error}
-        </p>
-      )}
-    </div>
+    </KitField>
   );
 }
+
 /** A tinted message. With `title`, the children become detail lines under it. */
 export function Notice({
   children,
@@ -181,17 +338,26 @@ export function Notice({
   const protect = useSensitiveText();
   const body = typeof children === "string" ? protect(children) : children;
   return (
-    <div
-      className={`notice ${layout ? `notice-${layout}` : ""} ${tone} ${actionBelow ? "notice-action-below" : ""}`}
-      data-compact={compact || undefined}
-      data-elevated={elevated || undefined}
-      role={tone === "danger" ? "alert" : "status"}
+    <KitAlert
+      tone={tone}
+      title={title}
+      action={action}
+      actionBelow={actionBelow}
+      layout={layout}
+      compact={compact}
+      elevated={elevated}
+      className={cn(
+        "notice",
+        layout && `notice-${layout}`,
+        tone,
+        actionBelow && "notice-action-below",
+      )}
     >
-      {title ? <div className="notice-copy"><strong>{title}</strong>{body}</div> : <span>{body}</span>}
-      {action && (actionBelow ? <div className="notice-action">{action}</div> : action)}
-    </div>
+      {body}
+    </KitAlert>
   );
 }
+
 export function Empty({
   children,
   action,
@@ -204,21 +370,21 @@ export function Empty({
   inset?: boolean;
 }) {
   return (
-    <div className={`empty ${inset ? "" : "empty-flush"}`} role="status">
-      {icon && <Tile icon={icon} />}
-      <p>{children}</p>
-      {action}
-    </div>
+    <KitEmpty
+      icon={icon}
+      action={action}
+      inset={inset}
+      className={cn("empty", !inset && "empty-flush")}
+    >
+      {children}
+    </KitEmpty>
   );
 }
+
 export function Loading({ label = t("loading") }: { label?: string }) {
-  return (
-    <div className="loading" role="status">
-      <Icon icon={LoaderCircle} className="spin" />
-      {label}
-    </div>
-  );
+  return <KitLoading label={label} className="loading" />;
 }
+
 export function Status({
   children,
   tone = "neutral",
@@ -233,6 +399,7 @@ export function Status({
     </span>
   );
 }
+
 export function Switch({
   checked,
   onChange,
@@ -248,20 +415,23 @@ export function Switch({
   id?: string;
   "aria-describedby"?: string;
 }) {
+  const state = checked ? "checked" : "unchecked";
   return (
-    <Sw.Root
+    <SwitchPrimitive.Root
       id={id}
       checked={checked}
-      onCheckedChange={onChange}
+      onCheckedChange={(next) => onChange(next)}
       aria-label={label}
       aria-describedby={describedBy}
       disabled={disabled}
+      data-state={state}
       className="switch"
     >
-      <Sw.Thumb className="switch-thumb" />
-    </Sw.Root>
+      <SwitchPrimitive.Thumb data-state={state} className="switch-thumb" />
+    </SwitchPrimitive.Root>
   );
 }
+
 export function Checkbox({
   checked,
   onChange,
@@ -274,23 +444,40 @@ export function Checkbox({
   disabled?: boolean;
 }) {
   const id = useId();
+  const labelId = useId();
+  const indeterminate = checked === "indeterminate";
+  const state = indeterminate
+    ? "indeterminate"
+    : checked
+      ? "checked"
+      : "unchecked";
   return (
-    <label className="checkbox-label" htmlFor={id}>
-      <C.Root
+    <div className="checkbox-label">
+      <CheckboxPrimitive.Root
         id={id}
-        checked={checked}
-        onCheckedChange={(value) => onChange(value === true)}
+        aria-labelledby={labelId}
+        checked={checked === true}
+        indeterminate={indeterminate}
+        onCheckedChange={(next) => onChange(next)}
         disabled={disabled}
+        data-state={state}
         className="checkbox"
       >
-        <C.Indicator>
-          {checked === "indeterminate" ? "−" : <Icon icon={Check} />}
-        </C.Indicator>
-      </C.Root>
-      <span>{children}</span>
-    </label>
+        <CheckboxPrimitive.Indicator>
+          {indeterminate ? "−" : <Icon icon={Check} />}
+        </CheckboxPrimitive.Indicator>
+      </CheckboxPrimitive.Root>
+      <label
+        id={labelId}
+        htmlFor={id}
+        className="min-w-0 cursor-pointer wrap-anywhere"
+      >
+        {children}
+      </label>
+    </div>
   );
 }
+
 export type Choice = {
   value: string;
   label: string;
@@ -301,6 +488,7 @@ export type Choice = {
   warning?: string;
   disabled?: boolean;
 };
+
 export function SingleChoice({
   value,
   onChange,
@@ -351,6 +539,8 @@ export function SingleChoice({
   const [open, setOpen] = useState(false);
   const [fits, setFits] = useState(false);
   const [contentWidth, setContentWidth] = useState<number>();
+  const selectedOption = options.find((option) => option.value === value);
+
   useLayoutEffect(() => {
     const check = () => {
       setContentWidth(measure.current?.scrollWidth);
@@ -366,46 +556,88 @@ export function SingleChoice({
     if (measure.current) observer.observe(measure.current);
     return () => observer.disconnect();
   }, [options, iconOnly, swatches, tabs, form, value]);
+
   return (
     <div
       ref={container}
       data-form={form}
       data-secondary-from={secondaryFrom}
-      style={compact ? { width: dropdown ? "max-content" : contentWidth } : undefined}
+      style={
+        compact
+          ? { width: dropdown ? "max-content" : contentWidth }
+          : undefined
+      }
       className={`choice ${fill ? "choice-fill" : ""} ${swatches ? "choice-swatches" : ""} ${cards ? "choice-cards" : ""} ${optionCards ? "choice-option-cards" : ""} ${dropdown ? "choice-dropdown" : ""} ${navigation ? "choice-navigation" : ""} ${tabs ? "choice-tabs" : ""} ${tiles ? "choice-tiles" : ""}`}
     >
       {(swatches || tabs || options.length <= 5) && (
-        <div className={`choice-measure ${iconOnly ? "choice-icon-only" : ""} ${swatches ? "choice-measure-swatches" : ""}`} aria-hidden="true">
+        <div
+          className={`choice-measure ${iconOnly ? "choice-icon-only" : ""} ${swatches ? "choice-measure-swatches" : ""}`}
+          aria-hidden="true"
+        >
           <div ref={measure}>
             {options.map((option) => (
-              <span key={option.value} data-selected={option.value === value || undefined}>
-                {!swatches && <>{option.graphic}{option.icon && <Icon icon={option.icon} />}{!iconOnly && option.label}</>}
+              <span
+                key={option.value}
+                data-selected={option.value === value || undefined}
+              >
+                {!swatches && (
+                  <>
+                    {option.graphic}
+                    {option.icon && <Icon icon={option.icon} />}
+                    {!iconOnly && option.label}
+                  </>
+                )}
               </span>
             ))}
           </div>
         </div>
       )}
-      {!dropdown && (tiles || navigation || cards || optionCards || ((swatches || tabs || options.length <= 5) && fits)) ? (
-        <RadioGroup.Root
+      {!dropdown &&
+      (tiles ||
+        navigation ||
+        cards ||
+        optionCards ||
+        ((swatches || tabs || options.length <= 5) && fits)) ? (
+        <RadioGroupPrimitive
           value={value}
-          onValueChange={onChange}
+          onValueChange={(next) => {
+            if (typeof next === "string") onChange(next);
+          }}
           disabled={disabled}
           aria-label={label}
-          orientation={cards || optionCards || navigation ? "vertical" : "horizontal"}
+          aria-orientation={
+            cards || optionCards || navigation ? "vertical" : "horizontal"
+          }
           className={`choice-radio ${tiles || navigation || cards || optionCards || swatches || tabs ? "" : "choice-pills"} ${iconOnly ? "choice-icon-only" : ""}`}
-          style={tiles || navigation || cards || optionCards || swatches ? undefined : { width: fill ? "100%" : contentWidth }}
+          style={
+            tiles || navigation || cards || optionCards || swatches
+              ? undefined
+              : { width: fill ? "100%" : contentWidth }
+          }
         >
           {options.map((option, index) => (
-            <RadioGroup.Item
+            <RadioPrimitive.Root
               key={option.value}
               value={option.value}
               disabled={option.disabled}
+              nativeButton
+              render={<button type="button" value={option.value} />}
               className="choice-option"
-              data-secondary={secondaryFrom !== undefined && index >= secondaryFrom || undefined}
+              data-state={option.value === value ? "checked" : "unchecked"}
+              data-secondary={
+                (secondaryFrom !== undefined && index >= secondaryFrom) ||
+                undefined
+              }
               data-description={!!option.description || undefined}
               data-hover-target={navigation ? option.value : undefined}
               aria-label={option.label}
-              title={iconOnly ? option.label : option.disabled ? option.description : undefined}
+              title={
+                iconOnly
+                  ? option.label
+                  : option.disabled
+                    ? option.description
+                    : undefined
+              }
               style={
                 option.color
                   ? ({ "--swatch": option.color } as CSSProperties)
@@ -418,84 +650,192 @@ export function SingleChoice({
                 <>
                   {option.graphic}
                   {option.icon && <Icon icon={option.icon} />}
-                  {!iconOnly && <span data-label={tabs ? option.label : undefined}>{option.label}{(cards || optionCards || navigation || form === "setup-product") && <>{option.description && <small>{option.description}</small>}{option.warning && <small className="choice-warning">{option.warning}</small>}</>}</span>}
+                  {!iconOnly && (
+                    <span data-label={tabs ? option.label : undefined}>
+                      {option.label}
+                      {(cards ||
+                        optionCards ||
+                        navigation ||
+                        form === "setup-product") && (
+                        <>
+                          {option.description && (
+                            <small>{option.description}</small>
+                          )}
+                          {option.warning && (
+                            <small className="choice-warning">
+                              {option.warning}
+                            </small>
+                          )}
+                        </>
+                      )}
+                    </span>
+                  )}
                 </>
               )}
-            </RadioGroup.Item>
+            </RadioPrimitive.Root>
           ))}
-        </RadioGroup.Root>
+        </RadioGroupPrimitive>
       ) : menuLabel ? (
-        <M.Root open={open} onOpenChange={setOpen}>
-          <M.Trigger asChild>
-            <ChoiceTrigger aria-label={label} disabled={disabled} side={side}>{options.find(option => option.value === value)?.label}</ChoiceTrigger>
-          </M.Trigger>
-          <M.Portal>
-            <TransientLayer onDismiss={() => setOpen(false)}><M.Content className="select-content choice-labelled-menu" aria-label={menuLabel}
-              side={side} align="start" sideOffset={6} collisionPadding={12}
-              style={{ maxHeight: "var(--radix-dropdown-menu-content-available-height)", overflowY: "auto" }}>
-              <M.Label className="choice-menu-label">{menuLabel}</M.Label>
-              <M.RadioGroup value={value} onValueChange={onChange}>
-                <HoverScope tracking="highlighted">
-                  {options.map(option => <M.RadioItem key={option.value} value={option.value} disabled={option.disabled}
-                    className="select-item" data-hover-target={option.value}>
-                    <span>{option.label}</span><M.ItemIndicator><Icon icon={Check} /></M.ItemIndicator>
-                  </M.RadioItem>)}
-                </HoverScope>
-              </M.RadioGroup>
-            </M.Content></TransientLayer>
-          </M.Portal>
-        </M.Root>
+        <MenuPrimitive.Root open={open} onOpenChange={(next) => setOpen(next)}>
+          <MenuPrimitive.Trigger
+            onKeyDown={(event) => {
+              if (!open && !disabled && event.key === "Enter") {
+                event.preventDefault();
+                setOpen(true);
+              }
+            }}
+            render={
+              <ChoiceTrigger
+                aria-label={label}
+                disabled={disabled}
+                side={side}
+              >
+                {selectedOption?.label}
+              </ChoiceTrigger>
+            }
+          />
+          <MenuPrimitive.Portal>
+            <TransientLayer onDismiss={() => setOpen(false)}>
+              <MenuPrimitive.Positioner
+                side={side}
+                align="start"
+                sideOffset={6}
+                collisionPadding={12}
+                className="z-60"
+              >
+                <MenuPrimitive.Popup
+                  className="select-content choice-labelled-menu"
+                  aria-label={menuLabel}
+                  style={{
+                    maxHeight: "var(--available-height)",
+                    overflowY: "auto",
+                  }}
+                >
+                  <MenuPrimitive.Group>
+                    <MenuPrimitive.GroupLabel className="choice-menu-label">
+                      {menuLabel}
+                    </MenuPrimitive.GroupLabel>
+                    <MenuPrimitive.RadioGroup
+                      value={value}
+                      onValueChange={(next) => {
+                        if (typeof next === "string") onChange(next);
+                      }}
+                    >
+                      <HoverScope tracking="highlighted">
+                        {options.map((option) => (
+                          <MenuPrimitive.RadioItem
+                            key={option.value}
+                            value={option.value}
+                            disabled={option.disabled}
+                            closeOnClick
+                            className="select-item"
+                            data-state={
+                              option.value === value ? "checked" : "unchecked"
+                            }
+                            data-hover-target={option.value}
+                          >
+                            <span>{option.label}</span>
+                            <MenuPrimitive.RadioItemIndicator>
+                              <Icon icon={Check} />
+                            </MenuPrimitive.RadioItemIndicator>
+                          </MenuPrimitive.RadioItem>
+                        ))}
+                      </HoverScope>
+                    </MenuPrimitive.RadioGroup>
+                  </MenuPrimitive.Group>
+                </MenuPrimitive.Popup>
+              </MenuPrimitive.Positioner>
+            </TransientLayer>
+          </MenuPrimitive.Portal>
+        </MenuPrimitive.Root>
       ) : (
-        <S.Root open={open} onOpenChange={setOpen} value={value} onValueChange={onChange} disabled={disabled}>
-          <S.Trigger className="select-trigger" aria-label={label}>
-            <S.Value />
-            <S.Icon>
+        <SelectPrimitive.Root
+          open={open}
+          onOpenChange={(next) => setOpen(next)}
+          value={value}
+          onValueChange={(next) => {
+            if (typeof next === "string") onChange(next);
+          }}
+          disabled={disabled}
+        >
+          <SelectPrimitive.Trigger
+            className="select-trigger"
+            aria-label={label}
+            onKeyDown={(event) => {
+              if (!open && !disabled && event.key === "Enter") {
+                event.preventDefault();
+                setOpen(true);
+              }
+            }}
+          >
+            <SelectPrimitive.Value>
+              {selectedOption?.label ?? value}
+            </SelectPrimitive.Value>
+            <SelectPrimitive.Icon>
               <Icon icon={side === "right" ? ChevronRight : ChevronDown} />
-            </S.Icon>
-          </S.Trigger>
-          <S.Portal>
-            <TransientLayer onDismiss={() => setOpen(false)}><S.Content
-              className="select-content"
-              position={position}
-              side={side}
-              align="start"
-              sideOffset={6}
-              collisionPadding={12}
-            >
-              <S.ScrollUpButton className="select-scroll">
-                <Icon icon={ChevronUp} />
-              </S.ScrollUpButton>
-              <S.Viewport>
-                <HoverScope tracking="highlighted">
-                {options.map((option) => (
-                  <S.Item
-                    key={option.value}
-                    value={option.value}
-                    disabled={option.disabled}
-                    className="select-item"
-                    data-hover-target={option.value}
-                  >
-                    <S.ItemText>{option.label}</S.ItemText>
-                    <S.ItemIndicator>
-                      <Icon icon={Check} />
-                    </S.ItemIndicator>
-                  </S.Item>
-                ))}
-                </HoverScope>
-              </S.Viewport>
-              <S.ScrollDownButton className="select-scroll">
-                <Icon icon={ChevronDown} />
-              </S.ScrollDownButton>
-            </S.Content></TransientLayer>
-          </S.Portal>
-        </S.Root>
+            </SelectPrimitive.Icon>
+          </SelectPrimitive.Trigger>
+          <SelectPrimitive.Portal>
+            <TransientLayer onDismiss={() => setOpen(false)}>
+              <SelectPrimitive.Positioner
+                alignItemWithTrigger={position === "item-aligned"}
+                side={side}
+                align="start"
+                sideOffset={6}
+                collisionPadding={12}
+                className="z-60"
+              >
+                <SelectPrimitive.Popup
+                  className="select-content"
+                  style={{
+                    minWidth: "var(--anchor-width)",
+                    maxHeight: "var(--available-height)",
+                  }}
+                >
+                  <SelectPrimitive.ScrollUpArrow className="select-scroll">
+                    <Icon icon={ChevronUp} />
+                  </SelectPrimitive.ScrollUpArrow>
+                  <SelectPrimitive.List>
+                    <HoverScope tracking="highlighted">
+                      {options.map((option) => (
+                        <SelectPrimitive.Item
+                          key={option.value}
+                          value={option.value}
+                          disabled={option.disabled}
+                          className="select-item"
+                          data-state={
+                            option.value === value ? "checked" : "unchecked"
+                          }
+                          data-hover-target={option.value}
+                        >
+                          <SelectPrimitive.ItemText>
+                            {option.label}
+                          </SelectPrimitive.ItemText>
+                          <SelectPrimitive.ItemIndicator>
+                            <Icon icon={Check} />
+                          </SelectPrimitive.ItemIndicator>
+                        </SelectPrimitive.Item>
+                      ))}
+                    </HoverScope>
+                  </SelectPrimitive.List>
+                  <SelectPrimitive.ScrollDownArrow className="select-scroll">
+                    <Icon icon={ChevronDown} />
+                  </SelectPrimitive.ScrollDownArrow>
+                </SelectPrimitive.Popup>
+              </SelectPrimitive.Positioner>
+            </TransientLayer>
+          </SelectPrimitive.Portal>
+        </SelectPrimitive.Root>
       )}
     </div>
   );
 }
+
 export { DialogClose } from "./Dialog";
 export { default as Dialog, DialogActions } from "./Dialog";
+
 const TooltipContext = createContext(false);
+
 export function Tooltip({
   text,
   children,
@@ -515,40 +855,78 @@ export function Tooltip({
     pointerHover.current = false;
     setOpen(false);
   };
-  if (!text) return <>{children}</>;
+  if (!text) {
+    return isValidElement(children) ? children : <>{children}</>;
+  }
+  const triggerNode = isValidElement(children) ? (
+    (children as ReactElement<Record<string, unknown>>)
+  ) : (
+    <span>{children}</span>
+  );
   const content = (
-    <T.Root
+    <TooltipPrimitive.Root
       open={open}
-      onOpenChange={next => setOpen(next && (!hoverOnly || pointerHover.current))}
-      disableHoverableContent={hoverOnly}
+      onOpenChange={(next) =>
+        setOpen(next && (!hoverOnly || pointerHover.current))
+      }
+      disableHoverablePopup={hoverOnly}
     >
-      <T.Trigger
-        asChild
+      <TooltipPrimitive.Trigger
+        render={triggerNode}
         onFocus={hoverOnly ? (event) => event.preventDefault() : undefined}
-        onPointerMoveCapture={hoverOnly ? (event) => {
-          // A restored focus or a surface disappearing under a stationary
-          // pointer is not a new hover. Require actual mouse movement.
-          if (event.pointerType === "mouse" && event.buttons === 0 &&
-              (event.movementX !== 0 || event.movementY !== 0))
-            pointerHover.current = true;
-        } : undefined}
+        onPointerMoveCapture={
+          hoverOnly
+            ? (event) => {
+                // A restored focus or a surface disappearing under a stationary
+                // pointer is not a new hover. Require actual mouse movement.
+                if (
+                  event.pointerType === "mouse" &&
+                  event.buttons === 0 &&
+                  (event.movementX !== 0 || event.movementY !== 0)
+                )
+                  pointerHover.current = true;
+              }
+            : undefined
+        }
         onPointerLeave={hoverOnly ? dismiss : undefined}
         onPointerDownCapture={hoverOnly ? dismiss : undefined}
         onClickCapture={hoverOnly ? dismiss : undefined}
         onBlur={hoverOnly ? dismiss : undefined}
-      >{children}</T.Trigger>
-      <T.Portal>
-        <TransientLayer onDismiss={() => setOpen(false)}><T.Content className="tooltip" side={side} sideOffset={6} collisionPadding={10}>
-          {typeof text === "string" ? protect(text) : text}
-        </T.Content></TransientLayer>
-      </T.Portal>
-    </T.Root>
+      />
+      <TooltipPrimitive.Portal>
+        <TransientLayer onDismiss={() => setOpen(false)}>
+          <TooltipPrimitive.Positioner
+            side={side}
+            sideOffset={6}
+            collisionPadding={10}
+            className="z-70"
+          >
+            <TooltipPrimitive.Popup
+              className="tooltip"
+              data-state={open ? "open" : "closed"}
+            >
+              {typeof text === "string" ? protect(text) : text}
+            </TooltipPrimitive.Popup>
+          </TooltipPrimitive.Positioner>
+        </TransientLayer>
+      </TooltipPrimitive.Portal>
+    </TooltipPrimitive.Root>
   );
   return provided ? content : <TooltipProvider>{content}</TooltipProvider>;
 }
-export function TooltipProvider(props: ComponentProps<typeof T.Provider>) {
-  return <TooltipContext.Provider value={true}><T.Provider {...props} /></TooltipContext.Provider>;
+
+export function TooltipProvider({
+  delayDuration,
+  delay,
+  ...props
+}: ComponentProps<typeof KitTooltipProvider> & { delayDuration?: number }) {
+  return (
+    <TooltipContext.Provider value={true}>
+      <KitTooltipProvider delay={delay ?? delayDuration} {...props} />
+    </TooltipContext.Provider>
+  );
 }
+
 export function Menu({
   trigger,
   items,
@@ -564,34 +942,43 @@ export function Menu({
   }[];
 }) {
   const [open, setOpen] = useState(false);
+  const triggerNode = isValidElement(trigger) ? (
+    (trigger as ReactElement<Record<string, unknown>>)
+  ) : (
+    <span>{trigger}</span>
+  );
   return (
-    <M.Root open={open} onOpenChange={setOpen}>
-      <M.Trigger asChild>{trigger}</M.Trigger>
-      <M.Portal>
-        <TransientLayer onDismiss={() => setOpen(false)}><M.Content
-          className="menu"
-          aria-label={label}
-          sideOffset={6}
-          collisionPadding={12}
-        >
-          <HoverScope tracking="highlighted">
-          {items.map((item, index) => (
-            <M.Item
-              key={index}
-              data-hover-target={item.danger ? undefined : String(index)}
-              className={`menu-item ${item.danger ? "danger" : ""}`}
-              disabled={item.disabled}
-              onSelect={item.action}
-            >
-              {item.label}
-            </M.Item>
-          ))}
-          </HoverScope>
-        </M.Content></TransientLayer>
-      </M.Portal>
-    </M.Root>
+    <MenuPrimitive.Root open={open} onOpenChange={(next) => setOpen(next)}>
+      <MenuPrimitive.Trigger render={triggerNode} />
+      <MenuPrimitive.Portal>
+        <TransientLayer onDismiss={() => setOpen(false)}>
+          <MenuPrimitive.Positioner
+            sideOffset={6}
+            collisionPadding={12}
+            className="z-60"
+          >
+            <MenuPrimitive.Popup className="menu" aria-label={label}>
+              <HoverScope tracking="highlighted">
+                {items.map((item, index) => (
+                  <MenuPrimitive.Item
+                    key={index}
+                    data-hover-target={item.danger ? undefined : String(index)}
+                    className={`menu-item ${item.danger ? "danger" : ""}`}
+                    disabled={item.disabled}
+                    onClick={item.action}
+                  >
+                    {item.label}
+                  </MenuPrimitive.Item>
+                ))}
+              </HoverScope>
+            </MenuPrimitive.Popup>
+          </MenuPrimitive.Positioner>
+        </TransientLayer>
+      </MenuPrimitive.Portal>
+    </MenuPrimitive.Root>
   );
 }
+
 export function CopyField({
   value,
   label,
@@ -610,9 +997,25 @@ export function CopyField({
   return (
     <div>
       <div className="copy-field">
-        <div className="copy-value" role="textbox" aria-readonly="true" aria-label={label} aria-busy={loading} tabIndex={0}
-          onCopy={event => { event.preventDefault(); event.clipboardData.setData('text/plain', value); }}>
-          {value ? <Sensitive>{password && !visible ? maskSensitive(value, true) : value}</Sensitive> : placeholder}
+        <div
+          className="copy-value"
+          role="textbox"
+          aria-readonly="true"
+          aria-label={label}
+          aria-busy={loading}
+          tabIndex={0}
+          onCopy={(event) => {
+            event.preventDefault();
+            event.clipboardData.setData("text/plain", value);
+          }}
+        >
+          {value ? (
+            <Sensitive>
+              {password && !visible ? maskSensitive(value, true) : value}
+            </Sensitive>
+          ) : (
+            placeholder
+          )}
         </div>
         {loading ? (
           <Icon icon={LoaderCircle} className="spin" />
@@ -629,7 +1032,9 @@ export function CopyField({
               icon={copied ? Check : Copy}
               label={t(copied ? "copied" : "copy")}
               disabled={!value}
-              onClick={() => { void copy(value); }}
+              onClick={() => {
+                void copy(value);
+              }}
             />
           </>
         )}
@@ -648,12 +1053,10 @@ export function CopyField({
   );
 }
 
-
-
 import "./TaskControls.css";
 import "./SetupChoice.css";
 import "./CopyField.css";
 
 export { default as Panel } from "./Panel";
 
-export { default as ConfirmDialog } from './ConfirmDialog';
+export { default as ConfirmDialog } from "./ConfirmDialog";

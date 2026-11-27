@@ -2,7 +2,7 @@ import { UpdateContent } from './updates/UpdateContent';
 import { Tooltip as HoverHelp } from "./ui/index";
 import { TransientLayer } from "./ui/TransientLayer";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Popover } from "radix-ui";
+import { PopoverPrimitive } from "./kit/popover";
 import { ArrowUp, ArrowUpRight, ChevronRight, Ellipsis, ExternalLink, LoaderCircle, RefreshCw, RotateCw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { locale, t } from "../i18n";
@@ -130,16 +130,47 @@ export function UpdateDock() {
   if (!updateVisible() && !state.panelOpen) return null;
   const active = updateActive();
   const installing = state.phase === "installing";
-  return <><span className="update-dock-divider" aria-hidden="true" /><Popover.Root modal={false} open={state.panelOpen}
-    onOpenChange={open => { if (!installing) open ? showUpdate() : dismissUpdate(); }}>
-    <Popover.Trigger asChild><button type="button" className="update-dock-entry" data-hover-target="updates" aria-label={t("viewUpdate")}>
-      <Icon icon={active ? LoaderCircle : ArrowUp} size={20} className={active ? "update-ring" : undefined} />{available() && <span className="update-available-dot" />}
-    </button></Popover.Trigger>
-    <Popover.Portal><TransientLayer onDismiss={() => { if (!installing) dismissUpdate(); }}><Popover.Content className="update-panel" side="top" align="end" sideOffset={12} collisionPadding={16}
-      aria-label={t("appUpdates")} onEscapeKeyDown={event => { event.stopPropagation(); if (installing) event.preventDefault(); }}>
-      <PanelContents />
-    </Popover.Content></TransientLayer></Popover.Portal>
-  </Popover.Root></>;
+  return <><span className="update-dock-divider" aria-hidden="true" /><PopoverPrimitive.Root
+    modal={false}
+    open={state.panelOpen}
+    onOpenChange={(open, details) => {
+      if (details.reason === "escape-key") {
+        details.event.stopPropagation();
+        if (installing) {
+          details.cancel();
+          return;
+        }
+      }
+      if (installing) {
+        details.cancel();
+        return;
+      }
+      if (open) showUpdate();
+      else dismissUpdate();
+    }}
+  >
+    <PopoverPrimitive.Trigger
+      render={
+        <button type="button" className="update-dock-entry" data-hover-target="updates" aria-label={t("viewUpdate")} />
+      }
+    >
+      <Icon icon={active ? LoaderCircle : ArrowUp} size={20} className={active ? "update-ring" : undefined} />
+      {available() && <span className="update-available-dot" />}
+    </PopoverPrimitive.Trigger>
+    <PopoverPrimitive.Portal>
+      <TransientLayer onDismiss={() => { if (!installing) dismissUpdate(); }}>
+        <PopoverPrimitive.Positioner side="top" align="end" sideOffset={12} collisionPadding={16} className="z-60">
+          <PopoverPrimitive.Popup
+            className="update-panel"
+            aria-label={t("appUpdates")}
+            style={{ maxHeight: "min(650px, calc(100dvh - 100px), var(--available-height, 650px))" }}
+          >
+            <PanelContents />
+          </PopoverPrimitive.Popup>
+        </PopoverPrimitive.Positioner>
+      </TransientLayer>
+    </PopoverPrimitive.Portal>
+  </PopoverPrimitive.Root></>;
 }
 
 function UpdateHistory({ currentVersion, onClose }: { currentVersion?: string; onClose: () => void }) {

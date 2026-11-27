@@ -1,8 +1,8 @@
 import { TransientLayer } from "./ui/TransientLayer";
-import { useEffect, useId, useState } from "react";
-import { Popover } from "radix-ui";
+import { useEffect, useId, useRef, useState } from "react";
 import { RotateCcw } from "lucide-react";
 import { t } from "../i18n";
+import { PopoverPrimitive } from "./kit/popover";
 import { IconButton, SingleChoice } from "./ui";
 import { effortGaugePosition, effortLabel } from "./composites/dispatchSpecLabel";
 import DispatchSpec from "./ui/DispatchSpec";
@@ -11,7 +11,7 @@ import SteppedSlider from "./model/SteppedSlider";
 import ChoiceTrigger from "./ui/ChoiceTrigger";
 import "./ModelEffortPicker.css";
 
-// Radix radio values must be nonempty; it maps to "" (inheritance) on change.
+// Choice radio values must be nonempty; it maps to "" (inheritance) on change.
 const INHERIT = "inherit";
 
 /** One trigger for a model and effort pair: effort on a stepped slider, model in a nested menu. */
@@ -42,29 +42,66 @@ export default function ModelEffortPicker({ label, models, efforts, model, effor
     const value = steps[index] === INHERIT ? "" : steps[index];
     if (value !== effort) onChange({ model, effort: value });
   };
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const [popupNode, setPopupNode] = useState<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
-  return <Popover.Root open={open} onOpenChange={setOpen}>
-    <Popover.Trigger asChild>
-      <ChoiceTrigger aria-label={label} aria-describedby={specId} disabled={disabled} data-dispatch-spec="">
-        <DispatchSpec id={specId} model={model ? modelName : selectedEffort ? undefined : inheritLabel}
-          effort={selectedEffort} position={effortGaugePosition(efforts, effort)} />
-      </ChoiceTrigger>
-    </Popover.Trigger>
-    <Popover.Portal>
-      <TransientLayer onDismiss={() => setOpen(false)}><Popover.Content className="popover spec-picker" aria-label={label} side="bottom" align="start" sideOffset={8} collisionPadding={12}>
-        <div className="spec-picker-model-row">
-          <SingleChoice dropdown label={`${t("dispatchDefaults.model")}: ${modelName}`} value={model || INHERIT} disabled={disabled}
-            options={[{ value: INHERIT, label: inheritLabel }, ...models]} menuLabel={t("dispatchDefaults.chooseModel")} side="right"
-            onChange={value => onChange({ model: value === INHERIT ? "" : value, effort })} />
-          <IconButton compact variant="ghost" icon={RotateCcw} label={t("dispatchDefaults.reset")} disabled={disabled || (!model && !effort)}
-            onClick={() => onChange({ model: "", effort: "" })} />
-        </div>
-        {withEffort && <div className="spec-picker-effort"><strong aria-live="polite">
-          {previewEffort && <EffortGauge {...effortGaugePosition(efforts, previewEffort)} />}{stepLabel(preview)}
-        </strong>
-          <SteppedSlider steps={steps} value={preview} disabled={disabled} label={t("dispatchDefaults.effort")} valueText={stepLabel(preview)} onChange={setPreview} onCommit={commit} />
-        </div>}
-      </Popover.Content></TransientLayer>
-    </Popover.Portal>
-  </Popover.Root>;
+  useEffect(() => {
+    if (!open || !popupNode) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (!(event.target instanceof Node) || !popupNode.contains(event.target)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
+      queueMicrotask(() => triggerRef.current?.focus({ preventScroll: true }));
+    };
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [open, popupNode]);
+  return <PopoverPrimitive.Root
+    open={open}
+    onOpenChange={(next, details) => {
+      if (!next && details.reason === "escape-key") {
+        details.event.stopPropagation();
+        details.event.stopImmediatePropagation?.();
+      }
+      setOpen(next);
+    }}
+  >
+    <PopoverPrimitive.Trigger
+      render={
+        <ChoiceTrigger ref={triggerRef} aria-label={label} aria-describedby={specId} disabled={disabled} data-dispatch-spec="">
+          <DispatchSpec id={specId} model={model ? modelName : selectedEffort ? undefined : inheritLabel}
+            effort={selectedEffort} position={effortGaugePosition(efforts, effort)} />
+        </ChoiceTrigger>
+      }
+    />
+    <PopoverPrimitive.Portal>
+      <TransientLayer onDismiss={() => setOpen(false)}>
+        <PopoverPrimitive.Positioner side="bottom" align="start" sideOffset={8} collisionPadding={12} className="z-60">
+          <PopoverPrimitive.Popup
+            ref={setPopupNode}
+            role="dialog"
+            finalFocus={triggerRef}
+            className="popover spec-picker"
+            aria-label={label}
+            style={{ maxHeight: "min(70dvh, var(--available-height))" }}
+          >
+            <div className="spec-picker-model-row">
+              <SingleChoice dropdown label={`${t("dispatchDefaults.model")}: ${modelName}`} value={model || INHERIT} disabled={disabled}
+                options={[{ value: INHERIT, label: inheritLabel }, ...models]} menuLabel={t("dispatchDefaults.chooseModel")} side="right"
+                onChange={value => onChange({ model: value === INHERIT ? "" : value, effort })} />
+              <IconButton compact variant="ghost" icon={RotateCcw} label={t("dispatchDefaults.reset")} disabled={disabled || (!model && !effort)}
+                onClick={() => onChange({ model: "", effort: "" })} />
+            </div>
+            {withEffort && <div className="spec-picker-effort"><strong aria-live="polite">
+              {previewEffort && <EffortGauge {...effortGaugePosition(efforts, previewEffort)} />}{stepLabel(preview)}
+            </strong>
+              <SteppedSlider steps={steps} value={preview} disabled={disabled} label={t("dispatchDefaults.effort")} valueText={stepLabel(preview)} onChange={setPreview} onCommit={commit} />
+            </div>}
+          </PopoverPrimitive.Popup>
+        </PopoverPrimitive.Positioner>
+      </TransientLayer>
+    </PopoverPrimitive.Portal>
+  </PopoverPrimitive.Root>;
 }

@@ -1,8 +1,9 @@
 import { QuotaPopover, QuotaDetail } from './QuotaDetail';
 import { TransientLayer } from "../components/ui/TransientLayer";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { Popover } from "radix-ui";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { PopoverPrimitive } from "../components/kit/popover";
 import { useGeometryTransition } from "../motion/geometry";
+
 export type BubbleControls = {
   register: (key: string, node: HTMLElement | null) => void;
   hover: (key: string) => void;
@@ -11,6 +12,7 @@ export type BubbleControls = {
   expanded: boolean;
   displayed: string;
 };
+
 export default function UsageHistory({
   children,
   detail,
@@ -105,9 +107,16 @@ export default function UsageHistory({
     };
   }, [expanded, displayed, contentNode]);
   useEffect(() => () => clearTimeout(timer.current), []);
-  const anchor = useRef({ getBoundingClientRect: () => new DOMRect() });
-  anchor.current.getBoundingClientRect = () =>
-    new DOMRect(motion.value[0], motion.value[1], motion.value[3], 0);
+  const anchorX = motion.value[0] ?? 0;
+  const anchorY = motion.value[1] ?? 0;
+  const anchorWidth = motion.value[3] ?? 0;
+  const virtualAnchor = useMemo(
+    () => ({
+      getBoundingClientRect: () => new DOMRect(anchorX, anchorY, anchorWidth, 0),
+    }),
+    [anchorX, anchorY, anchorWidth],
+  );
+
   return (
     <>
       {children({
@@ -120,49 +129,59 @@ export default function UsageHistory({
         expanded,
         displayed,
       })}
-      <Popover.Root
+      <PopoverPrimitive.Root
+        modal={false}
         open={expanded}
-        onOpenChange={(next) => {
-          if (!next) dismiss();
+        onOpenChange={(next, details) => {
+          if (!next) {
+            if (
+              details.reason === "outside-press" &&
+              details.event.target instanceof Node &&
+              isReading(details.event.target)
+            ) {
+              details.cancel();
+              return;
+            }
+            if (details.reason === "escape-key") {
+              details.event.stopPropagation();
+              triggers.current.get(displayed)?.focus({ preventScroll: true });
+            }
+            dismiss();
+          }
         }}
       >
-        <Popover.Anchor virtualRef={anchor} />
-        <Popover.Portal>
-          <TransientLayer onDismiss={dismiss} isAnchor={isReading}><QuotaPopover
-            ref={card}
-            className="history-popover"
-            side="top"
-            align="center"
-            sideOffset={8}
-            collisionPadding={12}
-            updatePositionStrategy="always"
-            style={{ height: motion.value[2]! + 16 }}
-            onInteractOutside={(e) => {
-              const target = e.target;
-              if (target instanceof Node && isReading(target)) e.preventDefault();
-            }}
-            onOpenAutoFocus={(e) => e.preventDefault()}
-            onCloseAutoFocus={(e) => e.preventDefault()}
-            onEscapeKeyDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              triggers.current.get(displayed)?.focus({ preventScroll: true });
-              dismiss();
-            }}
-            onMouseEnter={() => { schedule(displayed); }}
-            onMouseLeave={() => { schedule(""); }}
-          >
-            <div className="history-scroll">
-              <QuotaDetail
-                ref={attachContent}
-                className="history-detail"
+        <PopoverPrimitive.Portal>
+          <TransientLayer onDismiss={dismiss} isAnchor={isReading}>
+            <PopoverPrimitive.Positioner
+              anchor={virtualAnchor}
+              side="top"
+              align="center"
+              sideOffset={8}
+              collisionPadding={12}
+              positionMethod="fixed"
+              className="z-60"
+            >
+              <QuotaPopover
+                ref={card}
+                initialFocus={false}
+                finalFocus={false}
+                style={{ height: motion.value[2]! + 16 }}
+                onMouseEnter={() => { schedule(displayed); }}
+                onMouseLeave={() => { schedule(""); }}
               >
-                {detail(displayed)}
-              </QuotaDetail>
-            </div>
-          </QuotaPopover></TransientLayer>
-        </Popover.Portal>
-      </Popover.Root>
+                <div className="history-scroll">
+                  <QuotaDetail
+                    ref={attachContent}
+                    className="history-detail"
+                  >
+                    {detail(displayed)}
+                  </QuotaDetail>
+                </div>
+              </QuotaPopover>
+            </PopoverPrimitive.Positioner>
+          </TransientLayer>
+        </PopoverPrimitive.Portal>
+      </PopoverPrimitive.Root>
     </>
   );
 }

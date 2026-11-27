@@ -1,10 +1,11 @@
 import { Tooltip as HoverHelp } from "../components/ui/index";
 import { TransientLayer } from "../components/ui/TransientLayer";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Accordion, Popover } from "radix-ui";
 import { ChevronDown, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import { locale, t } from "../i18n";
 import { copyText } from "../platform";
+import { AccordionPrimitive } from "../components/kit/accordion";
+import { PopoverPrimitive } from "../components/kit/popover";
 import { Button, Field, Icon, IconButton, Input, Switch } from "../components/ui";
 import { Slider } from "./Slider";
 import { PARAMETERS, PARAMETER_GROUPS } from "./solve";
@@ -12,15 +13,25 @@ import { importParameters, parameterDiff } from "./parameters";
 import { topologyTuningEnabled, topologyParameters, topologyValues, topologyDebug, previewParameter, saveTopologyParameters, resetTopologyParameter } from "../state/topology";
 import "./TuningControls.css";
 
-function TuningSection({ value, title, className, children }: { value: string; title: string; className: string; children: ReactNode }) {
-  return <Accordion.Item value={value} className={className}>
-    <Accordion.Header className="topology-section-heading">
-      <Accordion.Trigger asChild><Button variant="ghost" className="topology-section-trigger">
-        <span>{title}</span><Icon icon={ChevronDown} size={16} />
-      </Button></Accordion.Trigger>
-    </Accordion.Header>
-    <Accordion.Content className="topology-section-content"><div className="topology-section-inner">{children}</div></Accordion.Content>
-  </Accordion.Item>;
+function TuningSection({ value, title, className, open, children }: {
+  value: string; title: string; className: string; open: boolean; children: ReactNode;
+}) {
+  const state = open ? "open" : "closed";
+  return (
+    <AccordionPrimitive.Item value={value} className={className}>
+      <AccordionPrimitive.Header className="topology-section-heading">
+        <AccordionPrimitive.Trigger
+          data-state={state}
+          render={<Button variant="ghost" className="topology-section-trigger" />}
+        >
+          <span>{title}</span><Icon icon={ChevronDown} size={16} />
+        </AccordionPrimitive.Trigger>
+      </AccordionPrimitive.Header>
+      <AccordionPrimitive.Panel className="topology-section-content" data-state={state}>
+        <div className="topology-section-inner">{children}</div>
+      </AccordionPrimitive.Panel>
+    </AccordionPrimitive.Item>
+  );
 }
 
 function ParameterControl({ spec, value }: { spec: typeof PARAMETERS[number]; value: number }) {
@@ -55,6 +66,7 @@ export default function TuningControls({ available }: { available: boolean }) {
   const lang = locale.use(), enabled = topologyTuningEnabled.use(), values = topologyValues.use(), debug = topologyDebug.use();
   const element = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
+  const [openSections, setOpenSections] = useState<string[]>(() => Object.keys(PARAMETER_GROUPS));
   const [message, setMessage] = useState(""), [json, setJson] = useState(""), [importError, setImportError] = useState("");
   function changeOpen(next: boolean) {
     if (!next) saveTopologyParameters();
@@ -65,51 +77,91 @@ export default function TuningControls({ available }: { available: boolean }) {
   }, [available, enabled, open]);
   useEffect(() => () => saveTopologyParameters(), []);
   if (!enabled) return null;
-  return <Popover.Root open={open} onOpenChange={changeOpen}>
-    <Popover.Trigger asChild><IconButton icon={SlidersHorizontal} size={20} label={t("topology.tuning")} data-hover-target="topology" /></Popover.Trigger>
-    <Popover.Portal><TransientLayer onDismiss={() => changeOpen(false)}><Popover.Content ref={element} className="topology-tuner" side="top" align="start" sideOffset={12} collisionPadding={16}
-      aria-label={t("topology.tuning")} onEscapeKeyDown={event => {
-        if (event.target instanceof HTMLInputElement && event.target.matches('.topology-parameter input[data-edited]')) event.preventDefault();
-        else event.stopPropagation();
+  return (
+    <PopoverPrimitive.Root
+      open={open}
+      onOpenChange={(next, details) => {
+        if (!next) {
+          if (details.reason === "escape-key") {
+            if (
+              details.event.target instanceof HTMLInputElement &&
+              details.event.target.matches('.topology-parameter input[data-edited]')
+            ) {
+              details.cancel();
+              return;
+            }
+            details.event.stopPropagation();
+          }
+          if (details.reason === "outside-press") {
+            const active = document.activeElement;
+            if (active instanceof HTMLInputElement && element.current?.contains(active)) {
+              active.blur();
+            }
+          }
+        }
+        changeOpen(next);
       }}
-      onInteractOutside={() => {
-        const active = document.activeElement;
-        if (active instanceof HTMLInputElement && element.current?.contains(active)) active.blur();
-      }}
-      onCloseAutoFocus={event => { if (!available || !enabled) event.preventDefault(); }}>
-      <header><strong>{t("topology.tuning")}</strong><Popover.Close asChild><IconButton icon={X} label={t("close")} /></Popover.Close></header>
-      <div className="topology-tuner-body">
-        <div className="topology-tuner-option"><span>{t("topology.guides")}</span><Switch label={t("topology.guides")} checked={debug.guides} onChange={guides => topologyDebug.set(old => ({ ...old, guides }))} /></div>
-        <div className="topology-tuner-option"><span>{t("topology.slow")}</span><Switch label={t("topology.slow")} checked={debug.slow} onChange={slow => topologyDebug.set(old => ({ ...old, slow }))} /></div>
-        {debug.guides && <p className="topology-tuner-hint">{t("topology.guideHint")}</p>}
-        <div className="topology-tuner-actions">
-          <Button onClick={() => { resetTopologyParameter(); setMessage(t("topology.resetDone")); }}>{t("topology.resetAll")}</Button>
-          <Button onClick={() => { void copyText(JSON.stringify(parameterDiff(topologyValues.get()), null, 2)).then(() => setMessage(t("topology.copied")), () => setMessage(t("topology.copyFailed"))); }}>{t("topology.export")}</Button>
-        </div>
-        <div role="status" className="topology-tuner-status">{message}</div>
-        <Accordion.Root type="multiple" defaultValue={Object.keys(PARAMETER_GROUPS)}>
-          <TuningSection value="import" title={t("topology.import")} className="topology-import">
-            <form noValidate onSubmit={event => {
-              event.preventDefault(); const result = importParameters(json);
-              if (!result.ok) { setImportError(t(`topology.importError.${result.error}`)); element.current?.querySelector<HTMLTextAreaElement>("textarea")?.focus(); return; }
-              topologyParameters.set(result.document); setImportError("");
-              setMessage(result.clamped.length ? t("topology.importClamped", { labels: result.clamped.map(key => {
-                const spec = PARAMETERS.find(p => p.key === key)!;
-                return spec.label[lang];
-              }).join(", ") }) : t("topology.imported"));
-            }}>
-              <Field compact id="topology-import" label={t("topology.paste")} error={importError}>
-                <textarea id="topology-import" className="input" rows={4} value={json} spellCheck={false} aria-invalid={!!importError}
-                  aria-describedby={importError ? "topology-import-error" : undefined} onChange={event => { setJson(event.target.value); setImportError(""); }} />
-              </Field>
-              <Button type="submit">{t("topology.applyImport")}</Button>
-            </form>
-          </TuningSection>
-          {Object.entries(PARAMETER_GROUPS).map(([group, label]) => <TuningSection value={group} title={label[lang]} className="topology-parameter-group" key={group}>
-            {PARAMETERS.filter(p => p.group === group).map(spec => <ParameterControl key={spec.key} spec={spec} value={values[spec.key]} />)}
-          </TuningSection>)}
-        </Accordion.Root>
-      </div>
-    </Popover.Content></TransientLayer></Popover.Portal>
-  </Popover.Root>;
+    >
+      <PopoverPrimitive.Trigger
+        render={
+          <IconButton icon={SlidersHorizontal} size={20} label={t("topology.tuning")} data-hover-target="topology" />
+        }
+      />
+      <PopoverPrimitive.Portal>
+        <TransientLayer onDismiss={() => changeOpen(false)}>
+          <PopoverPrimitive.Positioner side="top" align="start" sideOffset={12} collisionPadding={16} className="z-60">
+            <PopoverPrimitive.Popup
+              ref={element}
+              className="topology-tuner"
+              aria-label={t("topology.tuning")}
+              finalFocus={(!available || !enabled) ? false : undefined}
+            >
+              <header>
+                <strong>{t("topology.tuning")}</strong>
+                <PopoverPrimitive.Close render={<IconButton icon={X} label={t("close")} />} />
+              </header>
+              <div className="topology-tuner-body">
+                <div className="topology-tuner-option"><span>{t("topology.guides")}</span><Switch label={t("topology.guides")} checked={debug.guides} onChange={guides => topologyDebug.set(old => ({ ...old, guides }))} /></div>
+                <div className="topology-tuner-option"><span>{t("topology.slow")}</span><Switch label={t("topology.slow")} checked={debug.slow} onChange={slow => topologyDebug.set(old => ({ ...old, slow }))} /></div>
+                {debug.guides && <p className="topology-tuner-hint">{t("topology.guideHint")}</p>}
+                <div className="topology-tuner-actions">
+                  <Button onClick={() => { resetTopologyParameter(); setMessage(t("topology.resetDone")); }}>{t("topology.resetAll")}</Button>
+                  <Button onClick={() => { void copyText(JSON.stringify(parameterDiff(topologyValues.get()), null, 2)).then(() => setMessage(t("topology.copied")), () => setMessage(t("topology.copyFailed"))); }}>{t("topology.export")}</Button>
+                </div>
+                <div role="status" className="topology-tuner-status">{message}</div>
+                <AccordionPrimitive.Root
+                  multiple
+                  value={openSections}
+                  onValueChange={next => setOpenSections(next as string[])}
+                >
+                  <TuningSection value="import" title={t("topology.import")} className="topology-import" open={openSections.includes("import")}>
+                    <form noValidate onSubmit={event => {
+                      event.preventDefault(); const result = importParameters(json);
+                      if (!result.ok) { setImportError(t(`topology.importError.${result.error}`)); element.current?.querySelector<HTMLTextAreaElement>("textarea")?.focus(); return; }
+                      topologyParameters.set(result.document); setImportError("");
+                      setMessage(result.clamped.length ? t("topology.importClamped", { labels: result.clamped.map(key => {
+                        const spec = PARAMETERS.find(p => p.key === key)!;
+                        return spec.label[lang];
+                      }).join(", ") }) : t("topology.imported"));
+                    }}>
+                      <Field compact id="topology-import" label={t("topology.paste")} error={importError}>
+                        <textarea id="topology-import" className="input" rows={4} value={json} spellCheck={false} aria-invalid={!!importError}
+                          aria-describedby={importError ? "topology-import-error" : undefined} onChange={event => { setJson(event.target.value); setImportError(""); }} />
+                      </Field>
+                      <Button type="submit">{t("topology.applyImport")}</Button>
+                    </form>
+                  </TuningSection>
+                  {Object.entries(PARAMETER_GROUPS).map(([group, label]) => (
+                    <TuningSection value={group} title={label[lang]} className="topology-parameter-group" key={group} open={openSections.includes(group)}>
+                      {PARAMETERS.filter(p => p.group === group).map(spec => <ParameterControl key={spec.key} spec={spec} value={values[spec.key]} />)}
+                    </TuningSection>
+                  ))}
+                </AccordionPrimitive.Root>
+              </div>
+            </PopoverPrimitive.Popup>
+          </PopoverPrimitive.Positioner>
+        </TransientLayer>
+      </PopoverPrimitive.Portal>
+    </PopoverPrimitive.Root>
+  );
 }

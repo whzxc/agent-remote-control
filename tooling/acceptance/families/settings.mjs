@@ -35,7 +35,7 @@ export const checks = [
                             await page.screenshot({ path: path.join(out, `${key}-effort.png`), animations: 'disabled' });
                         // An effort the newly selected model does not support falls back to the Agent default.
                         await chooseSpec(page, messages, 'GPT-5.6 Sol');
-                        await page.locator(`[role=slider][aria-valuetext="${messages['dispatchDefaults.inherit']}"]`).waitFor();
+                        await page.getByRole('slider', { name: messages['dispatchDefaults.effort'] }).and(page.locator(`[aria-valuetext="${messages['dispatchDefaults.inherit']}"]`)).waitFor();
                         await page.keyboard.press('Escape');
                     }
                 }
