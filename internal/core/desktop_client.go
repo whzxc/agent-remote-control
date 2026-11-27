@@ -80,6 +80,7 @@ func DesktopRoute(route string) bool                 { return desktopRoute(route
 func DesktopStateDir() string                        { return root() }
 func DesktopBuildID() (string, error)                { return processBuildID() }
 func DesktopVersion() string                         { return buildVersion }
+func RecordDesktopError(message string)              { recordLog("ERROR", message, nil) }
 func DesktopSourceName(product string) string        { return text(sourcePreset(product), "displayName") }
 func ValidateDesktopSnapshot(body map[string]any) error {
 	_, _, _, err := managementResolve("app.snapshot", object{"body": body})

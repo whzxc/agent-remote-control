@@ -105,6 +105,7 @@ func runDesktop(service *DesktopService) error {
 	service.ctx = ctx
 	client, err := core.ConnectDesktop(service.desktopRequest)
 	if err != nil {
+		reportStartupFailure(err)
 		return err
 	}
 	service.core = client
@@ -121,23 +122,7 @@ func runDesktop(service *DesktopService) error {
 		}()
 	}
 
-	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) { service.quitting = true })
-	mygo.App.OnQuitCanceled(func() { service.quitting = false })
-	mygo.App.OnSecondInstance(func(args []string, _ string) {
-		service.show(nil)
-		if runtime.GOOS == "windows" && development {
-			for _, arg := range args {
-				service.openLink(arg)
-			}
-		}
-	})
-	mygo.App.OnActivate(func(visible bool) {
-		if service.opened && !visible && !isUpdateFixture() {
-			service.show(nil)
-		}
-	})
-	mygo.App.OnOpenURL(service.openLink)
-	mygo.App.OnNotificationClick(service.notificationActivated)
+	registerDesktopLifecycle(mygo.App, service, service.show)
 	mygo.App.WhenReady(func() {
 		if err := service.installTray(); err != nil {
 			log.Print(err)
@@ -145,11 +130,6 @@ func runDesktop(service *DesktopService) error {
 		if runtime.GOOS == "darwin" {
 			if err := service.installAppearance(); err != nil {
 				log.Print(err)
-			}
-		}
-		if runtime.GOOS == "windows" && development {
-			for _, arg := range args {
-				service.openLink(arg)
 			}
 		}
 		service.installSources()
@@ -171,6 +151,54 @@ func runDesktop(service *DesktopService) error {
 	err = mygo.App.Run()
 	cancel()
 	return err
+}
+
+type appLifecycle interface {
+	OnWindowAllClosed(func()) func()
+	OnBeforeQuit(func(*mygo.QuitEvent)) func()
+	OnQuitCanceled(func()) func()
+	OnSecondInstance(func([]string, string)) func()
+	OnActivate(func(bool)) func()
+	OnOpenURL(func(string)) func()
+	OnNotificationClick(func(string)) func()
+}
+
+func registerDesktopLifecycle(app appLifecycle, service *DesktopService, show func(*desktopMessage)) {
+	// Keep the tray/background Desktop alive after retiring an idle hidden window.
+	app.OnWindowAllClosed(func() {})
+	app.OnBeforeQuit(func(*mygo.QuitEvent) { service.quitting = true })
+	app.OnQuitCanceled(func() { service.quitting = false })
+	app.OnSecondInstance(func([]string, string) { show(nil) })
+	app.OnActivate(func(visible bool) {
+		if service.opened && !visible && !isUpdateFixture() {
+			show(nil)
+		}
+	})
+	app.OnOpenURL(service.openLink)
+	app.OnNotificationClick(service.notificationActivated)
+}
+
+func shouldShowStartupDialog(supervised, fixture bool) bool {
+	return !supervised && !fixture
+}
+
+func startupErrorDetail(err error) string {
+	return fmt.Sprintf("%s\n\nPlease resolve the issue and reopen %s.", err.Error(), appName)
+}
+
+func reportStartupFailure(err error) {
+	core.RecordDesktopError("Desktop startup failed: " + err.Error())
+	if !shouldShowStartupDialog(os.Getenv("ARC_DEV_SUPERVISED") != "", isUpdateFixture()) {
+		return
+	}
+	mygo.App.OnWindowAllClosed(func() {})
+	mygo.App.WhenReady(func() {
+		go func() {
+			mygo.Dialog.Error(appName+" failed to start", startupErrorDetail(err))
+			mygo.App.Quit()
+		}()
+	})
+	_ = mygo.App.Run()
 }
 
 func validateDevelopmentIdentity() error {
