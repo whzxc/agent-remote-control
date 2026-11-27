@@ -1,0 +1,27 @@
+[
+  {
+    "section": "features",
+    "en": "Added automatic hot-state archiving, Storage controls in Settings (separating lossless archiving from permanent output cleanup), and the `arc cli storage` commands.",
+    "zh-CN": "新增热态数据自动归档、设置页中的存储管理控件（将无损归档与永久清理输出分开），以及 `arc cli storage` 命令行工具。"
+  },
+  {
+    "section": "improvements",
+    "en": "Reduced idle CPU, memory churn, and disk writes by tuning Go GC limits, lowering idle desktop polling, and removing redundant AX writes, coordination spins, and per-request lease RPCs.",
+    "zh-CN": "通过调优 Go GC 内存策略、降低桌面端空闲轮询频率，并消除冗余的 AX 写入、协调空转和逐请求租约 RPC，进一步降低空闲 CPU、内存抖动与磁盘写入。"
+  },
+  {
+    "section": "improvements",
+    "en": "Unified homepage connection wire rules so left control sources reflect authorization and tunnel readiness, and right agents (including Codex) reflect detection and dispatchability.",
+    "zh-CN": "统一主页连线规则：左侧控制源仅依据授权状态与隧道在线判定，右侧 Agent（含 Codex）统一依据检测到且可派发判定。"
+  },
+  {
+    "section": "fixes",
+    "en": "Kept device-link peer LAN listeners active when mDNS multicast fails on startup, and restored live Codex Desktop and App Server readiness reporting in status diagnostics.",
+    "zh-CN": "修复启动时 mDNS 多播失败导致跨设备局域网端口监听被关闭的问题，并恢复状态诊断中 Codex Desktop 与 App Server 的真实就绪度上报。"
+  },
+  {
+    "section": "fixes",
+    "en": "Restored native macOS File and Services menus, native Windows titlebar window buttons, and Windows Antigravity `agentapi.bat` / `language_server.exe` discovery.",
+    "zh-CN": "恢复 macOS 原生“文件”与“服务”菜单、Windows 原生标题栏窗口按钮，以及 Windows 下 Antigravity `agentapi.bat` 与 `language_server.exe` 的自动发现。"
+  }
+]
