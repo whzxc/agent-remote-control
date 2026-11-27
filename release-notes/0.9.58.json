@@ -1,0 +1,7 @@
+[
+  {
+    "section": "fixes",
+    "en": "Kept the tray desktop app running after retiring hidden windows and restored the startup error dialog when initialization fails.",
+    "zh-CN": "修复隐藏窗口回收后托盘桌面应用意外退出的问题，并恢复初始化失败时的启动错误提示弹窗。"
+  }
+]
